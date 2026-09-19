@@ -92,4 +92,21 @@ pub(super) enum Pending {
         sequence_numbers: Vec<usize>,
         close: bool,
     },
+    ReadForCopy {
+        tag: String,
+        addressing: imap::Addressing,
+        sequence_set: imap::sequence_set::SequenceSet,
+        account: String,
+        source: String,
+        destination_name: String,
+    },
+    ResolveCopyDestination {
+        tag: String,
+        source: String,
+        source_uids: Vec<u64>,
+    },
+    Copy {
+        tag: String,
+        source_uids: Vec<u64>,
+    },
 }

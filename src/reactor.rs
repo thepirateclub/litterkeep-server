@@ -23,6 +23,8 @@ mod flag_completion;
 mod imap_append;
 #[path = "reactor/imap_check.rs"]
 mod imap_check;
+#[path = "reactor/imap_copy.rs"]
+mod imap_copy;
 #[path = "reactor/imap_expunge.rs"]
 mod imap_expunge;
 #[path = "reactor/imap_fetch_response.rs"]

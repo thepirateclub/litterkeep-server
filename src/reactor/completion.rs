@@ -27,6 +27,7 @@ pub(super) fn complete(
         if let Some((request, next_pending)) =
             super::imap_expunge::follow_up(&pending, &response, next_request)
                 .or_else(|| super::flag_completion::follow_up(&pending, &response, next_request))
+                .or_else(|| super::imap_copy::follow_up(&pending, &response, next_request))
         {
             protocol::submit(
                 session,
@@ -61,6 +62,7 @@ fn response_id(response: &Response) -> u64 {
         Response::SubscriptionSet { request_id, .. }
         | Response::Subscriptions { request_id, .. } => *request_id,
         Response::Expunged { request_id, .. } => *request_id,
+        Response::Copied { request_id, .. } => *request_id,
     }
 }
 
@@ -226,6 +228,14 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
             },
             Response::Expunged { result, .. },
         ) => imap_expunge::completed(session, tag, sequence_numbers, result, close),
+        (Pending::Copy { tag, source_uids }, Response::Copied { result, .. }) => {
+            imap_copy::completed(session, tag, source_uids, result)
+        }
+        (
+            Pending::ResolveCopyDestination { tag, .. },
+            Response::FolderResolved { result: Err(_), .. },
+        ) => session
+            .push(format!("{tag} NO [TRYCREATE] COPY destination unavailable\r\n").as_bytes()),
         _ => Ok(()),
     }
 }

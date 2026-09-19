@@ -10,7 +10,7 @@ use std::io;
 use std::path::Path;
 
 const MAGIC: [u8; 4] = *b"LKJF";
-const VERSION: u16 = 2;
+const VERSION: u16 = 3;
 const COMMIT: u32 = 0xc0de_c0de;
 const MAX_PAYLOAD: usize = 1024;
 
@@ -18,10 +18,11 @@ const MAX_PAYLOAD: usize = 1024;
 pub(super) fn frame(record: &Record) -> Vec<u8> {
     let payload = record.name.as_bytes();
     let payload_length = u32::try_from(payload.len()).expect("blob name length is bounded");
-    let mut bytes = Vec::with_capacity(47 + payload.len());
+    let mut bytes = Vec::with_capacity(55 + payload.len());
     bytes.extend_from_slice(&MAGIC);
     bytes.extend_from_slice(&VERSION.to_be_bytes());
     bytes.extend_from_slice(&record.transaction_id.to_be_bytes());
+    bytes.extend_from_slice(&record.blob_transaction_id.to_be_bytes());
     bytes.extend_from_slice(&record.uid.to_be_bytes());
     bytes.extend_from_slice(&record.internal_date.unix_seconds().to_be_bytes());
     bytes.push(record.flags.bits());
@@ -84,7 +85,7 @@ fn scan(_mailbox: &str, bytes: &[u8]) -> io::Result<Scan> {
         if decoded.uid <= previous_uid {
             return Err(invalid("non-monotonic uid"));
         }
-        if decoded.name != blob_name(decoded.transaction_id) {
+        if decoded.name != blob_name(decoded.blob_transaction_id) {
             return Err(invalid("unsafe blob reference"));
         }
         previous_uid = decoded.uid;
@@ -92,6 +93,7 @@ fn scan(_mailbox: &str, bytes: &[u8]) -> io::Result<Scan> {
         records.push(Record {
             uid: decoded.uid,
             transaction_id: decoded.transaction_id,
+            blob_transaction_id: decoded.blob_transaction_id,
             name: decoded.name,
             flags: decoded.flags,
             internal_date: decoded.internal_date,
@@ -106,6 +108,7 @@ fn scan(_mailbox: &str, bytes: &[u8]) -> io::Result<Scan> {
 struct DecodedFrame {
     uid: u64,
     transaction_id: u64,
+    blob_transaction_id: u64,
     name: String,
     flags: MessageFlags,
     internal_date: MailDate,
@@ -126,17 +129,22 @@ fn decode_frame(bytes: &[u8], start: usize) -> Result<DecodedFrame, FrameError> 
     }
     let version = u16::from_be_bytes(decoder.take::<2>()?);
     let version = match version {
-        1 | VERSION => version,
+        1 | 2 | VERSION => version,
         _ => return Err(FrameError::Invalid("unsupported journal version")),
     };
-    // Оба формата начинают payload с глобального transaction id, затем UID
-    // конкретного mailbox. Порядок важен: только transaction id определяет
-    // допустимое имя immutable blob при восстановлении после перезапуска.
+    // Все форматы начинают payload с transaction ID ссылки. Начиная с v3
+    // отдельный blob transaction ID разрешает durable COPY без дублирования
+    // immutable payload.
     let transaction_id = u64::from_be_bytes(decoder.take::<8>()?);
+    let blob_transaction_id = match version {
+        1 | 2 => transaction_id,
+        VERSION => u64::from_be_bytes(decoder.take::<8>()?),
+        _ => unreachable!("version checked"),
+    };
     let uid = u64::from_be_bytes(decoder.take::<8>()?);
     let (internal_date, flags) = match version {
         1 => (MailDate::from_unix_seconds(0), MessageFlags::default()),
-        VERSION => {
+        2 | VERSION => {
             let seconds = i64::from_be_bytes(decoder.take::<8>()?);
             let flags = MessageFlags::from_bits(u8::from_be_bytes(decoder.take::<1>()?))
                 .map_err(|_| FrameError::Invalid("unknown initial flags"))?;
@@ -166,6 +174,7 @@ fn decode_frame(bytes: &[u8], start: usize) -> Result<DecodedFrame, FrameError> 
     Ok(DecodedFrame {
         uid,
         transaction_id,
+        blob_transaction_id,
         name,
         flags,
         internal_date,

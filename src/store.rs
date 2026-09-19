@@ -3,6 +3,8 @@
 mod blobs;
 #[path = "store/commit_log.rs"]
 mod commit_log;
+#[path = "store/copy.rs"]
+mod copy;
 #[path = "store/durability.rs"]
 mod durability;
 #[path = "store/expunges.rs"]
@@ -152,6 +154,7 @@ impl Store {
                     model::Record {
                         uid,
                         transaction_id,
+                        blob_transaction_id: transaction_id,
                         name: name.to_owned(),
                         flags: metadata.flags,
                         internal_date: metadata.internal_date,

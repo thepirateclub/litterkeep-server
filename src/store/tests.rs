@@ -20,6 +20,7 @@ fn record(uid: u64, transaction_id: u64) -> model::Record {
     model::Record {
         uid,
         transaction_id,
+        blob_transaction_id: transaction_id,
         name: format!("message-{transaction_id}.eml"),
         flags: MessageFlags::default(),
         internal_date: crate::mail_date::MailDate::from_unix_seconds(0),

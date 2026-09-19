@@ -69,7 +69,8 @@ pub(super) fn submit(
         | Request::ReadFolder { request_id, .. }
         | Request::SetSubscription { request_id, .. }
         | Request::ListSubscriptions { request_id, .. }
-        | Request::Expunge { request_id, .. } => *request_id,
+        | Request::Expunge { request_id, .. }
+        | Request::Copy { request_id, .. } => *request_id,
     };
     match worker.worker.submit(request) {
         Ok(()) => {
@@ -216,6 +217,22 @@ fn imap_line(
             Some(sequence_set),
         )?,
         imap::Command::Check => imap_check::execute(session, parsed.tag)?,
+        imap::Command::Copy {
+            addressing,
+            sequence_set,
+            destination,
+        } => imap_copy::queue(
+            session,
+            parsed.tag,
+            addressing,
+            sequence_set,
+            destination,
+            slot,
+            generation,
+            worker,
+            owners,
+            request_id,
+        )?,
         imap::Command::Select { mailbox } => imap_select::queue(
             session, parsed.tag, mailbox, false, slot, generation, worker, owners, request_id,
         )?,

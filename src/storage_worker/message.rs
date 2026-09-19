@@ -82,6 +82,12 @@ pub enum Request {
         mailbox: String,
         uids: Vec<u64>,
     },
+    Copy {
+        request_id: u64,
+        source: String,
+        destination: String,
+        uids: Vec<u64>,
+    },
 }
 
 #[derive(Debug)]
@@ -135,6 +141,10 @@ pub enum Response {
         result: io::Result<Vec<SubscribedFolder>>,
     },
     Expunged {
+        request_id: u64,
+        result: io::Result<Vec<u64>>,
+    },
+    Copied {
         request_id: u64,
         result: io::Result<Vec<u64>>,
     },

@@ -1,6 +1,7 @@
 //! Декодирование IMAP-команд: текст сети преобразуется в типизированные варианты.
 
 pub mod append;
+pub mod copy;
 pub mod fetch;
 pub mod flags;
 pub mod folder;
@@ -10,6 +11,10 @@ pub mod search;
 pub mod sequence_set;
 pub mod status;
 pub mod tokenizer;
+
+#[cfg(test)]
+#[path = "imap/copy_tests.rs"]
+mod copy_tests;
 
 pub use fetch::{BodySection, FetchAttribute, Partial};
 pub use idle::{IdleContinuation, parse_idle_continuation};
@@ -64,6 +69,11 @@ pub enum Command {
     },
     Check,
     Close,
+    Copy {
+        addressing: Addressing,
+        sequence_set: SequenceSet,
+        destination: MailboxName,
+    },
     Expunge,
     UidExpunge {
         sequence_set: SequenceSet,
@@ -125,6 +135,7 @@ enum Verb {
     Status,
     Check,
     Close,
+    Copy,
     Expunge,
     List,
     Select,
@@ -163,6 +174,7 @@ pub fn parse(line: &str) -> TaggedCommand {
         Some(Verb::Status) => status::parse(tokens),
         Some(Verb::Check) => parse_empty(tokens, Command::Check),
         Some(Verb::Close) => parse_empty(tokens, Command::Close),
+        Some(Verb::Copy) => copy::parse(tokens, Addressing::Sequence),
         Some(Verb::Expunge) => parse_empty(tokens, Command::Expunge),
         Some(Verb::List) => folder::parse_list(tokens),
         Some(Verb::Select) => parse_select(&mut tokens, false),
@@ -174,6 +186,7 @@ pub fn parse(line: &str) -> TaggedCommand {
             Some(Verb::Fetch) => fetch::parse(&mut tokens, Addressing::Uid),
             Some(Verb::Store) => flags::parse_store(&mut tokens, Addressing::Uid),
             Some(Verb::Search) => search::parse(tokens, Addressing::Uid),
+            Some(Verb::Copy) => copy::parse(tokens, Addressing::Uid),
             Some(Verb::Expunge) => parse_uid_expunge(tokens),
             _ => Command::Unsupported,
         },
@@ -241,6 +254,7 @@ fn parse_verb(text: &str) -> Verb {
         "STATUS" => Verb::Status,
         "CHECK" => Verb::Check,
         "CLOSE" => Verb::Close,
+        "COPY" => Verb::Copy,
         "EXPUNGE" => Verb::Expunge,
         "LIST" => Verb::List,
         "SELECT" => Verb::Select,

@@ -20,6 +20,9 @@ pub struct MailboxSnapshot {
 pub struct Record {
     pub uid: u64,
     pub transaction_id: u64,
+    /// Transaction immutable blob. COPY сохраняет его отдельно от transaction
+    /// ссылки, чтобы не копировать payload и не подменять имя файла.
+    pub blob_transaction_id: u64,
     pub name: String,
     pub flags: MessageFlags,
     pub internal_date: MailDate,

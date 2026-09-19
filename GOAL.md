@@ -996,3 +996,23 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   фиксированного контейнера c bind mount `./data/g06-expunge`.
 - G06 остаётся RUNNING: COPY/MOVE, полный LIST/SPECIAL-USE профиль, Recent и
   согласование sequence-map двух сессий ещё не завершены.
+
+### 2026-09-20: G06 durable COPY checkpoint
+
+- Реализованы `COPY` и `UID COPY` через один owner Store. Новый journal
+  frame v3 отделяет transaction ссылки от transaction immutable blob, поэтому
+  одна COPY transaction может atomically опубликовать несколько destination
+  links на уже зафиксированные blobs без копирования payload и без частично
+  видимого sequence-set. Старые v1/v2 frames продолжают декодироваться.
+- Reactor сначала получает единый source snapshot, преобразует sequence-set в
+  устойчивые UID, затем resolve-ит destination account-scoped folder и только
+  после durable commit отправляет `[COPYUID 1 source-uids destination-uids]`.
+  Пустая выборка не получает фиктивный пустой COPYUID.
+- PASS: `cargo test --all-targets --locked` (97 tests), strict Clippy,
+  format. Независимый `imaplib` STARTTLS сценарий
+  `tests/blackbox/imap_copy.py` проверил обычный COPY, низкоуровневый UID
+  COPY с tagged COPYUID, неизменный source, copied `\\Seen` и состояние
+  destination до и после restart фиксированного Linux-контейнера. Данные
+  добавлены только в bind mount `./data/g06-expunge`.
+- G06 остаётся RUNNING: MOVE, полный LIST/SPECIAL-USE профиль, Recent и
+  согласование sequence-map двух сессий ещё не завершены.

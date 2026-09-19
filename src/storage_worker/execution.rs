@@ -145,6 +145,15 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             request_id,
             result: store.expunge(&mailbox, &uids),
         },
+        Request::Copy {
+            request_id,
+            source,
+            destination,
+            uids,
+        } => Response::Copied {
+            request_id,
+            result: store.copy(&source, &destination, &uids),
+        },
     }
 }
 
