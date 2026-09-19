@@ -64,7 +64,7 @@ mod tests {
     fn parses_headers_and_attachment_bytes() {
         let raw = b"Subject: test\r\nContent-Transfer-Encoding: base64\r\n\r\naGVsbG8A";
         let (h, body) = headers(raw).expect("headers");
-        assert_eq!(h["subject"], "test");
+        assert_eq!(h.get("subject"), Some(&"test".to_owned()));
         assert_eq!(decode_base64(body).expect("base64"), b"hello\0");
     }
     #[test]

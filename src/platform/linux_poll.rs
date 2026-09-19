@@ -88,6 +88,6 @@ mod tests {
             1000,
         )
         .expect("poll");
-        assert!(ready[0].readable);
+        assert!(ready.first().is_some_and(|item| item.readable));
     }
 }
