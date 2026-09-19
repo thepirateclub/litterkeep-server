@@ -19,7 +19,7 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | G05 | G04 | MIME + IMAP, independently checked attachment | PASS |
 | G06 | G05 | IMAP folders, flags, UID, IDLE | RUNNING |
 | G07 | G02 | POP3 backed by the shared store | PASS |
-| G08 | G02 | Sieve and ManageSieve delivery effect | NOT RUN |
+| G08 | G02 | Sieve and ManageSieve delivery effect | RUNNING |
 | G09 | G04 | outbound SMTP, pool, retry/DSN | RUNNING |
 | G10 | G06,G07,G08,G09 | failure matrix, replay, resource plateaus | NOT RUN |
 | G11 | G10 | offline check/backup and repeatable seed | NOT RUN |
@@ -142,6 +142,21 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - PASS: критерий G07 `UIDL/RETR, правильное удаление и освобождение maildrop
   lease` выполнен. Неподдержанные внешние клиенты и расширенная failure matrix
   остаются задачами G10, а не ложным claim о всеобщей interoperability.
+
+### 2026-09-20: G08 Sieve language foundation
+
+- Заглушка `fileinto` заменена собственными отдельными слоями lexer, parser,
+  AST, static validation и bounded execution. Поддерживаются comments,
+  `require`, `if`/`else`, `true`/`false`, `header :contains`, `exists`,
+  `not`, `allof`, `anyof`, `keep`, `discard`, `fileinto`, `redirect` и `stop`.
+  Результат исполнения является `DeliveryPlan`, а не записью напрямую в Store.
+- Unit-тест доказал обязательное правило `Invoices`: заголовок `[invoice]`
+  выдаёт только folder-plan `Invoices`; отдельно проверены implicit keep,
+  comments и отказ неподдержанного `require`/unsafe mailbox.
+- Проверено локально: `cargo test --all-targets --locked` (112 passed) и
+  `cargo clippy --all-targets --locked -- -D warnings`. G08 ещё не завершён:
+  требуется versioned script storage, транзакционное применение delivery plan,
+  ManageSieve listener и независимый сетевой SMTP -> IMAP сценарий.
 
 ### 2026-09-19: G00 PASS, G01 running
 

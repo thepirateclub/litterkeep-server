@@ -1,0 +1,78 @@
+//! Статическая policy validation до атомарной публикации script версии.
+
+use super::ast::{Action, Command, Condition, Script};
+
+pub(super) fn script(script: &Script) -> Result<(), &'static str> {
+    if script.requires.iter().any(|value| value != "fileinto") {
+        return Err("unsupported sieve require");
+    }
+    let mut count = 0;
+    commands(&script.commands, 0, &mut count)
+}
+
+fn commands(items: &[Command], depth: usize, count: &mut usize) -> Result<(), &'static str> {
+    if depth > 16 {
+        return Err("sieve nesting limit exceeded");
+    }
+    for command in items {
+        *count = count.saturating_add(1);
+        if *count > 128 {
+            return Err("sieve command limit exceeded");
+        }
+        match command {
+            Command::Action(action) => action_valid(action)?,
+            Command::If {
+                condition,
+                then_commands,
+                else_commands,
+            } => {
+                condition_valid(condition, depth)?;
+                commands(then_commands, depth.saturating_add(1), count)?;
+                commands(else_commands, depth.saturating_add(1), count)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn action_valid(action: &Action) -> Result<(), &'static str> {
+    match action {
+        Action::FileInto(name) if safe_name(name) => Ok(()),
+        Action::Redirect(address) if address.contains('@') => Ok(()),
+        Action::FileInto(_) | Action::Redirect(_) => Err("unsafe sieve action target"),
+        Action::Keep | Action::Discard | Action::Stop => Ok(()),
+    }
+}
+
+fn condition_valid(condition: &Condition, depth: usize) -> Result<(), &'static str> {
+    if depth > 16 {
+        return Err("sieve nesting limit exceeded");
+    }
+    match condition {
+        Condition::HeaderContains { name, needle } => match (name.is_empty(), needle.is_empty()) {
+            (false, false) => Ok(()),
+            _ => Err("empty sieve header matcher"),
+        },
+        Condition::Exists { names } if names.is_empty() => Err("empty sieve exists list"),
+        Condition::Not(value) => condition_valid(value, depth.saturating_add(1)),
+        Condition::AllOf(values) | Condition::AnyOf(values) if values.is_empty() => {
+            Err("empty sieve condition list")
+        }
+        Condition::AllOf(values) | Condition::AnyOf(values) => values
+            .iter()
+            .try_for_each(|value| condition_valid(value, depth.saturating_add(1))),
+        Condition::True | Condition::False | Condition::Exists { .. } => Ok(()),
+    }
+}
+
+fn safe_name(name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    name.split('/').all(safe_folder_part)
+}
+
+/// Не допускает пустой segment и переходы за пределы mail account.
+fn safe_folder_part(part: &str) -> bool {
+    !matches!(part, "" | "." | "..")
+}
