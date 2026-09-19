@@ -79,9 +79,11 @@ pub(super) enum Pending {
     ReadForExpunge {
         tag: String,
         mailbox: String,
+        close: bool,
     },
     Expunge {
         tag: String,
         sequence_numbers: Vec<usize>,
+        close: bool,
     },
 }

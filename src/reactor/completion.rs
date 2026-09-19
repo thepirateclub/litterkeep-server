@@ -211,9 +211,10 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
             Pending::Expunge {
                 tag,
                 sequence_numbers,
+                close,
             },
             Response::Expunged { result, .. },
-        ) => imap_expunge::completed(session, tag, sequence_numbers, result),
+        ) => imap_expunge::completed(session, tag, sequence_numbers, result, close),
         _ => Ok(()),
     }
 }

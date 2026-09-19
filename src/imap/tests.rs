@@ -200,6 +200,14 @@ fn expunge_requires_no_arguments() {
     assert_eq!(parse("a19 EXPUNGE now\r\n").command, Command::Unsupported);
 }
 
+#[test]
+fn close_and_check_require_no_arguments() {
+    assert_eq!(parse("a CLOSE\r\n").command, Command::Close);
+    assert_eq!(parse("a CHECK\r\n").command, Command::Check);
+    assert_eq!(parse("a CLOSE later\r\n").command, Command::Unsupported);
+    assert_eq!(parse("a CHECK later\r\n").command, Command::Unsupported);
+}
+
 /// STORE operation и системные flags не покидают parser строками.
 #[test]
 fn store_flags_are_typed() {

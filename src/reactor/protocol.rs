@@ -105,7 +105,7 @@ fn imap_line(
             }
             session.push(format!("{} OK CAPABILITY completed\r\n", parsed.tag).as_bytes())?;
         }
-        imap::Command::StartTls => imap_starttls(session, &parsed.tag)?,
+        imap::Command::StartTls => imap_starttls::begin(session, &parsed.tag)?,
         imap::Command::Noop => {
             session.push(format!("{} OK NOOP completed\r\n", parsed.tag).as_bytes())?
         }
@@ -198,8 +198,12 @@ fn imap_line(
             session, parsed.tag, mailbox, attributes, slot, generation, worker, owners, request_id,
         )?,
         imap::Command::Expunge => imap_expunge::queue(
-            session, parsed.tag, slot, generation, worker, owners, request_id,
+            session, parsed.tag, slot, generation, worker, owners, request_id, false,
         )?,
+        imap::Command::Close => imap_expunge::queue(
+            session, parsed.tag, slot, generation, worker, owners, request_id, true,
+        )?,
+        imap::Command::Check => imap_check::execute(session, parsed.tag)?,
         imap::Command::Select { mailbox } => imap_select::queue(
             session, parsed.tag, mailbox, false, slot, generation, worker, owners, request_id,
         )?,
@@ -247,22 +251,6 @@ fn imap_line(
         imap::Command::Unsupported => session.push(format!("{} BAD\r\n", parsed.tag).as_bytes())?,
     }
     Ok(())
-}
-
-/// Запускает IMAP transport upgrade до аутентификации и mailbox state.
-fn imap_starttls(session: &mut Session, tag: &str) -> io::Result<()> {
-    match (
-        session.can_starttls(),
-        session.authenticated_account.is_none(),
-    ) {
-        (true, true) => {
-            session.push(format!("{tag} OK Begin TLS negotiation now\r\n").as_bytes())?;
-            session.request_starttls();
-            Ok(())
-        }
-        (true, false) => session.push(format!("{tag} BAD invalid state\r\n").as_bytes()),
-        (false, _) => session.push(format!("{tag} BAD STARTTLS unavailable\r\n").as_bytes()),
-    }
 }
 
 /// Ставит чтение только после worker-подтверждённой аутентификации сессии.

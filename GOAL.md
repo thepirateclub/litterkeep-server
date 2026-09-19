@@ -911,3 +911,23 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - G06 остаётся RUNNING: COPY/MOVE/CLOSE/CHECK, UID EXPUNGE и UIDPLUS,
   UID SEARCH, modified UTF-7, полный LIST/SPECIAL-USE профиль, Recent и
   согласование sequence-map двух сессий ещё не завершены.
+
+### 2026-09-20: G06 CLOSE and CHECK checkpoint
+
+- `CHECK` допускается только в selected state. Все текущие mutating store
+  операции уже подтверждаются fsync до IMAP OK, поэтому команда не создаёт
+  ложную дополнительную запись и подтверждает именно выбранный mailbox.
+- `CLOSE` в read-write state следует двухфазному пути EXPUNGE: сначала
+  snapshot определяет Deleted UID и sequence-map, затем один writer durable
+  фиксирует tombstone. До этой фиксации selected state сохраняется. После неё
+  CLOSE отправляет только tagged OK, без untagged EXPUNGE, и снимает selection.
+- `CLOSE` после EXAMINE не пытается изменять mailbox: он только снимает
+  read-only selection. Некорректные аргументы `CHECK` и `CLOSE` отклоняются
+  parser-ом как BAD.
+- PASS: 89 Windows tests, format и strict Clippy. Независимый Python
+  `imaplib` по STARTTLS создал `CloseFresh` в `./data/g06-expunge`, выполнил
+  CHECK, STORE `\\Deleted`, CLOSE и новый SELECT, который вернул ровно 0
+  сообщений. Linux runtime image был собран из текущих исходников.
+- G06 остаётся RUNNING: COPY/MOVE, UID EXPUNGE и UIDPLUS, UID SEARCH,
+  modified UTF-7, полный LIST/SPECIAL-USE профиль, Recent и согласование
+  sequence-map двух сессий ещё не завершены.

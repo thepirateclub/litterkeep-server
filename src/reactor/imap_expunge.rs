@@ -11,13 +11,17 @@ pub(super) fn queue(
     worker: &mut WakingStorageWorker,
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
+    close: bool,
 ) -> io::Result<()> {
-    if session.selected_read_only {
+    if session.selected_read_only && !close {
         return session.push(format!("{tag} NO [READ-ONLY] EXPUNGE denied\r\n").as_bytes());
     }
     let Some(mailbox) = session.selected_mailbox.clone() else {
         return session.push(format!("{tag} NO select mailbox first\r\n").as_bytes());
     };
+    if session.selected_read_only {
+        return close_completed(session, tag);
+    }
     let id = *request_id;
     *request_id = request_id.wrapping_add(1).max(1);
     protocol::submit(
@@ -26,7 +30,11 @@ pub(super) fn queue(
             request_id: id,
             mailbox: mailbox.clone(),
         },
-        Pending::ReadForExpunge { tag, mailbox },
+        Pending::ReadForExpunge {
+            tag,
+            mailbox,
+            close,
+        },
         slot,
         generation,
         worker,
@@ -40,7 +48,12 @@ pub(super) fn follow_up(
     response: &Response,
     next_request: &mut u64,
 ) -> Option<(Request, Pending)> {
-    let Pending::ReadForExpunge { tag, mailbox } = pending else {
+    let Pending::ReadForExpunge {
+        tag,
+        mailbox,
+        close,
+    } = pending
+    else {
         return None;
     };
     let Response::Read {
@@ -76,6 +89,7 @@ pub(super) fn follow_up(
         Pending::Expunge {
             tag: tag.clone(),
             sequence_numbers,
+            close: *close,
         },
     ))
 }
@@ -85,14 +99,28 @@ pub(super) fn completed(
     tag: String,
     sequence_numbers: Vec<usize>,
     result: io::Result<Vec<u64>>,
+    close: bool,
 ) -> io::Result<()> {
     let removed = match result {
         Ok(removed) if removed.len() == sequence_numbers.len() => removed,
         _ => return session.push(format!("{tag} NO EXPUNGE failed\r\n").as_bytes()),
     };
-    for sequence in sequence_numbers {
-        session.push(format!("* {sequence} EXPUNGE\r\n").as_bytes())?;
+    if !close {
+        for sequence in sequence_numbers {
+            session.push(format!("* {sequence} EXPUNGE\r\n").as_bytes())?;
+        }
     }
     session.selected_exists = session.selected_exists.saturating_sub(removed.len());
-    session.push(format!("{tag} OK EXPUNGE completed\r\n").as_bytes())
+    match close {
+        true => close_completed(session, tag),
+        false => session.push(format!("{tag} OK EXPUNGE completed\r\n").as_bytes()),
+    }
+}
+
+/// Завершает CLOSE только после durable удаления и забывает выбранный mailbox.
+fn close_completed(session: &mut Session, tag: String) -> io::Result<()> {
+    session.selected_mailbox = None;
+    session.selected_exists = 0;
+    session.selected_read_only = false;
+    session.push(format!("{tag} OK CLOSE completed\r\n").as_bytes())
 }

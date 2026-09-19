@@ -21,6 +21,8 @@ mod deadline;
 mod flag_completion;
 #[path = "reactor/imap_append.rs"]
 mod imap_append;
+#[path = "reactor/imap_check.rs"]
+mod imap_check;
 #[path = "reactor/imap_expunge.rs"]
 mod imap_expunge;
 #[path = "reactor/imap_fetch_response.rs"]
@@ -33,6 +35,8 @@ mod imap_idle;
 mod imap_literal;
 #[path = "reactor/imap_select.rs"]
 mod imap_select;
+#[path = "reactor/imap_starttls.rs"]
+mod imap_starttls;
 #[path = "reactor/imap_status.rs"]
 mod imap_status;
 #[path = "reactor/imap_subscriptions.rs"]
