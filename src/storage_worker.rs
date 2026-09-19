@@ -86,6 +86,79 @@ fn run(store: Store, requests: Receiver<Request>, responses: mpsc::Sender<Respon
     }
 }
 
+/// Linux reactor integration. The byte is only a coalesced wakeup hint; the
+/// authoritative completion remains in the channel, so a full wake socket
+/// cannot lose ownership or completion transitions.
+#[cfg(target_os = "linux")]
+pub struct WakingStorageWorker {
+    pub worker: StorageWorker,
+    wake_reader: std::os::unix::net::UnixStream,
+}
+
+#[cfg(target_os = "linux")]
+impl WakingStorageWorker {
+    pub fn start(root: impl AsRef<Path>, capacity: usize) -> io::Result<Self> {
+        use std::io::Write;
+        use std::os::unix::net::UnixStream;
+        let store = Store::open(root)?;
+        let (requests, incoming) = mpsc::sync_channel(capacity);
+        let (outgoing, responses) = mpsc::channel();
+        let (wake_reader, mut wake_writer) = UnixStream::pair()?;
+        wake_reader.set_nonblocking(true)?;
+        wake_writer.set_nonblocking(true)?;
+        let thread = thread::Builder::new()
+            .name("litterkeep-store-writer".into())
+            .spawn(move || {
+                for request in incoming {
+                    let response = match request {
+                        Request::Append {
+                            request_id,
+                            mailbox,
+                            bytes,
+                        } => Response::Appended {
+                            request_id,
+                            result: store.append(&mailbox, &bytes),
+                        },
+                        Request::Read {
+                            request_id,
+                            mailbox,
+                        } => Response::Read {
+                            request_id,
+                            result: store.messages(&mailbox),
+                        },
+                    };
+                    if outgoing.send(response).is_err() {
+                        break;
+                    }
+                    let _ = wake_writer.write(&[1]);
+                }
+            })?;
+        Ok(Self {
+            worker: StorageWorker {
+                requests,
+                responses,
+                thread,
+            },
+            wake_reader,
+        })
+    }
+    pub fn wake_reader(&self) -> &std::os::unix::net::UnixStream {
+        &self.wake_reader
+    }
+    pub fn drain_wakeup(&mut self) -> io::Result<()> {
+        use std::io::Read;
+        let mut bytes = [0_u8; 256];
+        loop {
+            match self.wake_reader.read(&mut bytes) {
+                Ok(0) => return Ok(()),
+                Ok(_) => continue,
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => return Ok(()),
+                Err(error) => return Err(error),
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
