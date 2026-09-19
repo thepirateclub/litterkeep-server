@@ -1,4 +1,10 @@
 use std::collections::{HashMap, VecDeque};
+#[path = "lease.rs"]
+mod lease;
+pub use lease::ResourceLease;
+#[cfg(test)]
+#[path = "orchestrator_tests.rs"]
+mod tests;
 
 /// An opaque task identity, deliberately unrelated to a descriptor number.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -272,77 +278,5 @@ impl<T> Orchestrator<T> {
     }
     pub fn take_ready(&mut self) -> Option<TaskId> {
         self.ready.pop_front()
-    }
-}
-
-/// Sole, non-cloneable ownership of a resource checked out of the registry.
-#[derive(Debug)]
-pub struct ResourceLease<T> {
-    resource: ResourceId,
-    owner: TaskId,
-    value: Option<T>,
-}
-
-impl<T> ResourceLease<T> {
-    #[must_use]
-    pub fn resource_id(&self) -> ResourceId {
-        self.resource
-    }
-    #[must_use]
-    pub fn owner(&self) -> TaskId {
-        self.owner
-    }
-    pub fn get_mut(&mut self) -> &mut T {
-        self.value.as_mut().expect("live lease has a value")
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn exclusive_resource_cannot_be_double_issued() {
-        let mut runtime = Orchestrator::new();
-        let alice = runtime.spawn_task();
-        let bob = runtime.spawn_task();
-        let socket = runtime.register_resource(String::from("tcp"));
-        let lease = runtime.acquire(alice, socket).expect("first owner");
-        assert!(matches!(
-            runtime.acquire(bob, socket),
-            Err(AcquireError::NotAvailable(ResourceState::Leased))
-        ));
-        runtime.release(lease).expect("return");
-        assert!(runtime.acquire(bob, socket).is_ok());
-    }
-    #[test]
-    fn signal_between_observation_and_park_is_not_lost() {
-        let mut runtime: Orchestrator<()> = Orchestrator::new();
-        let task = runtime.spawn_task();
-        let event = Event::MailboxRevision(7);
-        let observed = runtime.event_version(event);
-        runtime.signal(event);
-        assert_eq!(
-            runtime.park_on(task, event, observed),
-            WakeResult::AlreadyReady
-        );
-        assert_eq!(runtime.task_state(task), Some(TaskState::Ready));
-    }
-    #[test]
-    fn timeout_cancel_does_not_release_a_live_lease() {
-        let mut runtime = Orchestrator::new();
-        let task = runtime.spawn_task();
-        let other = runtime.spawn_task();
-        let resource = runtime.register_resource(42_u8);
-        let lease = runtime.acquire(task, resource).expect("lease");
-        assert!(runtime.request_cancel(task));
-        assert_eq!(
-            runtime.resource_state(resource),
-            Some(ResourceState::Leased)
-        );
-        assert!(matches!(
-            runtime.acquire(other, resource),
-            Err(AcquireError::NotAvailable(ResourceState::Leased))
-        ));
-        runtime.quarantine(lease).expect("cleanup");
     }
 }
