@@ -12,7 +12,14 @@ impl Store {
         let root = root.to_path_buf();
         fs::create_dir_all(&root)?;
         format::ensure(&root)?;
-        for directory in ["blobs", "mailboxes", "journal", "folders", "subscriptions"] {
+        for directory in [
+            "blobs",
+            "mailboxes",
+            "journal",
+            "folders",
+            "subscriptions",
+            "sieve",
+        ] {
             fs::create_dir_all(root.join(directory))?;
         }
         durability::sync_directory(&root)?;
@@ -27,6 +34,7 @@ impl Store {
         let blob_quota = Quota::load(&root.join("blobs"), quota_limit)?;
         let folders = folders::FolderCatalog::load(&root)?;
         let subscriptions = subscriptions::SubscriptionCatalog::load(&root)?;
+        let sieve_scripts = sieve_scripts::SieveCatalog::load(&root)?;
         let next_transaction_id = recovered
             .maximum_transaction_id
             .checked_add(1)
@@ -40,6 +48,7 @@ impl Store {
             recent,
             folders,
             subscriptions,
+            sieve_scripts,
             next_transaction_id,
             blob_quota,
             write_state: WriteState::Writable,

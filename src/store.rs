@@ -1,4 +1,3 @@
-//! Filesystem store facade. The writer owns this value exclusively.
 #[path = "store/blobs.rs"]
 mod blobs;
 #[path = "store/commit_log.rs"]
@@ -50,6 +49,13 @@ mod recent_access;
 mod recent_tests;
 #[path = "store/recovery.rs"]
 mod recovery;
+#[path = "store/sieve_access.rs"]
+mod sieve_access;
+#[path = "store/sieve_scripts.rs"]
+mod sieve_scripts;
+#[cfg(test)]
+#[path = "store/sieve_tests.rs"]
+mod sieve_tests;
 #[path = "store/subscription_access.rs"]
 mod subscription_access;
 #[path = "store/subscriptions.rs"]
@@ -62,12 +68,12 @@ pub use folder_access::ResolvedMailbox;
 pub use folders::{FolderInfo, SpecialUse};
 pub use model::{AppendMetadata, MailboxSnapshot, Message};
 use quota::Quota;
+pub use sieve_scripts::ScriptInfo;
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 pub use subscriptions::SubscribedFolder;
-/// Начальный общий budget неизменяемых message blobs: 25 MiB.
 pub(super) const DEFAULT_BLOB_QUOTA: u64 = 25 * 1024 * 1024;
 #[derive(Debug)]
 pub struct Store {
@@ -80,6 +86,7 @@ pub struct Store {
     recent: HashMap<String, std::collections::BTreeSet<u64>>,
     folders: folders::FolderCatalog,
     subscriptions: subscriptions::SubscriptionCatalog,
+    sieve_scripts: sieve_scripts::SieveCatalog,
     next_transaction_id: u64,
     blob_quota: Quota,
     write_state: WriteState,

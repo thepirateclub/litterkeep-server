@@ -158,6 +158,20 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   требуется versioned script storage, транзакционное применение delivery plan,
   ManageSieve listener и независимый сетевой SMTP -> IMAP сценарий.
 
+### 2026-09-20: G08 versioned script storage checkpoint
+
+- Единственный Store owner теперь хранит scripts в `sieve/<account>.state`.
+  PUT сначала parser-ом проверяет source, строит candidate snapshot, fsync-ит
+  temporary file и только затем atomically заменяет state. Account, script,
+  версия, active flag и quotas ограничены, поэтому ошибочная загрузка не
+  заменяет действующий script.
+- Unit-тест создал и активировал `invoices`, отверг невалидное обновление,
+  перепроверил прежний source и active metadata после restart Store.
+- Проверено локально: `cargo test --all-targets --locked` (113 passed),
+  `cargo clippy --all-targets --locked -- -D warnings`, формат и лимит файлов.
+  G08 остаётся RUNNING: storage должен быть подключён к worker/SMTP delivery,
+  после чего нужен самостоятельный ManageSieve listener и внешний сценарий.
+
 ### 2026-09-19: G00 PASS, G01 running
 
 - Added a single Cargo package with no production dependencies. This preserves
