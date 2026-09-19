@@ -91,3 +91,15 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   first local plaintext path only. It does not prove TLS, authentication
   security, account isolation, full IMAP, POP3, Sieve, outgoing SMTP, or the
   remaining G01 concurrency and cancellation matrix.
+
+### 2026-09-19: G02 recovery frame checkpoint
+
+- Store internals are now separated by responsibility: `model`, `journal`,
+  `blobs`, `recovery`, and the owner-only facade. No `mod.rs` was introduced.
+- New journal frames contain a version, UID, canonical blob name, and checksum.
+  Recovery deletes only temporary blobs and trims only a non-terminated final
+  journal tail. A complete corrupt frame remains on disk and produces an
+  `InvalidData` error; an orphan blob is not delivered; a referenced missing
+  blob is an error. Unit tests cover each case.
+- PASS: `cargo fmt --check`; `cargo test --locked` (15 passed); `cargo clippy
+  --locked --all-targets -- -D warnings`.
