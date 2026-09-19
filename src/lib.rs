@@ -8,6 +8,7 @@ pub mod accounts;
 pub mod auth;
 pub mod imap;
 pub mod mime;
+pub mod outbound;
 pub mod platform;
 pub mod pop3;
 pub mod queue;
