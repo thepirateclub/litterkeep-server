@@ -231,3 +231,12 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   DATA с отдельной проверкой, лимит получателей, Received/Return-Path и
   гарантии повторного локального delivery ещё не завершены. G03 также NOT RUN,
   поскольку настоящий TLS и SMTP AUTH не подключены к reactor.
+
+### 2026-09-19: G04 abandoned DATA checkpoint
+
+- Добавлен независимый raw-TCP тест `tests/blackbox/smtp_abandoned_data.py`.
+  Он получает ответы на EHLO, MAIL, RCPT и DATA, отправляет незавершённое тело,
+  закрывает TCP без терминатора и читает Bob mailbox отдельным `imaplib`.
+- PASS в новом чистом Linux Docker volume: тест подтвердил zero messages после
+  разрыва, затем маршрут Alice и SMTP-to-IMAP attachment regression снова
+  прошли. Разрыв DATA очищает только session buffer и не публикует blob.
