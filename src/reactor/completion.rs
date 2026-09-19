@@ -7,7 +7,7 @@ use super::*;
 /// Забирает все уже готовые ответы хранилища и продолжает остановленный ввод.
 pub(super) fn complete(
     worker: &mut WakingStorageWorker,
-    sessions: &mut [Option<Session>],
+    sessions: &mut [Option<SessionLease>],
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     next_request: &mut u64,
 ) -> io::Result<()> {
@@ -16,9 +16,10 @@ pub(super) fn complete(
         let Some((slot, generation, pending)) = owners.remove(&id) else {
             continue;
         };
-        let Some(session) = sessions.get_mut(slot).and_then(Option::as_mut) else {
+        let Some(lease) = sessions.get_mut(slot).and_then(Option::as_mut) else {
             continue;
         };
+        let session = lease.get_mut();
         if session.generation != generation {
             continue;
         }
@@ -135,11 +136,12 @@ fn write_fetch(
 /// Повторно предлагает worker-у запросы, которые ранее не поместились в канал.
 pub(super) fn retry_submissions(
     worker: &mut WakingStorageWorker,
-    sessions: &mut [Option<Session>],
+    sessions: &mut [Option<SessionLease>],
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
 ) -> io::Result<()> {
     for (slot, session) in sessions.iter_mut().enumerate() {
-        let Some(session) = session else { continue };
+        let Some(lease) = session else { continue };
+        let session = lease.get_mut();
         let Some((request, pending)) = session.pending_submit.take() else {
             continue;
         };

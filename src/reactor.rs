@@ -4,6 +4,7 @@
 //! owns `Store`: it submits a bounded request to the single storage worker and
 //! waits for a completion identified by its slot and generation.
 use crate::platform::linux_poll::{self, Interest};
+use crate::runtime::{Orchestrator, ResourceLease};
 use crate::storage_worker::{Request, Response, WakingStorageWorker};
 use crate::{imap, smtp, tls_transport::ServerTls};
 use rustls::ServerConfig;
@@ -30,6 +31,8 @@ use completion::{complete, retry_submissions};
 use protocol::process_input;
 use session::{Session, SmtpState};
 use session_io::{flush, read_session};
+
+type SessionLease = ResourceLease<Session>;
 
 const MAX_SESSIONS: usize = 256;
 const MAX_INPUT: usize = 1024 * 1024;
@@ -87,7 +90,8 @@ fn serve_with_tls(
     smtp_listener.set_nonblocking(true)?;
     imap_listener.set_nonblocking(true)?;
     let mut worker = WakingStorageWorker::start(root, 64)?;
-    let mut sessions: Vec<Option<Session>> = Vec::new();
+    let mut lifecycle: Orchestrator<Session> = Orchestrator::new();
+    let mut sessions: Vec<Option<SessionLease>> = Vec::new();
     let mut next_generation = 1_u64;
     let mut next_request = 1_u64;
     let mut owners: HashMap<u64, (usize, u64, Pending)> = HashMap::new();
@@ -122,7 +126,8 @@ fn serve_with_tls(
             ),
         ];
         for (slot, session) in sessions.iter().enumerate() {
-            if let Some(session) = session {
+            if let Some(lease) = session {
+                let session = lease.get();
                 let read = session.needs_read();
                 let write = session.needs_write();
                 targets.push(Target::Session(slot, session.generation));
@@ -137,7 +142,7 @@ fn serve_with_tls(
         }
         let timeout_ms = deadline::poll_timeout(&sessions);
         let ready = linux_poll::wait(&poll_fds, timeout_ms)?;
-        deadline::expire_handshakes(&mut sessions);
+        deadline::expire_handshakes(&mut sessions, &mut lifecycle)?;
         for (ready, target) in ready.into_iter().zip(targets) {
             match target {
                 Target::SmtpListener if ready.readable => accept(
@@ -146,6 +151,7 @@ fn serve_with_tls(
                     &mut sessions,
                     &mut next_generation,
                     tls_config.as_ref(),
+                    &mut lifecycle,
                 )?,
                 Target::ImapListener if ready.readable => accept(
                     &imap_listener,
@@ -153,6 +159,7 @@ fn serve_with_tls(
                     &mut sessions,
                     &mut next_generation,
                     tls_config.as_ref(),
+                    &mut lifecycle,
                 )?,
                 Target::WorkerWake if ready.readable => {
                     worker.drain_wakeup()?;
@@ -164,12 +171,12 @@ fn serve_with_tls(
                         continue;
                     };
                     if ready.closed_or_error {
-                        *entry = None;
+                        close_session(entry, &mut lifecycle)?;
                         continue;
                     }
                     if ready.writable {
                         if flush(entry)? {
-                            *entry = None;
+                            close_session(entry, &mut lifecycle)?;
                             continue;
                         }
                     }
@@ -182,7 +189,7 @@ fn serve_with_tls(
                             &mut owners,
                             &mut next_request,
                         )? {
-                            *entry = None;
+                            close_session(entry, &mut lifecycle)?;
                         }
                     }
                 }
@@ -195,14 +202,20 @@ fn serve_with_tls(
 fn accept(
     listener: &TcpListener,
     kind: Kind,
-    sessions: &mut Vec<Option<Session>>,
+    sessions: &mut Vec<Option<SessionLease>>,
     next: &mut u64,
     tls_config: Option<&Arc<ServerConfig>>,
+    lifecycle: &mut Orchestrator<Session>,
 ) -> io::Result<()> {
     for _ in 0..ACCEPT_BUDGET {
         match listener.accept() {
-            Ok((stream, _)) if sessions.iter().filter(|s| s.is_some()).count() < MAX_SESSIONS => {
+            Ok((stream, _)) if lifecycle.resource_count() < MAX_SESSIONS => {
                 let session = Session::new(kind, stream, *next, tls_config.cloned())?;
+                let task = lifecycle.spawn_task();
+                let resource = lifecycle.register_resource(session);
+                let session = lifecycle.acquire(task, resource).map_err(|error| {
+                    io::Error::other(format!("session lease failed: {error:?}"))
+                })?;
                 *next = next.wrapping_add(1).max(1);
                 if let Some(slot) = sessions.iter().position(Option::is_none) {
                     let Some(entry) = sessions.get_mut(slot) else {
@@ -219,4 +232,17 @@ fn accept(
         }
     }
     Ok(())
+}
+
+/// Закрывает socket/TLS value и terminal task metadata через lifecycle owner.
+fn close_session(
+    entry: &mut Option<SessionLease>,
+    lifecycle: &mut Orchestrator<Session>,
+) -> io::Result<()> {
+    let Some(lease) = entry.take() else {
+        return Ok(());
+    };
+    lifecycle
+        .close(lease)
+        .map_err(|error| io::Error::other(format!("session close failed: {error:?}")))
 }

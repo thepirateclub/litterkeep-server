@@ -36,3 +36,18 @@ fn timeout_cancel_does_not_release_live_lease() {
     ));
     r.quarantine(lease).unwrap();
 }
+
+#[test]
+fn close_drops_value_and_terminal_registry_records() {
+    let mut runtime = Orchestrator::new();
+    let task = runtime.spawn_task();
+    let resource = runtime.register_resource(String::from("tcp/tls session"));
+    let lease = runtime.acquire(task, resource).expect("lease");
+    runtime.close(lease).expect("close");
+    assert_eq!(runtime.resource_count(), 0);
+    assert_eq!(runtime.task_count(), 0);
+    assert!(matches!(
+        runtime.acquire(task, resource),
+        Err(AcquireError::MissingTask)
+    ));
+}

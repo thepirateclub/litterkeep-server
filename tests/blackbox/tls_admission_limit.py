@@ -15,9 +15,10 @@ def arguments() -> argparse.Namespace:
 
 
 def open_connection(host: str, port: int) -> socket.socket:
-    """Открывает TCP, намеренно не отправляя TLS ClientHello."""
+    """Открывает TCP и отправляет лишь первый байт неполного TLS record."""
     connection = socket.create_connection((host, port), timeout=10)
     connection.settimeout(1)
+    connection.sendall(b"\x16")
     return connection
 
 
@@ -38,6 +39,9 @@ def main() -> None:
     try:
         for _ in range(options.capacity):
             connections.append(open_connection(options.host, options.port))
+        # Первый байт partial TLS record делает каждую принятую session readable.
+        # Короткое ожидание отделяет registry admission от TCP backlog очереди.
+        time.sleep(0.5)
         overflow = open_connection(options.host, options.port)
         try:
             if not is_closed(overflow):

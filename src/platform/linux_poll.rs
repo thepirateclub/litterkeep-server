@@ -72,6 +72,7 @@ use std::os::fd::AsRawFd;
 mod tests {
     use super::*;
     use std::io::Write;
+    use std::os::fd::AsFd;
     use std::os::unix::net::UnixStream;
     #[test]
     fn reports_readable_socket() {

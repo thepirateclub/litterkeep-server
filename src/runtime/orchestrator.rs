@@ -2,63 +2,12 @@ use std::collections::{HashMap, VecDeque};
 #[path = "lease.rs"]
 mod lease;
 pub use lease::ResourceLease;
+#[path = "model.rs"]
+mod model;
+pub use model::{AcquireError, Event, ResourceId, ResourceState, TaskId, TaskState, WakeResult};
 #[cfg(test)]
 #[path = "orchestrator_tests.rs"]
 mod tests;
-
-/// An opaque task identity, deliberately unrelated to a descriptor number.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct TaskId {
-    slot: u64,
-    generation: u64,
-}
-
-/// An opaque resource identity. Generations make stale completions harmless.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct ResourceId {
-    slot: u64,
-    generation: u64,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum TaskState {
-    Ready,
-    Waiting { observed_event_version: u64 },
-    Cancelling,
-    Completed,
-    Failed,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ResourceState {
-    Available,
-    Leased,
-    Quarantined,
-    Closed,
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum Event {
-    SocketReadable(u64),
-    SocketWritable(u64),
-    MailboxRevision(u64),
-    Completion(u64),
-    Cancel(TaskId),
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum WakeResult {
-    Parked,
-    AlreadyReady,
-    MissingTask,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum AcquireError {
-    MissingTask,
-    MissingResource,
-    NotAvailable(ResourceState),
-}
 
 #[derive(Debug)]
 struct TaskRecord {
@@ -224,6 +173,46 @@ impl<T> Orchestrator<T> {
             task.held_resources.retain(|id| *id != lease.resource);
         }
         Ok(())
+    }
+
+    /// Закрывает реальный ресурс и удаляет terminal metadata без утечки registry.
+    pub fn close(&mut self, mut lease: ResourceLease<T>) -> Result<(), AcquireError> {
+        let state = self
+            .resources
+            .get(&lease.resource)
+            .ok_or(AcquireError::MissingResource)?;
+        match (
+            state.state == ResourceState::Leased,
+            state.owner == Some(lease.owner),
+        ) {
+            (true, true) => {}
+            (false, _) | (true, false) => {
+                return Err(AcquireError::NotAvailable(state.state));
+            }
+        }
+        drop(lease.value.take());
+        self.resources.remove(&lease.resource);
+        if let Some(task) = self.tasks.get_mut(&lease.owner) {
+            task.held_resources.retain(|id| *id != lease.resource);
+        }
+        self.ready.retain(|task| *task != lease.owner);
+        self.tasks.remove(&lease.owner);
+        for waiters in self.waiters.values_mut() {
+            waiters.retain(|task| *task != lease.owner);
+        }
+        Ok(())
+    }
+
+    /// Число реально зарегистрированных ресурсов, используемое admission policy.
+    #[must_use]
+    pub fn resource_count(&self) -> usize {
+        self.resources.len()
+    }
+
+    /// Число живых задач для проверки отсутствия terminal metadata leak.
+    #[must_use]
+    pub fn task_count(&self) -> usize {
+        self.tasks.len()
     }
 
     /// Atomic observe-and-register prevents a lost wake in the check/park gap.

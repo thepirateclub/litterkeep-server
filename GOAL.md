@@ -12,8 +12,8 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | Goal | Depends on | Acceptance criterion | Status |
 |---|---|---|---|
 | G00 | none | build, help, lock, dependency report, saved goal | PASS |
-| G01 | G00 | lifecycle/lease/wake tests and Linux poll integration | RUNNING |
-| G02 | G01 | durable store, journal, blob, recovery | RUNNING |
+| G01 | G00 | lifecycle/lease/wake tests and Linux poll integration | PASS |
+| G02 | G01 | durable store, journal, blob, recovery | PASS |
 | G03 | G02 | TLS, AUTH, bounded admission | RUNNING |
 | G04 | G03 | durable SMTP submission and local delivery | RUNNING |
 | G05 | G04 | MIME + IMAP, independently checked attachment | RUNNING |
@@ -460,6 +460,37 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   вложение. На диске был ровно один blob, два mailbox journal по 51 byte и один
   commit frame 26 bytes. После `docker kill` exit 137 оба link сохранились;
   обычный attachment regression также прошёл.
-- G02 сохраняет RUNNING из-за незавершённой зависимости G01 и оставшейся
-  полной failpoint matrix. Реализованный multi-recipient commit больше не
-  является причиной удерживать этап незавершённым.
+- На этом checkpoint G02 сохранял RUNNING из-за незавершённой зависимости G01.
+  Реализованный multi-recipient commit больше не являлся причиной удерживать
+  этап незавершённым; полная failpoint matrix относится к G10.
+
+### 2026-09-19: G01 и G02 PASS, реальные session leases
+
+- Reactor теперь регистрирует каждую живую TCP/TLS `Session` как значение
+  `ResourceLease<Session>`. `TaskId` является владельцем эксклюзивного lease,
+  а не записью в параллельном журнале наблюдения. I/O, storage completion и
+  deadline получают session только через lease.
+- Все terminal-пути EOF, I/O error и handshake timeout вызывают единый
+  `Orchestrator::close`: реальный socket/TLS resource уничтожается, а task,
+  resource, ready и wait metadata удаляются. Admission использует фактический
+  `resource_count`, поэтому registry является источником решения, а не логом.
+- PASS три последовательных цикла независимого Linux blackbox-теста: по 256
+  незавершённых TLS sessions, немедленный отказ 257-й, quiescence после
+  пятиисекундного deadline и успешный новый TLS-клиент. Тест посылает первый
+  байт TLS record до измерения overflow, чтобы не зависеть от TCP backlog.
+- PASS Docker Linux test target `litterkeep-server:linux-tests`: 38/38. В него
+  входят реальный `UnixStream` wake через `poll(2)`, округление deadline,
+  double-issue, lost-wake, cancellation ownership и удаление terminal registry
+  records. На Windows PASS 36/36, format и Clippy с `-D warnings`.
+- G01 получает PASS: один poll-reactor обслуживает idle sessions без потока на
+  соединение, реальный ресурс находится во владении lease, а обязательные wake
+  и ownership-тесты прошли на Linux. Файл модели состояний отделён в
+  `runtime/model.rs`; `mod.rs` нет, каждый Rust/Python файл не длиннее 300 строк.
+- G02 получает PASS по критериям этапа: durable binary journal и immutable blob
+  пережили kill/restart, второй writer отвергается единым кроссплатформенным
+  `AlreadyExists`, а принятый commit завершается storage worker даже после
+  отмены requester. Полная failpoint matrix остаётся обязательной для G10 и не
+  объявлена выполненной.
+- Текущий этап остаётся G03. Его implicit TLS, AUTH, admission и timeout уже
+  проверены, но обязательный STARTTLS-профиль ещё не реализован, поэтому G03
+  сохраняет RUNNING.

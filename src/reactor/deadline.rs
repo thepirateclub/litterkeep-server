@@ -2,15 +2,16 @@
 //!
 //! Модуль не закрывает сокеты сам: он только вычисляет время ожидания и
 //! освобождает просроченный session slot через его единственного владельца.
-use super::Session;
+use super::{Orchestrator, Session, SessionLease, close_session};
+use std::io;
 use std::time::Instant;
 
 /// Возвращает миллисекунды до ближайшего handshake либо бесконечное ожидание.
-pub(super) fn poll_timeout(sessions: &[Option<Session>]) -> i32 {
+pub(super) fn poll_timeout(sessions: &[Option<SessionLease>]) -> i32 {
     let nearest = sessions
         .iter()
         .filter_map(Option::as_ref)
-        .filter_map(Session::handshake_deadline)
+        .filter_map(|lease| lease.get().handshake_deadline())
         .min();
     match nearest {
         Some(deadline) => timeout_until(Instant::now(), deadline),
@@ -19,16 +20,20 @@ pub(super) fn poll_timeout(sessions: &[Option<Session>]) -> i32 {
 }
 
 /// Удаляет только TLS-сессии, не завершившие handshake до своего deadline.
-pub(super) fn expire_handshakes(sessions: &mut [Option<Session>]) {
+pub(super) fn expire_handshakes(
+    sessions: &mut [Option<SessionLease>],
+    lifecycle: &mut Orchestrator<Session>,
+) -> io::Result<()> {
     let now = Instant::now();
     for entry in sessions {
         let expired = entry
             .as_ref()
-            .is_some_and(|session| session.handshake_expired(now));
+            .is_some_and(|lease| lease.get().handshake_expired(now));
         if expired {
-            *entry = None;
+            close_session(entry, lifecycle)?;
         }
     }
+    Ok(())
 }
 
 /// Округляет положительную долю миллисекунды вверх, избегая busy-loop.

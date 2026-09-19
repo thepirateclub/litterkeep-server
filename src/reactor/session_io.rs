@@ -3,10 +3,11 @@ use super::*;
 use std::io::{Read, Write};
 
 /// Выводит один ограниченный TCP-шаг и сообщает, нужно ли закрыть session.
-pub(super) fn flush(session: &mut Option<Session>) -> io::Result<bool> {
-    let Some(session) = session else {
+pub(super) fn flush(session: &mut Option<SessionLease>) -> io::Result<bool> {
+    let Some(lease) = session else {
         return Ok(true);
     };
+    let session = lease.get_mut();
     if prepare_wire_output(session).is_err() {
         return Ok(true);
     }
@@ -27,16 +28,17 @@ pub(super) fn flush(session: &mut Option<Session>) -> io::Result<bool> {
 
 /// Читает TCP bytes, при необходимости расшифровывает их и передаёт protocol FSM.
 pub(super) fn read_session(
-    session: &mut Option<Session>,
+    session: &mut Option<SessionLease>,
     slot: usize,
     generation: u64,
     worker: &mut WakingStorageWorker,
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<bool> {
-    let Some(session) = session else {
+    let Some(lease) = session else {
         return Ok(true);
     };
+    let session = lease.get_mut();
     let mut bytes = [0_u8; READ_BUDGET];
     match session.stream.read(&mut bytes) {
         Ok(0) => return Ok(true),
