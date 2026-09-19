@@ -71,6 +71,7 @@ pub(super) fn submit(
         | Request::ListSubscriptions { request_id, .. }
         | Request::Expunge { request_id, .. }
         | Request::Copy { request_id, .. } => *request_id,
+        Request::Move { request_id, .. } => *request_id,
     };
     match worker.worker.submit(request) {
         Ok(()) => {
@@ -211,12 +212,14 @@ fn imap_line(
         )?,
         imap::Command::Check => imap_check::execute(session, parsed.tag)?,
         imap::Command::Copy {
+            transfer,
             addressing,
             sequence_set,
             destination,
         } => imap_copy::queue(
             session,
             parsed.tag,
+            transfer,
             addressing,
             sequence_set,
             destination,

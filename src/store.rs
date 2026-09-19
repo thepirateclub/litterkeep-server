@@ -7,6 +7,9 @@ mod commit_log;
 mod copy;
 #[path = "store/durability.rs"]
 mod durability;
+#[cfg(test)]
+#[path = "store/expunge_tests.rs"]
+mod expunge_tests;
 #[path = "store/expunges.rs"]
 mod expunges;
 #[path = "store/flags.rs"]
@@ -30,6 +33,8 @@ mod journal;
 mod mailbox_state;
 #[path = "store/model.rs"]
 mod model;
+#[path = "store/move.rs"]
+mod move_messages;
 #[path = "store/open.rs"]
 mod open;
 #[path = "store/quota.rs"]

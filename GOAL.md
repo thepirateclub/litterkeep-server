@@ -1034,3 +1034,23 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   `Invoices/2026` в выборке только special-use папок.
 - G06 остаётся RUNNING: MOVE, часть extended LIST RETURN/CREATE-SPECIAL-USE,
   Recent и согласование sequence-map двух сессий ещё не завершены.
+
+### 2026-09-20: G06 atomic MOVE checkpoint
+
+- `MOVE` и `UID MOVE` получают typed enum transfer на parser boundary и
+  исполняются единственным владельцем Store. Хранилище сначала fsync-ит
+  destination links и transaction-зависимый source tombstone, затем публикует
+  одну global commit record. До этой записи restart не показывает ни link, ни
+  tombstone; после неё source и destination меняются вместе.
+- Unit tests подтверждают оба варианта recovery: незакоммиченный tombstone не
+  скрывает source, а завершённый MOVE переживает reopen. Reactor выдаёт
+  `COPYUID`, untagged EXPUNGE с согласованными sequence numbers и уменьшает
+  selected EXISTS только после успешного durable completion.
+- PASS: Windows `cargo test --all-targets --locked` (101 tests), strict Clippy,
+  format и structural audit без Rust-файлов более 300 строк. Собран Linux image
+  `litterkeep-server:linux` и Docker test target (105 tests); независимый `tests/blackbox/imap_move.py` через
+  STARTTLS выполнил MOVE `1,3`, подтвердил source=1 и destination=2, затем
+  повторил проверку после restart того же контейнера. Использован только bind
+  mount `./data/g06-expunge`; CA для клиента: `./data/pki/ca.pem`.
+- G06 остаётся RUNNING: часть extended LIST RETURN/CREATE-SPECIAL-USE, Recent
+  и согласование sequence-map двух сессий ещё не завершены.

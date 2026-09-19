@@ -62,7 +62,7 @@ fn response_id(response: &Response) -> u64 {
         Response::SubscriptionSet { request_id, .. }
         | Response::Subscriptions { request_id, .. } => *request_id,
         Response::Expunged { request_id, .. } => *request_id,
-        Response::Copied { request_id, .. } => *request_id,
+        Response::Copied { request_id, .. } | Response::Moved { request_id, .. } => *request_id,
     }
 }
 
@@ -172,7 +172,7 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
                 result: Ok(snapshot),
                 ..
             },
-        ) => write_fetch(
+        ) => imap_fetch_completion::write(
             session,
             addressing,
             sequence_set,
@@ -233,9 +233,38 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
             },
             Response::Expunged { result, .. },
         ) => imap_expunge::completed(session, tag, sequence_numbers, result, close),
-        (Pending::Copy { tag, source_uids }, Response::Copied { result, .. }) => {
-            imap_copy::completed(session, tag, source_uids, result)
-        }
+        (
+            Pending::Copy {
+                tag,
+                transfer,
+                source_uids,
+                source_sequences,
+            },
+            Response::Copied { result, .. },
+        ) => imap_copy::completed(
+            session,
+            tag,
+            transfer,
+            source_uids,
+            source_sequences,
+            result,
+        ),
+        (
+            Pending::Copy {
+                tag,
+                transfer,
+                source_uids,
+                source_sequences,
+            },
+            Response::Moved { result, .. },
+        ) => imap_copy::completed(
+            session,
+            tag,
+            transfer,
+            source_uids,
+            source_sequences,
+            result,
+        ),
         (
             Pending::ResolveCopyDestination { tag, .. },
             Response::FolderResolved { result: Err(_), .. },
@@ -243,36 +272,6 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
             .push(format!("{tag} NO [TRYCREATE] COPY destination unavailable\r\n").as_bytes()),
         _ => Ok(()),
     }
-}
-
-fn write_fetch(
-    session: &mut Session,
-    addressing: imap::Addressing,
-    sequence_set: imap::sequence_set::SequenceSet,
-    attribute: imap::FetchAttribute,
-    tag: String,
-    messages: Vec<crate::store::Message>,
-) -> io::Result<()> {
-    let maximum = match addressing {
-        imap::Addressing::Sequence => messages.len() as u64,
-        imap::Addressing::Uid => messages.last().map(|message| message.uid).unwrap_or(0),
-    };
-    let resolved = sequence_set.resolve(maximum);
-    for (offset, message) in messages.iter().enumerate() {
-        let number = offset.saturating_add(1);
-        let candidate = match addressing {
-            imap::Addressing::Sequence => number as u64,
-            imap::Addressing::Uid => message.uid,
-        };
-        if resolved.contains(candidate) {
-            if let Err(reason) =
-                imap_fetch_response::write(session, number, message, &attribute, addressing)?
-            {
-                return session.push(format!("{tag} NO {reason}\r\n").as_bytes());
-            }
-        }
-    }
-    session.push(format!("{tag} OK FETCH completed\r\n").as_bytes())
 }
 
 /// Повторно предлагает worker-у запросы, которые ранее не поместились в канал.

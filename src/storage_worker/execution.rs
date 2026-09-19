@@ -154,6 +154,15 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             request_id,
             result: store.copy(&source, &destination, &uids),
         },
+        Request::Move {
+            request_id,
+            source,
+            destination,
+            uids,
+        } => Response::Moved {
+            request_id,
+            result: store.move_messages(&source, &destination, &uids),
+        },
     }
 }
 

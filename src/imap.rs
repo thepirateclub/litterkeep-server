@@ -70,6 +70,7 @@ pub enum Command {
     Check,
     Close,
     Copy {
+        transfer: Transfer,
         addressing: Addressing,
         sequence_set: SequenceSet,
         destination: MailboxName,
@@ -120,6 +121,11 @@ pub enum Addressing {
     Sequence,
     Uid,
 }
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Transfer {
+    Copy,
+    Move,
+}
 /// Внутренний verb до проверки аргументов команды.
 enum Verb {
     Capability,
@@ -139,6 +145,7 @@ enum Verb {
     Check,
     Close,
     Copy,
+    Move,
     Expunge,
     List,
     Select,
@@ -177,7 +184,8 @@ pub fn parse(line: &str) -> TaggedCommand {
         Some(Verb::Status) => status::parse(tokens),
         Some(Verb::Check) => parse_empty(tokens, Command::Check),
         Some(Verb::Close) => parse_empty(tokens, Command::Close),
-        Some(Verb::Copy) => copy::parse(tokens, Addressing::Sequence),
+        Some(Verb::Copy) => copy::parse(tokens, Addressing::Sequence, Transfer::Copy),
+        Some(Verb::Move) => copy::parse(tokens, Addressing::Sequence, Transfer::Move),
         Some(Verb::Expunge) => parse_empty(tokens, Command::Expunge),
         Some(Verb::List) => folder::parse_list(tokens),
         Some(Verb::Select) => parse_select(&mut tokens, false),
@@ -189,7 +197,8 @@ pub fn parse(line: &str) -> TaggedCommand {
             Some(Verb::Fetch) => fetch::parse(&mut tokens, Addressing::Uid),
             Some(Verb::Store) => flags::parse_store(&mut tokens, Addressing::Uid),
             Some(Verb::Search) => search::parse(tokens, Addressing::Uid),
-            Some(Verb::Copy) => copy::parse(tokens, Addressing::Uid),
+            Some(Verb::Copy) => copy::parse(tokens, Addressing::Uid, Transfer::Copy),
+            Some(Verb::Move) => copy::parse(tokens, Addressing::Uid, Transfer::Move),
             Some(Verb::Expunge) => parse_uid_expunge(tokens),
             _ => Command::Unsupported,
         },
@@ -258,6 +267,7 @@ fn parse_verb(text: &str) -> Verb {
         "CHECK" => Verb::Check,
         "CLOSE" => Verb::Close,
         "COPY" => Verb::Copy,
+        "MOVE" => Verb::Move,
         "EXPUNGE" => Verb::Expunge,
         "LIST" => Verb::List,
         "SELECT" => Verb::Select,

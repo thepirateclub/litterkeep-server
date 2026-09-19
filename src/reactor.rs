@@ -29,6 +29,8 @@ mod imap_check;
 mod imap_copy;
 #[path = "reactor/imap_expunge.rs"]
 mod imap_expunge;
+#[path = "reactor/imap_fetch_completion.rs"]
+mod imap_fetch_completion;
 #[path = "reactor/imap_fetch_response.rs"]
 mod imap_fetch_response;
 #[path = "reactor/imap_folders.rs"]

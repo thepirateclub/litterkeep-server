@@ -22,7 +22,7 @@ impl Store {
         let recovered = mailbox_state::load(&root, &committed)?;
         let mut entries = recovered.entries;
         let flags = flags::load(&root, &entries)?;
-        expunges::load(&root, &mut entries)?;
+        expunges::load(&root, &mut entries, &committed)?;
         let blob_quota = Quota::load(&root.join("blobs"), quota_limit)?;
         let folders = folders::FolderCatalog::load(&root)?;
         let subscriptions = subscriptions::SubscriptionCatalog::load(&root)?;

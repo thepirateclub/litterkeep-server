@@ -6,6 +6,7 @@ use super::*;
 pub(super) fn queue(
     session: &mut Session,
     tag: String,
+    transfer: imap::Transfer,
     addressing: imap::Addressing,
     sequence_set: imap::sequence_set::SequenceSet,
     destination: imap::MailboxName,
@@ -35,6 +36,7 @@ pub(super) fn queue(
         },
         Pending::ReadForCopy {
             tag,
+            transfer,
             addressing,
             sequence_set,
             account,
@@ -59,6 +61,7 @@ pub(super) fn follow_up(
         (
             Pending::ReadForCopy {
                 tag,
+                transfer,
                 addressing,
                 sequence_set,
                 account,
@@ -71,6 +74,7 @@ pub(super) fn follow_up(
             },
         ) => {
             let source_uids = selected_uids(*addressing, sequence_set, &snapshot.messages);
+            let source_sequences = selected_sequences(&source_uids, &snapshot.messages);
             let request_id = next(next_request);
             Some((
                 Request::ResolveFolder {
@@ -80,31 +84,38 @@ pub(super) fn follow_up(
                 },
                 Pending::ResolveCopyDestination {
                     tag: tag.clone(),
+                    transfer: *transfer,
                     source: source.clone(),
                     source_uids,
+                    source_sequences,
                 },
             ))
         }
         (
             Pending::ResolveCopyDestination {
                 tag,
+                transfer,
                 source,
                 source_uids,
+                source_sequences,
             },
             Response::FolderResolved {
                 result: Ok(destination),
                 ..
             },
         ) => Some((
-            Request::Copy {
-                request_id: next(next_request),
-                source: source.clone(),
-                destination: destination.clone(),
-                uids: source_uids.clone(),
-            },
+            request(
+                *transfer,
+                next(next_request),
+                source.clone(),
+                destination.clone(),
+                source_uids.clone(),
+            ),
             Pending::Copy {
                 tag: tag.clone(),
+                transfer: *transfer,
                 source_uids: source_uids.clone(),
+                source_sequences: source_sequences.clone(),
             },
         )),
         _ => None,
@@ -114,22 +125,63 @@ pub(super) fn follow_up(
 pub(super) fn completed(
     session: &mut Session,
     tag: String,
+    transfer: imap::Transfer,
     source_uids: Vec<u64>,
+    source_sequences: Vec<usize>,
     result: io::Result<Vec<u64>>,
 ) -> io::Result<()> {
     if source_uids.is_empty() {
-        return session.push(format!("{tag} OK COPY completed\r\n").as_bytes());
+        return session.push(format!("{tag} OK {} completed\r\n", verb(transfer)).as_bytes());
     }
     match result {
         Ok(destination_uids) => {
             let source = sequence_set(&source_uids);
             let destination = sequence_set(&destination_uids);
+            if matches!(transfer, imap::Transfer::Move) {
+                for number in source_sequences {
+                    session.push(format!("* {number} EXPUNGE\r\n").as_bytes())?;
+                }
+                session.selected_exists = session.selected_exists.saturating_sub(source_uids.len());
+            }
             session.push(
-                format!("{tag} OK [COPYUID 1 {source} {destination}] COPY completed\r\n")
-                    .as_bytes(),
+                format!(
+                    "{tag} OK [COPYUID 1 {source} {destination}] {} completed\r\n",
+                    verb(transfer)
+                )
+                .as_bytes(),
             )
         }
-        Err(_) => session.push(format!("{tag} NO COPY failed\r\n").as_bytes()),
+        Err(_) => session.push(format!("{tag} NO {} failed\r\n", verb(transfer)).as_bytes()),
+    }
+}
+
+fn request(
+    transfer: imap::Transfer,
+    request_id: u64,
+    source: String,
+    destination: String,
+    uids: Vec<u64>,
+) -> Request {
+    match transfer {
+        imap::Transfer::Copy => Request::Copy {
+            request_id,
+            source,
+            destination,
+            uids,
+        },
+        imap::Transfer::Move => Request::Move {
+            request_id,
+            source,
+            destination,
+            uids,
+        },
+    }
+}
+
+fn verb(transfer: imap::Transfer) -> &'static str {
+    match transfer {
+        imap::Transfer::Copy => "COPY",
+        imap::Transfer::Move => "MOVE",
     }
 }
 
@@ -154,6 +206,18 @@ fn selected_uids(
             resolved.contains(candidate).then_some(message.uid)
         })
         .collect()
+}
+
+fn selected_sequences(uids: &[u64], messages: &[crate::store::Message]) -> Vec<usize> {
+    let mut removed = 0_usize;
+    let mut sequences = Vec::with_capacity(uids.len());
+    for (offset, message) in messages.iter().enumerate() {
+        if uids.contains(&message.uid) {
+            sequences.push(offset.saturating_add(1).saturating_sub(removed));
+            removed = removed.saturating_add(1);
+        }
+    }
+    sequences
 }
 
 fn wire_name(mailbox: imap::MailboxName) -> String {

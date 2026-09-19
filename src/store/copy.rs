@@ -31,7 +31,11 @@ impl Store {
 
     /// Читает исходные записи до записи journal, чтобы неизвестный UID не
     /// создал ни одного destination frame.
-    fn copy_sources(&self, source: &str, uids: &[u64]) -> io::Result<Vec<model::Record>> {
+    pub(super) fn copy_sources(
+        &self,
+        source: &str,
+        uids: &[u64],
+    ) -> io::Result<Vec<model::Record>> {
         let records = self.entries.get(source).map(Vec::as_slice).unwrap_or(&[]);
         let mut selected = Vec::with_capacity(uids.len());
         for uid in uids {
@@ -52,7 +56,7 @@ impl Store {
     }
 
     /// Резервирует destination UID локально, не публикуя ссылку до commit.
-    fn prepare_copy_links(
+    pub(super) fn prepare_copy_links(
         &self,
         destination: &str,
         transaction_id: u64,
