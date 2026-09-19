@@ -118,6 +118,18 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - G07 остаётся NOT RUN: требуется Linux destructive matrix RSET и disconnect
   до QUIT, а также полный interoperability profile.
 
+### 2026-09-20: G07 Linux POP3 delete matrix checkpoint
+
+- Независимый POP3 client подтвердил `DELE + RSET` и `DELE + TCP disconnect`:
+  оба пути сохраняют сообщение. Затем тот же SMTP-delivered MIME message прошёл
+  UIDL/RETR/DELE/QUIT, а restart подтвердил durable удаление. Пустой QUIT также
+  прошёл worker completion как часть повторного входа после RSET/disconnect.
+- PASS: Linux Docker image с одним `serve-all-starttls` poll-reactor; данные
+  только в bind mount `./data/g07-pop3`, CA `./data/pki/ca.pem`.
+- G07 остаётся NOT RUN: destructive fixture ещё использует `bob`, тогда как
+  цель требует отдельный `pop@litterkeep.test`, и полный external
+  interoperability profile не завершён.
+
 ### 2026-09-19: G00 PASS, G01 running
 
 - Added a single Cargo package with no production dependencies. This preserves

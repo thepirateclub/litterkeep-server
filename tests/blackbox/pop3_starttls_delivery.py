@@ -15,7 +15,7 @@ ATTACHMENT = b"\x00litterkeep-pop3-attachment\xff\x10"
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--phase", choices=("smtp", "pop3", "empty", "lease", "implicit"), required=True)
+    parser.add_argument("--phase", choices=("smtp", "pop3", "empty", "lease", "implicit", "rset", "disconnect"), required=True)
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--ca", required=True)
     return parser.parse_args()
@@ -108,6 +108,40 @@ def implicit(port: int, tls: ssl.SSLContext) -> None:
     print("POP3 implicit TLS passed")
 
 
+def authenticated(port: int, tls: ssl.SSLContext) -> poplib.POP3:
+    client = poplib.POP3("127.0.0.1", port)
+    client.stls(context=tls)
+    client.user("bob")
+    client.pass_("bob-password")
+    return client
+
+
+def rset(port: int, tls: ssl.SSLContext) -> None:
+    client = authenticated(port, tls)
+    client.dele(1)
+    client.rset()
+    client.quit()
+    replay = authenticated(port, tls)
+    count, _ = replay.stat()
+    replay.quit()
+    if count != 1:
+        raise AssertionError(f"RSET failed to retain the message: {count}")
+    print("POP3 RSET passed: DELE marker was not committed")
+
+
+def disconnect(port: int, tls: ssl.SSLContext) -> None:
+    client = authenticated(port, tls)
+    client.dele(1)
+    client.close()
+    time.sleep(0.2)
+    replay = authenticated(port, tls)
+    count, _ = replay.stat()
+    replay.quit()
+    if count != 1:
+        raise AssertionError(f"disconnect committed a POP3 DELE marker: {count}")
+    print("POP3 disconnect passed: DELE marker was not committed")
+
+
 def main() -> None:
     options = arguments()
     tls = context(options.ca)
@@ -122,6 +156,10 @@ def main() -> None:
             lease(options.port, tls)
         case "implicit":
             implicit(options.port, tls)
+        case "rset":
+            rset(options.port, tls)
+        case "disconnect":
+            disconnect(options.port, tls)
 
 
 if __name__ == "__main__":
