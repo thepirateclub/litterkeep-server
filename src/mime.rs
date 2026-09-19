@@ -6,7 +6,8 @@ pub fn headers(raw: &[u8]) -> Result<(BTreeMap<String, String>, &[u8]), &'static
         .windows(4)
         .position(|w| w == b"\r\n\r\n")
         .ok_or("missing header separator")?;
-    let text = std::str::from_utf8(&raw[..split]).map_err(|_| "headers are not utf-8")?;
+    let header = raw.get(..split).ok_or("invalid header boundary")?;
+    let text = std::str::from_utf8(header).map_err(|_| "headers are not utf-8")?;
     let mut out = BTreeMap::new();
     for line in text.split("\r\n") {
         let (name, value) = line.split_once(':').ok_or("malformed header")?;
@@ -15,7 +16,7 @@ pub fn headers(raw: &[u8]) -> Result<(BTreeMap<String, String>, &[u8]), &'static
         }
         out.insert(name.to_ascii_lowercase(), value.trim().to_owned());
     }
-    Ok((out, &raw[split + 4..]))
+    Ok((out, raw.get(split + 4..).ok_or("invalid body boundary")?))
 }
 
 pub fn decode_base64(input: &[u8]) -> Result<Vec<u8>, &'static str> {
@@ -39,15 +40,18 @@ pub fn decode_base64(input: &[u8]) -> Result<Vec<u8>, &'static str> {
     }
     let mut out = Vec::new();
     for chunk in values.chunks_exact(4) {
-        if chunk[0] == 64 || chunk[1] == 64 || (chunk[2] == 64 && chunk[3] != 64) {
+        let Some(&[first, second, third, fourth]) = chunk.get(..4) else {
+            return Err("invalid base64 chunk");
+        };
+        if first == 64 || second == 64 || (third == 64 && fourth != 64) {
             return Err("invalid base64 padding");
         }
-        out.push((chunk[0] << 2) | (chunk[1] >> 4));
-        if chunk[2] != 64 {
-            out.push((chunk[1] << 4) | (chunk[2] >> 2));
+        out.push((first << 2) | (second >> 4));
+        if third != 64 {
+            out.push((second << 4) | (third >> 2));
         }
-        if chunk[3] != 64 {
-            out.push((chunk[2] << 6) | chunk[3]);
+        if fourth != 64 {
+            out.push((third << 6) | fourth);
         }
     }
     Ok(out)
