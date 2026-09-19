@@ -1,0 +1,21 @@
+[package]
+name = "litterkeep-server"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+description = "A small self-hosted mail server implemented without a mail engine or async runtime."
+license = "UNLICENSED"
+
+[[bin]]
+name = "litterkeep-server"
+path = "src/main.rs"
+
+[dependencies]
+# Intentionally empty for G00/G01. TLS and Argon2 are introduced only after
+# their exact, minimal features have been selected and reviewed.
+
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+all = "warn"
