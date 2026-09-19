@@ -398,3 +398,27 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   накопителя. G02 остаётся RUNNING: текстовый journal нужно заменить требуемым
   binary framing, добавить атомарный multi-recipient transaction и дисковую
   квоту с проверенными отказами.
+
+### 2026-09-19: versioned binary journal and UID index checkpoint
+
+- Mailbox journal переведён с текстовых строк на собственный binary frame:
+  magic `LKJF`, version 1, big-endian sequence UID, transaction id, bounded
+  payload length, payload, FNV-1a checksum и отдельный commit marker. Decoder
+  использует проверяемый cursor и не индексирует недоверенный массив напрямую.
+- Recovery выполняет один линейный проход `O(n)`: недописанный последний frame
+  обрезается до начала frame, а полный frame с неверными magic/version/length,
+  transaction id/checksum/commit marker останавливает открытие store. Поиск
+  следующего случайного magic не выполняется.
+- Добавлен долговечный `format-version`. Неизвестный или старый неразмеченный
+  store с mail data получает диагностируемый отказ; автоматического мигратора
+  пока нет. Это намеренная несовместимость прежних временных test volumes.
+- Оптимизирован hot path: single-writer восстанавливает `next UID` каждого
+  mailbox один раз при старте и хранит его в `HashMap`. Append использует в
+  среднем `O(1)` lookup и обновляет cache только после durable commit, вместо
+  повторного полного replay и накопительного `O(n^2)` поведения.
+- PASS: 31 Windows unit test, format и Clippy. В чистом Linux Docker volume
+  проверены marker, binary prefix `4c 4b 4a 46 00 01`, последовательные
+  `bob-1.eml`..`bob-3.eml`, kill с exit 137, recovery и повторный SMTP AUTH to
+  IMAP attachment с совпавшими байтами.
+- G02 остаётся RUNNING: один общий атомарный multi-recipient transaction,
+  failpoint matrix и дисковая quota ещё отсутствуют.

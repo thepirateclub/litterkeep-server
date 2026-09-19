@@ -6,13 +6,13 @@ use std::sync::mpsc::{Receiver, Sender};
 
 /// Последовательно исполняет запросы, пока владелец receiver-а не завершится.
 pub(super) fn run(
-    store: Store,
+    mut store: Store,
     accounts: Accounts,
     requests: Receiver<Request>,
     responses: Sender<Response>,
 ) {
     for request in requests {
-        let response = respond(&store, &accounts, request);
+        let response = respond(&mut store, &accounts, request);
         if responses.send(response).is_err() {
             break;
         }
@@ -20,7 +20,7 @@ pub(super) fn run(
 }
 
 /// Преобразует запрос reactor-а в completion, не выдавая Store наружу.
-pub(super) fn respond(store: &Store, accounts: &Accounts, request: Request) -> Response {
+pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) -> Response {
     match request {
         Request::Authenticate {
             request_id,
@@ -68,7 +68,7 @@ pub(super) fn respond(store: &Store, accounts: &Accounts, request: Request) -> R
 /// Предварительная проверка не допускает частичной доставки из-за опечатки в
 /// последнем получателе. Ошибка ввода возвращается reactor-у без SMTP success.
 fn append_many(
-    store: &Store,
+    store: &mut Store,
     accounts: &Accounts,
     mailboxes: Vec<String>,
     bytes: &[u8],

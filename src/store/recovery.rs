@@ -1,5 +1,5 @@
 use super::{journal, model};
-use std::fs::{self, OpenOptions};
+use std::fs;
 use std::io;
 use std::path::Path;
 pub fn recover(root: &Path) -> io::Result<()> {
@@ -14,7 +14,7 @@ pub fn recover(root: &Path) -> io::Result<()> {
             .and_then(|v| v.to_str())
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "non-utf8 journal"))?;
         model::validate_mailbox(mailbox)?;
-        trim_incomplete_tail(&path)?;
+        journal::recover(mailbox, &path)?;
         journal::records(mailbox, &path)?;
     }
     Ok(())
@@ -36,15 +36,4 @@ fn clean_temps(dir: &Path) -> io::Result<()> {
         }
     }
     Ok(())
-}
-fn trim_incomplete_tail(path: &Path) -> io::Result<()> {
-    let bytes = fs::read(path)?;
-    match (bytes.is_empty(), bytes.ends_with(b"\n")) {
-        (true, _) | (false, true) => return Ok(()),
-        (false, false) => {}
-    }
-    let end = bytes.iter().rposition(|v| *v == b'\n').map_or(0, |i| i + 1);
-    let file = OpenOptions::new().write(true).open(path)?;
-    file.set_len(end as u64)?;
-    file.sync_all()
 }

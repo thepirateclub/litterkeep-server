@@ -102,7 +102,7 @@ impl WakingStorageWorker {
     pub fn start(root: impl AsRef<Path>, capacity: usize) -> io::Result<Self> {
         use std::io::Write;
         use std::os::unix::net::UnixStream;
-        let store = Store::open(root.as_ref())?;
+        let mut store = Store::open(root.as_ref())?;
         let accounts = Accounts::open(root.as_ref())?;
         let (requests, incoming) = mpsc::sync_channel(capacity);
         let (outgoing, responses) = mpsc::channel();
@@ -113,7 +113,7 @@ impl WakingStorageWorker {
             .name("litterkeep-store-writer".into())
             .spawn(move || {
                 for request in incoming {
-                    let response = execution::respond(&store, &accounts, request);
+                    let response = execution::respond(&mut store, &accounts, request);
                     if outgoing.send(response).is_err() {
                         break;
                     }

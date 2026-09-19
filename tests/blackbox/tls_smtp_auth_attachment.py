@@ -12,9 +12,16 @@ import smtplib
 import ssl
 from email.message import EmailMessage
 from email.parser import BytesParser
+from enum import Enum
 
 
 ATTACHMENT = bytes(range(32)) + b"\x00litterkeep-attachment\xff"
+
+
+class ImapStatus(Enum):
+    """Типизированный статус ответа стандартного IMAP-клиента."""
+
+    OK = "OK"
 
 
 def arguments() -> argparse.Namespace:
@@ -50,31 +57,36 @@ def submit(host: str, port: int, context: ssl.SSLContext, payload: bytes) -> Non
         client.sendmail("alice@test", ("bob@test",), payload)
 
 
-def fetched_message(host: str, port: int, context: ssl.SSLContext) -> bytes:
-    """Читает первое письмо Bob через отдельную TLS IMAP-сессию."""
+def fetched_messages(host: str, port: int, context: ssl.SSLContext) -> list[bytes]:
+    """Читает снимок INBOX Bob через отдельную TLS IMAP-сессию."""
+    messages: list[bytes] = []
     with imaplib.IMAP4_SSL(host, port, ssl_context=context, timeout=10) as client:
         client.login("bob", "bob-password")
-        client.select("INBOX", readonly=True)
-        status, response = client.fetch("1", "(RFC822)")
-        if status != "OK":
-            raise AssertionError(f"IMAP FETCH failed: {status} {response!r}")
-        for item in response:
-            match item:
-                case (_, bytes() as payload):
+        _, counts = client.select("INBOX", readonly=True)
+        count = int(next(iter(counts)))
+        for number in range(1, count + 1):
+            status, response = client.fetch(str(number), "(RFC822)")
+            match ImapStatus(status):
+                case ImapStatus.OK:
+                    pass
+            for item in response:
+                match item:
+                    case (_, bytes() as payload):
+                        messages.append(payload)
+                    case _:
+                        continue
+    return messages
+
+
+def attachment_bytes(messages: list[bytes]) -> bytes:
+    """Находит вложение во всём snapshot без позиционного доступа к массиву."""
+    for message in messages:
+        parsed = BytesParser(policy=email.policy.default).parsebytes(message)
+        for part in parsed.iter_attachments():
+            if part.get_filename() == "evidence.bin":
+                payload = part.get_payload(decode=True)
+                if isinstance(payload, bytes):
                     return payload
-                case _:
-                    continue
-    raise AssertionError("IMAP FETCH returned no RFC822 literal")
-
-
-def attachment_bytes(message: bytes) -> bytes:
-    """Находит вложение по MIME filename без позиционного доступа к массиву."""
-    parsed = BytesParser(policy=email.policy.default).parsebytes(message)
-    for part in parsed.iter_attachments():
-        if part.get_filename() == "evidence.bin":
-            payload = part.get_payload(decode=True)
-            if isinstance(payload, bytes):
-                return payload
     raise AssertionError("evidence.bin is absent from delivered MIME message")
 
 
@@ -84,9 +96,7 @@ def main() -> None:
     context = ssl.create_default_context(cafile=options.ca_file)
     payload = message_bytes()
     submit(options.host, options.smtp_port, context, payload)
-    actual = attachment_bytes(
-        fetched_message(options.host, options.imap_port, context)
-    )
+    actual = attachment_bytes(fetched_messages(options.host, options.imap_port, context))
     if actual != ATTACHMENT:
         raise AssertionError("attachment bytes changed during mail path")
     digest = hashlib.sha256(actual).hexdigest()

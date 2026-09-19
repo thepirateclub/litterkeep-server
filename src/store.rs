@@ -3,8 +3,12 @@
 mod blobs;
 #[path = "store/durability.rs"]
 mod durability;
+#[path = "store/format.rs"]
+mod format;
 #[path = "store/journal.rs"]
 mod journal;
+#[path = "store/mailbox_state.rs"]
+mod mailbox_state;
 #[path = "store/model.rs"]
 mod model;
 #[path = "store/recovery.rs"]
@@ -13,6 +17,7 @@ mod recovery;
 #[path = "store/tests.rs"]
 mod tests;
 pub use model::Message;
+use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -20,33 +25,40 @@ use std::path::{Path, PathBuf};
 pub struct Store {
     root: PathBuf,
     _writer_lock: File,
+    next_uids: HashMap<String, u64>,
 }
 impl Store {
     pub fn open(root: impl AsRef<Path>) -> io::Result<Self> {
         let root = root.as_ref().to_path_buf();
+        fs::create_dir_all(&root)?;
+        format::ensure(&root)?;
         fs::create_dir_all(root.join("blobs"))?;
         fs::create_dir_all(root.join("mailboxes"))?;
         durability::sync_directory(&root)?;
         let lock = open_writer_lock(&root.join("writer.lock"))?;
+        recovery::recover(&root)?;
+        let next_uids = mailbox_state::load_next_uids(&root)?;
         let store = Self {
             root,
             _writer_lock: lock,
+            next_uids,
         };
-        recovery::recover(&store.root)?;
         Ok(store)
     }
-    pub fn append(&self, mailbox: &str, raw: &[u8]) -> io::Result<u64> {
+    pub fn append(&mut self, mailbox: &str, raw: &[u8]) -> io::Result<u64> {
         model::validate_mailbox(mailbox)?;
         let index = self.index(mailbox);
-        let mut uid = journal::records(mailbox, &index)?
-            .last()
-            .map_or(1, |r| r.uid + 1);
+        let mut uid = self.next_uids.get(mailbox).copied().unwrap_or(1);
         let (name, _) = blobs::next_available(&self.root, mailbox, &mut uid)?;
         blobs::publish(&self.root, &name, raw)?;
         let mut file = OpenOptions::new().create(true).append(true).open(index)?;
-        writeln!(file, "{}", journal::frame(uid, &name))?;
+        file.write_all(&journal::frame(uid, &name))?;
         file.sync_all()?;
         durability::sync_directory(&self.root.join("mailboxes"))?;
+        let next_uid = uid
+            .checked_add(1)
+            .ok_or_else(|| io::Error::other("uid exhausted"))?;
+        self.next_uids.insert(mailbox.to_owned(), next_uid);
         Ok(uid)
     }
     pub fn messages(&self, mailbox: &str) -> io::Result<Vec<Message>> {
