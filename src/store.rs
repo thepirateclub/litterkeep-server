@@ -1,6 +1,8 @@
 //! Filesystem store facade. The writer owns this value exclusively.
 #[path = "store/blobs.rs"]
 mod blobs;
+#[path = "store/durability.rs"]
+mod durability;
 #[path = "store/journal.rs"]
 mod journal;
 #[path = "store/model.rs"]
@@ -24,6 +26,7 @@ impl Store {
         let root = root.as_ref().to_path_buf();
         fs::create_dir_all(root.join("blobs"))?;
         fs::create_dir_all(root.join("mailboxes"))?;
+        durability::sync_directory(&root)?;
         let lock = open_writer_lock(&root.join("writer.lock"))?;
         let store = Self {
             root,
@@ -43,6 +46,7 @@ impl Store {
         let mut file = OpenOptions::new().create(true).append(true).open(index)?;
         writeln!(file, "{}", journal::frame(uid, &name))?;
         file.sync_all()?;
+        durability::sync_directory(&self.root.join("mailboxes"))?;
         Ok(uid)
     }
     pub fn messages(&self, mailbox: &str) -> io::Result<Vec<Message>> {

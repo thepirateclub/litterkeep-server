@@ -1,4 +1,4 @@
-use super::model::blob_name;
+use super::{durability, model::blob_name};
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -24,5 +24,6 @@ pub fn publish(root: &Path, name: &str, raw: &[u8]) -> io::Result<()> {
     file.write_all(raw)?;
     file.sync_all()?;
     drop(file);
-    fs::rename(temp, final_path)
+    fs::rename(temp, final_path)?;
+    durability::sync_directory(&root.join("blobs"))
 }

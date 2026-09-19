@@ -382,3 +382,19 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   что его зависимость G02 ещё не завершена и итоговый профиль также требует
   STARTTLS. Статусы ранее начатых G01-G05/G09 в верхней таблице исправлены с
   вводящего в заблуждение `NOT RUN` на `RUNNING`.
+
+### 2026-09-19: durable directory sync and crash checkpoint
+
+- После синхронизации временного blob и атомарного rename storage worker теперь
+  вызывает Linux `fsync` каталога `blobs`. После синхронизации mailbox journal
+  он также синхронизирует каталог `mailboxes`. Эта блокирующая работа остаётся
+  вне reactor в единственном storage worker-е.
+- PASS в Linux Docker image `litterkeep-server:durable-dir`: независимый
+  TLS SMTP-клиент дождался финального success для письма с бинарным вложением;
+  процесс был завершён `docker kill` с exit code 137; новый процесс открыл тот
+  же volume и независимый TLS IMAP-клиент нашёл то же письмо и точные байты.
+- Это доказательство сохранности при аварии процесса после подтверждённого
+  commit, а не заявление о моделировании физической потери питания или лжи
+  накопителя. G02 остаётся RUNNING: текстовый journal нужно заменить требуемым
+  binary framing, добавить атомарный multi-recipient transaction и дисковую
+  квоту с проверенными отказами.
