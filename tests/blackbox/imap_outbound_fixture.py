@@ -1,8 +1,8 @@
 """Проверяет через стандартный IMAP-клиент факт доставки исходящего fixture."""
+import argparse
 from pathlib import Path
 from enum import Enum
 import imaplib
-import sys
 
 
 class ImapStatus(Enum):
@@ -11,11 +11,13 @@ class ImapStatus(Enum):
     OK = "OK"
 
 
-HOST = sys.argv[1] if len(sys.argv) > 1 else "127.0.0.1"
-PORT = int(sys.argv[2]) if len(sys.argv) > 2 else 2143
+PARSER = argparse.ArgumentParser()
+PARSER.add_argument("host", nargs="?", default="127.0.0.1")
+PARSER.add_argument("port", nargs="?", type=int, default=2143)
+OPTIONS = PARSER.parse_args()
 FIXTURE = Path(__file__).parent.parent / "fixtures" / "outbound.eml"
 
-with imaplib.IMAP4(HOST, PORT, timeout=10) as client:
+with imaplib.IMAP4(OPTIONS.host, OPTIONS.port, timeout=10) as client:
     status, _ = client.login("bob", "test-password")
     assert ImapStatus(status) is ImapStatus.OK, status
     status, counts = client.select("INBOX", readonly=True)

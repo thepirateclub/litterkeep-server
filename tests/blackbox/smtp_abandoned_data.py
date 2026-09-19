@@ -1,12 +1,14 @@
 """Проверяет, что закрытая без терминатора SMTP DATA не публикуется."""
+import argparse
 import imaplib
 import socket
-import sys
 
 
-HOST = sys.argv[1] if len(sys.argv) > 1 else "127.0.0.1"
-SMTP_PORT = int(sys.argv[2]) if len(sys.argv) > 2 else 2525
-IMAP_PORT = int(sys.argv[3]) if len(sys.argv) > 3 else 2143
+PARSER = argparse.ArgumentParser()
+PARSER.add_argument("host", nargs="?", default="127.0.0.1")
+PARSER.add_argument("smtp_port", nargs="?", type=int, default=2525)
+PARSER.add_argument("imap_port", nargs="?", type=int, default=2143)
+OPTIONS = PARSER.parse_args()
 
 
 def command(client, data, expected):
@@ -15,7 +17,7 @@ def command(client, data, expected):
     assert response.startswith(expected), response
 
 
-with socket.create_connection((HOST, SMTP_PORT), timeout=10) as smtp:
+with socket.create_connection((OPTIONS.host, OPTIONS.smtp_port), timeout=10) as smtp:
     banner = smtp.recv(4096)
     assert banner.startswith(b"220"), banner
     command(smtp, b"EHLO sender.test\r\n", b"250")
@@ -24,7 +26,7 @@ with socket.create_connection((HOST, SMTP_PORT), timeout=10) as smtp:
     command(smtp, b"DATA\r\n", b"354")
     smtp.sendall(b"Subject: abandoned\r\n\r\nthis must not persist")
 
-with imaplib.IMAP4(HOST, IMAP_PORT, timeout=10) as imap:
+with imaplib.IMAP4(OPTIONS.host, OPTIONS.imap_port, timeout=10) as imap:
     status, _ = imap.login("bob", "test-password")
     assert status == "OK", status
     status, count = imap.select("INBOX", readonly=True)

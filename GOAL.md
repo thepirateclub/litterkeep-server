@@ -334,3 +334,18 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - G03 остаётся NOT RUN: отсутствуют handshake timeout, полноценный admission
   control и STARTTLS. G04 также остаётся NOT RUN до Received/Return-Path,
   идемпотентности delivery и остальных критериев этапа.
+
+### 2026-09-19: повторный аудит правил исходников
+
+- Устранено прямое позиционное чтение первого сообщения в store-тесте. Старые
+  Python blackbox-клиенты больше не читают `sys.argv[n]`, а используют
+  `argparse` и именованные поля. Присваивание MIME-заголовков через mapping API
+  `EmailMessage` не является индексированием массива.
+- Составные логические цепочки заменены исчерпывающим `match` или `if let` в
+  MIME base64, queue, SMTP path, orchestrator ownership/wakeup, Sieve mailbox,
+  store mailbox и recovery. Внешние строковые состояния queue уже переводятся
+  в `State`, домены в `LocalRoute`, а SMTP reply в новых тестах в `Reply`.
+- PASS: все Rust/Python файлы не превышают 300 строк, `mod.rs` отсутствует;
+  `cargo fmt --check`; `cargo test --locked` (29 passed); `cargo clippy
+  --locked --all-targets -- -D warnings`; все изменённые Python CLI приняли
+  `--help`; `git diff --check`.

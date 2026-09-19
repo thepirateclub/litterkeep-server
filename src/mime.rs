@@ -43,8 +43,11 @@ pub fn decode_base64(input: &[u8]) -> Result<Vec<u8>, &'static str> {
         let Some(&[first, second, third, fourth]) = chunk.get(..4) else {
             return Err("invalid base64 chunk");
         };
-        if first == 64 || second == 64 || (third == 64 && fourth != 64) {
-            return Err("invalid base64 padding");
+        match (first == 64, second == 64, third == 64, fourth == 64) {
+            (true, _, _, _) | (false, true, _, _) | (false, false, true, false) => {
+                return Err("invalid base64 padding");
+            }
+            _ => {}
         }
         out.push((first << 2) | (second >> 4));
         if third != 64 {

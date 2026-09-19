@@ -22,11 +22,16 @@ pub fn recover(root: &Path) -> io::Result<()> {
 fn clean_temps(dir: &Path) -> io::Result<()> {
     for entry in fs::read_dir(dir)? {
         let path = entry?.path();
-        if path
+        let is_temporary = path
             .file_name()
-            .and_then(|v| v.to_str())
-            .is_some_and(|v| v.starts_with('.') && v.ends_with(".tmp"))
-        {
+            .and_then(|value| value.to_str())
+            .is_some_and(
+                |value| match (value.starts_with('.'), value.ends_with(".tmp")) {
+                    (true, true) => true,
+                    (true, false) | (false, _) => false,
+                },
+            );
+        if is_temporary {
             fs::remove_file(path)?
         }
     }
@@ -34,8 +39,9 @@ fn clean_temps(dir: &Path) -> io::Result<()> {
 }
 fn trim_incomplete_tail(path: &Path) -> io::Result<()> {
     let bytes = fs::read(path)?;
-    if bytes.is_empty() || bytes.ends_with(b"\n") {
-        return Ok(());
+    match (bytes.is_empty(), bytes.ends_with(b"\n")) {
+        (true, _) | (false, true) => return Ok(()),
+        (false, false) => {}
     }
     let end = bytes.iter().rposition(|v| *v == b'\n').map_or(0, |i| i + 1);
     let file = OpenOptions::new().write(true).open(path)?;

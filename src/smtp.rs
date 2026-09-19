@@ -59,7 +59,7 @@ fn address(arg: &str, prefix: &str, accepts_empty_path: bool) -> Result<String, 
     let Some((mailbox, suffix)) = path.split_once('>') else {
         return Err("invalid path");
     };
-    if mailbox.is_empty() && !accepts_empty_path {
+    if let (true, false) = (mailbox.is_empty(), accepts_empty_path) {
         return Err("invalid path");
     }
     let has_parameter_separator = suffix.chars().next().is_some_and(char::is_whitespace);

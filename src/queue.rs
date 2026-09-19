@@ -64,11 +64,17 @@ impl Queue {
         self.record(id, recipient, state)
     }
     fn record(&self, id: &str, recipient: &str, state: State) -> io::Result<()> {
-        if id.contains(char::is_whitespace) || recipient.contains(char::is_whitespace) {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "unsafe queue token",
-            ));
+        match (
+            id.contains(char::is_whitespace),
+            recipient.contains(char::is_whitespace),
+        ) {
+            (true, _) | (false, true) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "unsafe queue token",
+                ));
+            }
+            (false, false) => {}
         };
         let mut f = OpenOptions::new()
             .create(true)

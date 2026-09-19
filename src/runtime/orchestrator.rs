@@ -184,8 +184,14 @@ impl<T> Orchestrator<T> {
             .resources
             .get_mut(&lease.resource)
             .ok_or(AcquireError::MissingResource)?;
-        if record.state != ResourceState::Leased || record.owner != Some(lease.owner) {
-            return Err(AcquireError::NotAvailable(record.state));
+        match (
+            record.state == ResourceState::Leased,
+            record.owner == Some(lease.owner),
+        ) {
+            (true, true) => {}
+            (false, _) | (true, false) => {
+                return Err(AcquireError::NotAvailable(record.state));
+            }
         }
         record.value = lease.value.take();
         record.owner = None;
@@ -202,8 +208,14 @@ impl<T> Orchestrator<T> {
             .resources
             .get_mut(&lease.resource)
             .ok_or(AcquireError::MissingResource)?;
-        if record.state != ResourceState::Leased || record.owner != Some(lease.owner) {
-            return Err(AcquireError::NotAvailable(record.state));
+        match (
+            record.state == ResourceState::Leased,
+            record.owner == Some(lease.owner),
+        ) {
+            (true, true) => {}
+            (false, _) | (true, false) => {
+                return Err(AcquireError::NotAvailable(record.state));
+            }
         }
         drop(lease.value.take());
         record.owner = None;
@@ -243,13 +255,14 @@ impl<T> Orchestrator<T> {
         let version = self.event_versions.entry(event).or_insert(0);
         *version = version.checked_add(1).expect("event version exhausted");
         for task in self.waiters.remove(&event).unwrap_or_default() {
-            if let Some(record) = self.tasks.get_mut(&task)
-                && matches!(record.state, TaskState::Waiting { .. })
-            {
-                record.state = TaskState::Ready;
-                if !self.ready.contains(&task) {
-                    self.ready.push_back(task);
+            match self.tasks.get_mut(&task) {
+                Some(record) if matches!(record.state, TaskState::Waiting { .. }) => {
+                    record.state = TaskState::Ready;
+                    if !self.ready.contains(&task) {
+                        self.ready.push_back(task);
+                    }
                 }
+                Some(_) | None => {}
             }
         }
     }

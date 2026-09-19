@@ -1,16 +1,18 @@
 """Independent standard-library client check for the first mail path."""
+import argparse
 import base64
 import hashlib
 import imaplib
 import smtplib
-import sys
 from email.parser import BytesParser
 from email.policy import default
 
 
-HOST = sys.argv[1] if len(sys.argv) > 1 else "127.0.0.1"
-SMTP_PORT = int(sys.argv[2]) if len(sys.argv) > 2 else 2525
-IMAP_PORT = int(sys.argv[3]) if len(sys.argv) > 3 else 2143
+PARSER = argparse.ArgumentParser()
+PARSER.add_argument("host", nargs="?", default="127.0.0.1")
+PARSER.add_argument("smtp_port", nargs="?", type=int, default=2525)
+PARSER.add_argument("imap_port", nargs="?", type=int, default=2143)
+OPTIONS = PARSER.parse_args()
 ATTACHMENT = bytes(range(256)) + b"\x00litterkeep\xff"
 ENCODED = base64.encodebytes(ATTACHMENT).replace(b"\n", b"\r\n")
 MESSAGE = (
@@ -28,10 +30,10 @@ MESSAGE = (
     + b"--lk-boundary--\r\n"
 )
 
-with smtplib.SMTP(HOST, SMTP_PORT, timeout=10) as smtp:
+with smtplib.SMTP(OPTIONS.host, OPTIONS.smtp_port, timeout=10) as smtp:
     smtp.sendmail("alice@test", ["bob@test"], MESSAGE)
 
-with imaplib.IMAP4(HOST, IMAP_PORT, timeout=10) as imap:
+with imaplib.IMAP4(OPTIONS.host, OPTIONS.imap_port, timeout=10) as imap:
     status, _ = imap.login("bob", "test-password")
     assert status == "OK", status
     status, count = imap.select("INBOX", readonly=True)

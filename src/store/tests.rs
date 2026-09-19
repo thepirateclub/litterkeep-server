@@ -27,7 +27,9 @@ fn restart_and_second_writer() {
     );
     drop(s);
     let s = Store::open(&p).unwrap();
-    assert_eq!(s.messages("bob").unwrap()[0].bytes, b"bytes");
+    let messages = s.messages("bob").unwrap();
+    let message = messages.first().expect("stored message");
+    assert_eq!(message.bytes, b"bytes");
     drop(s);
     let _ = fs::remove_dir_all(p);
 }

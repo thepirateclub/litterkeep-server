@@ -1,10 +1,12 @@
 """Проверяет базовые SMTP-команды независимым TCP-клиентом."""
+import argparse
 import socket
-import sys
 
 
-HOST = sys.argv[1] if len(sys.argv) > 1 else "127.0.0.1"
-PORT = int(sys.argv[2]) if len(sys.argv) > 2 else 2525
+PARSER = argparse.ArgumentParser()
+PARSER.add_argument("host", nargs="?", default="127.0.0.1")
+PARSER.add_argument("port", nargs="?", type=int, default=2525)
+OPTIONS = PARSER.parse_args()
 
 
 def command(client, request, expected):
@@ -13,7 +15,7 @@ def command(client, request, expected):
     assert response.startswith(expected), response
 
 
-with socket.create_connection((HOST, PORT), timeout=10) as smtp:
+with socket.create_connection((OPTIONS.host, OPTIONS.port), timeout=10) as smtp:
     assert smtp.recv(4096).startswith(b"220")
     command(smtp, b"HELO sender.test\r\n", b"250 ")
     command(smtp, b"NOOP\r\n", b"250")
