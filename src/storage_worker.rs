@@ -1,5 +1,8 @@
 //! The single owner of a mutable Store, fed by a bounded request queue.
-use crate::store::{Message, Store};
+use crate::{
+    accounts::Accounts,
+    store::{Message, Store},
+};
 use std::io;
 use std::path::Path;
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError};
@@ -7,6 +10,12 @@ use std::thread::{self, JoinHandle};
 
 #[derive(Debug)]
 pub enum Request {
+    /// Проверяет credential вне сетевого reactor.
+    Authenticate {
+        request_id: u64,
+        username: String,
+        password: Vec<u8>,
+    },
     Append {
         request_id: u64,
         mailbox: String,
@@ -19,6 +28,8 @@ pub enum Request {
 }
 #[derive(Debug)]
 pub enum Response {
+    /// Completion проверки аккаунта.
+    Authenticated { request_id: u64, accepted: bool },
     Appended {
         request_id: u64,
         result: io::Result<u64>,
@@ -37,12 +48,13 @@ pub struct StorageWorker {
 
 impl StorageWorker {
     pub fn start(root: impl AsRef<Path>, capacity: usize) -> io::Result<Self> {
-        let store = Store::open(root)?;
+        let store = Store::open(root.as_ref())?;
+        let accounts = Accounts::open(root.as_ref())?;
         let (requests, incoming) = mpsc::sync_channel(capacity);
         let (outgoing, responses) = mpsc::channel();
         let thread = thread::Builder::new()
             .name("litterkeep-store-writer".into())
-            .spawn(move || run(store, incoming, outgoing))?;
+            .spawn(move || run(store, accounts, incoming, outgoing))?;
         Ok(Self {
             requests,
             responses,
@@ -61,9 +73,22 @@ impl StorageWorker {
     }
 }
 
-fn run(store: Store, requests: Receiver<Request>, responses: mpsc::Sender<Response>) {
+fn run(
+    store: Store,
+    accounts: Accounts,
+    requests: Receiver<Request>,
+    responses: mpsc::Sender<Response>,
+) {
     for request in requests {
         let response = match request {
+            Request::Authenticate {
+                request_id,
+                username,
+                password,
+            } => Response::Authenticated {
+                request_id,
+                accepted: accounts.authenticate(&username, &password),
+            },
             Request::Append {
                 request_id,
                 mailbox,
@@ -100,7 +125,8 @@ impl WakingStorageWorker {
     pub fn start(root: impl AsRef<Path>, capacity: usize) -> io::Result<Self> {
         use std::io::Write;
         use std::os::unix::net::UnixStream;
-        let store = Store::open(root)?;
+        let store = Store::open(root.as_ref())?;
+        let accounts = Accounts::open(root.as_ref())?;
         let (requests, incoming) = mpsc::sync_channel(capacity);
         let (outgoing, responses) = mpsc::channel();
         let (wake_reader, mut wake_writer) = UnixStream::pair()?;
@@ -111,6 +137,14 @@ impl WakingStorageWorker {
             .spawn(move || {
                 for request in incoming {
                     let response = match request {
+                        Request::Authenticate {
+                            request_id,
+                            username,
+                            password,
+                        } => Response::Authenticated {
+                            request_id,
+                            accepted: accounts.authenticate(&username, &password),
+                        },
                         Request::Append {
                             request_id,
                             mailbox,

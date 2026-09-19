@@ -35,7 +35,9 @@ fn submit(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
 ) {
     let request_id = match &request {
-        Request::Append { request_id, .. } | Request::Read { request_id, .. } => *request_id,
+        Request::Authenticate { request_id, .. }
+        | Request::Append { request_id, .. }
+        | Request::Read { request_id, .. } => *request_id,
     };
     match worker.worker.submit(request) {
         Ok(()) => {
@@ -201,7 +203,9 @@ pub(super) fn complete(
 ) -> io::Result<()> {
     while let Ok(response) = worker.worker.try_response() {
         let id = match &response {
-            Response::Appended { request_id, .. } | Response::Read { request_id, .. } => {
+            Response::Authenticated { request_id, .. }
+            | Response::Appended { request_id, .. }
+            | Response::Read { request_id, .. } => {
                 *request_id
             }
         };
