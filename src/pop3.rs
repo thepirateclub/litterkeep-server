@@ -1,44 +1,117 @@
-//! POP3 transaction state, shared-store adapter is the next integration step.
+//! Типизированная POP3 FSM без доступа к ящику до аутентификации.
+
+#[derive(Default)]
+enum Phase {
+    #[default]
+    Authorization,
+    Transaction,
+    Update,
+}
+pub enum Command {
+    User(String),
+    Pass(String),
+    Stat,
+    Uidl,
+    Dele(u32),
+    Rset,
+    Quit,
+    Invalid,
+}
+pub enum Reply {
+    Ok(String),
+    Error,
+}
+
+/// Состояние POP3 сессии; worker позднее переводит её в Transaction после PASS.
 #[derive(Default)]
 pub struct Session {
-    auth: bool,
+    phase: Phase,
+    username: Option<String>,
     deleted: Vec<u32>,
 }
-pub fn apply(s: &mut Session, line: &str) -> String {
-    let mut p = line.split_whitespace();
-    let c = p.next().unwrap_or("").to_ascii_uppercase();
-    match c.as_str() {
-        "USER" if p.next().is_some() => "+OK user accepted\r\n".into(),
-        "PASS" if p.next().is_some() => {
-            s.auth = true;
-            "+OK authenticated\r\n".into()
-        }
-        "STAT" if s.auth => "+OK 0 0\r\n".into(),
-        "UIDL" if s.auth => "+OK\r\n.\r\n".into(),
-        "DELE" if s.auth => match p.next().and_then(|x| x.parse().ok()) {
-            Some(n) => {
-                s.deleted.push(n);
-                "+OK marked\r\n".into()
+
+impl Session {
+    /// Выполняет уже типизированную команду без фиктивного успеха пароля.
+    pub fn apply(&mut self, command: Command) -> Reply {
+        match (&self.phase, command) {
+            (Phase::Authorization, Command::User(name)) => {
+                self.username = Some(name);
+                Reply::Ok("user accepted".into())
             }
-            None => "-ERR invalid message\r\n".into(),
-        },
-        "RSET" if s.auth => {
-            s.deleted.clear();
-            "+OK reset\r\n".into()
+            (Phase::Authorization, Command::Pass(password)) => {
+                match (self.username.as_ref(), password.is_empty()) {
+                    (Some(_), false) => Reply::Error,
+                    _ => Reply::Error,
+                }
+            }
+            (Phase::Transaction, Command::Stat) => Reply::Ok("0 0".into()),
+            (Phase::Transaction, Command::Uidl) => Reply::Ok("\r\n.".into()),
+            (Phase::Transaction, Command::Dele(number)) => {
+                self.deleted.push(number);
+                Reply::Ok("marked".into())
+            }
+            (Phase::Transaction, Command::Rset) => {
+                self.deleted.clear();
+                Reply::Ok("reset".into())
+            }
+            (_, Command::Quit) => {
+                self.phase = Phase::Update;
+                Reply::Ok("bye".into())
+            }
+            _ => Reply::Error,
         }
-        "QUIT" => "+OK bye\r\n".into(),
-        _ => "-ERR invalid command or state\r\n".into(),
+    }
+
+    /// Только completion worker-а после Argon2-проверки открывает TRANSACTION.
+    pub fn authenticate(&mut self, accepted: bool) -> Reply {
+        match (self.username.as_ref(), accepted) {
+            (Some(_), true) => {
+                self.phase = Phase::Transaction;
+                Reply::Ok("authenticated".into())
+            }
+            _ => Reply::Error,
+        }
     }
 }
+
+/// Единственная граница строковых POP3 verbs.
+pub fn parse(line: &str) -> Command {
+    let mut words = line.split_whitespace();
+    match words
+        .next()
+        .unwrap_or_default()
+        .to_ascii_uppercase()
+        .as_str()
+    {
+        "USER" => words
+            .next()
+            .map_or(Command::Invalid, |value| Command::User(value.into())),
+        "PASS" => words
+            .next()
+            .map_or(Command::Invalid, |value| Command::Pass(value.into())),
+        "STAT" => Command::Stat,
+        "UIDL" => Command::Uidl,
+        "DELE" => words
+            .next()
+            .and_then(|value| value.parse().ok())
+            .map_or(Command::Invalid, Command::Dele),
+        "RSET" => Command::Rset,
+        "QUIT" => Command::Quit,
+        _ => Command::Invalid,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    /// До worker-проверки PASS сессия не получает доступ к TRANSACTION.
     #[test]
     fn auth_is_required() {
-        let mut s = Session::default();
-        assert!(apply(&mut s, "STAT\r\n").starts_with("-ERR"));
-        apply(&mut s, "USER bob\r\n");
-        apply(&mut s, "PASS x\r\n");
-        assert!(apply(&mut s, "STAT\r\n").starts_with("+OK"));
+        let mut session = Session::default();
+        assert!(matches!(session.apply(parse("STAT\r\n")), Reply::Error));
+        assert!(matches!(session.apply(parse("USER bob\r\n")), Reply::Ok(_)));
+        assert!(matches!(session.apply(parse("PASS x\r\n")), Reply::Error));
+        assert!(matches!(session.authenticate(true), Reply::Ok(_)));
+        assert!(matches!(session.apply(parse("STAT\r\n")), Reply::Ok(_)));
     }
 }
