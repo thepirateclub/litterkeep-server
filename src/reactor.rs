@@ -33,8 +33,12 @@ mod imap_folders;
 mod imap_idle;
 #[path = "reactor/imap_literal.rs"]
 mod imap_literal;
+#[path = "reactor/imap_search.rs"]
+mod imap_search;
 #[path = "reactor/imap_select.rs"]
 mod imap_select;
+#[path = "reactor/imap_selected.rs"]
+mod imap_selected;
 #[path = "reactor/imap_starttls.rs"]
 mod imap_starttls;
 #[path = "reactor/imap_status.rs"]
@@ -49,6 +53,8 @@ mod pending;
 mod protocol;
 #[path = "reactor/session.rs"]
 mod session;
+#[path = "reactor/session_accept.rs"]
+mod session_accept;
 #[path = "reactor/session_io.rs"]
 mod session_io;
 #[path = "reactor/smtp_protocol.rs"]
@@ -191,7 +197,7 @@ fn serve_with_tls(
         deadline::expire_handshakes(&mut sessions, &mut lifecycle)?;
         for (ready, target) in ready.into_iter().zip(targets) {
             match target {
-                Target::SmtpListener if ready.readable => accept(
+                Target::SmtpListener if ready.readable => session_accept::accept(
                     &smtp_listener,
                     Kind::Smtp,
                     &mut sessions,
@@ -199,7 +205,7 @@ fn serve_with_tls(
                     &tls_mode,
                     &mut lifecycle,
                 )?,
-                Target::ImapListener if ready.readable => accept(
+                Target::ImapListener if ready.readable => session_accept::accept(
                     &imap_listener,
                     Kind::Imap,
                     &mut sessions,
@@ -243,46 +249,6 @@ fn serve_with_tls(
             }
         }
     }
-}
-
-fn accept(
-    listener: &TcpListener,
-    kind: Kind,
-    sessions: &mut Vec<Option<SessionLease>>,
-    next: &mut u64,
-    tls_mode: &TlsMode,
-    lifecycle: &mut Orchestrator<Session>,
-) -> io::Result<()> {
-    for _ in 0..ACCEPT_BUDGET {
-        match listener.accept() {
-            Ok((stream, _)) if lifecycle.resource_count() < MAX_SESSIONS => {
-                let (implicit, upgrade) = match (tls_mode, kind) {
-                    (TlsMode::Implicit(config), _) => (Some(config.clone()), None),
-                    (TlsMode::StartTls(config), _) => (None, Some(config.clone())),
-                    (TlsMode::Plain, _) => (None, None),
-                };
-                let session = Session::new(kind, stream, *next, implicit, upgrade)?;
-                let task = lifecycle.spawn_task();
-                let resource = lifecycle.register_resource(session);
-                let session = lifecycle.acquire(task, resource).map_err(|error| {
-                    io::Error::other(format!("session lease failed: {error:?}"))
-                })?;
-                *next = next.wrapping_add(1).max(1);
-                if let Some(slot) = sessions.iter().position(Option::is_none) {
-                    let Some(entry) = sessions.get_mut(slot) else {
-                        return Err(io::Error::other("missing reusable session slot"));
-                    };
-                    *entry = Some(session);
-                } else {
-                    sessions.push(Some(session));
-                }
-            }
-            Ok((stream, _)) => drop(stream),
-            Err(error) if error.kind() == io::ErrorKind::WouldBlock => break,
-            Err(error) => return Err(error),
-        }
-    }
-    Ok(())
 }
 
 /// Закрывает socket/TLS value и terminal task metadata через lifecycle owner.

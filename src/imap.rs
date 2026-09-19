@@ -5,6 +5,7 @@ pub mod fetch;
 pub mod flags;
 pub mod folder;
 pub mod idle;
+pub mod search;
 pub mod sequence_set;
 pub mod status;
 pub mod tokenizer;
@@ -84,6 +85,10 @@ pub enum Command {
         silent: bool,
         flags: crate::mail_flags::MessageFlags,
     },
+    Search {
+        addressing: Addressing,
+        key: search::SearchKey,
+    },
     Unsupported,
 }
 /// Типизированное имя mailbox после обработки специального имени INBOX.
@@ -122,6 +127,7 @@ enum Verb {
     Examine,
     Fetch,
     Store,
+    Search,
     Uid,
     Unsupported,
 }
@@ -159,9 +165,11 @@ pub fn parse(line: &str) -> TaggedCommand {
         Some(Verb::Examine) => parse_select(&mut tokens, true),
         Some(Verb::Fetch) => fetch::parse(&mut tokens, Addressing::Sequence),
         Some(Verb::Store) => flags::parse_store(&mut tokens, Addressing::Sequence),
+        Some(Verb::Search) => search::parse(tokens, Addressing::Sequence),
         Some(Verb::Uid) => match next_text(&mut tokens).as_deref().map(parse_verb) {
             Some(Verb::Fetch) => fetch::parse(&mut tokens, Addressing::Uid),
             Some(Verb::Store) => flags::parse_store(&mut tokens, Addressing::Uid),
+            Some(Verb::Search) => search::parse(tokens, Addressing::Uid),
             _ => Command::Unsupported,
         },
         Some(Verb::Unsupported) | None => Command::Unsupported,
@@ -228,6 +236,7 @@ fn parse_verb(text: &str) -> Verb {
         "EXAMINE" => Verb::Examine,
         "FETCH" => Verb::Fetch,
         "STORE" => Verb::Store,
+        "SEARCH" => Verb::Search,
         "UID" => Verb::Uid,
         _ => Verb::Unsupported,
     }

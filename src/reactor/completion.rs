@@ -178,6 +178,17 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
             tag,
             snapshot.messages,
         ),
+        (
+            Pending::ReadForSearch {
+                addressing,
+                key,
+                tag,
+            },
+            Response::Read {
+                result: Ok(snapshot),
+                ..
+            },
+        ) => imap_search::completed(session, addressing, key, tag, snapshot.messages),
         (_, Response::Read { .. }) => session.push(b"451 storage failure\r\n"),
         (pending @ Pending::WriteFlags { .. }, response @ Response::FlagsUpdated { .. }) => {
             super::flag_completion::write(session, pending, response)

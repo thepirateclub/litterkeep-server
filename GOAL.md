@@ -931,3 +931,19 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - G06 остаётся RUNNING: COPY/MOVE, UID EXPUNGE и UIDPLUS, UID SEARCH,
   modified UTF-7, полный LIST/SPECIAL-USE профиль, Recent и согласование
   sequence-map двух сессий ещё не завершены.
+
+### 2026-09-20: G06 SEARCH checkpoint
+
+- Базовый `SEARCH` и `UID SEARCH` имеют отдельные typed варианты addressing
+  и key. Поддерживаются `ALL`, `SEEN`, `UNSEEN`, `DELETED`, `UNDELETED`.
+  Другие search keys не имитируются пустым ответом и получают BAD в parser-е.
+- Результат строится из единого worker snapshot: обычный SEARCH возвращает
+  sequence number, а UID SEARCH возвращает устойчивый UID той же записи.
+  Поэтому последующие удаления соседних сообщений не меняют identity UID.
+- PASS: 90 Windows tests, format, strict Clippy и structural audit. Linux
+  runtime image с STARTTLS прошёл независимый Python `imaplib` сценарий в
+  `./data/g06-expunge`: UNSEEN вернул sequence `2 3`, UID SEARCH SEEN вернул
+  `1`, UID SEARCH DELETED вернул `3`.
+- G06 остаётся RUNNING: COPY/MOVE, UID EXPUNGE и UIDPLUS, modified UTF-7,
+  полный LIST/SPECIAL-USE профиль, Recent и согласование sequence-map двух
+  сессий ещё не завершены.

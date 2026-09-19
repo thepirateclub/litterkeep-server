@@ -208,6 +208,28 @@ fn close_and_check_require_no_arguments() {
     assert_eq!(parse("a CHECK later\r\n").command, Command::Unsupported);
 }
 
+#[test]
+fn search_uses_typed_key_and_addressing() {
+    assert_eq!(
+        parse("a SEARCH UNSEEN\r\n").command,
+        Command::Search {
+            addressing: Addressing::Sequence,
+            key: crate::imap::search::SearchKey::Unseen,
+        }
+    );
+    assert_eq!(
+        parse("a UID SEARCH DELETED\r\n").command,
+        Command::Search {
+            addressing: Addressing::Uid,
+            key: crate::imap::search::SearchKey::Deleted,
+        }
+    );
+    assert_eq!(
+        parse("a SEARCH SUBJECT x\r\n").command,
+        Command::Unsupported
+    );
+}
+
 /// STORE operation и системные flags не покидают parser строками.
 #[test]
 fn store_flags_are_typed() {

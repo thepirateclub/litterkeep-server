@@ -46,6 +46,11 @@ pub(super) enum Pending {
         tag: String,
         mailbox: String,
     },
+    ReadForSearch {
+        addressing: imap::Addressing,
+        key: imap::search::SearchKey,
+        tag: String,
+    },
     WriteFlags {
         addressing: imap::Addressing,
         uids: Vec<u64>,

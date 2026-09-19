@@ -214,7 +214,7 @@ fn imap_line(
             addressing,
             sequence_set,
             attribute,
-        } => queue_authenticated_read(
+        } => imap_selected::queue_authenticated_read(
             session,
             parsed.tag,
             |tag, _| Pending::ReadForFetch(addressing, sequence_set, attribute, tag),
@@ -230,7 +230,7 @@ fn imap_line(
             mutation,
             silent,
             flags,
-        } => queue_authenticated_read(
+        } => imap_selected::queue_authenticated_read(
             session,
             parsed.tag,
             |tag, mailbox| Pending::ReadForStore {
@@ -248,41 +248,21 @@ fn imap_line(
             owners,
             request_id,
         )?,
+        imap::Command::Search { addressing, key } => imap_selected::queue_authenticated_read(
+            session,
+            parsed.tag,
+            |tag, _| Pending::ReadForSearch {
+                addressing,
+                key,
+                tag,
+            },
+            slot,
+            generation,
+            worker,
+            owners,
+            request_id,
+        )?,
         imap::Command::Unsupported => session.push(format!("{} BAD\r\n", parsed.tag).as_bytes())?,
     }
-    Ok(())
-}
-
-/// Ставит чтение только после worker-подтверждённой аутентификации сессии.
-fn queue_authenticated_read<F>(
-    session: &mut Session,
-    tag: String,
-    pending: F,
-    slot: usize,
-    generation: u64,
-    worker: &mut WakingStorageWorker,
-    owners: &mut HashMap<u64, (usize, u64, Pending)>,
-    request_id: &mut u64,
-) -> io::Result<()>
-where
-    F: FnOnce(String, String) -> Pending,
-{
-    let Some(mailbox) = session.selected_mailbox.clone() else {
-        return session.push(format!("{tag} NO select mailbox first\r\n").as_bytes());
-    };
-    let id = *request_id;
-    *request_id = request_id.wrapping_add(1).max(1);
-    submit(
-        session,
-        Request::Read {
-            request_id: id,
-            mailbox: mailbox.clone(),
-        },
-        pending(tag, mailbox),
-        slot,
-        generation,
-        worker,
-        owners,
-    );
     Ok(())
 }
