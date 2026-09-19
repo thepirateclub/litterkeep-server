@@ -248,3 +248,12 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - PASS: `cargo test --locked` (25 passed), Clippy и format; в Linux Docker
   независимый `tests/blackbox/smtp_basic_commands.py` подтвердил HELO, NOOP,
   пустой MAIL, RSET и QUIT. SMTP-to-IMAP attachment regression также PASS.
+
+### 2026-09-19: reactor I/O boundary checkpoint
+
+- Выделен `reactor/session_io.rs`: он владеет только неблокирующими TCP read и
+  write шагами session. Poll-loop, protocol FSM и storage completion остались
+  отдельными владельцами. Это подготавливает точную границу для TLS transport.
+- PASS: `reactor.rs` содержит 229 строк, `session_io.rs` 48 строк; format,
+  `cargo test --locked` (25 passed) и Clippy прошли. При чтении больше нет
+  прямого индексирования массива для фактически принятой длины.

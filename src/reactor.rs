@@ -7,7 +7,7 @@ use crate::platform::linux_poll::{self, Interest};
 use crate::storage_worker::{Request, Response, WakingStorageWorker};
 use crate::{imap, smtp};
 use std::collections::HashMap;
-use std::io::{self, Read, Write};
+use std::io;
 use std::net::{TcpListener, TcpStream};
 use std::os::fd::AsFd;
 use std::path::Path;
@@ -15,8 +15,11 @@ use std::path::Path;
 mod completion;
 #[path = "reactor/protocol.rs"]
 mod protocol;
+#[path = "reactor/session_io.rs"]
+mod session_io;
 use completion::{complete, retry_submissions};
 use protocol::process_input;
+use session_io::{flush, read_session};
 
 const MAX_SESSIONS: usize = 256;
 const MAX_INPUT: usize = 1024 * 1024;
@@ -223,44 +226,4 @@ fn accept(
         }
     }
     Ok(())
-}
-
-fn flush(session: &mut Option<Session>) -> io::Result<bool> {
-    let Some(session) = session else {
-        return Ok(true);
-    };
-    match session.stream.write(&session.output) {
-        Ok(0) => Ok(true),
-        Ok(n) => {
-            session.output.drain(..n);
-            Ok(false)
-        }
-        Err(error) if error.kind() == io::ErrorKind::WouldBlock => Ok(false),
-        Err(_) => Ok(true),
-    }
-}
-
-fn read_session(
-    session: &mut Option<Session>,
-    slot: usize,
-    generation: u64,
-    worker: &mut WakingStorageWorker,
-    owners: &mut HashMap<u64, (usize, u64, Pending)>,
-    request_id: &mut u64,
-) -> io::Result<bool> {
-    let Some(session) = session else {
-        return Ok(true);
-    };
-    let mut bytes = [0_u8; READ_BUDGET];
-    match session.stream.read(&mut bytes) {
-        Ok(0) => return Ok(true),
-        Ok(count) => session.input.extend_from_slice(&bytes[..count]),
-        Err(error) if error.kind() == io::ErrorKind::WouldBlock => return Ok(false),
-        Err(_) => return Ok(true),
-    }
-    if session.input.len() > MAX_INPUT {
-        return Ok(true);
-    }
-    process_input(session, slot, generation, worker, owners, request_id)?;
-    Ok(false)
 }
