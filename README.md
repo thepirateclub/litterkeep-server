@@ -29,16 +29,6 @@ current host has only a Windows Rust target installed, so the command refuses
 to run here rather than selecting the old blocking listeners. Linux testing is
 still required before this command is treated as an acceptance result.
 
-## Current local SMTP smoke
-
-```powershell
-.\target\release\litterkeep-server.exe serve-smtp 127.0.0.1:2525 .\runtime
-```
-
-The listener accepts an SMTP transaction and writes locally addressed test mail
-to `runtime/blobs/` plus `runtime/mailboxes/bob.journal`. It is intentionally
-not an open relay and not a production deployment profile.
-
 The only runtime binary is `target/release/litterkeep-server`. Runtime data,
 TLS files and test artifacts will be placed under `runtime/` and are ignored.
 

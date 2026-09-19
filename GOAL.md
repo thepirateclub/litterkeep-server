@@ -56,6 +56,10 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   work per wake, and asks for writable events only while output is buffered.
   Session slots have generations. Storage request completions are routed by the
   pair, so completion after disconnect or slot reuse is ignored safely.
+- Removed the former `serve-smtp` and `serve-imap` blocking commands and their
+  independent `Store::open` calls. The binary now exposes one service command,
+  so a Windows invocation fails explicitly instead of accidentally bypassing
+  lifecycle ownership.
 - The reactor does not call `Store`: a single bounded `StorageWorker` owns it.
   Requests are retried only after a completion wake, not by sleeps or a busy
   loop. A full wake socket is harmless because the response channel is the

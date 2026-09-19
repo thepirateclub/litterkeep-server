@@ -12,7 +12,6 @@ pub mod queue;
 #[cfg(target_os = "linux")]
 pub mod reactor;
 pub mod runtime;
-pub mod server;
 pub mod sieve;
 pub mod smtp;
 pub mod storage_worker;

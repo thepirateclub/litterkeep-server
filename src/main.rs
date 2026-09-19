@@ -20,32 +20,6 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some("serve") => serve(),
-        Some("serve-smtp") => {
-            let address = env::args()
-                .nth(2)
-                .unwrap_or_else(|| "127.0.0.1:2525".into());
-            let data = env::args().nth(3).unwrap_or_else(|| "runtime".into());
-            match litterkeep_server::server::serve_smtp(&address, data) {
-                Ok(()) => ExitCode::SUCCESS,
-                Err(error) => {
-                    eprintln!("server error: {error}");
-                    ExitCode::FAILURE
-                }
-            }
-        }
-        Some("serve-imap") => {
-            let address = env::args()
-                .nth(2)
-                .unwrap_or_else(|| "127.0.0.1:2143".into());
-            let data = env::args().nth(3).unwrap_or_else(|| "runtime".into());
-            match litterkeep_server::server::serve_imap(&address, data) {
-                Ok(()) => ExitCode::SUCCESS,
-                Err(error) => {
-                    eprintln!("server error: {error}");
-                    ExitCode::FAILURE
-                }
-            }
-        }
         Some(command) => {
             eprintln!("unsupported command in this build: {command}\n");
             usage();
