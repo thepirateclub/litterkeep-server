@@ -172,6 +172,18 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   G08 остаётся RUNNING: storage должен быть подключён к worker/SMTP delivery,
   после чего нужен самостоятельный ManageSieve listener и внешний сценарий.
 
+### 2026-09-20: G08 transactional delivery-plan checkpoint
+
+- `AppendMany` storage worker теперь перед публикацией message links получает
+  active script каждого local recipient у того же Store owner. Sieve plan
+  вычисляется до первой записи journal: `fileinto "Invoices"` заменяет
+  implicit INBOX, обычное письмо остаётся в INBOX. Redirect пока возвращает
+  явную delivery error, не теряя внешний адрес молча до подключения G09 queue.
+- Unit-тест активировал invoice-rule, доставил invoice и контрольное письмо,
+  затем подтвердил по folder snapshots ровно одно сообщение в `Invoices` и
+  одно в `INBOX`. Это Store-level proof, сетевой ManageSieve/SMTP сценарий
+  ещё не заявляется выполненным.
+
 ### 2026-09-19: G00 PASS, G01 running
 
 - Added a single Cargo package with no production dependencies. This preserves
