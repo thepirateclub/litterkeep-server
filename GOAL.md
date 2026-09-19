@@ -978,3 +978,21 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   `imaplib` через STARTTLS.
 - G06 остаётся RUNNING: COPY/MOVE, modified UTF-7, полный LIST/SPECIAL-USE
   профиль, Recent и согласование sequence-map двух сессий ещё не завершены.
+
+### 2026-09-20: G06 modified UTF-7 checkpoint
+
+- Добавлен собственный `imap::modified_utf7` без внешней codec-зависимости.
+  Он строго декодирует wire-имя до Unicode на parser boundary, канонически
+  кодирует имена в LIST/LSUB/STATUS и отвергает некорректные shift/Base64/UTF-16
+  последовательности вместо подстановки повреждённого текста.
+- Новой логической папке соответствует уже существующий account-scoped Unicode
+  каталог. Поэтому wire-имя `&ZeVnLIqe-` не может стать filesystem path:
+  folder catalog всё ещё выдаёт только числовой internal key.
+- PASS: `cargo test --all-targets --locked` (95 tests), strict Clippy,
+  format, Linux `docker build -f docker/Dockerfile.linux-test --target test
+  -t litterkeep-server:linux-test .` и независимый `imaplib` STARTTLS
+  сценарий `tests/blackbox/imap_modified_utf7.py`. Он создал, SELECT-нул и
+  получил через LIST RFC-имя `&ZeVnLIqe-`, затем подтвердил его после restart
+  фиксированного контейнера c bind mount `./data/g06-expunge`.
+- G06 остаётся RUNNING: COPY/MOVE, полный LIST/SPECIAL-USE профиль, Recent и
+  согласование sequence-map двух сессий ещё не завершены.

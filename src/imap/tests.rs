@@ -145,6 +145,18 @@ fn create_and_list_are_typed() {
     );
 }
 
+/// Mailbox parser принимает RFC 3501 modified UTF-7 и хранит Unicode вне wire.
+#[test]
+fn mailbox_name_decodes_modified_utf7() {
+    assert_eq!(parse("a UTF7 &ZeVnLIqe-\r\n").command, Command::Unsupported);
+    assert_eq!(
+        parse("a CREATE &ZeVnLIqe-\r\n").command,
+        Command::Create {
+            mailbox: MailboxName::Named("日本語".into())
+        }
+    );
+}
+
 #[test]
 fn delete_and_recursive_rename_are_typed() {
     assert_eq!(

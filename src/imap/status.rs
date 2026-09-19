@@ -16,6 +16,9 @@ pub(super) fn parse(mut tokens: impl Iterator<Item = Token>) -> Command {
     let Some(name) = next_text(&mut tokens) else {
         return Command::Unsupported;
     };
+    let Some(mailbox) = mailbox(name) else {
+        return Command::Unsupported;
+    };
     if !matches!(tokens.next(), Some(Token::ListStart)) {
         return Command::Unsupported;
     }
@@ -32,7 +35,7 @@ pub(super) fn parse(mut tokens: impl Iterator<Item = Token>) -> Command {
     }
     match (attributes.is_empty(), tokens.next()) {
         (false, None) => Command::Status {
-            mailbox: mailbox(name),
+            mailbox,
             attributes,
         },
         _ => Command::Unsupported,

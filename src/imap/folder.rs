@@ -20,18 +20,18 @@ pub enum Mutation {
 
 pub fn parse_create(mut tokens: impl Iterator<Item = Token>) -> Command {
     match (next_text(&mut tokens), tokens.next()) {
-        (Some(name), None) => Command::Create {
-            mailbox: mailbox(name),
-        },
+        (Some(name), None) => mailbox(name)
+            .map(|mailbox| Command::Create { mailbox })
+            .unwrap_or(Command::Unsupported),
         _ => Command::Unsupported,
     }
 }
 
 pub fn parse_delete(mut tokens: impl Iterator<Item = Token>) -> Command {
     match (next_text(&mut tokens), tokens.next()) {
-        (Some(name), None) => Command::Delete {
-            mailbox: mailbox(name),
-        },
+        (Some(name), None) => mailbox(name)
+            .map(|mailbox| Command::Delete { mailbox })
+            .unwrap_or(Command::Unsupported),
         _ => Command::Unsupported,
     }
 }
@@ -42,9 +42,12 @@ pub fn parse_rename(mut tokens: impl Iterator<Item = Token>) -> Command {
         next_text(&mut tokens),
         tokens.next(),
     ) {
-        (Some(source), Some(destination), None) => Command::Rename {
-            source: mailbox(source),
-            destination: mailbox(destination),
+        (Some(source), Some(destination), None) => match (mailbox(source), mailbox(destination)) {
+            (Some(source), Some(destination)) => Command::Rename {
+                source,
+                destination,
+            },
+            _ => Command::Unsupported,
         },
         _ => Command::Unsupported,
     }
@@ -52,7 +55,7 @@ pub fn parse_rename(mut tokens: impl Iterator<Item = Token>) -> Command {
 
 pub fn parse_subscribe(mut tokens: impl Iterator<Item = Token>, subscribed: bool) -> Command {
     let parsed = match (next_text(&mut tokens), tokens.next()) {
-        (Some(name), None) => Some(mailbox(name)),
+        (Some(name), None) => mailbox(name),
         _ => None,
     };
     match (parsed, subscribed) {
@@ -75,7 +78,7 @@ fn parse_pattern(tokens: &mut impl Iterator<Item = Token>) -> Option<ListPattern
             Some(match pattern.as_str() {
                 "*" => ListPattern::All,
                 "%" => ListPattern::OneLevel,
-                _ => ListPattern::Exact(pattern),
+                _ => ListPattern::Exact(super::modified_utf7::decode(&pattern).ok()?),
             })
         }
         _ => None,
@@ -89,10 +92,11 @@ pub fn parse_lsub(mut tokens: impl Iterator<Item = Token>) -> Command {
     }
 }
 
-pub(super) fn mailbox(value: String) -> MailboxName {
-    match value.to_ascii_uppercase().as_str() {
-        "INBOX" => MailboxName::Inbox,
-        _ => MailboxName::Named(value),
+pub(super) fn mailbox(value: String) -> Option<MailboxName> {
+    let decoded = super::modified_utf7::decode(&value).ok()?;
+    match decoded.to_ascii_uppercase().as_str() {
+        "INBOX" => Some(MailboxName::Inbox),
+        _ => Some(MailboxName::Named(decoded)),
     }
 }
 

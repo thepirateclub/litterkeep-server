@@ -9,7 +9,7 @@ use crate::mail_flags::MessageFlags;
 /// Разбирает APPEND слева направо, не угадывая назначение уже разобранных полей.
 pub fn parse(tokens: impl Iterator<Item = Token>) -> Command {
     let mut tokens = tokens.peekable();
-    let Some(mailbox) = next_text(&mut tokens).map(mailbox) else {
+    let Some(mailbox) = next_text(&mut tokens).and_then(mailbox) else {
         return Command::Unsupported;
     };
     let flags = match tokens.peek() {
@@ -62,11 +62,8 @@ fn parse_flags(
     }
 }
 
-fn mailbox(value: String) -> MailboxName {
-    match value.to_ascii_uppercase().as_str() {
-        "INBOX" => MailboxName::Inbox,
-        _ => MailboxName::Named(value),
-    }
+fn mailbox(value: String) -> Option<MailboxName> {
+    super::folder::mailbox(value)
 }
 
 fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {

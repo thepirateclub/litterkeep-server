@@ -5,6 +5,7 @@ pub mod fetch;
 pub mod flags;
 pub mod folder;
 pub mod idle;
+pub mod modified_utf7;
 pub mod search;
 pub mod sequence_set;
 pub mod status;
@@ -191,10 +192,7 @@ fn parse_uid_expunge(mut tokens: impl Iterator<Item = Token>) -> Command {
 }
 
 fn parse_select(tokens: &mut impl Iterator<Item = Token>, read_only: bool) -> Command {
-    let Some(mailbox) = next_text(tokens).map(|value| match value.to_ascii_uppercase().as_str() {
-        "INBOX" => MailboxName::Inbox,
-        _ => MailboxName::Named(value),
-    }) else {
+    let Some(mailbox) = next_text(tokens).and_then(folder::mailbox) else {
         return Command::Unsupported;
     };
     match read_only {

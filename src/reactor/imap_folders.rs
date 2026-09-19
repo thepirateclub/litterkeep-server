@@ -250,6 +250,7 @@ pub(super) fn special_use(value: Option<crate::store::SpecialUse>) -> &'static s
 }
 
 pub(super) fn quote(value: &str) -> String {
-    let escaped = value.replace('\\', "\\\\").replace('"', "\\\"");
+    let encoded = crate::imap::modified_utf7::encode(value);
+    let escaped = encoded.replace('\\', "\\\\").replace('"', "\\\"");
     format!("\"{escaped}\"")
 }
