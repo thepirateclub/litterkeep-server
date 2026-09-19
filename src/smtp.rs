@@ -33,14 +33,22 @@ fn address(arg: &str, prefix: &str) -> Result<String, &'static str> {
         return Err("missing envelope prefix");
     }
     let value = rest.trim();
-    if let Some(end) = value.find('>')
-        && value.starts_with('<')
-        && end > 1
-        && (end + 1 == value.len() || value.as_bytes()[end + 1].is_ascii_whitespace())
-    {
-        Ok(value[1..end].into())
-    } else {
-        Err("invalid path")
+    let Some(path) = value.strip_prefix('<') else {
+        return Err("invalid path");
+    };
+    let Some((mailbox, suffix)) = path.split_once('>') else {
+        return Err("invalid path");
+    };
+    if mailbox.is_empty() {
+        return Err("invalid path");
+    }
+    let has_parameter_separator = suffix.chars().next().is_some_and(char::is_whitespace);
+    match suffix.is_empty() {
+        true => Ok(mailbox.into()),
+        false => match has_parameter_separator {
+            true => Ok(mailbox.into()),
+            false => Err("invalid path"),
+        },
     }
 }
 #[derive(Default, Debug)]
