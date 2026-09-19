@@ -19,8 +19,8 @@ independently of folder existence, LSUB exposes missing subscriptions as
 STORE keeps `\Deleted` separate from durable EXPUNGE tombstones; an EXPUNGE
 rebuilds sequence numbers without reusing UIDs and is denied after EXAMINE.
 This is not yet a complete mail server: POP3/STLS has a verified SMTP-to-INBOX
-read/delete checkpoint, but maildrop leases, implicit TLS and failure coverage
-remain unfinished. Sieve, durable
+read/delete checkpoint with maildrop leases and implicit TLS. Broader external
+interoperability and failure coverage remain unfinished. Sieve, durable
 outbound transport integration and the remaining acceptance matrix are
 unfinished.
 
