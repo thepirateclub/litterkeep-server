@@ -552,3 +552,17 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   публикации оборванной DATA уже проверены предыдущими checkpoint. Расширенная
   матрица потери финального ответа и storage failpoints остаётся в G10 и не
   объявлена выполненной. Текущий последовательный этап теперь G05.
+
+### 2026-09-19: G05 MIME byte-boundary checkpoint
+
+- Вместо прежнего UTF-8-only map добавлен отдельный байтовый header parser.
+  Он сохраняет порядок и повторы полей, точные raw ranges и body offset,
+  выполняет unfolding continuation lines и отвергает bare LF. Бинарное значение
+  одного поля больше не делает недоступным весь RFC822 source.
+- Добавлен отдельный однопроходный quoted-printable decoder: hex octets, CRLF
+  soft breaks, строгий отказ bare CR/LF, усечённых и неверных escape. Алгоритм
+  работает за O(n) и выделяет не больше начального размера encoded input.
+- PASS Windows: 44/44, format, Clippy; лимит 300 строк и запрет `mod.rs`
+  соблюдены. G05 остаётся RUNNING: multipart line delimiters, MIME parameters,
+  encoded-word, charset profiles и IMAP BODYSTRUCTURE ещё не готовы и не
+  объявляются проверенными.

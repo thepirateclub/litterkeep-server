@@ -1,22 +1,23 @@
 //! Минимальные MIME-примитивы для protocol и независимых проверок.
 use std::collections::BTreeMap;
 
+#[path = "mime/headers.rs"]
+pub mod header_block;
+#[path = "mime/quoted_printable.rs"]
+pub mod quoted_printable;
+
 pub fn headers(raw: &[u8]) -> Result<(BTreeMap<String, String>, &[u8]), &'static str> {
-    let split = raw
-        .windows(4)
-        .position(|w| w == b"\r\n\r\n")
-        .ok_or("missing header separator")?;
-    let header = raw.get(..split).ok_or("invalid header boundary")?;
-    let text = std::str::from_utf8(header).map_err(|_| "headers are not utf-8")?;
+    let parsed = header_block::parse(raw)?;
     let mut out = BTreeMap::new();
-    for line in text.split("\r\n") {
-        let (name, value) = line.split_once(':').ok_or("malformed header")?;
-        if name.is_empty() {
-            return Err("empty header name");
-        }
-        out.insert(name.to_ascii_lowercase(), value.trim().to_owned());
+    for field in parsed.fields {
+        let value = String::from_utf8(field.value).map_err(|_| "header value is not utf-8")?;
+        out.insert(field.name, value);
     }
-    Ok((out, raw.get(split + 4..).ok_or("invalid body boundary")?))
+    Ok((
+        out,
+        raw.get(parsed.body_offset..)
+            .ok_or("invalid body boundary")?,
+    ))
 }
 
 pub fn decode_base64(input: &[u8]) -> Result<Vec<u8>, &'static str> {
