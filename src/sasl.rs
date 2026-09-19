@@ -44,4 +44,10 @@ mod tests {
         assert_eq!(parsed.password, b"test");
         assert!(parse_plain("YWxpY2UAYm9iAHRlc3Q").is_err());
     }
+
+    #[test]
+    fn rejects_missing_plain_fields() {
+        assert!(parse_plain("AGJvYg").is_err());
+        assert!(parse_plain("AGJvYgA").is_err());
+    }
 }
