@@ -1,9 +1,11 @@
 //! Декодирование IMAP-команд: текст сети преобразуется в типизированные варианты.
 
 pub mod flags;
+pub mod idle;
 pub mod sequence_set;
 pub mod tokenizer;
 
+pub use idle::{IdleContinuation, parse_idle_continuation};
 use sequence_set::SequenceSet;
 use tokenizer::Token;
 
@@ -28,6 +30,8 @@ pub enum Command {
         literal_size: usize,
     },
     Logout,
+    Noop,
+    Idle,
     Select {
         mailbox: MailboxName,
     },
@@ -102,6 +106,8 @@ enum Verb {
     Login,
     Append,
     Logout,
+    Noop,
+    Idle,
     Select,
     Examine,
     Fetch,
@@ -126,6 +132,8 @@ pub fn parse(line: &str) -> TaggedCommand {
         },
         Some(Verb::Append) => parse_append(&mut tokens),
         Some(Verb::Logout) => Command::Logout,
+        Some(Verb::Noop) => Command::Noop,
+        Some(Verb::Idle) => Command::Idle,
         Some(Verb::Select) => parse_select(&mut tokens, false),
         Some(Verb::Examine) => parse_select(&mut tokens, true),
         Some(Verb::Fetch) => parse_fetch(&mut tokens, Addressing::Sequence),
@@ -276,6 +284,8 @@ fn parse_verb(text: &str) -> Verb {
         "LOGIN" => Verb::Login,
         "APPEND" => Verb::Append,
         "LOGOUT" => Verb::Logout,
+        "NOOP" => Verb::Noop,
+        "IDLE" => Verb::Idle,
         "SELECT" => Verb::Select,
         "EXAMINE" => Verb::Examine,
         "FETCH" => Verb::Fetch,

@@ -33,6 +33,9 @@ pub(super) struct Session {
     pub(super) authenticated_account: Option<String>,
     /// Store key выбранного mailbox; `None` означает authenticated state.
     pub(super) selected_mailbox: Option<String>,
+    pub(super) selected_exists: usize,
+    /// Активный IDLE сохраняет session lease и не создаёт worker/thread.
+    pub(super) imap_idle: Option<IdleState>,
     /// Ограниченный literal остаётся собственностью этой IMAP-сессии.
     pub(super) imap_literal: Option<LiteralReceiver>,
     pub(super) smtp: SmtpState,
@@ -68,6 +71,8 @@ impl Session {
             pending: None,
             authenticated_account: None,
             selected_mailbox: None,
+            selected_exists: 0,
+            imap_idle: None,
             imap_literal: None,
             smtp: SmtpState::Command(smtp::Transaction::default()),
         };
@@ -162,6 +167,8 @@ impl Session {
         self.smtp = SmtpState::Command(smtp::Transaction::default());
         self.authenticated_account = None;
         self.selected_mailbox = None;
+        self.selected_exists = 0;
+        self.imap_idle = None;
         self.imap_literal = None;
     }
 

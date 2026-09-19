@@ -229,6 +229,9 @@ fn data_line(
             let bytes =
                 crate::smtp_trace::prepend(&bytes, &reverse_path, std::time::SystemTime::now())?;
             let id = next_request(request_id);
+            let pending = Pending::Append {
+                mailboxes: mailboxes.clone(),
+            };
             super::protocol::submit(
                 session,
                 Request::AppendMany {
@@ -236,7 +239,7 @@ fn data_line(
                     mailboxes,
                     bytes,
                 },
-                Pending::Append,
+                pending,
                 slot,
                 generation,
                 worker,

@@ -19,6 +19,8 @@ mod completion;
 mod deadline;
 #[path = "reactor/flag_completion.rs"]
 mod flag_completion;
+#[path = "reactor/imap_idle.rs"]
+mod imap_idle;
 #[path = "reactor/imap_literal.rs"]
 mod imap_literal;
 #[path = "reactor/imap_select.rs"]
@@ -36,6 +38,7 @@ mod session_io;
 #[path = "reactor/smtp_protocol.rs"]
 mod smtp_protocol;
 use completion::{complete, retry_submissions};
+use imap_idle::IdleState;
 use imap_literal::LiteralReceiver;
 use pending::Pending;
 use protocol::process_input;

@@ -119,3 +119,17 @@ fn store_flags_are_typed() {
     assert!(flags.contains(crate::mail_flags::SystemFlag::Seen));
     assert!(flags.contains(crate::mail_flags::SystemFlag::Flagged));
 }
+
+/// DONE разбирается как continuation, а не как tagged команда.
+#[test]
+fn idle_done_is_typed() {
+    assert!(matches!(
+        parse_idle_continuation("done\r\n"),
+        IdleContinuation::Done
+    ));
+}
+
+#[test]
+fn noop_is_typed() {
+    assert_eq!(parse("A8 NOOP\r\n").command, Command::Noop);
+}

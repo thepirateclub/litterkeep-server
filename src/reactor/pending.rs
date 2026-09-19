@@ -15,9 +15,12 @@ pub(super) enum Pending {
     ValidateRecipient {
         address: String,
     },
-    Append,
+    Append {
+        mailboxes: Vec<String>,
+    },
     ImapAppend {
         tag: String,
+        mailbox: String,
     },
     ReadForSelect {
         tag: String,

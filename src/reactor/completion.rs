@@ -1,5 +1,4 @@
 //! Обработка ответов worker-а и повторная постановка ограниченных запросов.
-//!
 //! Этот слой сопоставляет completion с `(slot, generation)`. Поэтому поздний
 //! ответ закрытой сессии не может стать ответом новому клиенту в том же slot.
 use super::*;
@@ -16,6 +15,7 @@ pub(super) fn complete(
         let Some((slot, generation, pending)) = owners.remove(&id) else {
             continue;
         };
+        super::imap_idle::notify_completion(sessions, &pending, &response)?;
         let Some(lease) = sessions.get_mut(slot).and_then(Option::as_mut) else {
             continue;
         };
@@ -91,19 +91,19 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
                 accepted: false, ..
             },
         ) => session.push(b"550 unknown local recipient\r\n"),
-        (Pending::Append, Response::Appended { result: Ok(_), .. }) => {
+        (Pending::Append { .. }, Response::Appended { result: Ok(_), .. }) => {
             session.push(b"250 queued\r\n")
         }
-        (Pending::Append, Response::Appended { result: Err(_), .. }) => {
+        (Pending::Append { .. }, Response::Appended { result: Err(_), .. }) => {
             session.push(b"451 storage failure\r\n")
         }
         (
-            Pending::ImapAppend { tag },
+            Pending::ImapAppend { tag, .. },
             Response::Appended {
                 result: Ok(uid), ..
             },
         ) => session.push(format!("{tag} OK [APPENDUID 1 {uid}] APPEND completed\r\n").as_bytes()),
-        (Pending::ImapAppend { tag }, Response::Appended { result: Err(_), .. }) => {
+        (Pending::ImapAppend { tag, .. }, Response::Appended { result: Err(_), .. }) => {
             session.push(format!("{tag} NO APPEND failed\r\n").as_bytes())
         }
         (
@@ -118,6 +118,7 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
             },
         ) => {
             session.selected_mailbox = Some(mailbox);
+            session.selected_exists = snapshot.messages.len();
             let access = match read_only {
                 true => "READ-ONLY",
                 false => "READ-WRITE",
@@ -280,7 +281,6 @@ fn write_fetch_item(
         }
     }
 }
-
 /// Повторно предлагает worker-у запросы, которые ранее не поместились в канал.
 pub(super) fn retry_submissions(
     worker: &mut WakingStorageWorker,

@@ -26,6 +26,13 @@ pub(super) fn process_input(
                 None => break,
             }
         }
+        if session.imap_idle.is_some() {
+            let Some(line) = take_line(&mut session.input) else {
+                break;
+            };
+            imap_idle::continuation(session, &line)?;
+            continue;
+        }
         let Some(line) = take_line(&mut session.input) else {
             break;
         };
@@ -83,15 +90,18 @@ fn imap_line(
     match parsed.command {
         imap::Command::Capability => {
             match (session.tls.is_some(), session.can_starttls()) {
-                (true, _) => session.push(b"* CAPABILITY IMAP4rev1 AUTH=PLAIN\r\n")?,
+                (true, _) => session.push(b"* CAPABILITY IMAP4rev1 IDLE AUTH=PLAIN\r\n")?,
                 (false, true) => {
-                    session.push(b"* CAPABILITY IMAP4rev1 STARTTLS LOGINDISABLED\r\n")?
+                    session.push(b"* CAPABILITY IMAP4rev1 IDLE STARTTLS LOGINDISABLED\r\n")?
                 }
-                (false, false) => session.push(b"* CAPABILITY IMAP4rev1 AUTH=PLAIN\r\n")?,
+                (false, false) => session.push(b"* CAPABILITY IMAP4rev1 IDLE AUTH=PLAIN\r\n")?,
             }
             session.push(format!("{} OK CAPABILITY completed\r\n", parsed.tag).as_bytes())?;
         }
         imap::Command::StartTls => imap_starttls(session, &parsed.tag)?,
+        imap::Command::Noop => {
+            session.push(format!("{} OK NOOP completed\r\n", parsed.tag).as_bytes())?
+        }
         imap::Command::Login { username, password } => {
             if session.can_starttls() {
                 return session.push(
@@ -125,6 +135,7 @@ fn imap_line(
             session.push(b"* BYE\r\n")?;
             session.push(format!("{} OK LOGOUT completed\r\n", parsed.tag).as_bytes())?;
         }
+        imap::Command::Idle => imap_idle::begin(session, parsed.tag)?,
         imap::Command::Select { mailbox } => imap_select::queue(
             session, parsed.tag, mailbox, false, slot, generation, worker, owners, request_id,
         )?,
@@ -219,10 +230,13 @@ fn consume_imap_literal(
             Ok(Some((
                 Request::Append {
                     request_id: id,
-                    mailbox: completed.mailbox,
+                    mailbox: completed.mailbox.clone(),
                     bytes: completed.bytes,
                 },
-                Pending::ImapAppend { tag: completed.tag },
+                Pending::ImapAppend {
+                    tag: completed.tag,
+                    mailbox: completed.mailbox,
+                },
             )))
         }
     }

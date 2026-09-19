@@ -746,3 +746,23 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   `\\Seen` у первого и `\\Draft` у второго сообщения сохранились.
 - G06 остаётся RUNNING: APPEND flags/date, folders, COPY/MOVE/EXPUNGE и IDLE
   ещё не реализованы.
+
+### 2026-09-19: G06 event-driven IDLE checkpoint
+
+- `IDLE` и его единственная continuation `DONE` представлены enum-типами на
+  границе parser-а. Selected session сохраняет lease реального соединения и
+  остаётся зарегистрированной в Linux `poll`; отдельный поток или busy loop на
+  ожидающую сессию не создаётся.
+- `EXISTS` публикуется всем подходящим IDLE-сессиям только после успешного
+  durable `Append`/`AppendMany` completion worker-а. Список затронутых mailbox
+  хранится в типизированном pending-контексте, сортируется и дедуплицируется,
+  поэтому одна фиксация не увеличивает счётчик одной сессии дважды.
+- `DONE` завершает исходный tag ответом `OK IDLE completed`. Типизированный
+  IMAP `NOOP` после этого подтверждает возврат к обычной грамматике команд.
+- PASS 75 Windows tests, format и Clippy; PASS Docker Linux 78/78.
+- Независимый Python 3.14 `imaplib` двумя STARTTLS-соединениями подтвердил
+  `CAPABILITY IDLE`, пустой SELECT, durable APPEND из второй сессии, `* 1
+  EXISTS` в первой, успешные DONE и следующий NOOP.
+- G06 остаётся RUNNING: APPEND flags/date, folders, COPY/MOVE/EXPUNGE, очередь
+  событий с определённым поведением при отставании и профиль 32 одновременных
+  IDLE-сессий ещё не реализованы или не проверены.
