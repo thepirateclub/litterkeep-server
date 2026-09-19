@@ -1082,3 +1082,11 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   `tests/blackbox/imap_list_return_special_use.py` получил `OK` и `\Sent`.
 - G06 остаётся RUNNING: CREATE-SPECIAL-USE, Recent и остальные change classes
   multi-session синхронизации ещё не завершены.
+
+### 2026-09-20: G06 CREATE-SPECIAL-USE checkpoint
+
+- CREATE `(USE (\\Archive))` проходит typed parser, bounded worker и durable
+  folder journal; LIST возвращает сохранённый special-use attribute.
+- PASS: 104 Windows tests, strict Clippy, STARTTLS Linux create/list и replay
+  `Archive2` после restart с bind mount `./data/g06-expunge`.
+- G06 остаётся RUNNING: Recent и полная multi-session синхронизация.
