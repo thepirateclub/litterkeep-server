@@ -270,3 +270,17 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   mailbox и отказ `alice@outside.test`. Первый запуск теста намеренно не был
   засчитан: старый volume содержал письмо Alice и строгая проверка `== 1`
   упала. После удаления только созданного тестового volume сценарий PASS.
+
+### 2026-09-19: граница локальной delivery-policy
+
+- `reactor/protocol.rs` снова укладывается в лимит 300 строк: обработка SMTP и
+  IMAP команд осталась в нём, а единственная ответственность
+  `reactor/local_delivery.rs` теперь состоит в преобразовании SMTP path в
+  локальный mailbox по ограниченной policy. `reactor.rs` перестал назначать
+  session через прямое индексирование `Vec` и получает переиспользуемый слот
+  через `get_mut`.
+- PASS: `cargo fmt --check`; `cargo test --locked` (26 passed); `cargo clippy
+  --locked --all-targets -- -D warnings`; `git diff --check`.
+- Это локальное соблюдение правил исходников, а не подтверждение нового
+  протокольного рубежа. G03 и G04 сохраняют статус NOT RUN, так как TLS ещё не
+  присоединён к reactor.

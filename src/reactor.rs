@@ -13,6 +13,8 @@ use std::os::fd::AsFd;
 use std::path::Path;
 #[path = "reactor/completion.rs"]
 mod completion;
+#[path = "reactor/local_delivery.rs"]
+mod local_delivery;
 #[path = "reactor/protocol.rs"]
 mod protocol;
 #[path = "reactor/session_io.rs"]
@@ -227,7 +229,10 @@ fn accept(
                 let session = Session::new(kind, stream, *next)?;
                 *next = next.wrapping_add(1).max(1);
                 if let Some(slot) = sessions.iter().position(Option::is_none) {
-                    sessions[slot] = Some(session);
+                    let Some(entry) = sessions.get_mut(slot) else {
+                        return Err(io::Error::other("missing reusable session slot"));
+                    };
+                    *entry = Some(session);
                 } else {
                     sessions.push(Some(session));
                 }

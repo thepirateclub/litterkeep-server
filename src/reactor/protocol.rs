@@ -1,3 +1,4 @@
+use super::local_delivery::{local_mailbox, local_mailboxes};
 use super::*;
 
 fn take_line(input: &mut Vec<u8>) -> Option<Vec<u8>> {
@@ -163,46 +164,6 @@ fn smtp_line(
         Err(_) => session.push(b"503 bad sequence\r\n")?,
     }
     Ok(())
-}
-
-/// Преобразует SMTP path в имя локального mailbox без доменной эвристики.
-///
-/// Domain part остаётся частью маршрутизации будущей очереди. На текущем
-/// локальном маршруте владелец ящика определяется только local part, а worker
-/// проверяет существование каждого account перед публикацией.
-fn local_mailboxes(recipients: Vec<String>) -> Vec<String> {
-    recipients
-        .into_iter()
-        .filter_map(|recipient| local_mailbox(&recipient))
-        .collect()
-}
-
-/// Отделяет local-part path от домена на границе local delivery policy.
-fn local_mailbox(address: &str) -> Option<String> {
-    let (mailbox, domain) = address.split_once('@')?;
-    match LocalRoute::parse(domain) {
-        LocalRoute::Accepted => Some(mailbox.to_owned()),
-        LocalRoute::Rejected => None,
-    }
-}
-
-/// Policy-результат разбора domain на boundary SMTP envelope.
-///
-/// Строки остаются только входным форматом. Дальше reactor работает с enum и
-/// не может случайно трактовать внешний адрес как локальный mailbox.
-enum LocalRoute {
-    Accepted,
-    Rejected,
-}
-
-impl LocalRoute {
-    /// Локальные test domains первого профиля без DNS и MX discovery.
-    fn parse(domain: &str) -> Self {
-        match domain {
-            "test" | "litterkeep.test" => Self::Accepted,
-            _ => Self::Rejected,
-        }
-    }
 }
 
 fn imap_line(
