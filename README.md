@@ -3,9 +3,10 @@
 Self-hosted Rust mail server for the local `litterkeep` integration profile.
 It owns its protocol parsers, filesystem store and task/resource lifecycle.
 
-Current checkpoint: G00 bootstrap plus a G01 Linux reactor implementation.
-This is not yet a complete SMTP/IMAP server. TLS and account authentication are
-not implemented, and the Linux runtime acceptance suite remains unrun.
+Current checkpoint: the first Linux SMTP to IMAP path, including worker-owned
+Argon2id account verification and durable local storage. This is not yet a
+complete mail server: TLS, SMTP authentication, account isolation, full IMAP,
+POP3, Sieve and outbound SMTP remain unfinished.
 
 ## Developer commands
 
@@ -21,13 +22,16 @@ cargo tree --locked -e normal
 ## Linux G01 reactor command
 
 ```sh
+cargo run --locked -- init ./runtime
 cargo run --locked -- serve 127.0.0.1:2525 127.0.0.1:2143 ./runtime
 ```
 
 This is one process with both listeners and one filesystem-store owner. The
-current host runs Windows, so the command refuses to run here rather than
-selecting the old blocking listeners. Linux testing is still required before
-this command is treated as an acceptance result.
+`init` creates the local test account `bob` with password `test-password`.
+It is a development fixture, not a production account-provisioning mechanism.
+The current host runs Windows, so `serve` refuses to run here rather than
+selecting old blocking listeners. The Linux Docker acceptance result is
+documented below.
 
 The repository includes `tests/blackbox/smtp_imap_attachment.py`, which uses
 only Python's standard SMTP, IMAP and MIME clients. It was run successfully

@@ -18,13 +18,18 @@ Blob сначала пишется во временный файл и синх�
 публикуется, после чего синхронизируется checksummed journal frame. Неполный
 tail журнала отбрасывается при recovery. Полная повреждённая запись и
 отсутствующий referenced blob являются ошибками. Orphan blob не доставляется.
+В Linux единственный владелец дополнительно удерживает advisory `flock(2)` на
+`writer.lock`: сам файл переживает перезапуск, а блокировка ядра освобождается
+при завершении процесса. В Windows пока действует переносимый sentinel-файл,
+без подтверждённой crash-safe гарантии.
 
 ## Протоколы и идентичность
 
 Wire-команды декодируются в Enum на границе parser-а. IMAP пока реализует
 минимальный plaintext путь для CAPABILITY, LOGIN, SELECT/EXAMINE и FETCH.
-`Accounts` хранит Argon2id PHC records; подключение account verification к
-worker и session state остаётся незавершённым. TLS также ещё не подключён.
+`Accounts` хранит Argon2id PHC records; worker проверяет их, а reactor меняет
+состояние сессии только после соответствующего completion. TLS ещё не
+подключён.
 
 ## Ограничения
 

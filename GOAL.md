@@ -13,8 +13,8 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 |---|---|---|---|
 | G00 | none | build, help, lock, dependency report, saved goal | PASS |
 | G01 | G00 | lifecycle/lease/wake tests and Linux poll integration | RUNNING |
-| G02 | G01 | durable store, journal, blob, recovery | NOT RUN |
-| G03 | G02 | TLS, AUTH, bounded admission | NOT RUN |
+| G02 | G01 | durable store, journal, blob, recovery | RUNNING |
+| G03 | G02 | TLS, AUTH, bounded admission | RUNNING |
 | G04 | G03 | durable SMTP submission and local delivery | NOT RUN |
 | G05 | G04 | MIME + IMAP, independently checked attachment | NOT RUN |
 | G06 | G05 | IMAP folders, flags, UID, IDLE | NOT RUN |
@@ -132,6 +132,21 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - PASS: `imaplib` LOGIN for Bob succeeded during the SMTP-to-IMAP attachment
   SHA-256 test. A second independent `imaplib` call with password `wrong`
   received `NO authentication failed`.
-- Recovery limitation: a force-stopped test container leaves `writer.lock`.
-  The fixture lock was removed manually from the named test volume only. This
-  is not treated as crash recovery evidence and keeps G02/G03 RUNNING.
+- This checkpoint does not prove TLS, SMTP AUTH, account isolation or bounded
+  admission, so G03 remains RUNNING.
+
+### 2026-09-19: Linux writer-lock crash recovery PASS
+
+- Linux storage now keeps a real advisory exclusive `flock(2)` on
+  `writer.lock` for the lifetime of the sole `Store` owner. The file itself is
+  deliberately retained: the kernel releases the lock when the process exits,
+  including an ungraceful termination, while a second live writer is refused.
+- PASS in Docker on the named `litterkeep-lock-test` volume: a running server
+  was terminated with `docker kill`; `writer.lock` was confirmed to remain;
+  another server using the same volume became healthy. The independent Python
+  SMTP to IMAP attachment test then passed with SHA-256
+  `3434bddb77229b18aab16f5a2894661d44505548389f84c11bce6d6b50efa4a4`.
+- Windows retains the portable create-new sentinel fallback. It has not been
+  validated as crash-safe and is not claimed to have the Linux guarantee.
+- G02 remains RUNNING: durable directory metadata syncing, cross-platform
+  exclusive locking, quota and queue recovery acceptance are still missing.

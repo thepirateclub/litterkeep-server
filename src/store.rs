@@ -24,10 +24,7 @@ impl Store {
         let root = root.as_ref().to_path_buf();
         fs::create_dir_all(root.join("blobs"))?;
         fs::create_dir_all(root.join("mailboxes"))?;
-        let lock = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(root.join("writer.lock"))?;
+        let lock = open_writer_lock(&root.join("writer.lock"))?;
         let store = Self {
             root,
             _writer_lock: lock,
@@ -68,8 +65,19 @@ impl Store {
             .join(format!("{mailbox}.journal"))
     }
 }
+#[cfg(target_os = "linux")]
+fn open_writer_lock(path: &Path) -> io::Result<File> {
+    let file = OpenOptions::new().write(true).create(true).open(path)?;
+    crate::platform::linux_lock::acquire(&file)?;
+    Ok(file)
+}
+#[cfg(not(target_os = "linux"))]
 impl Drop for Store {
     fn drop(&mut self) {
         let _ = fs::remove_file(self.root.join("writer.lock"));
     }
+}
+#[cfg(not(target_os = "linux"))]
+fn open_writer_lock(path: &Path) -> io::Result<File> {
+    OpenOptions::new().write(true).create_new(true).open(path)
 }

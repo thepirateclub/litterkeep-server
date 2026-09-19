@@ -25,7 +25,7 @@ pub(super) fn process_input(
     Ok(())
 }
 
-fn submit(
+pub(super) fn submit(
     session: &mut Session,
     request: Request,
     pending: Pending,
@@ -210,100 +210,4 @@ fn queue_read(
         worker,
         owners,
     );
-}
-
-pub(super) fn complete(
-    worker: &mut WakingStorageWorker,
-    sessions: &mut [Option<Session>],
-    owners: &mut HashMap<u64, (usize, u64, Pending)>,
-    next_request: &mut u64,
-) -> io::Result<()> {
-    while let Ok(response) = worker.worker.try_response() {
-        let id = match &response {
-            Response::Authenticated { request_id, .. }
-            | Response::Appended { request_id, .. }
-            | Response::Read { request_id, .. } => *request_id,
-        };
-        let Some((slot, generation, pending)) = owners.remove(&id) else {
-            continue;
-        };
-        let Some(session) = sessions.get_mut(slot).and_then(Option::as_mut) else {
-            continue;
-        };
-        if session.generation != generation {
-            continue;
-        }
-        session.pending = None;
-        match (pending, response) {
-            (
-                Pending::Authenticate { tag, account },
-                Response::Authenticated { accepted: true, .. },
-            ) => {
-                session.authenticated_account = Some(account);
-                session.push(format!("{tag} OK LOGIN completed\r\n").as_bytes())?
-            }
-            (
-                Pending::Authenticate { tag, .. },
-                Response::Authenticated {
-                    accepted: false, ..
-                },
-            ) => session.push(format!("{tag} NO authentication failed\r\n").as_bytes())?,
-            (Pending::Append, Response::Appended { result: Ok(_), .. }) => {
-                session.push(b"250 queued\r\n")?
-            }
-            (Pending::Append, Response::Appended { result: Err(_), .. }) => {
-                session.push(b"451 storage failure\r\n")?
-            }
-            (
-                Pending::ReadForSelect(tag),
-                Response::Read {
-                    result: Ok(messages),
-                    ..
-                },
-            ) => session.push(
-                format!(
-                    "* {} EXISTS\r\n* OK [READ-ONLY]\r\n{tag} OK SELECT completed\r\n",
-                    messages.len(),
-                )
-                .as_bytes(),
-            )?,
-            (
-                Pending::ReadForFetch(n, tag),
-                Response::Read {
-                    result: Ok(messages),
-                    ..
-                },
-            ) => {
-                if let Some(message) = messages.get(n.saturating_sub(1)) {
-                    session.push(
-                        format!("* {n} FETCH (RFC822 {{{}}}\r\n", message.bytes.len()).as_bytes(),
-                    )?;
-                    session.push(&message.bytes)?;
-                    session.push(format!("\r\n)\r\n{tag} OK FETCH completed\r\n").as_bytes())?;
-                } else {
-                    session.push(format!("{tag} NO no such message\r\n").as_bytes())?
-                }
-            }
-            (_, Response::Read { .. }) => session.push(b"451 storage failure\r\n")?,
-            _ => {}
-        }
-        process_input(session, slot, generation, worker, owners, next_request)?;
-    }
-    Ok(())
-}
-
-pub(super) fn retry_submissions(
-    worker: &mut WakingStorageWorker,
-    sessions: &mut [Option<Session>],
-    owners: &mut HashMap<u64, (usize, u64, Pending)>,
-) -> io::Result<()> {
-    for (slot, session) in sessions.iter_mut().enumerate() {
-        let Some(session) = session else { continue };
-        let Some((request, pending)) = session.pending_submit.take() else {
-            continue;
-        };
-        let generation = session.generation;
-        submit(session, request, pending, slot, generation, worker, owners);
-    }
-    Ok(())
 }

@@ -5,14 +5,16 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 static RUN: AtomicU64 = AtomicU64::new(0);
 fn dir() -> std::path::PathBuf {
-    std::env::temp_dir().join(format!(
+    let path = std::env::temp_dir().join(format!(
         "litterkeep-store-{}-{}",
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos(),
         RUN.fetch_add(1, Ordering::Relaxed)
-    ))
+    ));
+    let _ = fs::remove_dir_all(&path);
+    path
 }
 #[test]
 fn restart_and_second_writer() {

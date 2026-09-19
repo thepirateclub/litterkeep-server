@@ -11,9 +11,12 @@ use std::io::{self, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::os::fd::AsFd;
 use std::path::Path;
+#[path = "reactor/completion.rs"]
+mod completion;
 #[path = "reactor/protocol.rs"]
 mod protocol;
-use protocol::{complete, process_input, retry_submissions};
+use completion::{complete, retry_submissions};
+use protocol::process_input;
 
 const MAX_SESSIONS: usize = 256;
 const MAX_INPUT: usize = 1024 * 1024;
