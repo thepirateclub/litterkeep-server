@@ -1,6 +1,7 @@
 """Проверяет стандартный SMTP STARTTLS и точность локальной доставки вложения."""
 
 import argparse
+import contextlib
 import email.policy
 import hashlib
 import imaplib
@@ -18,8 +19,23 @@ def arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def reject_unknown_imap_ca(port: int) -> None:
+    """Доказывает, что STARTTLS-клиент не принимает неизвестную цепочку."""
+    client = imaplib.IMAP4("127.0.0.1", port)
+    try:
+        client.starttls(ssl_context=ssl.create_default_context())
+    except ssl.SSLCertVerificationError:
+        pass
+    else:
+        raise AssertionError("IMAP STARTTLS accepted an unknown CA")
+    finally:
+        with contextlib.suppress(OSError):
+            client.shutdown()
+
+
 def main() -> None:
     options = arguments()
+    reject_unknown_imap_ca(options.imap_port)
     attachment = bytes(range(256)) * 3
     message = EmailMessage()
     message["From"] = "alice@litterkeep.test"
@@ -39,7 +55,17 @@ def main() -> None:
         client.ehlo()
         client.login("alice", "alice-password")
         client.send_message(message)
+    plaintext = imaplib.IMAP4("127.0.0.1", options.imap_port)
+    try:
+        plaintext.login("bob", "bob-password")
+    except imaplib.IMAP4.error:
+        pass
+    else:
+        raise AssertionError("plaintext IMAP LOGIN was accepted before STARTTLS")
+    finally:
+        plaintext.shutdown()
     mailbox = imaplib.IMAP4("127.0.0.1", options.imap_port)
+    mailbox.starttls(ssl_context=context)
     mailbox.login("bob", "bob-password")
     _, counts = mailbox.select("INBOX", readonly=True)
     sequence = next(value.decode("ascii") for value in counts if isinstance(value, bytes))

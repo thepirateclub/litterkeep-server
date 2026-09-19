@@ -72,10 +72,22 @@ fn imap_line(
     let parsed = imap::parse(std::str::from_utf8(&line).unwrap_or(""));
     match parsed.command {
         imap::Command::Capability => {
-            session.push(b"* CAPABILITY IMAP4rev1 AUTH=PLAIN\r\n")?;
+            match (session.tls.is_some(), session.can_starttls()) {
+                (true, _) => session.push(b"* CAPABILITY IMAP4rev1 AUTH=PLAIN\r\n")?,
+                (false, true) => {
+                    session.push(b"* CAPABILITY IMAP4rev1 STARTTLS LOGINDISABLED\r\n")?
+                }
+                (false, false) => session.push(b"* CAPABILITY IMAP4rev1 AUTH=PLAIN\r\n")?,
+            }
             session.push(format!("{} OK CAPABILITY completed\r\n", parsed.tag).as_bytes())?;
         }
+        imap::Command::StartTls => imap_starttls(session, &parsed.tag)?,
         imap::Command::Login { username, password } => {
+            if session.can_starttls() {
+                return session.push(
+                    format!("{} NO [PRIVACYREQUIRED] STARTTLS required\r\n", parsed.tag).as_bytes(),
+                );
+            }
             let id = *request_id;
             *request_id = request_id.wrapping_add(1).max(1);
             submit(
@@ -122,6 +134,22 @@ fn imap_line(
         imap::Command::Unsupported => session.push(format!("{} BAD\r\n", parsed.tag).as_bytes())?,
     }
     Ok(())
+}
+
+/// Запускает IMAP transport upgrade до аутентификации и mailbox state.
+fn imap_starttls(session: &mut Session, tag: &str) -> io::Result<()> {
+    match (
+        session.can_starttls(),
+        session.authenticated_account.is_none(),
+    ) {
+        (true, true) => {
+            session.push(format!("{tag} OK Begin TLS negotiation now\r\n").as_bytes())?;
+            session.request_starttls();
+            Ok(())
+        }
+        (true, false) => session.push(format!("{tag} BAD invalid state\r\n").as_bytes()),
+        (false, _) => session.push(format!("{tag} BAD STARTTLS unavailable\r\n").as_bytes()),
+    }
 }
 
 /// Ставит чтение только после worker-подтверждённой аутентификации сессии.

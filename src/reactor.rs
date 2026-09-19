@@ -239,8 +239,8 @@ fn accept(
             Ok((stream, _)) if lifecycle.resource_count() < MAX_SESSIONS => {
                 let (implicit, upgrade) = match (tls_mode, kind) {
                     (TlsMode::Implicit(config), _) => (Some(config.clone()), None),
-                    (TlsMode::StartTls(config), Kind::Smtp) => (None, Some(config.clone())),
-                    (TlsMode::StartTls(_), Kind::Imap) | (TlsMode::Plain, _) => (None, None),
+                    (TlsMode::StartTls(config), _) => (None, Some(config.clone())),
+                    (TlsMode::Plain, _) => (None, None),
                 };
                 let session = Session::new(kind, stream, *next, implicit, upgrade)?;
                 let task = lifecycle.spawn_task();

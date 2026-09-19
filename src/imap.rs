@@ -11,6 +11,7 @@ pub struct TaggedCommand {
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
     Capability,
+    StartTls,
     Login { username: String, password: String },
     Logout,
     Select,
@@ -22,6 +23,7 @@ pub enum Command {
 /// Внутренний verb до проверки аргументов команды.
 enum Verb {
     Capability,
+    StartTls,
     Login,
     Logout,
     Select,
@@ -36,6 +38,7 @@ pub fn parse(line: &str) -> TaggedCommand {
     let tag = words.next().unwrap_or("*").into();
     let command = match parse_verb(words.next().unwrap_or("")) {
         Verb::Capability => Command::Capability,
+        Verb::StartTls => Command::StartTls,
         Verb::Login => match (words.next(), words.next()) {
             (Some(username), Some(password)) => Command::Login {
                 username: atom(username),
@@ -64,6 +67,7 @@ fn atom(value: &str) -> String {
 fn parse_verb(text: &str) -> Verb {
     match text.to_ascii_uppercase().as_str() {
         "CAPABILITY" => Verb::Capability,
+        "STARTTLS" => Verb::StartTls,
         "LOGIN" => Verb::Login,
         "LOGOUT" => Verb::Logout,
         "SELECT" => Verb::Select,
@@ -87,6 +91,18 @@ mod tests {
                     username: "bob".into(),
                     password: "pass".into()
                 }
+            }
+        );
+    }
+
+    /// STARTTLS преобразуется в enum до входа в session FSM.
+    #[test]
+    fn starttls_is_typed() {
+        assert_eq!(
+            parse("a2 STARTTLS\r\n"),
+            TaggedCommand {
+                tag: "a2".into(),
+                command: Command::StartTls,
             }
         );
     }

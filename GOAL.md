@@ -2,7 +2,7 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`  
 Root status: ACTIVE  
-Current subgoal: G03
+Current subgoal: G04
 
 The actually available Goal interface was inspected. It supports creating and
 updating one active root goal (`create_goal`, `get_goal`, `update_goal`), but
@@ -14,7 +14,7 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | G00 | none | build, help, lock, dependency report, saved goal | PASS |
 | G01 | G00 | lifecycle/lease/wake tests and Linux poll integration | PASS |
 | G02 | G01 | durable store, journal, blob, recovery | PASS |
-| G03 | G02 | TLS, AUTH, bounded admission | RUNNING |
+| G03 | G02 | TLS, AUTH, bounded admission | PASS |
 | G04 | G03 | durable SMTP submission and local delivery | RUNNING |
 | G05 | G04 | MIME + IMAP, independently checked attachment | RUNNING |
 | G06 | G05 | IMAP folders, flags, UID, IDLE | NOT RUN |
@@ -509,6 +509,26 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   его, SHA-256 вложения `f3a25aa93aa2fbba28d79260535bbd6a5eb0fc1c24a8b0f04e12b484c1dfe363`.
 - PASS: Windows 37/37, format, Clippy; Docker Linux target 39/39. Все исходники
   сохраняют лимит 300 строк, `mod.rs` не добавлен.
-- G03 пока остаётся RUNNING: SMTP STARTTLS проверен, но IMAP STARTTLS и его
-  независимый клиентский сценарий ещё не реализованы. Implicit TLS для обоих
-  клиентских протоколов остаётся проверенным прежними checkpoint.
+- На этом checkpoint G03 оставался RUNNING: SMTP STARTTLS был проверен, но IMAP
+  STARTTLS и его независимый клиентский сценарий ещё не были реализованы.
+  Implicit TLS для обоих клиентских протоколов уже был проверен.
+
+### 2026-09-19: G03 PASS, IMAP STARTTLS
+
+- IMAP parser переводит `STARTTLS` в отдельный `Command::StartTls`. До upgrade
+  CAPABILITY объявляет `STARTTLS LOGINDISABLED`, а LOGIN возвращает
+  `NO [PRIVACYREQUIRED]`; пароль не передаётся storage worker по plaintext.
+- После tagged `OK` transport переключается на тот же неблокирующий rustls FSM,
+  который использует SMTP. Plaintext input очищается, authentication state
+  сбрасывается, handshake получает ограниченный deadline и остаётся реальным
+  ресурсом lifecycle lease.
+- PASS независимым стандартным `imaplib.IMAP4.starttls()`: неизвестный CA
+  отвергнут, plaintext LOGIN отвергнут, доверенный CA и IP SAN приняты, Bob
+  вошёл и прочитал доставленное через SMTP STARTTLS MIME-вложение. SHA-256:
+  `f3a25aa93aa2fbba28d79260535bbd6a5eb0fc1c24a8b0f04e12b484c1dfe363`.
+- PASS Windows: 38/38, format, Clippy. PASS Docker Linux: 40/40, включая poll,
+  deadline и оба typed STARTTLS parser tests.
+- G03 получает PASS: независимо проверены implicit TLS и STARTTLS, доверие и
+  отказ неизвестному CA, правильный и неправильный пароль, plaintext policy,
+  handshake timeout, ограничение буферов, admission и освобождение resources.
+  Текущий последовательный этап теперь G04.
