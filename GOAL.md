@@ -103,3 +103,12 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   blob is an error. Unit tests cover each case.
 - PASS: `cargo fmt --check`; `cargo test --locked` (15 passed); `cargo clippy
   --locked --all-targets -- -D warnings`.
+
+### 2026-09-19: source-boundary enforcement
+
+- Enforced the repository rule that a Rust source file has one responsibility
+  and stays within 300 lines. `reactor.rs` now owns the poll loop and session
+  resources; `reactor/protocol.rs` owns SMTP/IMAP command state transitions.
+  The lease type and orchestrator tests are likewise separate files.
+- PASS after this move: format, 15 unit tests, Clippy, Linux target check, and
+  the Docker SMTP-to-IMAP attachment checksum test.
