@@ -6,12 +6,14 @@ pub(super) fn serve(
     smtp_address: Option<&str>,
     imap_address: Option<&str>,
     pop3_address: Option<&str>,
+    managesieve_address: Option<&str>,
     root: impl AsRef<Path>,
     tls_mode: TlsMode,
 ) -> io::Result<()> {
     let smtp_listener = bind(smtp_address)?;
     let imap_listener = bind(imap_address)?;
     let pop3_listener = bind(pop3_address)?;
+    let managesieve_listener = bind(managesieve_address)?;
     let mut worker = WakingStorageWorker::start(root, 64)?;
     let mut lifecycle: Orchestrator<Session> = Orchestrator::new();
     let mut sessions: Vec<Option<SessionLease>> = Vec::new();
@@ -24,6 +26,7 @@ pub(super) fn serve(
             smtp_listener.as_ref(),
             imap_listener.as_ref(),
             pop3_listener.as_ref(),
+            managesieve_listener.as_ref(),
             &tls_mode,
             &mut worker,
             &mut lifecycle,
@@ -51,6 +54,7 @@ fn step(
     smtp: Option<&TcpListener>,
     imap: Option<&TcpListener>,
     pop3: Option<&TcpListener>,
+    managesieve: Option<&TcpListener>,
     tls: &TlsMode,
     worker: &mut WakingStorageWorker,
     lifecycle: &mut Orchestrator<Session>,
@@ -71,6 +75,12 @@ fn step(
     append_listener(smtp, Target::SmtpListener, &mut targets, &mut poll_fds);
     append_listener(imap, Target::ImapListener, &mut targets, &mut poll_fds);
     append_listener(pop3, Target::Pop3Listener, &mut targets, &mut poll_fds);
+    append_listener(
+        managesieve,
+        Target::ManageSieveListener,
+        &mut targets,
+        &mut poll_fds,
+    );
     for (slot, session) in sessions.iter().enumerate() {
         if let Some(lease) = session {
             let value = lease.get();
@@ -88,8 +98,20 @@ fn step(
     deadline::expire_handshakes(sessions, lifecycle, maildrops)?;
     for (ready, target) in ready.into_iter().zip(targets) {
         dispatch(
-            ready, target, smtp, imap, pop3, tls, worker, lifecycle, sessions, generation, request,
-            owners, maildrops,
+            ready,
+            target,
+            smtp,
+            imap,
+            pop3,
+            managesieve,
+            tls,
+            worker,
+            lifecycle,
+            sessions,
+            generation,
+            request,
+            owners,
+            maildrops,
         )?;
     }
     Ok(())
@@ -122,6 +144,7 @@ fn dispatch(
     smtp: Option<&TcpListener>,
     imap: Option<&TcpListener>,
     pop3: Option<&TcpListener>,
+    managesieve: Option<&TcpListener>,
     tls: &TlsMode,
     worker: &mut WakingStorageWorker,
     lifecycle: &mut Orchestrator<Session>,
@@ -141,6 +164,14 @@ fn dispatch(
         Target::Pop3Listener if ready.readable => {
             accept(pop3, Kind::Pop3, sessions, generation, tls, lifecycle)
         }
+        Target::ManageSieveListener if ready.readable => accept(
+            managesieve,
+            Kind::ManageSieve,
+            sessions,
+            generation,
+            tls,
+            lifecycle,
+        ),
         Target::WorkerWake if ready.readable => {
             worker.drain_wakeup()?;
             complete(worker, sessions, owners, request, maildrops)?;

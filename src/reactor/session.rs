@@ -48,6 +48,8 @@ pub(super) struct Session {
     pub(super) pop3: pop3::Session,
     /// Внутренний ключ INBOX нужен для durable применения POP3 DELE на QUIT.
     pub(super) pop3_mailbox: Option<String>,
+    /// ManageSieve FSM не владеет script catalog и ждёт worker completion.
+    pub(super) managesieve: managesieve::Session,
 }
 
 impl Session {
@@ -88,6 +90,7 @@ impl Session {
             smtp: SmtpState::Command(smtp::Transaction::default()),
             pop3: pop3::Session::default(),
             pop3_mailbox: None,
+            managesieve: managesieve::Session::default(),
         };
         result.send_greeting_if_ready()?;
         Ok(result)
@@ -106,6 +109,7 @@ impl Session {
             Kind::Smtp => b"220 litterkeep.test ESMTP litterkeep-server\r\n".as_slice(),
             Kind::Imap => b"* OK IMAP4rev1 litterkeep-server\r\n".as_slice(),
             Kind::Pop3 => b"+OK litterkeep-server ready\r\n".as_slice(),
+            Kind::ManageSieve => b"\"IMPLEMENTATION\" \"litterkeep-server\"\r\n\"SASL\" \"PLAIN\"\r\n\"STARTTLS\"\r\n\"SIEVE\" \"fileinto\"\r\nOK \"ready\"\r\n".as_slice(),
         };
         self.push(greeting)?;
         self.greeting_sent = true;

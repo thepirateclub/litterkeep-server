@@ -125,4 +125,8 @@ pub(super) enum Pending {
         source_uids: Vec<u64>,
         source_sequences: Vec<usize>,
     },
+    ManageSieveAuthenticate {
+        account: String,
+    },
+    ManageSieveCommand,
 }

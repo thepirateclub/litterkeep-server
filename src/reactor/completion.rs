@@ -106,6 +106,33 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
             },
         ) => session.push(b"535 5.7.8 authentication credentials invalid\r\n"),
         (
+            Pending::ManageSieveAuthenticate { account },
+            Response::Authenticated { accepted, .. },
+        ) => {
+            let reply = session.managesieve.authenticated(accepted);
+            if accepted {
+                session.authenticated_account = Some(account);
+            }
+            managesieve_reply(session, reply)
+        }
+        (Pending::ManageSieveCommand, Response::SieveStored { result, .. }) => {
+            sieve_result(session, result.map(|_| ()))
+        }
+        (Pending::ManageSieveCommand, Response::SieveMutated { result, .. }) => {
+            sieve_result(session, result)
+        }
+        (Pending::ManageSieveCommand, Response::SieveSpace { result, .. }) => match result {
+            Ok(true) => session.push(b"OK \"space available\"\r\n"),
+            Ok(false) => session.push(b"NO (QUOTA) \"space unavailable\"\r\n"),
+            Err(_) => session.push(b"NO \"storage failure\"\r\n"),
+        },
+        (Pending::ManageSieveCommand, Response::SieveScripts { result, .. }) => {
+            sieve_list(session, result)
+        }
+        (Pending::ManageSieveCommand, Response::SieveSource { result, .. }) => {
+            sieve_source(session, result)
+        }
+        (
             Pending::ValidateRecipient { address },
             Response::RecipientValidated { accepted: true, .. },
         ) => smtp_completion::accept_recipient(session, address),
@@ -288,5 +315,52 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
         ) => session
             .push(format!("{tag} NO [TRYCREATE] COPY destination unavailable\r\n").as_bytes()),
         _ => Ok(()),
+    }
+}
+
+fn managesieve_reply(session: &mut Session, reply: managesieve::Reply) -> io::Result<()> {
+    match reply {
+        managesieve::Reply::Text(bytes) => session.push(&bytes),
+        _ => session.push(b"NO \"state failure\"\r\n"),
+    }
+}
+
+fn sieve_result(session: &mut Session, result: io::Result<()>) -> io::Result<()> {
+    match result {
+        Ok(()) => session.push(b"OK \"completed\"\r\n"),
+        Err(_) => session.push(b"NO \"operation failed\"\r\n"),
+    }
+}
+
+fn sieve_list(
+    session: &mut Session,
+    result: io::Result<Vec<crate::store::ScriptInfo>>,
+) -> io::Result<()> {
+    match result {
+        Ok(scripts) => {
+            for script in scripts {
+                let active = match script.active {
+                    true => " ACTIVE",
+                    false => "",
+                };
+                session.push(format!("\"{}\"{}\r\n", script.name, active).as_bytes())?;
+            }
+            session.push(b"OK \"list completed\"\r\n")
+        }
+        Err(_) => session.push(b"NO \"list failed\"\r\n"),
+    }
+}
+
+fn sieve_source(session: &mut Session, result: io::Result<(u64, String)>) -> io::Result<()> {
+    match result {
+        Ok((_, source)) => session.push(
+            format!(
+                "{{{}}}\r\n{}\r\nOK \"get completed\"\r\n",
+                source.len(),
+                source
+            )
+            .as_bytes(),
+        ),
+        Err(_) => session.push(b"NO \"script not found\"\r\n"),
     }
 }

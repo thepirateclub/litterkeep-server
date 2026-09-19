@@ -6,7 +6,7 @@
 use crate::platform::linux_poll::{self, Interest};
 use crate::runtime::{Orchestrator, ResourceLease};
 use crate::storage_worker::{Request, Response, WakingStorageWorker};
-use crate::{imap, pop3, smtp, tls_transport::ServerTls};
+use crate::{imap, managesieve, pop3, smtp, tls_transport::ServerTls};
 use rustls::ServerConfig;
 use std::collections::HashMap;
 use std::io;
@@ -61,6 +61,8 @@ mod imap_subscriptions;
 mod local_delivery;
 #[path = "reactor/maildrop_lease.rs"]
 mod maildrop_lease;
+#[path = "reactor/managesieve_protocol.rs"]
+mod managesieve_protocol;
 #[path = "reactor/pending.rs"]
 mod pending;
 #[path = "reactor/pop3_completion.rs"]
@@ -107,12 +109,14 @@ enum Kind {
     Smtp,
     Imap,
     Pop3,
+    ManageSieve,
 }
 #[derive(Clone, Copy)]
 enum Target {
     SmtpListener,
     ImapListener,
     Pop3Listener,
+    ManageSieveListener,
     WorkerWake,
     Session(usize, u64),
 }
@@ -165,7 +169,14 @@ fn serve_with_tls(
     root: impl AsRef<Path>,
     tls_mode: TlsMode,
 ) -> io::Result<()> {
-    server_loop::serve(Some(smtp_address), Some(imap_address), None, root, tls_mode)
+    server_loop::serve(
+        Some(smtp_address),
+        Some(imap_address),
+        None,
+        None,
+        root,
+        tls_mode,
+    )
 }
 
 /// Запускает POP3 с обязательным STLS перед передачей password.
@@ -178,6 +189,23 @@ pub fn serve_pop3_starttls(
         None,
         None,
         Some(pop3_address),
+        None,
+        root,
+        TlsMode::StartTls(tls_config),
+    )
+}
+
+/// Запускает отдельный ManageSieve STARTTLS listener с общим Store owner.
+pub fn serve_managesieve_starttls(
+    address: &str,
+    root: impl AsRef<Path>,
+    tls_config: Arc<ServerConfig>,
+) -> io::Result<()> {
+    server_loop::serve(
+        None,
+        None,
+        None,
+        Some(address),
         root,
         TlsMode::StartTls(tls_config),
     )
@@ -193,6 +221,7 @@ pub fn serve_pop3_tls(
         None,
         None,
         Some(pop3_address),
+        None,
         root,
         TlsMode::Implicit(tls_config),
     )
@@ -210,6 +239,7 @@ pub fn serve_all_starttls(
         Some(smtp_address),
         Some(imap_address),
         Some(pop3_address),
+        None,
         root,
         TlsMode::StartTls(tls_config),
     )

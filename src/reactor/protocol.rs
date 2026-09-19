@@ -44,6 +44,9 @@ pub(super) fn process_input(
             Kind::Pop3 => super::pop3_protocol::line(
                 session, line, slot, generation, worker, owners, request_id,
             )?,
+            Kind::ManageSieve => super::managesieve_protocol::line(
+                session, line, slot, generation, worker, owners, request_id,
+            )?,
         }
     }
     Ok(())
