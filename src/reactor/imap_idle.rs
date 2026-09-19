@@ -36,9 +36,12 @@ pub(super) fn notify_completion(
     pending: &Pending,
     response: &Response,
 ) -> io::Result<()> {
-    if !matches!(response, Response::Appended { result: Ok(_), .. }) {
+    let Response::Appended {
+        result: Ok(uid), ..
+    } = response
+    else {
         return Ok(());
-    }
+    };
     let mut mailboxes = match pending {
         Pending::Append { mailboxes } => mailboxes.clone(),
         Pending::ImapAppend { mailbox, .. } => vec![mailbox.clone()],
@@ -46,13 +49,17 @@ pub(super) fn notify_completion(
     };
     mailboxes.sort_unstable();
     mailboxes.dedup();
-    notify(sessions, &mailboxes)
+    let changes = mailboxes
+        .into_iter()
+        .map(|mailbox| (mailbox, *uid))
+        .collect::<Vec<_>>();
+    notify(sessions, &changes)
 }
 
 /// Увеличивает EXISTS только после подтверждённого durable append.
 pub(super) fn notify(
     sessions: &mut [Option<SessionLease>],
-    changed_mailboxes: &[String],
+    changed_mailboxes: &[(String, u64)],
 ) -> io::Result<()> {
     for entry in sessions.iter_mut() {
         let Some(lease) = entry else { continue };
@@ -64,10 +71,14 @@ pub(super) fn notify(
             .imap_idle
             .as_ref()
             .is_some_and(|idle| idle.mailbox == *selected);
-        if !changed_mailboxes.iter().any(|mailbox| mailbox == selected) {
+        let Some((_, uid)) = changed_mailboxes
+            .iter()
+            .find(|(mailbox, _)| mailbox == selected)
+        else {
             continue;
-        }
+        };
         session.selected_exists = session.selected_exists.saturating_add(1);
+        session.selected_recent.insert(*uid);
         if idle_matches {
             session.push(format!("* {} EXISTS\r\n", session.selected_exists).as_bytes())?;
         }

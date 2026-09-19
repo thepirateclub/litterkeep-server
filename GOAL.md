@@ -1127,3 +1127,17 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   durable `\Seen` через UID FETCH. Данные: bind mount `./data/g06-flags-2`.
 - G06 остаётся RUNNING: остаются согласование delivery/Recent с уже selected
   сессиями и другие multi-session change classes.
+
+### 2026-09-20: G06 selected-session Recent delivery checkpoint
+
+- После durable APPEND reactor сопоставляет опубликованный UID с каждым уже
+  selected mailbox и добавляет его в session-local `\Recent`. Поэтому
+  существующая IDLE-сессия сохраняет проверяемый `EXISTS` event и может сразу
+  получить `\Recent` через FETCH без записи этого marker в MessageFlags.
+- PASS: Windows `cargo test --all-targets --locked` (107 tests), format;
+  Linux release image собран. Независимый STARTTLS
+  `tests/blackbox/imap_idle_recent.py` подтвердил APPEND в selected mailbox,
+  `EXISTS 1` в IDLE и последующий `UID FETCH 1 (FLAGS)` с `\Recent`.
+  Данные: bind mount `./data/g06-idle-recent`.
+- G06 остаётся RUNNING: ещё нужна полная matrix concurrent change classes и
+  явное решение политики `\Recent` для вновь подключающихся selected clients.
