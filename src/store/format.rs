@@ -7,7 +7,7 @@ use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::Path;
 
-const FORMAT: &[u8] = b"litterkeep-store-v1\n";
+const FORMAT: &[u8] = b"litterkeep-store-v2\n";
 
 /// Проверяет существующий marker либо долговечно создаёт его в пустом store.
 pub(super) fn ensure(root: &Path) -> io::Result<()> {

@@ -438,3 +438,28 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - G02 остаётся RUNNING до атомарного multi-recipient transaction и failpoint
   matrix. Квота пока ограничивает blobs, но не journal/accounts metadata; это
   явно не заявляется полной квотой всего filesystem tree.
+
+### 2026-09-19: atomic multi-recipient Unit of Work checkpoint
+
+- Store format обновлён до `litterkeep-store-v2`. Один transaction ID теперь
+  публикует один immutable `message-<id>.eml` и несколько mailbox links. Все
+  mailbox frames синхронизируются раньше единственного global commit frame в
+  `journal/transactions.log`; materialized view обновляется только после него.
+- Повторный RCPT одному mailbox дедуплицируется с сохранением порядка первого
+  появления. Один blob совместно используется всеми mailbox links, поэтому
+  объём вложения не умножается на число локальных получателей.
+- При ошибке после публикации blob writer переходит из типизированного
+  `Writable` в `Poisoned` и больше не принимает изменения до recovery. UID и
+  transaction ID из незавершённых frames не переиспользуются после restart,
+  но сами frames без global commit остаются невидимыми.
+- PASS 35 unit tests. Failpoint после первого mailbox frame подтвердил: нет
+  частичной видимости Bob/Alice, повторная запись отвергается poisoned writer,
+  recovery продолжает с новым UID. Проверены format и Clippy.
+- PASS в чистом Linux Docker volume: независимый TLS SMTP-клиент отправил один
+  DATA для Alice и Bob; оба TLS IMAP-клиента получили идентичные RFC822 bytes и
+  вложение. На диске был ровно один blob, два mailbox journal по 51 byte и один
+  commit frame 26 bytes. После `docker kill` exit 137 оба link сохранились;
+  обычный attachment regression также прошёл.
+- G02 сохраняет RUNNING из-за незавершённой зависимости G01 и оставшейся
+  полной failpoint matrix. Реализованный multi-recipient commit больше не
+  является причиной удерживать этап незавершённым.

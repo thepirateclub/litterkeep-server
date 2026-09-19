@@ -1,6 +1,8 @@
 //! Filesystem store facade. The writer owns this value exclusively.
 #[path = "store/blobs.rs"]
 mod blobs;
+#[path = "store/commit_log.rs"]
+mod commit_log;
 #[path = "store/durability.rs"]
 mod durability;
 #[path = "store/format.rs"]
@@ -20,7 +22,7 @@ mod recovery;
 mod tests;
 pub use model::Message;
 use quota::Quota;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -32,7 +34,24 @@ pub struct Store {
     root: PathBuf,
     _writer_lock: File,
     next_uids: HashMap<String, u64>,
+    entries: HashMap<String, Vec<model::Record>>,
+    next_transaction_id: u64,
     blob_quota: Quota,
+    write_state: WriteState,
+    #[cfg(test)]
+    failpoint: Option<StoreFailpoint>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+enum WriteState {
+    Writable,
+    Poisoned,
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug)]
+enum StoreFailpoint {
+    AfterFirstMailboxFrame,
 }
 impl Store {
     pub fn open(root: impl AsRef<Path>) -> io::Result<Self> {
@@ -46,41 +65,58 @@ impl Store {
         format::ensure(&root)?;
         fs::create_dir_all(root.join("blobs"))?;
         fs::create_dir_all(root.join("mailboxes"))?;
+        fs::create_dir_all(root.join("journal"))?;
         durability::sync_directory(&root)?;
         let lock = open_writer_lock(&root.join("writer.lock"))?;
         recovery::recover(&root)?;
-        let next_uids = mailbox_state::load_next_uids(&root)?;
+        let committed = commit_log::committed(&root.join("journal/transactions.log"))?;
+        let recovered = mailbox_state::load(&root, &committed)?;
         let blob_quota = Quota::load(&root.join("blobs"), quota_limit)?;
+        let next_transaction_id = recovered
+            .maximum_transaction_id
+            .checked_add(1)
+            .ok_or_else(|| io::Error::other("transaction id exhausted"))?;
         let store = Self {
             root,
             _writer_lock: lock,
-            next_uids,
+            next_uids: recovered.next_uids,
+            entries: recovered.entries,
+            next_transaction_id,
             blob_quota,
+            write_state: WriteState::Writable,
+            #[cfg(test)]
+            failpoint: None,
         };
         Ok(store)
     }
     pub fn append(&mut self, mailbox: &str, raw: &[u8]) -> io::Result<u64> {
-        model::validate_mailbox(mailbox)?;
+        self.append_many(&[mailbox.to_owned()], raw)
+    }
+
+    /// Фиксирует одну delivery unit для всех уникальных mailbox одним commit.
+    pub fn append_many(&mut self, mailboxes: &[String], raw: &[u8]) -> io::Result<u64> {
+        self.ensure_writable()?;
+        let mailboxes = validated_unique_mailboxes(mailboxes)?;
         self.blob_quota.ensure_available(raw.len())?;
-        let index = self.index(mailbox);
-        let mut uid = self.next_uids.get(mailbox).copied().unwrap_or(1);
-        let (name, _) = blobs::next_available(&self.root, mailbox, &mut uid)?;
+        let mut transaction_id = self.next_transaction_id;
+        let (name, _) = blobs::next_available(&self.root, &mut transaction_id)?;
+        let links = self.prepare_links(&mailboxes, transaction_id, &name)?;
         blobs::publish(&self.root, &name, raw)?;
         self.blob_quota.record(raw.len())?;
-        let mut file = OpenOptions::new().create(true).append(true).open(index)?;
-        file.write_all(&journal::frame(uid, &name))?;
-        file.sync_all()?;
-        durability::sync_directory(&self.root.join("mailboxes"))?;
-        let next_uid = uid
-            .checked_add(1)
-            .ok_or_else(|| io::Error::other("uid exhausted"))?;
-        self.next_uids.insert(mailbox.to_owned(), next_uid);
-        Ok(uid)
+        match self.commit_links(transaction_id, &links) {
+            Ok(()) => self.publish_links(transaction_id, links),
+            Err(error) => {
+                self.write_state = WriteState::Poisoned;
+                Err(error)
+            }
+        }
     }
     pub fn messages(&self, mailbox: &str) -> io::Result<Vec<Message>> {
         model::validate_mailbox(mailbox)?;
-        journal::records(mailbox, &self.index(mailbox))?
+        self.entries
+            .get(mailbox)
             .into_iter()
+            .flatten()
             .map(|r| {
                 let path = self.root.join("blobs").join(&r.name);
                 Ok(Message {
@@ -96,6 +132,127 @@ impl Store {
             .join("mailboxes")
             .join(format!("{mailbox}.journal"))
     }
+
+    fn ensure_writable(&self) -> io::Result<()> {
+        match self.write_state {
+            WriteState::Writable => Ok(()),
+            WriteState::Poisoned => Err(io::Error::other("store writer is poisoned")),
+        }
+    }
+
+    /// Резервирует UID только в памяти; видимость не меняется до commit frame.
+    fn prepare_links(
+        &self,
+        mailboxes: &[String],
+        transaction_id: u64,
+        name: &str,
+    ) -> io::Result<Vec<(String, model::Record)>> {
+        mailboxes
+            .iter()
+            .map(|mailbox| {
+                let uid = self.next_uids.get(mailbox).copied().unwrap_or(1);
+                uid.checked_add(1)
+                    .ok_or_else(|| io::Error::other("uid exhausted"))?;
+                Ok((
+                    mailbox.clone(),
+                    model::Record {
+                        uid,
+                        transaction_id,
+                        name: name.to_owned(),
+                    },
+                ))
+            })
+            .collect()
+    }
+
+    /// Пишет все mailbox links, затем единственную точку commit authority.
+    fn commit_links(
+        &self,
+        transaction_id: u64,
+        links: &[(String, model::Record)],
+    ) -> io::Result<()> {
+        let mut written = 0;
+        for (mailbox, record) in links {
+            let mut file = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(self.index(mailbox))?;
+            file.write_all(&journal::frame(
+                record.uid,
+                record.transaction_id,
+                &record.name,
+            ))?;
+            file.sync_all()?;
+            written += 1;
+            self.check_mailbox_failpoint(written)?;
+        }
+        durability::sync_directory(&self.root.join("mailboxes"))?;
+        let mut commits = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.root.join("journal/transactions.log"))?;
+        commits.write_all(&commit_log::frame(transaction_id))?;
+        commits.sync_all()?;
+        durability::sync_directory(&self.root.join("journal"))
+    }
+
+    /// Обновляет materialized view только после durable global commit.
+    fn publish_links(
+        &mut self,
+        transaction_id: u64,
+        links: Vec<(String, model::Record)>,
+    ) -> io::Result<u64> {
+        let first_uid = links
+            .first()
+            .map(|(_, record)| record.uid)
+            .ok_or_else(|| io::Error::other("delivery has no mailbox links"))?;
+        for (mailbox, record) in links {
+            let next_uid = record
+                .uid
+                .checked_add(1)
+                .ok_or_else(|| io::Error::other("uid exhausted"))?;
+            self.next_uids.insert(mailbox.clone(), next_uid);
+            self.entries.entry(mailbox).or_default().push(record);
+        }
+        self.next_transaction_id = transaction_id
+            .checked_add(1)
+            .ok_or_else(|| io::Error::other("transaction id exhausted"))?;
+        Ok(first_uid)
+    }
+
+    #[cfg(test)]
+    fn set_failpoint(&mut self, failpoint: StoreFailpoint) {
+        self.failpoint = Some(failpoint);
+    }
+
+    #[cfg(test)]
+    fn check_mailbox_failpoint(&self, written: usize) -> io::Result<()> {
+        if let (Some(StoreFailpoint::AfterFirstMailboxFrame), 1) = (self.failpoint, written) {
+            return Err(io::Error::other("injected mailbox frame failure"));
+        }
+        Ok(())
+    }
+
+    #[cfg(not(test))]
+    fn check_mailbox_failpoint(&self, _written: usize) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+/// Проверяет и дедуплицирует RCPT, сохраняя порядок первого появления.
+fn validated_unique_mailboxes(mailboxes: &[String]) -> io::Result<Vec<String>> {
+    if mailboxes.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "no recipients"));
+    }
+    let mut seen = HashSet::new();
+    let mut unique = Vec::with_capacity(mailboxes.len());
+    for mailbox in mailboxes {
+        model::validate_mailbox(mailbox)?;
+        if seen.insert(mailbox.as_str()) {
+            unique.push(mailbox.clone());
+        }
+    }
+    Ok(unique)
 }
 #[cfg(target_os = "linux")]
 fn open_writer_lock(path: &Path) -> io::Result<File> {

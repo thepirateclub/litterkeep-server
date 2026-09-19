@@ -56,13 +56,13 @@ fn corruption_and_missing_blob_are_errors() {
     let p = dir();
     let mut s = Store::open(&p).unwrap();
     s.append("bob", b"x").unwrap();
-    fs::remove_file(p.join("blobs/bob-1.eml")).unwrap();
+    fs::remove_file(p.join("blobs/message-1.eml")).unwrap();
     assert_eq!(
         s.messages("bob").unwrap_err().kind(),
         io::ErrorKind::NotFound
     );
     drop(s);
-    let mut damaged = journal::frame(1, "bob-1.eml");
+    let mut damaged = journal::frame(1, 1, "message-1.eml");
     let checksum_byte = damaged
         .iter_mut()
         .rev()
@@ -121,5 +121,87 @@ fn blob_quota_rejects_before_publication() {
             .is_none()
     );
     drop(store);
+    let _ = fs::remove_dir_all(p);
+}
+
+#[test]
+fn multi_recipient_commit_shares_one_blob() {
+    let p = dir();
+    let mut store = Store::open(&p).expect("store");
+    let recipients = vec!["bob".to_owned(), "alice".to_owned(), "bob".to_owned()];
+    assert_eq!(
+        store
+            .append_many(&recipients, b"shared")
+            .expect("atomic delivery"),
+        1
+    );
+    let bob = store.messages("bob").expect("bob");
+    let alice = store.messages("alice").expect("alice");
+    let bob_message = bob.first().expect("bob message");
+    let alice_message = alice.first().expect("alice message");
+    assert_eq!(bob_message.path, alice_message.path);
+    assert_eq!(fs::read_dir(p.join("blobs")).expect("blobs").count(), 1);
+    drop(store);
+    let reopened = Store::open(&p).expect("reopen");
+    assert_eq!(reopened.messages("bob").expect("bob restart").len(), 1);
+    assert_eq!(reopened.messages("alice").expect("alice restart").len(), 1);
+    drop(reopened);
+    let _ = fs::remove_dir_all(p);
+}
+
+#[test]
+fn mailbox_frame_without_global_commit_stays_invisible() {
+    let p = dir();
+    let store = Store::open(&p).expect("store");
+    drop(store);
+    blobs::publish(&p, "message-1.eml", b"orphan transaction").expect("blob");
+    let journal_path = p.join("mailboxes/bob.journal");
+    let mut journal_file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(journal_path)
+        .expect("journal");
+    journal_file
+        .write_all(&journal::frame(1, 1, "message-1.eml"))
+        .expect("uncommitted link");
+    journal_file.sync_all().expect("journal sync");
+    drop(journal_file);
+
+    let mut recovered = Store::open(&p).expect("recover uncommitted transaction");
+    assert!(recovered.messages("bob").expect("invisible").is_empty());
+    assert_eq!(
+        recovered.append("bob", b"committed").expect("new commit"),
+        2
+    );
+    let visible = recovered.messages("bob").expect("visible");
+    let message = visible.first().expect("committed message");
+    assert_eq!(message.uid, 2);
+    assert_eq!(message.bytes, b"committed");
+    drop(recovered);
+    let _ = fs::remove_dir_all(p);
+}
+
+#[test]
+fn partial_multi_recipient_write_poisoned_and_invisible() {
+    let p = dir();
+    let mut store = Store::open(&p).expect("store");
+    store.set_failpoint(StoreFailpoint::AfterFirstMailboxFrame);
+    let recipients = vec!["bob".to_owned(), "alice".to_owned()];
+    assert!(store.append_many(&recipients, b"partial").is_err());
+    let poisoned = store
+        .append("bob", b"must not continue")
+        .expect_err("uncertain writer must stop");
+    assert_eq!(poisoned.kind(), io::ErrorKind::Other);
+    assert!(store.messages("bob").expect("materialized view").is_empty());
+    drop(store);
+
+    let mut recovered = Store::open(&p).expect("recovery");
+    assert!(recovered.messages("bob").expect("bob").is_empty());
+    assert!(recovered.messages("alice").expect("alice").is_empty());
+    assert_eq!(
+        recovered.append("bob", b"after recovery").expect("append"),
+        2
+    );
+    drop(recovered);
     let _ = fs::remove_dir_all(p);
 }

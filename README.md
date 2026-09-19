@@ -53,6 +53,9 @@ its SAN. Test-only material can be generated with
 The current immutable-message blob budget is 25 MiB per data directory. The
 single storage writer reconstructs actual usage at startup and rejects a new
 message before creating its temporary blob when the budget would be exceeded.
+The current on-disk marker is `litterkeep-store-v2`. There is no automatic
+migration from earlier development formats; an unknown or unversioned data
+directory with mail data is rejected.
 
 The repository includes `tests/blackbox/tls_smtp_auth_attachment.py`, which
 uses only Python's standard SMTP, IMAP and MIME clients. It was run successfully

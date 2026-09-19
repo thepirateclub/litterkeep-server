@@ -5,8 +5,10 @@ pub struct Message {
     pub path: PathBuf,
     pub bytes: Vec<u8>,
 }
+#[derive(Clone, Debug)]
 pub struct Record {
     pub uid: u64,
+    pub transaction_id: u64,
     pub name: String,
 }
 pub fn validate_mailbox(mailbox: &str) -> io::Result<()> {
@@ -21,6 +23,6 @@ pub fn validate_mailbox(mailbox: &str) -> io::Result<()> {
         (false, true) => Ok(()),
     }
 }
-pub fn blob_name(mailbox: &str, uid: u64) -> String {
-    format!("{mailbox}-{uid}.eml")
+pub fn blob_name(transaction_id: u64) -> String {
+    format!("message-{transaction_id}.eml")
 }

@@ -82,12 +82,5 @@ fn append_many(
             "unknown local recipient",
         ));
     }
-    let mut first_uid = None;
-    for mailbox in &mailboxes {
-        let uid = store.append(mailbox, bytes)?;
-        if first_uid.is_none() {
-            first_uid = Some(uid);
-        }
-    }
-    first_uid.ok_or_else(|| io::Error::other("recipient publication omitted"))
+    store.append_many(&mailboxes, bytes)
 }

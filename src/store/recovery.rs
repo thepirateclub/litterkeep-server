@@ -1,9 +1,10 @@
-use super::{journal, model};
+use super::{commit_log, journal, model};
 use std::fs;
 use std::io;
 use std::path::Path;
 pub fn recover(root: &Path) -> io::Result<()> {
     clean_temps(&root.join("blobs"))?;
+    commit_log::recover(&root.join("journal/transactions.log"))?;
     for entry in fs::read_dir(root.join("mailboxes"))? {
         let path = entry?.path();
         if path.extension().and_then(|v| v.to_str()) != Some("journal") {

@@ -14,13 +14,13 @@ const COMMIT: u32 = 0xc0de_c0de;
 const MAX_PAYLOAD: usize = 1024;
 
 /// Кодирует один полный frame с последовательностью, transaction id и checksum.
-pub(super) fn frame(uid: u64, name: &str) -> Vec<u8> {
+pub(super) fn frame(uid: u64, transaction_id: u64, name: &str) -> Vec<u8> {
     let payload = name.as_bytes();
     let payload_length = u32::try_from(payload.len()).expect("blob name length is bounded");
     let mut bytes = Vec::with_capacity(38 + payload.len());
     bytes.extend_from_slice(&MAGIC);
     bytes.extend_from_slice(&VERSION.to_be_bytes());
-    bytes.extend_from_slice(&uid.to_be_bytes());
+    bytes.extend_from_slice(&transaction_id.to_be_bytes());
     bytes.extend_from_slice(&uid.to_be_bytes());
     bytes.extend_from_slice(&payload_length.to_be_bytes());
     bytes.extend_from_slice(payload);
@@ -62,7 +62,7 @@ struct Scan {
 }
 
 /// Последовательно декодирует frames и останавливается на первой ошибке.
-fn scan(mailbox: &str, bytes: &[u8]) -> io::Result<Scan> {
+fn scan(_mailbox: &str, bytes: &[u8]) -> io::Result<Scan> {
     let mut records = Vec::new();
     let mut offset = 0;
     let mut previous_uid = 0;
@@ -81,13 +81,14 @@ fn scan(mailbox: &str, bytes: &[u8]) -> io::Result<Scan> {
         if decoded.uid <= previous_uid {
             return Err(invalid("non-monotonic uid"));
         }
-        if decoded.name != blob_name(mailbox, decoded.uid) {
+        if decoded.name != blob_name(decoded.transaction_id) {
             return Err(invalid("unsafe blob reference"));
         }
         previous_uid = decoded.uid;
         offset = decoded.next;
         records.push(Record {
             uid: decoded.uid,
+            transaction_id: decoded.transaction_id,
             name: decoded.name,
         });
     }
@@ -99,6 +100,7 @@ fn scan(mailbox: &str, bytes: &[u8]) -> io::Result<Scan> {
 
 struct DecodedFrame {
     uid: u64,
+    transaction_id: u64,
     name: String,
     next: usize,
 }
@@ -121,9 +123,6 @@ fn decode_frame(bytes: &[u8], start: usize) -> Result<DecodedFrame, FrameError> 
     }
     let uid = u64::from_be_bytes(decoder.take::<8>()?);
     let transaction_id = u64::from_be_bytes(decoder.take::<8>()?);
-    if transaction_id != uid {
-        return Err(FrameError::Invalid("invalid transaction identity"));
-    }
     let payload_length = u32::from_be_bytes(decoder.take::<4>()?) as usize;
     if payload_length > MAX_PAYLOAD {
         return Err(FrameError::Invalid("journal payload limit"));
@@ -145,6 +144,7 @@ fn decode_frame(bytes: &[u8], start: usize) -> Result<DecodedFrame, FrameError> 
     }
     Ok(DecodedFrame {
         uid,
+        transaction_id,
         name,
         next: decoder.position(),
     })
