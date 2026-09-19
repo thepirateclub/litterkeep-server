@@ -11,8 +11,11 @@ MIME section/partial reads. APPEND atomically preserves initial flags and
 INTERNALDATE with its UID. Event-driven IDLE wakes selected sessions only after
 durable APPEND completion and returns to normal commands through DONE. A
 durable folder catalog exposes default SPECIAL-USE folders plus CREATE/LIST;
-named folders are usable through APPEND, SELECT, FETCH and STORE.
-This is not yet a complete mail server: full folder mutation, POP3, Sieve, durable
+named folders are usable through APPEND, SELECT, FETCH and STORE. RENAME keeps
+stable internal IDs for the whole subtree; DELETE retires an ID permanently and
+refuses INBOX or a parent that still has children.
+This is not yet a complete mail server: subscriptions/STATUS and message-moving
+IMAP operations, POP3, Sieve, durable
 outbound transport integration and the remaining acceptance matrix are
 unfinished.
 

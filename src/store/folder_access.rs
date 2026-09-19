@@ -25,6 +25,20 @@ impl Store {
         self.finish_folder_operation(result)
     }
 
+    /// Переименовывает папку и потомков после долговечной journal-фиксации.
+    pub fn rename_folder(&mut self, account: &str, old: &str, new: &str) -> io::Result<()> {
+        self.ensure_writable()?;
+        let result = self.folders.rename(account, old, new);
+        self.finish_folder_operation(result)
+    }
+
+    /// Удаляет leaf-папку, не разрешая повторное использование её ID.
+    pub fn delete_folder(&mut self, account: &str, name: &str) -> io::Result<()> {
+        self.ensure_writable()?;
+        let result = self.folders.delete(account, name);
+        self.finish_folder_operation(result)
+    }
+
     /// Отображает wire-visible имя на безопасный внутренний mailbox key.
     pub fn resolve_folder(&mut self, account: &str, name: &str) -> io::Result<String> {
         self.ensure_writable()?;
@@ -89,20 +103,35 @@ mod tests {
             .expect("isolated key");
         assert_ne!(key, alice_key);
         store.append(&key, b"named folder message").expect("append");
+        store
+            .create_folder("bob", "Проекты/Почта/2026")
+            .expect("child");
+        store
+            .rename_folder("bob", "Проекты/Почта", "Работа/Почта")
+            .expect("rename tree");
+        assert!(store.resolve_folder("bob", "Работа/Почта/2026").is_ok());
+        assert!(store.delete_folder("bob", "Работа/Почта").is_err());
+        store
+            .delete_folder("bob", "Работа/Почта/2026")
+            .expect("delete leaf");
         drop(store);
 
         let mut reopened = Store::open(&root).expect("reopen");
         assert_eq!(
             reopened
-                .resolve_folder("bob", "Проекты/Почта")
+                .resolve_folder("bob", "Работа/Почта")
                 .expect("resolved"),
             key
         );
         let selected = reopened
-            .snapshot_folder("bob", "Проекты/Почта")
+            .snapshot_folder("bob", "Работа/Почта")
             .expect("snapshot");
         assert_eq!(selected.snapshot.messages.len(), 1);
         assert_eq!(reopened.folders("bob").expect("folders").len(), 9);
+        let recreated = reopened
+            .create_folder("bob", "Работа/Почта/2026")
+            .expect("recreate");
+        assert!(recreated.id > created.id);
         drop(reopened);
         let _ = fs::remove_dir_all(root);
     }

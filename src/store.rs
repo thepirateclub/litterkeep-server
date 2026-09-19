@@ -11,6 +11,11 @@ mod flags;
 mod folder_access;
 #[path = "store/folder_cursor.rs"]
 mod folder_cursor;
+#[path = "store/folder_journal.rs"]
+mod folder_journal;
+#[cfg(test)]
+#[path = "store/folder_journal_tests.rs"]
+mod folder_journal_tests;
 #[path = "store/folders.rs"]
 mod folders;
 #[path = "store/format.rs"]
@@ -55,13 +60,11 @@ pub struct Store {
     #[cfg(test)]
     failpoint: Option<StoreFailpoint>,
 }
-
 #[derive(Debug, Eq, PartialEq)]
 enum WriteState {
     Writable,
     Poisoned,
 }
-
 #[cfg(test)]
 #[derive(Clone, Copy, Debug)]
 enum StoreFailpoint {
@@ -71,7 +74,6 @@ impl Store {
     pub fn open(root: impl AsRef<Path>) -> io::Result<Self> {
         Self::open_with_quota(root.as_ref(), DEFAULT_BLOB_QUOTA)
     }
-
     /// Открывает store с явным budget; отдельный параметр нужен для граничных тестов.
     fn open_with_quota(root: &Path, quota_limit: u64) -> io::Result<Self> {
         let root = root.to_path_buf();
@@ -111,7 +113,6 @@ impl Store {
     pub fn append(&mut self, mailbox: &str, raw: &[u8]) -> io::Result<u64> {
         self.append_many(&[mailbox.to_owned()], raw)
     }
-
     /// APPEND фиксирует UID и начальные metadata одним mailbox frame.
     pub fn append_with_metadata(
         &mut self,
@@ -121,7 +122,6 @@ impl Store {
     ) -> io::Result<u64> {
         self.append_many_with_metadata(&[mailbox.to_owned()], raw, metadata)
     }
-
     /// Фиксирует одну delivery unit для всех уникальных mailbox одним commit.
     pub fn append_many(&mut self, mailboxes: &[String], raw: &[u8]) -> io::Result<u64> {
         self.append_many_with_metadata(mailboxes, raw, AppendMetadata::default())

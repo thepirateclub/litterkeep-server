@@ -40,6 +40,93 @@ pub(super) fn create(
 }
 
 #[allow(clippy::too_many_arguments)]
+pub(super) fn delete(
+    session: &mut Session,
+    tag: String,
+    mailbox: imap::MailboxName,
+    slot: usize,
+    generation: u64,
+    worker: &mut WakingStorageWorker,
+    owners: &mut HashMap<u64, (usize, u64, Pending)>,
+    request_id: &mut u64,
+) -> io::Result<()> {
+    let Some(account) = session.authenticated_account.clone() else {
+        return session.push(format!("{tag} NO authenticate first\r\n").as_bytes());
+    };
+    let name = match mailbox {
+        imap::MailboxName::Inbox => {
+            return session
+                .push(format!("{tag} NO [CANNOT] INBOX cannot be deleted\r\n").as_bytes());
+        }
+        imap::MailboxName::Named(name) => name,
+    };
+    submit_folder(
+        session,
+        Request::DeleteFolder {
+            request_id: *request_id,
+            account,
+            name,
+        },
+        Pending::MutateFolder {
+            tag,
+            operation: imap::folder::Mutation::Delete,
+        },
+        slot,
+        generation,
+        worker,
+        owners,
+        request_id,
+    );
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn rename(
+    session: &mut Session,
+    tag: String,
+    source: imap::MailboxName,
+    destination: imap::MailboxName,
+    slot: usize,
+    generation: u64,
+    worker: &mut WakingStorageWorker,
+    owners: &mut HashMap<u64, (usize, u64, Pending)>,
+    request_id: &mut u64,
+) -> io::Result<()> {
+    let Some(account) = session.authenticated_account.clone() else {
+        return session.push(format!("{tag} NO authenticate first\r\n").as_bytes());
+    };
+    let (old_name, new_name) = match (source, destination) {
+        (imap::MailboxName::Inbox, _) => {
+            return session
+                .push(format!("{tag} NO [CANNOT] INBOX cannot be renamed\r\n").as_bytes());
+        }
+        (_, imap::MailboxName::Inbox) => {
+            return session.push(format!("{tag} NO [ALREADYEXISTS] INBOX exists\r\n").as_bytes());
+        }
+        (imap::MailboxName::Named(old), imap::MailboxName::Named(new)) => (old, new),
+    };
+    submit_folder(
+        session,
+        Request::RenameFolder {
+            request_id: *request_id,
+            account,
+            old_name,
+            new_name,
+        },
+        Pending::MutateFolder {
+            tag,
+            operation: imap::folder::Mutation::Rename,
+        },
+        slot,
+        generation,
+        worker,
+        owners,
+        request_id,
+    );
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
 pub(super) fn list(
     session: &mut Session,
     tag: String,
@@ -95,6 +182,30 @@ pub(super) fn created(
             session.push(format!("{tag} NO [ALREADYEXISTS] folder exists\r\n").as_bytes())
         }
         Err(_) => session.push(format!("{tag} NO CREATE failed\r\n").as_bytes()),
+    }
+}
+
+pub(super) fn mutated(
+    session: &mut Session,
+    tag: String,
+    operation: imap::folder::Mutation,
+    result: io::Result<()>,
+) -> io::Result<()> {
+    let verb = match operation {
+        imap::folder::Mutation::Delete => "DELETE",
+        imap::folder::Mutation::Rename => "RENAME",
+    };
+    match result {
+        Ok(()) => session.push(format!("{tag} OK {verb} completed\r\n").as_bytes()),
+        Err(error) => {
+            let code = match error.kind() {
+                io::ErrorKind::NotFound => "NONEXISTENT",
+                io::ErrorKind::AlreadyExists => "ALREADYEXISTS",
+                io::ErrorKind::InvalidInput | io::ErrorKind::PermissionDenied => "CANNOT",
+                _ => "SERVERBUG",
+            };
+            session.push(format!("{tag} NO [{code}] {verb} failed\r\n").as_bytes())
+        }
     }
 }
 

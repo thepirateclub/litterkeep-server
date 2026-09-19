@@ -1,16 +1,12 @@
 //! Долговечный каталог папок и отображение пользовательских имён на внутренние ID.
 
-use super::durability;
-use super::folder_cursor::{Cursor, short};
+use super::folder_journal;
 use std::collections::HashMap;
-use std::fs::{self, OpenOptions};
-use std::io::{self, Write};
+use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
-const MAGIC: [u8; 4] = *b"LKFO";
-const VERSION: u16 = 1;
-const COMMIT: u32 = 0xf01d_c011;
-const MAX_NAME: usize = 120;
+pub(super) const MAX_NAME: usize = 120;
 
 /// Семантика стандартной папки не выводится из локализованного имени.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -35,6 +31,7 @@ pub struct FolderInfo {
 pub(super) struct FolderCatalog {
     root: PathBuf,
     accounts: HashMap<String, Vec<FolderInfo>>,
+    high_ids: HashMap<String, u64>,
 }
 
 impl FolderCatalog {
@@ -42,6 +39,7 @@ impl FolderCatalog {
         let directory = root.join("folders");
         fs::create_dir_all(&directory)?;
         let mut accounts = HashMap::new();
+        let mut high_ids = HashMap::new();
         for entry in fs::read_dir(&directory)? {
             let path = entry?.path();
             if path.extension().and_then(|value| value.to_str()) != Some("journal") {
@@ -52,11 +50,14 @@ impl FolderCatalog {
                 .and_then(|value| value.to_str())
                 .ok_or_else(|| invalid("non-utf8 folder journal"))?;
             validate_account(account)?;
-            accounts.insert(account.to_owned(), read_records(&path)?);
+            let replay = folder_journal::read(&path)?;
+            accounts.insert(account.to_owned(), replay.folders);
+            high_ids.insert(account.to_owned(), replay.high_id);
         }
         Ok(Self {
             root: directory,
             accounts,
+            high_ids,
         })
     }
 
@@ -102,6 +103,32 @@ impl FolderCatalog {
         Ok(storage_key(account, folder))
     }
 
+    /// Переименовывает папку и всё её поддерево одним journal-событием.
+    pub(super) fn rename(
+        &mut self,
+        account: &str,
+        old_name: &str,
+        new_name: &str,
+    ) -> io::Result<()> {
+        self.ensure_defaults(account)?;
+        validate_name(new_name)?;
+        let folders = self.accounts.get(account).ok_or_else(missing)?;
+        folder_journal::validate_rename(folders, old_name, new_name)?;
+        folder_journal::append_rename(&self.root, account, old_name, new_name)?;
+        let folders = self.accounts.get_mut(account).ok_or_else(missing)?;
+        folder_journal::apply_rename(folders, old_name, new_name)
+    }
+
+    /// Удаляет имя папки; её устойчивый ID больше никогда не переиспользуется.
+    pub(super) fn delete(&mut self, account: &str, name: &str) -> io::Result<()> {
+        self.ensure_defaults(account)?;
+        let folders = self.accounts.get(account).ok_or_else(missing)?;
+        folder_journal::validate_delete(folders, name)?;
+        folder_journal::append_delete(&self.root, account, name)?;
+        let folders = self.accounts.get_mut(account).ok_or_else(missing)?;
+        folder_journal::apply_delete(folders, name)
+    }
+
     fn create_with_special(
         &mut self,
         account: &str,
@@ -116,9 +143,10 @@ impl FolderCatalog {
                 "folder exists",
             ));
         }
-        let id = folders
-            .last()
-            .map(|folder| folder.id)
+        let id = self
+            .high_ids
+            .get(account)
+            .copied()
             .unwrap_or_default()
             .checked_add(1)
             .ok_or_else(|| io::Error::other("folder id exhausted"))?;
@@ -127,18 +155,9 @@ impl FolderCatalog {
             name: name.to_owned(),
             special_use,
         };
-        let path = self.root.join(format!("{account}.journal"));
-        let durable = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)
-            .and_then(|mut file| {
-                file.write_all(&encode(&folder)?)
-                    .and_then(|()| file.sync_all())
-            })
-            .and_then(|()| durability::sync_directory(&self.root));
-        durable?;
+        folder_journal::append_create(&self.root, account, &folder)?;
         folders.push(folder.clone());
+        self.high_ids.insert(account.to_owned(), id);
         Ok(folder)
     }
 }
@@ -156,88 +175,14 @@ fn defaults() -> [(&'static str, Option<SpecialUse>); 8] {
     ]
 }
 
-fn storage_key(account: &str, folder: &FolderInfo) -> String {
+pub(super) fn storage_key(account: &str, folder: &FolderInfo) -> String {
     match folder.special_use {
         Some(SpecialUse::Inbox) => account.to_owned(),
         _ => format!("{account}-folder-{}", folder.id),
     }
 }
 
-fn encode(folder: &FolderInfo) -> io::Result<Vec<u8>> {
-    let name = folder.name.as_bytes();
-    let length = u16::try_from(name.len()).map_err(|_| invalid("folder name limit"))?;
-    let mut bytes = Vec::with_capacity(29 + name.len());
-    bytes.extend_from_slice(&MAGIC);
-    bytes.extend_from_slice(&VERSION.to_be_bytes());
-    bytes.extend_from_slice(&folder.id.to_be_bytes());
-    bytes.push(encode_special(folder.special_use));
-    bytes.extend_from_slice(&length.to_be_bytes());
-    bytes.extend_from_slice(name);
-    let checksum = checksum(&bytes);
-    bytes.extend_from_slice(&checksum.to_be_bytes());
-    bytes.extend_from_slice(&COMMIT.to_be_bytes());
-    Ok(bytes)
-}
-
-fn read_records(path: &Path) -> io::Result<Vec<FolderInfo>> {
-    let bytes = fs::read(path)?;
-    let mut cursor = Cursor::new(&bytes);
-    let mut folders = Vec::new();
-    while cursor.remaining() > 0 {
-        let start = cursor.position();
-        let folder = match decode(&mut cursor, start) {
-            Ok(folder) => folder,
-            Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => {
-                let file = OpenOptions::new().write(true).open(path)?;
-                file.set_len(start as u64)?;
-                file.sync_all()?;
-                break;
-            }
-            Err(error) => return Err(error),
-        };
-        if folders
-            .iter()
-            .any(|existing: &FolderInfo| existing.id >= folder.id || existing.name == folder.name)
-        {
-            return Err(invalid("duplicate or unordered folder"));
-        }
-        folders.push(folder);
-    }
-    Ok(folders)
-}
-
-fn decode(cursor: &mut Cursor<'_>, start: usize) -> io::Result<FolderInfo> {
-    if cursor.take::<4>()? != MAGIC || u16::from_be_bytes(cursor.take::<2>()?) != VERSION {
-        return Err(invalid("unsupported folder frame"));
-    }
-    let id = u64::from_be_bytes(cursor.take::<8>()?);
-    let special_use = decode_special(u8::from_be_bytes(cursor.take::<1>()?))?;
-    let length = usize::from(u16::from_be_bytes(cursor.take::<2>()?));
-    if length > MAX_NAME {
-        return Err(invalid("folder name limit"));
-    }
-    let name = std::str::from_utf8(cursor.take_slice(length)?)
-        .map_err(|_| invalid("folder name is not utf8"))?
-        .to_owned();
-    validate_name(&name)?;
-    let checksum_position = cursor.position();
-    let expected = u64::from_be_bytes(cursor.take::<8>()?);
-    let commit = u32::from_be_bytes(cursor.take::<4>()?);
-    let protected = cursor
-        .bytes
-        .get(start..checksum_position)
-        .ok_or_else(short)?;
-    if (expected, commit) != (checksum(protected), COMMIT) {
-        return Err(invalid("invalid folder frame trailer"));
-    }
-    Ok(FolderInfo {
-        id,
-        name,
-        special_use,
-    })
-}
-
-fn encode_special(value: Option<SpecialUse>) -> u8 {
+pub(super) fn encode_special(value: Option<SpecialUse>) -> u8 {
     match value {
         None => 0,
         Some(SpecialUse::Inbox) => 1,
@@ -249,7 +194,7 @@ fn encode_special(value: Option<SpecialUse>) -> u8 {
     }
 }
 
-fn decode_special(value: u8) -> io::Result<Option<SpecialUse>> {
+pub(super) fn decode_special(value: u8) -> io::Result<Option<SpecialUse>> {
     match value {
         0 => Ok(None),
         1 => Ok(Some(SpecialUse::Inbox)),
@@ -262,7 +207,7 @@ fn decode_special(value: u8) -> io::Result<Option<SpecialUse>> {
     }
 }
 
-fn validate_account(value: &str) -> io::Result<()> {
+pub(super) fn validate_account(value: &str) -> io::Result<()> {
     match value
         .bytes()
         .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
@@ -272,7 +217,7 @@ fn validate_account(value: &str) -> io::Result<()> {
     }
 }
 
-fn validate_name(value: &str) -> io::Result<()> {
+pub(super) fn validate_name(value: &str) -> io::Result<()> {
     match (
         value.is_empty(),
         value.len() <= MAX_NAME,
@@ -286,12 +231,16 @@ fn validate_name(value: &str) -> io::Result<()> {
     }
 }
 
-fn checksum(bytes: &[u8]) -> u64 {
+pub(super) fn checksum(bytes: &[u8]) -> u64 {
     bytes.iter().fold(0xcbf2_9ce4_8422_2325, |sum, byte| {
         (sum ^ u64::from(*byte)).wrapping_mul(0x100_0000_01b3)
     })
 }
 
-fn invalid(message: &'static str) -> io::Error {
+pub(super) fn invalid(message: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message)
+}
+
+fn missing() -> io::Error {
+    io::Error::new(io::ErrorKind::NotFound, "folder does not exist")
 }

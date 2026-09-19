@@ -16,7 +16,7 @@ def arguments() -> argparse.Namespace:
 def message_bytes(fetch_result: list[object]) -> bytes:
     for item in fetch_result:
         if isinstance(item, tuple):
-            payload = item[1]
+            _, payload = item
             if isinstance(payload, bytes):
                 return payload
     raise AssertionError(f"FETCH literal missing: {fetch_result!r}")

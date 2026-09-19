@@ -145,6 +145,23 @@ fn create_and_list_are_typed() {
     );
 }
 
+#[test]
+fn delete_and_recursive_rename_are_typed() {
+    assert_eq!(
+        parse("a12 DELETE \"Projects/2025\"\r\n").command,
+        Command::Delete {
+            mailbox: MailboxName::Named("Projects/2025".into())
+        }
+    );
+    assert_eq!(
+        parse("a13 RENAME Projects Work\r\n").command,
+        Command::Rename {
+            source: MailboxName::Named("Projects".into()),
+            destination: MailboxName::Named("Work".into())
+        }
+    );
+}
+
 /// STORE operation и системные flags не покидают parser строками.
 #[test]
 fn store_flags_are_typed() {

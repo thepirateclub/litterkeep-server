@@ -52,6 +52,17 @@ pub enum Request {
         account: String,
         name: String,
     },
+    RenameFolder {
+        request_id: u64,
+        account: String,
+        old_name: String,
+        new_name: String,
+    },
+    DeleteFolder {
+        request_id: u64,
+        account: String,
+        name: String,
+    },
     ListFolders {
         request_id: u64,
         account: String,
@@ -88,6 +99,10 @@ pub enum Response {
     FolderCreated {
         request_id: u64,
         result: io::Result<crate::store::FolderInfo>,
+    },
+    FolderMutated {
+        request_id: u64,
+        result: io::Result<()>,
     },
     Folders {
         request_id: u64,

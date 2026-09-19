@@ -10,14 +10,12 @@ pub mod tokenizer;
 pub use idle::{IdleContinuation, parse_idle_continuation};
 use sequence_set::SequenceSet;
 use tokenizer::Token;
-
 /// Команда вместе с тегом, которым сервер обязан завершить ответ.
 #[derive(Debug, Eq, PartialEq)]
 pub struct TaggedCommand {
     pub tag: String,
     pub command: Command,
 }
-
 /// Поддерживаемый на текущем этапе набор IMAP-команд.
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
@@ -38,6 +36,13 @@ pub enum Command {
     Idle,
     Create {
         mailbox: MailboxName,
+    },
+    Delete {
+        mailbox: MailboxName,
+    },
+    Rename {
+        source: MailboxName,
+        destination: MailboxName,
     },
     List {
         pattern: folder::ListPattern,
@@ -62,21 +67,18 @@ pub enum Command {
     },
     Unsupported,
 }
-
 /// Типизированное имя mailbox после обработки специального имени INBOX.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum MailboxName {
     Inbox,
     Named(String),
 }
-
 /// Пространство номеров, в котором интерпретируется sequence-set.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Addressing {
     Sequence,
     Uid,
 }
-
 /// Поддерживаемый одиночный атрибут FETCH начального профиля.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FetchAttribute {
@@ -92,7 +94,6 @@ pub enum FetchAttribute {
         partial: Option<Partial>,
     },
 }
-
 /// Выбираемая raw MIME section.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BodySection {
@@ -120,6 +121,8 @@ enum Verb {
     Noop,
     Idle,
     Create,
+    Delete,
+    Rename,
     List,
     Select,
     Examine,
@@ -148,6 +151,8 @@ pub fn parse(line: &str) -> TaggedCommand {
         Some(Verb::Noop) => Command::Noop,
         Some(Verb::Idle) => Command::Idle,
         Some(Verb::Create) => folder::parse_create(tokens),
+        Some(Verb::Delete) => folder::parse_delete(tokens),
+        Some(Verb::Rename) => folder::parse_rename(tokens),
         Some(Verb::List) => folder::parse_list(tokens),
         Some(Verb::Select) => parse_select(&mut tokens, false),
         Some(Verb::Examine) => parse_select(&mut tokens, true),
@@ -278,6 +283,8 @@ fn parse_verb(text: &str) -> Verb {
         "NOOP" => Verb::Noop,
         "IDLE" => Verb::Idle,
         "CREATE" => Verb::Create,
+        "DELETE" => Verb::Delete,
+        "RENAME" => Verb::Rename,
         "LIST" => Verb::List,
         "SELECT" => Verb::Select,
         "EXAMINE" => Verb::Examine,

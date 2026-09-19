@@ -81,6 +81,23 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             request_id,
             result: store.create_folder(&account, &name),
         },
+        Request::RenameFolder {
+            request_id,
+            account,
+            old_name,
+            new_name,
+        } => Response::FolderMutated {
+            request_id,
+            result: store.rename_folder(&account, &old_name, &new_name),
+        },
+        Request::DeleteFolder {
+            request_id,
+            account,
+            name,
+        } => Response::FolderMutated {
+            request_id,
+            result: store.delete_folder(&account, &name),
+        },
         Request::ListFolders {
             request_id,
             account,

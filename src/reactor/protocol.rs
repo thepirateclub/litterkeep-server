@@ -63,6 +63,8 @@ pub(super) fn submit(
         | Request::Read { request_id, .. }
         | Request::UpdateFlags { request_id, .. }
         | Request::CreateFolder { request_id, .. }
+        | Request::RenameFolder { request_id, .. }
+        | Request::DeleteFolder { request_id, .. }
         | Request::ListFolders { request_id, .. }
         | Request::ResolveFolder { request_id, .. }
         | Request::ReadFolder { request_id, .. } => *request_id,
@@ -158,6 +160,23 @@ fn imap_line(
         imap::Command::Idle => imap_idle::begin(session, parsed.tag)?,
         imap::Command::Create { mailbox } => imap_folders::create(
             session, parsed.tag, mailbox, slot, generation, worker, owners, request_id,
+        )?,
+        imap::Command::Delete { mailbox } => imap_folders::delete(
+            session, parsed.tag, mailbox, slot, generation, worker, owners, request_id,
+        )?,
+        imap::Command::Rename {
+            source,
+            destination,
+        } => imap_folders::rename(
+            session,
+            parsed.tag,
+            source,
+            destination,
+            slot,
+            generation,
+            worker,
+            owners,
+            request_id,
         )?,
         imap::Command::List { pattern } => imap_folders::list(
             session, parsed.tag, pattern, slot, generation, worker, owners, request_id,

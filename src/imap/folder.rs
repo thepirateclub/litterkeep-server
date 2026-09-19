@@ -11,10 +11,40 @@ pub enum ListPattern {
     Exact(String),
 }
 
+/// Операция нужна completion-слою для точного tagged-ответа.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Mutation {
+    Delete,
+    Rename,
+}
+
 pub fn parse_create(mut tokens: impl Iterator<Item = Token>) -> Command {
     match (next_text(&mut tokens), tokens.next()) {
         (Some(name), None) => Command::Create {
             mailbox: mailbox(name),
+        },
+        _ => Command::Unsupported,
+    }
+}
+
+pub fn parse_delete(mut tokens: impl Iterator<Item = Token>) -> Command {
+    match (next_text(&mut tokens), tokens.next()) {
+        (Some(name), None) => Command::Delete {
+            mailbox: mailbox(name),
+        },
+        _ => Command::Unsupported,
+    }
+}
+
+pub fn parse_rename(mut tokens: impl Iterator<Item = Token>) -> Command {
+    match (
+        next_text(&mut tokens),
+        next_text(&mut tokens),
+        tokens.next(),
+    ) {
+        (Some(source), Some(destination), None) => Command::Rename {
+            source: mailbox(source),
+            destination: mailbox(destination),
         },
         _ => Command::Unsupported,
     }

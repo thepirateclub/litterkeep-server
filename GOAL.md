@@ -832,3 +832,29 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - G06 остаётся RUNNING: RENAME/DELETE, subscriptions, STATUS,
   COPY/MOVE/EXPUNGE, modified UTF-7, HEADER.FIELDS, UID SEARCH, Recent и полный
   LIST wildcard profile ещё не реализованы.
+
+### 2026-09-20: G06 durable folder lifecycle checkpoint
+
+- `RENAME` и `DELETE` разобраны в типизированные варианты до reactor-а и
+  выполняются bounded storage worker-ом, который единолично владеет store.
+  Tagged `OK` выдаётся только после `write_all`, `sync_all` и directory sync.
+- Каталог использует append-only create/rename/delete events. Переименование
+  поддерева является одним checksum-защищённым frame и сохраняет внутренние
+  ID. Это O(1) запись в журнал и O(n) неизбежное обновление затронутого snapshot,
+  без полного переписывания каталога.
+- Replay хранит high-water mark ID отдельно от активного списка. После DELETE
+  и повторного CREATE старый ID не возвращается, а недописанный mutation tail
+  отсекается без публикации операции. Отдельный crash-unit-test это проверяет.
+- INBOX нельзя удалить или переименовать. DELETE родителя с потомками
+  отклоняется `[CANNOT]`; RENAME в существующее имя, внутрь собственного
+  поддерева и из отсутствующей папки получает типизированный `NO`.
+- PASS: 84 Windows tests and 87 Linux Docker tests, format, Clippy
+  `-D warnings`, `git diff --check`,
+  отсутствие `mod.rs`, файлы не длиннее 300 строк и запрещённых смешанных
+  boolean-условий.
+- Независимый `imaplib` через STARTTLS проверил subtree RENAME с сохранением
+  сообщения, отказ DELETE родителя, DELETE leaf, повторный CREATE с пустым
+  новым mailbox и тот же результат после restart контейнера.
+- G06 остаётся RUNNING: subscriptions/LSUB, STATUS, COPY/MOVE/EXPUNGE/CLOSE,
+  HEADER.FIELDS, UID SEARCH, modified UTF-7, полный LIST wildcard/SPECIAL-USE
+  профиль, Recent и согласование sequence-map двух сессий ещё не завершены.

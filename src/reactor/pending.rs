@@ -55,6 +55,10 @@ pub(super) enum Pending {
     CreateFolder {
         tag: String,
     },
+    MutateFolder {
+        tag: String,
+        operation: imap::folder::Mutation,
+    },
     ListFolders {
         tag: String,
         pattern: imap::folder::ListPattern,

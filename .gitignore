@@ -3,4 +3,6 @@
 /runtime-smoke-*/
 /artifacts/
 *.log
+__pycache__/
+*.pyc
 /.verification-tls-pki*/
