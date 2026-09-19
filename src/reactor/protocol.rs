@@ -130,33 +130,32 @@ fn imap_line(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<()> {
-    let text = std::str::from_utf8(&line).unwrap_or("");
-    let mut parts = text.split_whitespace();
-    let tag = parts.next().unwrap_or("*");
-    match parts.next().unwrap_or("").to_ascii_uppercase().as_str() {
-        "CAPABILITY" => {
+    let parsed = imap::parse(std::str::from_utf8(&line).unwrap_or(""));
+    match parsed.command {
+        imap::Command::Capability => {
             session.push(b"* CAPABILITY IMAP4rev1 AUTH=PLAIN\r\n")?;
-            session.push(format!("{tag} OK CAPABILITY completed\r\n").as_bytes())?;
+            session.push(format!("{} OK CAPABILITY completed\r\n", parsed.tag).as_bytes())?;
         }
-        "LOGIN" => session.push(format!("{tag} OK LOGIN completed\r\n").as_bytes())?,
-        "LOGOUT" => {
+        imap::Command::Login => {
+            session.push(format!("{} OK LOGIN completed\r\n", parsed.tag).as_bytes())?
+        }
+        imap::Command::Logout => {
             session.push(b"* BYE\r\n")?;
-            session.push(format!("{tag} OK LOGOUT completed\r\n").as_bytes())?;
+            session.push(format!("{} OK LOGOUT completed\r\n", parsed.tag).as_bytes())?;
         }
-        "SELECT" | "EXAMINE" => queue_read(
+        imap::Command::Select | imap::Command::Examine => queue_read(
             session,
-            Pending::ReadForSelect(tag.into()),
+            Pending::ReadForSelect(parsed.tag),
             slot,
             generation,
             worker,
             owners,
             request_id,
         ),
-        "FETCH" => {
-            let message = parts.next().and_then(|n| n.parse().ok()).unwrap_or(0);
+        imap::Command::Fetch(message) => {
             queue_read(
                 session,
-                Pending::ReadForFetch(message, tag.into()),
+                Pending::ReadForFetch(message, parsed.tag),
                 slot,
                 generation,
                 worker,
@@ -164,7 +163,7 @@ fn imap_line(
                 request_id,
             );
         }
-        _ => session.push(format!("{tag} BAD\r\n").as_bytes())?,
+        imap::Command::Unsupported => session.push(format!("{} BAD\r\n", parsed.tag).as_bytes())?,
     }
     Ok(())
 }

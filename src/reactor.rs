@@ -4,8 +4,8 @@
 //! owns `Store`: it submits a bounded request to the single storage worker and
 //! waits for a completion identified by its slot and generation.
 use crate::platform::linux_poll::{self, Interest};
-use crate::smtp;
 use crate::storage_worker::{Request, Response, WakingStorageWorker};
+use crate::{imap, smtp};
 use std::collections::HashMap;
 use std::io::{self, Read, Write};
 use std::net::{TcpListener, TcpStream};

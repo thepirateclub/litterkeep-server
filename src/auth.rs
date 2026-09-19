@@ -1,6 +1,6 @@
 //! Argon2id password credentials. Hash text is the portable PHC record.
 use argon2::{
-    Argon2,
+    Algorithm, Argon2,
     password_hash::{PasswordHasher, PasswordVerifier, phc::PasswordHash},
 };
 use std::io;
@@ -13,11 +13,14 @@ pub struct Credential {
 impl Credential {
     pub fn from_phc(phc: String) -> io::Result<Self> {
         let parsed = PasswordHash::new(&phc).map_err(invalid)?;
-        if parsed.algorithm.as_str() != "argon2id" {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "credential is not Argon2id",
-            ));
+        match parsed.algorithm.as_str().parse::<Algorithm>() {
+            Ok(Algorithm::Argon2id) => {}
+            Ok(_) | Err(_) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "credential is not Argon2id",
+                ));
+            }
         }
         Ok(Self { phc })
     }

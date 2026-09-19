@@ -1,36 +1,68 @@
-//! Minimal tagged IMAP command parser and authentication/select state.
-#[derive(Default, Debug)]
-pub struct Session {
-    logged_in: bool,
-    selected: Option<String>,
+//! Tagged IMAP command decoding. Text is converted to an enum at the boundary.
+#[derive(Debug, Eq, PartialEq)]
+pub struct TaggedCommand {
+    pub tag: String,
+    pub command: Command,
 }
-pub fn apply(session: &mut Session, line: &str) -> String {
-    let mut p = line.split_whitespace();
-    let tag = p.next().unwrap_or("*");
-    let command = p.next().unwrap_or("").to_ascii_uppercase();
-    match command.as_str() {
-        "LOGIN" if p.next().is_some() && p.next().is_some() => {
-            session.logged_in = true;
-            format!("{tag} OK LOGIN completed\r\n")
-        }
-        "SELECT" if session.logged_in => {
-            let box_name = p.next().unwrap_or("INBOX");
-            session.selected = Some(box_name.into());
-            format!("* 0 EXISTS\r\n{tag} OK [READ-WRITE] SELECT completed\r\n")
-        }
-        "FETCH" if session.selected.is_some() => format!("{tag} OK FETCH completed\r\n"),
-        "LOGOUT" => format!("* BYE logging out\r\n{tag} OK LOGOUT completed\r\n"),
-        _ => format!("{tag} BAD invalid command or state\r\n"),
+#[derive(Debug, Eq, PartialEq)]
+pub enum Command {
+    Capability,
+    Login,
+    Logout,
+    Select,
+    Examine,
+    Fetch(usize),
+    Unsupported,
+}
+enum Verb {
+    Capability,
+    Login,
+    Logout,
+    Select,
+    Examine,
+    Fetch,
+    Unsupported,
+}
+pub fn parse(line: &str) -> TaggedCommand {
+    let mut words = line.split_whitespace();
+    let tag = words.next().unwrap_or("*").into();
+    let verb = parse_verb(words.next().unwrap_or(""));
+    let command = match verb {
+        Verb::Capability => Command::Capability,
+        Verb::Login => Command::Login,
+        Verb::Logout => Command::Logout,
+        Verb::Select => Command::Select,
+        Verb::Examine => Command::Examine,
+        Verb::Fetch => match words.next().and_then(|value| value.parse().ok()) {
+            Some(number) => Command::Fetch(number),
+            None => Command::Unsupported,
+        },
+        Verb::Unsupported => Command::Unsupported,
+    };
+    TaggedCommand { tag, command }
+}
+fn parse_verb(text: &str) -> Verb {
+    match text.to_ascii_uppercase().as_str() {
+        "CAPABILITY" => Verb::Capability,
+        "LOGIN" => Verb::Login,
+        "LOGOUT" => Verb::Logout,
+        "SELECT" => Verb::Select,
+        "EXAMINE" => Verb::Examine,
+        "FETCH" => Verb::Fetch,
+        _ => Verb::Unsupported,
     }
 }
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
-    fn requires_login_before_select() {
-        let mut s = Session::default();
-        assert!(apply(&mut s, "a SELECT INBOX\r\n").contains("BAD"));
-        assert!(apply(&mut s, "a LOGIN bob secret\r\n").contains("OK"));
-        assert!(apply(&mut s, "b SELECT INBOX\r\n").contains("EXISTS"));
+    fn decodes_fetch_as_enum() {
+        assert_eq!(
+            parse("a FETCH 3 (RFC822)\r\n"),
+            TaggedCommand {
+                tag: "a".into(),
+                command: Command::Fetch(3)
+            }
+        );
     }
 }
