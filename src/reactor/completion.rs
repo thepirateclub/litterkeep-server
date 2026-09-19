@@ -96,12 +96,12 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
             .as_bytes(),
         ),
         (
-            Pending::ReadForFetch(number, tag),
+            Pending::ReadForFetch(number, attribute, tag),
             Response::Read {
                 result: Ok(messages),
                 ..
             },
-        ) => write_fetch(session, number, tag, messages),
+        ) => write_fetch(session, number, attribute, tag, messages),
         (_, Response::Read { .. }) => session.push(b"451 storage failure\r\n"),
         _ => Ok(()),
     }
@@ -122,15 +122,42 @@ fn accept_recipient(session: &mut Session, address: String) -> io::Result<()> {
 fn write_fetch(
     session: &mut Session,
     number: usize,
+    attribute: imap::FetchAttribute,
     tag: String,
     messages: Vec<crate::store::Message>,
 ) -> io::Result<()> {
     let Some(message) = messages.get(number.saturating_sub(1)) else {
         return session.push(format!("{tag} NO no such message\r\n").as_bytes());
     };
-    session.push(format!("* {number} FETCH (RFC822 {{{}}}\r\n", message.bytes.len()).as_bytes())?;
-    session.push(&message.bytes)?;
-    session.push(format!("\r\n)\r\n{tag} OK FETCH completed\r\n").as_bytes())
+    match attribute {
+        imap::FetchAttribute::Rfc822 => {
+            session.push(
+                format!("* {number} FETCH (RFC822 {{{}}}\r\n", message.bytes.len()).as_bytes(),
+            )?;
+            session.push(&message.bytes)?;
+            session.push(format!("\r\n)\r\n{tag} OK FETCH completed\r\n").as_bytes())
+        }
+        imap::FetchAttribute::Rfc822Size => session.push(
+            format!(
+                "* {number} FETCH (RFC822.SIZE {})\r\n{tag} OK FETCH completed\r\n",
+                message.bytes.len()
+            )
+            .as_bytes(),
+        ),
+        imap::FetchAttribute::BodyStructure => {
+            let structure = crate::mime::tree::parse(&message.bytes)
+                .and_then(|entity| crate::mime::bodystructure::encode(&entity, &message.bytes));
+            match structure {
+                Ok(structure) => session.push(
+                    format!(
+                        "* {number} FETCH (BODYSTRUCTURE {structure})\r\n{tag} OK FETCH completed\r\n"
+                    )
+                    .as_bytes(),
+                ),
+                Err(_) => session.push(format!("{tag} NO malformed MIME message\r\n").as_bytes()),
+            }
+        }
+    }
 }
 
 /// Повторно предлагает worker-у запросы, которые ранее не поместились в канал.

@@ -1,6 +1,8 @@
 //! Минимальные MIME-примитивы для protocol и независимых проверок.
 use std::collections::BTreeMap;
 
+#[path = "mime/bodystructure.rs"]
+pub mod bodystructure;
 #[path = "mime/charset.rs"]
 pub mod charset;
 #[path = "mime/encoded_word.rs"]
@@ -11,6 +13,8 @@ pub mod header_block;
 pub mod parameters;
 #[path = "mime/quoted_printable.rs"]
 pub mod quoted_printable;
+#[path = "mime/transfer.rs"]
+pub mod transfer;
 #[path = "mime/tree.rs"]
 pub mod tree;
 

@@ -16,6 +16,22 @@ pub enum MediaType {
     Other(String),
 }
 
+impl MediaType {
+    /// Возвращает IMAP type/subtype без повторного строкового распознавания.
+    pub fn type_and_subtype(&self) -> (&str, &str) {
+        match self {
+            Self::TextPlain => ("TEXT", "PLAIN"),
+            Self::TextHtml => ("TEXT", "HTML"),
+            Self::MultipartMixed => ("MULTIPART", "MIXED"),
+            Self::MultipartAlternative => ("MULTIPART", "ALTERNATIVE"),
+            Self::MultipartRelated => ("MULTIPART", "RELATED"),
+            Self::MessageRfc822 => ("MESSAGE", "RFC822"),
+            Self::ApplicationOctetStream => ("APPLICATION", "OCTET-STREAM"),
+            Self::Other(value) => value.split_once('/').unwrap_or((value, "UNKNOWN")),
+        }
+    }
+}
+
 /// Structured MIME value после разбора параметров.
 #[derive(Debug, Eq, PartialEq)]
 pub struct StructuredValue {

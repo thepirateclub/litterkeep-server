@@ -121,10 +121,13 @@ fn imap_line(
             owners,
             request_id,
         )?,
-        imap::Command::Fetch(message) => queue_authenticated_read(
+        imap::Command::Fetch {
+            sequence,
+            attribute,
+        } => queue_authenticated_read(
             session,
             parsed.tag,
-            |tag| Pending::ReadForFetch(message, tag),
+            |tag| Pending::ReadForFetch(sequence, attribute, tag),
             slot,
             generation,
             worker,

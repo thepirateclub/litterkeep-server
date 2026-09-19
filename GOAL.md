@@ -598,3 +598,22 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   первого body с Python `email`, дополнительно к encoded-word и RFC 2231 имени.
 - G05 остаётся RUNNING: нужны декодирование transfer encoding на уровне entity,
   BODYSTRUCTURE/ENVELOPE и корректные IMAP section/partial responses.
+
+### 2026-09-19: G05 IMAP BODYSTRUCTURE checkpoint
+
+- Каждый MIME entity теперь хранит `TransferEncoding` enum и собственные
+  parameters. Leaf body декодируется только из абсолютного raw range; 7bit
+  проверяет ASCII, base64 и quoted-printable используют наши bounded decoder-ы,
+  неизвестная encoding не угадывается.
+- Собственный BODYSTRUCTURE encoder строит multipart children в исходном
+  порядке, экранирует строковые значения и сообщает размер encoded raw body в
+  октетах. Для text parts отдельно считается число CRLF lines.
+- IMAP FETCH принимает типизированные одиночные атрибуты `RFC822`,
+  `RFC822.SIZE`, `BODYSTRUCTURE`. Неподдержанный атрибут остаётся BAD, а
+  повреждённый MIME при BODYSTRUCTURE возвращает NO вместо ложной структуры.
+- PASS сетевой SMTP/IMAP STARTTLS blackbox: доставленное multipart/mixed письмо
+  вернуло BODYSTRUCTURE с `MIXED`, отдельный RFC822.SIZE и исходный RFC822;
+  вложение сохранило SHA-256
+  `f3a25aa93aa2fbba28d79260535bbd6a5eb0fc1c24a8b0f04e12b484c1dfe363`.
+- PASS Windows 56/56, Clippy и format; PASS Docker Linux 58/58. G05 остаётся
+  RUNNING до ENVELOPE, BODY section/PEEK и partial FETCH по октетам.

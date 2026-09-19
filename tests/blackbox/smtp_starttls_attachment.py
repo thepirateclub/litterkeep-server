@@ -69,6 +69,20 @@ def main() -> None:
     mailbox.login("bob", "bob-password")
     _, counts = mailbox.select("INBOX", readonly=True)
     sequence = next(value.decode("ascii") for value in counts if isinstance(value, bytes))
+    _, structures = mailbox.fetch(sequence, "(BODYSTRUCTURE)")
+    structure_bytes = b" ".join(
+        value
+        for item in structures
+        for value in (item if isinstance(item, tuple) else (item,))
+        if isinstance(value, bytes)
+    )
+    if b'"MULTIPART"' in structure_bytes:
+        raise AssertionError("multipart BODYSTRUCTURE used a scalar type")
+    if b'"MIXED"' not in structure_bytes:
+        raise AssertionError("multipart/mixed BODYSTRUCTURE is absent")
+    _, sizes = mailbox.fetch(sequence, "(RFC822.SIZE)")
+    if not any(b"RFC822.SIZE" in item for item in sizes if isinstance(item, bytes)):
+        raise AssertionError("RFC822.SIZE response is absent")
     _, payloads = mailbox.fetch(sequence, "(RFC822)")
     raw = next(item for item in payloads if isinstance(item, tuple))
     raw_bytes = next(value for value in reversed(raw) if isinstance(value, bytes))

@@ -60,7 +60,7 @@ enum Pending {
     ValidateRecipient { address: String },
     Append,
     ReadForSelect(String),
-    ReadForFetch(usize, String),
+    ReadForFetch(usize, imap::FetchAttribute, String),
 }
 
 #[derive(Clone)]

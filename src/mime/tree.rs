@@ -2,6 +2,8 @@
 
 use super::header_block::{self, HeaderName};
 use super::parameters::{self, MediaType};
+use super::transfer::TransferEncoding;
+use std::collections::BTreeMap;
 use std::ops::Range;
 
 const MAX_DEPTH: usize = 16;
@@ -14,6 +16,8 @@ pub struct Entity {
     pub header_range: Range<usize>,
     pub body_range: Range<usize>,
     pub media_type: MediaType,
+    pub parameters: BTreeMap<String, String>,
+    pub transfer_encoding: TransferEncoding,
     pub children: Vec<Entity>,
     pub preamble_range: Option<Range<usize>>,
     pub epilogue_range: Option<Range<usize>>,
@@ -60,6 +64,13 @@ fn parse_entity(
         .map_err(|_| "Content-Type is not ASCII compatible")?
         .unwrap_or("text/plain");
     let structured = parameters::parse(content_type)?;
+    let transfer_encoding = headers
+        .fields
+        .iter()
+        .find(|field| matches!(field.kind(), HeaderName::ContentTransferEncoding))
+        .map(|field| TransferEncoding::parse(&field.value))
+        .transpose()?
+        .unwrap_or(TransferEncoding::SevenBit);
     let boundary = structured.parameters.get("boundary").cloned();
     let body = raw
         .get(headers.body_offset..)
@@ -87,10 +98,25 @@ fn parse_entity(
         header_range: base..base + headers.body_offset.saturating_sub(2),
         body_range: base + headers.body_offset..base + raw.len(),
         media_type: structured.media_type,
+        parameters: structured.parameters,
+        transfer_encoding,
         children,
         preamble_range,
         epilogue_range,
     })
+}
+
+impl Entity {
+    /// Декодирует только тело leaf entity по сохранённому абсолютному range.
+    pub fn decoded_body(&self, message: &[u8]) -> Result<Vec<u8>, &'static str> {
+        if !self.children.is_empty() {
+            return Err("multipart entity has no scalar decoded body");
+        }
+        let body = message
+            .get(self.body_range.clone())
+            .ok_or("entity body range is outside message")?;
+        self.transfer_encoding.decode(body)
+    }
 }
 
 fn is_multipart(media_type: &MediaType) -> bool {
@@ -222,5 +248,12 @@ mod tests {
     fn missing_closing_delimiter_is_rejected() {
         let raw = b"Content-Type: multipart/mixed; boundary=x\r\n\r\n--x\r\nContent-Type: text/plain\r\n\r\nbody";
         assert!(parse(raw).is_err());
+    }
+
+    #[test]
+    fn leaf_decodes_only_its_raw_body_range() {
+        let raw = b"Content-Type: application/octet-stream\r\nContent-Transfer-Encoding: base64\r\n\r\naGVsbG8A";
+        let entity = parse(raw).expect("entity");
+        assert_eq!(entity.decoded_body(raw).expect("decoded body"), b"hello\0");
     }
 }
