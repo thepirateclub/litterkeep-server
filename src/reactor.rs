@@ -96,6 +96,15 @@ impl Session {
         self.output.extend_from_slice(bytes);
         Ok(())
     }
+    fn accepts_input(&self) -> bool {
+        if self.pending.is_some() {
+            return false;
+        }
+        if self.pending_submit.is_some() {
+            return false;
+        }
+        self.output.len() < MAX_OUTPUT
+    }
 }
 
 /// Start SMTP and IMAP in one process. Storage is opened exactly once.
@@ -141,9 +150,7 @@ pub fn serve(smtp_address: &str, imap_address: &str, root: impl AsRef<Path>) -> 
         ];
         for (slot, session) in sessions.iter().enumerate() {
             if let Some(session) = session {
-                let read = session.pending.is_none()
-                    && session.pending_submit.is_none()
-                    && session.output.len() < MAX_OUTPUT;
+                let read = session.accepts_input();
                 let write = !session.output.is_empty();
                 targets.push(Target::Session(slot, session.generation));
                 poll_fds.push((
@@ -176,25 +183,30 @@ pub fn serve(smtp_address: &str, imap_address: &str, root: impl AsRef<Path>) -> 
                     retry_submissions(&mut worker, &mut sessions, &mut owners)?;
                 }
                 Target::Session(slot, generation) => {
+                    let Some(entry) = sessions.get_mut(slot) else {
+                        continue;
+                    };
                     if ready.closed_or_error {
-                        sessions[slot] = None;
+                        *entry = None;
                         continue;
                     }
-                    if ready.writable && flush(&mut sessions[slot])? {
-                        sessions[slot] = None;
-                        continue;
+                    if ready.writable {
+                        if flush(entry)? {
+                            *entry = None;
+                            continue;
+                        }
                     }
-                    if ready.readable
-                        && read_session(
-                            &mut sessions[slot],
+                    if ready.readable {
+                        if read_session(
+                            entry,
                             slot,
                             generation,
                             &mut worker,
                             &mut owners,
                             &mut next_request,
-                        )?
-                    {
-                        sessions[slot] = None;
+                        )? {
+                            *entry = None;
+                        }
                     }
                 }
                 _ => {}

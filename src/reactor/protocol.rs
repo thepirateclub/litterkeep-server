@@ -13,7 +13,10 @@ pub(super) fn process_input(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<()> {
-    while session.pending.is_none() && session.pending_submit.is_none() {
+    while session.pending.is_none() {
+        if session.pending_submit.is_some() {
+            break;
+        }
         let Some(line) = take_line(&mut session.input) else {
             break;
         };
