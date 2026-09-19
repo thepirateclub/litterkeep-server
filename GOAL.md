@@ -175,3 +175,17 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - Это не TLS-сетевой результат. `ServerConfig` еще не подключён к
   неблокирующему reactor, поэтому TLS handshake, частичные records, таймауты и
   проверка независимым клиентом остаются NOT RUN.
+
+### 2026-09-19: TLS record boundary PASS
+
+- Добавлена `tls_transport::ServerTls`, владеющая только `rustls`
+  `ServerConnection`, а не TCP. Она ограничивает encrypted input 64 KiB,
+  накапливает неполный TLS record и вызывает `process_new_packets` только для
+  полного record. `WouldBlock` при отсутствии plaintext во время handshake не
+  закрывает живую сессию.
+- PASS: `partial_client_hello_is_buffered` передаёт ClientHello двумя частями,
+  подтверждая, что первая часть не попадает в обработку как повреждённый record.
+  Полный набор `cargo test --locked` содержит 20 успешных тестов.
+- Reactor пока использует plaintext `TcpStream`; соединение `ServerTls` с его
+  lifecycle, poll interest, handshake timeout и внешним TLS-клиентом остается
+  NOT RUN.
