@@ -184,6 +184,18 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   одно в `INBOX`. Это Store-level proof, сетевой ManageSieve/SMTP сценарий
   ещё не заявляется выполненным.
 
+### 2026-09-20: G08 ManageSieve FSM foundation
+
+- Добавлено собственное ManageSieve ядро с typed commands, quoted-string
+  framing boundary и состояниями plaintext/authenticated/closed. CAPABILITY,
+  STARTTLS, AUTHENTICATE PLAIN, LOGOUT, HAVESPACE, PUTSCRIPT, LISTSCRIPTS,
+  SETACTIVE, GETSCRIPT, DELETESCRIPT, RENAMESCRIPT, CHECKSCRIPT и NOOP
+  представлены отдельными typed действиями; password запрещён до TLS.
+- Unit-тесты подтверждают TLS-before-AUTH, смену authenticated state, передачу
+  PUTSCRIPT source и строгий отказ лишней arity. Это не является claim о
+  listener: TCP literals, storage worker completion и Linux acceptance ещё
+  требуются до G08 PASS.
+
 ### 2026-09-19: G00 PASS, G01 running
 
 - Added a single Cargo package with no production dependencies. This preserves

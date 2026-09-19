@@ -10,6 +10,7 @@ pub mod imap;
 pub mod imap_fetch;
 pub mod mail_date;
 pub mod mail_flags;
+pub mod managesieve;
 pub mod mime;
 pub mod outbound;
 pub mod platform;
