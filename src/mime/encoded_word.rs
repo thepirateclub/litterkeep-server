@@ -10,6 +10,9 @@ enum TransferEncoding {
 
 /// Декодирует полную форму `=?charset?B|Q?encoded-text?=`.
 pub fn decode(word: &str) -> Result<String, &'static str> {
+    if word.len() > 75 {
+        return Err("encoded-word exceeds 75 characters");
+    }
     let inner = word
         .strip_prefix("=?")
         .and_then(|value| value.strip_suffix("?="))
@@ -26,6 +29,51 @@ pub fn decode(word: &str) -> Result<String, &'static str> {
         TransferEncoding::Q => decode_q(encoded.as_bytes())?,
     };
     charset.decode(&bytes)
+}
+
+/// Декодирует все encoded-word в неструктурированном header field.
+pub fn decode_header(value: &str) -> Result<String, &'static str> {
+    let mut output = String::with_capacity(value.len());
+    let mut cursor = 0_usize;
+    let mut previous_was_encoded = false;
+    while let Some(relative_start) = value.get(cursor..).and_then(|tail| tail.find("=?")) {
+        let start = cursor.saturating_add(relative_start);
+        let prefix = value
+            .get(cursor..start)
+            .ok_or("invalid encoded-word prefix")?;
+        let search_start = start.saturating_add(2);
+        let Some(relative_end) = value.get(search_start..).and_then(|tail| tail.find("?=")) else {
+            output.push_str(value.get(cursor..).ok_or("invalid header tail")?);
+            return Ok(output);
+        };
+        let end = search_start.saturating_add(relative_end).saturating_add(2);
+        let candidate = value.get(start..end).ok_or("invalid encoded-word range")?;
+        match decode(candidate) {
+            Ok(decoded) => {
+                match (
+                    previous_was_encoded,
+                    prefix.chars().all(char::is_whitespace),
+                ) {
+                    (true, true) => {}
+                    _ => output.push_str(prefix),
+                }
+                output.push_str(&decoded);
+                previous_was_encoded = true;
+                cursor = end;
+            }
+            Err(_) => {
+                output.push_str(
+                    value
+                        .get(cursor..search_start)
+                        .ok_or("invalid raw prefix")?,
+                );
+                previous_was_encoded = false;
+                cursor = search_start;
+            }
+        }
+    }
+    output.push_str(value.get(cursor..).ok_or("invalid final header range")?);
+    Ok(output)
 }
 
 fn parse_encoding(value: &str) -> Result<TransferEncoding, &'static str> {
@@ -88,5 +136,11 @@ mod tests {
     fn rejects_unknown_charset_and_bad_q_escape() {
         assert!(decode("=?windows-1251?B?0J/RgNC40LLQtdGC?=").is_err());
         assert!(decode("=?UTF-8?Q?bad=ZZ?=").is_err());
+    }
+
+    #[test]
+    fn decodes_adjacent_words_and_preserves_plain_prefix() {
+        let value = "Re: =?UTF-8?B?0J/RgNC40LLQtdGC?= =?ISO-8859-1?Q?_caf=E9?=";
+        assert_eq!(decode_header(value).expect("header"), "Re: Привет café");
     }
 }

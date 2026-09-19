@@ -78,20 +78,37 @@ fn parse_entity(
     let mut children = Vec::new();
     let mut preamble_range = None;
     let mut epilogue_range = None;
-    if is_multipart(&structured.media_type) {
-        let boundary = boundary.ok_or("multipart boundary is absent")?;
-        let ranges = multipart_ranges(body, boundary.as_bytes())?;
-        preamble_range = Some(absolute(&ranges.preamble, base + headers.body_offset));
-        epilogue_range = Some(absolute(&ranges.epilogue, base + headers.body_offset));
-        for range in ranges.parts {
-            let part = body.get(range.clone()).ok_or("invalid MIME part range")?;
+    match &structured.media_type {
+        media_type if is_multipart(media_type) => {
+            let boundary = boundary.ok_or("multipart boundary is absent")?;
+            let ranges = multipart_ranges(body, boundary.as_bytes())?;
+            preamble_range = Some(absolute(&ranges.preamble, base + headers.body_offset));
+            epilogue_range = Some(absolute(&ranges.epilogue, base + headers.body_offset));
+            for range in ranges.parts {
+                let part = body.get(range.clone()).ok_or("invalid MIME part range")?;
+                children.push(parse_entity(
+                    part,
+                    base + headers.body_offset + range.start,
+                    depth.saturating_add(1),
+                    count,
+                )?);
+            }
+        }
+        MediaType::MessageRfc822 => {
+            match &transfer_encoding {
+                TransferEncoding::SevenBit
+                | TransferEncoding::EightBit
+                | TransferEncoding::Binary => {}
+                _ => return Err("encoded message/rfc822 cannot preserve raw child ranges"),
+            }
             children.push(parse_entity(
-                part,
-                base + headers.body_offset + range.start,
+                body,
+                base + headers.body_offset,
                 depth.saturating_add(1),
                 count,
             )?);
         }
+        _ => {}
     }
     Ok(Entity {
         raw_range: base..base + raw.len(),
@@ -255,5 +272,13 @@ mod tests {
         let raw = b"Content-Type: application/octet-stream\r\nContent-Transfer-Encoding: base64\r\n\r\naGVsbG8A";
         let entity = parse(raw).expect("entity");
         assert_eq!(entity.decoded_body(raw).expect("decoded body"), b"hello\0");
+    }
+
+    #[test]
+    fn message_rfc822_contains_nested_entity_with_absolute_ranges() {
+        let raw = b"Content-Type: message/rfc822\r\n\r\nSubject: nested\r\nContent-Type: text/plain\r\n\r\nbody";
+        let entity = parse(raw).expect("message entity");
+        let nested = entity.children.first().expect("nested entity");
+        assert_eq!(raw.get(nested.body_range.clone()), Some(b"body".as_slice()));
     }
 }

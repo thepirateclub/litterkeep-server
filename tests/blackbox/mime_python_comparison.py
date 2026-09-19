@@ -49,6 +49,8 @@ def main() -> None:
     actual_filename = next(lines)
     actual_count = int(next(lines))
     actual_body = next(lines)
+    actual_composite = next(lines)
+    actual_nested_body = next(lines)
     if actual_subject != python_subject():
         raise AssertionError("encoded-word result differs from Python")
     if actual_filename != python_filename():
@@ -65,6 +67,22 @@ def main() -> None:
         raise AssertionError("multipart part count differs from Python")
     if actual_body != python_body:
         raise AssertionError("multipart body range differs from Python")
+    composite = "Re: =?UTF-8?B?0J/RgNC40LLQtdGC?= =?ISO-8859-1?Q?_caf=E9?="
+    composite_parts = email.header.decode_header(composite)
+    decoded_composite = "".join(
+        value.decode(charset or "ascii") if isinstance(value, bytes) else value
+        for value, charset in composite_parts
+    ).encode("utf-8")
+    if actual_composite != decoded_composite:
+        raise AssertionError("composite encoded-word differs from Python")
+    nested_raw = (
+        b"Content-Type: message/rfc822\r\n\r\nSubject: nested\r\n"
+        b"Content-Type: text/plain\r\n\r\ninner body"
+    )
+    nested_message = BytesParser(policy=email.policy.default).parsebytes(nested_raw)
+    nested_payload = next(iter(nested_message.iter_parts())).get_payload(decode=True)
+    if actual_nested_body != nested_payload:
+        raise AssertionError("message/rfc822 body range differs from Python")
     print("MIME Python comparison passed")
 
 

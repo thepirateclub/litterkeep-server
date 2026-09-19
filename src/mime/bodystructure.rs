@@ -6,10 +6,32 @@ use std::collections::BTreeMap;
 
 /// Кодирует структуру, используя размеры исходных encoded body в октетах.
 pub fn encode(entity: &Entity, message: &[u8]) -> Result<String, &'static str> {
-    match entity.children.is_empty() {
-        true => encode_leaf(entity, message),
-        false => encode_multipart(entity, message),
+    match &entity.media_type {
+        MediaType::MessageRfc822 => encode_message(entity, message),
+        _ => match entity.children.is_empty() {
+            true => encode_leaf(entity, message),
+            false => encode_multipart(entity, message),
+        },
     }
+}
+
+fn encode_message(entity: &Entity, message: &[u8]) -> Result<String, &'static str> {
+    let body = message
+        .get(entity.body_range.clone())
+        .ok_or("message/rfc822 range is outside message")?;
+    let nested = entity
+        .children
+        .first()
+        .ok_or("message/rfc822 child is absent")?;
+    let envelope = super::envelope::encode(body)?;
+    let nested_structure = encode(nested, message)?;
+    Ok(format!(
+        "(\"MESSAGE\" \"RFC822\" {} NIL NIL \"{}\" {} {envelope} {nested_structure} {})",
+        encode_parameters(&entity.parameters)?,
+        escaped_atom(entity.transfer_encoding.wire_name())?,
+        body.len(),
+        line_count(body)
+    ))
 }
 
 fn encode_leaf(entity: &Entity, message: &[u8]) -> Result<String, &'static str> {
@@ -101,5 +123,15 @@ mod tests {
         assert!(encoded.ends_with(" \"ALTERNATIVE\")"));
         assert!(encoded.contains("\"TEXT\" \"PLAIN\""));
         assert!(encoded.contains("\"TEXT\" \"HTML\""));
+    }
+
+    #[test]
+    fn encodes_nested_message_envelope_and_structure() {
+        let raw = b"Content-Type: message/rfc822\r\n\r\nFrom: a@test\r\nTo: b@test\r\nSubject: nested\r\nContent-Type: text/plain\r\n\r\nbody";
+        let entity = super::super::tree::parse(raw).expect("entity");
+        let encoded = encode(&entity, raw).expect("bodystructure");
+        assert!(encoded.starts_with("(\"MESSAGE\" \"RFC822\""));
+        assert!(encoded.contains("\"nested\""));
+        assert!(encoded.contains("\"TEXT\" \"PLAIN\""));
     }
 }

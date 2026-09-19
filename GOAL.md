@@ -2,7 +2,7 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`  
 Root status: ACTIVE  
-Current subgoal: G05
+Current subgoal: G06
 
 The actually available Goal interface was inspected. It supports creating and
 updating one active root goal (`create_goal`, `get_goal`, `update_goal`), but
@@ -16,7 +16,7 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | G02 | G01 | durable store, journal, blob, recovery | PASS |
 | G03 | G02 | TLS, AUTH, bounded admission | PASS |
 | G04 | G03 | durable SMTP submission and local delivery | PASS |
-| G05 | G04 | MIME + IMAP, independently checked attachment | RUNNING |
+| G05 | G04 | MIME + IMAP, independently checked attachment | PASS |
 | G06 | G05 | IMAP folders, flags, UID, IDLE | NOT RUN |
 | G07 | G02 | POP3 backed by the shared store | NOT RUN |
 | G08 | G02 | Sieve and ManageSieve delivery effect | NOT RUN |
@@ -632,6 +632,25 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - PASS сетевой STARTTLS blackbox: `BODY.PEEK[1]<0.5>` вернул ровно `trans`,
   `BODY.PEEK[2.MIME]` вернул Content-Type вложения, ENVELOPE содержал subject и
   отдельные Alice/Bob mailbox/host, полный RFC822 и SHA-256 вложения совпали.
-- PASS Windows 59/59, Clippy и format; PASS Docker Linux 61/61. G05 остаётся
-  RUNNING: ещё нужны HEADER.FIELDS, составные encoded-word строки и корректная
-  рекурсия `message/rfc822`; эти сценарии не объявлены выполненными.
+- PASS Windows 59/59, Clippy и format; PASS Docker Linux 61/61. На этом
+  checkpoint G05 оставался RUNNING: ещё требовались составные encoded-word и
+  рекурсия `message/rfc822`; HEADER.FIELDS был перенесён в IMAP-этап G06.
+
+### 2026-09-19: G05 PASS, composite words и message/rfc822
+
+- Encoded-word decoder обрабатывает последовательность B/Q words внутри
+  неструктурированного header и удаляет только folding whitespace между двумя
+  соседними encoded words. Plain prefix и обычный текст сохраняются.
+- `message/rfc822` получает дочерний entity с абсолютными raw ranges и
+  ограничивает transfer encoding значениями, для которых raw mapping остаётся
+  однозначным. BODYSTRUCTURE включает вложенные ENVELOPE, structure и line count.
+- PASS 62 Windows unit test, format и Clippy; PASS Docker Linux 64/64.
+  Независимый Python differential
+  test подтвердил composite UTF-8/Latin-1 header, вложенное message/rfc822 body,
+  multipart ranges и RFC 2231 filename.
+- G05 получает PASS по критерию этапа: собственный MIME parser и IMAP reading
+  проверены стандартным независимым клиентом, включая ENVELOPE, BODYSTRUCTURE,
+  raw section, octet partial и точное совпадение бинарного вложения после
+  SMTP -> store -> IMAP. Нереализованные HEADER.FIELDS и полноценный
+  инкрементальный IMAP grammar остаются явными задачами G06, а не считаются
+  выполненными. Текущий последовательный этап теперь G06.

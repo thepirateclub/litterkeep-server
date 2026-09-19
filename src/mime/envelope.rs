@@ -50,10 +50,7 @@ fn decoded_single(
     let Some(value) = single(fields, kind)? else {
         return Ok(None);
     };
-    match encoded_word::decode(&value) {
-        Ok(decoded) => Ok(Some(decoded)),
-        Err(_) => Ok(Some(value)),
-    }
+    Ok(Some(encoded_word::decode_header(&value)?))
 }
 
 fn addresses(fields: Vec<&HeaderField>) -> Result<Vec<Address>, &'static str> {
