@@ -10,6 +10,8 @@ pub enum Command {
     Rset,
     Quit,
 }
+/// Верхняя граница получателей одного SMTP envelope в локальном профиле.
+const MAX_RECIPIENTS: usize = 100;
 pub fn parse(line: &str) -> Result<Command, &'static str> {
     let (verb, arg) = line
         .trim_end_matches("\r\n")
@@ -69,7 +71,7 @@ impl Transaction {
                 Ok(false)
             }
             Command::Rcpt(r) if self.sender.is_some() => {
-                self.recipients.push(r.clone());
+                self.accept_recipient(r.clone())?;
                 Ok(false)
             }
             Command::Data if !self.recipients.is_empty() => Ok(true),
@@ -97,11 +99,14 @@ impl Transaction {
 
     /// Добавляет проверенный policy слоем получатель в активный envelope.
     pub fn accept_recipient(&mut self, recipient: String) -> Result<(), &'static str> {
-        if self.can_accept_recipient() {
-            self.recipients.push(recipient);
-            return Ok(());
+        if !self.can_accept_recipient() {
+            return Err("bad command sequence");
         }
-        Err("bad command sequence")
+        if self.recipients.len() >= MAX_RECIPIENTS {
+            return Err("too many recipients");
+        }
+        self.recipients.push(recipient);
+        Ok(())
     }
 }
 #[cfg(test)]
@@ -150,5 +155,23 @@ mod tests {
         assert!(transaction.apply(&Command::Data).expect("data"));
         assert_eq!(transaction.take_recipients(), vec!["bob@test"]);
         assert!(transaction.take_recipients().is_empty());
+    }
+
+    #[test]
+    fn recipient_limit_is_enforced() {
+        let mut transaction = Transaction::default();
+        transaction
+            .apply(&parse("MAIL FROM:<alice@test>\r\n").expect("mail"))
+            .expect("sender");
+        for number in 0..MAX_RECIPIENTS {
+            transaction
+                .accept_recipient(format!("recipient-{number}@test"))
+                .expect("within limit");
+        }
+        assert!(
+            transaction
+                .accept_recipient("one-more@test".into())
+                .is_err()
+        );
     }
 }
