@@ -27,6 +27,7 @@ pub(super) fn smtp_line(
         smtp::Command::Ehlo(_) => ehlo(session),
         smtp::Command::Helo(_) => session.push(b"250 litterkeep.test\r\n"),
         smtp::Command::Noop => session.push(b"250 ok\r\n"),
+        smtp::Command::StartTls => starttls(session),
         smtp::Command::AuthPlain(response) => authenticate(
             session, response, slot, generation, worker, owners, request_id,
         ),
@@ -40,9 +41,30 @@ pub(super) fn smtp_line(
 
 /// Рекламирует AUTH только после implicit-TLS handshake.
 fn ehlo(session: &mut Session) -> io::Result<()> {
-    match session.tls {
-        Some(_) => session.push(b"250-litterkeep.test\r\n250-AUTH PLAIN\r\n250 SIZE 10485760\r\n"),
-        None => session.push(b"250-litterkeep.test\r\n250 SIZE 10485760\r\n"),
+    match (session.tls.is_some(), session.can_starttls()) {
+        (true, _) => {
+            session.push(b"250-litterkeep.test\r\n250-AUTH PLAIN\r\n250 SIZE 10485760\r\n")
+        }
+        (false, true) => {
+            session.push(b"250-litterkeep.test\r\n250-STARTTLS\r\n250 SIZE 10485760\r\n")
+        }
+        (false, false) => session.push(b"250-litterkeep.test\r\n250 SIZE 10485760\r\n"),
+    }
+}
+
+/// Переводит plaintext submission в TLS только вне активной транзакции.
+fn starttls(session: &mut Session) -> io::Result<()> {
+    let SmtpState::Command(transaction) = &session.smtp else {
+        return session.push(b"503 5.5.1 bad sequence\r\n");
+    };
+    match (session.can_starttls(), transaction.has_sender()) {
+        (true, false) => {
+            session.push(b"220 2.0.0 ready to start TLS\r\n")?;
+            session.request_starttls();
+            Ok(())
+        }
+        (true, true) => session.push(b"503 5.5.1 bad sequence\r\n"),
+        (false, _) => session.push(b"454 4.7.0 TLS not available\r\n"),
     }
 }
 

@@ -19,6 +19,7 @@ pub(super) fn flush(session: &mut Option<SessionLease>) -> io::Result<bool> {
         Ok(0) => Ok(true),
         Ok(count) => {
             output.drain(..count);
+            session.begin_starttls_if_ready()?;
             Ok(false)
         }
         Err(error) if error.kind() == io::ErrorKind::WouldBlock => Ok(false),

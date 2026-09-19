@@ -494,3 +494,21 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - Текущий этап остаётся G03. Его implicit TLS, AUTH, admission и timeout уже
   проверены, но обязательный STARTTLS-профиль ещё не реализован, поэтому G03
   сохраняет RUNNING.
+
+### 2026-09-19: SMTP STARTTLS transport checkpoint
+
+- Добавлен отдельный типизированный `TlsMode::StartTls`, а SMTP parser получил
+  `Command::StartTls`. До upgrade EHLO рекламирует STARTTLS и не рекламирует
+  AUTH; после успешного handshake клиент обязан повторить EHLO и получает AUTH.
+- Upgrade выполняется только после полной plaintext-записи ответа `220`.
+  Накопленный plaintext input очищается, envelope и authentication сбрасываются,
+  затем session создаёт новый `ServerTls` с тем же ограниченным handshake
+  deadline. TLS records остаются в существующем poll-reactor без нового потока.
+- PASS стандартным Python `smtplib.SMTP.starttls()` с проверкой цепочки и SAN:
+  Alice прошла AUTH, отправила Bob MIME-письмо, отдельный IMAP-клиент прочитал
+  его, SHA-256 вложения `f3a25aa93aa2fbba28d79260535bbd6a5eb0fc1c24a8b0f04e12b484c1dfe363`.
+- PASS: Windows 37/37, format, Clippy; Docker Linux target 39/39. Все исходники
+  сохраняют лимит 300 строк, `mod.rs` не добавлен.
+- G03 пока остаётся RUNNING: SMTP STARTTLS проверен, но IMAP STARTTLS и его
+  независимый клиентский сценарий ещё не реализованы. Implicit TLS для обоих
+  клиентских протоколов остаётся проверенным прежними checkpoint.

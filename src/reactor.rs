@@ -63,9 +63,16 @@ enum Pending {
     ReadForFetch(usize, String),
 }
 
+#[derive(Clone)]
+enum TlsMode {
+    Plain,
+    Implicit(Arc<ServerConfig>),
+    StartTls(Arc<ServerConfig>),
+}
+
 /// Запускает plaintext SMTP и IMAP для локального peer-теста без паролей.
 pub fn serve(smtp_address: &str, imap_address: &str, root: impl AsRef<Path>) -> io::Result<()> {
-    serve_with_tls(smtp_address, imap_address, root, None)
+    serve_with_tls(smtp_address, imap_address, root, TlsMode::Plain)
 }
 
 /// Запускает implicit-TLS SMTP submission и IMAP с одним material для listener-ов.
@@ -75,7 +82,27 @@ pub fn serve_tls(
     root: impl AsRef<Path>,
     tls_config: Arc<ServerConfig>,
 ) -> io::Result<()> {
-    serve_with_tls(smtp_address, imap_address, root, Some(tls_config))
+    serve_with_tls(
+        smtp_address,
+        imap_address,
+        root,
+        TlsMode::Implicit(tls_config),
+    )
+}
+
+/// Запускает plaintext listener с доступным SMTP STARTTLS upgrade.
+pub fn serve_starttls(
+    smtp_address: &str,
+    imap_address: &str,
+    root: impl AsRef<Path>,
+    tls_config: Arc<ServerConfig>,
+) -> io::Result<()> {
+    serve_with_tls(
+        smtp_address,
+        imap_address,
+        root,
+        TlsMode::StartTls(tls_config),
+    )
 }
 
 /// Владеет listener-ами, worker-ом и состоянием TLS каждого session.
@@ -83,7 +110,7 @@ fn serve_with_tls(
     smtp_address: &str,
     imap_address: &str,
     root: impl AsRef<Path>,
-    tls_config: Option<Arc<ServerConfig>>,
+    tls_mode: TlsMode,
 ) -> io::Result<()> {
     let smtp_listener = TcpListener::bind(smtp_address)?;
     let imap_listener = TcpListener::bind(imap_address)?;
@@ -150,7 +177,7 @@ fn serve_with_tls(
                     Kind::Smtp,
                     &mut sessions,
                     &mut next_generation,
-                    tls_config.as_ref(),
+                    &tls_mode,
                     &mut lifecycle,
                 )?,
                 Target::ImapListener if ready.readable => accept(
@@ -158,7 +185,7 @@ fn serve_with_tls(
                     Kind::Imap,
                     &mut sessions,
                     &mut next_generation,
-                    tls_config.as_ref(),
+                    &tls_mode,
                     &mut lifecycle,
                 )?,
                 Target::WorkerWake if ready.readable => {
@@ -204,13 +231,18 @@ fn accept(
     kind: Kind,
     sessions: &mut Vec<Option<SessionLease>>,
     next: &mut u64,
-    tls_config: Option<&Arc<ServerConfig>>,
+    tls_mode: &TlsMode,
     lifecycle: &mut Orchestrator<Session>,
 ) -> io::Result<()> {
     for _ in 0..ACCEPT_BUDGET {
         match listener.accept() {
             Ok((stream, _)) if lifecycle.resource_count() < MAX_SESSIONS => {
-                let session = Session::new(kind, stream, *next, tls_config.cloned())?;
+                let (implicit, upgrade) = match (tls_mode, kind) {
+                    (TlsMode::Implicit(config), _) => (Some(config.clone()), None),
+                    (TlsMode::StartTls(config), Kind::Smtp) => (None, Some(config.clone())),
+                    (TlsMode::StartTls(_), Kind::Imap) | (TlsMode::Plain, _) => (None, None),
+                };
+                let session = Session::new(kind, stream, *next, implicit, upgrade)?;
                 let task = lifecycle.spawn_task();
                 let resource = lifecycle.register_resource(session);
                 let session = lifecycle.acquire(task, resource).map_err(|error| {

@@ -23,6 +23,8 @@ pub(super) struct Session {
     pub(super) output: Vec<u8>,
     pub(super) wire_output: Vec<u8>,
     pub(super) tls: Option<ServerTls>,
+    starttls_config: Option<Arc<ServerConfig>>,
+    starttls_pending: bool,
     handshake_deadline: Option<Instant>,
     greeting_sent: bool,
     pub(super) pending_submit: Option<(Request, Pending)>,
@@ -37,6 +39,7 @@ impl Session {
         stream: TcpStream,
         generation: u64,
         tls_config: Option<Arc<ServerConfig>>,
+        starttls_config: Option<Arc<ServerConfig>>,
     ) -> io::Result<Self> {
         stream.set_nonblocking(true)?;
         let tls = tls_config
@@ -52,6 +55,8 @@ impl Session {
             output: Vec::new(),
             wire_output: Vec::new(),
             tls,
+            starttls_config,
+            starttls_pending: false,
             handshake_deadline,
             greeting_sent: false,
             pending_submit: None,
@@ -129,5 +134,43 @@ impl Session {
     pub(super) fn handshake_expired(&self, now: Instant) -> bool {
         self.handshake_deadline()
             .is_some_and(|deadline| deadline <= now)
+    }
+
+    /// Сообщает SMTP FSM, доступен ли переход из plaintext в TLS.
+    pub(super) fn can_starttls(&self) -> bool {
+        matches!(
+            (
+                self.tls.is_none(),
+                self.starttls_config.is_some(),
+                self.starttls_pending
+            ),
+            (true, true, false)
+        )
+    }
+
+    /// Планирует upgrade после полной отправки plaintext-ответа `220`.
+    pub(super) fn request_starttls(&mut self) {
+        self.input.clear();
+        self.starttls_pending = true;
+        self.smtp = SmtpState::Command(smtp::Transaction::default());
+        self.authenticated_account = None;
+    }
+
+    /// Передаёт socket новому rustls handshake только на чистой границе вывода.
+    pub(super) fn begin_starttls_if_ready(&mut self) -> io::Result<()> {
+        if !matches!(
+            (self.starttls_pending, self.output.is_empty()),
+            (true, true)
+        ) {
+            return Ok(());
+        }
+        let config = self
+            .starttls_config
+            .take()
+            .ok_or_else(|| io::Error::other("STARTTLS config missing"))?;
+        self.tls = Some(ServerTls::new(config).map_err(io::Error::other)?);
+        self.starttls_pending = false;
+        self.handshake_deadline = Some(Instant::now() + TLS_HANDSHAKE_TIMEOUT);
+        Ok(())
     }
 }

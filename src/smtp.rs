@@ -8,6 +8,7 @@ pub enum Command {
     Data,
     /// Initial response механизма SASL PLAIN в base64-представлении.
     AuthPlain(String),
+    StartTls,
     Noop,
     Rset,
     Quit,
@@ -26,6 +27,7 @@ pub fn parse(line: &str) -> Result<Command, &'static str> {
         "RCPT" => address(arg, "TO:", false).map(Command::Rcpt),
         "DATA" if arg.is_empty() => Ok(Command::Data),
         "AUTH" => parse_auth(arg),
+        "STARTTLS" if arg.is_empty() => Ok(Command::StartTls),
         "NOOP" if arg.is_empty() => Ok(Command::Noop),
         "RSET" if arg.is_empty() => Ok(Command::Rset),
         "QUIT" if arg.is_empty() => Ok(Command::Quit),
@@ -168,6 +170,12 @@ mod tests {
             parse("AUTH PLAIN AGJvYgB0ZXN0LXBhc3N3b3Jk\r\n").expect("plain auth"),
             Command::AuthPlain("AGJvYgB0ZXN0LXBhc3N3b3Jk".into())
         );
+    }
+
+    #[test]
+    fn parses_starttls_without_arguments() {
+        assert_eq!(parse("STARTTLS\r\n").expect("starttls"), Command::StartTls);
+        assert!(parse("STARTTLS now\r\n").is_err());
     }
 
     #[test]
