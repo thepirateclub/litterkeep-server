@@ -35,7 +35,8 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   mailbox UID, RETR/TOP делают dot-stuffing, а QUIT возвращает delete plan и
   не объявляет UPDATE до отдельного completion `commit_deletes`.
 - PASS только для core: Windows `cargo test --all-targets --locked` (108
-  tests), strict Clippy, format и structural audit. G07 не отмечен PASS:
+  tests), strict Clippy, format, structural audit и Docker Linux test target.
+  G07 не отмечен PASS:
   Linux POP3 listener, auth/store worker, maildrop lease, durable QUIT и
   независимый poplib test ещё не реализованы.
 
