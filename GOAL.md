@@ -1072,3 +1072,13 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - G06 остаётся RUNNING: часть extended LIST RETURN/CREATE-SPECIAL-USE, Recent
   и полная синхронизация всех change classes между несколькими сессиями ещё не
   завершены.
+
+### 2026-09-20: G06 LIST RETURN SPECIAL-USE checkpoint
+
+- Parser принимает `LIST "" "*" RETURN (SPECIAL-USE)` как extended форму
+  обычного LIST. Она не фильтрует папки, а требует special-use attributes в
+  ответах выбранного набора, которые уже берутся из durable enum каталога.
+- PASS: Windows 102 unit tests и strict Clippy; независимый STARTTLS клиент
+  `tests/blackbox/imap_list_return_special_use.py` получил `OK` и `\Sent`.
+- G06 остаётся RUNNING: CREATE-SPECIAL-USE, Recent и остальные change classes
+  multi-session синхронизации ещё не завершены.
