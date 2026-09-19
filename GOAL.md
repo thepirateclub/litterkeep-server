@@ -27,6 +27,18 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G07 POP3 core foundation
+
+- Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.
+  Реализованы USER/PASS, STAT, LIST, RETR, DELE, NOOP, RSET, QUIT, UIDL, TOP,
+  CAPA и STLS на session-local `Maildrop` snapshot. UIDL строится из durable
+  mailbox UID, RETR/TOP делают dot-stuffing, а QUIT возвращает delete plan и
+  не объявляет UPDATE до отдельного completion `commit_deletes`.
+- PASS только для core: Windows `cargo test --all-targets --locked` (108
+  tests), strict Clippy, format и structural audit. G07 не отмечен PASS:
+  Linux POP3 listener, auth/store worker, maildrop lease, durable QUIT и
+  независимый poplib test ещё не реализованы.
+
 ### 2026-09-19: G00 PASS, G01 running
 
 - Added a single Cargo package with no production dependencies. This preserves
