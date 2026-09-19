@@ -9,6 +9,8 @@ pub mod mime;
 pub mod platform;
 pub mod pop3;
 pub mod queue;
+#[cfg(target_os = "linux")]
+pub mod reactor;
 pub mod runtime;
 pub mod server;
 pub mod sieve;

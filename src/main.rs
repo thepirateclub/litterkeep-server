@@ -5,7 +5,7 @@ use litterkeep_server::{PRODUCT, VERSION};
 
 fn usage() {
     println!(
-        "{PRODUCT} {VERSION}\n\nUsage:\n  litterkeep-server help\n  litterkeep-server version\n\nThe network service is introduced after the lifecycle, durable-store, and TLS gates."
+        "{PRODUCT} {VERSION}\n\nUsage:\n  litterkeep-server help\n  litterkeep-server version\n  litterkeep-server serve [smtp-address] [imap-address] [data-dir]"
     );
 }
 
@@ -19,6 +19,7 @@ fn main() -> ExitCode {
             println!("{PRODUCT} {VERSION}");
             ExitCode::SUCCESS
         }
+        Some("serve") => serve(),
         Some("serve-smtp") => {
             let address = env::args()
                 .nth(2)
@@ -51,4 +52,28 @@ fn main() -> ExitCode {
             ExitCode::from(2)
         }
     }
+}
+
+#[cfg(target_os = "linux")]
+fn serve() -> ExitCode {
+    let smtp = env::args()
+        .nth(2)
+        .unwrap_or_else(|| "127.0.0.1:2525".into());
+    let imap = env::args()
+        .nth(3)
+        .unwrap_or_else(|| "127.0.0.1:2143".into());
+    let data = env::args().nth(4).unwrap_or_else(|| "runtime".into());
+    match litterkeep_server::reactor::serve(&smtp, &imap, data) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("server error: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn serve() -> ExitCode {
+    eprintln!("serve requires the Linux poll reactor; this Windows checkout cannot run it");
+    ExitCode::FAILURE
 }

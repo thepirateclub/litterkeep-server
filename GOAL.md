@@ -2,7 +2,7 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`  
 Root status: ACTIVE  
-Current subgoal: G01/G02
+Current subgoal: G01
 
 The actually available Goal interface was inspected. It supports creating and
 updating one active root goal (`create_goal`, `get_goal`, `update_goal`), but
@@ -27,7 +27,7 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
-### 2026-09-19: G00 PASS, G01 started
+### 2026-09-19: G00 PASS, G01 running
 
 - Added a single Cargo package with no production dependencies. This preserves
   the allowlist while G00/G01 need neither TLS nor password hashing.
@@ -51,8 +51,21 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   `smtplib`. It stored `bob-1.eml` (37 bytes) and `bob.journal` (12 bytes).
   The test first exposed case-sensitive envelope prefixes and rejection of the
   standard `SIZE` parameter; both were fixed in our parser before the PASS.
-- Current test gate after SMTP/MIME/IMAP parser additions:
-  `cargo test --locked` PASS (9 tests) and `cargo clippy --locked --all-targets
-  -- -D warnings` PASS. This is not IMAP interoperability evidence.
-- Environment limitation already known: this checkout contains no Git metadata.
-  No result is yet a network-protocol verification.
+- G01 now contains one Linux-only `serve` loop: it binds SMTP and IMAP in the
+  same process, uses the owned `poll(2)` boundary, limits accepting and reading
+  work per wake, and asks for writable events only while output is buffered.
+  Session slots have generations. Storage request completions are routed by the
+  pair, so completion after disconnect or slot reuse is ignored safely.
+- The reactor does not call `Store`: a single bounded `StorageWorker` owns it.
+  Requests are retried only after a completion wake, not by sleeps or a busy
+  loop. A full wake socket is harmless because the response channel is the
+  completion authority.
+- PASS on the installed Windows toolchain: `cargo fmt --check`; `cargo test
+  --locked` (15 passed); `cargo clippy --locked --all-targets -- -D warnings`;
+  `cargo build --locked --release --bin litterkeep-server`.
+- NOT RUN: the Linux reactor itself and all G01 network acceptance cases. The
+  installed target list contains only `x86_64-pc-windows-msvc`. An attempted
+  `rustup target add x86_64-unknown-linux-gnu` did not install a usable target,
+  and `cargo check --target x86_64-unknown-linux-gnu` fails before compiling
+  the crate because `std` for that target is absent. `serve` therefore reports
+  this limitation on Windows instead of pretending to provide the service.
