@@ -386,12 +386,16 @@ fn imap_line(
     let mut parts = text.split_whitespace();
     let tag = parts.next().unwrap_or("*");
     match parts.next().unwrap_or("").to_ascii_uppercase().as_str() {
-        "LOGIN" => session.push(format!("{tag} OK\r\n").as_bytes())?,
+        "CAPABILITY" => {
+            session.push(b"* CAPABILITY IMAP4rev1 AUTH=PLAIN\r\n")?;
+            session.push(format!("{tag} OK CAPABILITY completed\r\n").as_bytes())?;
+        }
+        "LOGIN" => session.push(format!("{tag} OK LOGIN completed\r\n").as_bytes())?,
         "LOGOUT" => {
             session.push(b"* BYE\r\n")?;
-            session.push(format!("{tag} OK\r\n").as_bytes())?;
+            session.push(format!("{tag} OK LOGOUT completed\r\n").as_bytes())?;
         }
-        "SELECT" => queue_read(
+        "SELECT" | "EXAMINE" => queue_read(
             session,
             Pending::ReadForSelect(tag.into()),
             slot,
@@ -479,7 +483,7 @@ fn complete(
                 },
             ) => session.push(
                 format!(
-                    "* {} EXISTS\r\n* OK [READ-ONLY]\r\n{tag} OK\r\n",
+                    "* {} EXISTS\r\n* OK [READ-ONLY]\r\n{tag} OK SELECT completed\r\n",
                     messages.len(),
                 )
                 .as_bytes(),
@@ -496,9 +500,9 @@ fn complete(
                         format!("* {n} FETCH (RFC822 {{{}}}\r\n", message.bytes.len()).as_bytes(),
                     )?;
                     session.push(&message.bytes)?;
-                    session.push(format!("\r\n)\r\n{tag} OK\r\n").as_bytes())?;
+                    session.push(format!("\r\n)\r\n{tag} OK FETCH completed\r\n").as_bytes())?;
                 } else {
-                    session.push(format!("{tag} NO\r\n").as_bytes())?
+                    session.push(format!("{tag} NO no such message\r\n").as_bytes())?
                 }
             }
             (_, Response::Read { .. }) => session.push(b"451 storage failure\r\n")?,

@@ -25,9 +25,14 @@ cargo run --locked -- serve 127.0.0.1:2525 127.0.0.1:2143 ./runtime
 ```
 
 This is one process with both listeners and one filesystem-store owner. The
-current host has only a Windows Rust target installed, so the command refuses
-to run here rather than selecting the old blocking listeners. Linux testing is
-still required before this command is treated as an acceptance result.
+current host runs Windows, so the command refuses to run here rather than
+selecting the old blocking listeners. Linux testing is still required before
+this command is treated as an acceptance result.
+
+The repository includes `tests/blackbox/smtp_imap_attachment.py`, which uses
+only Python's standard SMTP, IMAP and MIME clients. It was run successfully
+against the Linux Docker execution image on 2026-09-19. Docker is a test
+environment only, not a required part of litterkeep-server.
 
 The only runtime binary is `target/release/litterkeep-server`. Runtime data,
 TLS files and test artifacts will be placed under `runtime/` and are ignored.

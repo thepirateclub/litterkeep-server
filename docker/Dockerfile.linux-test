@@ -1,0 +1,11 @@
+# Linux verification image only. The server itself has no container runtime
+# dependency; this image supplies the requested Linux execution environment.
+FROM rust:1.97-bookworm AS build
+WORKDIR /source
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+RUN cargo build --locked --release --bin litterkeep-server
+
+FROM debian:bookworm-slim
+COPY --from=build /source/target/release/litterkeep-server /usr/local/bin/litterkeep-server
+ENTRYPOINT ["/usr/local/bin/litterkeep-server"]

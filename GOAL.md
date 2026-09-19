@@ -74,3 +74,20 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   host runs Windows, so cross-checking proves type checking only, not runtime
   socket behavior. `serve` reports that limitation on Windows instead of
   selecting the old blocking listeners.
+
+### 2026-09-19: first Linux SMTP to IMAP path PASS
+
+- A Linux/amd64 Docker execution image is available in
+  `docker/Dockerfile.linux-test`. It is a verification environment, not a
+  production dependency or part of the server topology.
+- PASS in the running `litterkeep-g01` container, published as SMTP 2525 and
+  IMAP 2143: `python tests/blackbox/smtp_imap_attachment.py 127.0.0.1 2525
+  2143`. The independent standard-library `smtplib` client submitted a MIME
+  message; the single store worker wrote `bob-1.eml` (749 bytes); independent
+  `imaplib` fetched it; Python MIME decoding compared attachment bytes.
+  Actual SHA-256: `3434bddb77229b18aab16f5a2894661d44505548389f84c11bce6d6b50efa4a4`.
+- The client exposed two real IMAP interoperability omissions, `CAPABILITY`
+  and read-only `EXAMINE`; both were implemented and retested. This proves the
+  first local plaintext path only. It does not prove TLS, authentication
+  security, account isolation, full IMAP, POP3, Sieve, outgoing SMTP, or the
+  remaining G01 concurrency and cancellation matrix.
