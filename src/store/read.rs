@@ -19,6 +19,12 @@ impl Store {
                     uid: record.uid,
                     bytes: fs::read(&path)?,
                     path,
+                    flags: self
+                        .flags
+                        .get(mailbox)
+                        .and_then(|flags| flags.get(&record.uid))
+                        .copied()
+                        .unwrap_or_default(),
                 })
             })
             .collect::<io::Result<Vec<_>>>()?;

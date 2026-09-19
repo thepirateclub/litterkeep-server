@@ -5,6 +5,8 @@ mod blobs;
 mod commit_log;
 #[path = "store/durability.rs"]
 mod durability;
+#[path = "store/flags.rs"]
+mod flags;
 #[path = "store/format.rs"]
 mod format;
 #[path = "store/journal.rs"]
@@ -22,6 +24,7 @@ mod recovery;
 #[cfg(test)]
 #[path = "store/tests.rs"]
 mod tests;
+pub use crate::mail_flags::{FlagMutation, MessageFlags, SystemFlag};
 pub use model::{MailboxSnapshot, Message};
 use quota::Quota;
 use std::collections::{HashMap, HashSet};
@@ -37,6 +40,7 @@ pub struct Store {
     _writer_lock: File,
     next_uids: HashMap<String, u64>,
     entries: HashMap<String, Vec<model::Record>>,
+    flags: HashMap<String, HashMap<u64, MessageFlags>>,
     next_transaction_id: u64,
     blob_quota: Quota,
     write_state: WriteState,
@@ -73,6 +77,7 @@ impl Store {
         recovery::recover(&root)?;
         let committed = commit_log::committed(&root.join("journal/transactions.log"))?;
         let recovered = mailbox_state::load(&root, &committed)?;
+        let flags = flags::load(&root, &recovered.entries)?;
         let blob_quota = Quota::load(&root.join("blobs"), quota_limit)?;
         let next_transaction_id = recovered
             .maximum_transaction_id
@@ -83,6 +88,7 @@ impl Store {
             _writer_lock: lock,
             next_uids: recovered.next_uids,
             entries: recovered.entries,
+            flags,
             next_transaction_id,
             blob_quota,
             write_state: WriteState::Writable,

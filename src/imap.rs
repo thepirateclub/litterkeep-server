@@ -1,5 +1,6 @@
 //! Декодирование IMAP-команд: текст сети преобразуется в типизированные варианты.
 
+pub mod flags;
 pub mod sequence_set;
 pub mod tokenizer;
 
@@ -38,6 +39,13 @@ pub enum Command {
         sequence_set: SequenceSet,
         attribute: FetchAttribute,
     },
+    Store {
+        addressing: Addressing,
+        sequence_set: SequenceSet,
+        mutation: crate::mail_flags::FlagMutation,
+        silent: bool,
+        flags: crate::mail_flags::MessageFlags,
+    },
     Unsupported,
 }
 
@@ -62,6 +70,7 @@ pub enum FetchAttribute {
     Rfc822Size,
     BodyStructure,
     Envelope,
+    Flags,
     Body {
         peek: bool,
         section: BodySection,
@@ -96,6 +105,7 @@ enum Verb {
     Select,
     Examine,
     Fetch,
+    Store,
     Uid,
     Unsupported,
 }
@@ -119,8 +129,10 @@ pub fn parse(line: &str) -> TaggedCommand {
         Some(Verb::Select) => parse_select(&mut tokens, false),
         Some(Verb::Examine) => parse_select(&mut tokens, true),
         Some(Verb::Fetch) => parse_fetch(&mut tokens, Addressing::Sequence),
+        Some(Verb::Store) => flags::parse_store(&mut tokens, Addressing::Sequence),
         Some(Verb::Uid) => match next_text(&mut tokens).as_deref().map(parse_verb) {
             Some(Verb::Fetch) => parse_fetch(&mut tokens, Addressing::Uid),
+            Some(Verb::Store) => flags::parse_store(&mut tokens, Addressing::Uid),
             _ => Command::Unsupported,
         },
         Some(Verb::Unsupported) | None => Command::Unsupported,
@@ -201,6 +213,7 @@ fn parse_fetch_attribute(value: &str) -> Option<FetchAttribute> {
         "RFC822.SIZE" => Some(FetchAttribute::Rfc822Size),
         "BODYSTRUCTURE" => Some(FetchAttribute::BodyStructure),
         "ENVELOPE" => Some(FetchAttribute::Envelope),
+        "FLAGS" => Some(FetchAttribute::Flags),
         _ => parse_body_attribute(token),
     }
 }
@@ -266,6 +279,7 @@ fn parse_verb(text: &str) -> Verb {
         "SELECT" => Verb::Select,
         "EXAMINE" => Verb::Examine,
         "FETCH" => Verb::Fetch,
+        "STORE" => Verb::Store,
         "UID" => Verb::Uid,
         _ => Verb::Unsupported,
     }

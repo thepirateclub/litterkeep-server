@@ -24,6 +24,20 @@ pub(super) fn complete(
             continue;
         }
         session.pending = None;
+        if let Some((request, next_pending)) =
+            super::flag_completion::follow_up(&pending, &response, next_request)
+        {
+            protocol::submit(
+                session,
+                request,
+                next_pending,
+                slot,
+                generation,
+                worker,
+                owners,
+            );
+            continue;
+        }
         write_completion(session, pending, response)?;
         protocol::process_input(session, slot, generation, worker, owners, next_request)?;
     }
@@ -36,7 +50,8 @@ fn response_id(response: &Response) -> u64 {
         Response::Authenticated { request_id, .. }
         | Response::RecipientValidated { request_id, .. }
         | Response::Appended { request_id, .. }
-        | Response::Read { request_id, .. } => *request_id,
+        | Response::Read { request_id, .. }
+        | Response::FlagsUpdated { request_id, .. } => *request_id,
     }
 }
 
@@ -137,6 +152,10 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
             snapshot.messages,
         ),
         (_, Response::Read { .. }) => session.push(b"451 storage failure\r\n"),
+        (pending @ Pending::WriteFlags { .. }, response @ Response::FlagsUpdated { .. }) => {
+            super::flag_completion::write(session, pending, response)
+        }
+        (_, Response::FlagsUpdated { .. }) => session.push(b"451 storage failure\r\n"),
         _ => Ok(()),
     }
 }
@@ -152,7 +171,6 @@ fn accept_recipient(session: &mut Session, address: String) -> io::Result<()> {
     }
 }
 
-/// Записывает RFC822 literal или ответ об отсутствии запрошенного сообщения.
 fn write_fetch(
     session: &mut Session,
     addressing: imap::Addressing,
@@ -255,6 +273,11 @@ fn write_fetch_item(
             }
             Err(_) => Ok(Err("malformed message headers")),
         },
+        imap::FetchAttribute::Flags => {
+            let flags = imap::flags::encode(message.flags);
+            session.push(format!("* {number} FETCH ({uid}FLAGS ({flags}))\r\n").as_bytes())?;
+            Ok(Ok(()))
+        }
     }
 }
 

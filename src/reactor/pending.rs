@@ -30,4 +30,19 @@ pub(super) enum Pending {
         imap::FetchAttribute,
         String,
     ),
+    ReadForStore {
+        addressing: imap::Addressing,
+        sequence_set: imap::sequence_set::SequenceSet,
+        mutation: crate::mail_flags::FlagMutation,
+        flags: crate::mail_flags::MessageFlags,
+        silent: bool,
+        tag: String,
+        mailbox: String,
+    },
+    WriteFlags {
+        addressing: imap::Addressing,
+        uids: Vec<u64>,
+        silent: bool,
+        tag: String,
+    },
 }

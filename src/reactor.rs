@@ -17,8 +17,12 @@ use std::{path::Path, sync::Arc};
 mod completion;
 #[path = "reactor/deadline.rs"]
 mod deadline;
+#[path = "reactor/flag_completion.rs"]
+mod flag_completion;
 #[path = "reactor/imap_literal.rs"]
 mod imap_literal;
+#[path = "reactor/imap_select.rs"]
+mod imap_select;
 #[path = "reactor/local_delivery.rs"]
 mod local_delivery;
 #[path = "reactor/pending.rs"]

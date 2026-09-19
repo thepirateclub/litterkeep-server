@@ -60,6 +60,18 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             request_id,
             result: store.snapshot(&mailbox),
         },
+        Request::UpdateFlags {
+            request_id,
+            mailbox,
+            uids,
+            mutation,
+            flags,
+        } => Response::FlagsUpdated {
+            request_id,
+            result: store
+                .update_flags(&mailbox, &uids, mutation, flags)
+                .and_then(|()| store.snapshot(&mailbox)),
+        },
     }
 }
 

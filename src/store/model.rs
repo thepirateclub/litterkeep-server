@@ -1,9 +1,11 @@
+use crate::mail_flags::MessageFlags;
 use std::{io, path::PathBuf};
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Message {
     pub uid: u64,
     pub path: PathBuf,
     pub bytes: Vec<u8>,
+    pub flags: MessageFlags,
 }
 
 /// Согласованный снимок mailbox, прочитанный одним владельцем store.

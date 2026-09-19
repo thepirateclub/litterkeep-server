@@ -98,3 +98,24 @@ fn append_literal_size_is_typed() {
         }
     );
 }
+
+/// STORE operation и системные flags не покидают parser строками.
+#[test]
+fn store_flags_are_typed() {
+    let Command::Store {
+        addressing,
+        sequence_set,
+        mutation,
+        silent,
+        flags,
+    } = parse("a8 UID STORE 4:9 +FLAGS.SILENT (\\Seen \\Flagged)\r\n").command
+    else {
+        panic!("STORE was not parsed");
+    };
+    assert_eq!(addressing, Addressing::Uid);
+    assert_eq!(sequence_set, SequenceSet::parse("4:9").unwrap());
+    assert_eq!(mutation, crate::mail_flags::FlagMutation::Add);
+    assert!(silent);
+    assert!(flags.contains(crate::mail_flags::SystemFlag::Seen));
+    assert!(flags.contains(crate::mail_flags::SystemFlag::Flagged));
+}

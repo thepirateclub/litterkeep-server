@@ -724,3 +724,25 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   UIDNEXT 2 и UID 1.
 - G06 остаётся RUNNING: APPEND flags/date, mutable flags, folders и IDLE ещё не
   реализованы.
+
+### 2026-09-19: G06 durable FLAGS checkpoint
+
+- Системные `Answered/Flagged/Deleted/Seen/Draft`, набор и операция
+  replace/add/remove вынесены в общий enum-домен. Parser сравнивает wire atoms
+  только на границе и передаёт дальше bitset, а не строки.
+- FETCH FLAGS, STORE, STORE.SILENT и UID STORE работают через sequence-set.
+  Двухфазный completion сначала разрешает snapshot в устойчивые UID, затем
+  ставит отдельную mutation владельцу store. Tagged OK и untagged FETCH FLAGS
+  выдаются только после успешного durable completion; `.SILENT` подавляет
+  только untagged response.
+- Store пишет весь batch UID одним append-only frame с version, count,
+  checksum и commit marker, затем `sync_all` и directory sync. Диапазоны UID
+  проверяются бинарным поиском, дубликаты сортируются и удаляются до записи.
+  Неизвестный UID отклоняется до создания журнала; uncertain write отравляет
+  writer до recovery.
+- PASS 73 Windows tests, format и Clippy; PASS Docker Linux 76/76.
+  Независимый `imaplib` подтвердил обычный STORE response, отсутствие FETCH у
+  `.SILENT`, UID STORE и последующий FETCH FLAGS. После restart того же volume
+  `\\Seen` у первого и `\\Draft` у второго сообщения сохранились.
+- G06 остаётся RUNNING: APPEND flags/date, folders, COPY/MOVE/EXPUNGE и IDLE
+  ещё не реализованы.

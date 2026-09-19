@@ -211,3 +211,49 @@ fn partial_multi_recipient_write_poisoned_and_invisible() {
     drop(recovered);
     let _ = fs::remove_dir_all(p);
 }
+
+#[test]
+fn flag_batch_is_durable_and_uid_addressed() {
+    let p = dir();
+    let mut store = Store::open(&p).expect("store");
+    store.append("bob", b"one").expect("first");
+    store.append("bob", b"two").expect("second");
+    let initial = MessageFlags::from_flags([SystemFlag::Seen, SystemFlag::Flagged]);
+    store
+        .update_flags("bob", &[2, 1, 2], FlagMutation::Add, initial)
+        .expect("flag batch");
+    store
+        .update_flags(
+            "bob",
+            &[2],
+            FlagMutation::Remove,
+            MessageFlags::from_flags([SystemFlag::Flagged]),
+        )
+        .expect("remove flag");
+    drop(store);
+
+    let reopened = Store::open(&p).expect("reopen");
+    let messages = reopened.messages("bob").expect("messages");
+    let first = messages.first().expect("first message");
+    let second = messages.get(1).expect("second message");
+    assert!(first.flags.contains(SystemFlag::Seen));
+    assert!(first.flags.contains(SystemFlag::Flagged));
+    assert!(second.flags.contains(SystemFlag::Seen));
+    assert!(!second.flags.contains(SystemFlag::Flagged));
+    drop(reopened);
+    let _ = fs::remove_dir_all(p);
+}
+
+#[test]
+fn flag_update_rejects_unknown_uid_before_writing() {
+    let p = dir();
+    let mut store = Store::open(&p).expect("store");
+    store.append("bob", b"one").expect("message");
+    let error = store
+        .update_flags("bob", &[2], FlagMutation::Replace, MessageFlags::default())
+        .expect_err("unknown UID");
+    assert_eq!(error.kind(), io::ErrorKind::NotFound);
+    assert!(!p.join("mailboxes/bob.flags").exists());
+    drop(store);
+    let _ = fs::remove_dir_all(p);
+}

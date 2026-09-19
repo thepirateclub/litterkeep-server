@@ -3,6 +3,7 @@
 mod execution;
 use crate::{
     accounts::Accounts,
+    mail_flags::{FlagMutation, MessageFlags},
     store::{MailboxSnapshot, Store},
 };
 use std::io;
@@ -38,6 +39,13 @@ pub enum Request {
         request_id: u64,
         mailbox: String,
     },
+    UpdateFlags {
+        request_id: u64,
+        mailbox: String,
+        uids: Vec<u64>,
+        mutation: FlagMutation,
+        flags: MessageFlags,
+    },
 }
 #[derive(Debug)]
 pub enum Response {
@@ -50,6 +58,10 @@ pub enum Response {
         result: io::Result<u64>,
     },
     Read {
+        request_id: u64,
+        result: io::Result<MailboxSnapshot>,
+    },
+    FlagsUpdated {
         request_id: u64,
         result: io::Result<MailboxSnapshot>,
     },
