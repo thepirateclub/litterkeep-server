@@ -46,6 +46,7 @@ pub enum Command {
     Idle,
     Create {
         mailbox: MailboxName,
+        special_use: Option<crate::store::SpecialUse>,
     },
     Delete {
         mailbox: MailboxName,

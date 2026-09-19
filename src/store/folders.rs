@@ -82,6 +82,15 @@ impl FolderCatalog {
         self.ensure_defaults(account)?;
         self.create_with_special(account, name, None)
     }
+    pub(super) fn create_special(
+        &mut self,
+        account: &str,
+        name: &str,
+        special: SpecialUse,
+    ) -> io::Result<FolderInfo> {
+        self.ensure_defaults(account)?;
+        self.create_with_special(account, name, Some(special))
+    }
 
     pub(super) fn list(&mut self, account: &str) -> io::Result<Vec<FolderInfo>> {
         self.ensure_defaults(account)?;

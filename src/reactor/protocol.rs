@@ -152,8 +152,19 @@ fn imap_line(
             session.push(format!("{} OK LOGOUT completed\r\n", parsed.tag).as_bytes())?;
         }
         imap::Command::Idle => imap_idle::begin(session, parsed.tag)?,
-        imap::Command::Create { mailbox } => imap_folders::create(
-            session, parsed.tag, mailbox, slot, generation, worker, owners, request_id,
+        imap::Command::Create {
+            mailbox,
+            special_use,
+        } => imap_folders::create(
+            session,
+            parsed.tag,
+            mailbox,
+            special_use,
+            slot,
+            generation,
+            worker,
+            owners,
+            request_id,
         )?,
         imap::Command::Delete { mailbox } => imap_folders::delete(
             session, parsed.tag, mailbox, slot, generation, worker, owners, request_id,

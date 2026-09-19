@@ -24,6 +24,16 @@ impl Store {
         let result = self.folders.create(account, name);
         self.finish_folder_operation(result)
     }
+    pub fn create_special_folder(
+        &mut self,
+        account: &str,
+        name: &str,
+        special: super::SpecialUse,
+    ) -> io::Result<FolderInfo> {
+        self.ensure_writable()?;
+        let result = self.folders.create_special(account, name, special);
+        self.finish_folder_operation(result)
+    }
 
     /// Переименовывает папку и потомков после долговечной journal-фиксации.
     pub fn rename_folder(&mut self, account: &str, old: &str, new: &str) -> io::Result<()> {
@@ -132,6 +142,33 @@ mod tests {
             .create_folder("bob", "Работа/Почта/2026")
             .expect("recreate");
         assert!(recreated.id > created.id);
+        drop(reopened);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn special_use_folder_survives_journal_replay() {
+        let root = std::env::temp_dir().join(format!(
+            "litterkeep-special-folder-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let mut store = Store::open(&root).expect("store");
+        store
+            .create_special_folder("bob", "Archive2", super::super::SpecialUse::Archive)
+            .expect("create");
+        drop(store);
+        let mut reopened = Store::open(&root).expect("reopen");
+        assert!(
+            reopened
+                .folders("bob")
+                .expect("folders")
+                .iter()
+                .any(|folder| folder.name == "Archive2"
+                    && folder.special_use == Some(super::super::SpecialUse::Archive))
+        );
         drop(reopened);
         let _ = fs::remove_dir_all(root);
     }

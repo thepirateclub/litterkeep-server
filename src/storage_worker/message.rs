@@ -41,6 +41,7 @@ pub enum Request {
         request_id: u64,
         account: String,
         name: String,
+        special_use: Option<crate::store::SpecialUse>,
     },
     RenameFolder {
         request_id: u64,

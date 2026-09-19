@@ -20,11 +20,50 @@ pub enum Mutation {
 }
 
 pub fn parse_create(mut tokens: impl Iterator<Item = Token>) -> Command {
-    match (next_text(&mut tokens), tokens.next()) {
-        (Some(name), None) => mailbox(name)
-            .map(|mailbox| Command::Create { mailbox })
-            .unwrap_or(Command::Unsupported),
+    let Some(name) = next_text(&mut tokens) else {
+        return Command::Unsupported;
+    };
+    let special_use = match tokens.next() {
+        None => Some(None),
+        Some(Token::ListStart) => parse_use(&mut tokens).map(Some),
+        _ => None,
+    };
+    match (mailbox(name), special_use) {
+        (Some(mailbox), Some(special_use)) => Command::Create {
+            mailbox,
+            special_use,
+        },
         _ => Command::Unsupported,
+    }
+}
+
+fn parse_use(tokens: &mut impl Iterator<Item = Token>) -> Option<crate::store::SpecialUse> {
+    match (
+        tokens.next(),
+        tokens.next(),
+        tokens.next(),
+        tokens.next(),
+        tokens.next(),
+    ) {
+        (
+            Some(Token::Text(use_name)),
+            Some(Token::ListStart),
+            Some(Token::Text(value)),
+            Some(Token::ListEnd),
+            Some(Token::ListEnd),
+        ) if use_name.eq_ignore_ascii_case("USE") => special_use(&value),
+        _ => None,
+    }
+}
+
+fn special_use(value: &str) -> Option<crate::store::SpecialUse> {
+    match value.to_ascii_uppercase().as_str() {
+        "\\SENT" => Some(crate::store::SpecialUse::Sent),
+        "\\DRAFTS" => Some(crate::store::SpecialUse::Drafts),
+        "\\TRASH" => Some(crate::store::SpecialUse::Trash),
+        "\\JUNK" => Some(crate::store::SpecialUse::Junk),
+        "\\ARCHIVE" => Some(crate::store::SpecialUse::Archive),
+        _ => None,
     }
 }
 

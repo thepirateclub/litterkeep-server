@@ -68,3 +68,14 @@ fn list_return_special_use_keeps_the_requested_selection() {
         }
     ));
 }
+
+#[test]
+fn create_special_use_is_typed_before_reactor() {
+    assert!(matches!(
+        parse("a CREATE Archive2 (USE (\\Archive))\r\n").command,
+        Command::Create {
+            special_use: Some(crate::store::SpecialUse::Archive),
+            ..
+        }
+    ));
+}

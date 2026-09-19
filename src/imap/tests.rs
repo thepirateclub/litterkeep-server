@@ -134,7 +134,8 @@ fn create_and_list_are_typed() {
     assert_eq!(
         parse("a10 CREATE \"Projects/2026\"\r\n").command,
         Command::Create {
-            mailbox: MailboxName::Named("Projects/2026".into())
+            mailbox: MailboxName::Named("Projects/2026".into()),
+            special_use: None,
         }
     );
     assert_eq!(
@@ -152,7 +153,8 @@ fn mailbox_name_decodes_modified_utf7() {
     assert_eq!(
         parse("a CREATE &ZeVnLIqe-\r\n").command,
         Command::Create {
-            mailbox: MailboxName::Named("日本語".into())
+            mailbox: MailboxName::Named("日本語".into()),
+            special_use: None,
         }
     );
 }

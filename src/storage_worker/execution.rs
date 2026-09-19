@@ -77,9 +77,13 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             request_id,
             account,
             name,
+            special_use,
         } => Response::FolderCreated {
             request_id,
-            result: store.create_folder(&account, &name),
+            result: match special_use {
+                Some(value) => store.create_special_folder(&account, &name, value),
+                None => store.create_folder(&account, &name),
+            },
         },
         Request::RenameFolder {
             request_id,
