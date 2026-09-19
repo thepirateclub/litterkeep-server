@@ -257,3 +257,16 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - PASS: `reactor.rs` содержит 229 строк, `session_io.rs` 48 строк; format,
   `cargo test --locked` (25 passed) и Clippy прошли. При чтении больше нет
   прямого индексирования массива для фактически принятой длины.
+
+### 2026-09-19: G04 relay-policy and recipient-bound checkpoint
+
+- Envelope ограничен 100 получателями. Лимит проверяется самой SMTP
+  транзакцией и не обходится асинхронной проверкой account у storage worker.
+- На SMTP boundary domain преобразуется в `LocalRoute`. Только `test` и
+  `litterkeep.test` попадают в local delivery policy; внешний домен получает
+  `550` на RCPT до DATA. Это не заменяет будущую queue-маршрутизацию peer.
+- PASS: `cargo test --locked` (26 passed), format и Clippy. Linux Docker
+  `smtp_recipient_routing.py` подтвердил адрес Alice, отказ неизвестного
+  mailbox и отказ `alice@outside.test`. Первый запуск теста намеренно не был
+  засчитан: старый volume содержал письмо Alice и строгая проверка `== 1`
+  упала. После удаления только созданного тестового volume сценарий PASS.
