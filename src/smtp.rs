@@ -2,9 +2,11 @@
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
     Ehlo(String),
+    Helo(String),
     Mail(String),
     Rcpt(String),
     Data,
+    Noop,
     Rset,
     Quit,
 }
@@ -14,16 +16,18 @@ pub fn parse(line: &str) -> Result<Command, &'static str> {
         .split_once(' ')
         .unwrap_or((line.trim_end_matches("\r\n"), ""));
     match verb.to_ascii_uppercase().as_str() {
-        "EHLO" | "HELO" if !arg.is_empty() => Ok(Command::Ehlo(arg.into())),
-        "MAIL" => address(arg, "FROM:").map(Command::Mail),
-        "RCPT" => address(arg, "TO:").map(Command::Rcpt),
+        "EHLO" if !arg.is_empty() => Ok(Command::Ehlo(arg.into())),
+        "HELO" if !arg.is_empty() => Ok(Command::Helo(arg.into())),
+        "MAIL" => address(arg, "FROM:", true).map(Command::Mail),
+        "RCPT" => address(arg, "TO:", false).map(Command::Rcpt),
         "DATA" if arg.is_empty() => Ok(Command::Data),
+        "NOOP" if arg.is_empty() => Ok(Command::Noop),
         "RSET" if arg.is_empty() => Ok(Command::Rset),
         "QUIT" if arg.is_empty() => Ok(Command::Quit),
         _ => Err("unrecognized or malformed command"),
     }
 }
-fn address(arg: &str, prefix: &str) -> Result<String, &'static str> {
+fn address(arg: &str, prefix: &str, accepts_empty_path: bool) -> Result<String, &'static str> {
     let (actual, rest) = arg.split_at(
         arg.find(':')
             .map(|index| index + 1)
@@ -39,7 +43,7 @@ fn address(arg: &str, prefix: &str) -> Result<String, &'static str> {
     let Some((mailbox, suffix)) = path.split_once('>') else {
         return Err("invalid path");
     };
-    if mailbox.is_empty() {
+    if mailbox.is_empty() && !accepts_empty_path {
         return Err("invalid path");
     }
     let has_parameter_separator = suffix.chars().next().is_some_and(char::is_whitespace);
@@ -118,6 +122,19 @@ mod tests {
         assert_eq!(
             parse("mail FROM:<alice@test> size=37\r\n").expect("standard MAIL"),
             Command::Mail("alice@test".into())
+        );
+    }
+
+    #[test]
+    fn accepts_empty_mta_reverse_path_and_noop() {
+        assert_eq!(
+            parse("MAIL FROM:<>\r\n").expect("empty reverse path"),
+            Command::Mail(String::new())
+        );
+        assert_eq!(parse("NOOP\r\n").expect("noop"), Command::Noop);
+        assert_eq!(
+            parse("HELO sender.test\r\n").expect("helo"),
+            Command::Helo("sender.test".into())
         );
     }
 

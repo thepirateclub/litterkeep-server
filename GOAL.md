@@ -240,3 +240,11 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - PASS в новом чистом Linux Docker volume: тест подтвердил zero messages после
   разрыва, затем маршрут Alice и SMTP-to-IMAP attachment regression снова
   прошли. Разрыв DATA очищает только session buffer и не публикует blob.
+
+### 2026-09-19: G04 basic SMTP command checkpoint
+
+- SMTP FSM различает HELO и EHLO, отвечает на NOOP и принимает RFC-совместимый
+  пустой reverse-path `MAIL FROM:<>`; RCPT всё ещё требует непустой path.
+- PASS: `cargo test --locked` (25 passed), Clippy и format; в Linux Docker
+  независимый `tests/blackbox/smtp_basic_commands.py` подтвердил HELO, NOOP,
+  пустой MAIL, RSET и QUIT. SMTP-to-IMAP attachment regression также PASS.

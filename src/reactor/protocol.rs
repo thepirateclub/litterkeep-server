@@ -111,6 +111,14 @@ fn smtp_line(
         session.push(b"250-litterkeep.test\r\n250 SIZE 10485760\r\n")?;
         return Ok(());
     }
+    if matches!(command, smtp::Command::Helo(_)) {
+        session.push(b"250 litterkeep.test\r\n")?;
+        return Ok(());
+    }
+    if matches!(command, smtp::Command::Noop) {
+        session.push(b"250 ok\r\n")?;
+        return Ok(());
+    }
     let SmtpState::Command(tx) = &mut session.smtp else {
         unreachable!()
     };
