@@ -1,4 +1,3 @@
-use super::local_delivery::{local_mailbox, local_mailboxes};
 use super::*;
 
 fn take_line(input: &mut Vec<u8>) -> Option<Vec<u8>> {
@@ -22,7 +21,9 @@ pub(super) fn process_input(
             break;
         };
         match session.kind {
-            Kind::Smtp => smtp_line(session, line, slot, generation, worker, owners, request_id)?,
+            Kind::Smtp => super::smtp_protocol::smtp_line(
+                session, line, slot, generation, worker, owners, request_id,
+            )?,
             Kind::Imap => imap_line(session, line, slot, generation, worker, owners, request_id)?,
         }
     }
@@ -57,113 +58,6 @@ pub(super) fn submit(
             let _ = session.push(b"451 storage unavailable\r\n");
         }
     }
-}
-
-fn smtp_line(
-    session: &mut Session,
-    line: Vec<u8>,
-    slot: usize,
-    generation: u64,
-    worker: &mut WakingStorageWorker,
-    owners: &mut HashMap<u64, (usize, u64, Pending)>,
-    request_id: &mut u64,
-) -> io::Result<()> {
-    if let SmtpState::Data { bytes, recipients } = &mut session.smtp {
-        if line == b".\r\n" {
-            let bytes = std::mem::take(bytes);
-            let mailboxes = local_mailboxes(std::mem::take(recipients));
-            session.smtp = SmtpState::Command(smtp::Transaction::default());
-            let id = *request_id;
-            *request_id = request_id.wrapping_add(1).max(1);
-            submit(
-                session,
-                Request::AppendMany {
-                    request_id: id,
-                    mailboxes,
-                    bytes,
-                },
-                Pending::Append,
-                slot,
-                generation,
-                worker,
-                owners,
-            );
-        } else if bytes.len().saturating_add(line.len()) > MAX_MESSAGE {
-            session.smtp = SmtpState::Command(smtp::Transaction::default());
-            session.push(b"552 message too large\r\n")?;
-        } else {
-            match line.strip_prefix(b"..") {
-                Some(unstuffed) => bytes.extend_from_slice(unstuffed),
-                None => bytes.extend_from_slice(&line),
-            }
-        }
-        return Ok(());
-    }
-    let text = std::str::from_utf8(&line).unwrap_or("");
-    let command = match smtp::parse(text) {
-        Ok(command) => command,
-        Err(_) => {
-            session.push(b"500 syntax error\r\n")?;
-            return Ok(());
-        }
-    };
-    if command == smtp::Command::Quit {
-        session.push(b"221 bye\r\n")?;
-        return Ok(());
-    }
-    if matches!(command, smtp::Command::Ehlo(_)) {
-        session.push(b"250-litterkeep.test\r\n250 SIZE 10485760\r\n")?;
-        return Ok(());
-    }
-    if matches!(command, smtp::Command::Helo(_)) {
-        session.push(b"250 litterkeep.test\r\n")?;
-        return Ok(());
-    }
-    if matches!(command, smtp::Command::Noop) {
-        session.push(b"250 ok\r\n")?;
-        return Ok(());
-    }
-    let SmtpState::Command(tx) = &mut session.smtp else {
-        unreachable!()
-    };
-    if let smtp::Command::Rcpt(address) = command {
-        if !tx.can_accept_recipient() {
-            session.push(b"503 bad sequence\r\n")?;
-            return Ok(());
-        }
-        let Some(mailbox) = local_mailbox(&address) else {
-            session.push(b"550 unknown local recipient\r\n")?;
-            return Ok(());
-        };
-        let id = *request_id;
-        *request_id = request_id.wrapping_add(1).max(1);
-        submit(
-            session,
-            Request::ValidateRecipient {
-                request_id: id,
-                mailbox,
-            },
-            Pending::ValidateRecipient { address },
-            slot,
-            generation,
-            worker,
-            owners,
-        );
-        return Ok(());
-    }
-    match tx.apply(&command) {
-        Ok(true) => {
-            let recipients = tx.take_recipients();
-            session.smtp = SmtpState::Data {
-                bytes: Vec::new(),
-                recipients,
-            };
-            session.push(b"354 end with <CRLF>.<CRLF>\r\n")?;
-        }
-        Ok(false) => session.push(b"250 ok\r\n")?,
-        Err(_) => session.push(b"503 bad sequence\r\n")?,
-    }
-    Ok(())
 }
 
 fn imap_line(

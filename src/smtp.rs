@@ -111,6 +111,11 @@ impl Transaction {
         self.sender.is_some()
     }
 
+    /// Сообщает, начата ли envelope-транзакция командой MAIL.
+    pub fn has_sender(&self) -> bool {
+        self.sender.is_some()
+    }
+
     /// Добавляет проверенный policy слоем получатель в активный envelope.
     pub fn accept_recipient(&mut self, recipient: String) -> Result<(), &'static str> {
         if !self.can_accept_recipient() {

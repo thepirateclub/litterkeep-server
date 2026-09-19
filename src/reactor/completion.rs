@@ -55,6 +55,16 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
                 accepted: false, ..
             },
         ) => session.push(format!("{tag} NO authentication failed\r\n").as_bytes()),
+        (Pending::SmtpAuthenticate { account }, Response::Authenticated { accepted: true, .. }) => {
+            session.authenticated_account = Some(account);
+            session.push(b"235 2.7.0 authentication successful\r\n")
+        }
+        (
+            Pending::SmtpAuthenticate { .. },
+            Response::Authenticated {
+                accepted: false, ..
+            },
+        ) => session.push(b"535 5.7.8 authentication credentials invalid\r\n"),
         (
             Pending::ValidateRecipient { address },
             Response::RecipientValidated { accepted: true, .. },

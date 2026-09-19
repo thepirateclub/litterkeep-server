@@ -22,6 +22,8 @@ mod protocol;
 mod session;
 #[path = "reactor/session_io.rs"]
 mod session_io;
+#[path = "reactor/smtp_protocol.rs"]
+mod smtp_protocol;
 use completion::{complete, retry_submissions};
 use protocol::process_input;
 use session::{Session, SmtpState};
@@ -49,6 +51,7 @@ enum Target {
 #[derive(Clone)]
 enum Pending {
     Authenticate { tag: String, account: String },
+    SmtpAuthenticate { account: String },
     ValidateRecipient { address: String },
     Append,
     ReadForSelect(String),

@@ -19,9 +19,15 @@ pub struct PlainCredentials {
 pub fn parse_plain(initial_response: &str) -> Result<PlainCredentials, &'static str> {
     let decoded = decode_base64(initial_response.as_bytes())?;
     let mut fields = decoded.splitn(3, |byte| *byte == 0);
-    let Some(authzid) = fields.next() else { return Err("missing authzid"); };
-    let Some(authcid) = fields.next() else { return Err("missing authcid"); };
-    let Some(password) = fields.next() else { return Err("missing password"); };
+    let Some(authzid) = fields.next() else {
+        return Err("missing authzid");
+    };
+    let Some(authcid) = fields.next() else {
+        return Err("missing authcid");
+    };
+    let Some(password) = fields.next() else {
+        return Err("missing password");
+    };
     let account = std::str::from_utf8(authcid).map_err(|_| "invalid authcid")?;
     match (authzid.is_empty(), authzid == authcid, account.is_empty()) {
         (_, _, true) => Err("empty authcid"),

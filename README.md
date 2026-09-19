@@ -3,10 +3,12 @@
 Self-hosted Rust mail server for the local `litterkeep` integration profile.
 It owns its protocol parsers, filesystem store and task/resource lifecycle.
 
-Current checkpoint: the first Linux SMTP to IMAP path, including worker-owned
-Argon2id account verification and durable local storage. This is not yet a
-complete mail server: TLS, SMTP authentication, account isolation, full IMAP,
-POP3, Sieve and outbound SMTP remain unfinished.
+Current checkpoint: implicit TLS SMTP submission authenticates accounts with
+SASL PLAIN and delivers to the worker-owned filesystem store; implicit TLS
+IMAP can authenticate and retrieve the stored RFC822 bytes. This is not yet a
+complete mail server: STARTTLS, handshake deadlines, full IMAP, POP3, Sieve,
+durable outbound queue integration and the remaining acceptance matrix are
+unfinished.
 
 ## Developer commands
 
@@ -33,10 +35,26 @@ The current host runs Windows, so `serve` refuses to run here rather than
 selecting old blocking listeners. The Linux Docker acceptance result is
 documented below.
 
-The repository includes `tests/blackbox/smtp_imap_attachment.py`, which uses
-only Python's standard SMTP, IMAP and MIME clients. It was run successfully
-against the Linux Docker execution image on 2026-09-19. Docker is a test
-environment only, not a required part of litterkeep-server.
+## Implicit TLS submission command
+
+```sh
+cargo run --locked -- init ./runtime alice alice-password
+cargo run --locked -- init ./runtime bob bob-password
+cargo run --locked -- serve-tls 0.0.0.0:1465 0.0.0.0:1993 ./runtime ./server.der ./server.key.der
+```
+
+Connection parameters for this checkpoint are SMTP submission on port 1465
+with implicit TLS and `AUTH PLAIN`, plus IMAP on port 1993 with implicit TLS.
+The acceptance accounts are `alice/alice-password` and `bob/bob-password`.
+The certificate must be trusted by the client and contain the listener host in
+its SAN. Test-only material can be generated with
+`cargo run --locked --example make_test_pki -- ./test-pki`.
+
+The repository includes `tests/blackbox/tls_smtp_auth_attachment.py`, which
+uses only Python's standard SMTP, IMAP and MIME clients. It was run successfully
+against the Linux Docker execution image on 2026-09-19 and compared the decoded
+attachment bytes. Docker is a test environment only, not a required part of
+litterkeep-server.
 
 The only runtime binary is `target/release/litterkeep-server`. Runtime data,
 TLS files and test artifacts will be placed under `runtime/` and are ignored.

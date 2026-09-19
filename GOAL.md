@@ -308,3 +308,29 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - G03 остаётся NOT RUN: отсутствуют SMTP AUTH, ограничение времени handshake,
   admission control и STARTTLS; результат доказывает только implicit TLS IMAP
   transport и защищённую проверку действующих IMAP credentials.
+
+### 2026-09-19: TLS SMTP AUTH PLAIN submission checkpoint
+
+- SMTP AUTH PLAIN теперь разбирается на протокольной границе, а пароль
+  проверяет bounded storage worker. Reactor не читает credential-файлы и не
+  получает владение store. Успешный completion связывает account с конкретной
+  session и её generation.
+- TLS EHLO рекламирует только реализованный `AUTH PLAIN`. Plaintext listener
+  AUTH не рекламирует и отвечает `538`. Защищённый submission требует AUTH до
+  MAIL/RCPT/DATA и разрешает envelope sender только для вошедшего локального
+  account. Отдельный peer listener сохраняет возможность пустого reverse-path.
+- SMTP и IMAP state transitions разделены по файлам. Новый
+  `reactor/smtp_protocol.rs` содержит 239 строк, `reactor/protocol.rs` 165
+  строк; `mod.rs` не добавлялся.
+- PASS на Windows: `cargo fmt --check`; `cargo test --locked` (29 passed);
+  `cargo clippy --locked --all-targets -- -D warnings`; `git diff --check`.
+- PASS в новом Linux Docker image `litterkeep-server:smtp-auth` и чистом volume
+  `litterkeep-smtp-auth-test`: стандартный Python `SMTP_SSL.login` отправил от
+  Alice письмо Bob, отдельный `IMAP4_SSL` получил MIME-вложение, байты совпали.
+  SHA-256: `ae8cbf6572ca0f8f11c8890b0eb2eb081bd0c42fa8c92286a4bc1983737c7e66`.
+- PASS `smtp_auth_policy.py`: неверный пароль получил `535`, MAIL до AUTH
+  получил `530`, sender Bob под Alice получил `553`, plaintext AUTH получил
+  `538`, а plaintext EHLO не объявил AUTH.
+- G03 остаётся NOT RUN: отсутствуют handshake timeout, полноценный admission
+  control и STARTTLS. G04 также остаётся NOT RUN до Received/Return-Path,
+  идемпотентности delivery и остальных критериев этапа.
