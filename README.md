@@ -7,8 +7,9 @@ Current checkpoint: TLS and STARTTLS SMTP submission authenticate accounts with
 SASL PLAIN and deliver into the worker-owned filesystem store. IMAP supports
 STARTTLS authentication, durable APPEND to INBOX, SELECT/EXAMINE metadata,
 sequence-set, UID FETCH, durable STORE/FETCH FLAGS, ENVELOPE, BODYSTRUCTURE and
-MIME section/partial reads. Event-driven IDLE wakes selected sessions only
-after durable APPEND completion and returns to normal commands through DONE.
+MIME section/partial reads. APPEND atomically preserves initial flags and
+INTERNALDATE with its UID. Event-driven IDLE wakes selected sessions only after
+durable APPEND completion and returns to normal commands through DONE.
 This is not yet a complete mail server: folders, full POP3, Sieve, durable
 outbound transport integration and the remaining acceptance matrix are
 unfinished.

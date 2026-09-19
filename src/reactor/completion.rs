@@ -192,7 +192,8 @@ fn write_fetch(
             imap::Addressing::Uid => message.uid,
         };
         if resolved.contains(candidate) {
-            if let Err(reason) = write_fetch_item(session, number, message, &attribute, addressing)?
+            if let Err(reason) =
+                imap_fetch_response::write(session, number, message, &attribute, addressing)?
             {
                 return session.push(format!("{tag} NO {reason}\r\n").as_bytes());
             }
@@ -201,86 +202,6 @@ fn write_fetch(
     session.push(format!("{tag} OK FETCH completed\r\n").as_bytes())
 }
 
-fn write_fetch_item(
-    session: &mut Session,
-    number: usize,
-    message: &crate::store::Message,
-    attribute: &imap::FetchAttribute,
-    addressing: imap::Addressing,
-) -> io::Result<Result<(), &'static str>> {
-    let uid = match addressing {
-        imap::Addressing::Sequence => String::new(),
-        imap::Addressing::Uid => format!("UID {} ", message.uid),
-    };
-    match attribute {
-        imap::FetchAttribute::Rfc822 => {
-            session.push(
-                format!(
-                    "* {number} FETCH ({uid}RFC822 {{{}}}\r\n",
-                    message.bytes.len()
-                )
-                .as_bytes(),
-            )?;
-            session.push(&message.bytes)?;
-            session.push(b"\r\n)\r\n")?;
-            Ok(Ok(()))
-        }
-        imap::FetchAttribute::Rfc822Size => {
-            session.push(
-                format!(
-                    "* {number} FETCH ({uid}RFC822.SIZE {})\r\n",
-                    message.bytes.len()
-                )
-                .as_bytes(),
-            )?;
-            Ok(Ok(()))
-        }
-        imap::FetchAttribute::BodyStructure => {
-            let structure = crate::mime::tree::parse(&message.bytes)
-                .and_then(|entity| crate::mime::bodystructure::encode(&entity, &message.bytes));
-            match structure {
-                Ok(structure) => {
-                    session.push(
-                        format!("* {number} FETCH ({uid}BODYSTRUCTURE {structure})\r\n").as_bytes(),
-                    )?;
-                    Ok(Ok(()))
-                }
-                Err(_) => Ok(Err("malformed MIME message")),
-            }
-        }
-        imap::FetchAttribute::Body { .. } => {
-            match crate::imap_fetch::select(&message.bytes, &attribute) {
-                Ok(data) => {
-                    session.push(
-                        format!(
-                            "* {number} FETCH ({uid}{} {{{}}}\r\n",
-                            data.label,
-                            data.bytes.len()
-                        )
-                        .as_bytes(),
-                    )?;
-                    session.push(data.bytes)?;
-                    session.push(b"\r\n)\r\n")?;
-                    Ok(Ok(()))
-                }
-                Err(_) => Ok(Err("invalid BODY section")),
-            }
-        }
-        imap::FetchAttribute::Envelope => match crate::mime::envelope::encode(&message.bytes) {
-            Ok(envelope) => {
-                session
-                    .push(format!("* {number} FETCH ({uid}ENVELOPE {envelope})\r\n").as_bytes())?;
-                Ok(Ok(()))
-            }
-            Err(_) => Ok(Err("malformed message headers")),
-        },
-        imap::FetchAttribute::Flags => {
-            let flags = imap::flags::encode(message.flags);
-            session.push(format!("* {number} FETCH ({uid}FLAGS ({flags}))\r\n").as_bytes())?;
-            Ok(Ok(()))
-        }
-    }
-}
 /// Повторно предлагает worker-у запросы, которые ранее не поместились в канал.
 pub(super) fn retry_submissions(
     worker: &mut WakingStorageWorker,

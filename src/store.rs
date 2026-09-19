@@ -25,7 +25,7 @@ mod recovery;
 #[path = "store/tests.rs"]
 mod tests;
 pub use crate::mail_flags::{FlagMutation, MessageFlags, SystemFlag};
-pub use model::{MailboxSnapshot, Message};
+pub use model::{AppendMetadata, MailboxSnapshot, Message};
 use quota::Quota;
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
@@ -101,14 +101,33 @@ impl Store {
         self.append_many(&[mailbox.to_owned()], raw)
     }
 
+    /// APPEND фиксирует UID и начальные metadata одним mailbox frame.
+    pub fn append_with_metadata(
+        &mut self,
+        mailbox: &str,
+        raw: &[u8],
+        metadata: AppendMetadata,
+    ) -> io::Result<u64> {
+        self.append_many_with_metadata(&[mailbox.to_owned()], raw, metadata)
+    }
+
     /// Фиксирует одну delivery unit для всех уникальных mailbox одним commit.
     pub fn append_many(&mut self, mailboxes: &[String], raw: &[u8]) -> io::Result<u64> {
+        self.append_many_with_metadata(mailboxes, raw, AppendMetadata::default())
+    }
+
+    fn append_many_with_metadata(
+        &mut self,
+        mailboxes: &[String],
+        raw: &[u8],
+        metadata: AppendMetadata,
+    ) -> io::Result<u64> {
         self.ensure_writable()?;
         let mailboxes = validated_unique_mailboxes(mailboxes)?;
         self.blob_quota.ensure_available(raw.len())?;
         let mut transaction_id = self.next_transaction_id;
         let (name, _) = blobs::next_available(&self.root, &mut transaction_id)?;
-        let links = self.prepare_links(&mailboxes, transaction_id, &name)?;
+        let links = self.prepare_links(&mailboxes, transaction_id, &name, metadata)?;
         blobs::publish(&self.root, &name, raw)?;
         self.blob_quota.record(raw.len())?;
         match self.commit_links(transaction_id, &links) {
@@ -138,6 +157,7 @@ impl Store {
         mailboxes: &[String],
         transaction_id: u64,
         name: &str,
+        metadata: AppendMetadata,
     ) -> io::Result<Vec<(String, model::Record)>> {
         mailboxes
             .iter()
@@ -151,6 +171,8 @@ impl Store {
                         uid,
                         transaction_id,
                         name: name.to_owned(),
+                        flags: metadata.flags,
+                        internal_date: metadata.internal_date,
                     },
                 ))
             })
@@ -169,11 +191,7 @@ impl Store {
                 .create(true)
                 .append(true)
                 .open(self.index(mailbox))?;
-            file.write_all(&journal::frame(
-                record.uid,
-                record.transaction_id,
-                &record.name,
-            ))?;
+            file.write_all(&journal::frame(record))?;
             file.sync_all()?;
             written += 1;
             self.check_mailbox_failpoint(written)?;

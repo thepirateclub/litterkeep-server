@@ -1,4 +1,4 @@
-use crate::mail_flags::MessageFlags;
+use crate::{mail_date::MailDate, mail_flags::MessageFlags};
 use std::{io, path::PathBuf};
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Message {
@@ -6,6 +6,7 @@ pub struct Message {
     pub path: PathBuf,
     pub bytes: Vec<u8>,
     pub flags: MessageFlags,
+    pub internal_date: MailDate,
 }
 
 /// Согласованный снимок mailbox, прочитанный одним владельцем store.
@@ -20,6 +21,24 @@ pub struct Record {
     pub uid: u64,
     pub transaction_id: u64,
     pub name: String,
+    pub flags: MessageFlags,
+    pub internal_date: MailDate,
+}
+
+/// Начальные метаданные одной mailbox entry, фиксируемые вместе с UID.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AppendMetadata {
+    pub flags: MessageFlags,
+    pub internal_date: MailDate,
+}
+
+impl Default for AppendMetadata {
+    fn default() -> Self {
+        Self {
+            flags: MessageFlags::default(),
+            internal_date: MailDate::now(),
+        }
+    }
 }
 pub fn validate_mailbox(mailbox: &str) -> io::Result<()> {
     let characters_are_safe = mailbox

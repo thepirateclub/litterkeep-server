@@ -5,6 +5,7 @@ pub(super) struct CompletedLiteral {
     pub(super) tag: String,
     pub(super) mailbox: String,
     pub(super) bytes: Vec<u8>,
+    pub(super) metadata: crate::store::AppendMetadata,
 }
 
 /// Результат одного шага приёма без блокировки и ожидания в цикле.
@@ -20,15 +21,22 @@ pub(super) struct LiteralReceiver {
     mailbox: String,
     expected: usize,
     bytes: Vec<u8>,
+    metadata: crate::store::AppendMetadata,
 }
 
 impl LiteralReceiver {
-    pub(super) fn new(tag: String, mailbox: String, expected: usize) -> Self {
+    pub(super) fn new(
+        tag: String,
+        mailbox: String,
+        expected: usize,
+        metadata: crate::store::AppendMetadata,
+    ) -> Self {
         Self {
             tag,
             mailbox,
             expected,
             bytes: Vec::with_capacity(expected),
+            metadata,
         }
     }
 
@@ -47,6 +55,7 @@ impl LiteralReceiver {
                     tag: std::mem::take(&mut self.tag),
                     mailbox: std::mem::take(&mut self.mailbox),
                     bytes: std::mem::take(&mut self.bytes),
+                    metadata: self.metadata,
                 })
             }
             Some(_) | None => LiteralProgress::InvalidTerminator(std::mem::take(&mut self.tag)),
@@ -63,7 +72,12 @@ mod tests {
     fn accepts_every_two_chunk_split() {
         let wire = b"a\r\nbc\r\nNEXT";
         for split in 0..7 {
-            let mut receiver = LiteralReceiver::new("t".into(), "bob".into(), 5);
+            let mut receiver = LiteralReceiver::new(
+                "t".into(),
+                "bob".into(),
+                5,
+                crate::store::AppendMetadata::default(),
+            );
             let mut input = wire.get(..split).expect("prefix").to_vec();
             assert!(matches!(
                 receiver.consume(&mut input),

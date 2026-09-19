@@ -66,12 +66,18 @@ impl Store {
         let updates = unique_uids
             .iter()
             .map(|uid| {
+                let initial = records
+                    .binary_search_by_key(uid, |record| record.uid)
+                    .ok()
+                    .and_then(|position| records.get(position))
+                    .map(|record| record.flags)
+                    .unwrap_or_default();
                 (
                     *uid,
                     existing
                         .and_then(|current| current.get(uid))
                         .copied()
-                        .unwrap_or_default()
+                        .unwrap_or(initial)
                         .mutate(operation, operand),
                 )
             })

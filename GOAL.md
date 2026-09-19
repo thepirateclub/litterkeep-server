@@ -766,3 +766,26 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - G06 остаётся RUNNING: APPEND flags/date, folders, COPY/MOVE/EXPUNGE, очередь
   событий с определённым поведением при отставании и профиль 32 одновременных
   IDLE-сессий ещё не реализованы или не проверены.
+
+### 2026-09-19: G06 APPEND metadata checkpoint
+
+- APPEND grammar принимает ограниченный список системных flags и quoted
+  INTERNALDATE перед синхронизирующим literal. Строковые flag atoms и названия
+  месяцев преобразуются в enum/bitset на границе parser-а.
+- Собственный Gregorian-конвертер проверяет календарную дату, время и numeric
+  zone, хранит секунды Unix и выдаёт канонический UTC INTERNALDATE без locale и
+  timezone процесса. FETCH INTERNALDATE читает значение из mailbox snapshot.
+- Mailbox journal frame v2 фиксирует UID, transaction id, initial flags,
+  INTERNALDATE и blob reference под одной checksum и commit marker. Поэтому
+  APPENDUID не может быть подтверждён раньше метаданных. Reader продолжает
+  распознавать существующие v1 frames с безопасными значениями по умолчанию.
+- Последующие STORE mutations перекрывают initial flags, но при отсутствии
+  flag journal snapshot использует flags атомарного APPEND frame.
+- PASS 80 Windows tests, format и Clippy; PASS Docker Linux 83/83.
+  Независимый Python 3.14 `imaplib` передал `\\Seen`, `\\Draft` и
+  `19-Sep-2026 12:34:56 +0300`; FETCH вернул оба флага и
+  `19-Sep-2026 09:34:56 +0000`. После restart контейнера с тем же volume
+  отдельный verify-only запуск получил те же значения.
+- G06 остаётся RUNNING: folders, COPY/MOVE/EXPUNGE, HEADER.FIELDS, UID SEARCH,
+  subscriptions, Recent, очередь IDLE-событий и расширенный concurrency profile
+  ещё не реализованы или не проверены.

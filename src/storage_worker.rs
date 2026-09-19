@@ -28,6 +28,7 @@ pub enum Request {
         request_id: u64,
         mailbox: String,
         bytes: Vec<u8>,
+        metadata: crate::store::AppendMetadata,
     },
     /// Долговечно сохраняет одно сообщение во все проверенные локальные inbox.
     AppendMany {
@@ -180,6 +181,7 @@ mod tests {
                 request_id: 7,
                 mailbox: "bob".into(),
                 bytes: b"message".to_vec(),
+                metadata: crate::store::AppendMetadata::default(),
             })
             .expect("accepted");
         let response = loop {

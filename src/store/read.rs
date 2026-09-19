@@ -24,7 +24,8 @@ impl Store {
                         .get(mailbox)
                         .and_then(|flags| flags.get(&record.uid))
                         .copied()
-                        .unwrap_or_default(),
+                        .unwrap_or(record.flags),
+                    internal_date: record.internal_date,
                 })
             })
             .collect::<io::Result<Vec<_>>>()?;

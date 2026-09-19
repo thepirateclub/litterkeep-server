@@ -4,24 +4,27 @@
 //! полного frame с неверной checksum или commit marker: recovery обрезает
 //! только первый случай и никогда не ищет следующий случайный magic.
 use super::model::{Record, blob_name};
+use crate::{mail_date::MailDate, mail_flags::MessageFlags};
 use std::fs::{self, OpenOptions};
 use std::io;
 use std::path::Path;
 
 const MAGIC: [u8; 4] = *b"LKJF";
-const VERSION: u16 = 1;
+const VERSION: u16 = 2;
 const COMMIT: u32 = 0xc0de_c0de;
 const MAX_PAYLOAD: usize = 1024;
 
 /// Кодирует один полный frame с последовательностью, transaction id и checksum.
-pub(super) fn frame(uid: u64, transaction_id: u64, name: &str) -> Vec<u8> {
-    let payload = name.as_bytes();
+pub(super) fn frame(record: &Record) -> Vec<u8> {
+    let payload = record.name.as_bytes();
     let payload_length = u32::try_from(payload.len()).expect("blob name length is bounded");
-    let mut bytes = Vec::with_capacity(38 + payload.len());
+    let mut bytes = Vec::with_capacity(47 + payload.len());
     bytes.extend_from_slice(&MAGIC);
     bytes.extend_from_slice(&VERSION.to_be_bytes());
-    bytes.extend_from_slice(&transaction_id.to_be_bytes());
-    bytes.extend_from_slice(&uid.to_be_bytes());
+    bytes.extend_from_slice(&record.transaction_id.to_be_bytes());
+    bytes.extend_from_slice(&record.uid.to_be_bytes());
+    bytes.extend_from_slice(&record.internal_date.unix_seconds().to_be_bytes());
+    bytes.push(record.flags.bits());
     bytes.extend_from_slice(&payload_length.to_be_bytes());
     bytes.extend_from_slice(payload);
     let sum = checksum(&bytes);
@@ -90,6 +93,8 @@ fn scan(_mailbox: &str, bytes: &[u8]) -> io::Result<Scan> {
             uid: decoded.uid,
             transaction_id: decoded.transaction_id,
             name: decoded.name,
+            flags: decoded.flags,
+            internal_date: decoded.internal_date,
         });
     }
     Ok(Scan {
@@ -102,6 +107,8 @@ struct DecodedFrame {
     uid: u64,
     transaction_id: u64,
     name: String,
+    flags: MessageFlags,
+    internal_date: MailDate,
     next: usize,
 }
 
@@ -118,11 +125,22 @@ fn decode_frame(bytes: &[u8], start: usize) -> Result<DecodedFrame, FrameError> 
         return Err(FrameError::Invalid("bad journal magic"));
     }
     let version = u16::from_be_bytes(decoder.take::<2>()?);
-    if version != VERSION {
-        return Err(FrameError::Invalid("unsupported journal version"));
-    }
+    let version = match version {
+        1 | VERSION => version,
+        _ => return Err(FrameError::Invalid("unsupported journal version")),
+    };
     let uid = u64::from_be_bytes(decoder.take::<8>()?);
     let transaction_id = u64::from_be_bytes(decoder.take::<8>()?);
+    let (internal_date, flags) = match version {
+        1 => (MailDate::from_unix_seconds(0), MessageFlags::default()),
+        VERSION => {
+            let seconds = i64::from_be_bytes(decoder.take::<8>()?);
+            let flags = MessageFlags::from_bits(u8::from_be_bytes(decoder.take::<1>()?))
+                .map_err(|_| FrameError::Invalid("unknown initial flags"))?;
+            (MailDate::from_unix_seconds(seconds), flags)
+        }
+        _ => unreachable!("version checked"),
+    };
     let payload_length = u32::from_be_bytes(decoder.take::<4>()?) as usize;
     if payload_length > MAX_PAYLOAD {
         return Err(FrameError::Invalid("journal payload limit"));
@@ -146,6 +164,8 @@ fn decode_frame(bytes: &[u8], start: usize) -> Result<DecodedFrame, FrameError> 
         uid,
         transaction_id,
         name,
+        flags,
+        internal_date,
         next: decoder.position(),
     })
 }

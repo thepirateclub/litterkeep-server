@@ -1,5 +1,6 @@
 //! Декодирование IMAP-команд: текст сети преобразуется в типизированные варианты.
 
+pub mod append;
 pub mod flags;
 pub mod idle;
 pub mod sequence_set;
@@ -28,6 +29,8 @@ pub enum Command {
     Append {
         mailbox: MailboxName,
         literal_size: usize,
+        flags: crate::mail_flags::MessageFlags,
+        internal_date: Option<crate::mail_date::MailDate>,
     },
     Logout,
     Noop,
@@ -75,6 +78,7 @@ pub enum FetchAttribute {
     BodyStructure,
     Envelope,
     Flags,
+    InternalDate,
     Body {
         peek: bool,
         section: BodySection,
@@ -130,7 +134,7 @@ pub fn parse(line: &str) -> TaggedCommand {
             (Some(username), Some(password)) => Command::Login { username, password },
             _ => Command::Unsupported,
         },
-        Some(Verb::Append) => parse_append(&mut tokens),
+        Some(Verb::Append) => append::parse(tokens),
         Some(Verb::Logout) => Command::Logout,
         Some(Verb::Noop) => Command::Noop,
         Some(Verb::Idle) => Command::Idle,
@@ -146,31 +150,6 @@ pub fn parse(line: &str) -> TaggedCommand {
         Some(Verb::Unsupported) | None => Command::Unsupported,
     };
     TaggedCommand { tag, command }
-}
-
-fn parse_append(tokens: &mut impl Iterator<Item = Token>) -> Command {
-    let Some(mailbox_text) = next_text(tokens) else {
-        return Command::Unsupported;
-    };
-    let mailbox = match mailbox_text.to_ascii_uppercase().as_str() {
-        "INBOX" => MailboxName::Inbox,
-        _ => MailboxName::Named(mailbox_text),
-    };
-    match next_text(tokens).and_then(|value| parse_literal_size(&value)) {
-        Some(literal_size) => Command::Append {
-            mailbox,
-            literal_size,
-        },
-        None => Command::Unsupported,
-    }
-}
-
-fn parse_literal_size(value: &str) -> Option<usize> {
-    value
-        .strip_prefix('{')?
-        .strip_suffix('}')?
-        .parse::<usize>()
-        .ok()
 }
 
 fn parse_select(tokens: &mut impl Iterator<Item = Token>, read_only: bool) -> Command {
@@ -222,6 +201,7 @@ fn parse_fetch_attribute(value: &str) -> Option<FetchAttribute> {
         "BODYSTRUCTURE" => Some(FetchAttribute::BodyStructure),
         "ENVELOPE" => Some(FetchAttribute::Envelope),
         "FLAGS" => Some(FetchAttribute::Flags),
+        "INTERNALDATE" => Some(FetchAttribute::InternalDate),
         _ => parse_body_attribute(token),
     }
 }

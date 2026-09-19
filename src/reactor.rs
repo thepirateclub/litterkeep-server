@@ -19,6 +19,10 @@ mod completion;
 mod deadline;
 #[path = "reactor/flag_completion.rs"]
 mod flag_completion;
+#[path = "reactor/imap_append.rs"]
+mod imap_append;
+#[path = "reactor/imap_fetch_response.rs"]
+mod imap_fetch_response;
 #[path = "reactor/imap_idle.rs"]
 mod imap_idle;
 #[path = "reactor/imap_literal.rs"]

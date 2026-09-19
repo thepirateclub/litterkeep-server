@@ -16,6 +16,15 @@ fn dir() -> std::path::PathBuf {
     let _ = fs::remove_dir_all(&path);
     path
 }
+fn record(uid: u64, transaction_id: u64) -> model::Record {
+    model::Record {
+        uid,
+        transaction_id,
+        name: format!("message-{transaction_id}.eml"),
+        flags: MessageFlags::default(),
+        internal_date: crate::mail_date::MailDate::from_unix_seconds(0),
+    }
+}
 #[test]
 fn restart_and_second_writer() {
     let p = dir();
@@ -31,6 +40,31 @@ fn restart_and_second_writer() {
     let message = messages.first().expect("stored message");
     assert_eq!(message.bytes, b"bytes");
     drop(s);
+    let _ = fs::remove_dir_all(p);
+}
+
+#[test]
+fn initial_metadata_survives_restart_in_mailbox_frame() {
+    let p = dir();
+    let mut store = Store::open(&p).expect("store");
+    let flags = MessageFlags::from_flags([
+        crate::mail_flags::SystemFlag::Seen,
+        crate::mail_flags::SystemFlag::Draft,
+    ]);
+    let metadata = AppendMetadata {
+        flags,
+        internal_date: crate::mail_date::MailDate::from_unix_seconds(1_790_000_000),
+    };
+    store
+        .append_with_metadata("bob", b"metadata", metadata)
+        .expect("append");
+    drop(store);
+    let reopened = Store::open(&p).expect("reopen");
+    let messages = reopened.messages("bob").expect("messages");
+    let message = messages.first().expect("message");
+    assert_eq!(message.flags, flags);
+    assert_eq!(message.internal_date, metadata.internal_date);
+    drop(reopened);
     let _ = fs::remove_dir_all(p);
 }
 #[test]
@@ -62,7 +96,7 @@ fn corruption_and_missing_blob_are_errors() {
         io::ErrorKind::NotFound
     );
     drop(s);
-    let mut damaged = journal::frame(1, 1, "message-1.eml");
+    let mut damaged = journal::frame(&record(1, 1));
     let checksum_byte = damaged
         .iter_mut()
         .rev()
@@ -168,7 +202,7 @@ fn mailbox_frame_without_global_commit_stays_invisible() {
         .open(journal_path)
         .expect("journal");
     journal_file
-        .write_all(&journal::frame(1, 1, "message-1.eml"))
+        .write_all(&journal::frame(&record(1, 1)))
         .expect("uncommitted link");
     journal_file.sync_all().expect("journal sync");
     drop(journal_file);

@@ -8,6 +8,7 @@ pub mod accounts;
 pub mod auth;
 pub mod imap;
 pub mod imap_fetch;
+pub mod mail_date;
 pub mod mail_flags;
 pub mod mime;
 pub mod outbound;

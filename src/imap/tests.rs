@@ -95,8 +95,38 @@ fn append_literal_size_is_typed() {
         Command::Append {
             mailbox: MailboxName::Inbox,
             literal_size: 42,
+            flags: crate::mail_flags::MessageFlags::default(),
+            internal_date: None,
         }
     );
+}
+
+#[test]
+fn append_metadata_is_typed() {
+    let Command::Append {
+        literal_size,
+        flags,
+        internal_date,
+        ..
+    } = parse("a8 APPEND INBOX (\\Seen \\Draft) \"19-Sep-2026 12:34:56 +0300\" {9}\r\n").command
+    else {
+        panic!("APPEND metadata was not parsed");
+    };
+    assert_eq!(literal_size, 9);
+    assert!(flags.contains(crate::mail_flags::SystemFlag::Seen));
+    assert!(flags.contains(crate::mail_flags::SystemFlag::Draft));
+    assert_eq!(
+        internal_date.expect("date").encode(),
+        "19-Sep-2026 09:34:56 +0000"
+    );
+}
+
+#[test]
+fn internal_date_fetch_is_typed() {
+    let Command::Fetch { attribute, .. } = parse("a9 FETCH 1 INTERNALDATE\r\n").command else {
+        panic!("FETCH not parsed");
+    };
+    assert_eq!(attribute, FetchAttribute::InternalDate);
 }
 
 /// STORE operation и системные flags не покидают parser строками.

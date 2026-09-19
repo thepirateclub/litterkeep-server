@@ -41,9 +41,10 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             request_id,
             mailbox,
             bytes,
+            metadata,
         } => Response::Appended {
             request_id,
-            result: store.append(&mailbox, &bytes),
+            result: store.append_with_metadata(&mailbox, &bytes, metadata),
         },
         Request::AppendMany {
             request_id,
