@@ -175,4 +175,35 @@ mod tests {
         drop(store);
         std::fs::remove_dir_all(root).expect("cleanup");
     }
+
+    #[test]
+    fn sieve_put_is_completed_by_the_single_store_owner() {
+        let root = dir();
+        let accounts = Accounts::open(&root).expect("accounts");
+        accounts.create("bob", b"test-password").expect("account");
+        let worker = StorageWorker::start(&root, 1).expect("worker");
+        worker
+            .submit(Request::SievePut {
+                request_id: 9,
+                account: "bob".into(),
+                name: "invoices".into(),
+                source: "require [\"fileinto\"]; fileinto \"Invoices\";".into(),
+            })
+            .expect("accepted");
+        let response = loop {
+            if let Ok(response) = worker.try_response() {
+                break response;
+            }
+            std::thread::yield_now();
+        };
+        assert!(matches!(
+            response,
+            Response::SieveStored {
+                request_id: 9,
+                result: Ok(_)
+            }
+        ));
+        worker.shutdown();
+        std::fs::remove_dir_all(root).expect("cleanup");
+    }
 }

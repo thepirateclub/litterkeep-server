@@ -20,6 +20,11 @@ pub(super) fn response_id(response: &Response) -> u64 {
         | Response::Subscriptions { request_id, .. }
         | Response::Expunged { request_id, .. }
         | Response::Copied { request_id, .. }
-        | Response::Moved { request_id, .. } => *request_id,
+        | Response::Moved { request_id, .. }
+        | Response::SieveStored { request_id, .. }
+        | Response::SieveScripts { request_id, .. }
+        | Response::SieveSource { request_id, .. }
+        | Response::SieveMutated { request_id, .. }
+        | Response::SieveSpace { request_id, .. } => *request_id,
     }
 }

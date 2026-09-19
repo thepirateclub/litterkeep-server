@@ -35,6 +35,26 @@ impl Store {
         self.sieve_scripts.list(account)
     }
 
+    /// Удаляет только inactive script, сохраняя явно выбранную active версию.
+    pub fn delete_sieve_script(&mut self, account: &str, name: &str) -> io::Result<()> {
+        self.sieve_scripts.delete(account, name)
+    }
+
+    /// Переименовывает script atomically и переносит active reference при нужде.
+    pub fn rename_sieve_script(&mut self, account: &str, old: &str, new: &str) -> io::Result<()> {
+        self.sieve_scripts.rename(account, old, new)
+    }
+
+    /// Проверяет доступное место без изменения versioned state.
+    pub fn sieve_have_space(&self, account: &str, name: &str, size: u64) -> io::Result<bool> {
+        self.sieve_scripts.have_space(account, name, size)
+    }
+
+    /// Проверяет source тем же parser/validator, что и PUTSCRIPT.
+    pub fn check_sieve_script(&self, source: &str) -> io::Result<()> {
+        sieve::parse(source).map(|_| ()).map_err(io::Error::other)
+    }
+
     /// Строит планы всех recipients до первой записи mailbox journal.
     ///
     /// Active source читается вместе с его версией у единственного Store owner,

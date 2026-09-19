@@ -22,6 +22,14 @@ pub(super) fn request_id(request: &Request) -> u64 {
         | Request::ListSubscriptions { request_id, .. }
         | Request::Expunge { request_id, .. }
         | Request::Copy { request_id, .. }
-        | Request::Move { request_id, .. } => *request_id,
+        | Request::Move { request_id, .. }
+        | Request::SievePut { request_id, .. }
+        | Request::SieveList { request_id, .. }
+        | Request::SieveSetActive { request_id, .. }
+        | Request::SieveGet { request_id, .. }
+        | Request::SieveDelete { request_id, .. }
+        | Request::SieveRename { request_id, .. }
+        | Request::SieveHaveSpace { request_id, .. }
+        | Request::SieveCheck { request_id, .. } => *request_id,
     }
 }

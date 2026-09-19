@@ -100,6 +100,47 @@ pub enum Request {
         destination: String,
         uids: Vec<u64>,
     },
+    SievePut {
+        request_id: u64,
+        account: String,
+        name: String,
+        source: String,
+    },
+    SieveList {
+        request_id: u64,
+        account: String,
+    },
+    SieveSetActive {
+        request_id: u64,
+        account: String,
+        name: Option<String>,
+    },
+    SieveGet {
+        request_id: u64,
+        account: String,
+        name: String,
+    },
+    SieveDelete {
+        request_id: u64,
+        account: String,
+        name: String,
+    },
+    SieveRename {
+        request_id: u64,
+        account: String,
+        old: String,
+        new: String,
+    },
+    SieveHaveSpace {
+        request_id: u64,
+        account: String,
+        name: String,
+        size: u64,
+    },
+    SieveCheck {
+        request_id: u64,
+        source: String,
+    },
 }
 
 #[derive(Debug)]
@@ -167,5 +208,25 @@ pub enum Response {
     Moved {
         request_id: u64,
         result: io::Result<Vec<u64>>,
+    },
+    SieveStored {
+        request_id: u64,
+        result: io::Result<crate::store::ScriptInfo>,
+    },
+    SieveScripts {
+        request_id: u64,
+        result: io::Result<Vec<crate::store::ScriptInfo>>,
+    },
+    SieveSource {
+        request_id: u64,
+        result: io::Result<(u64, String)>,
+    },
+    SieveMutated {
+        request_id: u64,
+        result: io::Result<()>,
+    },
+    SieveSpace {
+        request_id: u64,
+        result: io::Result<bool>,
     },
 }

@@ -175,6 +175,68 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             request_id,
             result: store.move_messages(&source, &destination, &uids),
         },
+        Request::SievePut {
+            request_id,
+            account,
+            name,
+            source,
+        } => Response::SieveStored {
+            request_id,
+            result: store.put_sieve_script(&account, &name, source),
+        },
+        Request::SieveList {
+            request_id,
+            account,
+        } => Response::SieveScripts {
+            request_id,
+            result: Ok(store.sieve_scripts(&account)),
+        },
+        Request::SieveSetActive {
+            request_id,
+            account,
+            name,
+        } => Response::SieveMutated {
+            request_id,
+            result: store.activate_sieve_script(&account, name.as_deref()),
+        },
+        Request::SieveGet {
+            request_id,
+            account,
+            name,
+        } => Response::SieveSource {
+            request_id,
+            result: store.sieve_script(&account, &name),
+        },
+        Request::SieveDelete {
+            request_id,
+            account,
+            name,
+        } => Response::SieveMutated {
+            request_id,
+            result: store.delete_sieve_script(&account, &name),
+        },
+        Request::SieveRename {
+            request_id,
+            account,
+            old,
+            new,
+        } => Response::SieveMutated {
+            request_id,
+            result: store.rename_sieve_script(&account, &old, &new),
+        },
+        Request::SieveHaveSpace {
+            request_id,
+            account,
+            name,
+            size,
+        } => Response::SieveSpace {
+            request_id,
+            result: store.sieve_have_space(&account, &name, size),
+        },
+        Request::SieveCheck { request_id, source } => Response::SieveMutated {
+            request_id,
+            result: store.check_sieve_script(&source),
+        },
     }
 }
 

@@ -3,6 +3,9 @@
 //! Каждая account получает один атомарно заменяемый snapshot. Ошибка parser-а,
 //! квоты или fsync происходит до rename, поэтому действующий script сохраняется.
 
+#[path = "sieve_script_codec.rs"]
+mod codec;
+
 use super::{durability, folders::validate_account};
 use crate::sieve;
 use std::collections::{BTreeMap, HashMap};
@@ -55,7 +58,10 @@ impl SieveCatalog {
                 return Err(invalid("non-utf8 sieve account"));
             };
             validate_account(account)?;
-            accounts.insert(account.to_owned(), decode(&fs::read_to_string(path)?)?);
+            accounts.insert(
+                account.to_owned(),
+                codec::decode(&fs::read_to_string(path)?)?,
+            );
         }
         Ok(Self {
             root: directory,
@@ -114,6 +120,44 @@ impl SieveCatalog {
         self.publish(account, candidate)
     }
 
+    pub(super) fn delete(&mut self, account: &str, name: &str) -> io::Result<()> {
+        let candidate = self.candidate(account, |state| {
+            if state.active.as_deref() == Some(name) {
+                return Err(invalid("cannot delete active sieve script"));
+            }
+            match state.scripts.remove(name) {
+                Some(_) => Ok(()),
+                None => Err(missing()),
+            }
+        })?;
+        self.publish(account, candidate)
+    }
+
+    pub(super) fn rename(&mut self, account: &str, old: &str, new: &str) -> io::Result<()> {
+        valid_name(new)?;
+        let candidate = self.candidate(account, |state| {
+            if state.scripts.contains_key(new) {
+                return Err(invalid("sieve script already exists"));
+            }
+            let record = state.scripts.remove(old).ok_or_else(missing)?;
+            if state.active.as_deref() == Some(old) {
+                state.active = Some(new.to_owned());
+            }
+            state.scripts.insert(new.to_owned(), record);
+            Ok(())
+        })?;
+        self.publish(account, candidate)
+    }
+
+    pub(super) fn have_space(&self, account: &str, name: &str, size: u64) -> io::Result<bool> {
+        validate_account(account)?;
+        valid_name(name)?;
+        match usize::try_from(size) {
+            Ok(size) if size <= MAX_SCRIPT_BYTES => Ok(true),
+            Ok(_) | Err(_) => Ok(false),
+        }
+    }
+
     pub(super) fn source(&self, account: &str, name: &str) -> io::Result<(u64, String)> {
         let state = self.accounts.get(account).ok_or_else(missing)?;
         let record = state.scripts.get(name).ok_or_else(missing)?;
@@ -148,7 +192,7 @@ impl SieveCatalog {
     ) -> io::Result<AccountScripts> {
         let mut state = self.accounts.get(account).cloned().unwrap_or_default();
         change(&mut state)?;
-        if encoded(&state).len() > MAX_ACCOUNT_BYTES {
+        if codec::encoded(&state).len() > MAX_ACCOUNT_BYTES {
             return Err(invalid("sieve account quota exceeded"));
         }
         Ok(state)
@@ -166,7 +210,7 @@ impl SieveCatalog {
             .write(true)
             .create_new(true)
             .open(&temporary)?;
-        file.write_all(encoded(&state).as_bytes())?;
+        file.write_all(codec::encoded(&state).as_bytes())?;
         file.sync_all()?;
         drop(file);
         fs::rename(temporary, target)?;
@@ -185,83 +229,6 @@ fn info(state: &AccountScripts, name: &str) -> io::Result<ScriptInfo> {
     })
 }
 
-fn encoded(state: &AccountScripts) -> String {
-    let mut output = format!(
-        "next:{}\nactive:{}\n",
-        state.next_version,
-        state.active.as_deref().map(hex).unwrap_or_default()
-    );
-    for (name, record) in &state.scripts {
-        output.push_str(&format!(
-            "script:{}:{}:{}\n",
-            hex(name),
-            record.version,
-            hex(&record.source)
-        ));
-    }
-    output
-}
-
-fn decode(source: &str) -> io::Result<AccountScripts> {
-    let mut state = AccountScripts::default();
-    for line in source.lines() {
-        if let Some(value) = line.strip_prefix("next:") {
-            state.next_version = value
-                .parse()
-                .map_err(|_| invalid("bad sieve next version"))?;
-            continue;
-        }
-        if let Some(value) = line.strip_prefix("active:") {
-            state.active = match value.is_empty() {
-                true => None,
-                false => Some(unhex(value)?),
-            };
-            continue;
-        }
-        let Some(value) = line.strip_prefix("script:") else {
-            return Err(invalid("bad sieve frame"));
-        };
-        let mut fields = value.split(':');
-        let (Some(name), Some(version), Some(body), None) =
-            (fields.next(), fields.next(), fields.next(), fields.next())
-        else {
-            return Err(invalid("bad sieve script frame"));
-        };
-        let name = unhex(name)?;
-        valid_name(&name)?;
-        let version = version.parse().map_err(|_| invalid("bad sieve version"))?;
-        let body = unhex(body)?;
-        sieve::parse(&body).map_err(invalid)?;
-        state.scripts.insert(
-            name,
-            ScriptRecord {
-                version,
-                source: body,
-            },
-        );
-    }
-    Ok(state)
-}
-
-fn hex(value: &str) -> String {
-    value
-        .as_bytes()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
-}
-fn unhex(value: &str) -> io::Result<String> {
-    let mut output = Vec::new();
-    let mut bytes = value.as_bytes().chunks_exact(2);
-    for pair in &mut bytes {
-        let text = std::str::from_utf8(pair).map_err(|_| invalid("non-utf8 sieve hex"))?;
-        output.push(u8::from_str_radix(text, 16).map_err(|_| invalid("bad sieve hex"))?);
-    }
-    if !bytes.remainder().is_empty() {
-        return Err(invalid("odd sieve hex"));
-    }
-    String::from_utf8(output).map_err(|_| invalid("non-utf8 sieve source"))
-}
 fn valid_name(name: &str) -> io::Result<()> {
     if name.is_empty() {
         return Err(invalid("unsafe sieve script name"));
