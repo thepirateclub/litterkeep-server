@@ -4,6 +4,7 @@
 
 #![deny(unsafe_code)]
 
+pub mod accounts;
 pub mod auth;
 pub mod imap;
 pub mod mime;
