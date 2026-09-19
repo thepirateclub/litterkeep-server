@@ -6,6 +6,8 @@ pub enum Command {
     Mail(String),
     Rcpt(String),
     Data,
+    /// Initial response механизма SASL PLAIN в base64-представлении.
+    AuthPlain(String),
     Noop,
     Rset,
     Quit,
@@ -23,10 +25,22 @@ pub fn parse(line: &str) -> Result<Command, &'static str> {
         "MAIL" => address(arg, "FROM:", true).map(Command::Mail),
         "RCPT" => address(arg, "TO:", false).map(Command::Rcpt),
         "DATA" if arg.is_empty() => Ok(Command::Data),
+        "AUTH" => parse_auth(arg),
         "NOOP" if arg.is_empty() => Ok(Command::Noop),
         "RSET" if arg.is_empty() => Ok(Command::Rset),
         "QUIT" if arg.is_empty() => Ok(Command::Quit),
         _ => Err("unrecognized or malformed command"),
+    }
+}
+
+/// Распознаёт только реализованный SASL-механизм, не рекламируя прочие.
+fn parse_auth(argument: &str) -> Result<Command, &'static str> {
+    let Some((mechanism, response)) = argument.split_once(' ') else {
+        return Err("missing SASL initial response");
+    };
+    match mechanism.to_ascii_uppercase().as_str() {
+        "PLAIN" if !response.is_empty() => Ok(Command::AuthPlain(response.to_owned())),
+        _ => Err("unsupported SASL mechanism"),
     }
 }
 fn address(arg: &str, prefix: &str, accepts_empty_path: bool) -> Result<String, &'static str> {
@@ -140,6 +154,14 @@ mod tests {
         assert_eq!(
             parse("HELO sender.test\r\n").expect("helo"),
             Command::Helo("sender.test".into())
+        );
+    }
+
+    #[test]
+    fn parses_plain_auth_initial_response() {
+        assert_eq!(
+            parse("AUTH PLAIN AGJvYgB0ZXN0LXBhc3N3b3Jk\r\n").expect("plain auth"),
+            Command::AuthPlain("AGJvYgB0ZXN0LXBhc3N3b3Jk".into())
         );
     }
 
