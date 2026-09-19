@@ -150,3 +150,16 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   validated as crash-safe and is not claimed to have the Linux guarantee.
 - G02 remains RUNNING: durable directory metadata syncing, cross-platform
   exclusive locking, quota and queue recovery acceptance are still missing.
+
+### 2026-09-19: IMAP authorization boundary PASS
+
+- `SELECT`, `EXAMINE` and `FETCH` now obtain the mailbox only from the account
+  recorded after a successful worker completion. Before `LOGIN` the reactor
+  returns tagged `NO authenticate first` and does not enqueue a storage read.
+- PASS in the current Linux Docker server with
+  `tests/blackbox/imap_requires_login.py`. This is a raw standard-library TCP
+  client, not `imaplib`: the latter refuses to send SELECT while it is in its
+  own NONAUTH state and therefore cannot be evidence of the server response.
+- The independent SMTP to IMAP MIME attachment checksum regression also passed.
+  G03 remains RUNNING because the service is still plaintext and does not yet
+  have SMTP AUTH, TLS or admission controls.

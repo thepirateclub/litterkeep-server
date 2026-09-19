@@ -29,7 +29,8 @@ Wire-команды декодируются в Enum на границе parser-
 минимальный plaintext путь для CAPABILITY, LOGIN, SELECT/EXAMINE и FETCH.
 `Accounts` хранит Argon2id PHC records; worker проверяет их, а reactor меняет
 состояние сессии только после соответствующего completion. TLS ещё не
-подключён.
+подключён. Операции чтения mailbox допустимы только после этой смены состояния:
+до LOGIN reactor не ставит запрос к Store.
 
 ## Ограничения
 
