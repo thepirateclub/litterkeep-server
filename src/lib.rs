@@ -7,6 +7,7 @@
 pub mod accounts;
 pub mod auth;
 pub mod imap;
+pub mod imap_fetch;
 pub mod mime;
 pub mod outbound;
 pub mod platform;

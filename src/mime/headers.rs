@@ -17,6 +17,16 @@ pub enum HeaderName {
     ContentTransferEncoding,
     ContentDisposition,
     ContentId,
+    Date,
+    Subject,
+    From,
+    Sender,
+    ReplyTo,
+    To,
+    Cc,
+    Bcc,
+    InReplyTo,
+    MessageId,
     Other,
 }
 
@@ -28,6 +38,16 @@ impl HeaderField {
             "content-transfer-encoding" => HeaderName::ContentTransferEncoding,
             "content-disposition" => HeaderName::ContentDisposition,
             "content-id" => HeaderName::ContentId,
+            "date" => HeaderName::Date,
+            "subject" => HeaderName::Subject,
+            "from" => HeaderName::From,
+            "sender" => HeaderName::Sender,
+            "reply-to" => HeaderName::ReplyTo,
+            "to" => HeaderName::To,
+            "cc" => HeaderName::Cc,
+            "bcc" => HeaderName::Bcc,
+            "in-reply-to" => HeaderName::InReplyTo,
+            "message-id" => HeaderName::MessageId,
             _ => HeaderName::Other,
         }
     }

@@ -7,6 +7,8 @@ pub mod bodystructure;
 pub mod charset;
 #[path = "mime/encoded_word.rs"]
 pub mod encoded_word;
+#[path = "mime/envelope.rs"]
+pub mod envelope;
 #[path = "mime/headers.rs"]
 pub mod header_block;
 #[path = "mime/parameters.rs"]

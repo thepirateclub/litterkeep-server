@@ -80,9 +80,34 @@ def main() -> None:
         raise AssertionError("multipart BODYSTRUCTURE used a scalar type")
     if b'"MIXED"' not in structure_bytes:
         raise AssertionError("multipart/mixed BODYSTRUCTURE is absent")
+    _, envelopes = mailbox.fetch(sequence, "(ENVELOPE)")
+    envelope_bytes = b" ".join(item for item in envelopes if isinstance(item, bytes))
+    for required in (b"STARTTLS attachment", b'"alice" "litterkeep.test"', b'"bob" "litterkeep.test"'):
+        if required not in envelope_bytes:
+            raise AssertionError("ENVELOPE field is absent")
     _, sizes = mailbox.fetch(sequence, "(RFC822.SIZE)")
     if not any(b"RFC822.SIZE" in item for item in sizes if isinstance(item, bytes)):
         raise AssertionError("RFC822.SIZE response is absent")
+    _, partials = mailbox.fetch(sequence, "(BODY.PEEK[1]<0.5>)")
+    partial = next(
+        value
+        for item in partials
+        if isinstance(item, tuple)
+        for value in reversed(item)
+        if isinstance(value, bytes)
+    )
+    if partial != b"trans":
+        raise AssertionError("BODY partial is not measured over raw part octets")
+    _, mime_sections = mailbox.fetch(sequence, "(BODY.PEEK[2.MIME])")
+    mime_section = next(
+        value
+        for item in mime_sections
+        if isinstance(item, tuple)
+        for value in reversed(item)
+        if isinstance(value, bytes)
+    )
+    if not mime_section.startswith(b"Content-Type: application/octet-stream"):
+        raise AssertionError("BODY part MIME headers are incorrect")
     _, payloads = mailbox.fetch(sequence, "(RFC822)")
     raw = next(item for item in payloads if isinstance(item, tuple))
     raw_bytes = next(value for value in reversed(raw) if isinstance(value, bytes))

@@ -617,3 +617,21 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   `f3a25aa93aa2fbba28d79260535bbd6a5eb0fc1c24a8b0f04e12b484c1dfe363`.
 - PASS Windows 56/56, Clippy и format; PASS Docker Linux 58/58. G05 остаётся
   RUNNING до ENVELOPE, BODY section/PEEK и partial FETCH по октетам.
+
+### 2026-09-19: G05 ENVELOPE и BODY section checkpoint
+
+- FETCH parser преобразует `BODY[]`, `BODY.PEEK[part]`, `BODY[part.MIME]` и
+  `<offset.count>` в `BodySection`/`Partial`, не передавая строковые команды в
+  reactor. Part numbers проходят 1-based tree traversal через безопасный `get`.
+- Отдельный `imap_fetch.rs` выбирает raw encoded body либо raw MIME headers по
+  абсолютным ranges. Partial применяется после выбора section и считает
+  октеты; BODY.PEEK не меняет состояние сообщения.
+- Добавлен собственный ENVELOPE encoder. Имена заголовков типизированы,
+  From/Sender/Reply-To/To/Cc/Bcc разбираются в name/mailbox/host tuples,
+  Sender и Reply-To получают fallback к From, encoded subject декодируется.
+- PASS сетевой STARTTLS blackbox: `BODY.PEEK[1]<0.5>` вернул ровно `trans`,
+  `BODY.PEEK[2.MIME]` вернул Content-Type вложения, ENVELOPE содержал subject и
+  отдельные Alice/Bob mailbox/host, полный RFC822 и SHA-256 вложения совпали.
+- PASS Windows 59/59, Clippy и format; PASS Docker Linux 61/61. G05 остаётся
+  RUNNING: ещё нужны HEADER.FIELDS, составные encoded-word строки и корректная
+  рекурсия `message/rfc822`; эти сценарии не объявлены выполненными.

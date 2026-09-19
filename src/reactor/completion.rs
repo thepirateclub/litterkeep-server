@@ -157,6 +157,30 @@ fn write_fetch(
                 Err(_) => session.push(format!("{tag} NO malformed MIME message\r\n").as_bytes()),
             }
         }
+        imap::FetchAttribute::Body { .. } => {
+            match crate::imap_fetch::select(&message.bytes, &attribute) {
+                Ok(data) => {
+                    session.push(
+                        format!(
+                            "* {number} FETCH ({} {{{}}}\r\n",
+                            data.label,
+                            data.bytes.len()
+                        )
+                        .as_bytes(),
+                    )?;
+                    session.push(data.bytes)?;
+                    session.push(format!("\r\n)\r\n{tag} OK FETCH completed\r\n").as_bytes())
+                }
+                Err(_) => session.push(format!("{tag} NO invalid BODY section\r\n").as_bytes()),
+            }
+        }
+        imap::FetchAttribute::Envelope => match crate::mime::envelope::encode(&message.bytes) {
+            Ok(envelope) => session.push(
+                format!("* {number} FETCH (ENVELOPE {envelope})\r\n{tag} OK FETCH completed\r\n")
+                    .as_bytes(),
+            ),
+            Err(_) => session.push(format!("{tag} NO malformed message headers\r\n").as_bytes()),
+        },
     }
 }
 

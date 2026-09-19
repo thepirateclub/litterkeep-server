@@ -27,11 +27,34 @@ pub enum Command {
 }
 
 /// Поддерживаемый одиночный атрибут FETCH начального профиля.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FetchAttribute {
     Rfc822,
     Rfc822Size,
     BodyStructure,
+    Envelope,
+    Body {
+        peek: bool,
+        section: BodySection,
+        partial: Option<Partial>,
+    },
+}
+
+/// Выбираемая raw MIME section.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum BodySection {
+    EntireMessage,
+    Part {
+        path: Vec<usize>,
+        mime_headers: bool,
+    },
+}
+
+/// Октетный диапазон IMAP partial fetch.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Partial {
+    pub offset: usize,
+    pub count: usize,
 }
 
 /// Внутренний verb до проверки аргументов команды.
@@ -79,12 +102,64 @@ pub fn parse(line: &str) -> TaggedCommand {
 }
 
 fn parse_fetch_attribute(value: &str) -> Option<FetchAttribute> {
-    match value.trim_matches(['(', ')']).to_ascii_uppercase().as_str() {
+    let token = value.trim_matches(['(', ')']);
+    match token.to_ascii_uppercase().as_str() {
         "RFC822" => Some(FetchAttribute::Rfc822),
         "RFC822.SIZE" => Some(FetchAttribute::Rfc822Size),
         "BODYSTRUCTURE" => Some(FetchAttribute::BodyStructure),
-        _ => None,
+        "ENVELOPE" => Some(FetchAttribute::Envelope),
+        _ => parse_body_attribute(token),
     }
+}
+
+fn parse_body_attribute(token: &str) -> Option<FetchAttribute> {
+    let upper = token.to_ascii_uppercase();
+    let (peek, after_prefix) = match (
+        upper.strip_prefix("BODY.PEEK["),
+        upper.strip_prefix("BODY["),
+    ) {
+        (Some(value), _) => (true, value),
+        (None, Some(value)) => (false, value),
+        (None, None) => return None,
+    };
+    let (section_text, suffix) = after_prefix.split_once(']')?;
+    let section = parse_body_section(section_text)?;
+    let partial = match suffix {
+        "" => None,
+        value => Some(parse_partial(value)?),
+    };
+    Some(FetchAttribute::Body {
+        peek,
+        section,
+        partial,
+    })
+}
+
+fn parse_body_section(value: &str) -> Option<BodySection> {
+    if value.is_empty() {
+        return Some(BodySection::EntireMessage);
+    }
+    let mut path = Vec::new();
+    let mut mime_headers = false;
+    for component in value.split('.') {
+        match component {
+            "MIME" => mime_headers = true,
+            number => path.push(number.parse::<usize>().ok()?),
+        }
+    }
+    if path.is_empty() {
+        return None;
+    }
+    Some(BodySection::Part { path, mime_headers })
+}
+
+fn parse_partial(value: &str) -> Option<Partial> {
+    let inner = value.strip_prefix('<')?.strip_suffix('>')?;
+    let (offset, count) = inner.split_once('.')?;
+    Some(Partial {
+        offset: offset.parse().ok()?,
+        count: count.parse().ok()?,
+    })
 }
 
 /// Удаляет парные кавычки IMAP atom, не меняя неквотированное значение.
@@ -143,6 +218,27 @@ mod tests {
             Command::Fetch {
                 sequence: 2,
                 attribute: FetchAttribute::BodyStructure,
+            }
+        );
+    }
+
+    #[test]
+    fn body_peek_partial_is_typed() {
+        assert_eq!(
+            parse("a4 FETCH 1 (BODY.PEEK[2.MIME]<3.7>)\r\n").command,
+            Command::Fetch {
+                sequence: 1,
+                attribute: FetchAttribute::Body {
+                    peek: true,
+                    section: BodySection::Part {
+                        path: vec![2],
+                        mime_headers: true,
+                    },
+                    partial: Some(Partial {
+                        offset: 3,
+                        count: 7
+                    }),
+                },
             }
         );
     }
