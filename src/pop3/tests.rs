@@ -59,3 +59,16 @@ fn retrieve_uidl_reset_and_quit_keep_delete_semantics_explicit() {
     );
     assert!(matches!(session.commit_deletes(true), Reply::Ok(_)));
 }
+
+#[test]
+fn rset_and_empty_quit_require_an_explicit_update_completion() {
+    let mut session = Session::default();
+    let _ = session.apply(parse("USER pop\r\n"));
+    let _ = session.authenticated(vec![message(3, b"Subject: retained\r\n\r\nbody")]);
+    assert!(matches!(session.apply(parse("DELE 1\r\n")), Reply::Ok(_)));
+    assert!(matches!(session.apply(parse("RSET\r\n")), Reply::Ok(_)));
+    assert!(
+        matches!(session.apply(parse("QUIT\r\n")), Reply::CommitDeletes(values) if values.is_empty())
+    );
+    assert!(matches!(session.commit_deletes(true), Reply::Ok(_)));
+}

@@ -106,6 +106,18 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - G07 остаётся NOT RUN: destructive matrix RSET/disconnect до QUIT и полный
   interoperability profile ещё не завершены.
 
+### 2026-09-20: G07 empty-QUIT lease completion checkpoint
+
+- Даже пустой POP3 delete plan теперь передаётся storage worker-у как пустой
+  durable EXPUNGE completion. Только после него session переходит в UPDATE и
+  освобождает maildrop lease, поэтому QUIT без DELE не оставляет account
+  искусственно занятым до TCP EOF.
+- PASS: Windows `cargo test --all-targets --locked` (110 tests), strict
+  Clippy, format, structural audit и `git diff --check`. Linux regression
+  target для этого уточнения ещё не запускался.
+- G07 остаётся NOT RUN: требуется Linux destructive matrix RSET и disconnect
+  до QUIT, а также полный interoperability profile.
+
 ### 2026-09-19: G00 PASS, G01 running
 
 - Added a single Cargo package with no production dependencies. This preserves

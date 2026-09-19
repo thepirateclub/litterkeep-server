@@ -107,10 +107,6 @@ fn commit(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<()> {
-    if uids.is_empty() {
-        let reply = session.pop3.commit_deletes(true);
-        return write_reply(session, reply);
-    }
     let Some(mailbox) = session.pop3_mailbox.clone() else {
         return session.push(b"-ERR maildrop unavailable\r\n");
     };
