@@ -199,3 +199,6 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - Неудачная попытка запустить клиент вторым Docker-контейнером через Docker
   Desktop network namespace зависла и не считается приемкой Linux-клиента.
   TLS, durable queue integration, retry и pool для G09 остаются NOT RUN.
+- PASS дополнительно: `tests/blackbox/imap_outbound_fixture.py` через
+  независимый Python `imaplib` нашёл Subject fixture, переданного `deliver`, и
+  сравнил полученные RFC822 bytes с `tests/fixtures/outbound.eml`.
