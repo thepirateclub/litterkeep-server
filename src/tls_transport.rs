@@ -65,6 +65,14 @@ impl ServerTls {
         self.connection.writer().write_all(plaintext)
     }
 
+    /// Сообщает, завершён ли handshake и допустим ли protocol plaintext.
+    ///
+    /// До этого состояния reactor обязан принимать и отправлять только TLS
+    /// records, не показывая клиенту SMTP либо IMAP greeting.
+    pub fn is_handshaking(&self) -> bool {
+        self.connection.is_handshaking()
+    }
+
     /// Забирает один накопленный TLS output для неблокирующей записи в TCP.
     pub fn take_encrypted(&mut self) -> io::Result<Vec<u8>> {
         let mut encrypted = Vec::new();
@@ -114,6 +122,7 @@ mod tests {
             .with_no_client_auth()
             .with_cert_resolver(Arc::new(rustls::server::ResolvesServerCertUsingSni::new()));
         let mut server = ServerTls::new(Arc::new(server_config)).expect("server");
+        assert!(server.is_handshaking());
         assert!(server.receive(first).is_ok());
         assert!(server.receive(second).is_err());
     }
