@@ -2,15 +2,22 @@
 use super::*;
 use std::io::{Read, Write};
 
-/// Выводит уже подготовленный wire-буфер и сообщает, нужно ли закрыть session.
+/// Выводит один ограниченный TCP-шаг и сообщает, нужно ли закрыть session.
 pub(super) fn flush(session: &mut Option<Session>) -> io::Result<bool> {
     let Some(session) = session else {
         return Ok(true);
     };
-    match session.stream.write(&session.output) {
+    if prepare_wire_output(session).is_err() {
+        return Ok(true);
+    }
+    let output = match session.tls {
+        Some(_) => &mut session.wire_output,
+        None => &mut session.output,
+    };
+    match session.stream.write(output) {
         Ok(0) => Ok(true),
         Ok(count) => {
-            session.output.drain(..count);
+            output.drain(..count);
             Ok(false)
         }
         Err(error) if error.kind() == io::ErrorKind::WouldBlock => Ok(false),
@@ -18,7 +25,7 @@ pub(super) fn flush(session: &mut Option<Session>) -> io::Result<bool> {
     }
 }
 
-/// Читает один ограниченный TCP-шаг и передаёт plaintext protocol FSM.
+/// Читает TCP bytes, при необходимости расшифровывает их и передаёт protocol FSM.
 pub(super) fn read_session(
     session: &mut Option<Session>,
     slot: usize,
@@ -34,7 +41,10 @@ pub(super) fn read_session(
     match session.stream.read(&mut bytes) {
         Ok(0) => return Ok(true),
         Ok(count) => match bytes.get(..count) {
-            Some(received) => session.input.extend_from_slice(received),
+            Some(received) => match receive_plaintext(session, received) {
+                Ok(plaintext) => session.input.extend_from_slice(&plaintext),
+                Err(_) => return Ok(true),
+            },
             None => return Ok(true),
         },
         Err(error) if error.kind() == io::ErrorKind::WouldBlock => return Ok(false),
@@ -43,6 +53,37 @@ pub(super) fn read_session(
     if session.input.len() > MAX_INPUT {
         return Ok(true);
     }
+    if session.tls.as_ref().is_some_and(ServerTls::is_handshaking) {
+        return Ok(false);
+    }
     process_input(session, slot, generation, worker, owners, request_id)?;
     Ok(false)
+}
+
+/// Переносит накопленные protocol bytes в TLS и забирает records для TCP.
+fn prepare_wire_output(session: &mut Session) -> io::Result<()> {
+    let Some(tls) = session.tls.as_mut() else {
+        return Ok(());
+    };
+    if !tls.is_handshaking() && !session.output.is_empty() {
+        tls.queue_plaintext(&session.output)?;
+        session.output.clear();
+    }
+    let encrypted = tls.take_encrypted()?;
+    let next_size = session.wire_output.len().saturating_add(encrypted.len());
+    if next_size > MAX_OUTPUT {
+        return Err(io::Error::other("TLS output limit"));
+    }
+    session.wire_output.extend_from_slice(&encrypted);
+    Ok(())
+}
+
+/// Расшифровывает bytes и откладывает greeting до завершения handshake.
+fn receive_plaintext(session: &mut Session, received: &[u8]) -> io::Result<Vec<u8>> {
+    let Some(tls) = session.tls.as_mut() else {
+        return Ok(received.to_vec());
+    };
+    let plaintext = tls.receive(received)?;
+    session.send_greeting_if_ready()?;
+    Ok(plaintext)
 }

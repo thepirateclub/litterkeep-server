@@ -5,22 +5,26 @@
 //! waits for a completion identified by its slot and generation.
 use crate::platform::linux_poll::{self, Interest};
 use crate::storage_worker::{Request, Response, WakingStorageWorker};
-use crate::{imap, smtp};
+use crate::{imap, smtp, tls_transport::ServerTls};
+use rustls::ServerConfig;
 use std::collections::HashMap;
 use std::io;
 use std::net::{TcpListener, TcpStream};
 use std::os::fd::AsFd;
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 #[path = "reactor/completion.rs"]
 mod completion;
 #[path = "reactor/local_delivery.rs"]
 mod local_delivery;
 #[path = "reactor/protocol.rs"]
 mod protocol;
+#[path = "reactor/session.rs"]
+mod session;
 #[path = "reactor/session_io.rs"]
 mod session_io;
 use completion::{complete, retry_submissions};
 use protocol::process_input;
+use session::{Session, SmtpState};
 use session_io::{flush, read_session};
 
 const MAX_SESSIONS: usize = 256;
@@ -51,66 +55,28 @@ enum Pending {
     ReadForFetch(usize, String),
 }
 
-struct Session {
-    generation: u64,
-    kind: Kind,
-    stream: TcpStream,
-    input: Vec<u8>,
-    output: Vec<u8>,
-    pending_submit: Option<(Request, Pending)>,
-    pending: Option<Pending>,
-    authenticated_account: Option<String>,
-    smtp: SmtpState,
-}
-
-enum SmtpState {
-    Command(smtp::Transaction),
-    Data {
-        bytes: Vec<u8>,
-        recipients: Vec<String>,
-    },
-}
-
-impl Session {
-    fn new(kind: Kind, stream: TcpStream, generation: u64) -> io::Result<Self> {
-        stream.set_nonblocking(true)?;
-        let mut result = Self {
-            generation,
-            kind,
-            stream,
-            input: Vec::new(),
-            output: Vec::new(),
-            pending_submit: None,
-            pending: None,
-            authenticated_account: None,
-            smtp: SmtpState::Command(smtp::Transaction::default()),
-        };
-        result.push(match kind {
-            Kind::Smtp => b"220 litterkeep.test ESMTP litterkeep-server\r\n",
-            Kind::Imap => b"* OK IMAP4rev1 litterkeep-server\r\n",
-        })?;
-        Ok(result)
-    }
-    fn push(&mut self, bytes: &[u8]) -> io::Result<()> {
-        if self.output.len().saturating_add(bytes.len()) > MAX_OUTPUT {
-            return Err(io::Error::other("session output limit"));
-        }
-        self.output.extend_from_slice(bytes);
-        Ok(())
-    }
-    fn accepts_input(&self) -> bool {
-        if self.pending.is_some() {
-            return false;
-        }
-        if self.pending_submit.is_some() {
-            return false;
-        }
-        self.output.len() < MAX_OUTPUT
-    }
-}
-
-/// Start SMTP and IMAP in one process. Storage is opened exactly once.
+/// Запускает plaintext SMTP и IMAP для локального peer-теста без паролей.
 pub fn serve(smtp_address: &str, imap_address: &str, root: impl AsRef<Path>) -> io::Result<()> {
+    serve_with_tls(smtp_address, imap_address, root, None)
+}
+
+/// Запускает implicit-TLS SMTP submission и IMAP с одним material для listener-ов.
+pub fn serve_tls(
+    smtp_address: &str,
+    imap_address: &str,
+    root: impl AsRef<Path>,
+    tls_config: Arc<ServerConfig>,
+) -> io::Result<()> {
+    serve_with_tls(smtp_address, imap_address, root, Some(tls_config))
+}
+
+/// Владеет listener-ами, worker-ом и состоянием TLS каждого session.
+fn serve_with_tls(
+    smtp_address: &str,
+    imap_address: &str,
+    root: impl AsRef<Path>,
+    tls_config: Option<Arc<ServerConfig>>,
+) -> io::Result<()> {
     let smtp_listener = TcpListener::bind(smtp_address)?;
     let imap_listener = TcpListener::bind(imap_address)?;
     smtp_listener.set_nonblocking(true)?;
@@ -152,8 +118,8 @@ pub fn serve(smtp_address: &str, imap_address: &str, root: impl AsRef<Path>) -> 
         ];
         for (slot, session) in sessions.iter().enumerate() {
             if let Some(session) = session {
-                let read = session.accepts_input();
-                let write = !session.output.is_empty();
+                let read = session.needs_read();
+                let write = session.needs_write();
                 targets.push(Target::Session(slot, session.generation));
                 poll_fds.push((
                     session.stream.as_fd(),
@@ -172,12 +138,14 @@ pub fn serve(smtp_address: &str, imap_address: &str, root: impl AsRef<Path>) -> 
                     Kind::Smtp,
                     &mut sessions,
                     &mut next_generation,
+                    tls_config.as_ref(),
                 )?,
                 Target::ImapListener if ready.readable => accept(
                     &imap_listener,
                     Kind::Imap,
                     &mut sessions,
                     &mut next_generation,
+                    tls_config.as_ref(),
                 )?,
                 Target::WorkerWake if ready.readable => {
                     worker.drain_wakeup()?;
@@ -222,11 +190,12 @@ fn accept(
     kind: Kind,
     sessions: &mut Vec<Option<Session>>,
     next: &mut u64,
+    tls_config: Option<&Arc<ServerConfig>>,
 ) -> io::Result<()> {
     for _ in 0..ACCEPT_BUDGET {
         match listener.accept() {
             Ok((stream, _)) if sessions.iter().filter(|s| s.is_some()).count() < MAX_SESSIONS => {
-                let session = Session::new(kind, stream, *next)?;
+                let session = Session::new(kind, stream, *next, tls_config.cloned())?;
                 *next = next.wrapping_add(1).max(1);
                 if let Some(slot) = sessions.iter().position(Option::is_none) {
                     let Some(entry) = sessions.get_mut(slot) else {

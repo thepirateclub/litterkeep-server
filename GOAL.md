@@ -284,3 +284,27 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - Это локальное соблюдение правил исходников, а не подтверждение нового
   протокольного рубежа. G03 и G04 сохраняют статус NOT RUN, так как TLS ещё не
   присоединён к reactor.
+
+### 2026-09-19: implicit-TLS reactor checkpoint
+
+- `serve-tls` запускает implicit-TLS listener-ы с документированными default
+  портами 1465/1993. Каждая session владеет отдельным `ServerTls`, plaintext
+  protocol output и TLS wire output разделены, а SMTP/IMAP greeting не попадает
+  в сеть до завершения handshake. Poll interest учитывает `rustls` wants-read
+  и wants-write, поэтому TLS не создаёт поток на соединение и не теряет
+  partial I/O.
+- `examples/make_test_pki.rs` использует разрешённый только в dev-dependency
+  `rcgen 0.14.10`: выпуск создаёт CA, отдельный leaf с DNS/IP SAN и DER-ключом
+  для `serve`; повторный запуск не заменяет существующий CA. Первый выпуск
+  обнаружил одинаковый default DN у CA и leaf, затем исправлены разные subject
+  DN и Authority Key Identifier. Эта исправленная цепочка принята строгим
+  клиентом.
+- PASS в Linux Docker: образ `litterkeep-server:tls-reactor`, volume
+  `litterkeep-tls-reactor-test`, listener 2993. Независимый стандартный Python
+  `tls_imap_login.py` доверил `ca.pem`, проверил IP SAN `127.0.0.1` и выполнил
+  IMAP LOGIN Bob. `tls_imap_rejections.py` подтвердил отказ неизвестного CA и
+  неверного пароля. PASS также: `cargo test --locked` (26 passed), Clippy и
+  format.
+- G03 остаётся NOT RUN: отсутствуют SMTP AUTH, ограничение времени handshake,
+  admission control и STARTTLS; результат доказывает только implicit TLS IMAP
+  transport и защищённую проверку действующих IMAP credentials.

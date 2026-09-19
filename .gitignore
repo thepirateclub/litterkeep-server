@@ -3,3 +3,4 @@
 /runtime-smoke-*/
 /artifacts/
 *.log
+/.verification-tls-pki*/

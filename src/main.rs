@@ -5,7 +5,7 @@ use litterkeep_server::{PRODUCT, VERSION};
 
 fn usage() {
     println!(
-        "{PRODUCT} {VERSION}\n\nUsage:\n  litterkeep-server init [data-dir] [account] [password]\n  litterkeep-server deliver <address> <sender> <recipient> <message-file>\n  litterkeep-server help\n  litterkeep-server version\n  litterkeep-server serve [smtp-address] [imap-address] [data-dir]"
+        "{PRODUCT} {VERSION}\n\nUsage:\n  litterkeep-server init [data-dir] [account] [password]\n  litterkeep-server deliver <address> <sender> <recipient> <message-file>\n  litterkeep-server serve [smtp-address] [imap-address] [data-dir]\n  litterkeep-server serve-tls [smtp-address] [imap-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server help\n  litterkeep-server version"
     );
 }
 
@@ -22,6 +22,7 @@ fn main() -> ExitCode {
         Some("init") => initialize(),
         Some("deliver") => deliver(),
         Some("serve") => serve(),
+        Some("serve-tls") => serve_tls(),
         Some(command) => {
             eprintln!("unsupported command in this build: {command}\n");
             usage();
@@ -118,8 +119,60 @@ fn serve() -> ExitCode {
     }
 }
 
+/// Запускает только implicit-TLS listener-ы для клиентского SMTP и IMAP.
+///
+/// По умолчанию используются документированные 1465 и 1993. В отличие от
+/// peer-службы `serve`, этот режим не разрешает отправлять greeting или пароль
+/// до завершения handshake в reactor.
+#[cfg(target_os = "linux")]
+fn serve_tls() -> ExitCode {
+    let mut arguments = env::args().skip(2);
+    let smtp = arguments.next().unwrap_or_else(|| "127.0.0.1:1465".into());
+    let imap = arguments.next().unwrap_or_else(|| "127.0.0.1:1993".into());
+    let data = arguments.next().unwrap_or_else(|| "runtime".into());
+    let Some(certificate) = arguments.next() else {
+        usage();
+        return ExitCode::from(2);
+    };
+    let Some(key) = arguments.next() else {
+        usage();
+        return ExitCode::from(2);
+    };
+    if arguments.next().is_some() {
+        usage();
+        return ExitCode::from(2);
+    }
+    let material = match litterkeep_server::tls::ServerMaterial::load(certificate, key) {
+        Ok(material) => material,
+        Err(error) => {
+            eprintln!("TLS material error: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let config = match material.server_config() {
+        Ok(config) => config,
+        Err(error) => {
+            eprintln!("TLS material error: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    match litterkeep_server::reactor::serve_tls(&smtp, &imap, data, config) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("server error: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 #[cfg(not(target_os = "linux"))]
 fn serve() -> ExitCode {
     eprintln!("serve requires the Linux poll reactor; this Windows checkout cannot run it");
+    ExitCode::FAILURE
+}
+
+#[cfg(not(target_os = "linux"))]
+fn serve_tls() -> ExitCode {
+    eprintln!("serve-tls requires the Linux poll reactor; this Windows checkout cannot run it");
     ExitCode::FAILURE
 }
