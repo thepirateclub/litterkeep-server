@@ -15,12 +15,14 @@ mod mailbox_state;
 mod model;
 #[path = "store/quota.rs"]
 mod quota;
+#[path = "store/read.rs"]
+mod read;
 #[path = "store/recovery.rs"]
 mod recovery;
 #[cfg(test)]
 #[path = "store/tests.rs"]
 mod tests;
-pub use model::Message;
+pub use model::{MailboxSnapshot, Message};
 use quota::Quota;
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
@@ -110,22 +112,6 @@ impl Store {
                 Err(error)
             }
         }
-    }
-    pub fn messages(&self, mailbox: &str) -> io::Result<Vec<Message>> {
-        model::validate_mailbox(mailbox)?;
-        self.entries
-            .get(mailbox)
-            .into_iter()
-            .flatten()
-            .map(|r| {
-                let path = self.root.join("blobs").join(&r.name);
-                Ok(Message {
-                    uid: r.uid,
-                    bytes: fs::read(&path)?,
-                    path,
-                })
-            })
-            .collect()
     }
     fn index(&self, mailbox: &str) -> PathBuf {
         self.root

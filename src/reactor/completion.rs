@@ -83,25 +83,50 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
             session.push(b"451 storage failure\r\n")
         }
         (
-            Pending::ReadForSelect(tag),
+            Pending::ReadForSelect {
+                tag,
+                mailbox,
+                read_only,
+            },
             Response::Read {
-                result: Ok(messages),
+                result: Ok(snapshot),
                 ..
             },
-        ) => session.push(
-            format!(
-                "* {} EXISTS\r\n* OK [READ-ONLY]\r\n{tag} OK SELECT completed\r\n",
-                messages.len()
+        ) => {
+            session.selected_mailbox = Some(mailbox);
+            let access = match read_only {
+                true => "READ-ONLY",
+                false => "READ-WRITE",
+            };
+            session.push(
+                format!(
+                    "* FLAGS (\\Answered \\Flagged \\Deleted \\Seen \\Draft)\r\n\
+                     * {} EXISTS\r\n\
+                     * OK [UIDVALIDITY {}] UIDs valid\r\n\
+                     * OK [UIDNEXT {}] Predicted next UID\r\n\
+                     * OK [PERMANENTFLAGS (\\Answered \\Flagged \\Deleted \\Seen \\Draft)] Flags permitted\r\n\
+                     {tag} OK [{access}] SELECT completed\r\n",
+                    snapshot.messages.len(),
+                    snapshot.uid_validity,
+                    snapshot.uid_next,
+                )
+                .as_bytes(),
             )
-            .as_bytes(),
-        ),
+        }
         (
             Pending::ReadForFetch(addressing, sequence_set, attribute, tag),
             Response::Read {
-                result: Ok(messages),
+                result: Ok(snapshot),
                 ..
             },
-        ) => write_fetch(session, addressing, sequence_set, attribute, tag, messages),
+        ) => write_fetch(
+            session,
+            addressing,
+            sequence_set,
+            attribute,
+            tag,
+            snapshot.messages,
+        ),
         (_, Response::Read { .. }) => session.push(b"451 storage failure\r\n"),
         _ => Ok(()),
     }

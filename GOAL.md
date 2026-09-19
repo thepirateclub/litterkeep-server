@@ -682,3 +682,24 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   `ring`, поэтому authoritative Linux проверкой служит Docker build/test.
 - G06 остаётся RUNNING: literals, flags, APPEND, folders, UIDVALIDITY/UIDNEXT и
   IDLE ещё не реализованы.
+
+### 2026-09-19: G06 durable SELECT metadata checkpoint
+
+- Store read теперь возвращает согласованный `MailboxSnapshot`: messages,
+  UIDVALIDITY и UIDNEXT берутся одним owner-ом из одного materialized view.
+  Snapshot вынесен в отдельный файл, поэтому чтение не смешано с записью.
+- SELECT и EXAMINE различают READ-WRITE/READ-ONLY, возвращают FLAGS,
+  PERMANENTFLAGS, UIDVALIDITY и UIDNEXT. INBOX преобразуется в enum на границе
+  parser-а. FETCH до успешного SELECT получает NO, а не читает mailbox по одной
+  лишь аутентификации.
+- UIDVALIDITY равен 1 при действующем контракте: журналы mailbox не удаляются,
+  UID не перераспределяются. Будущий DELETE обязан сохранить allocator либо
+  назначить новую validity; это явно зафиксировано у реализации snapshot.
+- PASS 69 Windows unit tests, format и Clippy; PASS Docker Linux 71/71.
+  Независимый STARTTLS SMTP/IMAP blackbox подтвердил отказ FETCH до SELECT,
+  `UIDVALIDITY 1`, `UIDNEXT 2`, `UID FETCH 1:*`, MIME attachment SHA-256
+  `f3a25aa93aa2fbba28d79260535bbd6a5eb0fc1c24a8b0f04e12b484c1dfe363`.
+  После restart того же контейнера и volume отдельный клиент повторно получил
+  один message, неизменный UIDVALIDITY, UIDNEXT 2 и UID 1.
+- G06 остаётся RUNNING: literals, APPEND, mutable flags, folders и IDLE ещё не
+  реализованы.

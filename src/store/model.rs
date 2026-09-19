@@ -5,6 +5,14 @@ pub struct Message {
     pub path: PathBuf,
     pub bytes: Vec<u8>,
 }
+
+/// Согласованный снимок mailbox, прочитанный одним владельцем store.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MailboxSnapshot {
+    pub uid_validity: u32,
+    pub uid_next: u64,
+    pub messages: Vec<Message>,
+}
 #[derive(Clone, Debug)]
 pub struct Record {
     pub uid: u64,

@@ -23,14 +23,25 @@ pub enum Command {
         password: String,
     },
     Logout,
-    Select,
-    Examine,
+    Select {
+        mailbox: MailboxName,
+    },
+    Examine {
+        mailbox: MailboxName,
+    },
     Fetch {
         addressing: Addressing,
         sequence_set: SequenceSet,
         attribute: FetchAttribute,
     },
     Unsupported,
+}
+
+/// Типизированное имя mailbox после обработки специального имени INBOX.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum MailboxName {
+    Inbox,
+    Named(String),
 }
 
 /// Пространство номеров, в котором интерпретируется sequence-set.
@@ -99,8 +110,8 @@ pub fn parse(line: &str) -> TaggedCommand {
             _ => Command::Unsupported,
         },
         Some(Verb::Logout) => Command::Logout,
-        Some(Verb::Select) => Command::Select,
-        Some(Verb::Examine) => Command::Examine,
+        Some(Verb::Select) => parse_select(&mut tokens, false),
+        Some(Verb::Examine) => parse_select(&mut tokens, true),
         Some(Verb::Fetch) => parse_fetch(&mut tokens, Addressing::Sequence),
         Some(Verb::Uid) => match next_text(&mut tokens).as_deref().map(parse_verb) {
             Some(Verb::Fetch) => parse_fetch(&mut tokens, Addressing::Uid),
@@ -109,6 +120,19 @@ pub fn parse(line: &str) -> TaggedCommand {
         Some(Verb::Unsupported) | None => Command::Unsupported,
     };
     TaggedCommand { tag, command }
+}
+
+fn parse_select(tokens: &mut impl Iterator<Item = Token>, read_only: bool) -> Command {
+    let Some(mailbox) = next_text(tokens).map(|value| match value.to_ascii_uppercase().as_str() {
+        "INBOX" => MailboxName::Inbox,
+        _ => MailboxName::Named(value),
+    }) else {
+        return Command::Unsupported;
+    };
+    match read_only {
+        true => Command::Examine { mailbox },
+        false => Command::Select { mailbox },
+    }
 }
 
 fn parse_fetch(tokens: &mut impl Iterator<Item = Token>, addressing: Addressing) -> Command {
@@ -216,79 +240,5 @@ fn parse_verb(text: &str) -> Verb {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    /// Проверяет передачу реквизитов в типизированном варианте.
-    #[test]
-    fn login_has_credentials() {
-        assert_eq!(
-            parse("a LOGIN bob pass\r\n"),
-            TaggedCommand {
-                tag: "a".into(),
-                command: Command::Login {
-                    username: "bob".into(),
-                    password: "pass".into()
-                }
-            }
-        );
-    }
-
-    /// STARTTLS преобразуется в enum до входа в session FSM.
-    #[test]
-    fn starttls_is_typed() {
-        assert_eq!(
-            parse("a2 STARTTLS\r\n"),
-            TaggedCommand {
-                tag: "a2".into(),
-                command: Command::StartTls,
-            }
-        );
-    }
-
-    #[test]
-    fn fetch_attribute_is_typed() {
-        assert_eq!(
-            parse("a3 FETCH 2 (BODYSTRUCTURE)\r\n").command,
-            Command::Fetch {
-                addressing: Addressing::Sequence,
-                sequence_set: SequenceSet::parse("2").unwrap(),
-                attribute: FetchAttribute::BodyStructure,
-            }
-        );
-    }
-
-    #[test]
-    fn body_peek_partial_is_typed() {
-        assert_eq!(
-            parse("a4 FETCH 1 (BODY.PEEK[2.MIME]<3.7>)\r\n").command,
-            Command::Fetch {
-                addressing: Addressing::Sequence,
-                sequence_set: SequenceSet::parse("1").unwrap(),
-                attribute: FetchAttribute::Body {
-                    peek: true,
-                    section: BodySection::Part {
-                        path: vec![2],
-                        mime_headers: true,
-                    },
-                    partial: Some(Partial {
-                        offset: 3,
-                        count: 7
-                    }),
-                },
-            }
-        );
-    }
-
-    /// UID FETCH сохраняет отдельное пространство адресации до store snapshot.
-    #[test]
-    fn uid_fetch_is_typed() {
-        assert_eq!(
-            parse("a5 UID FETCH 20:10 (RFC822.SIZE)\r\n").command,
-            Command::Fetch {
-                addressing: Addressing::Uid,
-                sequence_set: SequenceSet::parse("20:10").unwrap(),
-                attribute: FetchAttribute::Rfc822Size,
-            }
-        );
-    }
-}
+#[path = "imap/tests.rs"]
+mod tests;

@@ -31,6 +31,8 @@ pub(super) struct Session {
     pub(super) pending_submit: Option<(Request, Pending)>,
     pub(super) pending: Option<Pending>,
     pub(super) authenticated_account: Option<String>,
+    /// Store key выбранного mailbox; `None` означает authenticated state.
+    pub(super) selected_mailbox: Option<String>,
     pub(super) smtp: SmtpState,
 }
 
@@ -63,6 +65,7 @@ impl Session {
             pending_submit: None,
             pending: None,
             authenticated_account: None,
+            selected_mailbox: None,
             smtp: SmtpState::Command(smtp::Transaction::default()),
         };
         result.send_greeting_if_ready()?;
@@ -155,6 +158,7 @@ impl Session {
         self.starttls_pending = true;
         self.smtp = SmtpState::Command(smtp::Transaction::default());
         self.authenticated_account = None;
+        self.selected_mailbox = None;
     }
 
     /// Передаёт socket новому rustls handshake только на чистой границе вывода.

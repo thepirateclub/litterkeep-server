@@ -3,11 +3,12 @@
 Self-hosted Rust mail server for the local `litterkeep` integration profile.
 It owns its protocol parsers, filesystem store and task/resource lifecycle.
 
-Current checkpoint: implicit TLS SMTP submission authenticates accounts with
-SASL PLAIN and delivers to the worker-owned filesystem store; implicit TLS
-IMAP can authenticate and retrieve the stored RFC822 bytes. This is not yet a
-complete mail server: STARTTLS, handshake deadlines, full IMAP, POP3, Sieve,
-durable outbound queue integration and the remaining acceptance matrix are
+Current checkpoint: TLS and STARTTLS SMTP submission authenticate accounts with
+SASL PLAIN and deliver into the worker-owned filesystem store. IMAP supports
+STARTTLS authentication, SELECT/EXAMINE metadata, sequence-set and UID FETCH,
+ENVELOPE, BODYSTRUCTURE and MIME section/partial reads. This is not yet a
+complete mail server: mutable flags, folders, APPEND, IDLE, full POP3, Sieve,
+durable outbound transport integration and the remaining acceptance matrix are
 unfinished.
 
 ## Developer commands

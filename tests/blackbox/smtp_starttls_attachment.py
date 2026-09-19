@@ -67,8 +67,24 @@ def main() -> None:
     mailbox = imaplib.IMAP4("127.0.0.1", options.imap_port)
     mailbox.starttls(ssl_context=context)
     mailbox.login("bob", "bob-password")
+    try:
+        mailbox.fetch("1", "(RFC822.SIZE)")
+    except imaplib.IMAP4.error:
+        pass
+    else:
+        raise AssertionError("FETCH was accepted before SELECT")
     _, counts = mailbox.select("INBOX", readonly=True)
+    uid_validity = mailbox.response("UIDVALIDITY")
+    uid_next = mailbox.response("UIDNEXT")
+    if uid_validity != ("UIDVALIDITY", [b"1"]):
+        raise AssertionError(f"unexpected UIDVALIDITY response: {uid_validity!r}")
+    if uid_next != ("UIDNEXT", [b"2"]):
+        raise AssertionError(f"unexpected UIDNEXT response: {uid_next!r}")
     sequence = next(value.decode("ascii") for value in counts if isinstance(value, bytes))
+    _, uid_fetch = mailbox.uid("FETCH", "1:*", "(RFC822.SIZE)")
+    uid_wire = b" ".join(item for item in uid_fetch if isinstance(item, bytes))
+    if b"UID 1 RFC822.SIZE" not in uid_wire:
+        raise AssertionError(f"UID FETCH did not include UID: {uid_wire!r}")
     _, structures = mailbox.fetch(sequence, "(BODYSTRUCTURE)")
     structure_bytes = b" ".join(
         value

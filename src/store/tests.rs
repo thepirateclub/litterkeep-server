@@ -85,7 +85,13 @@ fn next_uid_is_cached_and_recovered_once() {
     assert_eq!(store.append("bob", b"two").expect("second"), 2);
     drop(store);
     let mut reopened = Store::open(&p).expect("reopen");
+    let before_append = reopened.snapshot("bob").expect("snapshot");
+    assert_eq!(before_append.uid_validity, 1);
+    assert_eq!(before_append.uid_next, 3);
     assert_eq!(reopened.append("bob", b"three").expect("third"), 3);
+    let after_append = reopened.snapshot("bob").expect("snapshot");
+    assert_eq!(after_append.uid_validity, before_append.uid_validity);
+    assert_eq!(after_append.uid_next, 4);
     drop(reopened);
     let _ = fs::remove_dir_all(p);
 }

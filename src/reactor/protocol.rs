@@ -111,15 +111,11 @@ fn imap_line(
             session.push(b"* BYE\r\n")?;
             session.push(format!("{} OK LOGOUT completed\r\n", parsed.tag).as_bytes())?;
         }
-        imap::Command::Select | imap::Command::Examine => queue_authenticated_read(
-            session,
-            parsed.tag,
-            Pending::ReadForSelect,
-            slot,
-            generation,
-            worker,
-            owners,
-            request_id,
+        imap::Command::Select { mailbox } => queue_select(
+            session, parsed.tag, mailbox, false, slot, generation, worker, owners, request_id,
+        )?,
+        imap::Command::Examine { mailbox } => queue_select(
+            session, parsed.tag, mailbox, true, slot, generation, worker, owners, request_id,
         )?,
         imap::Command::Fetch {
             addressing,
@@ -170,8 +166,8 @@ fn queue_authenticated_read<F>(
 where
     F: FnOnce(String) -> Pending,
 {
-    let Some(mailbox) = session.authenticated_account.clone() else {
-        return session.push(format!("{tag} NO authenticate first\r\n").as_bytes());
+    let Some(mailbox) = session.selected_mailbox.clone() else {
+        return session.push(format!("{tag} NO select mailbox first\r\n").as_bytes());
     };
     let id = *request_id;
     *request_id = request_id.wrapping_add(1).max(1);
@@ -182,6 +178,46 @@ where
             mailbox,
         },
         pending(tag),
+        slot,
+        generation,
+        worker,
+        owners,
+    );
+    Ok(())
+}
+
+/// SELECT/EXAMINE читает INBOX текущего account и меняет state лишь по completion.
+#[allow(clippy::too_many_arguments)]
+fn queue_select(
+    session: &mut Session,
+    tag: String,
+    requested_mailbox: imap::MailboxName,
+    read_only: bool,
+    slot: usize,
+    generation: u64,
+    worker: &mut WakingStorageWorker,
+    owners: &mut HashMap<u64, (usize, u64, Pending)>,
+    request_id: &mut u64,
+) -> io::Result<()> {
+    if let imap::MailboxName::Named(_) = requested_mailbox {
+        return session.push(format!("{tag} NO mailbox does not exist\r\n").as_bytes());
+    }
+    let Some(mailbox) = session.authenticated_account.clone() else {
+        return session.push(format!("{tag} NO authenticate first\r\n").as_bytes());
+    };
+    let id = *request_id;
+    *request_id = request_id.wrapping_add(1).max(1);
+    submit(
+        session,
+        Request::Read {
+            request_id: id,
+            mailbox: mailbox.clone(),
+        },
+        Pending::ReadForSelect {
+            tag,
+            mailbox,
+            read_only,
+        },
         slot,
         generation,
         worker,

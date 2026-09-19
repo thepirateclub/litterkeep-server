@@ -3,7 +3,7 @@
 mod execution;
 use crate::{
     accounts::Accounts,
-    store::{Message, Store},
+    store::{MailboxSnapshot, Store},
 };
 use std::io;
 use std::path::Path;
@@ -51,7 +51,7 @@ pub enum Response {
     },
     Read {
         request_id: u64,
-        result: io::Result<Vec<Message>>,
+        result: io::Result<MailboxSnapshot>,
     },
 }
 

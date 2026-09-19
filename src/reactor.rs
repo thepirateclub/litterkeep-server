@@ -66,7 +66,11 @@ enum Pending {
         address: String,
     },
     Append,
-    ReadForSelect(String),
+    ReadForSelect {
+        tag: String,
+        mailbox: String,
+        read_only: bool,
+    },
     ReadForFetch(
         imap::Addressing,
         imap::sequence_set::SequenceSet,

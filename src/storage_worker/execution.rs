@@ -58,7 +58,7 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             mailbox,
         } => Response::Read {
             request_id,
-            result: store.messages(&mailbox),
+            result: store.snapshot(&mailbox),
         },
     }
 }
