@@ -11,8 +11,8 @@ name = "litterkeep-server"
 path = "src/main.rs"
 
 [dependencies]
-# Intentionally empty for G00/G01. TLS and Argon2 are introduced only after
-# their exact, minimal features have been selected and reviewed.
+argon2 = { version = "0.6.0", default-features = false, features = ["alloc", "password-hash", "getrandom"] }
+rustls = { version = "0.23.45", default-features = false, features = ["std", "ring", "tls12"] }
 
 [lints.rust]
 unsafe_code = "deny"

@@ -112,3 +112,13 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   The lease type and orchestrator tests are likewise separate files.
 - PASS after this move: format, 15 unit tests, Clippy, Linux target check, and
   the Docker SMTP-to-IMAP attachment checksum test.
+
+### 2026-09-19: G03 crypto dependency and credential checkpoint
+
+- Added only the allowlisted direct dependencies: `rustls 0.23.45` with
+  `default-features = false` and the single `ring` provider, plus `argon2
+  0.6.0` for Argon2id PHC password records and OS CSPRNG salts. `cargo tree`
+  was inspected and the complete graph is locked.
+- `auth::Credential` creates and verifies Argon2id PHC records. Its unit test
+  proves the correct password is accepted and a different password rejected.
+  It is not yet connected to network LOGIN, therefore G03 remains RUNNING.
