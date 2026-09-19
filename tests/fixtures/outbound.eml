@@ -1,0 +1,5 @@
+From: alice@litterkeep.test
+To: bob@litterkeep.test
+Subject: outbound transport check
+
+Message delivered through the owned SMTP client.

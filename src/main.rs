@@ -5,7 +5,7 @@ use litterkeep_server::{PRODUCT, VERSION};
 
 fn usage() {
     println!(
-        "{PRODUCT} {VERSION}\n\nUsage:\n  litterkeep-server init [data-dir]\n  litterkeep-server help\n  litterkeep-server version\n  litterkeep-server serve [smtp-address] [imap-address] [data-dir]"
+        "{PRODUCT} {VERSION}\n\nUsage:\n  litterkeep-server init [data-dir]\n  litterkeep-server deliver <address> <sender> <recipient> <message-file>\n  litterkeep-server help\n  litterkeep-server version\n  litterkeep-server serve [smtp-address] [imap-address] [data-dir]"
     );
 }
 
@@ -20,11 +20,46 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some("init") => initialize(),
+        Some("deliver") => deliver(),
         Some("serve") => serve(),
         Some(command) => {
             eprintln!("unsupported command in this build: {command}\n");
             usage();
             ExitCode::from(2)
+        }
+    }
+}
+
+/// Отправляет один долговечно подготовленный RFC822 файл через собственный transport.
+fn deliver() -> ExitCode {
+    let Some(address) = env::args().nth(2) else {
+        usage();
+        return ExitCode::from(2);
+    };
+    let Some(sender) = env::args().nth(3) else {
+        usage();
+        return ExitCode::from(2);
+    };
+    let Some(recipient) = env::args().nth(4) else {
+        usage();
+        return ExitCode::from(2);
+    };
+    let Some(path) = env::args().nth(5) else {
+        usage();
+        return ExitCode::from(2);
+    };
+    let message = match std::fs::read(path) {
+        Ok(message) => message,
+        Err(error) => {
+            eprintln!("message read error: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    match litterkeep_server::outbound::deliver(&address, &sender, &recipient, &message) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("delivery error: {error}");
+            ExitCode::FAILURE
         }
     }
 }

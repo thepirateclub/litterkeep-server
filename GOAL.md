@@ -189,3 +189,13 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - Reactor пока использует plaintext `TcpStream`; соединение `ServerTls` с его
   lifecycle, poll interest, handshake timeout и внешним TLS-клиентом остается
   NOT RUN.
+
+### 2026-09-19: outbound SMTP dialogue checkpoint
+
+- CLI `deliver` читает RFC822-файл и вызывает собственный исходящий SMTP
+  transport. PASS: Windows-клиент `cargo run --locked -- deliver` передал
+  `tests/fixtures/outbound.eml` работающему Linux Docker серверу на порту 2525;
+  после этого независимый SMTP to IMAP MIME-тест снова прошел.
+- Неудачная попытка запустить клиент вторым Docker-контейнером через Docker
+  Desktop network namespace зависла и не считается приемкой Linux-клиента.
+  TLS, durable queue integration, retry и pool для G09 остаются NOT RUN.
