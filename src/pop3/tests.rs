@@ -33,6 +33,14 @@ fn authentication_and_stat_require_worker_completion() {
 }
 
 #[test]
+fn capa_advertises_stls_before_password_exchange() {
+    let mut session = Session::default();
+    assert!(
+        matches!(session.apply(parse("CAPA\r\n")), Reply::Multiline(bytes) if bytes.windows(4).any(|part| part == b"STLS"))
+    );
+}
+
+#[test]
 fn retrieve_uidl_reset_and_quit_keep_delete_semantics_explicit() {
     let mut session = Session::default();
     let _ = session.apply(parse("USER pop\r\n"));

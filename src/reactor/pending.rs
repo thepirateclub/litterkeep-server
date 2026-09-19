@@ -12,6 +12,14 @@ pub(super) enum Pending {
     SmtpAuthenticate {
         account: String,
     },
+    /// Пароль уже проверен worker-ом, далее нужен атомарный snapshot INBOX.
+    Pop3Authenticate {
+        account: String,
+    },
+    /// Snapshot и внутренний folder key возвращаются одним completion worker-а.
+    Pop3ReadInbox,
+    /// POP3 применяет накопленные DELE только после durable EXPUNGE.
+    Pop3Commit,
     ValidateRecipient {
         address: String,
     },

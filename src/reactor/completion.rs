@@ -2,7 +2,6 @@
 //! Этот слой сопоставляет completion с `(slot, generation)`. Поэтому поздний
 //! ответ закрытой сессии не может стать ответом новому клиенту в том же slot.
 use super::*;
-
 /// Забирает все уже готовые ответы хранилища и продолжает остановленный ввод.
 pub(super) fn complete(
     worker: &mut WakingStorageWorker,
@@ -11,7 +10,7 @@ pub(super) fn complete(
     next_request: &mut u64,
 ) -> io::Result<()> {
     while let Ok(response) = worker.worker.try_response() {
-        let id = response_id(&response);
+        let id = completion_id::response_id(&response);
         let Some((slot, generation, pending)) = owners.remove(&id) else {
             continue;
         };
@@ -31,6 +30,7 @@ pub(super) fn complete(
             super::imap_expunge::follow_up(&pending, &response, next_request)
                 .or_else(|| super::flag_completion::follow_up(&pending, &response, next_request))
                 .or_else(|| super::imap_copy::follow_up(&pending, &response, next_request))
+                .or_else(|| super::pop3_protocol::follow_up(&pending, &response, next_request))
         {
             let Some(session) = sessions
                 .get_mut(slot)
@@ -59,33 +59,16 @@ pub(super) fn complete(
         else {
             continue;
         };
+        if super::pop3_completion::handles(&pending, &response) {
+            super::pop3_completion::write(session, pending, response)?;
+            protocol::process_input(session, slot, generation, worker, owners, next_request)?;
+            continue;
+        }
         write_completion(session, pending, response)?;
         protocol::process_input(session, slot, generation, worker, owners, next_request)?;
     }
     Ok(())
 }
-
-/// Возвращает идентификатор, выданный reactor-ом для каждого ответа worker-а.
-fn response_id(response: &Response) -> u64 {
-    match response {
-        Response::Authenticated { request_id, .. }
-        | Response::RecipientValidated { request_id, .. }
-        | Response::Appended { request_id, .. }
-        | Response::Read { request_id, .. }
-        | Response::FlagsUpdated { request_id, .. }
-        | Response::FolderCreated { request_id, .. }
-        | Response::FolderMutated { request_id, .. }
-        | Response::Folders { request_id, .. }
-        | Response::FolderResolved { request_id, .. }
-        | Response::FolderRead { request_id, .. }
-        | Response::FolderSelected { request_id, .. } => *request_id,
-        Response::SubscriptionSet { request_id, .. }
-        | Response::Subscriptions { request_id, .. } => *request_id,
-        Response::Expunged { request_id, .. } => *request_id,
-        Response::Copied { request_id, .. } | Response::Moved { request_id, .. } => *request_id,
-    }
-}
-
 /// Превращает типизированный результат worker-а в уже согласованный ответ wire.
 fn write_completion(session: &mut Session, pending: Pending, response: Response) -> io::Result<()> {
     match (pending, response) {

@@ -18,8 +18,9 @@ independently of folder existence, LSUB exposes missing subscriptions as
 `\Noselect`, and STATUS reads mailbox counters without selecting it.
 STORE keeps `\Deleted` separate from durable EXPUNGE tombstones; an EXPUNGE
 rebuilds sequence numbers without reusing UIDs and is denied after EXAMINE.
-This is not yet a complete mail server: COPY/MOVE/CLOSE and message-moving
-IMAP operations, POP3, Sieve, durable
+This is not yet a complete mail server: POP3/STLS has a verified SMTP-to-INBOX
+read/delete checkpoint, but maildrop leases, implicit TLS and failure coverage
+remain unfinished. Sieve, durable
 outbound transport integration and the remaining acceptance matrix are
 unfinished.
 
@@ -80,6 +81,24 @@ Linux checks reuse bind-mounted stage directories under `./data`; for example,
 the subscriptions checkpoint uses `./data/g06-subscriptions-status`. The shared
 test PKI is kept in `./data/pki`. These local artifacts are ignored by Git and
 excluded from the Docker build context.
+
+## POP3 STARTTLS checkpoint
+
+```sh
+cargo run --locked -- init ./runtime alice alice-password
+cargo run --locked -- init ./runtime bob bob-password
+cargo run --locked -- serve-pop3-starttls 0.0.0.0:1110 ./runtime ./server.der ./server.key.der
+```
+
+The POP3 test account is `bob/bob-password`; clients must use STLS before
+`PASS`. The verified Linux test is split into SMTP delivery and POP3 reading so
+the same bind-mounted `./data/g07-pop3` store is reused across server restart:
+
+```sh
+python tests/blackbox/pop3_starttls_delivery.py --phase smtp --port 11587 --ca ./data/pki/ca.pem
+python tests/blackbox/pop3_starttls_delivery.py --phase pop3 --port 11110 --ca ./data/pki/ca.pem
+python tests/blackbox/pop3_starttls_delivery.py --phase empty --port 11110 --ca ./data/pki/ca.pem
+```
 
 The only runtime binary is `target/release/litterkeep-server`. Current Docker
 test state is placed under ignored `data/` stage directories.

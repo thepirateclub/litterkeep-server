@@ -35,7 +35,8 @@ impl Session {
                 self.request_authentication(password)
             }
             (Phase::Authorization, Command::Capa) => Reply::Multiline(
-                b"+OK Capability list\r\nUSER\r\nUIDL\r\nTOP\r\nRESP-CODES\r\n.\r\n".to_vec(),
+                b"+OK Capability list\r\nUSER\r\nUIDL\r\nTOP\r\nRESP-CODES\r\nSTLS\r\n.\r\n"
+                    .to_vec(),
             ),
             (Phase::Authorization, Command::Stls) => Reply::StartTls,
             (Phase::Authorization, Command::Quit) => {
@@ -111,17 +112,17 @@ impl Session {
     }
     fn retrieve(&self, number: u32) -> Reply {
         match self.drop() {
-            Some(drop) => drop
-                .retrieve(number)
-                .map_or_else(Reply::Error, Reply::Multiline),
+            Some(drop) => drop.retrieve(number).map_or_else(Reply::Error, |bytes| {
+                message_reply("message follows", bytes)
+            }),
             None => Reply::Error("maildrop unavailable"),
         }
     }
     fn top(&self, number: u32, lines: u32) -> Reply {
         match self.drop() {
-            Some(drop) => drop
-                .top(number, lines)
-                .map_or_else(Reply::Error, Reply::Multiline),
+            Some(drop) => drop.top(number, lines).map_or_else(Reply::Error, |bytes| {
+                message_reply("top of message follows", bytes)
+            }),
             None => Reply::Error("maildrop unavailable"),
         }
     }
@@ -172,5 +173,12 @@ fn uidl_reply(entries: Vec<(u32, String)>) -> Reply {
         output.extend_from_slice(format!("{number} {uid}\r\n").as_bytes());
     }
     output.extend_from_slice(b".\r\n");
+    Reply::Multiline(output)
+}
+
+/// Добавляет обязательный POP3 +OK frame перед уже dot-stuffed RFC822 bytes.
+fn message_reply(description: &str, bytes: Vec<u8>) -> Reply {
+    let mut output = format!("+OK {description}\r\n").into_bytes();
+    output.extend_from_slice(&bytes);
     Reply::Multiline(output)
 }

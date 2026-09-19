@@ -52,6 +52,27 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - G07 остаётся NOT RUN: сетевой POP3 listener, auth/store worker, maildrop
   lease, durable QUIT и независимый poplib test ещё не реализованы.
 
+### 2026-09-20: G07 SMTP to POP3/STLS checkpoint
+
+- Общий Linux poll reactor теперь может владеть только выбранными listener-ами,
+  поэтому `serve-pop3-starttls` использует те же session leases, wakeup
+  storage-worker и TLS deadline без потока на POP3-соединение. POP3 PASS
+  создаёт worker request, успешная аутентификация открывает atomарный snapshot
+  каталогового INBOX, а DELE становится durable EXPUNGE только после QUIT.
+- Исправлена общая delivery граница: SMTP local recipient теперь разрешается в
+  его durable INBOX key до `append_many`. Поэтому SMTP, IMAP и POP3 читают одну
+  mailbox projection, а не разные строковые ключи.
+- PASS: Windows `cargo test --all-targets --locked` (109 tests), strict
+  Clippy, format, `git diff --check`, audit Rust-файлов (не более 300 строк),
+  Linux release image и Docker test target (113 tests). Независимый standard
+  library `tests/blackbox/pop3_starttls_delivery.py` выполнил SMTP STARTTLS
+  Alice -> Bob, POP3 `CAPA`/STLS/USER/PASS/UIDL/RETR/DELE/QUIT и сравнил байты
+  MIME attachment; отдельный POP3 restart подтвердил durable удаление. Данные:
+  bind mount `./data/g07-pop3`, CA `./data/pki/ca.pem`.
+- G07 остаётся NOT RUN: maildrop lease для конкурентных POP3 sessions,
+  implicit-TLS POP3 и расширенный interoperability/failure matrix ещё не
+  реализованы. Этот checkpoint не объявляет их проверенными.
+
 ### 2026-09-19: G00 PASS, G01 running
 
 - Added a single Cargo package with no production dependencies. This preserves

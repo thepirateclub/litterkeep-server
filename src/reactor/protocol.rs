@@ -41,6 +41,9 @@ pub(super) fn process_input(
                 session, line, slot, generation, worker, owners, request_id,
             )?,
             Kind::Imap => imap_line(session, line, slot, generation, worker, owners, request_id)?,
+            Kind::Pop3 => super::pop3_protocol::line(
+                session, line, slot, generation, worker, owners, request_id,
+            )?,
         }
     }
     Ok(())

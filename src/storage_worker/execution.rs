@@ -197,5 +197,9 @@ fn append_many(
             "unknown local recipient",
         ));
     }
-    store.append_many(&mailboxes, bytes)
+    let inboxes = mailboxes
+        .iter()
+        .map(|account| store.resolve_folder(account, "INBOX"))
+        .collect::<io::Result<Vec<_>>>()?;
+    store.append_many(&inboxes, bytes)
 }

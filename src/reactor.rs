@@ -6,7 +6,7 @@
 use crate::platform::linux_poll::{self, Interest};
 use crate::runtime::{Orchestrator, ResourceLease};
 use crate::storage_worker::{Request, Response, WakingStorageWorker};
-use crate::{imap, smtp, tls_transport::ServerTls};
+use crate::{imap, pop3, smtp, tls_transport::ServerTls};
 use rustls::ServerConfig;
 use std::collections::HashMap;
 use std::io;
@@ -15,6 +15,8 @@ use std::os::fd::AsFd;
 use std::{path::Path, sync::Arc};
 #[path = "reactor/completion.rs"]
 mod completion;
+#[path = "reactor/completion_id.rs"]
+mod completion_id;
 #[path = "reactor/completion_retry.rs"]
 mod completion_retry;
 #[path = "reactor/deadline.rs"]
@@ -59,6 +61,10 @@ mod imap_subscriptions;
 mod local_delivery;
 #[path = "reactor/pending.rs"]
 mod pending;
+#[path = "reactor/pop3_completion.rs"]
+mod pop3_completion;
+#[path = "reactor/pop3_protocol.rs"]
+mod pop3_protocol;
 #[path = "reactor/protocol.rs"]
 mod protocol;
 #[path = "reactor/server_loop.rs"]
@@ -97,11 +103,13 @@ const READ_BUDGET: usize = 16 * 1024;
 enum Kind {
     Smtp,
     Imap,
+    Pop3,
 }
 #[derive(Clone, Copy)]
 enum Target {
     SmtpListener,
     ImapListener,
+    Pop3Listener,
     WorkerWake,
     Session(usize, u64),
 }
@@ -154,7 +162,22 @@ fn serve_with_tls(
     root: impl AsRef<Path>,
     tls_mode: TlsMode,
 ) -> io::Result<()> {
-    server_loop::serve(smtp_address, imap_address, root, tls_mode)
+    server_loop::serve(Some(smtp_address), Some(imap_address), None, root, tls_mode)
+}
+
+/// Запускает POP3 с обязательным STLS перед передачей password.
+pub fn serve_pop3_starttls(
+    pop3_address: &str,
+    root: impl AsRef<Path>,
+    tls_config: Arc<ServerConfig>,
+) -> io::Result<()> {
+    server_loop::serve(
+        None,
+        None,
+        Some(pop3_address),
+        root,
+        TlsMode::StartTls(tls_config),
+    )
 }
 
 /// Сохраняет единый путь закрытия lease для deadline и poll-loop.

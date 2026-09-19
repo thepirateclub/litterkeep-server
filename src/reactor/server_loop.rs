@@ -3,15 +3,15 @@
 use super::*;
 
 pub(super) fn serve(
-    smtp_address: &str,
-    imap_address: &str,
+    smtp_address: Option<&str>,
+    imap_address: Option<&str>,
+    pop3_address: Option<&str>,
     root: impl AsRef<Path>,
     tls_mode: TlsMode,
 ) -> io::Result<()> {
-    let smtp_listener = TcpListener::bind(smtp_address)?;
-    let imap_listener = TcpListener::bind(imap_address)?;
-    smtp_listener.set_nonblocking(true)?;
-    imap_listener.set_nonblocking(true)?;
+    let smtp_listener = bind(smtp_address)?;
+    let imap_listener = bind(imap_address)?;
+    let pop3_listener = bind(pop3_address)?;
     let mut worker = WakingStorageWorker::start(root, 64)?;
     let mut lifecycle: Orchestrator<Session> = Orchestrator::new();
     let mut sessions: Vec<Option<SessionLease>> = Vec::new();
@@ -20,8 +20,9 @@ pub(super) fn serve(
     let mut owners = HashMap::new();
     loop {
         step(
-            &smtp_listener,
-            &imap_listener,
+            smtp_listener.as_ref(),
+            imap_listener.as_ref(),
+            pop3_listener.as_ref(),
             &tls_mode,
             &mut worker,
             &mut lifecycle,
@@ -33,10 +34,21 @@ pub(super) fn serve(
     }
 }
 
+/// Создаёт только явно запрошенный listener, сохраняя ownership в poll-loop.
+fn bind(address: Option<&str>) -> io::Result<Option<TcpListener>> {
+    let Some(address) = address else {
+        return Ok(None);
+    };
+    let listener = TcpListener::bind(address)?;
+    listener.set_nonblocking(true)?;
+    Ok(Some(listener))
+}
+
 #[allow(clippy::too_many_arguments)]
 fn step(
-    smtp: &TcpListener,
-    imap: &TcpListener,
+    smtp: Option<&TcpListener>,
+    imap: Option<&TcpListener>,
+    pop3: Option<&TcpListener>,
     tls: &TlsMode,
     worker: &mut WakingStorageWorker,
     lifecycle: &mut Orchestrator<Session>,
@@ -45,34 +57,17 @@ fn step(
     request: &mut u64,
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
 ) -> io::Result<()> {
-    let mut targets = vec![
-        Target::SmtpListener,
-        Target::ImapListener,
-        Target::WorkerWake,
-    ];
-    let mut poll_fds = vec![
-        (
-            smtp.as_fd(),
-            Interest {
-                readable: true,
-                writable: false,
-            },
-        ),
-        (
-            imap.as_fd(),
-            Interest {
-                readable: true,
-                writable: false,
-            },
-        ),
-        (
-            worker.wake_reader().as_fd(),
-            Interest {
-                readable: true,
-                writable: false,
-            },
-        ),
-    ];
+    let mut targets = vec![Target::WorkerWake];
+    let mut poll_fds = vec![(
+        worker.wake_reader().as_fd(),
+        Interest {
+            readable: true,
+            writable: false,
+        },
+    )];
+    append_listener(smtp, Target::SmtpListener, &mut targets, &mut poll_fds);
+    append_listener(imap, Target::ImapListener, &mut targets, &mut poll_fds);
+    append_listener(pop3, Target::Pop3Listener, &mut targets, &mut poll_fds);
     for (slot, session) in sessions.iter().enumerate() {
         if let Some(lease) = session {
             let value = lease.get();
@@ -90,19 +85,40 @@ fn step(
     deadline::expire_handshakes(sessions, lifecycle)?;
     for (ready, target) in ready.into_iter().zip(targets) {
         dispatch(
-            ready, target, smtp, imap, tls, worker, lifecycle, sessions, generation, request,
+            ready, target, smtp, imap, pop3, tls, worker, lifecycle, sessions, generation, request,
             owners,
         )?;
     }
     Ok(())
 }
 
+/// Добавляет listener в тот же список readiness, не создавая отдельный loop.
+fn append_listener<'a>(
+    listener: Option<&'a TcpListener>,
+    target: Target,
+    targets: &mut Vec<Target>,
+    poll_fds: &mut Vec<(std::os::fd::BorrowedFd<'a>, Interest)>,
+) {
+    let Some(listener) = listener else {
+        return;
+    };
+    targets.push(target);
+    poll_fds.push((
+        listener.as_fd(),
+        Interest {
+            readable: true,
+            writable: false,
+        },
+    ));
+}
+
 #[allow(clippy::too_many_arguments)]
 fn dispatch(
     ready: crate::platform::linux_poll::Ready,
     target: Target,
-    smtp: &TcpListener,
-    imap: &TcpListener,
+    smtp: Option<&TcpListener>,
+    imap: Option<&TcpListener>,
+    pop3: Option<&TcpListener>,
     tls: &TlsMode,
     worker: &mut WakingStorageWorker,
     lifecycle: &mut Orchestrator<Session>,
@@ -113,10 +129,13 @@ fn dispatch(
 ) -> io::Result<()> {
     match target {
         Target::SmtpListener if ready.readable => {
-            session_accept::accept(smtp, Kind::Smtp, sessions, generation, tls, lifecycle)
+            accept(smtp, Kind::Smtp, sessions, generation, tls, lifecycle)
         }
         Target::ImapListener if ready.readable => {
-            session_accept::accept(imap, Kind::Imap, sessions, generation, tls, lifecycle)
+            accept(imap, Kind::Imap, sessions, generation, tls, lifecycle)
+        }
+        Target::Pop3Listener if ready.readable => {
+            accept(pop3, Kind::Pop3, sessions, generation, tls, lifecycle)
         }
         Target::WorkerWake if ready.readable => {
             worker.drain_wakeup()?;
@@ -128,6 +147,21 @@ fn dispatch(
         ),
         _ => Ok(()),
     }
+}
+
+/// Невозможный target не обращается к отсутствующему listener-у по индексу.
+fn accept(
+    listener: Option<&TcpListener>,
+    kind: Kind,
+    sessions: &mut Vec<Option<SessionLease>>,
+    generation: &mut u64,
+    tls: &TlsMode,
+    lifecycle: &mut Orchestrator<Session>,
+) -> io::Result<()> {
+    let Some(listener) = listener else {
+        return Ok(());
+    };
+    session_accept::accept(listener, kind, sessions, generation, tls, lifecycle)
 }
 
 fn service_session(

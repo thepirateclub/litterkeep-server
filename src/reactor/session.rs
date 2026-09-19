@@ -44,6 +44,10 @@ pub(super) struct Session {
     /// Ограниченный literal остаётся собственностью этой IMAP-сессии.
     pub(super) imap_literal: Option<LiteralReceiver>,
     pub(super) smtp: SmtpState,
+    /// POP3 хранит snapshot только до QUIT и не получает Store во владение.
+    pub(super) pop3: pop3::Session,
+    /// Внутренний ключ INBOX нужен для durable применения POP3 DELE на QUIT.
+    pub(super) pop3_mailbox: Option<String>,
 }
 
 impl Session {
@@ -82,6 +86,8 @@ impl Session {
             imap_idle: None,
             imap_literal: None,
             smtp: SmtpState::Command(smtp::Transaction::default()),
+            pop3: pop3::Session::default(),
+            pop3_mailbox: None,
         };
         result.send_greeting_if_ready()?;
         Ok(result)
@@ -99,6 +105,7 @@ impl Session {
         let greeting = match self.kind {
             Kind::Smtp => b"220 litterkeep.test ESMTP litterkeep-server\r\n".as_slice(),
             Kind::Imap => b"* OK IMAP4rev1 litterkeep-server\r\n".as_slice(),
+            Kind::Pop3 => b"+OK litterkeep-server ready\r\n".as_slice(),
         };
         self.push(greeting)?;
         self.greeting_sent = true;
@@ -178,6 +185,8 @@ impl Session {
         self.selected_recent.clear();
         self.imap_idle = None;
         self.imap_literal = None;
+        self.pop3 = pop3::Session::default();
+        self.pop3_mailbox = None;
     }
 
     /// Передаёт socket новому rustls handshake только на чистой границе вывода.
