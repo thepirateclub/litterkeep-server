@@ -1,6 +1,6 @@
 //! Store facade для account-scoped folder catalog и внутренних mailbox keys.
 
-use super::{FolderInfo, Store};
+use super::{FolderInfo, Store, recent};
 use std::io;
 
 /// Snapshot вместе с внутренним ключом выбранной папки.
@@ -8,6 +8,8 @@ use std::io;
 pub struct ResolvedMailbox {
     pub key: String,
     pub snapshot: super::MailboxSnapshot,
+    /// Durable UID, ещё не назначенные одной selected IMAP-сессии.
+    pub recent_uids: Vec<u64>,
 }
 
 impl Store {
@@ -60,7 +62,35 @@ impl Store {
     pub fn snapshot_folder(&mut self, account: &str, name: &str) -> io::Result<ResolvedMailbox> {
         let key = self.resolve_folder(account, name)?;
         let snapshot = self.snapshot(&key)?;
-        Ok(ResolvedMailbox { key, snapshot })
+        let recent_uids = self
+            .recent
+            .get(&key)
+            .map(|values| values.iter().copied().collect())
+            .unwrap_or_default();
+        Ok(ResolvedMailbox {
+            key,
+            snapshot,
+            recent_uids,
+        })
+    }
+
+    /// Назначает все накопленные UID одному SELECT и сохраняет claim до ответа.
+    pub fn select_folder(&mut self, account: &str, name: &str) -> io::Result<ResolvedMailbox> {
+        self.ensure_writable()?;
+        let key = self.resolve_folder(account, name)?;
+        let snapshot = self.snapshot(&key)?;
+        let uids = self
+            .recent
+            .get(&key)
+            .map(|values| values.iter().copied().collect::<Vec<_>>())
+            .unwrap_or_default();
+        recent::claim(&self.root, &key, &uids)?;
+        self.recent.remove(&key);
+        Ok(ResolvedMailbox {
+            key,
+            snapshot,
+            recent_uids: uids,
+        })
     }
 
     /// Не отравляет writer на ожидаемых policy-отказах до начала записи.

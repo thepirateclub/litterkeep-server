@@ -68,6 +68,11 @@ pub enum Request {
         account: String,
         name: String,
     },
+    SelectFolder {
+        request_id: u64,
+        account: String,
+        name: String,
+    },
     SetSubscription {
         request_id: u64,
         account: String,
@@ -136,6 +141,10 @@ pub enum Response {
         result: io::Result<String>,
     },
     FolderRead {
+        request_id: u64,
+        result: io::Result<ResolvedMailbox>,
+    },
+    FolderSelected {
         request_id: u64,
         result: io::Result<ResolvedMailbox>,
     },

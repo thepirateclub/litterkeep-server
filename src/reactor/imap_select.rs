@@ -26,7 +26,7 @@ pub(super) fn queue(
     *request_id = request_id.wrapping_add(1).max(1);
     protocol::submit(
         session,
-        Request::ReadFolder {
+        Request::SelectFolder {
             request_id: id,
             account,
             name,

@@ -71,6 +71,8 @@ mod session_io;
 mod smtp_completion;
 #[path = "reactor/smtp_protocol.rs"]
 mod smtp_protocol;
+#[path = "reactor/submit_id.rs"]
+mod submit_id;
 use completion::complete;
 use completion_retry::retry_submissions;
 use imap_idle::IdleState;

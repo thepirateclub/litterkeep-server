@@ -76,7 +76,8 @@ fn response_id(response: &Response) -> u64 {
         | Response::FolderMutated { request_id, .. }
         | Response::Folders { request_id, .. }
         | Response::FolderResolved { request_id, .. }
-        | Response::FolderRead { request_id, .. } => *request_id,
+        | Response::FolderRead { request_id, .. }
+        | Response::FolderSelected { request_id, .. } => *request_id,
         Response::SubscriptionSet { request_id, .. }
         | Response::Subscriptions { request_id, .. } => *request_id,
         Response::Expunged { request_id, .. } => *request_id,
@@ -137,7 +138,7 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
         }
         (
             Pending::ReadForSelect { tag, read_only },
-            Response::FolderRead {
+            Response::FolderSelected {
                 result: Ok(resolved),
                 ..
             },
@@ -145,6 +146,7 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
             let snapshot = resolved.snapshot;
             session.selected_mailbox = Some(resolved.key);
             session.selected_exists = snapshot.messages.len();
+            session.selected_recent = resolved.recent_uids.into_iter().collect();
             session.selected_read_only = read_only;
             let access = match read_only {
                 true => "READ-ONLY",
@@ -154,11 +156,13 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
                 format!(
                     "* FLAGS (\\Answered \\Flagged \\Deleted \\Seen \\Draft)\r\n\
                      * {} EXISTS\r\n\
+                     * {} RECENT\r\n\
                      * OK [UIDVALIDITY {}] UIDs valid\r\n\
                      * OK [UIDNEXT {}] Predicted next UID\r\n\
                      * OK [PERMANENTFLAGS (\\Answered \\Flagged \\Deleted \\Seen \\Draft)] Flags permitted\r\n\
                      {tag} OK [{access}] SELECT completed\r\n",
                     snapshot.messages.len(),
+                    session.selected_recent.len(),
                     snapshot.uid_validity,
                     snapshot.uid_next,
                 )
@@ -167,7 +171,7 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
         }
         (
             Pending::ReadForSelect { tag, .. },
-            Response::FolderRead {
+            Response::FolderSelected {
                 result: Err(error), ..
             },
         ) => match error.kind() {

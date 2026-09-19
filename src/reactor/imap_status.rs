@@ -51,13 +51,15 @@ pub(super) fn completed(
     attributes: Vec<StatusAttribute>,
     result: io::Result<crate::store::ResolvedMailbox>,
 ) -> io::Result<()> {
-    let snapshot = match result {
-        Ok(resolved) => resolved.snapshot,
+    let resolved = match result {
+        Ok(resolved) => resolved,
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
             return session.push(format!("{tag} NO [NONEXISTENT] STATUS failed\r\n").as_bytes());
         }
         Err(_) => return session.push(format!("{tag} NO STATUS failed\r\n").as_bytes()),
     };
+    let recent_count = resolved.recent_uids.len();
+    let snapshot = resolved.snapshot;
     let mut values = Vec::with_capacity(attributes.len());
     for attribute in attributes {
         let value = match attribute {
@@ -72,6 +74,7 @@ pub(super) fn completed(
                     .count();
                 format!("UNSEEN {count}")
             }
+            StatusAttribute::Recent => format!("RECENT {recent_count}"),
         };
         values.push(value);
     }

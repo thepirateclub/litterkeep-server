@@ -53,7 +53,10 @@ pub(super) fn write(
             Err(_) => Ok(Err("malformed message headers")),
         },
         imap::FetchAttribute::Flags => {
-            let flags = imap::flags::encode(message.flags);
+            let flags = imap::flags::encode_with_recent(
+                message.flags,
+                session.selected_recent.contains(&message.uid),
+            );
             session.push(format!("* {number} FETCH ({uid}FLAGS ({flags}))\r\n").as_bytes())?;
             Ok(Ok(()))
         }

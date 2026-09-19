@@ -92,6 +92,11 @@ fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
 
 /// Кодирует флаги в каноническом порядке без сохранения строк в store.
 pub fn encode(flags: MessageFlags) -> String {
+    encode_with_recent(flags, false)
+}
+
+/// Добавляет session-local `\\Recent`, не записывая её в persistent bitset.
+pub fn encode_with_recent(flags: MessageFlags, recent: bool) -> String {
     let ordered = [
         (SystemFlag::Answered, "\\Answered"),
         (SystemFlag::Flagged, "\\Flagged"),
@@ -99,9 +104,12 @@ pub fn encode(flags: MessageFlags) -> String {
         (SystemFlag::Seen, "\\Seen"),
         (SystemFlag::Draft, "\\Draft"),
     ];
-    ordered
+    let mut values = ordered
         .into_iter()
         .filter_map(|(flag, name)| flags.contains(flag).then_some(name))
-        .collect::<Vec<_>>()
-        .join(" ")
+        .collect::<Vec<_>>();
+    if recent {
+        values.push("\\Recent");
+    }
+    values.join(" ")
 }

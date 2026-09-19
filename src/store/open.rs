@@ -23,6 +23,7 @@ impl Store {
         let mut entries = recovered.entries;
         let flags = flags::load(&root, &entries)?;
         expunges::load(&root, &mut entries, &committed)?;
+        let recent = recent::load(&root, &committed)?;
         let blob_quota = Quota::load(&root.join("blobs"), quota_limit)?;
         let folders = folders::FolderCatalog::load(&root)?;
         let subscriptions = subscriptions::SubscriptionCatalog::load(&root)?;
@@ -36,6 +37,7 @@ impl Store {
             next_uids: recovered.next_uids,
             entries,
             flags,
+            recent,
             folders,
             subscriptions,
             next_transaction_id,

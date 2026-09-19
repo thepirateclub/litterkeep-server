@@ -10,6 +10,7 @@ pub enum StatusAttribute {
     UidNext,
     UidValidity,
     Unseen,
+    Recent,
 }
 
 pub(super) fn parse(mut tokens: impl Iterator<Item = Token>) -> Command {
@@ -48,6 +49,7 @@ fn parse_attribute(value: &str) -> Option<StatusAttribute> {
         "UIDNEXT" => Some(StatusAttribute::UidNext),
         "UIDVALIDITY" => Some(StatusAttribute::UidValidity),
         "UNSEEN" => Some(StatusAttribute::Unseen),
+        "RECENT" => Some(StatusAttribute::Recent),
         _ => None,
     }
 }

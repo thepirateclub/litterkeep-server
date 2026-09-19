@@ -98,6 +98,10 @@ impl Store {
             .ok_or_else(|| io::Error::other("uid exhausted"))?;
         let records = self.entries.entry(destination.to_owned()).or_default();
         for (_, record) in links {
+            self.recent
+                .entry(destination.to_owned())
+                .or_default()
+                .insert(record.uid);
             records.push(record);
         }
         self.next_uids.insert(destination.to_owned(), next_uid);

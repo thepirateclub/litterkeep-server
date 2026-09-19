@@ -1,5 +1,6 @@
 //! Владение ресурсами одной TCP-сессии reactor-а.
 use super::*;
+use std::collections::BTreeSet;
 use std::time::{Duration, Instant};
 
 /// Максимальное время, на которое TLS-клиент может занять slot без handshake.
@@ -34,6 +35,8 @@ pub(super) struct Session {
     /// Store key выбранного mailbox; `None` означает authenticated state.
     pub(super) selected_mailbox: Option<String>,
     pub(super) selected_exists: usize,
+    /// `\\Recent` принадлежит session, а не persistent MessageFlags.
+    pub(super) selected_recent: BTreeSet<u64>,
     /// EXAMINE запрещает все изменяющие выбранный mailbox команды.
     pub(super) selected_read_only: bool,
     /// Активный IDLE сохраняет session lease и не создаёт worker/thread.
@@ -74,6 +77,7 @@ impl Session {
             authenticated_account: None,
             selected_mailbox: None,
             selected_exists: 0,
+            selected_recent: BTreeSet::new(),
             selected_read_only: false,
             imap_idle: None,
             imap_literal: None,
@@ -171,6 +175,7 @@ impl Session {
         self.authenticated_account = None;
         self.selected_mailbox = None;
         self.selected_exists = 0;
+        self.selected_recent.clear();
         self.imap_idle = None;
         self.imap_literal = None;
     }

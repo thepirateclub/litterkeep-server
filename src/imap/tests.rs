@@ -204,7 +204,10 @@ fn subscriptions_and_status_are_typed() {
     );
     assert_eq!(
         parse("a17 STATUS INBOX (RECENT)\r\n").command,
-        Command::Unsupported
+        Command::Status {
+            mailbox: MailboxName::Inbox,
+            attributes: vec![crate::imap::status::StatusAttribute::Recent]
+        }
     );
 }
 

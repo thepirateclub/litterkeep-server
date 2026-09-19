@@ -4,7 +4,7 @@
 //! части становятся видимыми только после общей commit-записи, поэтому сбой
 //! сохраняет старое состояние, а не полу-выполненное перемещение.
 
-use super::{Store, WriteState, durability, expunges, model};
+use super::{Store, WriteState, durability, expunges, model, recent};
 use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::{self, Write};
@@ -66,6 +66,8 @@ impl Store {
         }
         expunges::write_transaction(&self.root, source, transaction_id, uids)?;
         durability::sync_directory(&self.root.join("mailboxes"))?;
+        recent::add(&self.root, transaction_id, links)?;
+        recent::drop_transaction(&self.root, transaction_id, source, uids)?;
         let mut commits = OpenOptions::new()
             .create(true)
             .append(true)
@@ -93,8 +95,15 @@ impl Store {
         if let Some(records) = self.entries.get_mut(source) {
             records.retain(|record| !removed.contains(&record.uid));
         }
+        if let Some(recent) = self.recent.get_mut(source) {
+            recent.retain(|uid| !removed.contains(uid));
+        }
         let records = self.entries.entry(destination.to_owned()).or_default();
         for (_, record) in links {
+            self.recent
+                .entry(destination.to_owned())
+                .or_default()
+                .insert(record.uid);
             records.push(record);
         }
         self.next_uids.insert(destination.to_owned(), next_uid);

@@ -41,6 +41,13 @@ mod open;
 mod quota;
 #[path = "store/read.rs"]
 mod read;
+#[path = "store/recent.rs"]
+mod recent;
+#[path = "store/recent_access.rs"]
+mod recent_access;
+#[cfg(test)]
+#[path = "store/recent_tests.rs"]
+mod recent_tests;
 #[path = "store/recovery.rs"]
 mod recovery;
 #[path = "store/subscription_access.rs"]
@@ -69,6 +76,8 @@ pub struct Store {
     next_uids: HashMap<String, u64>,
     entries: HashMap<String, Vec<model::Record>>,
     flags: HashMap<String, HashMap<u64, MessageFlags>>,
+    /// UID, ещё не назначенные одной selected IMAP-сессии как `\\Recent`.
+    recent: HashMap<String, std::collections::BTreeSet<u64>>,
     folders: folders::FolderCatalog,
     subscriptions: subscriptions::SubscriptionCatalog,
     next_transaction_id: u64,
@@ -187,6 +196,7 @@ impl Store {
             self.check_mailbox_failpoint(written)?;
         }
         durability::sync_directory(&self.root.join("mailboxes"))?;
+        recent::add(&self.root, transaction_id, links)?;
         let mut commits = OpenOptions::new()
             .create(true)
             .append(true)
@@ -212,6 +222,10 @@ impl Store {
                 .checked_add(1)
                 .ok_or_else(|| io::Error::other("uid exhausted"))?;
             self.next_uids.insert(mailbox.clone(), next_uid);
+            self.recent
+                .entry(mailbox.clone())
+                .or_default()
+                .insert(record.uid);
             self.entries.entry(mailbox).or_default().push(record);
         }
         self.next_transaction_id = transaction_id

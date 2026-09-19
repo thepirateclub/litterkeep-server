@@ -1,5 +1,4 @@
 //! Долговечные tombstone-события окончательного удаления сообщений IMAP.
-
 use super::durability;
 use super::model::Record;
 use super::{Store, WriteState, commit_log};
@@ -7,7 +6,6 @@ use std::collections::{HashMap, HashSet};
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::Path;
-
 const MAGIC: [u8; 4] = *b"LKEX";
 const VERSION: u16 = 2;
 const COMMIT: u32 = 0xe8e8_c011;
@@ -86,6 +84,8 @@ impl Store {
             self.write_state = WriteState::Poisoned;
             return Err(error);
         }
+        self.discard_recent(mailbox, &removed)
+            .map_err(|error| self.poison_after_recent_error(error))?;
         if let Some(records) = self.entries.get_mut(mailbox) {
             records.retain(|record| !removed_set.contains(&record.uid));
         }
@@ -106,6 +106,7 @@ pub(super) fn write_transaction(
         .open(path)
         .and_then(|mut file| file.write_all(&frame).and_then(|()| file.sync_all()))
 }
+
 fn encode_legacy(uids: &[u64]) -> io::Result<Vec<u8>> {
     let count = u32::try_from(uids.len()).map_err(|_| invalid("too many expunges"))?;
     let mut frame = Vec::with_capacity(LEGACY_HEADER + uids.len() * 8 + TRAILER);
@@ -288,7 +289,6 @@ fn decode_frame(
         false => Err(invalid("unaligned expunge UID")),
     }
 }
-
 fn checksum(bytes: &[u8]) -> u64 {
     bytes.iter().fold(0xcbf2_9ce4_8422_2325_u64, |value, byte| {
         (value ^ u64::from(*byte)).wrapping_mul(0x100_0000_01b3)

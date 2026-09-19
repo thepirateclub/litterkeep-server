@@ -1090,3 +1090,25 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - PASS: 104 Windows tests, strict Clippy, STARTTLS Linux create/list и replay
   `Archive2` после restart с bind mount `./data/g06-expunge`.
 - G06 остаётся RUNNING: Recent и полная multi-session синхронизация.
+
+### 2026-09-20: G06 durable IMAP Recent checkpoint
+
+- Добавлен отдельный durable журнал `journal/recent.log`: delivery links
+  становятся кандидатами `\Recent` только после общего transaction commit,
+  SELECT атомарно получает snapshot и фиксирует claim до wire-success. Поэтому
+  `\Recent` не попадает в persistent MessageFlags, не выдаётся второму SELECT
+  и не возвращается после restart. COPY, MOVE и EXPUNGE синхронизируют ту же
+  projection; incomplete tail журнала обрезается без потери committed delivery.
+- SELECT сообщает `RECENT`, FETCH/STORE возвращают session-local `\Recent`, а
+  STATUS поддерживает typed `RECENT`. Корреляция нового worker request вынесена
+  в отдельный file-level компонент, сохраняя production reactor в лимите
+  300 строк без `mod.rs`.
+- PASS: Windows `cargo test --all-targets --locked` (107 tests), strict
+  Clippy, format, `git diff --check` и audit всех Rust-файлов (не более 300
+  строк). Linux release image собран; Docker test target прошёл 111 tests.
+  Независимый STARTTLS `tests/blackbox/imap_recent.py` подтвердил durable
+  APPEND -> STATUS RECENT -> SELECT/FETCH `\Recent` одной сессией, а его
+  `--verify-restart` подтвердил отсутствие повторной выдачи после restart.
+  Данные остаются в bind mount `./data/g06-recent-4`, CA: `./data/pki/ca.pem`.
+- G06 остаётся RUNNING: полная синхронизация остальных change classes между
+  несколькими selected/IDLE сессиями ещё не реализована.

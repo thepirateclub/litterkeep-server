@@ -125,6 +125,14 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             request_id,
             result: store.snapshot_folder(&account, &name),
         },
+        Request::SelectFolder {
+            request_id,
+            account,
+            name,
+        } => Response::FolderSelected {
+            request_id,
+            result: store.select_folder(&account, &name),
+        },
         Request::SetSubscription {
             request_id,
             account,

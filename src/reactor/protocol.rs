@@ -54,25 +54,7 @@ pub(super) fn submit(
     worker: &mut WakingStorageWorker,
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
 ) {
-    let request_id = match &request {
-        Request::Authenticate { request_id, .. }
-        | Request::ValidateRecipient { request_id, .. }
-        | Request::Append { request_id, .. }
-        | Request::AppendMany { request_id, .. }
-        | Request::Read { request_id, .. }
-        | Request::UpdateFlags { request_id, .. }
-        | Request::CreateFolder { request_id, .. }
-        | Request::RenameFolder { request_id, .. }
-        | Request::DeleteFolder { request_id, .. }
-        | Request::ListFolders { request_id, .. }
-        | Request::ResolveFolder { request_id, .. }
-        | Request::ReadFolder { request_id, .. }
-        | Request::SetSubscription { request_id, .. }
-        | Request::ListSubscriptions { request_id, .. }
-        | Request::Expunge { request_id, .. }
-        | Request::Copy { request_id, .. } => *request_id,
-        Request::Move { request_id, .. } => *request_id,
-    };
+    let request_id = submit_id::request_id(&request);
     match worker.worker.submit(request) {
         Ok(()) => {
             owners.insert(request_id, (slot, generation, pending.clone()));

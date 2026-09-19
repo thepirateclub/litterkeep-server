@@ -96,7 +96,10 @@ pub(super) fn write(session: &mut Session, pending: Pending, response: Response)
                 imap::Addressing::Sequence => String::new(),
                 imap::Addressing::Uid => format!("UID {} ", message.uid),
             };
-            let flags = imap::flags::encode(message.flags);
+            let flags = imap::flags::encode_with_recent(
+                message.flags,
+                session.selected_recent.contains(&message.uid),
+            );
             session.push(format!("* {sequence} FETCH ({uid}FLAGS ({flags}))\r\n").as_bytes())?;
         }
     }
