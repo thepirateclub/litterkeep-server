@@ -40,6 +40,18 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   Linux POP3 listener, auth/store worker, maildrop lease, durable QUIT и
   независимый poplib test ещё не реализованы.
 
+### 2026-09-20: G07 reactor loop extraction checkpoint
+
+- Poll-loop SMTP/IMAP вынесен из фасада reactor в отдельный
+  `reactor/server_loop.rs`. Владелец socket leases, wakeup, deadline и
+  cancellation остаётся тем же: это структурная подготовка к третьему POP3
+  listener без создания потоков на соединение и без изменения wire-семантики.
+- PASS: Windows `cargo test --all-targets --locked` (108 tests), strict
+  Clippy, format, `git diff --check`, audit Rust-файлов (не более 300 строк),
+  Linux release build и Docker Linux test target (112 tests).
+- G07 остаётся NOT RUN: сетевой POP3 listener, auth/store worker, maildrop
+  lease, durable QUIT и независимый poplib test ещё не реализованы.
+
 ### 2026-09-19: G00 PASS, G01 running
 
 - Added a single Cargo package with no production dependencies. This preserves
