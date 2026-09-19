@@ -16,19 +16,29 @@ pub(super) fn complete(
             continue;
         };
         super::imap_idle::notify_completion(sessions, &pending, &response)?;
-        let Some(lease) = sessions.get_mut(slot).and_then(Option::as_mut) else {
-            continue;
-        };
-        let session = lease.get_mut();
-        if session.generation != generation {
+        if !matches!(sessions.get(slot).and_then(Option::as_ref).map(|lease| lease.get().generation), Some(value) if value == generation)
+        {
             continue;
         }
-        session.pending = None;
+        if let Some(session) = sessions
+            .get_mut(slot)
+            .and_then(Option::as_mut)
+            .map(SessionLease::get_mut)
+        {
+            session.pending = None;
+        }
         if let Some((request, next_pending)) =
             super::imap_expunge::follow_up(&pending, &response, next_request)
                 .or_else(|| super::flag_completion::follow_up(&pending, &response, next_request))
                 .or_else(|| super::imap_copy::follow_up(&pending, &response, next_request))
         {
+            let Some(session) = sessions
+                .get_mut(slot)
+                .and_then(Option::as_mut)
+                .map(SessionLease::get_mut)
+            else {
+                continue;
+            };
             protocol::submit(
                 session,
                 request,
@@ -40,6 +50,14 @@ pub(super) fn complete(
             );
             continue;
         }
+        super::imap_idle::notify_expunge(sessions, slot, &pending, &response)?;
+        let Some(session) = sessions
+            .get_mut(slot)
+            .and_then(Option::as_mut)
+            .map(SessionLease::get_mut)
+        else {
+            continue;
+        };
         write_completion(session, pending, response)?;
         protocol::process_input(session, slot, generation, worker, owners, next_request)?;
     }
@@ -228,6 +246,7 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
         (
             Pending::Expunge {
                 tag,
+                mailbox: _,
                 sequence_numbers,
                 close,
             },
@@ -272,22 +291,4 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
             .push(format!("{tag} NO [TRYCREATE] COPY destination unavailable\r\n").as_bytes()),
         _ => Ok(()),
     }
-}
-
-/// Повторно предлагает worker-у запросы, которые ранее не поместились в канал.
-pub(super) fn retry_submissions(
-    worker: &mut WakingStorageWorker,
-    sessions: &mut [Option<SessionLease>],
-    owners: &mut HashMap<u64, (usize, u64, Pending)>,
-) -> io::Result<()> {
-    for (slot, session) in sessions.iter_mut().enumerate() {
-        let Some(lease) = session else { continue };
-        let session = lease.get_mut();
-        let Some((request, pending)) = session.pending_submit.take() else {
-            continue;
-        };
-        let generation = session.generation;
-        protocol::submit(session, request, pending, slot, generation, worker, owners);
-    }
-    Ok(())
 }

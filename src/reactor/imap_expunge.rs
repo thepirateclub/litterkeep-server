@@ -106,6 +106,7 @@ pub(super) fn follow_up(
         },
         Pending::Expunge {
             tag: tag.clone(),
+            mailbox: mailbox.clone(),
             sequence_numbers,
             close: *close,
         },

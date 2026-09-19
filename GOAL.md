@@ -1054,3 +1054,21 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   mount `./data/g06-expunge`; CA для клиента: `./data/pki/ca.pem`.
 - G06 остаётся RUNNING: часть extended LIST RETURN/CREATE-SPECIAL-USE, Recent
   и согласование sequence-map двух сессий ещё не завершены.
+
+### 2026-09-20: G06 two-session EXPUNGE synchronization checkpoint
+
+- После успешного durable EXPUNGE reactor публикует уже рассчитанные sequence
+  numbers всем другим IDLE-сессиям, selected в том же mailbox. Инициатор
+  получает собственный completion один раз, поэтому не возникает дублирования
+  EXPUNGE или двойного уменьшения EXISTS. Не-IDLE selected session также
+  обновляет свой внутренний EXISTS, не получая несвоевременный wire event.
+- PASS: Windows `cargo test --all-targets --locked` (101 tests), strict Clippy,
+  format и Docker Linux test target (105 tests). Независимый STARTTLS
+  `tests/blackbox/imap_idle_expunge.py` открыл
+  две сессии, создал три сообщения, удалил два из второй сессии и получил в
+  первой IDLE-сессии последовательность `EXPUNGE 1`, `EXPUNGE 1`; DONE и
+  повторный SELECT подтвердили ровно одно оставшееся сообщение. Данные остаются
+  в bind mount `./data/g06-expunge`.
+- G06 остаётся RUNNING: часть extended LIST RETURN/CREATE-SPECIAL-USE, Recent
+  и полная синхронизация всех change classes между несколькими сессиями ещё не
+  завершены.

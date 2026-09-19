@@ -74,3 +74,50 @@ pub(super) fn notify(
     }
     Ok(())
 }
+
+/// Рассылает уже durable EXPUNGE другим selected IDLE-сессиям того же mailbox.
+/// Инициатор получает свой ответ в completion, поэтому не должен увидеть
+/// вторую копию sequence events и второй раз уменьшить EXISTS.
+pub(super) fn notify_expunge(
+    sessions: &mut [Option<SessionLease>],
+    origin: usize,
+    pending: &Pending,
+    response: &Response,
+) -> io::Result<()> {
+    let Pending::Expunge {
+        mailbox,
+        sequence_numbers,
+        ..
+    } = pending
+    else {
+        return Ok(());
+    };
+    let Response::Expunged {
+        result: Ok(removed),
+        ..
+    } = response
+    else {
+        return Ok(());
+    };
+    if removed.len() != sequence_numbers.len() {
+        return Ok(());
+    }
+    for (slot, entry) in sessions.iter_mut().enumerate() {
+        if slot == origin {
+            continue;
+        }
+        let Some(lease) = entry else { continue };
+        let session = lease.get_mut();
+        if session.selected_mailbox.as_deref() != Some(mailbox) {
+            continue;
+        }
+        session.selected_exists = session.selected_exists.saturating_sub(removed.len());
+        if session.imap_idle.is_none() {
+            continue;
+        }
+        for number in sequence_numbers {
+            session.push(format!("* {number} EXPUNGE\r\n").as_bytes())?;
+        }
+    }
+    Ok(())
+}

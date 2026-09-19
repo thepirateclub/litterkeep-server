@@ -15,6 +15,8 @@ use std::os::fd::AsFd;
 use std::{path::Path, sync::Arc};
 #[path = "reactor/completion.rs"]
 mod completion;
+#[path = "reactor/completion_retry.rs"]
+mod completion_retry;
 #[path = "reactor/deadline.rs"]
 mod deadline;
 #[path = "reactor/flag_completion.rs"]
@@ -69,7 +71,8 @@ mod session_io;
 mod smtp_completion;
 #[path = "reactor/smtp_protocol.rs"]
 mod smtp_protocol;
-use completion::{complete, retry_submissions};
+use completion::complete;
+use completion_retry::retry_submissions;
 use imap_idle::IdleState;
 use imap_literal::LiteralReceiver;
 use pending::Pending;

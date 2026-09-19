@@ -90,6 +90,7 @@ pub(super) enum Pending {
     },
     Expunge {
         tag: String,
+        mailbox: String,
         sequence_numbers: Vec<usize>,
         close: bool,
     },
