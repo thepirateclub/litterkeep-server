@@ -1,4 +1,4 @@
-//! Deliberately small MIME primitives used by the protocol and independent tests.
+//! Минимальные MIME-примитивы для protocol и независимых проверок.
 use std::collections::BTreeMap;
 
 pub fn headers(raw: &[u8]) -> Result<(BTreeMap<String, String>, &[u8]), &'static str> {
