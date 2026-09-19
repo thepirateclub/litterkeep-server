@@ -163,3 +163,15 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - The independent SMTP to IMAP MIME attachment checksum regression also passed.
   G03 remains RUNNING because the service is still plaintext and does not yet
   have SMTP AUTH, TLS or admission controls.
+
+### 2026-09-19: TLS material boundary PASS
+
+- `tls::ServerMaterial` читает только DER leaf certificate и PKCS#8 private
+  key, затем передаёт их непосредственно разрешённому `rustls 0.23.45` для
+  валидации пары. Нет самописной криптографии и нет дополнительного PEM crate.
+- PASS: unit-тесты подтверждают, что отсутствующие файлы не маскируются, а
+  пустой DER не создаёт `ServerConfig`; полный `cargo test --locked` дал 19
+  успешных тестов, Clippy с `-D warnings` прошёл.
+- Это не TLS-сетевой результат. `ServerConfig` еще не подключён к
+  неблокирующему reactor, поэтому TLS handshake, частичные records, таймауты и
+  проверка независимым клиентом остаются NOT RUN.

@@ -18,6 +18,7 @@ pub mod sieve;
 pub mod smtp;
 pub mod storage_worker;
 pub mod store;
+pub mod tls;
 
 pub const PRODUCT: &str = "litterkeep-server";
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
