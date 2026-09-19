@@ -105,7 +105,10 @@ impl Queue {
                         })
                     })
                     .collect::<io::Result<_>>()?;
-                Ok(latest.into_values().collect())
+                Ok(latest
+                    .into_values()
+                    .filter(|delivery| matches!(delivery.state, State::Pending | State::Deferred))
+                    .collect())
             }
             Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(Vec::new()),
             Err(e) => Err(e),
@@ -138,8 +141,7 @@ mod tests {
         q.enqueue("message-2", "bob@test").unwrap();
         q.transition("message-2", "bob@test", State::Delivered)
             .unwrap();
-        let delivery = Queue::open(&d).unwrap().pending().unwrap().pop().unwrap();
-        assert_eq!(delivery.state, State::Delivered);
+        assert!(Queue::open(&d).unwrap().pending().unwrap().is_empty());
         let _ = fs::remove_dir_all(d);
     }
 }
