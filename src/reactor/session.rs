@@ -100,7 +100,10 @@ impl Session {
         }
         match self.tls.as_ref() {
             Some(tls) if tls.wants_write() => true,
-            Some(tls) => !tls.is_handshaking() && !self.output.is_empty(),
+            Some(tls) => match (tls.is_handshaking(), self.output.is_empty()) {
+                (false, false) => true,
+                (true, _) | (false, true) => false,
+            },
             None => !self.output.is_empty(),
         }
     }
