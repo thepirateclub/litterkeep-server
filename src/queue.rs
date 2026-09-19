@@ -8,6 +8,46 @@ use std::{
 pub struct Queue {
     path: PathBuf,
 }
+/// Состояние одного адресата, записываемое в долговечный журнал очереди.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum State {
+    Pending,
+    InFlight,
+    Deferred,
+    Delivered,
+    PermanentFailure,
+}
+impl State {
+    fn wire(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::InFlight => "in_flight",
+            Self::Deferred => "deferred",
+            Self::Delivered => "delivered",
+            Self::PermanentFailure => "permanent_failure",
+        }
+    }
+    fn parse(value: &str) -> io::Result<Self> {
+        match value {
+            "pending" => Ok(Self::Pending),
+            "in_flight" => Ok(Self::InFlight),
+            "deferred" => Ok(Self::Deferred),
+            "delivered" => Ok(Self::Delivered),
+            "permanent_failure" => Ok(Self::PermanentFailure),
+            _ => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "unknown queue state",
+            )),
+        }
+    }
+}
+/// Одна адресатная запись, а не неразличимая пара строк.
+#[derive(Debug, Eq, PartialEq)]
+pub struct Delivery {
+    pub id: String,
+    pub recipient: String,
+    pub state: State,
+}
 impl Queue {
     pub fn open(root: impl AsRef<Path>) -> io::Result<Self> {
         fs::create_dir_all(root.as_ref())?;
@@ -26,19 +66,29 @@ impl Queue {
             .create(true)
             .append(true)
             .open(&self.path)?;
-        writeln!(f, "{id} {recipient}")?;
+        writeln!(f, "{} {id} {recipient}", State::Pending.wire())?;
         f.sync_all()
     }
-    pub fn pending(&self) -> io::Result<Vec<(String, String)>> {
+    pub fn pending(&self) -> io::Result<Vec<Delivery>> {
         match fs::read_to_string(&self.path) {
             Ok(s) => s
                 .lines()
-                .map(|l| {
-                    l.split_once(' ')
-                        .map(|(a, b)| (a.into(), b.into()))
-                        .ok_or_else(|| {
-                            io::Error::new(io::ErrorKind::InvalidData, "bad queue record")
-                        })
+                .map(|line| {
+                    let mut fields = line.split_whitespace();
+                    let state = fields.next().ok_or_else(|| {
+                        io::Error::new(io::ErrorKind::InvalidData, "bad queue record")
+                    })?;
+                    let id = fields.next().ok_or_else(|| {
+                        io::Error::new(io::ErrorKind::InvalidData, "bad queue record")
+                    })?;
+                    let recipient = fields.next().ok_or_else(|| {
+                        io::Error::new(io::ErrorKind::InvalidData, "bad queue record")
+                    })?;
+                    Ok(Delivery {
+                        id: id.into(),
+                        recipient: recipient.into(),
+                        state: State::parse(state)?,
+                    })
                 })
                 .collect(),
             Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(Vec::new()),
@@ -56,7 +106,11 @@ mod tests {
         q.enqueue("message-1", "bob@test").unwrap();
         assert_eq!(
             Queue::open(&d).unwrap().pending().unwrap(),
-            vec![("message-1".into(), "bob@test".into())]
+            vec![Delivery {
+                id: "message-1".into(),
+                recipient: "bob@test".into(),
+                state: State::Pending
+            }]
         );
         let _ = fs::remove_dir_all(d);
     }
