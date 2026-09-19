@@ -90,6 +90,22 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - G07 остаётся NOT RUN: политика конфликтующего IMAP EXPUNGE во время POP3
   snapshot и полный destructive/interoperability matrix ещё не завершены.
 
+### 2026-09-20: G07 POP3 snapshot versus IMAP EXPUNGE checkpoint
+
+- Политика зафиксирована и проверена: POP3 maildrop содержит immutable snapshot
+  bytes, поэтому уже открытый RETR остаётся доступен после IMAP EXPUNGE. Однако
+  Store не допускает повторный tombstone отсутствующего UID: POP3 QUIT получает
+  `-ERR delete commit failed` и не делает ложного обещания. IMAP удаление
+  остаётся durable и побеждает конфликт.
+- Добавлен `serve-all-starttls`, объединяющий SMTP, IMAP и POP3 listener-ы в
+  один poll-reactor и один Store owner для межпротокольных проверок.
+- PASS: независимый `tests/blackbox/pop3_imap_conflict.py` на Linux Docker
+  открыл POP3 snapshot `pop`, удалил то же письмо через IMAP STORE/EXPUNGE,
+  прочитал snapshot через RETR, получил отказ QUIT и подтвердил пустой INBOX.
+  Данные: `./data/g07-conflict`, CA: `./data/pki/ca.pem`.
+- G07 остаётся NOT RUN: destructive matrix RSET/disconnect до QUIT и полный
+  interoperability profile ещё не завершены.
+
 ### 2026-09-19: G00 PASS, G01 running
 
 - Added a single Cargo package with no production dependencies. This preserves

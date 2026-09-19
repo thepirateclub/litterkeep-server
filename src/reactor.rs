@@ -198,6 +198,23 @@ pub fn serve_pop3_tls(
     )
 }
 
+/// Запускает три STARTTLS listener-а в одном poll-reactor и с одним Store owner.
+pub fn serve_all_starttls(
+    smtp_address: &str,
+    imap_address: &str,
+    pop3_address: &str,
+    root: impl AsRef<Path>,
+    tls_config: Arc<ServerConfig>,
+) -> io::Result<()> {
+    server_loop::serve(
+        Some(smtp_address),
+        Some(imap_address),
+        Some(pop3_address),
+        root,
+        TlsMode::StartTls(tls_config),
+    )
+}
+
 /// Сохраняет единый путь закрытия lease для deadline и poll-loop.
 fn close_session(
     entry: &mut Option<SessionLease>,

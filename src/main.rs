@@ -7,7 +7,7 @@ mod pop3_cli;
 
 pub(crate) fn usage() {
     println!(
-        "{PRODUCT} {VERSION}\n\nUsage:\n  litterkeep-server init [data-dir] [account] [password]\n  litterkeep-server deliver <address> <sender> <recipient> <message-file>\n  litterkeep-server serve [smtp-address] [imap-address] [data-dir]\n  litterkeep-server serve-tls [smtp-address] [imap-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-starttls [smtp-address] [imap-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-pop3-starttls [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-pop3-tls [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server help\n  litterkeep-server version"
+        "{PRODUCT} {VERSION}\n\nUsage:\n  litterkeep-server init [data-dir] [account] [password]\n  litterkeep-server deliver <address> <sender> <recipient> <message-file>\n  litterkeep-server serve [smtp-address] [imap-address] [data-dir]\n  litterkeep-server serve-tls [smtp-address] [imap-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-starttls [smtp-address] [imap-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-all-starttls [smtp-address] [imap-address] [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-pop3-starttls [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-pop3-tls [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server help\n  litterkeep-server version"
     );
 }
 
@@ -28,6 +28,7 @@ fn main() -> ExitCode {
         Some("serve-starttls") => serve_starttls(),
         Some("serve-pop3-starttls") => pop3_cli::serve_starttls(),
         Some("serve-pop3-tls") => pop3_cli::serve_tls(),
+        Some("serve-all-starttls") => pop3_cli::serve_all_starttls(),
         Some(command) => {
             eprintln!("unsupported command in this build: {command}\n");
             usage();

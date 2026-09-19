@@ -20,6 +20,48 @@ pub(crate) fn serve_tls() -> ExitCode {
 }
 
 #[cfg(target_os = "linux")]
+pub(crate) fn serve_all_starttls() -> ExitCode {
+    let mut arguments = env::args().skip(2);
+    let smtp = arguments.next().unwrap_or_else(|| "127.0.0.1:1587".into());
+    let imap = arguments.next().unwrap_or_else(|| "127.0.0.1:1143".into());
+    let pop3 = arguments.next().unwrap_or_else(|| "127.0.0.1:1110".into());
+    let data = arguments.next().unwrap_or_else(|| "runtime".into());
+    let Some(certificate) = arguments.next() else {
+        usage();
+        return ExitCode::from(2);
+    };
+    let Some(key) = arguments.next() else {
+        usage();
+        return ExitCode::from(2);
+    };
+    if arguments.next().is_some() {
+        usage();
+        return ExitCode::from(2);
+    }
+    let material = match litterkeep_server::tls::ServerMaterial::load(certificate, key) {
+        Ok(value) => value,
+        Err(error) => {
+            eprintln!("TLS material error: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let config = match material.server_config() {
+        Ok(value) => value,
+        Err(error) => {
+            eprintln!("TLS material error: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    match litterkeep_server::reactor::serve_all_starttls(&smtp, &imap, &pop3, data, config) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("server error: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
 fn serve(
     default_address: &str,
     start: fn(&str, String, std::sync::Arc<rustls::ServerConfig>) -> std::io::Result<()>,
@@ -70,6 +112,11 @@ pub(crate) fn serve_starttls() -> ExitCode {
 #[cfg(not(target_os = "linux"))]
 pub(crate) fn serve_tls() -> ExitCode {
     unavailable("serve-pop3-tls")
+}
+
+#[cfg(not(target_os = "linux"))]
+pub(crate) fn serve_all_starttls() -> ExitCode {
+    unavailable("serve-all-starttls")
 }
 
 #[cfg(not(target_os = "linux"))]
