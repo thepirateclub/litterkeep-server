@@ -88,6 +88,22 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             request_id,
             result: store.folders(&account),
         },
+        Request::ResolveFolder {
+            request_id,
+            account,
+            name,
+        } => Response::FolderResolved {
+            request_id,
+            result: store.resolve_folder(&account, &name),
+        },
+        Request::ReadFolder {
+            request_id,
+            account,
+            name,
+        } => Response::FolderRead {
+            request_id,
+            result: store.snapshot_folder(&account, &name),
+        },
     }
 }
 

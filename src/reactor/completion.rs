@@ -53,7 +53,9 @@ fn response_id(response: &Response) -> u64 {
         | Response::Read { request_id, .. }
         | Response::FlagsUpdated { request_id, .. }
         | Response::FolderCreated { request_id, .. }
-        | Response::Folders { request_id, .. } => *request_id,
+        | Response::Folders { request_id, .. }
+        | Response::FolderResolved { request_id, .. }
+        | Response::FolderRead { request_id, .. } => *request_id,
     }
 }
 
@@ -109,17 +111,14 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
             session.push(format!("{tag} NO APPEND failed\r\n").as_bytes())
         }
         (
-            Pending::ReadForSelect {
-                tag,
-                mailbox,
-                read_only,
-            },
-            Response::Read {
-                result: Ok(snapshot),
+            Pending::ReadForSelect { tag, read_only },
+            Response::FolderRead {
+                result: Ok(resolved),
                 ..
             },
         ) => {
-            session.selected_mailbox = Some(mailbox);
+            let snapshot = resolved.snapshot;
+            session.selected_mailbox = Some(resolved.key);
             session.selected_exists = snapshot.messages.len();
             let access = match read_only {
                 true => "READ-ONLY",
@@ -140,6 +139,25 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
                 .as_bytes(),
             )
         }
+        (
+            Pending::ReadForSelect { tag, .. },
+            Response::FolderRead {
+                result: Err(error), ..
+            },
+        ) => match error.kind() {
+            io::ErrorKind::NotFound => {
+                session.push(format!("{tag} NO mailbox does not exist\r\n").as_bytes())
+            }
+            _ => session.push(format!("{tag} NO SELECT failed\r\n").as_bytes()),
+        },
+        (
+            Pending::ResolveForAppend {
+                tag,
+                literal_size,
+                metadata,
+            },
+            Response::FolderResolved { result, .. },
+        ) => imap_append::resolved(session, tag, literal_size, metadata, result),
         (
             Pending::ReadForFetch(addressing, sequence_set, attribute, tag),
             Response::Read {

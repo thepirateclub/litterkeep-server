@@ -2,25 +2,70 @@
 
 use super::*;
 
-/// Резервирует bounded literal только после TLS и успешной аутентификации.
+/// Проверяет папку у владельца store до выдачи literal continuation.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn begin(
     session: &mut Session,
     tag: String,
     mailbox: imap::MailboxName,
     literal_size: usize,
     metadata: crate::store::AppendMetadata,
+    slot: usize,
+    generation: u64,
+    worker: &mut WakingStorageWorker,
+    owners: &mut HashMap<u64, (usize, u64, Pending)>,
+    request_id: &mut u64,
 ) -> io::Result<()> {
     let Some(account) = session.authenticated_account.clone() else {
         return session.push(format!("{tag} NO authenticate first\r\n").as_bytes());
     };
-    if let imap::MailboxName::Named(_) = mailbox {
-        return session.push(format!("{tag} NO [TRYCREATE] mailbox does not exist\r\n").as_bytes());
-    }
     if literal_size > MAX_MESSAGE {
         return session.push(format!("{tag} NO message exceeds limit\r\n").as_bytes());
     }
-    session.imap_literal = Some(LiteralReceiver::new(tag, account, literal_size, metadata));
-    session.push(b"+ Ready for literal data\r\n")
+    let name = match mailbox {
+        imap::MailboxName::Inbox => "INBOX".to_owned(),
+        imap::MailboxName::Named(name) => name,
+    };
+    let id = *request_id;
+    *request_id = request_id.wrapping_add(1).max(1);
+    protocol::submit(
+        session,
+        Request::ResolveFolder {
+            request_id: id,
+            account,
+            name,
+        },
+        Pending::ResolveForAppend {
+            tag,
+            literal_size,
+            metadata,
+        },
+        slot,
+        generation,
+        worker,
+        owners,
+    );
+    Ok(())
+}
+
+/// Только успешное разрешение папки переводит session в literal-receive state.
+pub(super) fn resolved(
+    session: &mut Session,
+    tag: String,
+    literal_size: usize,
+    metadata: crate::store::AppendMetadata,
+    result: io::Result<String>,
+) -> io::Result<()> {
+    match result {
+        Ok(mailbox) => {
+            session.imap_literal = Some(LiteralReceiver::new(tag, mailbox, literal_size, metadata));
+            session.push(b"+ Ready for literal data\r\n")
+        }
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            session.push(format!("{tag} NO [TRYCREATE] mailbox does not exist\r\n").as_bytes())
+        }
+        Err(_) => session.push(format!("{tag} NO APPEND unavailable\r\n").as_bytes()),
+    }
 }
 
 /// Делает один неблокирующий шаг literal receiver и формирует durable request.

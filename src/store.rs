@@ -31,6 +31,7 @@ mod recovery;
 #[path = "store/tests.rs"]
 mod tests;
 pub use crate::mail_flags::{FlagMutation, MessageFlags, SystemFlag};
+pub use folder_access::ResolvedMailbox;
 pub use folders::{FolderInfo, SpecialUse};
 pub use model::{AppendMetadata, MailboxSnapshot, Message};
 use quota::Quota;
@@ -38,7 +39,6 @@ use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-
 /// Начальный общий budget неизменяемых message blobs: 25 MiB.
 const DEFAULT_BLOB_QUOTA: u64 = 25 * 1024 * 1024;
 #[derive(Debug)]

@@ -3,6 +3,13 @@
 use super::{FolderInfo, Store};
 use std::io;
 
+/// Snapshot вместе с внутренним ключом выбранной папки.
+#[derive(Debug)]
+pub struct ResolvedMailbox {
+    pub key: String,
+    pub snapshot: super::MailboxSnapshot,
+}
+
 impl Store {
     /// Возвращает стандартные и пользовательские папки в устойчивом порядке ID.
     pub fn folders(&mut self, account: &str) -> io::Result<Vec<FolderInfo>> {
@@ -23,6 +30,13 @@ impl Store {
         self.ensure_writable()?;
         let result = self.folders.resolve(account, name);
         self.finish_folder_operation(result)
+    }
+
+    /// Разрешает имя и читает snapshot одним последовательным действием writer-а.
+    pub fn snapshot_folder(&mut self, account: &str, name: &str) -> io::Result<ResolvedMailbox> {
+        let key = self.resolve_folder(account, name)?;
+        let snapshot = self.snapshot(&key)?;
+        Ok(ResolvedMailbox { key, snapshot })
     }
 
     /// Не отравляет writer на ожидаемых policy-отказах до начала записи.
@@ -67,6 +81,14 @@ mod tests {
         let created = store.create_folder("bob", "Проекты/Почта").expect("create");
         let key = store.resolve_folder("bob", &created.name).expect("key");
         assert!(!key.contains("Проекты"));
+        store
+            .create_folder("alice", "Проекты/Почта")
+            .expect("isolated create");
+        let alice_key = store
+            .resolve_folder("alice", "Проекты/Почта")
+            .expect("isolated key");
+        assert_ne!(key, alice_key);
+        store.append(&key, b"named folder message").expect("append");
         drop(store);
 
         let mut reopened = Store::open(&root).expect("reopen");
@@ -76,6 +98,10 @@ mod tests {
                 .expect("resolved"),
             key
         );
+        let selected = reopened
+            .snapshot_folder("bob", "Проекты/Почта")
+            .expect("snapshot");
+        assert_eq!(selected.snapshot.messages.len(), 1);
         assert_eq!(reopened.folders("bob").expect("folders").len(), 9);
         drop(reopened);
         let _ = fs::remove_dir_all(root);

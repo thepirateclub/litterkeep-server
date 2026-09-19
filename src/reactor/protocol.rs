@@ -63,7 +63,9 @@ pub(super) fn submit(
         | Request::Read { request_id, .. }
         | Request::UpdateFlags { request_id, .. }
         | Request::CreateFolder { request_id, .. }
-        | Request::ListFolders { request_id, .. } => *request_id,
+        | Request::ListFolders { request_id, .. }
+        | Request::ResolveFolder { request_id, .. }
+        | Request::ReadFolder { request_id, .. } => *request_id,
     };
     match worker.worker.submit(request) {
         Ok(()) => {
@@ -143,6 +145,11 @@ fn imap_line(
                 flags,
                 internal_date: internal_date.unwrap_or_else(crate::mail_date::MailDate::now),
             },
+            slot,
+            generation,
+            worker,
+            owners,
+            request_id,
         )?,
         imap::Command::Logout => {
             session.push(b"* BYE\r\n")?;

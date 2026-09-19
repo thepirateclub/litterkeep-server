@@ -22,9 +22,13 @@ pub(super) enum Pending {
         tag: String,
         mailbox: String,
     },
+    ResolveForAppend {
+        tag: String,
+        literal_size: usize,
+        metadata: crate::store::AppendMetadata,
+    },
     ReadForSelect {
         tag: String,
-        mailbox: String,
         read_only: bool,
     },
     ReadForFetch(

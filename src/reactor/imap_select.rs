@@ -2,7 +2,7 @@
 
 use super::*;
 
-/// Читает INBOX текущего account и меняет state только после completion.
+/// Разрешает account-scoped имя и меняет state только после snapshot completion.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn queue(
     session: &mut Session,
@@ -15,25 +15,23 @@ pub(super) fn queue(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<()> {
-    if let imap::MailboxName::Named(_) = requested_mailbox {
-        return session.push(format!("{tag} NO mailbox does not exist\r\n").as_bytes());
-    }
-    let Some(mailbox) = session.authenticated_account.clone() else {
+    let Some(account) = session.authenticated_account.clone() else {
         return session.push(format!("{tag} NO authenticate first\r\n").as_bytes());
+    };
+    let name = match requested_mailbox {
+        imap::MailboxName::Inbox => "INBOX".to_owned(),
+        imap::MailboxName::Named(name) => name,
     };
     let id = *request_id;
     *request_id = request_id.wrapping_add(1).max(1);
     protocol::submit(
         session,
-        Request::Read {
+        Request::ReadFolder {
             request_id: id,
-            mailbox: mailbox.clone(),
+            account,
+            name,
         },
-        Pending::ReadForSelect {
-            tag,
-            mailbox,
-            read_only,
-        },
+        Pending::ReadForSelect { tag, read_only },
         slot,
         generation,
         worker,

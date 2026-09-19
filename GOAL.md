@@ -810,3 +810,25 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - G06 остаётся RUNNING: named-folder SELECT/APPEND, RENAME/DELETE,
   subscriptions, STATUS, COPY/MOVE/EXPUNGE, modified UTF-7, HEADER.FIELDS,
   UID SEARCH, Recent и полный LIST wildcard profile ещё не готовы.
+
+### 2026-09-19: G06 named-folder mailbox checkpoint
+
+- SELECT разрешает account-scoped имя и получает внутренний mailbox key вместе
+  со snapshot одним worker-действием. Дальнейшие FETCH/STORE используют key, а
+  не повторяют строковый поиск имени и не могут перейти в каталог другого
+  account. Unit test подтверждает разные keys для одинаковых имён Bob и Alice.
+- APPEND сначала отправляет bounded `ResolveFolder` единственному владельцу
+  store. Literal continuation выдаётся только после успешного resolution;
+  неизвестная папка получает `NO [TRYCREATE]` до передачи тела. Session затем
+  сохраняет проверенный key до durable append completion.
+- Один и тот же внутренний key используется selected session, IDLE notification
+  и APPEND pending context, поэтому поступление в named folder не смешивается с
+  INBOX или одноимённой папкой другого аккаунта.
+- PASS 82 Windows tests, format и Clippy; PASS Docker Linux 85/85.
+  Независимый Python 3.14 `imaplib` подтвердил TRYCREATE, CREATE
+  `Projects/2026`, APPEND с `\\Draft` и NUL-байтом, SELECT, точный RFC822 FETCH
+  и FLAGS. После restart того же container volume отдельный запуск получил
+  один message с теми же байтами и флагом.
+- G06 остаётся RUNNING: RENAME/DELETE, subscriptions, STATUS,
+  COPY/MOVE/EXPUNGE, modified UTF-7, HEADER.FIELDS, UID SEARCH, Recent и полный
+  LIST wildcard profile ещё не реализованы.

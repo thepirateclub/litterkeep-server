@@ -56,6 +56,16 @@ pub enum Request {
         request_id: u64,
         account: String,
     },
+    ResolveFolder {
+        request_id: u64,
+        account: String,
+        name: String,
+    },
+    ReadFolder {
+        request_id: u64,
+        account: String,
+        name: String,
+    },
 }
 #[derive(Debug)]
 pub enum Response {
@@ -82,6 +92,14 @@ pub enum Response {
     Folders {
         request_id: u64,
         result: io::Result<Vec<crate::store::FolderInfo>>,
+    },
+    FolderResolved {
+        request_id: u64,
+        result: io::Result<String>,
+    },
+    FolderRead {
+        request_id: u64,
+        result: io::Result<crate::store::ResolvedMailbox>,
     },
 }
 
