@@ -136,7 +136,7 @@ fn imap_line(
             session.push(b"* CAPABILITY IMAP4rev1 AUTH=PLAIN\r\n")?;
             session.push(format!("{} OK CAPABILITY completed\r\n", parsed.tag).as_bytes())?;
         }
-        imap::Command::Login => {
+        imap::Command::Login { .. } => {
             session.push(format!("{} OK LOGIN completed\r\n", parsed.tag).as_bytes())?
         }
         imap::Command::Logout => {

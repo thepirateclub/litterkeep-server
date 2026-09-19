@@ -1,19 +1,25 @@
-//! Tagged IMAP command decoding. Text is converted to an enum at the boundary.
+//! Декодирование IMAP-команд: текст сети преобразуется в типизированные варианты.
+
+/// Команда вместе с тегом, которым сервер обязан завершить ответ.
 #[derive(Debug, Eq, PartialEq)]
 pub struct TaggedCommand {
     pub tag: String,
     pub command: Command,
 }
+
+/// Поддерживаемый на текущем этапе набор IMAP-команд.
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
     Capability,
-    Login,
+    Login { username: String, password: String },
     Logout,
     Select,
     Examine,
     Fetch(usize),
     Unsupported,
 }
+
+/// Внутренний verb до проверки аргументов команды.
 enum Verb {
     Capability,
     Login,
@@ -23,17 +29,24 @@ enum Verb {
     Fetch,
     Unsupported,
 }
+
+/// Разбирает одну CRLF-строку и не оставляет строковые команды в reactor.
 pub fn parse(line: &str) -> TaggedCommand {
     let mut words = line.split_whitespace();
     let tag = words.next().unwrap_or("*").into();
-    let verb = parse_verb(words.next().unwrap_or(""));
-    let command = match verb {
+    let command = match parse_verb(words.next().unwrap_or("")) {
         Verb::Capability => Command::Capability,
-        Verb::Login => Command::Login,
+        Verb::Login => match (words.next(), words.next()) {
+            (Some(username), Some(password)) => Command::Login {
+                username: username.into(),
+                password: password.into(),
+            },
+            _ => Command::Unsupported,
+        },
         Verb::Logout => Command::Logout,
         Verb::Select => Command::Select,
         Verb::Examine => Command::Examine,
-        Verb::Fetch => match words.next().and_then(|value| value.parse().ok()) {
+        Verb::Fetch => match words.next().and_then(|word| word.parse().ok()) {
             Some(number) => Command::Fetch(number),
             None => Command::Unsupported,
         },
@@ -41,6 +54,8 @@ pub fn parse(line: &str) -> TaggedCommand {
     };
     TaggedCommand { tag, command }
 }
+
+/// Единственная допустимая граница строкового сравнения протокольного verb.
 fn parse_verb(text: &str) -> Verb {
     match text.to_ascii_uppercase().as_str() {
         "CAPABILITY" => Verb::Capability,
@@ -52,16 +67,21 @@ fn parse_verb(text: &str) -> Verb {
         _ => Verb::Unsupported,
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    /// Проверяет передачу реквизитов в типизированном варианте.
     #[test]
-    fn decodes_fetch_as_enum() {
+    fn login_has_credentials() {
         assert_eq!(
-            parse("a FETCH 3 (RFC822)\r\n"),
+            parse("a LOGIN bob pass\r\n"),
             TaggedCommand {
                 tag: "a".into(),
-                command: Command::Fetch(3)
+                command: Command::Login {
+                    username: "bob".into(),
+                    password: "pass".into()
+                }
             }
         );
     }
