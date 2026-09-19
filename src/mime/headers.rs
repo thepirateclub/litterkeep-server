@@ -10,6 +10,29 @@ pub struct HeaderField {
     pub raw_range: Range<usize>,
 }
 
+/// Известные имена заголовков, используемые MIME FSM.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum HeaderName {
+    ContentType,
+    ContentTransferEncoding,
+    ContentDisposition,
+    ContentId,
+    Other,
+}
+
+impl HeaderField {
+    /// Преобразует строковое wire-имя в enum на границе parser-а.
+    pub fn kind(&self) -> HeaderName {
+        match self.name.as_str() {
+            "content-type" => HeaderName::ContentType,
+            "content-transfer-encoding" => HeaderName::ContentTransferEncoding,
+            "content-disposition" => HeaderName::ContentDisposition,
+            "content-id" => HeaderName::ContentId,
+            _ => HeaderName::Other,
+        }
+    }
+}
+
 /// Заголовки и точное начало тела в исходном сообщении.
 #[derive(Debug, Eq, PartialEq)]
 pub struct HeaderBlock {

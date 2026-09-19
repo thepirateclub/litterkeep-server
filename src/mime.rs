@@ -11,6 +11,8 @@ pub mod header_block;
 pub mod parameters;
 #[path = "mime/quoted_printable.rs"]
 pub mod quoted_printable;
+#[path = "mime/tree.rs"]
+pub mod tree;
 
 pub fn headers(raw: &[u8]) -> Result<(BTreeMap<String, String>, &[u8]), &'static str> {
     let parsed = header_block::parse(raw)?;

@@ -3,6 +3,8 @@
 import argparse
 import email.header
 import email.message
+import email.policy
+from email.parser import BytesParser
 import subprocess
 
 
@@ -45,10 +47,24 @@ def main() -> None:
     lines = iter(result.stdout.splitlines())
     actual_subject = next(lines)
     actual_filename = next(lines)
+    actual_count = int(next(lines))
+    actual_body = next(lines)
     if actual_subject != python_subject():
         raise AssertionError("encoded-word result differs from Python")
     if actual_filename != python_filename():
         raise AssertionError("RFC 2231 filename differs from Python")
+    multipart = (
+        b"Content-Type: multipart/mixed; boundary=x\r\n\r\npreamble\r\n"
+        b"--x\r\nContent-Type: text/plain\r\n\r\ninside --x text\r\n"
+        b"--x--\r\nepilogue"
+    )
+    parsed = BytesParser(policy=email.policy.default).parsebytes(multipart)
+    python_parts = tuple(parsed.iter_parts())
+    python_body = next(iter(python_parts)).get_payload(decode=True)
+    if actual_count != len(python_parts):
+        raise AssertionError("multipart part count differs from Python")
+    if actual_body != python_body:
+        raise AssertionError("multipart body range differs from Python")
     print("MIME Python comparison passed")
 
 

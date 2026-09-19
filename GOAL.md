@@ -583,3 +583,18 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   `filename*0*`/`filename*1*` с Python `email`: результаты совпали.
 - G05 остаётся RUNNING до line-aware multipart дерева, вложенности, raw ranges
   частей и IMAP ENVELOPE/BODYSTRUCTURE.
+
+### 2026-09-19: G05 line-aware multipart checkpoint
+
+- Добавлен bounded MIME tree: максимум 16 уровней и 256 entities. Каждый узел
+  хранит абсолютные ranges raw entity, headers и body; исходное сообщение не
+  копируется и не сериализуется заново.
+- Multipart boundary распознаётся только как полная delimiter line с CRLF и
+  допустимым transport padding. Произвольная подстрока `--boundary` внутри тела
+  часть не разрезает. Preamble, epilogue и обязательный closing delimiter
+  учитываются отдельно; отсутствие закрытия является ошибкой.
+- PASS 51 Windows unit test, format и Clippy. Расширенный независимый
+  `mime_python_comparison.py` подтвердил совпадение числа частей и точных байтов
+  первого body с Python `email`, дополнительно к encoded-word и RFC 2231 имени.
+- G05 остаётся RUNNING: нужны декодирование transfer encoding на уровне entity,
+  BODYSTRUCTURE/ENVELOPE и корректные IMAP section/partial responses.

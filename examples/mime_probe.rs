@@ -18,6 +18,19 @@ fn main() -> ExitCode {
     };
     println!("{subject}");
     println!("{filename}");
+    let multipart = b"Content-Type: multipart/mixed; boundary=x\r\n\r\npreamble\r\n--x\r\nContent-Type: text/plain\r\n\r\ninside --x text\r\n--x--\r\nepilogue";
+    let tree = match litterkeep_server::mime::tree::parse(multipart) {
+        Ok(tree) => tree,
+        Err(error) => return fail(error),
+    };
+    let Some(first) = tree.children.first() else {
+        return fail("multipart child is absent");
+    };
+    let Some(body) = multipart.get(first.body_range.clone()) else {
+        return fail("multipart body range is invalid");
+    };
+    println!("{}", tree.children.len());
+    println!("{}", String::from_utf8_lossy(body));
     ExitCode::SUCCESS
 }
 
