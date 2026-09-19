@@ -5,7 +5,7 @@ use litterkeep_server::{PRODUCT, VERSION};
 
 fn usage() {
     println!(
-        "{PRODUCT} {VERSION}\n\nUsage:\n  litterkeep-server help\n  litterkeep-server version\n  litterkeep-server serve [smtp-address] [imap-address] [data-dir]"
+        "{PRODUCT} {VERSION}\n\nUsage:\n  litterkeep-server init [data-dir]\n  litterkeep-server help\n  litterkeep-server version\n  litterkeep-server serve [smtp-address] [imap-address] [data-dir]"
     );
 }
 
@@ -19,11 +19,38 @@ fn main() -> ExitCode {
             println!("{PRODUCT} {VERSION}");
             ExitCode::SUCCESS
         }
+        Some("init") => initialize(),
         Some("serve") => serve(),
         Some(command) => {
             eprintln!("unsupported command in this build: {command}\n");
             usage();
             ExitCode::from(2)
+        }
+    }
+}
+
+/// Создаёт локальный fixture account для проверяемого development запуска.
+fn initialize() -> ExitCode {
+    let data = env::args().nth(2).unwrap_or_else(|| "runtime".into());
+    let accounts = match litterkeep_server::accounts::Accounts::open(&data) {
+        Ok(accounts) => accounts,
+        Err(error) => {
+            eprintln!("init error: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    match accounts.create("bob", b"test-password") {
+        Ok(()) => {
+            println!("created test account bob");
+            ExitCode::SUCCESS
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+            println!("test account bob already exists");
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("init error: {error}");
+            ExitCode::FAILURE
         }
     }
 }

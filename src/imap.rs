@@ -38,8 +38,8 @@ pub fn parse(line: &str) -> TaggedCommand {
         Verb::Capability => Command::Capability,
         Verb::Login => match (words.next(), words.next()) {
             (Some(username), Some(password)) => Command::Login {
-                username: username.into(),
-                password: password.into(),
+                username: atom(username),
+                password: atom(password),
             },
             _ => Command::Unsupported,
         },
@@ -53,6 +53,11 @@ pub fn parse(line: &str) -> TaggedCommand {
         Verb::Unsupported => Command::Unsupported,
     };
     TaggedCommand { tag, command }
+}
+
+/// Удаляет парные кавычки IMAP atom, не меняя неквотированное значение.
+fn atom(value: &str) -> String {
+    value.trim_matches('"').into()
 }
 
 /// Единственная допустимая граница строкового сравнения протокольного verb.

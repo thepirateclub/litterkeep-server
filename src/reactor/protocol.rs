@@ -138,8 +138,25 @@ fn imap_line(
             session.push(b"* CAPABILITY IMAP4rev1 AUTH=PLAIN\r\n")?;
             session.push(format!("{} OK CAPABILITY completed\r\n", parsed.tag).as_bytes())?;
         }
-        imap::Command::Login { .. } => {
-            session.push(format!("{} OK LOGIN completed\r\n", parsed.tag).as_bytes())?
+        imap::Command::Login { username, password } => {
+            let id = *request_id;
+            *request_id = request_id.wrapping_add(1).max(1);
+            submit(
+                session,
+                Request::Authenticate {
+                    request_id: id,
+                    username: username.clone(),
+                    password: password.into_bytes(),
+                },
+                Pending::Authenticate {
+                    tag: parsed.tag,
+                    account: username,
+                },
+                slot,
+                generation,
+                worker,
+                owners,
+            );
         }
         imap::Command::Logout => {
             session.push(b"* BYE\r\n")?;
@@ -205,9 +222,7 @@ pub(super) fn complete(
         let id = match &response {
             Response::Authenticated { request_id, .. }
             | Response::Appended { request_id, .. }
-            | Response::Read { request_id, .. } => {
-                *request_id
-            }
+            | Response::Read { request_id, .. } => *request_id,
         };
         let Some((slot, generation, pending)) = owners.remove(&id) else {
             continue;
@@ -220,6 +235,19 @@ pub(super) fn complete(
         }
         session.pending = None;
         match (pending, response) {
+            (
+                Pending::Authenticate { tag, account },
+                Response::Authenticated { accepted: true, .. },
+            ) => {
+                session.authenticated_account = Some(account);
+                session.push(format!("{tag} OK LOGIN completed\r\n").as_bytes())?
+            }
+            (
+                Pending::Authenticate { tag, .. },
+                Response::Authenticated {
+                    accepted: false, ..
+                },
+            ) => session.push(format!("{tag} NO authentication failed\r\n").as_bytes())?,
             (Pending::Append, Response::Appended { result: Ok(_), .. }) => {
                 session.push(b"250 queued\r\n")?
             }

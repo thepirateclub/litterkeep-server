@@ -121,4 +121,17 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   was inspected and the complete graph is locked.
 - `auth::Credential` creates and verifies Argon2id PHC records. Its unit test
   proves the correct password is accepted and a different password rejected.
-  It is not yet connected to network LOGIN, therefore G03 remains RUNNING.
+  It is now connected to bounded worker authentication and IMAP session
+  completions, but TLS and full admission controls remain incomplete.
+
+### 2026-09-19: IMAP password verification PASS
+
+- `init /runtime` creates the documented fixture account `bob` with password
+  `test-password`. Linux Docker `litterkeep-g03` was initialized on the named
+  test volume and used for the independent Python test.
+- PASS: `imaplib` LOGIN for Bob succeeded during the SMTP-to-IMAP attachment
+  SHA-256 test. A second independent `imaplib` call with password `wrong`
+  received `NO authentication failed`.
+- Recovery limitation: a force-stopped test container leaves `writer.lock`.
+  The fixture lock was removed manually from the named test volume only. This
+  is not treated as crash recovery evidence and keeps G02/G03 RUNNING.

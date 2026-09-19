@@ -1,14 +1,17 @@
 use super::*;
 use std::fs;
 use std::io::{self, Write};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+static RUN: AtomicU64 = AtomicU64::new(0);
 fn dir() -> std::path::PathBuf {
     std::env::temp_dir().join(format!(
-        "litterkeep-store-{}",
+        "litterkeep-store-{}-{}",
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
-            .as_nanos()
+            .as_nanos(),
+        RUN.fetch_add(1, Ordering::Relaxed)
     ))
 }
 #[test]

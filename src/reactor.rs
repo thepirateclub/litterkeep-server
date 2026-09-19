@@ -36,6 +36,7 @@ enum Target {
 }
 #[derive(Clone)]
 enum Pending {
+    Authenticate { tag: String, account: String },
     Append,
     ReadForSelect(String),
     ReadForFetch(usize, String),
@@ -49,6 +50,7 @@ struct Session {
     output: Vec<u8>,
     pending_submit: Option<(Request, Pending)>,
     pending: Option<Pending>,
+    authenticated_account: Option<String>,
     smtp: SmtpState,
 }
 
@@ -68,6 +70,7 @@ impl Session {
             output: Vec::new(),
             pending_submit: None,
             pending: None,
+            authenticated_account: None,
             smtp: SmtpState::Command(smtp::Transaction::default()),
         };
         result.push(match kind {
