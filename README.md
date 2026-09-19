@@ -88,10 +88,11 @@ excluded from the Docker build context.
 cargo run --locked -- init ./runtime alice alice-password
 cargo run --locked -- init ./runtime bob bob-password
 cargo run --locked -- serve-pop3-starttls 0.0.0.0:1110 ./runtime ./server.der ./server.key.der
+cargo run --locked -- serve-pop3-tls 0.0.0.0:1995 ./runtime ./server.der ./server.key.der
 ```
 
 The POP3 test account is `bob/bob-password`; clients must use STLS before
-`PASS`. The verified Linux test is split into SMTP delivery and POP3 reading so
+`PASS` on port 1110, or implicit TLS on port 1995. The verified Linux test is split into SMTP delivery and POP3 reading so
 the same bind-mounted `./data/g07-pop3` store is reused across server restart:
 
 ```sh

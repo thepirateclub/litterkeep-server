@@ -34,12 +34,18 @@ pub(super) fn follow_up(
     pending: &Pending,
     response: &Response,
     request_id: &mut u64,
+    maildrops: &mut MaildropLeases,
+    slot: usize,
+    generation: u64,
 ) -> Option<(Request, Pending)> {
     let (Pending::Pop3Authenticate { account }, Response::Authenticated { accepted: true, .. }) =
         (pending, response)
     else {
         return None;
     };
+    if !maildrops.acquire(account.clone(), slot, generation) {
+        return None;
+    }
     let id = next_id(request_id);
     Some((
         Request::ReadFolder {

@@ -8,6 +8,7 @@ pub(super) fn complete(
     sessions: &mut [Option<SessionLease>],
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     next_request: &mut u64,
+    maildrops: &mut MaildropLeases,
 ) -> io::Result<()> {
     while let Ok(response) = worker.worker.try_response() {
         let id = completion_id::response_id(&response);
@@ -30,7 +31,16 @@ pub(super) fn complete(
             super::imap_expunge::follow_up(&pending, &response, next_request)
                 .or_else(|| super::flag_completion::follow_up(&pending, &response, next_request))
                 .or_else(|| super::imap_copy::follow_up(&pending, &response, next_request))
-                .or_else(|| super::pop3_protocol::follow_up(&pending, &response, next_request))
+                .or_else(|| {
+                    super::pop3_protocol::follow_up(
+                        &pending,
+                        &response,
+                        next_request,
+                        maildrops,
+                        slot,
+                        generation,
+                    )
+                })
         {
             let Some(session) = sessions
                 .get_mut(slot)
@@ -60,7 +70,7 @@ pub(super) fn complete(
             continue;
         };
         if super::pop3_completion::handles(&pending, &response) {
-            super::pop3_completion::write(session, pending, response)?;
+            super::pop3_completion::write(session, pending, response, maildrops, slot, generation)?;
             protocol::process_input(session, slot, generation, worker, owners, next_request)?;
             continue;
         }

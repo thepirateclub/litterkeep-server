@@ -2,7 +2,7 @@
 //!
 //! Модуль не закрывает сокеты сам: он только вычисляет время ожидания и
 //! освобождает просроченный session slot через его единственного владельца.
-use super::{Orchestrator, Session, SessionLease, close_session};
+use super::{MaildropLeases, Orchestrator, Session, SessionLease, close_session};
 use std::io;
 use std::time::Instant;
 
@@ -23,6 +23,7 @@ pub(super) fn poll_timeout(sessions: &[Option<SessionLease>]) -> i32 {
 pub(super) fn expire_handshakes(
     sessions: &mut [Option<SessionLease>],
     lifecycle: &mut Orchestrator<Session>,
+    maildrops: &mut MaildropLeases,
 ) -> io::Result<()> {
     let now = Instant::now();
     for entry in sessions {
@@ -30,7 +31,7 @@ pub(super) fn expire_handshakes(
             .as_ref()
             .is_some_and(|lease| lease.get().handshake_expired(now));
         if expired {
-            close_session(entry, lifecycle)?;
+            close_session(entry, lifecycle, maildrops)?;
         }
     }
     Ok(())

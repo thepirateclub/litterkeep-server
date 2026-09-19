@@ -2,10 +2,12 @@ use std::env;
 use std::process::ExitCode;
 
 use litterkeep_server::{PRODUCT, VERSION};
+#[path = "main_pop3.rs"]
+mod pop3_cli;
 
-fn usage() {
+pub(crate) fn usage() {
     println!(
-        "{PRODUCT} {VERSION}\n\nUsage:\n  litterkeep-server init [data-dir] [account] [password]\n  litterkeep-server deliver <address> <sender> <recipient> <message-file>\n  litterkeep-server serve [smtp-address] [imap-address] [data-dir]\n  litterkeep-server serve-tls [smtp-address] [imap-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-starttls [smtp-address] [imap-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-pop3-starttls [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server help\n  litterkeep-server version"
+        "{PRODUCT} {VERSION}\n\nUsage:\n  litterkeep-server init [data-dir] [account] [password]\n  litterkeep-server deliver <address> <sender> <recipient> <message-file>\n  litterkeep-server serve [smtp-address] [imap-address] [data-dir]\n  litterkeep-server serve-tls [smtp-address] [imap-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-starttls [smtp-address] [imap-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-pop3-starttls [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-pop3-tls [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server help\n  litterkeep-server version"
     );
 }
 
@@ -24,7 +26,8 @@ fn main() -> ExitCode {
         Some("serve") => serve(),
         Some("serve-tls") => serve_tls(),
         Some("serve-starttls") => serve_starttls(),
-        Some("serve-pop3-starttls") => serve_pop3_starttls(),
+        Some("serve-pop3-starttls") => pop3_cli::serve_starttls(),
+        Some("serve-pop3-tls") => pop3_cli::serve_tls(),
         Some(command) => {
             eprintln!("unsupported command in this build: {command}\n");
             usage();
@@ -215,47 +218,6 @@ fn serve_starttls() -> ExitCode {
     }
 }
 
-/// Запускает самостоятельный POP3 listener и требует STLS перед PASS.
-#[cfg(target_os = "linux")]
-fn serve_pop3_starttls() -> ExitCode {
-    let mut arguments = env::args().skip(2);
-    let pop3 = arguments.next().unwrap_or_else(|| "127.0.0.1:1110".into());
-    let data = arguments.next().unwrap_or_else(|| "runtime".into());
-    let Some(certificate) = arguments.next() else {
-        usage();
-        return ExitCode::from(2);
-    };
-    let Some(key) = arguments.next() else {
-        usage();
-        return ExitCode::from(2);
-    };
-    if arguments.next().is_some() {
-        usage();
-        return ExitCode::from(2);
-    }
-    let material = match litterkeep_server::tls::ServerMaterial::load(certificate, key) {
-        Ok(material) => material,
-        Err(error) => {
-            eprintln!("TLS material error: {error}");
-            return ExitCode::FAILURE;
-        }
-    };
-    let config = match material.server_config() {
-        Ok(config) => config,
-        Err(error) => {
-            eprintln!("TLS material error: {error}");
-            return ExitCode::FAILURE;
-        }
-    };
-    match litterkeep_server::reactor::serve_pop3_starttls(&pop3, data, config) {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(error) => {
-            eprintln!("server error: {error}");
-            ExitCode::FAILURE
-        }
-    }
-}
-
 #[cfg(not(target_os = "linux"))]
 fn serve_tls() -> ExitCode {
     eprintln!("serve-tls requires the Linux poll reactor; this Windows checkout cannot run it");
@@ -265,11 +227,5 @@ fn serve_tls() -> ExitCode {
 #[cfg(not(target_os = "linux"))]
 fn serve_starttls() -> ExitCode {
     eprintln!("serve-starttls requires the Linux poll reactor");
-    ExitCode::FAILURE
-}
-
-#[cfg(not(target_os = "linux"))]
-fn serve_pop3_starttls() -> ExitCode {
-    eprintln!("serve-pop3-starttls requires the Linux poll reactor");
     ExitCode::FAILURE
 }

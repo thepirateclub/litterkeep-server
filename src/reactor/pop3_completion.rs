@@ -15,7 +15,14 @@ pub(super) fn handles(pending: &Pending, response: &Response) -> bool {
 }
 
 /// Превращает POP3 completion в wire result после владения Store worker-ом.
-pub(super) fn write(session: &mut Session, pending: Pending, response: Response) -> io::Result<()> {
+pub(super) fn write(
+    session: &mut Session,
+    pending: Pending,
+    response: Response,
+    maildrops: &mut MaildropLeases,
+    slot: usize,
+    generation: u64,
+) -> io::Result<()> {
     match (pending, response) {
         (
             Pending::Pop3Authenticate { .. },
@@ -23,6 +30,12 @@ pub(super) fn write(session: &mut Session, pending: Pending, response: Response)
                 accepted: false, ..
             },
         ) => session.push(b"-ERR authentication failed\r\n"),
+        (Pending::Pop3Authenticate { account }, Response::Authenticated { accepted: true, .. }) => {
+            match maildrops.owns(&account, slot, generation) {
+                true => Ok(()),
+                false => session.push(b"-ERR maildrop is locked\r\n"),
+            }
+        }
         (
             Pending::Pop3ReadInbox,
             Response::FolderRead {
@@ -35,9 +48,11 @@ pub(super) fn write(session: &mut Session, pending: Pending, response: Response)
             pop3_protocol::write_reply(session, reply)
         }
         (Pending::Pop3ReadInbox, Response::FolderRead { result: Err(_), .. }) => {
+            maildrops.release(slot, generation);
             session.push(b"-ERR maildrop unavailable\r\n")
         }
         (Pending::Pop3Commit, Response::Expunged { result: Ok(_), .. }) => {
+            maildrops.release(slot, generation);
             let reply = session.pop3.commit_deletes(true);
             pop3_protocol::write_reply(session, reply)
         }

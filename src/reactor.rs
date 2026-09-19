@@ -59,6 +59,8 @@ mod imap_status;
 mod imap_subscriptions;
 #[path = "reactor/local_delivery.rs"]
 mod local_delivery;
+#[path = "reactor/maildrop_lease.rs"]
+mod maildrop_lease;
 #[path = "reactor/pending.rs"]
 mod pending;
 #[path = "reactor/pop3_completion.rs"]
@@ -85,6 +87,7 @@ use completion::complete;
 use completion_retry::retry_submissions;
 use imap_idle::IdleState;
 use imap_literal::LiteralReceiver;
+use maildrop_lease::MaildropLeases;
 use pending::Pending;
 use protocol::process_input;
 use session::{Session, SmtpState};
@@ -180,10 +183,26 @@ pub fn serve_pop3_starttls(
     )
 }
 
+/// Запускает POP3 с implicit TLS, не выдавая greeting до handshake.
+pub fn serve_pop3_tls(
+    pop3_address: &str,
+    root: impl AsRef<Path>,
+    tls_config: Arc<ServerConfig>,
+) -> io::Result<()> {
+    server_loop::serve(
+        None,
+        None,
+        Some(pop3_address),
+        root,
+        TlsMode::Implicit(tls_config),
+    )
+}
+
 /// Сохраняет единый путь закрытия lease для deadline и poll-loop.
 fn close_session(
     entry: &mut Option<SessionLease>,
     lifecycle: &mut Orchestrator<Session>,
+    maildrops: &mut MaildropLeases,
 ) -> io::Result<()> {
-    server_loop::close(entry, lifecycle)
+    server_loop::close(entry, lifecycle, maildrops)
 }

@@ -73,6 +73,23 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   implicit-TLS POP3 и расширенный interoperability/failure matrix ещё не
   реализованы. Этот checkpoint не объявляет их проверенными.
 
+### 2026-09-20: G07 maildrop lease and implicit-TLS checkpoint
+
+- POP3 account получает отдельную bounded maildrop lease только после worker
+  authentication. Она принадлежит `(slot, generation)`, не удерживает Store и
+  освобождается после durable QUIT, TCP EOF, poll error или TLS deadline.
+  Поэтому второй POP3 client не получает тот же snapshot, но SMTP/IMAP и
+  storage-worker продолжают работать независимо.
+- Добавлен `serve-pop3-tls`: implicit TLS не выдаёт plaintext greeting до
+  handshake, переиспользуя существующие poll, deadline и socket lease.
+- PASS: Windows `cargo test --all-targets --locked` (109 tests), strict
+  Clippy, format, `git diff --check`, structural audit. Docker Linux test
+  target прошёл 114 tests. Независимый `poplib` подтвердил конкурентный отказ
+  второй POP3 session и получение maildrop после EOF первой, а `POP3_SSL`
+  подтвердил implicit TLS с доверенным CA. Данные: `./data/g07-pop3`.
+- G07 остаётся NOT RUN: политика конфликтующего IMAP EXPUNGE во время POP3
+  snapshot и полный destructive/interoperability matrix ещё не завершены.
+
 ### 2026-09-19: G00 PASS, G01 running
 
 - Added a single Cargo package with no production dependencies. This preserves

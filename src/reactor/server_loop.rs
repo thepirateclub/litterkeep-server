@@ -18,6 +18,7 @@ pub(super) fn serve(
     let mut generation = 1_u64;
     let mut request = 1_u64;
     let mut owners = HashMap::new();
+    let mut maildrops = MaildropLeases::default();
     loop {
         step(
             smtp_listener.as_ref(),
@@ -30,6 +31,7 @@ pub(super) fn serve(
             &mut generation,
             &mut request,
             &mut owners,
+            &mut maildrops,
         )?;
     }
 }
@@ -56,6 +58,7 @@ fn step(
     generation: &mut u64,
     request: &mut u64,
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
+    maildrops: &mut MaildropLeases,
 ) -> io::Result<()> {
     let mut targets = vec![Target::WorkerWake];
     let mut poll_fds = vec![(
@@ -82,11 +85,11 @@ fn step(
         }
     }
     let ready = linux_poll::wait(&poll_fds, deadline::poll_timeout(sessions))?;
-    deadline::expire_handshakes(sessions, lifecycle)?;
+    deadline::expire_handshakes(sessions, lifecycle, maildrops)?;
     for (ready, target) in ready.into_iter().zip(targets) {
         dispatch(
             ready, target, smtp, imap, pop3, tls, worker, lifecycle, sessions, generation, request,
-            owners,
+            owners, maildrops,
         )?;
     }
     Ok(())
@@ -126,6 +129,7 @@ fn dispatch(
     generation: &mut u64,
     request: &mut u64,
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
+    maildrops: &mut MaildropLeases,
 ) -> io::Result<()> {
     match target {
         Target::SmtpListener if ready.readable => {
@@ -139,11 +143,11 @@ fn dispatch(
         }
         Target::WorkerWake if ready.readable => {
             worker.drain_wakeup()?;
-            complete(worker, sessions, owners, request)?;
+            complete(worker, sessions, owners, request, maildrops)?;
             retry_submissions(worker, sessions, owners)
         }
         Target::Session(slot, generation) => service_session(
-            ready, slot, generation, worker, lifecycle, sessions, owners, request,
+            ready, slot, generation, worker, lifecycle, sessions, owners, request, maildrops,
         ),
         _ => Ok(()),
     }
@@ -173,29 +177,32 @@ fn service_session(
     sessions: &mut [Option<SessionLease>],
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request: &mut u64,
+    maildrops: &mut MaildropLeases,
 ) -> io::Result<()> {
     let Some(entry) = sessions.get_mut(slot) else {
         return Ok(());
     };
     if ready.closed_or_error {
-        return close(entry, lifecycle);
+        return close(entry, lifecycle, maildrops);
     }
     if ready.writable && flush(entry)? {
-        close(entry, lifecycle)?;
+        close(entry, lifecycle, maildrops)?;
         return Ok(());
     }
     if ready.readable && read_session(entry, slot, generation, worker, owners, request)? {
-        close(entry, lifecycle)?;
+        close(entry, lifecycle, maildrops)?;
     }
     Ok(())
 }
 pub(super) fn close(
     entry: &mut Option<SessionLease>,
     lifecycle: &mut Orchestrator<Session>,
+    maildrops: &mut MaildropLeases,
 ) -> io::Result<()> {
     let Some(lease) = entry.take() else {
         return Ok(());
     };
+    maildrops.release_generation(lease.get().generation);
     lifecycle
         .close(lease)
         .map_err(|error| io::Error::other(format!("session close failed: {error:?}")))

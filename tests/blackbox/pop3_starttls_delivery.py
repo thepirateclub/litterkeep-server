@@ -7,6 +7,7 @@ from email.policy import default
 import poplib
 import smtplib
 import ssl
+import time
 
 
 ATTACHMENT = b"\x00litterkeep-pop3-attachment\xff\x10"
@@ -14,7 +15,7 @@ ATTACHMENT = b"\x00litterkeep-pop3-attachment\xff\x10"
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--phase", choices=("smtp", "pop3", "empty"), required=True)
+    parser.add_argument("--phase", choices=("smtp", "pop3", "empty", "lease", "implicit"), required=True)
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--ca", required=True)
     return parser.parse_args()
@@ -77,6 +78,36 @@ def empty(port: int, tls: ssl.SSLContext) -> None:
     print("POP3 restart replay passed")
 
 
+def lease(port: int, tls: ssl.SSLContext) -> None:
+    first = poplib.POP3("127.0.0.1", port)
+    first.stls(context=tls)
+    first.user("bob")
+    first.pass_("bob-password")
+    second = poplib.POP3("127.0.0.1", port)
+    second.stls(context=tls)
+    second.user("bob")
+    try:
+        second.pass_("bob-password")
+    except poplib.error_proto as error:
+        if "maildrop is locked" not in str(error):
+            raise
+    else:
+        raise AssertionError("concurrent POP3 session received the same maildrop")
+    first.close()
+    time.sleep(0.2)
+    second.pass_("bob-password")
+    second.quit()
+    print("POP3 maildrop lease passed: concurrent denial and EOF release")
+
+
+def implicit(port: int, tls: ssl.SSLContext) -> None:
+    client = poplib.POP3_SSL("127.0.0.1", port, context=tls)
+    client.user("bob")
+    client.pass_("bob-password")
+    client.quit()
+    print("POP3 implicit TLS passed")
+
+
 def main() -> None:
     options = arguments()
     tls = context(options.ca)
@@ -87,6 +118,10 @@ def main() -> None:
             pop3(options.port, tls)
         case "empty":
             empty(options.port, tls)
+        case "lease":
+            lease(options.port, tls)
+        case "implicit":
+            implicit(options.port, tls)
 
 
 if __name__ == "__main__":
