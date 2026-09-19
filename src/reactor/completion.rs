@@ -33,6 +33,7 @@ pub(super) fn complete(
 fn response_id(response: &Response) -> u64 {
     match response {
         Response::Authenticated { request_id, .. }
+        | Response::RecipientValidated { request_id, .. }
         | Response::Appended { request_id, .. }
         | Response::Read { request_id, .. } => *request_id,
     }
@@ -54,6 +55,16 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
                 accepted: false, ..
             },
         ) => session.push(format!("{tag} NO authentication failed\r\n").as_bytes()),
+        (
+            Pending::ValidateRecipient { address },
+            Response::RecipientValidated { accepted: true, .. },
+        ) => accept_recipient(session, address),
+        (
+            Pending::ValidateRecipient { .. },
+            Response::RecipientValidated {
+                accepted: false, ..
+            },
+        ) => session.push(b"550 unknown local recipient\r\n"),
         (Pending::Append, Response::Appended { result: Ok(_), .. }) => {
             session.push(b"250 queued\r\n")
         }
@@ -82,6 +93,17 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
         ) => write_fetch(session, number, tag, messages),
         (_, Response::Read { .. }) => session.push(b"451 storage failure\r\n"),
         _ => Ok(()),
+    }
+}
+
+/// Завершает RCPT лишь после проверки policy у владельца account store.
+fn accept_recipient(session: &mut Session, address: String) -> io::Result<()> {
+    let SmtpState::Command(transaction) = &mut session.smtp else {
+        return session.push(b"503 bad sequence\r\n");
+    };
+    match transaction.accept_recipient(address) {
+        Ok(()) => session.push(b"250 ok\r\n"),
+        Err(_) => session.push(b"503 bad sequence\r\n"),
     }
 }
 

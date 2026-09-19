@@ -36,7 +36,9 @@ pub(super) fn submit(
 ) {
     let request_id = match &request {
         Request::Authenticate { request_id, .. }
+        | Request::ValidateRecipient { request_id, .. }
         | Request::Append { request_id, .. }
+        | Request::AppendMany { request_id, .. }
         | Request::Read { request_id, .. } => *request_id,
     };
     match worker.worker.submit(request) {
@@ -62,17 +64,18 @@ fn smtp_line(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<()> {
-    if let SmtpState::Data(raw) = &mut session.smtp {
+    if let SmtpState::Data { bytes, recipients } = &mut session.smtp {
         if line == b".\r\n" {
-            let bytes = std::mem::take(raw);
+            let bytes = std::mem::take(bytes);
+            let mailboxes = local_mailboxes(std::mem::take(recipients));
             session.smtp = SmtpState::Command(smtp::Transaction::default());
             let id = *request_id;
             *request_id = request_id.wrapping_add(1).max(1);
             submit(
                 session,
-                Request::Append {
+                Request::AppendMany {
                     request_id: id,
-                    mailbox: "bob".into(),
+                    mailboxes,
                     bytes,
                 },
                 Pending::Append,
@@ -81,14 +84,13 @@ fn smtp_line(
                 worker,
                 owners,
             );
-        } else if raw.len().saturating_add(line.len()) > MAX_MESSAGE {
+        } else if bytes.len().saturating_add(line.len()) > MAX_MESSAGE {
             session.smtp = SmtpState::Command(smtp::Transaction::default());
             session.push(b"552 message too large\r\n")?;
         } else {
-            if line.starts_with(b"..") {
-                raw.extend_from_slice(&line[1..]);
-            } else {
-                raw.extend_from_slice(&line);
+            match line.strip_prefix(b"..") {
+                Some(unstuffed) => bytes.extend_from_slice(unstuffed),
+                None => bytes.extend_from_slice(&line),
             }
         }
         return Ok(());
@@ -112,15 +114,63 @@ fn smtp_line(
     let SmtpState::Command(tx) = &mut session.smtp else {
         unreachable!()
     };
+    if let smtp::Command::Rcpt(address) = command {
+        if !tx.can_accept_recipient() {
+            session.push(b"503 bad sequence\r\n")?;
+            return Ok(());
+        }
+        let Some(mailbox) = local_mailbox(&address) else {
+            session.push(b"550 unknown local recipient\r\n")?;
+            return Ok(());
+        };
+        let id = *request_id;
+        *request_id = request_id.wrapping_add(1).max(1);
+        submit(
+            session,
+            Request::ValidateRecipient {
+                request_id: id,
+                mailbox,
+            },
+            Pending::ValidateRecipient { address },
+            slot,
+            generation,
+            worker,
+            owners,
+        );
+        return Ok(());
+    }
     match tx.apply(&command) {
         Ok(true) => {
-            session.smtp = SmtpState::Data(Vec::new());
+            let recipients = tx.take_recipients();
+            session.smtp = SmtpState::Data {
+                bytes: Vec::new(),
+                recipients,
+            };
             session.push(b"354 end with <CRLF>.<CRLF>\r\n")?;
         }
         Ok(false) => session.push(b"250 ok\r\n")?,
         Err(_) => session.push(b"503 bad sequence\r\n")?,
     }
     Ok(())
+}
+
+/// Преобразует SMTP path в имя локального mailbox без доменной эвристики.
+///
+/// Domain part остаётся частью маршрутизации будущей очереди. На текущем
+/// локальном маршруте владелец ящика определяется только local part, а worker
+/// проверяет существование каждого account перед публикацией.
+fn local_mailboxes(recipients: Vec<String>) -> Vec<String> {
+    recipients
+        .into_iter()
+        .filter_map(|recipient| local_mailbox(&recipient))
+        .collect()
+}
+
+/// Отделяет local-part path от домена на границе local delivery policy.
+fn local_mailbox(address: &str) -> Option<String> {
+    address
+        .split_once('@')
+        .map(|(mailbox, _domain)| mailbox.to_owned())
 }
 
 fn imap_line(

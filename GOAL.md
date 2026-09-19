@@ -2,7 +2,7 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`  
 Root status: ACTIVE  
-Current subgoal: G01
+Current subgoal: G04
 
 The actually available Goal interface was inspected. It supports creating and
 updating one active root goal (`create_goal`, `get_goal`, `update_goal`), but
@@ -12,9 +12,9 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | Goal | Depends on | Acceptance criterion | Status |
 |---|---|---|---|
 | G00 | none | build, help, lock, dependency report, saved goal | PASS |
-| G01 | G00 | lifecycle/lease/wake tests and Linux poll integration | RUNNING |
-| G02 | G01 | durable store, journal, blob, recovery | RUNNING |
-| G03 | G02 | TLS, AUTH, bounded admission | RUNNING |
+| G01 | G00 | lifecycle/lease/wake tests and Linux poll integration | NOT RUN |
+| G02 | G01 | durable store, journal, blob, recovery | NOT RUN |
+| G03 | G02 | TLS, AUTH, bounded admission | NOT RUN |
 | G04 | G03 | durable SMTP submission and local delivery | NOT RUN |
 | G05 | G04 | MIME + IMAP, independently checked attachment | NOT RUN |
 | G06 | G05 | IMAP folders, flags, UID, IDLE | NOT RUN |
@@ -202,3 +202,32 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - PASS дополнительно: `tests/blackbox/imap_outbound_fixture.py` через
   независимый Python `imaplib` нашёл Subject fixture, переданного `deliver`, и
   сравнил полученные RFC822 bytes с `tests/fixtures/outbound.eml`.
+
+### 2026-09-19: G04 local-recipient routing checkpoint
+
+- SMTP больше не записывает каждое принятое сообщение в жёстко заданный
+  mailbox `bob`. После `RCPT` reactor передаёт local-part в ограниченный
+  `StorageWorker`; только его проверка существующего account добавляет
+  получателя в envelope. Неизвестный или неразбираемый локальный адрес
+  получает `550` на RCPT, до DATA и до публикации blob.
+- После терминатора DATA worker повторно проверяет весь список получателей,
+  затем фиксирует письмо в каждом mailbox и только его completion разрешает
+  `250 queued`. Unit-тест доказывает, что неизвестный второй получатель не
+  даёт частичной записи. Транзакция забирает список RCPT ровно один раз.
+- PASS в отдельном чистом Linux Docker volume
+  `litterkeep-recipient-routing-test`: собран образ
+  `litterkeep-server:recipient-routing`; созданы `bob/test-password` и
+  `alice/alice-password`; `python tests/blackbox/smtp_recipient_routing.py
+  127.0.0.1 2527 2145` подтвердил доставку только Alice и `550` неизвестному
+  получателю. Затем `python tests/blackbox/smtp_imap_attachment.py 127.0.0.1
+  2527 2145` снова подтвердил attachment SHA-256
+  `3434bddb77229b18aab16f5a2894661d44505548389f84c11bce6d6b50efa4a4`.
+- PASS на Windows: `cargo fmt --check`; `cargo test --locked` (24 passed);
+  `cargo clippy --locked --all-targets -- -D warnings`. Кросс-проверка target
+  `x86_64-unknown-linux-gnu` не выполнена: на host отсутствует
+  `x86_64-linux-gnu-gcc`, нужный transitive `ring`; это не заменяет Linux
+  Docker build и run, которые прошли.
+- G04 остаётся NOT RUN: защищённый submission listener, cleanup оборванной
+  DATA с отдельной проверкой, лимит получателей, Received/Return-Path и
+  гарантии повторного локального delivery ещё не завершены. G03 также NOT RUN,
+  поскольку настоящий TLS и SMTP AUTH не подключены к reactor.

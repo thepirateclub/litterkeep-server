@@ -31,6 +31,15 @@ impl Accounts {
             Err(_) => false,
         }
     }
+    /// Сообщает, существует ли допустимый локальный получатель.
+    ///
+    /// Эта проверка намеренно не раскрывает credential и нужна writer-у до
+    /// публикации SMTP-сообщения в mailbox получателя.
+    pub fn exists(&self, name: &str) -> bool {
+        valid_name(name)
+            .map(|()| self.path(name).is_file())
+            .unwrap_or(false)
+    }
     fn path(&self, name: &str) -> PathBuf {
         self.root.join(format!("{name}.phc"))
     }

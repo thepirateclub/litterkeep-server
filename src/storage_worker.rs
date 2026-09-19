@@ -1,4 +1,6 @@
 //! The single owner of a mutable Store, fed by a bounded request queue.
+#[path = "storage_worker/execution.rs"]
+mod execution;
 use crate::{
     accounts::Accounts,
     store::{Message, Store},
@@ -16,9 +18,20 @@ pub enum Request {
         username: String,
         password: Vec<u8>,
     },
+    /// Проверяет local-part envelope до начала SMTP DATA.
+    ValidateRecipient {
+        request_id: u64,
+        mailbox: String,
+    },
     Append {
         request_id: u64,
         mailbox: String,
+        bytes: Vec<u8>,
+    },
+    /// Долговечно сохраняет одно сообщение во все проверенные локальные inbox.
+    AppendMany {
+        request_id: u64,
+        mailboxes: Vec<String>,
         bytes: Vec<u8>,
     },
     Read {
@@ -30,6 +43,8 @@ pub enum Request {
 pub enum Response {
     /// Completion проверки аккаунта.
     Authenticated { request_id: u64, accepted: bool },
+    /// Ответ policy-проверки локального SMTP-получателя.
+    RecipientValidated { request_id: u64, accepted: bool },
     Appended {
         request_id: u64,
         result: io::Result<u64>,
@@ -54,7 +69,7 @@ impl StorageWorker {
         let (outgoing, responses) = mpsc::channel();
         let thread = thread::Builder::new()
             .name("litterkeep-store-writer".into())
-            .spawn(move || run(store, accounts, incoming, outgoing))?;
+            .spawn(move || execution::run(store, accounts, incoming, outgoing))?;
         Ok(Self {
             requests,
             responses,
@@ -70,44 +85,6 @@ impl StorageWorker {
     pub fn shutdown(self) {
         drop(self.requests);
         let _ = self.thread.join();
-    }
-}
-
-fn run(
-    store: Store,
-    accounts: Accounts,
-    requests: Receiver<Request>,
-    responses: mpsc::Sender<Response>,
-) {
-    for request in requests {
-        let response = match request {
-            Request::Authenticate {
-                request_id,
-                username,
-                password,
-            } => Response::Authenticated {
-                request_id,
-                accepted: accounts.authenticate(&username, &password),
-            },
-            Request::Append {
-                request_id,
-                mailbox,
-                bytes,
-            } => Response::Appended {
-                request_id,
-                result: store.append(&mailbox, &bytes),
-            },
-            Request::Read {
-                request_id,
-                mailbox,
-            } => Response::Read {
-                request_id,
-                result: store.messages(&mailbox),
-            },
-        };
-        if responses.send(response).is_err() {
-            break;
-        }
     }
 }
 
@@ -136,31 +113,7 @@ impl WakingStorageWorker {
             .name("litterkeep-store-writer".into())
             .spawn(move || {
                 for request in incoming {
-                    let response = match request {
-                        Request::Authenticate {
-                            request_id,
-                            username,
-                            password,
-                        } => Response::Authenticated {
-                            request_id,
-                            accepted: accounts.authenticate(&username, &password),
-                        },
-                        Request::Append {
-                            request_id,
-                            mailbox,
-                            bytes,
-                        } => Response::Appended {
-                            request_id,
-                            result: store.append(&mailbox, &bytes),
-                        },
-                        Request::Read {
-                            request_id,
-                            mailbox,
-                        } => Response::Read {
-                            request_id,
-                            result: store.messages(&mailbox),
-                        },
-                    };
+                    let response = execution::respond(&store, &accounts, request);
                     if outgoing.send(response).is_err() {
                         break;
                     }
@@ -231,6 +184,39 @@ mod tests {
             }
         ));
         worker.shutdown();
+        std::fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn append_many_rejects_unknown_recipient_before_publication() {
+        let root = dir();
+        let accounts = Accounts::open(&root).expect("accounts");
+        accounts.create("bob", b"test-password").expect("account");
+        let worker = StorageWorker::start(&root, 1).expect("worker");
+        worker
+            .submit(Request::AppendMany {
+                request_id: 8,
+                mailboxes: vec!["bob".into(), "unknown".into()],
+                bytes: b"message".to_vec(),
+            })
+            .expect("accepted");
+        let response = loop {
+            if let Ok(response) = worker.try_response() {
+                break response;
+            }
+            std::thread::yield_now();
+        };
+        assert!(matches!(
+            response,
+            Response::Appended {
+                request_id: 8,
+                result: Err(_)
+            }
+        ));
+        worker.shutdown();
+        let store = Store::open(&root).expect("reopen");
+        assert!(store.messages("bob").expect("messages").is_empty());
+        drop(store);
         std::fs::remove_dir_all(root).expect("cleanup");
     }
 }

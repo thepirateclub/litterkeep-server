@@ -40,6 +40,7 @@ enum Target {
 #[derive(Clone)]
 enum Pending {
     Authenticate { tag: String, account: String },
+    ValidateRecipient { address: String },
     Append,
     ReadForSelect(String),
     ReadForFetch(usize, String),
@@ -59,7 +60,10 @@ struct Session {
 
 enum SmtpState {
     Command(smtp::Transaction),
-    Data(Vec<u8>),
+    Data {
+        bytes: Vec<u8>,
+        recipients: Vec<String>,
+    },
 }
 
 impl Session {

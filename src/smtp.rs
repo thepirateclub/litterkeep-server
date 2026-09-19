@@ -76,6 +76,29 @@ impl Transaction {
             _ => Err("bad command sequence"),
         }
     }
+
+    /// Забирает получателей принятой команды DATA и закрывает транзакцию.
+    ///
+    /// После этого SMTP-сессия уже не может повторно использовать прежний
+    /// envelope для следующего сообщения.
+    pub fn take_recipients(&mut self) -> Vec<String> {
+        self.sender = None;
+        std::mem::take(&mut self.recipients)
+    }
+
+    /// Проверяет, можно ли принять очередного RCPT в текущем envelope.
+    pub fn can_accept_recipient(&self) -> bool {
+        self.sender.is_some()
+    }
+
+    /// Добавляет проверенный policy слоем получатель в активный envelope.
+    pub fn accept_recipient(&mut self, recipient: String) -> Result<(), &'static str> {
+        if self.can_accept_recipient() {
+            self.recipients.push(recipient);
+            return Ok(());
+        }
+        Err("bad command sequence")
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -96,5 +119,19 @@ mod tests {
             parse("mail FROM:<alice@test> size=37\r\n").expect("standard MAIL"),
             Command::Mail("alice@test".into())
         );
+    }
+
+    #[test]
+    fn data_recipients_are_consumed_once() {
+        let mut transaction = Transaction::default();
+        transaction
+            .apply(&parse("MAIL FROM:<alice@test>\r\n").expect("mail"))
+            .expect("sender");
+        transaction
+            .apply(&parse("RCPT TO:<bob@test>\r\n").expect("recipient"))
+            .expect("recipient accepted");
+        assert!(transaction.apply(&Command::Data).expect("data"));
+        assert_eq!(transaction.take_recipients(), vec!["bob@test"]);
+        assert!(transaction.take_recipients().is_empty());
     }
 }

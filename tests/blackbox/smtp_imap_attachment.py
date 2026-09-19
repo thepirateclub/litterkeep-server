@@ -35,10 +35,17 @@ with imaplib.IMAP4(HOST, IMAP_PORT, timeout=10) as imap:
     status, _ = imap.login("bob", "test-password")
     assert status == "OK", status
     status, count = imap.select("INBOX", readonly=True)
-    assert status == "OK" and int(count[0]) >= 1, (status, count)
-    status, records = imap.fetch(count[0], "(RFC822)")
+    message_count = int(next(iter(count)))
+    assert status == "OK", (status, count)
+    assert message_count >= 1, message_count
+    status, records = imap.fetch(str(message_count), "(RFC822)")
     assert status == "OK", (status, records)
-    raw = next(part[1] for part in records if isinstance(part, tuple))
+    raw = next(
+        payload
+        for record in records
+        if isinstance(record, tuple)
+        for _, payload in (record,)
+    )
 
 parsed = BytesParser(policy=default).parsebytes(raw)
 actual = next(part.get_payload(decode=True) for part in parsed.walk() if part.get_filename() == "fixture.bin")

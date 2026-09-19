@@ -5,7 +5,7 @@ use litterkeep_server::{PRODUCT, VERSION};
 
 fn usage() {
     println!(
-        "{PRODUCT} {VERSION}\n\nUsage:\n  litterkeep-server init [data-dir]\n  litterkeep-server deliver <address> <sender> <recipient> <message-file>\n  litterkeep-server help\n  litterkeep-server version\n  litterkeep-server serve [smtp-address] [imap-address] [data-dir]"
+        "{PRODUCT} {VERSION}\n\nUsage:\n  litterkeep-server init [data-dir] [account] [password]\n  litterkeep-server deliver <address> <sender> <recipient> <message-file>\n  litterkeep-server help\n  litterkeep-server version\n  litterkeep-server serve [smtp-address] [imap-address] [data-dir]"
     );
 }
 
@@ -64,9 +64,19 @@ fn deliver() -> ExitCode {
     }
 }
 
-/// Создаёт локальный fixture account для проверяемого development запуска.
+/// Создаёт локальный account для проверяемого запуска.
+///
+/// Значения по умолчанию сохраняют документированный fixture `bob` с паролем
+/// `test-password`, но Linux acceptance может создать независимого получателя.
 fn initialize() -> ExitCode {
-    let data = env::args().nth(2).unwrap_or_else(|| "runtime".into());
+    let mut arguments = env::args().skip(2);
+    let data = arguments.next().unwrap_or_else(|| "runtime".into());
+    let account = arguments.next().unwrap_or_else(|| "bob".into());
+    let password = arguments.next().unwrap_or_else(|| "test-password".into());
+    if arguments.next().is_some() {
+        usage();
+        return ExitCode::from(2);
+    }
     let accounts = match litterkeep_server::accounts::Accounts::open(&data) {
         Ok(accounts) => accounts,
         Err(error) => {
@@ -74,13 +84,13 @@ fn initialize() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    match accounts.create("bob", b"test-password") {
+    match accounts.create(&account, password.as_bytes()) {
         Ok(()) => {
-            println!("created test account bob");
+            println!("created account {account}");
             ExitCode::SUCCESS
         }
         Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-            println!("test account bob already exists");
+            println!("account {account} already exists");
             ExitCode::SUCCESS
         }
         Err(error) => {
