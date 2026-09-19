@@ -349,3 +349,21 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   `cargo fmt --check`; `cargo test --locked` (29 passed); `cargo clippy
   --locked --all-targets -- -D warnings`; все изменённые Python CLI приняли
   `--help`; `git diff --check`.
+
+### 2026-09-19: TLS handshake deadline checkpoint
+
+- Каждая implicit-TLS session получает отдельный пятиисекундный handshake
+  deadline. Reactor вычисляет ближайший deadline и передаёт его в `poll(2)`,
+  поэтому не использует heartbeat, busy-loop или поток-таймер на соединение.
+- После пробуждения отдельный `reactor/deadline.rs` удаляет только session, у
+  которой rustls всё ещё находится в handshake и deadline истёк. Завершённый
+  handshake снимает deadline и дальше живёт по протокольным правилам.
+- PASS в Linux Docker image `litterkeep-server:handshake-timeout`:
+  `tls_handshake_timeout.py` открыл TCP и не послал ClientHello; сервер закрыл
+  его через 5.013 секунды. Сразу после освобождения slot полный TLS SMTP AUTH
+  to IMAP attachment сценарий и вся негативная AUTH policy снова прошли.
+- PASS на Windows для доступных целей: format, 29 unit tests, Clippy. Unit-тест
+  Linux-only deadline модуля на Windows не компилируется и отдельно не
+  засчитывается; фактическое Linux-поведение подтверждено blackbox-тестом.
+- G03 остаётся NOT RUN: требуется доказать общий admission limit и исчерпание
+  лимита без утечки, а также реализовать обязательный STARTTLS-профиль задания.

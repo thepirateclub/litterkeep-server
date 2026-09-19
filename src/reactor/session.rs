@@ -1,5 +1,9 @@
 //! Владение ресурсами одной TCP-сессии reactor-а.
 use super::*;
+use std::time::{Duration, Instant};
+
+/// Максимальное время, на которое TLS-клиент может занять slot без handshake.
+const TLS_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Состояние SMTP transaction, принадлежащее только соответствующей session.
 pub(super) enum SmtpState {
@@ -19,6 +23,7 @@ pub(super) struct Session {
     pub(super) output: Vec<u8>,
     pub(super) wire_output: Vec<u8>,
     pub(super) tls: Option<ServerTls>,
+    handshake_deadline: Option<Instant>,
     greeting_sent: bool,
     pub(super) pending_submit: Option<(Request, Pending)>,
     pub(super) pending: Option<Pending>,
@@ -34,6 +39,11 @@ impl Session {
         tls_config: Option<Arc<ServerConfig>>,
     ) -> io::Result<Self> {
         stream.set_nonblocking(true)?;
+        let tls = tls_config
+            .map(ServerTls::new)
+            .transpose()
+            .map_err(io::Error::other)?;
+        let handshake_deadline = tls.as_ref().map(|_| Instant::now() + TLS_HANDSHAKE_TIMEOUT);
         let mut result = Self {
             generation,
             kind,
@@ -41,10 +51,8 @@ impl Session {
             input: Vec::new(),
             output: Vec::new(),
             wire_output: Vec::new(),
-            tls: tls_config
-                .map(ServerTls::new)
-                .transpose()
-                .map_err(io::Error::other)?,
+            tls,
+            handshake_deadline,
             greeting_sent: false,
             pending_submit: None,
             pending: None,
@@ -63,6 +71,7 @@ impl Session {
         if self.tls.as_ref().is_some_and(ServerTls::is_handshaking) {
             return Ok(());
         }
+        self.handshake_deadline = None;
         let greeting = match self.kind {
             Kind::Smtp => b"220 litterkeep.test ESMTP litterkeep-server\r\n".as_slice(),
             Kind::Imap => b"* OK IMAP4rev1 litterkeep-server\r\n".as_slice(),
@@ -106,5 +115,19 @@ impl Session {
             },
             None => !self.output.is_empty(),
         }
+    }
+
+    /// Возвращает deadline только пока rustls действительно выполняет handshake.
+    pub(super) fn handshake_deadline(&self) -> Option<Instant> {
+        match self.tls.as_ref() {
+            Some(tls) if tls.is_handshaking() => self.handshake_deadline,
+            Some(_) | None => None,
+        }
+    }
+
+    /// Отделяет истечение handshake от обычного idle состояния протокола.
+    pub(super) fn handshake_expired(&self, now: Instant) -> bool {
+        self.handshake_deadline()
+            .is_some_and(|deadline| deadline <= now)
     }
 }

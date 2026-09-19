@@ -14,6 +14,8 @@ use std::os::fd::AsFd;
 use std::{path::Path, sync::Arc};
 #[path = "reactor/completion.rs"]
 mod completion;
+#[path = "reactor/deadline.rs"]
+mod deadline;
 #[path = "reactor/local_delivery.rs"]
 mod local_delivery;
 #[path = "reactor/protocol.rs"]
@@ -133,7 +135,9 @@ fn serve_with_tls(
                 ));
             }
         }
-        let ready = linux_poll::wait(&poll_fds, -1)?;
+        let timeout_ms = deadline::poll_timeout(&sessions);
+        let ready = linux_poll::wait(&poll_fds, timeout_ms)?;
+        deadline::expire_handshakes(&mut sessions);
         for (ready, target) in ready.into_iter().zip(targets) {
             match target {
                 Target::SmtpListener if ready.readable => accept(
