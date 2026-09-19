@@ -80,7 +80,7 @@ pub fn parse_list(mut tokens: impl Iterator<Item = Token>) -> Command {
         },
         Some(first) => {
             let mut restored = std::iter::once(first).chain(tokens);
-            parse_pattern(&mut restored)
+            parse_list_pattern(&mut restored)
                 .map(|pattern| Command::List { pattern })
                 .unwrap_or(Command::Unsupported)
         }
@@ -88,14 +88,39 @@ pub fn parse_list(mut tokens: impl Iterator<Item = Token>) -> Command {
     }
 }
 
+/// Принимает LIST RETURN (SPECIAL-USE): атрибуты уже вычисляются каталогом,
+/// поэтому эта форма не меняет выборку, а требует их в каждом LIST-ответе.
+fn parse_list_pattern(tokens: &mut impl Iterator<Item = Token>) -> Option<ListPattern> {
+    let reference = next_text(tokens)?;
+    let pattern = next_text(tokens)?;
+    match tokens.next() {
+        None if reference.is_empty() => list_pattern_value(pattern),
+        Some(Token::Text(return_name)) if return_name.eq_ignore_ascii_case("RETURN") => {
+            match (tokens.next(), tokens.next(), tokens.next(), tokens.next()) {
+                (Some(Token::ListStart), Some(Token::Text(option)), Some(Token::ListEnd), None)
+                    if reference.is_empty() && option.eq_ignore_ascii_case("SPECIAL-USE") =>
+                {
+                    list_pattern_value(pattern)
+                }
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+fn list_pattern_value(pattern: String) -> Option<ListPattern> {
+    Some(match pattern.as_str() {
+        "*" => ListPattern::All,
+        "%" => ListPattern::OneLevel,
+        _ => list_pattern(super::modified_utf7::decode(&pattern).ok()?),
+    })
+}
+
 fn parse_pattern(tokens: &mut impl Iterator<Item = Token>) -> Option<ListPattern> {
     match (next_text(tokens), next_text(tokens), tokens.next()) {
         (Some(reference), Some(pattern), None) if reference.is_empty() => {
-            Some(match pattern.as_str() {
-                "*" => ListPattern::All,
-                "%" => ListPattern::OneLevel,
-                _ => list_pattern(super::modified_utf7::decode(&pattern).ok()?),
-            })
+            list_pattern_value(pattern)
         }
         _ => None,
     }

@@ -58,3 +58,13 @@ fn special_use_list_and_wildcard_are_typed() {
         }
     ));
 }
+
+#[test]
+fn list_return_special_use_keeps_the_requested_selection() {
+    assert!(matches!(
+        parse("a LIST \"\" \"*\" RETURN (SPECIAL-USE)\r\n").command,
+        Command::List {
+            pattern: folder::ListPattern::All
+        }
+    ));
+}
