@@ -1,7 +1,9 @@
 //! Декодирование IMAP-команд: текст сети преобразуется в типизированные варианты.
 
+pub mod sequence_set;
 pub mod tokenizer;
 
+use sequence_set::SequenceSet;
 use tokenizer::Token;
 
 /// Команда вместе с тегом, которым сервер обязан завершить ответ.
@@ -24,10 +26,18 @@ pub enum Command {
     Select,
     Examine,
     Fetch {
-        sequence: usize,
+        addressing: Addressing,
+        sequence_set: SequenceSet,
         attribute: FetchAttribute,
     },
     Unsupported,
+}
+
+/// Пространство номеров, в котором интерпретируется sequence-set.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Addressing {
+    Sequence,
+    Uid,
 }
 
 /// Поддерживаемый одиночный атрибут FETCH начального профиля.
@@ -70,6 +80,7 @@ enum Verb {
     Select,
     Examine,
     Fetch,
+    Uid,
     Unsupported,
 }
 
@@ -90,19 +101,28 @@ pub fn parse(line: &str) -> TaggedCommand {
         Some(Verb::Logout) => Command::Logout,
         Some(Verb::Select) => Command::Select,
         Some(Verb::Examine) => Command::Examine,
-        Some(Verb::Fetch) => match (
-            next_text(&mut tokens).and_then(|word| word.parse().ok()),
-            next_text(&mut tokens).and_then(|word| parse_fetch_attribute(&word)),
-        ) {
-            (Some(sequence), Some(attribute)) => Command::Fetch {
-                sequence,
-                attribute,
-            },
+        Some(Verb::Fetch) => parse_fetch(&mut tokens, Addressing::Sequence),
+        Some(Verb::Uid) => match next_text(&mut tokens).as_deref().map(parse_verb) {
+            Some(Verb::Fetch) => parse_fetch(&mut tokens, Addressing::Uid),
             _ => Command::Unsupported,
         },
         Some(Verb::Unsupported) | None => Command::Unsupported,
     };
     TaggedCommand { tag, command }
+}
+
+fn parse_fetch(tokens: &mut impl Iterator<Item = Token>, addressing: Addressing) -> Command {
+    match (
+        next_text(tokens).and_then(|word| SequenceSet::parse(&word).ok()),
+        next_text(tokens).and_then(|word| parse_fetch_attribute(&word)),
+    ) {
+        (Some(sequence_set), Some(attribute)) => Command::Fetch {
+            addressing,
+            sequence_set,
+            attribute,
+        },
+        _ => Command::Unsupported,
+    }
 }
 
 fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
@@ -190,6 +210,7 @@ fn parse_verb(text: &str) -> Verb {
         "SELECT" => Verb::Select,
         "EXAMINE" => Verb::Examine,
         "FETCH" => Verb::Fetch,
+        "UID" => Verb::Uid,
         _ => Verb::Unsupported,
     }
 }
@@ -229,7 +250,8 @@ mod tests {
         assert_eq!(
             parse("a3 FETCH 2 (BODYSTRUCTURE)\r\n").command,
             Command::Fetch {
-                sequence: 2,
+                addressing: Addressing::Sequence,
+                sequence_set: SequenceSet::parse("2").unwrap(),
                 attribute: FetchAttribute::BodyStructure,
             }
         );
@@ -240,7 +262,8 @@ mod tests {
         assert_eq!(
             parse("a4 FETCH 1 (BODY.PEEK[2.MIME]<3.7>)\r\n").command,
             Command::Fetch {
-                sequence: 1,
+                addressing: Addressing::Sequence,
+                sequence_set: SequenceSet::parse("1").unwrap(),
                 attribute: FetchAttribute::Body {
                     peek: true,
                     section: BodySection::Part {
@@ -252,6 +275,19 @@ mod tests {
                         count: 7
                     }),
                 },
+            }
+        );
+    }
+
+    /// UID FETCH сохраняет отдельное пространство адресации до store snapshot.
+    #[test]
+    fn uid_fetch_is_typed() {
+        assert_eq!(
+            parse("a5 UID FETCH 20:10 (RFC822.SIZE)\r\n").command,
+            Command::Fetch {
+                addressing: Addressing::Uid,
+                sequence_set: SequenceSet::parse("20:10").unwrap(),
+                attribute: FetchAttribute::Rfc822Size,
             }
         );
     }

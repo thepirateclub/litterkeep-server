@@ -665,3 +665,20 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   скобки строковой эвристикой.
 - PASS 64 Windows unit test, format и Clippy. G06 остаётся RUNNING: literals,
   sequence-set, folders, UID, flags, APPEND и IDLE ещё не реализованы.
+
+### 2026-09-19: G06 sequence-set и UID FETCH checkpoint
+
+- После сверки RFC 9051 sections 4.1.1, 6.4.5 и 6.4.9 FETCH принимает
+  одиночные номера, списки, прямые/обратные диапазоны и `*`. `UID FETCH`
+  сохраняет отдельный enum пространства адресации до получения store snapshot.
+- Диапазоны не разворачиваются. Они один раз разрешаются относительно snapshot,
+  сортируются и объединяются за `O(r log r)`, затем каждое сообщение проверяется
+  бинарным поиском за `O(log r)`. Число исходных диапазонов ограничено 64.
+- Reactor возвращает все выбранные сообщения в порядке mailbox. UID FETCH
+  не подменяет номер untagged FETCH: снаружи остаётся sequence number, а UID
+  автоматически включается в каждый ответ.
+- PASS 68 Windows unit tests, format и Clippy; PASS Docker Linux 70/70.
+  Обычный Windows cross-check не засчитан: в PATH нет Linux C compiler для
+  `ring`, поэтому authoritative Linux проверкой служит Docker build/test.
+- G06 остаётся RUNNING: literals, flags, APPEND, folders, UIDVALIDITY/UIDNEXT и
+  IDLE ещё не реализованы.

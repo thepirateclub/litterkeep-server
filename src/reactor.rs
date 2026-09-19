@@ -55,12 +55,24 @@ enum Target {
 }
 #[derive(Clone)]
 enum Pending {
-    Authenticate { tag: String, account: String },
-    SmtpAuthenticate { account: String },
-    ValidateRecipient { address: String },
+    Authenticate {
+        tag: String,
+        account: String,
+    },
+    SmtpAuthenticate {
+        account: String,
+    },
+    ValidateRecipient {
+        address: String,
+    },
     Append,
     ReadForSelect(String),
-    ReadForFetch(usize, imap::FetchAttribute, String),
+    ReadForFetch(
+        imap::Addressing,
+        imap::sequence_set::SequenceSet,
+        imap::FetchAttribute,
+        String,
+    ),
 }
 
 #[derive(Clone)]

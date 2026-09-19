@@ -96,12 +96,12 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
             .as_bytes(),
         ),
         (
-            Pending::ReadForFetch(number, attribute, tag),
+            Pending::ReadForFetch(addressing, sequence_set, attribute, tag),
             Response::Read {
                 result: Ok(messages),
                 ..
             },
-        ) => write_fetch(session, number, attribute, tag, messages),
+        ) => write_fetch(session, addressing, sequence_set, attribute, tag, messages),
         (_, Response::Read { .. }) => session.push(b"451 storage failure\r\n"),
         _ => Ok(()),
     }
@@ -121,40 +121,78 @@ fn accept_recipient(session: &mut Session, address: String) -> io::Result<()> {
 /// Записывает RFC822 literal или ответ об отсутствии запрошенного сообщения.
 fn write_fetch(
     session: &mut Session,
-    number: usize,
+    addressing: imap::Addressing,
+    sequence_set: imap::sequence_set::SequenceSet,
     attribute: imap::FetchAttribute,
     tag: String,
     messages: Vec<crate::store::Message>,
 ) -> io::Result<()> {
-    let Some(message) = messages.get(number.saturating_sub(1)) else {
-        return session.push(format!("{tag} NO no such message\r\n").as_bytes());
+    let maximum = match addressing {
+        imap::Addressing::Sequence => messages.len() as u64,
+        imap::Addressing::Uid => messages.last().map(|message| message.uid).unwrap_or(0),
+    };
+    let resolved = sequence_set.resolve(maximum);
+    for (offset, message) in messages.iter().enumerate() {
+        let number = offset.saturating_add(1);
+        let candidate = match addressing {
+            imap::Addressing::Sequence => number as u64,
+            imap::Addressing::Uid => message.uid,
+        };
+        if resolved.contains(candidate) {
+            if let Err(reason) = write_fetch_item(session, number, message, &attribute, addressing)?
+            {
+                return session.push(format!("{tag} NO {reason}\r\n").as_bytes());
+            }
+        }
+    }
+    session.push(format!("{tag} OK FETCH completed\r\n").as_bytes())
+}
+
+fn write_fetch_item(
+    session: &mut Session,
+    number: usize,
+    message: &crate::store::Message,
+    attribute: &imap::FetchAttribute,
+    addressing: imap::Addressing,
+) -> io::Result<Result<(), &'static str>> {
+    let uid = match addressing {
+        imap::Addressing::Sequence => String::new(),
+        imap::Addressing::Uid => format!("UID {} ", message.uid),
     };
     match attribute {
         imap::FetchAttribute::Rfc822 => {
             session.push(
-                format!("* {number} FETCH (RFC822 {{{}}}\r\n", message.bytes.len()).as_bytes(),
+                format!(
+                    "* {number} FETCH ({uid}RFC822 {{{}}}\r\n",
+                    message.bytes.len()
+                )
+                .as_bytes(),
             )?;
             session.push(&message.bytes)?;
-            session.push(format!("\r\n)\r\n{tag} OK FETCH completed\r\n").as_bytes())
+            session.push(b"\r\n)\r\n")?;
+            Ok(Ok(()))
         }
-        imap::FetchAttribute::Rfc822Size => session.push(
-            format!(
-                "* {number} FETCH (RFC822.SIZE {})\r\n{tag} OK FETCH completed\r\n",
-                message.bytes.len()
-            )
-            .as_bytes(),
-        ),
+        imap::FetchAttribute::Rfc822Size => {
+            session.push(
+                format!(
+                    "* {number} FETCH ({uid}RFC822.SIZE {})\r\n",
+                    message.bytes.len()
+                )
+                .as_bytes(),
+            )?;
+            Ok(Ok(()))
+        }
         imap::FetchAttribute::BodyStructure => {
             let structure = crate::mime::tree::parse(&message.bytes)
                 .and_then(|entity| crate::mime::bodystructure::encode(&entity, &message.bytes));
             match structure {
-                Ok(structure) => session.push(
-                    format!(
-                        "* {number} FETCH (BODYSTRUCTURE {structure})\r\n{tag} OK FETCH completed\r\n"
-                    )
-                    .as_bytes(),
-                ),
-                Err(_) => session.push(format!("{tag} NO malformed MIME message\r\n").as_bytes()),
+                Ok(structure) => {
+                    session.push(
+                        format!("* {number} FETCH ({uid}BODYSTRUCTURE {structure})\r\n").as_bytes(),
+                    )?;
+                    Ok(Ok(()))
+                }
+                Err(_) => Ok(Err("malformed MIME message")),
             }
         }
         imap::FetchAttribute::Body { .. } => {
@@ -162,24 +200,26 @@ fn write_fetch(
                 Ok(data) => {
                     session.push(
                         format!(
-                            "* {number} FETCH ({} {{{}}}\r\n",
+                            "* {number} FETCH ({uid}{} {{{}}}\r\n",
                             data.label,
                             data.bytes.len()
                         )
                         .as_bytes(),
                     )?;
                     session.push(data.bytes)?;
-                    session.push(format!("\r\n)\r\n{tag} OK FETCH completed\r\n").as_bytes())
+                    session.push(b"\r\n)\r\n")?;
+                    Ok(Ok(()))
                 }
-                Err(_) => session.push(format!("{tag} NO invalid BODY section\r\n").as_bytes()),
+                Err(_) => Ok(Err("invalid BODY section")),
             }
         }
         imap::FetchAttribute::Envelope => match crate::mime::envelope::encode(&message.bytes) {
-            Ok(envelope) => session.push(
-                format!("* {number} FETCH (ENVELOPE {envelope})\r\n{tag} OK FETCH completed\r\n")
-                    .as_bytes(),
-            ),
-            Err(_) => session.push(format!("{tag} NO malformed message headers\r\n").as_bytes()),
+            Ok(envelope) => {
+                session
+                    .push(format!("* {number} FETCH ({uid}ENVELOPE {envelope})\r\n").as_bytes())?;
+                Ok(Ok(()))
+            }
+            Err(_) => Ok(Err("malformed message headers")),
         },
     }
 }
