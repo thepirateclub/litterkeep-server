@@ -703,3 +703,24 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   один message, неизменный UIDVALIDITY, UIDNEXT 2 и UID 1.
 - G06 остаётся RUNNING: literals, APPEND, mutable flags, folders и IDLE ещё не
   реализованы.
+
+### 2026-09-19: G06 synchronized APPEND checkpoint
+
+- APPEND INBOX принимает синхронизирующий `{octets}` literal: continuation
+  отправляется только после TLS-аутентификации, проверки mailbox и лимита 10
+  MiB. Необъявленный LITERAL+ не принимается и не рекламируется.
+- `LiteralReceiver` принадлежит конкретной session, поглощает вход частями и
+  отделяет ровно объявленные октеты от завершающего CRLF и следующей команды.
+  Большой literal накапливается в bounded receiver, а общий input buffer не
+  обязан вместить сообщение целиком.
+- Store request ставится только после полного literal. Tagged OK с
+  `APPENDUID 1 uid` выдаётся лишь после durable append completion; ошибка store
+  возвращает NO. Оборванная сессия не публикует частичный literal.
+- PASS unit-тест всех внутренних границ двух фрагментов; PASS 70 Windows tests,
+  format и Clippy; PASS Docker Linux 73/73.
+- Независимый Python `imaplib` через STARTTLS добавил 97 октетов с NUL,
+  получил `APPENDUID 1 1`, затем SELECT/FETCH вернули точные исходные байты.
+  После restart с тем же volume подтверждены один message, UIDVALIDITY 1,
+  UIDNEXT 2 и UID 1.
+- G06 остаётся RUNNING: APPEND flags/date, mutable flags, folders и IDLE ещё не
+  реализованы.

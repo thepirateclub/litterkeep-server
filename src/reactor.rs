@@ -17,8 +17,12 @@ use std::{path::Path, sync::Arc};
 mod completion;
 #[path = "reactor/deadline.rs"]
 mod deadline;
+#[path = "reactor/imap_literal.rs"]
+mod imap_literal;
 #[path = "reactor/local_delivery.rs"]
 mod local_delivery;
+#[path = "reactor/pending.rs"]
+mod pending;
 #[path = "reactor/protocol.rs"]
 mod protocol;
 #[path = "reactor/session.rs"]
@@ -28,6 +32,8 @@ mod session_io;
 #[path = "reactor/smtp_protocol.rs"]
 mod smtp_protocol;
 use completion::{complete, retry_submissions};
+use imap_literal::LiteralReceiver;
+use pending::Pending;
 use protocol::process_input;
 use session::{Session, SmtpState};
 use session_io::{flush, read_session};
@@ -53,32 +59,6 @@ enum Target {
     WorkerWake,
     Session(usize, u64),
 }
-#[derive(Clone)]
-enum Pending {
-    Authenticate {
-        tag: String,
-        account: String,
-    },
-    SmtpAuthenticate {
-        account: String,
-    },
-    ValidateRecipient {
-        address: String,
-    },
-    Append,
-    ReadForSelect {
-        tag: String,
-        mailbox: String,
-        read_only: bool,
-    },
-    ReadForFetch(
-        imap::Addressing,
-        imap::sequence_set::SequenceSet,
-        imap::FetchAttribute,
-        String,
-    ),
-}
-
 #[derive(Clone)]
 enum TlsMode {
     Plain,

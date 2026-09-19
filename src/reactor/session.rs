@@ -33,6 +33,8 @@ pub(super) struct Session {
     pub(super) authenticated_account: Option<String>,
     /// Store key выбранного mailbox; `None` означает authenticated state.
     pub(super) selected_mailbox: Option<String>,
+    /// Ограниченный literal остаётся собственностью этой IMAP-сессии.
+    pub(super) imap_literal: Option<LiteralReceiver>,
     pub(super) smtp: SmtpState,
 }
 
@@ -66,6 +68,7 @@ impl Session {
             pending: None,
             authenticated_account: None,
             selected_mailbox: None,
+            imap_literal: None,
             smtp: SmtpState::Command(smtp::Transaction::default()),
         };
         result.send_greeting_if_ready()?;
@@ -159,6 +162,7 @@ impl Session {
         self.smtp = SmtpState::Command(smtp::Transaction::default());
         self.authenticated_account = None;
         self.selected_mailbox = None;
+        self.imap_literal = None;
     }
 
     /// Передаёт socket новому rustls handshake только на чистой границе вывода.

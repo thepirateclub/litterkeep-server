@@ -86,3 +86,15 @@ fn inbox_is_typed_case_insensitively() {
         }
     );
 }
+
+/// APPEND отделяет объявленный размер literal от последующих сетевых байтов.
+#[test]
+fn append_literal_size_is_typed() {
+    assert_eq!(
+        parse("a7 APPEND INBOX {42}\r\n").command,
+        Command::Append {
+            mailbox: MailboxName::Inbox,
+            literal_size: 42,
+        }
+    );
+}

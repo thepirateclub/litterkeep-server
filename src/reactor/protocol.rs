@@ -17,6 +17,15 @@ pub(super) fn process_input(
         if session.pending_submit.is_some() {
             break;
         }
+        if session.imap_literal.is_some() {
+            match consume_imap_literal(session, request_id)? {
+                Some((request, pending)) => {
+                    submit(session, request, pending, slot, generation, worker, owners);
+                    continue;
+                }
+                None => break,
+            }
+        }
         let Some(line) = take_line(&mut session.input) else {
             break;
         };
@@ -107,6 +116,10 @@ fn imap_line(
                 owners,
             );
         }
+        imap::Command::Append {
+            mailbox,
+            literal_size,
+        } => begin_imap_append(session, parsed.tag, mailbox, literal_size)?,
         imap::Command::Logout => {
             session.push(b"* BYE\r\n")?;
             session.push(format!("{} OK LOGOUT completed\r\n", parsed.tag).as_bytes())?;
@@ -134,6 +147,60 @@ fn imap_line(
         imap::Command::Unsupported => session.push(format!("{} BAD\r\n", parsed.tag).as_bytes())?,
     }
     Ok(())
+}
+
+/// Резервирует bounded literal только после TLS и успешной аутентификации.
+fn begin_imap_append(
+    session: &mut Session,
+    tag: String,
+    mailbox: imap::MailboxName,
+    literal_size: usize,
+) -> io::Result<()> {
+    let Some(account) = session.authenticated_account.clone() else {
+        return session.push(format!("{tag} NO authenticate first\r\n").as_bytes());
+    };
+    if let imap::MailboxName::Named(_) = mailbox {
+        return session.push(format!("{tag} NO [TRYCREATE] mailbox does not exist\r\n").as_bytes());
+    }
+    if literal_size > MAX_MESSAGE {
+        return session.push(format!("{tag} NO message exceeds limit\r\n").as_bytes());
+    }
+    session.imap_literal = Some(LiteralReceiver::new(tag, account, literal_size));
+    session.push(b"+ Ready for literal data\r\n")
+}
+
+/// Делает один неблокирующий шаг literal receiver и формирует durable request.
+fn consume_imap_literal(
+    session: &mut Session,
+    request_id: &mut u64,
+) -> io::Result<Option<(Request, Pending)>> {
+    let progress = session
+        .imap_literal
+        .as_mut()
+        .expect("literal receiver checked")
+        .consume(&mut session.input);
+    match progress {
+        imap_literal::LiteralProgress::Waiting => Ok(None),
+        imap_literal::LiteralProgress::InvalidTerminator(tag) => {
+            session.imap_literal = None;
+            session.input.clear();
+            session.push(format!("{tag} BAD invalid literal terminator\r\n").as_bytes())?;
+            Ok(None)
+        }
+        imap_literal::LiteralProgress::Complete(completed) => {
+            session.imap_literal = None;
+            let id = *request_id;
+            *request_id = request_id.wrapping_add(1).max(1);
+            Ok(Some((
+                Request::Append {
+                    request_id: id,
+                    mailbox: completed.mailbox,
+                    bytes: completed.bytes,
+                },
+                Pending::ImapAppend { tag: completed.tag },
+            )))
+        }
+    }
 }
 
 /// Запускает IMAP transport upgrade до аутентификации и mailbox state.

@@ -5,9 +5,9 @@ It owns its protocol parsers, filesystem store and task/resource lifecycle.
 
 Current checkpoint: TLS and STARTTLS SMTP submission authenticate accounts with
 SASL PLAIN and deliver into the worker-owned filesystem store. IMAP supports
-STARTTLS authentication, SELECT/EXAMINE metadata, sequence-set and UID FETCH,
-ENVELOPE, BODYSTRUCTURE and MIME section/partial reads. This is not yet a
-complete mail server: mutable flags, folders, APPEND, IDLE, full POP3, Sieve,
+STARTTLS authentication, durable APPEND to INBOX, SELECT/EXAMINE metadata,
+sequence-set and UID FETCH, ENVELOPE, BODYSTRUCTURE and MIME section/partial
+reads. This is not yet a complete mail server: mutable flags, folders, IDLE, full POP3, Sieve,
 durable outbound transport integration and the remaining acceptance matrix are
 unfinished.
 

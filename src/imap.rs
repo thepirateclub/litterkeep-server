@@ -22,6 +22,10 @@ pub enum Command {
         username: String,
         password: String,
     },
+    Append {
+        mailbox: MailboxName,
+        literal_size: usize,
+    },
     Logout,
     Select {
         mailbox: MailboxName,
@@ -87,6 +91,7 @@ enum Verb {
     Capability,
     StartTls,
     Login,
+    Append,
     Logout,
     Select,
     Examine,
@@ -109,6 +114,7 @@ pub fn parse(line: &str) -> TaggedCommand {
             (Some(username), Some(password)) => Command::Login { username, password },
             _ => Command::Unsupported,
         },
+        Some(Verb::Append) => parse_append(&mut tokens),
         Some(Verb::Logout) => Command::Logout,
         Some(Verb::Select) => parse_select(&mut tokens, false),
         Some(Verb::Examine) => parse_select(&mut tokens, true),
@@ -120,6 +126,31 @@ pub fn parse(line: &str) -> TaggedCommand {
         Some(Verb::Unsupported) | None => Command::Unsupported,
     };
     TaggedCommand { tag, command }
+}
+
+fn parse_append(tokens: &mut impl Iterator<Item = Token>) -> Command {
+    let Some(mailbox_text) = next_text(tokens) else {
+        return Command::Unsupported;
+    };
+    let mailbox = match mailbox_text.to_ascii_uppercase().as_str() {
+        "INBOX" => MailboxName::Inbox,
+        _ => MailboxName::Named(mailbox_text),
+    };
+    match next_text(tokens).and_then(|value| parse_literal_size(&value)) {
+        Some(literal_size) => Command::Append {
+            mailbox,
+            literal_size,
+        },
+        None => Command::Unsupported,
+    }
+}
+
+fn parse_literal_size(value: &str) -> Option<usize> {
+    value
+        .strip_prefix('{')?
+        .strip_suffix('}')?
+        .parse::<usize>()
+        .ok()
 }
 
 fn parse_select(tokens: &mut impl Iterator<Item = Token>, read_only: bool) -> Command {
@@ -230,6 +261,7 @@ fn parse_verb(text: &str) -> Verb {
         "CAPABILITY" => Verb::Capability,
         "STARTTLS" => Verb::StartTls,
         "LOGIN" => Verb::Login,
+        "APPEND" => Verb::Append,
         "LOGOUT" => Verb::Logout,
         "SELECT" => Verb::Select,
         "EXAMINE" => Verb::Examine,

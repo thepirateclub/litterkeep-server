@@ -83,6 +83,15 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
             session.push(b"451 storage failure\r\n")
         }
         (
+            Pending::ImapAppend { tag },
+            Response::Appended {
+                result: Ok(uid), ..
+            },
+        ) => session.push(format!("{tag} OK [APPENDUID 1 {uid}] APPEND completed\r\n").as_bytes()),
+        (Pending::ImapAppend { tag }, Response::Appended { result: Err(_), .. }) => {
+            session.push(format!("{tag} NO APPEND failed\r\n").as_bytes())
+        }
+        (
             Pending::ReadForSelect {
                 tag,
                 mailbox,
