@@ -1,15 +1,33 @@
-# Architecture checkpoint: G00/G01
+# Архитектура litterkeep-server
 
-The server will be one process with one reactor and bounded helper pools. A
-network session is an FSM record, never a thread. SMTP/IMAP/POP3/ManageSieve
-decoders feed typed commands, then shared mail-core operations, then protocol
-encoders. The storage layer does not produce protocol responses.
+## Процесс и владение
 
-`runtime::Orchestrator` is the initial enforcement boundary. It records task
-and resource identities separately from OS descriptor numbers. An exclusive
-resource is moved into a non-cloneable lease. Only a matching owner can return
-it. Cancellation requests task cleanup but cannot reissue a resource that its
-old owner still holds. Event-version parking prevents the check/register race.
+Один процесс `litterkeep-server serve` принимает SMTP и IMAP. Linux reactor
+владеет TCP-сокетами и состоянием сессий. Сессия имеет slot и generation:
+completion закрытой или повторно использованной сессии не может попасть новому
+клиенту.
 
-Linux `poll(2)` and wake socket integration are deferred to G01 completion;
-the current portable core is deliberately unit-testable without an OS socket.
+Reactor не открывает Store и не выполняет файловый ввод-вывод. Он ставит
+ограниченные `Request` в очередь worker-а и ожидает wake socket. Write interest
+запрашивается только при наличии output. Один worker владеет Store и выполняет
+commit/read последовательно.
+
+## Долговечность
+
+Blob сначала пишется во временный файл и синхронизируется. Затем он атомарно
+публикуется, после чего синхронизируется checksummed journal frame. Неполный
+tail журнала отбрасывается при recovery. Полная повреждённая запись и
+отсутствующий referenced blob являются ошибками. Orphan blob не доставляется.
+
+## Протоколы и идентичность
+
+Wire-команды декодируются в Enum на границе parser-а. IMAP пока реализует
+минимальный plaintext путь для CAPABILITY, LOGIN, SELECT/EXAMINE и FETCH.
+`Accounts` хранит Argon2id PHC records; подключение account verification к
+worker и session state остаётся незавершённым. TLS также ещё не подключён.
+
+## Ограничения
+
+Подтверждён Linux Docker путь SMTP -> Store -> IMAP с SHA-256 вложения.
+Это не является подтверждением TLS, безопасной аутентификации, полного IMAP,
+POP3, Sieve, ManageSieve или исходящего SMTP.
