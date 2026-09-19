@@ -104,3 +104,22 @@ fn unversioned_mail_data_is_not_guessed_or_rewritten() {
     assert!(!p.join("format-version").exists());
     let _ = fs::remove_dir_all(p);
 }
+
+#[test]
+fn blob_quota_rejects_before_publication() {
+    let p = dir();
+    let mut store = Store::open_with_quota(&p, 4).expect("small quota store");
+    let error = store
+        .append("bob", b"12345")
+        .expect_err("oversized blob must be rejected");
+    assert_eq!(error.kind(), io::ErrorKind::StorageFull);
+    assert!(store.messages("bob").expect("mailbox").is_empty());
+    assert!(
+        fs::read_dir(p.join("blobs"))
+            .expect("blobs")
+            .next()
+            .is_none()
+    );
+    drop(store);
+    let _ = fs::remove_dir_all(p);
+}

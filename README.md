@@ -50,6 +50,10 @@ The certificate must be trusted by the client and contain the listener host in
 its SAN. Test-only material can be generated with
 `cargo run --locked --example make_test_pki -- ./test-pki`.
 
+The current immutable-message blob budget is 25 MiB per data directory. The
+single storage writer reconstructs actual usage at startup and rejects a new
+message before creating its temporary blob when the budget would be exceeded.
+
 The repository includes `tests/blackbox/tls_smtp_auth_attachment.py`, which
 uses only Python's standard SMTP, IMAP and MIME clients. It was run successfully
 against the Linux Docker execution image on 2026-09-19 and compared the decoded

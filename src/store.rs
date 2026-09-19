@@ -11,25 +11,37 @@ mod journal;
 mod mailbox_state;
 #[path = "store/model.rs"]
 mod model;
+#[path = "store/quota.rs"]
+mod quota;
 #[path = "store/recovery.rs"]
 mod recovery;
 #[cfg(test)]
 #[path = "store/tests.rs"]
 mod tests;
 pub use model::Message;
+use quota::Quota;
 use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+
+/// Начальный общий budget неизменяемых message blobs: 25 MiB.
+const DEFAULT_BLOB_QUOTA: u64 = 25 * 1024 * 1024;
 #[derive(Debug)]
 pub struct Store {
     root: PathBuf,
     _writer_lock: File,
     next_uids: HashMap<String, u64>,
+    blob_quota: Quota,
 }
 impl Store {
     pub fn open(root: impl AsRef<Path>) -> io::Result<Self> {
-        let root = root.as_ref().to_path_buf();
+        Self::open_with_quota(root.as_ref(), DEFAULT_BLOB_QUOTA)
+    }
+
+    /// Открывает store с явным budget; отдельный параметр нужен для граничных тестов.
+    fn open_with_quota(root: &Path, quota_limit: u64) -> io::Result<Self> {
+        let root = root.to_path_buf();
         fs::create_dir_all(&root)?;
         format::ensure(&root)?;
         fs::create_dir_all(root.join("blobs"))?;
@@ -38,19 +50,23 @@ impl Store {
         let lock = open_writer_lock(&root.join("writer.lock"))?;
         recovery::recover(&root)?;
         let next_uids = mailbox_state::load_next_uids(&root)?;
+        let blob_quota = Quota::load(&root.join("blobs"), quota_limit)?;
         let store = Self {
             root,
             _writer_lock: lock,
             next_uids,
+            blob_quota,
         };
         Ok(store)
     }
     pub fn append(&mut self, mailbox: &str, raw: &[u8]) -> io::Result<u64> {
         model::validate_mailbox(mailbox)?;
+        self.blob_quota.ensure_available(raw.len())?;
         let index = self.index(mailbox);
         let mut uid = self.next_uids.get(mailbox).copied().unwrap_or(1);
         let (name, _) = blobs::next_available(&self.root, mailbox, &mut uid)?;
         blobs::publish(&self.root, &name, raw)?;
+        self.blob_quota.record(raw.len())?;
         let mut file = OpenOptions::new().create(true).append(true).open(index)?;
         file.write_all(&journal::frame(uid, &name))?;
         file.sync_all()?;

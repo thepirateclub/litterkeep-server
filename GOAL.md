@@ -422,3 +422,19 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   IMAP attachment с совпавшими байтами.
 - G02 остаётся RUNNING: один общий атомарный multi-recipient transaction,
   failpoint matrix и дисковая quota ещё отсутствуют.
+
+### 2026-09-19: bounded blob quota checkpoint
+
+- Добавлен отдельный `Quota` budget неизменяемых blobs с документированным
+  пределом 25 MiB. При старте он одним линейным проходом учитывает все файлы,
+  включая orphan; далее single writer делает `O(1)` preflight и обновление
+  счётчика. Проверка выполняется до создания временного файла.
+- Unit-тест с budget 4 bytes подтвердил `StorageFull` для сообщения 5 bytes,
+  пустой mailbox и отсутствие temp/final blob после отказа. Полный набор вырос
+  до 32 tests; format и Clippy прошли.
+- PASS Linux Docker build `litterkeep-server:blob-quota`. Новый бинарник открыл
+  ранее созданный version-1 store и повторил независимый TLS SMTP AUTH to IMAP
+  attachment сценарий с точным совпадением байтов.
+- G02 остаётся RUNNING до атомарного multi-recipient transaction и failpoint
+  matrix. Квота пока ограничивает blobs, но не journal/accounts metadata; это
+  явно не заявляется полной квотой всего filesystem tree.
