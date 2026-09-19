@@ -31,6 +31,10 @@ mod imap_idle;
 mod imap_literal;
 #[path = "reactor/imap_select.rs"]
 mod imap_select;
+#[path = "reactor/imap_status.rs"]
+mod imap_status;
+#[path = "reactor/imap_subscriptions.rs"]
+mod imap_subscriptions;
 #[path = "reactor/local_delivery.rs"]
 mod local_delivery;
 #[path = "reactor/pending.rs"]

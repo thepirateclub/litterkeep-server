@@ -13,8 +13,10 @@ durable APPEND completion and returns to normal commands through DONE. A
 durable folder catalog exposes default SPECIAL-USE folders plus CREATE/LIST;
 named folders are usable through APPEND, SELECT, FETCH and STORE. RENAME keeps
 stable internal IDs for the whole subtree; DELETE retires an ID permanently and
-refuses INBOX or a parent that still has children.
-This is not yet a complete mail server: subscriptions/STATUS and message-moving
+refuses INBOX or a parent that still has children. SUBSCRIBE/UNSUBSCRIBE persist
+independently of folder existence, LSUB exposes missing subscriptions as
+`\Noselect`, and STATUS reads mailbox counters without selecting it.
+This is not yet a complete mail server: message-moving
 IMAP operations, POP3, Sieve, durable
 outbound transport integration and the remaining acceptance matrix are
 unfinished.
@@ -72,8 +74,13 @@ against the Linux Docker execution image on 2026-09-19 and compared the decoded
 attachment bytes. Docker is a test environment only, not a required part of
 litterkeep-server.
 
-The only runtime binary is `target/release/litterkeep-server`. Runtime data,
-TLS files and test artifacts will be placed under `runtime/` and are ignored.
+Linux checks reuse bind-mounted stage directories under `./data`; for example,
+the subscriptions checkpoint uses `./data/g06-subscriptions-status`. The shared
+test PKI is kept in `./data/pki`. These local artifacts are ignored by Git and
+excluded from the Docker build context.
+
+The only runtime binary is `target/release/litterkeep-server`. Current Docker
+test state is placed under ignored `data/` stage directories.
 
 See `GOAL.md` for actual stage status and `litterkeep-rust-terra-goal.md` for
 the requested project contract.

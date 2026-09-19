@@ -1,12 +1,15 @@
 //! Декодирование IMAP-команд: текст сети преобразуется в типизированные варианты.
 
 pub mod append;
+pub mod fetch;
 pub mod flags;
 pub mod folder;
 pub mod idle;
 pub mod sequence_set;
+pub mod status;
 pub mod tokenizer;
 
+pub use fetch::{BodySection, FetchAttribute, Partial};
 pub use idle::{IdleContinuation, parse_idle_continuation};
 use sequence_set::SequenceSet;
 use tokenizer::Token;
@@ -44,6 +47,19 @@ pub enum Command {
         source: MailboxName,
         destination: MailboxName,
     },
+    Subscribe {
+        mailbox: MailboxName,
+    },
+    Unsubscribe {
+        mailbox: MailboxName,
+    },
+    Lsub {
+        pattern: folder::ListPattern,
+    },
+    Status {
+        mailbox: MailboxName,
+        attributes: Vec<status::StatusAttribute>,
+    },
     List {
         pattern: folder::ListPattern,
     },
@@ -79,38 +95,6 @@ pub enum Addressing {
     Sequence,
     Uid,
 }
-/// Поддерживаемый одиночный атрибут FETCH начального профиля.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum FetchAttribute {
-    Rfc822,
-    Rfc822Size,
-    BodyStructure,
-    Envelope,
-    Flags,
-    InternalDate,
-    Body {
-        peek: bool,
-        section: BodySection,
-        partial: Option<Partial>,
-    },
-}
-/// Выбираемая raw MIME section.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum BodySection {
-    EntireMessage,
-    Part {
-        path: Vec<usize>,
-        mime_headers: bool,
-    },
-}
-
-/// Октетный диапазон IMAP partial fetch.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Partial {
-    pub offset: usize,
-    pub count: usize,
-}
-
 /// Внутренний verb до проверки аргументов команды.
 enum Verb {
     Capability,
@@ -123,6 +107,10 @@ enum Verb {
     Create,
     Delete,
     Rename,
+    Subscribe,
+    Unsubscribe,
+    Lsub,
+    Status,
     List,
     Select,
     Examine,
@@ -153,13 +141,17 @@ pub fn parse(line: &str) -> TaggedCommand {
         Some(Verb::Create) => folder::parse_create(tokens),
         Some(Verb::Delete) => folder::parse_delete(tokens),
         Some(Verb::Rename) => folder::parse_rename(tokens),
+        Some(Verb::Subscribe) => folder::parse_subscribe(tokens, true),
+        Some(Verb::Unsubscribe) => folder::parse_subscribe(tokens, false),
+        Some(Verb::Lsub) => folder::parse_lsub(tokens),
+        Some(Verb::Status) => status::parse(tokens),
         Some(Verb::List) => folder::parse_list(tokens),
         Some(Verb::Select) => parse_select(&mut tokens, false),
         Some(Verb::Examine) => parse_select(&mut tokens, true),
-        Some(Verb::Fetch) => parse_fetch(&mut tokens, Addressing::Sequence),
+        Some(Verb::Fetch) => fetch::parse(&mut tokens, Addressing::Sequence),
         Some(Verb::Store) => flags::parse_store(&mut tokens, Addressing::Sequence),
         Some(Verb::Uid) => match next_text(&mut tokens).as_deref().map(parse_verb) {
-            Some(Verb::Fetch) => parse_fetch(&mut tokens, Addressing::Uid),
+            Some(Verb::Fetch) => fetch::parse(&mut tokens, Addressing::Uid),
             Some(Verb::Store) => flags::parse_store(&mut tokens, Addressing::Uid),
             _ => Command::Unsupported,
         },
@@ -181,20 +173,6 @@ fn parse_select(tokens: &mut impl Iterator<Item = Token>, read_only: bool) -> Co
     }
 }
 
-fn parse_fetch(tokens: &mut impl Iterator<Item = Token>, addressing: Addressing) -> Command {
-    match (
-        next_text(tokens).and_then(|word| SequenceSet::parse(&word).ok()),
-        next_text(tokens).and_then(|word| parse_fetch_attribute(&word)),
-    ) {
-        (Some(sequence_set), Some(attribute)) => Command::Fetch {
-            addressing,
-            sequence_set,
-            attribute,
-        },
-        _ => Command::Unsupported,
-    }
-}
-
 fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
     tokens.find_map(|token| match token {
         Token::Text(value) => Some(value),
@@ -207,69 +185,6 @@ fn unsupported(tag: &str) -> TaggedCommand {
         tag: tag.into(),
         command: Command::Unsupported,
     }
-}
-
-fn parse_fetch_attribute(value: &str) -> Option<FetchAttribute> {
-    let token = value.trim_matches(['(', ')']);
-    match token.to_ascii_uppercase().as_str() {
-        "RFC822" => Some(FetchAttribute::Rfc822),
-        "RFC822.SIZE" => Some(FetchAttribute::Rfc822Size),
-        "BODYSTRUCTURE" => Some(FetchAttribute::BodyStructure),
-        "ENVELOPE" => Some(FetchAttribute::Envelope),
-        "FLAGS" => Some(FetchAttribute::Flags),
-        "INTERNALDATE" => Some(FetchAttribute::InternalDate),
-        _ => parse_body_attribute(token),
-    }
-}
-
-fn parse_body_attribute(token: &str) -> Option<FetchAttribute> {
-    let upper = token.to_ascii_uppercase();
-    let (peek, after_prefix) = match (
-        upper.strip_prefix("BODY.PEEK["),
-        upper.strip_prefix("BODY["),
-    ) {
-        (Some(value), _) => (true, value),
-        (None, Some(value)) => (false, value),
-        (None, None) => return None,
-    };
-    let (section_text, suffix) = after_prefix.split_once(']')?;
-    let section = parse_body_section(section_text)?;
-    let partial = match suffix {
-        "" => None,
-        value => Some(parse_partial(value)?),
-    };
-    Some(FetchAttribute::Body {
-        peek,
-        section,
-        partial,
-    })
-}
-
-fn parse_body_section(value: &str) -> Option<BodySection> {
-    if value.is_empty() {
-        return Some(BodySection::EntireMessage);
-    }
-    let mut path = Vec::new();
-    let mut mime_headers = false;
-    for component in value.split('.') {
-        match component {
-            "MIME" => mime_headers = true,
-            number => path.push(number.parse::<usize>().ok()?),
-        }
-    }
-    if path.is_empty() {
-        return None;
-    }
-    Some(BodySection::Part { path, mime_headers })
-}
-
-fn parse_partial(value: &str) -> Option<Partial> {
-    let inner = value.strip_prefix('<')?.strip_suffix('>')?;
-    let (offset, count) = inner.split_once('.')?;
-    Some(Partial {
-        offset: offset.parse().ok()?,
-        count: count.parse().ok()?,
-    })
 }
 
 /// Единственная допустимая граница строкового сравнения протокольного verb.
@@ -285,6 +200,10 @@ fn parse_verb(text: &str) -> Verb {
         "CREATE" => Verb::Create,
         "DELETE" => Verb::Delete,
         "RENAME" => Verb::Rename,
+        "SUBSCRIBE" => Verb::Subscribe,
+        "UNSUBSCRIBE" => Verb::Unsubscribe,
+        "LSUB" => Verb::Lsub,
+        "STATUS" => Verb::Status,
         "LIST" => Verb::List,
         "SELECT" => Verb::Select,
         "EXAMINE" => Verb::Examine,

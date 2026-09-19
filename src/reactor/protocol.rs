@@ -67,7 +67,9 @@ pub(super) fn submit(
         | Request::DeleteFolder { request_id, .. }
         | Request::ListFolders { request_id, .. }
         | Request::ResolveFolder { request_id, .. }
-        | Request::ReadFolder { request_id, .. } => *request_id,
+        | Request::ReadFolder { request_id, .. }
+        | Request::SetSubscription { request_id, .. }
+        | Request::ListSubscriptions { request_id, .. } => *request_id,
     };
     match worker.worker.submit(request) {
         Ok(()) => {
@@ -180,6 +182,21 @@ fn imap_line(
         )?,
         imap::Command::List { pattern } => imap_folders::list(
             session, parsed.tag, pattern, slot, generation, worker, owners, request_id,
+        )?,
+        imap::Command::Subscribe { mailbox } => imap_subscriptions::set(
+            session, parsed.tag, mailbox, true, slot, generation, worker, owners, request_id,
+        )?,
+        imap::Command::Unsubscribe { mailbox } => imap_subscriptions::set(
+            session, parsed.tag, mailbox, false, slot, generation, worker, owners, request_id,
+        )?,
+        imap::Command::Lsub { pattern } => imap_subscriptions::list(
+            session, parsed.tag, pattern, slot, generation, worker, owners, request_id,
+        )?,
+        imap::Command::Status {
+            mailbox,
+            attributes,
+        } => imap_status::queue(
+            session, parsed.tag, mailbox, attributes, slot, generation, worker, owners, request_id,
         )?,
         imap::Command::Select { mailbox } => imap_select::queue(
             session, parsed.tag, mailbox, false, slot, generation, worker, owners, request_id,

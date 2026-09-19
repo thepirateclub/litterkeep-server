@@ -63,4 +63,17 @@ pub(super) enum Pending {
         tag: String,
         pattern: imap::folder::ListPattern,
     },
+    SetSubscription {
+        tag: String,
+        subscribed: bool,
+    },
+    ListSubscriptions {
+        tag: String,
+        pattern: imap::folder::ListPattern,
+    },
+    Status {
+        tag: String,
+        name: String,
+        attributes: Vec<imap::status::StatusAttribute>,
+    },
 }

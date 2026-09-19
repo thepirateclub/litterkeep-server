@@ -1,5 +1,6 @@
 /target/
 /runtime/
+/data/
 /runtime-smoke-*/
 /artifacts/
 *.log

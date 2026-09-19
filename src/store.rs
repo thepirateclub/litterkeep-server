@@ -26,12 +26,18 @@ mod journal;
 mod mailbox_state;
 #[path = "store/model.rs"]
 mod model;
+#[path = "store/open.rs"]
+mod open;
 #[path = "store/quota.rs"]
 mod quota;
 #[path = "store/read.rs"]
 mod read;
 #[path = "store/recovery.rs"]
 mod recovery;
+#[path = "store/subscription_access.rs"]
+mod subscription_access;
+#[path = "store/subscriptions.rs"]
+mod subscriptions;
 #[cfg(test)]
 #[path = "store/tests.rs"]
 mod tests;
@@ -44,8 +50,9 @@ use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+pub use subscriptions::SubscribedFolder;
 /// Начальный общий budget неизменяемых message blobs: 25 MiB.
-const DEFAULT_BLOB_QUOTA: u64 = 25 * 1024 * 1024;
+pub(super) const DEFAULT_BLOB_QUOTA: u64 = 25 * 1024 * 1024;
 #[derive(Debug)]
 pub struct Store {
     root: PathBuf,
@@ -54,6 +61,7 @@ pub struct Store {
     entries: HashMap<String, Vec<model::Record>>,
     flags: HashMap<String, HashMap<u64, MessageFlags>>,
     folders: folders::FolderCatalog,
+    subscriptions: subscriptions::SubscriptionCatalog,
     next_transaction_id: u64,
     blob_quota: Quota,
     write_state: WriteState,
@@ -71,45 +79,6 @@ enum StoreFailpoint {
     AfterFirstMailboxFrame,
 }
 impl Store {
-    pub fn open(root: impl AsRef<Path>) -> io::Result<Self> {
-        Self::open_with_quota(root.as_ref(), DEFAULT_BLOB_QUOTA)
-    }
-    /// Открывает store с явным budget; отдельный параметр нужен для граничных тестов.
-    fn open_with_quota(root: &Path, quota_limit: u64) -> io::Result<Self> {
-        let root = root.to_path_buf();
-        fs::create_dir_all(&root)?;
-        format::ensure(&root)?;
-        fs::create_dir_all(root.join("blobs"))?;
-        fs::create_dir_all(root.join("mailboxes"))?;
-        fs::create_dir_all(root.join("journal"))?;
-        fs::create_dir_all(root.join("folders"))?;
-        durability::sync_directory(&root)?;
-        let lock = open_writer_lock(&root.join("writer.lock"))?;
-        recovery::recover(&root)?;
-        let committed = commit_log::committed(&root.join("journal/transactions.log"))?;
-        let recovered = mailbox_state::load(&root, &committed)?;
-        let flags = flags::load(&root, &recovered.entries)?;
-        let blob_quota = Quota::load(&root.join("blobs"), quota_limit)?;
-        let folders = folders::FolderCatalog::load(&root)?;
-        let next_transaction_id = recovered
-            .maximum_transaction_id
-            .checked_add(1)
-            .ok_or_else(|| io::Error::other("transaction id exhausted"))?;
-        let store = Self {
-            root,
-            _writer_lock: lock,
-            next_uids: recovered.next_uids,
-            entries: recovered.entries,
-            flags,
-            folders,
-            next_transaction_id,
-            blob_quota,
-            write_state: WriteState::Writable,
-            #[cfg(test)]
-            failpoint: None,
-        };
-        Ok(store)
-    }
     pub fn append(&mut self, mailbox: &str, raw: &[u8]) -> io::Result<u64> {
         self.append_many(&[mailbox.to_owned()], raw)
     }

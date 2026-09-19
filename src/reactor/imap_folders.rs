@@ -230,7 +230,7 @@ pub(super) fn listed(
     session.push(format!("{tag} OK LIST completed\r\n").as_bytes())
 }
 
-fn matches_pattern(name: &str, pattern: &imap::folder::ListPattern) -> bool {
+pub(super) fn matches_pattern(name: &str, pattern: &imap::folder::ListPattern) -> bool {
     match pattern {
         imap::folder::ListPattern::All => true,
         imap::folder::ListPattern::OneLevel => !name.contains('/'),
@@ -238,7 +238,7 @@ fn matches_pattern(name: &str, pattern: &imap::folder::ListPattern) -> bool {
     }
 }
 
-fn special_use(value: Option<crate::store::SpecialUse>) -> &'static str {
+pub(super) fn special_use(value: Option<crate::store::SpecialUse>) -> &'static str {
     match value {
         Some(crate::store::SpecialUse::Inbox) | None => "",
         Some(crate::store::SpecialUse::Sent) => "\\Sent",
@@ -249,7 +249,7 @@ fn special_use(value: Option<crate::store::SpecialUse>) -> &'static str {
     }
 }
 
-fn quote(value: &str) -> String {
+pub(super) fn quote(value: &str) -> String {
     let escaped = value.replace('\\', "\\\\").replace('"', "\\\"");
     format!("\"{escaped}\"")
 }

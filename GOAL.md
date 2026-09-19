@@ -858,3 +858,28 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - G06 остаётся RUNNING: subscriptions/LSUB, STATUS, COPY/MOVE/EXPUNGE/CLOSE,
   HEADER.FIELDS, UID SEARCH, modified UTF-7, полный LIST wildcard/SPECIAL-USE
   профиль, Recent и согласование sequence-map двух сессий ещё не завершены.
+
+### 2026-09-20: G06 subscriptions and STATUS checkpoint
+
+- `SUBSCRIBE`, `UNSUBSCRIBE`, `LSUB` и поддержанный профиль `STATUS` проходят
+  через типизированный parser, bounded worker и одного владельца store.
+- Подписки хранятся независимо от существования mailbox в append-only журнале.
+  В памяти используется `BTreeSet`: идемпотентное обновление имеет O(log n),
+  а LSUB получает детерминированный порядок без дополнительной сортировки.
+- LSUB возвращает удалённую либо ещё не созданную подписку с `\Noselect`.
+  SUBSCRIBE не создаёт mailbox, а DELETE/RENAME не переписывают подписки.
+- STATUS читает согласованный snapshot и поддерживает `MESSAGES`, `UIDNEXT`,
+  `UIDVALIDITY`, `UNSEEN`, не меняя selected state. `RECENT` сознательно
+  получает BAD как неподдержанный до реализации нормативной сессионной модели,
+  вместо ложного успешного `RECENT 0`.
+- PASS: 86 Windows tests, strict Clippy и format. Linux Docker: 89 tests.
+  Независимый `imaplib` через STARTTLS проверил две записи с разными flags,
+  durable subscribe/unsubscribe, `\Noselect` и точные STATUS counters до и
+  после restart.
+- По уточнённому требованию Docker использует один фиксированный образ и bind
+  mount локальной `./data/g06-subscriptions-status`; named volumes и новые
+  runtime-папки для каждого прогона больше не создаются. `.dockerignore`
+  исключает `data`, `runtime`, `target` и `.git` из build context.
+- G06 остаётся RUNNING: COPY/MOVE/EXPUNGE/CLOSE/CHECK, UID SEARCH,
+  modified UTF-7, полный LIST/SPECIAL-USE профиль, Recent и согласование
+  sequence-map двух сессий ещё не завершены.

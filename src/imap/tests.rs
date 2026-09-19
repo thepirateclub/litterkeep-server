@@ -162,6 +162,38 @@ fn delete_and_recursive_rename_are_typed() {
     );
 }
 
+#[test]
+fn subscriptions_and_status_are_typed() {
+    assert_eq!(
+        parse("a14 SUBSCRIBE \"Projects/2026\"\r\n").command,
+        Command::Subscribe {
+            mailbox: MailboxName::Named("Projects/2026".into())
+        }
+    );
+    assert_eq!(
+        parse("a15 LSUB \"\" *\r\n").command,
+        Command::Lsub {
+            pattern: crate::imap::folder::ListPattern::All
+        }
+    );
+    assert_eq!(
+        parse("a16 STATUS INBOX (MESSAGES UIDNEXT UIDVALIDITY UNSEEN)\r\n").command,
+        Command::Status {
+            mailbox: MailboxName::Inbox,
+            attributes: vec![
+                crate::imap::status::StatusAttribute::Messages,
+                crate::imap::status::StatusAttribute::UidNext,
+                crate::imap::status::StatusAttribute::UidValidity,
+                crate::imap::status::StatusAttribute::Unseen,
+            ]
+        }
+    );
+    assert_eq!(
+        parse("a17 STATUS INBOX (RECENT)\r\n").command,
+        Command::Unsupported
+    );
+}
+
 /// STORE operation и системные flags не покидают parser строками.
 #[test]
 fn store_flags_are_typed() {

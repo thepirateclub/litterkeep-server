@@ -57,6 +57,8 @@ fn response_id(response: &Response) -> u64 {
         | Response::Folders { request_id, .. }
         | Response::FolderResolved { request_id, .. }
         | Response::FolderRead { request_id, .. } => *request_id,
+        Response::SubscriptionSet { request_id, .. }
+        | Response::Subscriptions { request_id, .. } => *request_id,
     }
 }
 
@@ -187,6 +189,21 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
         (Pending::ListFolders { tag, pattern }, Response::Folders { result, .. }) => {
             imap_folders::listed(session, tag, pattern, result)
         }
+        (
+            Pending::SetSubscription { tag, subscribed },
+            Response::SubscriptionSet { result, .. },
+        ) => imap_subscriptions::set_completed(session, tag, subscribed, result),
+        (Pending::ListSubscriptions { tag, pattern }, Response::Subscriptions { result, .. }) => {
+            imap_subscriptions::listed(session, tag, pattern, result)
+        }
+        (
+            Pending::Status {
+                tag,
+                name,
+                attributes,
+            },
+            Response::FolderRead { result, .. },
+        ) => imap_status::completed(session, tag, name, attributes, result),
         _ => Ok(()),
     }
 }

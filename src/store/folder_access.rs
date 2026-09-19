@@ -54,7 +54,7 @@ impl Store {
     }
 
     /// Не отравляет writer на ожидаемых policy-отказах до начала записи.
-    fn finish_folder_operation<T>(&mut self, result: io::Result<T>) -> io::Result<T> {
+    pub(super) fn finish_folder_operation<T>(&mut self, result: io::Result<T>) -> io::Result<T> {
         match result {
             Ok(value) => Ok(value),
             Err(error)

@@ -1,122 +1,14 @@
 //! The single owner of a mutable Store, fed by a bounded request queue.
 #[path = "storage_worker/execution.rs"]
 mod execution;
-use crate::{
-    accounts::Accounts,
-    mail_flags::{FlagMutation, MessageFlags},
-    store::{MailboxSnapshot, Store},
-};
+#[path = "storage_worker/message.rs"]
+mod message;
+use crate::{accounts::Accounts, store::Store};
+pub use message::{Request, Response};
 use std::io;
 use std::path::Path;
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError};
 use std::thread::{self, JoinHandle};
-
-#[derive(Debug)]
-pub enum Request {
-    /// Проверяет credential вне сетевого reactor.
-    Authenticate {
-        request_id: u64,
-        username: String,
-        password: Vec<u8>,
-    },
-    /// Проверяет local-part envelope до начала SMTP DATA.
-    ValidateRecipient {
-        request_id: u64,
-        mailbox: String,
-    },
-    Append {
-        request_id: u64,
-        mailbox: String,
-        bytes: Vec<u8>,
-        metadata: crate::store::AppendMetadata,
-    },
-    /// Долговечно сохраняет одно сообщение во все проверенные локальные inbox.
-    AppendMany {
-        request_id: u64,
-        mailboxes: Vec<String>,
-        bytes: Vec<u8>,
-    },
-    Read {
-        request_id: u64,
-        mailbox: String,
-    },
-    UpdateFlags {
-        request_id: u64,
-        mailbox: String,
-        uids: Vec<u64>,
-        mutation: FlagMutation,
-        flags: MessageFlags,
-    },
-    CreateFolder {
-        request_id: u64,
-        account: String,
-        name: String,
-    },
-    RenameFolder {
-        request_id: u64,
-        account: String,
-        old_name: String,
-        new_name: String,
-    },
-    DeleteFolder {
-        request_id: u64,
-        account: String,
-        name: String,
-    },
-    ListFolders {
-        request_id: u64,
-        account: String,
-    },
-    ResolveFolder {
-        request_id: u64,
-        account: String,
-        name: String,
-    },
-    ReadFolder {
-        request_id: u64,
-        account: String,
-        name: String,
-    },
-}
-#[derive(Debug)]
-pub enum Response {
-    /// Completion проверки аккаунта.
-    Authenticated { request_id: u64, accepted: bool },
-    /// Ответ policy-проверки локального SMTP-получателя.
-    RecipientValidated { request_id: u64, accepted: bool },
-    Appended {
-        request_id: u64,
-        result: io::Result<u64>,
-    },
-    Read {
-        request_id: u64,
-        result: io::Result<MailboxSnapshot>,
-    },
-    FlagsUpdated {
-        request_id: u64,
-        result: io::Result<MailboxSnapshot>,
-    },
-    FolderCreated {
-        request_id: u64,
-        result: io::Result<crate::store::FolderInfo>,
-    },
-    FolderMutated {
-        request_id: u64,
-        result: io::Result<()>,
-    },
-    Folders {
-        request_id: u64,
-        result: io::Result<Vec<crate::store::FolderInfo>>,
-    },
-    FolderResolved {
-        request_id: u64,
-        result: io::Result<String>,
-    },
-    FolderRead {
-        request_id: u64,
-        result: io::Result<crate::store::ResolvedMailbox>,
-    },
-}
 
 pub struct StorageWorker {
     requests: SyncSender<Request>,

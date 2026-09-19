@@ -121,6 +121,22 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             request_id,
             result: store.snapshot_folder(&account, &name),
         },
+        Request::SetSubscription {
+            request_id,
+            account,
+            name,
+            subscribed,
+        } => Response::SubscriptionSet {
+            request_id,
+            result: store.set_subscription(&account, &name, subscribed),
+        },
+        Request::ListSubscriptions {
+            request_id,
+            account,
+        } => Response::Subscriptions {
+            request_id,
+            result: store.subscriptions(&account),
+        },
     }
 }
 
