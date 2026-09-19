@@ -18,7 +18,7 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | G04 | G03 | durable SMTP submission and local delivery | PASS |
 | G05 | G04 | MIME + IMAP, independently checked attachment | PASS |
 | G06 | G05 | IMAP folders, flags, UID, IDLE | RUNNING |
-| G07 | G02 | POP3 backed by the shared store | NOT RUN |
+| G07 | G02 | POP3 backed by the shared store | PASS |
 | G08 | G02 | Sieve and ManageSieve delivery effect | NOT RUN |
 | G09 | G04 | outbound SMTP, pool, retry/DSN | RUNNING |
 | G10 | G06,G07,G08,G09 | failure matrix, replay, resource plateaus | NOT RUN |
@@ -129,6 +129,19 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - G07 остаётся NOT RUN: destructive fixture ещё использует `bob`, тогда как
   цель требует отдельный `pop@litterkeep.test`, и полный external
   interoperability profile не завершён.
+
+### 2026-09-20: G07 PASS
+
+- Отдельный fixture `pop@litterkeep.test` создан как account `pop` и проверен
+  независимыми `smtplib`/`poplib` клиентами в Linux Docker. SMTP STARTTLS
+  доставил сообщение в общий INBOX; POP3 STLS подтвердил UIDL и RETR, `RSET`
+  и TCP disconnect не опубликовали DELE, а QUIT выполнил durable удаление.
+- Отдельная maildrop lease проверена на конкурентный отказ и повторную выдачу
+  после EOF. Политика IMAP EXPUNGE против POP3 snapshot документирована и
+  проверена отдельным client-сценарием без второго Store writer-а.
+- PASS: критерий G07 `UIDL/RETR, правильное удаление и освобождение maildrop
+  lease` выполнен. Неподдержанные внешние клиенты и расширенная failure matrix
+  остаются задачами G10, а не ложным claim о всеобщей interoperability.
 
 ### 2026-09-19: G00 PASS, G01 running
 

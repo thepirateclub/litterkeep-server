@@ -89,6 +89,7 @@ cargo run --locked -- init ./runtime alice alice-password
 cargo run --locked -- init ./runtime bob bob-password
 cargo run --locked -- serve-pop3-starttls 0.0.0.0:1110 ./runtime ./server.der ./server.key.der
 cargo run --locked -- serve-pop3-tls 0.0.0.0:1995 ./runtime ./server.der ./server.key.der
+cargo run --locked -- serve-all-starttls 0.0.0.0:1587 0.0.0.0:1143 0.0.0.0:1110 ./runtime ./server.der ./server.key.der
 ```
 
 The POP3 test account is `bob/bob-password`; clients must use STLS before
@@ -100,6 +101,10 @@ python tests/blackbox/pop3_starttls_delivery.py --phase smtp --port 11587 --ca .
 python tests/blackbox/pop3_starttls_delivery.py --phase pop3 --port 11110 --ca ./data/pki/ca.pem
 python tests/blackbox/pop3_starttls_delivery.py --phase empty --port 11110 --ca ./data/pki/ca.pem
 ```
+
+`serve-all-starttls` is the one-process acceptance mode: SMTP, IMAP and POP3
+share one storage owner and poll reactor. The destructive POP3 fixture uses
+`./data/g07-pop-destructive` and the dedicated account `pop/pop-password`.
 
 The only runtime binary is `target/release/litterkeep-server`. Current Docker
 test state is placed under ignored `data/` stage directories.
