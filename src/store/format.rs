@@ -40,7 +40,7 @@ pub(super) fn ensure(root: &Path) -> io::Result<()> {
 
 /// Учётные записи могут существовать до первого запуска Store и не являются mail data.
 fn contains_mail_data(root: &Path) -> io::Result<bool> {
-    for name in ["blobs", "mailboxes"] {
+    for name in ["blobs", "mailboxes", "folders"] {
         let directory = root.join(name);
         match fs::read_dir(directory) {
             Ok(mut entries) => {

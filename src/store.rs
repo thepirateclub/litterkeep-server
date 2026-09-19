@@ -7,6 +7,12 @@ mod commit_log;
 mod durability;
 #[path = "store/flags.rs"]
 mod flags;
+#[path = "store/folder_access.rs"]
+mod folder_access;
+#[path = "store/folder_cursor.rs"]
+mod folder_cursor;
+#[path = "store/folders.rs"]
+mod folders;
 #[path = "store/format.rs"]
 mod format;
 #[path = "store/journal.rs"]
@@ -25,6 +31,7 @@ mod recovery;
 #[path = "store/tests.rs"]
 mod tests;
 pub use crate::mail_flags::{FlagMutation, MessageFlags, SystemFlag};
+pub use folders::{FolderInfo, SpecialUse};
 pub use model::{AppendMetadata, MailboxSnapshot, Message};
 use quota::Quota;
 use std::collections::{HashMap, HashSet};
@@ -41,6 +48,7 @@ pub struct Store {
     next_uids: HashMap<String, u64>,
     entries: HashMap<String, Vec<model::Record>>,
     flags: HashMap<String, HashMap<u64, MessageFlags>>,
+    folders: folders::FolderCatalog,
     next_transaction_id: u64,
     blob_quota: Quota,
     write_state: WriteState,
@@ -72,6 +80,7 @@ impl Store {
         fs::create_dir_all(root.join("blobs"))?;
         fs::create_dir_all(root.join("mailboxes"))?;
         fs::create_dir_all(root.join("journal"))?;
+        fs::create_dir_all(root.join("folders"))?;
         durability::sync_directory(&root)?;
         let lock = open_writer_lock(&root.join("writer.lock"))?;
         recovery::recover(&root)?;
@@ -79,6 +88,7 @@ impl Store {
         let recovered = mailbox_state::load(&root, &committed)?;
         let flags = flags::load(&root, &recovered.entries)?;
         let blob_quota = Quota::load(&root.join("blobs"), quota_limit)?;
+        let folders = folders::FolderCatalog::load(&root)?;
         let next_transaction_id = recovered
             .maximum_transaction_id
             .checked_add(1)
@@ -89,6 +99,7 @@ impl Store {
             next_uids: recovered.next_uids,
             entries: recovered.entries,
             flags,
+            folders,
             next_transaction_id,
             blob_quota,
             write_state: WriteState::Writable,
@@ -229,12 +240,10 @@ impl Store {
             .ok_or_else(|| io::Error::other("transaction id exhausted"))?;
         Ok(first_uid)
     }
-
     #[cfg(test)]
     fn set_failpoint(&mut self, failpoint: StoreFailpoint) {
         self.failpoint = Some(failpoint);
     }
-
     #[cfg(test)]
     fn check_mailbox_failpoint(&self, written: usize) -> io::Result<()> {
         if let (Some(StoreFailpoint::AfterFirstMailboxFrame), 1) = (self.failpoint, written) {
@@ -242,7 +251,6 @@ impl Store {
         }
         Ok(())
     }
-
     #[cfg(not(test))]
     fn check_mailbox_failpoint(&self, _written: usize) -> io::Result<()> {
         Ok(())

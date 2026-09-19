@@ -73,6 +73,21 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
                 .update_flags(&mailbox, &uids, mutation, flags)
                 .and_then(|()| store.snapshot(&mailbox)),
         },
+        Request::CreateFolder {
+            request_id,
+            account,
+            name,
+        } => Response::FolderCreated {
+            request_id,
+            result: store.create_folder(&account, &name),
+        },
+        Request::ListFolders {
+            request_id,
+            account,
+        } => Response::Folders {
+            request_id,
+            result: store.folders(&account),
+        },
     }
 }
 

@@ -51,7 +51,9 @@ fn response_id(response: &Response) -> u64 {
         | Response::RecipientValidated { request_id, .. }
         | Response::Appended { request_id, .. }
         | Response::Read { request_id, .. }
-        | Response::FlagsUpdated { request_id, .. } => *request_id,
+        | Response::FlagsUpdated { request_id, .. }
+        | Response::FolderCreated { request_id, .. }
+        | Response::Folders { request_id, .. } => *request_id,
     }
 }
 
@@ -157,6 +159,12 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
             super::flag_completion::write(session, pending, response)
         }
         (_, Response::FlagsUpdated { .. }) => session.push(b"451 storage failure\r\n"),
+        (Pending::CreateFolder { tag }, Response::FolderCreated { result, .. }) => {
+            imap_folders::created(session, tag, result)
+        }
+        (Pending::ListFolders { tag, pattern }, Response::Folders { result, .. }) => {
+            imap_folders::listed(session, tag, pattern, result)
+        }
         _ => Ok(()),
     }
 }

@@ -129,6 +129,22 @@ fn internal_date_fetch_is_typed() {
     assert_eq!(attribute, FetchAttribute::InternalDate);
 }
 
+#[test]
+fn create_and_list_are_typed() {
+    assert_eq!(
+        parse("a10 CREATE \"Projects/2026\"\r\n").command,
+        Command::Create {
+            mailbox: MailboxName::Named("Projects/2026".into())
+        }
+    );
+    assert_eq!(
+        parse("a11 LIST \"\" \"%\"\r\n").command,
+        Command::List {
+            pattern: crate::imap::folder::ListPattern::OneLevel
+        }
+    );
+}
+
 /// STORE operation и системные flags не покидают parser строками.
 #[test]
 fn store_flags_are_typed() {

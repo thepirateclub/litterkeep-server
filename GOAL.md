@@ -789,3 +789,24 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - G06 остаётся RUNNING: folders, COPY/MOVE/EXPUNGE, HEADER.FIELDS, UID SEARCH,
   subscriptions, Recent, очередь IDLE-событий и расширенный concurrency profile
   ещё не реализованы или не проверены.
+
+### 2026-09-19: G06 durable folder catalog checkpoint
+
+- Store содержит account-scoped каталог со стабильными монотонными folder ID.
+  Пользовательское имя находится только в checksum-защищённом journal frame;
+  путь mailbox строится из проверенного account и числового ID, поэтому даже
+  Unicode или вложенное имя не становится filesystem path.
+- При первом обращении идемпотентно создаются INBOX, Sent, Drafts, Trash, Junk,
+  Archive, Invoices и тестовый дочерний `Invoices/2026`. SPECIAL-USE хранится
+  enum-значением, а не выводится из английского имени. Прерванный хвост журнала
+  обрезается, повреждённый полный frame отвергается.
+- Типизированные CREATE и LIST проходят через bounded storage worker. LIST
+  возвращает delimiter `/`, специальные атрибуты и различает поддержанные
+  профили `*`, `%` и exact name. Повторный CREATE получает ALREADYEXISTS.
+- PASS 82 Windows tests, format и Clippy; PASS Docker Linux 85/85.
+  Независимый Python 3.14 `imaplib` подтвердил default folders, SPECIAL-USE,
+  CREATE `Projects/2026`, LIST `*`, отсутствие дочерней папки в LIST `%` и
+  восстановление тех же результатов после restart с неизменным volume.
+- G06 остаётся RUNNING: named-folder SELECT/APPEND, RENAME/DELETE,
+  subscriptions, STATUS, COPY/MOVE/EXPUNGE, modified UTF-7, HEADER.FIELDS,
+  UID SEARCH, Recent и полный LIST wildcard profile ещё не готовы.

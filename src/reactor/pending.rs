@@ -48,4 +48,11 @@ pub(super) enum Pending {
         silent: bool,
         tag: String,
     },
+    CreateFolder {
+        tag: String,
+    },
+    ListFolders {
+        tag: String,
+        pattern: imap::folder::ListPattern,
+    },
 }

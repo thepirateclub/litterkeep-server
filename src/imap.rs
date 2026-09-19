@@ -2,6 +2,7 @@
 
 pub mod append;
 pub mod flags;
+pub mod folder;
 pub mod idle;
 pub mod sequence_set;
 pub mod tokenizer;
@@ -35,6 +36,12 @@ pub enum Command {
     Logout,
     Noop,
     Idle,
+    Create {
+        mailbox: MailboxName,
+    },
+    List {
+        pattern: folder::ListPattern,
+    },
     Select {
         mailbox: MailboxName,
     },
@@ -112,6 +119,8 @@ enum Verb {
     Logout,
     Noop,
     Idle,
+    Create,
+    List,
     Select,
     Examine,
     Fetch,
@@ -138,6 +147,8 @@ pub fn parse(line: &str) -> TaggedCommand {
         Some(Verb::Logout) => Command::Logout,
         Some(Verb::Noop) => Command::Noop,
         Some(Verb::Idle) => Command::Idle,
+        Some(Verb::Create) => folder::parse_create(tokens),
+        Some(Verb::List) => folder::parse_list(tokens),
         Some(Verb::Select) => parse_select(&mut tokens, false),
         Some(Verb::Examine) => parse_select(&mut tokens, true),
         Some(Verb::Fetch) => parse_fetch(&mut tokens, Addressing::Sequence),
@@ -266,6 +277,8 @@ fn parse_verb(text: &str) -> Verb {
         "LOGOUT" => Verb::Logout,
         "NOOP" => Verb::Noop,
         "IDLE" => Verb::Idle,
+        "CREATE" => Verb::Create,
+        "LIST" => Verb::List,
         "SELECT" => Verb::Select,
         "EXAMINE" => Verb::Examine,
         "FETCH" => Verb::Fetch,

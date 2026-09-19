@@ -61,7 +61,9 @@ pub(super) fn submit(
         | Request::Append { request_id, .. }
         | Request::AppendMany { request_id, .. }
         | Request::Read { request_id, .. }
-        | Request::UpdateFlags { request_id, .. } => *request_id,
+        | Request::UpdateFlags { request_id, .. }
+        | Request::CreateFolder { request_id, .. }
+        | Request::ListFolders { request_id, .. } => *request_id,
     };
     match worker.worker.submit(request) {
         Ok(()) => {
@@ -147,6 +149,12 @@ fn imap_line(
             session.push(format!("{} OK LOGOUT completed\r\n", parsed.tag).as_bytes())?;
         }
         imap::Command::Idle => imap_idle::begin(session, parsed.tag)?,
+        imap::Command::Create { mailbox } => imap_folders::create(
+            session, parsed.tag, mailbox, slot, generation, worker, owners, request_id,
+        )?,
+        imap::Command::List { pattern } => imap_folders::list(
+            session, parsed.tag, pattern, slot, generation, worker, owners, request_id,
+        )?,
         imap::Command::Select { mailbox } => imap_select::queue(
             session, parsed.tag, mailbox, false, slot, generation, worker, owners, request_id,
         )?,

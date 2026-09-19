@@ -23,6 +23,8 @@ mod flag_completion;
 mod imap_append;
 #[path = "reactor/imap_fetch_response.rs"]
 mod imap_fetch_response;
+#[path = "reactor/imap_folders.rs"]
+mod imap_folders;
 #[path = "reactor/imap_idle.rs"]
 mod imap_idle;
 #[path = "reactor/imap_literal.rs"]

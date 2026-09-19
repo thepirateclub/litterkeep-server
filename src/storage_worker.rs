@@ -47,6 +47,15 @@ pub enum Request {
         mutation: FlagMutation,
         flags: MessageFlags,
     },
+    CreateFolder {
+        request_id: u64,
+        account: String,
+        name: String,
+    },
+    ListFolders {
+        request_id: u64,
+        account: String,
+    },
 }
 #[derive(Debug)]
 pub enum Response {
@@ -65,6 +74,14 @@ pub enum Response {
     FlagsUpdated {
         request_id: u64,
         result: io::Result<MailboxSnapshot>,
+    },
+    FolderCreated {
+        request_id: u64,
+        result: io::Result<crate::store::FolderInfo>,
+    },
+    Folders {
+        request_id: u64,
+        result: io::Result<Vec<crate::store::FolderInfo>>,
     },
 }
 
