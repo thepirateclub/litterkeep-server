@@ -1,5 +1,6 @@
 //! Durable delivery queue journal.
 use std::{
+    collections::BTreeMap,
     fs::{self, OpenOptions},
     io::{self, Write},
     path::{Path, PathBuf},
@@ -56,6 +57,13 @@ impl Queue {
         })
     }
     pub fn enqueue(&self, id: &str, recipient: &str) -> io::Result<()> {
+        self.record(id, recipient, State::Pending)
+    }
+    /// Добавляет новый факт перехода; старые факты сохраняются для recovery.
+    pub fn transition(&self, id: &str, recipient: &str, state: State) -> io::Result<()> {
+        self.record(id, recipient, state)
+    }
+    fn record(&self, id: &str, recipient: &str, state: State) -> io::Result<()> {
         if id.contains(char::is_whitespace) || recipient.contains(char::is_whitespace) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -66,31 +74,39 @@ impl Queue {
             .create(true)
             .append(true)
             .open(&self.path)?;
-        writeln!(f, "{} {id} {recipient}", State::Pending.wire())?;
+        writeln!(f, "{} {id} {recipient}", state.wire())?;
         f.sync_all()
     }
     pub fn pending(&self) -> io::Result<Vec<Delivery>> {
         match fs::read_to_string(&self.path) {
-            Ok(s) => s
-                .lines()
-                .map(|line| {
-                    let mut fields = line.split_whitespace();
-                    let state = fields.next().ok_or_else(|| {
-                        io::Error::new(io::ErrorKind::InvalidData, "bad queue record")
-                    })?;
-                    let id = fields.next().ok_or_else(|| {
-                        io::Error::new(io::ErrorKind::InvalidData, "bad queue record")
-                    })?;
-                    let recipient = fields.next().ok_or_else(|| {
-                        io::Error::new(io::ErrorKind::InvalidData, "bad queue record")
-                    })?;
-                    Ok(Delivery {
-                        id: id.into(),
-                        recipient: recipient.into(),
-                        state: State::parse(state)?,
+            Ok(s) => {
+                let latest: BTreeMap<_, _> = s
+                    .lines()
+                    .map(|line| {
+                        let mut fields = line.split_whitespace();
+                        let state = fields.next().ok_or_else(|| {
+                            io::Error::new(io::ErrorKind::InvalidData, "bad queue record")
+                        })?;
+                        let id = fields.next().ok_or_else(|| {
+                            io::Error::new(io::ErrorKind::InvalidData, "bad queue record")
+                        })?;
+                        let recipient = fields.next().ok_or_else(|| {
+                            io::Error::new(io::ErrorKind::InvalidData, "bad queue record")
+                        })?;
+                        Ok(Delivery {
+                            id: id.into(),
+                            recipient: recipient.into(),
+                            state: State::parse(state)?,
+                        })
                     })
-                })
-                .collect(),
+                    .map(|result| {
+                        result.map(|delivery| {
+                            ((delivery.id.clone(), delivery.recipient.clone()), delivery)
+                        })
+                    })
+                    .collect::<io::Result<_>>()?;
+                Ok(latest.into_values().collect())
+            }
             Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(Vec::new()),
             Err(e) => Err(e),
         }
@@ -112,6 +128,18 @@ mod tests {
                 state: State::Pending
             }]
         );
+        let _ = fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn latest_transition_wins_after_reopen() {
+        let d = std::env::temp_dir().join("litterkeep-queue-transition-test");
+        let q = Queue::open(&d).unwrap();
+        q.enqueue("message-2", "bob@test").unwrap();
+        q.transition("message-2", "bob@test", State::Delivered)
+            .unwrap();
+        let delivery = Queue::open(&d).unwrap().pending().unwrap().pop().unwrap();
+        assert_eq!(delivery.state, State::Delivered);
         let _ = fs::remove_dir_all(d);
     }
 }
