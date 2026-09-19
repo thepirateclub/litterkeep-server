@@ -2,7 +2,7 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`  
 Root status: ACTIVE  
-Current subgoal: G04
+Current subgoal: G03
 
 The actually available Goal interface was inspected. It supports creating and
 updating one active root goal (`create_goal`, `get_goal`, `update_goal`), but
@@ -12,15 +12,15 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | Goal | Depends on | Acceptance criterion | Status |
 |---|---|---|---|
 | G00 | none | build, help, lock, dependency report, saved goal | PASS |
-| G01 | G00 | lifecycle/lease/wake tests and Linux poll integration | NOT RUN |
-| G02 | G01 | durable store, journal, blob, recovery | NOT RUN |
-| G03 | G02 | TLS, AUTH, bounded admission | NOT RUN |
-| G04 | G03 | durable SMTP submission and local delivery | NOT RUN |
-| G05 | G04 | MIME + IMAP, independently checked attachment | NOT RUN |
+| G01 | G00 | lifecycle/lease/wake tests and Linux poll integration | RUNNING |
+| G02 | G01 | durable store, journal, blob, recovery | RUNNING |
+| G03 | G02 | TLS, AUTH, bounded admission | RUNNING |
+| G04 | G03 | durable SMTP submission and local delivery | RUNNING |
+| G05 | G04 | MIME + IMAP, independently checked attachment | RUNNING |
 | G06 | G05 | IMAP folders, flags, UID, IDLE | NOT RUN |
 | G07 | G02 | POP3 backed by the shared store | NOT RUN |
 | G08 | G02 | Sieve and ManageSieve delivery effect | NOT RUN |
-| G09 | G04 | outbound SMTP, pool, retry/DSN | NOT RUN |
+| G09 | G04 | outbound SMTP, pool, retry/DSN | RUNNING |
 | G10 | G06,G07,G08,G09 | failure matrix, replay, resource plateaus | NOT RUN |
 | G11 | G10 | offline check/backup and repeatable seed | NOT RUN |
 | G12 | G11 | litterkeep and final acceptance report | NOT RUN |
@@ -367,3 +367,18 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   засчитывается; фактическое Linux-поведение подтверждено blackbox-тестом.
 - G03 остаётся NOT RUN: требуется доказать общий admission limit и исчерпание
   лимита без утечки, а также реализовать обязательный STARTTLS-профиль задания.
+
+### 2026-09-19: TLS admission acceptance checkpoint
+
+- Независимый `tls_admission_limit.py` открыл 256 незавершённых TLS sessions.
+  257-е соединение было немедленно закрыто сервером, то есть ограничение
+  проверено по сетевому поведению, а не по наличию `MAX_SESSIONS` в исходнике.
+- После handshake deadline тест подтвердил закрытие всех 256 соединений. Затем
+  стандартный TLS SMTP AUTH to IMAP attachment сценарий снова прошёл, что
+  подтверждает освобождение и безопасное повторное использование session slot.
+- Реализованные части критерия G03 теперь имеют независимые доказательства:
+  TLS trust/SAN, верный и неверный пароль, AUTH только под TLS, handshake
+  timeout, buffer bounds и connection admission. G03 остаётся RUNNING, потому
+  что его зависимость G02 ещё не завершена и итоговый профиль также требует
+  STARTTLS. Статусы ранее начатых G01-G05/G09 в верхней таблице исправлены с
+  вводящего в заблуждение `NOT RUN` на `RUNNING`.
