@@ -17,6 +17,11 @@ with smtplib.SMTP(HOST, SMTP_PORT, timeout=10) as smtp:
     code, _ = smtp.rcpt("unknown@test")
     assert code == 550, code
 
+with smtplib.SMTP(HOST, SMTP_PORT, timeout=10) as smtp:
+    smtp.mail("sender@test")
+    code, _ = smtp.rcpt("alice@outside.test")
+    assert code == 550, code
+
 with imaplib.IMAP4(HOST, IMAP_PORT, timeout=10) as imap:
     status, _ = imap.login("alice", "alice-password")
     assert status == "OK", status

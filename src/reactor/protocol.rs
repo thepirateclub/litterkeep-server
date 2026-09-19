@@ -176,9 +176,30 @@ fn local_mailboxes(recipients: Vec<String>) -> Vec<String> {
 
 /// Отделяет local-part path от домена на границе local delivery policy.
 fn local_mailbox(address: &str) -> Option<String> {
-    address
-        .split_once('@')
-        .map(|(mailbox, _domain)| mailbox.to_owned())
+    let (mailbox, domain) = address.split_once('@')?;
+    match LocalRoute::parse(domain) {
+        LocalRoute::Accepted => Some(mailbox.to_owned()),
+        LocalRoute::Rejected => None,
+    }
+}
+
+/// Policy-результат разбора domain на boundary SMTP envelope.
+///
+/// Строки остаются только входным форматом. Дальше reactor работает с enum и
+/// не может случайно трактовать внешний адрес как локальный mailbox.
+enum LocalRoute {
+    Accepted,
+    Rejected,
+}
+
+impl LocalRoute {
+    /// Локальные test domains первого профиля без DNS и MX discovery.
+    fn parse(domain: &str) -> Self {
+        match domain {
+            "test" | "litterkeep.test" => Self::Accepted,
+            _ => Self::Rejected,
+        }
+    }
 }
 
 fn imap_line(
