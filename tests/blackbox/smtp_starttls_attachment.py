@@ -72,6 +72,8 @@ def main() -> None:
     _, payloads = mailbox.fetch(sequence, "(RFC822)")
     raw = next(item for item in payloads if isinstance(item, tuple))
     raw_bytes = next(value for value in reversed(raw) if isinstance(value, bytes))
+    if not raw_bytes.startswith(b"Return-Path: <alice@litterkeep.test>\r\nReceived: "):
+        raise AssertionError("delivery trace headers are absent or use the wrong envelope")
     parsed = BytesParser(policy=email.policy.default).parsebytes(raw_bytes)
     actual = next(part.get_payload(decode=True) for part in parsed.iter_attachments())
     if actual != attachment:

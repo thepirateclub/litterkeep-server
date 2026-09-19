@@ -18,6 +18,7 @@ pub mod runtime;
 pub mod sasl;
 pub mod sieve;
 pub mod smtp;
+pub mod smtp_trace;
 pub mod storage_worker;
 pub mod store;
 pub mod tls;

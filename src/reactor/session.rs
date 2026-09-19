@@ -11,6 +11,7 @@ pub(super) enum SmtpState {
     Data {
         bytes: Vec<u8>,
         recipients: Vec<String>,
+        reverse_path: String,
     },
 }
 

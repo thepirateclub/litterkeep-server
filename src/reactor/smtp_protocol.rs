@@ -189,10 +189,11 @@ fn apply_transaction(session: &mut Session, command: smtp::Command) -> io::Resul
     };
     match transaction.apply(&command) {
         Ok(true) => {
-            let recipients = transaction.take_recipients();
+            let envelope = transaction.take_envelope();
             session.smtp = SmtpState::Data {
                 bytes: Vec::new(),
-                recipients,
+                recipients: envelope.recipients,
+                reverse_path: envelope.reverse_path,
             };
             session.push(b"354 end with <CRLF>.<CRLF>\r\n")
         }
@@ -211,14 +212,22 @@ fn data_line(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<()> {
-    let SmtpState::Data { bytes, recipients } = &mut session.smtp else {
+    let SmtpState::Data {
+        bytes,
+        recipients,
+        reverse_path,
+    } = &mut session.smtp
+    else {
         return Ok(());
     };
     match line.as_slice() {
         b".\r\n" => {
             let bytes = std::mem::take(bytes);
+            let reverse_path = std::mem::take(reverse_path);
             let mailboxes = local_mailboxes(std::mem::take(recipients));
             session.smtp = SmtpState::Command(smtp::Transaction::default());
+            let bytes =
+                crate::smtp_trace::prepend(&bytes, &reverse_path, std::time::SystemTime::now())?;
             let id = next_request(request_id);
             super::protocol::submit(
                 session,

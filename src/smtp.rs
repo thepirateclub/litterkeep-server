@@ -13,6 +13,13 @@ pub enum Command {
     Rset,
     Quit,
 }
+
+/// Проверенный envelope, передаваемый из SMTP FSM в локальную delivery.
+#[derive(Debug, Eq, PartialEq)]
+pub struct Envelope {
+    pub reverse_path: String,
+    pub recipients: Vec<String>,
+}
 /// Верхняя граница получателей одного SMTP envelope в локальном профиле.
 const MAX_RECIPIENTS: usize = 100;
 pub fn parse(line: &str) -> Result<Command, &'static str> {
@@ -103,9 +110,11 @@ impl Transaction {
     ///
     /// После этого SMTP-сессия уже не может повторно использовать прежний
     /// envelope для следующего сообщения.
-    pub fn take_recipients(&mut self) -> Vec<String> {
-        self.sender = None;
-        std::mem::take(&mut self.recipients)
+    pub fn take_envelope(&mut self) -> Envelope {
+        Envelope {
+            reverse_path: self.sender.take().unwrap_or_default(),
+            recipients: std::mem::take(&mut self.recipients),
+        }
     }
 
     /// Проверяет, можно ли принять очередного RCPT в текущем envelope.
@@ -188,8 +197,14 @@ mod tests {
             .apply(&parse("RCPT TO:<bob@test>\r\n").expect("recipient"))
             .expect("recipient accepted");
         assert!(transaction.apply(&Command::Data).expect("data"));
-        assert_eq!(transaction.take_recipients(), vec!["bob@test"]);
-        assert!(transaction.take_recipients().is_empty());
+        assert_eq!(
+            transaction.take_envelope(),
+            Envelope {
+                reverse_path: "alice@test".into(),
+                recipients: vec!["bob@test".into()],
+            }
+        );
+        assert!(transaction.take_envelope().recipients.is_empty());
     }
 
     #[test]

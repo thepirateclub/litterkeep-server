@@ -2,7 +2,7 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`  
 Root status: ACTIVE  
-Current subgoal: G04
+Current subgoal: G05
 
 The actually available Goal interface was inspected. It supports creating and
 updating one active root goal (`create_goal`, `get_goal`, `update_goal`), but
@@ -15,7 +15,7 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | G01 | G00 | lifecycle/lease/wake tests and Linux poll integration | PASS |
 | G02 | G01 | durable store, journal, blob, recovery | PASS |
 | G03 | G02 | TLS, AUTH, bounded admission | PASS |
-| G04 | G03 | durable SMTP submission and local delivery | RUNNING |
+| G04 | G03 | durable SMTP submission and local delivery | PASS |
 | G05 | G04 | MIME + IMAP, independently checked attachment | RUNNING |
 | G06 | G05 | IMAP folders, flags, UID, IDLE | NOT RUN |
 | G07 | G02 | POP3 backed by the shared store | NOT RUN |
@@ -532,3 +532,23 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   отказ неизвестному CA, правильный и неправильный пароль, plaintext policy,
   handshake timeout, ограничение буферов, admission и освобождение resources.
   Текущий последовательный этап теперь G04.
+
+### 2026-09-19: G04 PASS, envelope trace headers
+
+- SMTP transaction теперь передаёт в delivery типизированный `Envelope` с
+  reverse-path и уже принятыми RCPT. Получатели по-прежнему не извлекаются из
+  `To`, `Cc` или `Bcc`.
+- Отдельный `smtp_trace.rs` добавляет `Return-Path` и `Received` перед исходными
+  RFC822 bytes. Дата вычисляется за O(1) без таблиц с прямым индексированием;
+  исходное MIME-тело не разбирается и не сериализуется повторно.
+- Unit-тесты проверили обычный и пустой reverse-path, сохранение исходного Bcc и
+  нулевого байта. PASS Windows 40/40 и Docker Linux 42/42, format и Clippy.
+- PASS независимым SMTP/IMAP STARTTLS blackbox: Alice отправила Bob вложение,
+  сохранённый RFC822 начинается с envelope-derived `Return-Path` и `Received`,
+  а SHA-256 вложения остался
+  `f3a25aa93aa2fbba28d79260535bbd6a5eb0fc1c24a8b0f04e12b484c1dfe363`.
+- G04 получает PASS по критерию этапа: Alice -> Bob, успех DATA только после
+  durable storage completion, сохранность после kill/restart и отсутствие
+  публикации оборванной DATA уже проверены предыдущими checkpoint. Расширенная
+  матрица потери финального ответа и storage failpoints остаётся в G10 и не
+  объявлена выполненной. Текущий последовательный этап теперь G05.
