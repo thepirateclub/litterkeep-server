@@ -1,8 +1,14 @@
 //! Минимальные MIME-примитивы для protocol и независимых проверок.
 use std::collections::BTreeMap;
 
+#[path = "mime/charset.rs"]
+pub mod charset;
+#[path = "mime/encoded_word.rs"]
+pub mod encoded_word;
 #[path = "mime/headers.rs"]
 pub mod header_block;
+#[path = "mime/parameters.rs"]
+pub mod parameters;
 #[path = "mime/quoted_printable.rs"]
 pub mod quoted_printable;
 

@@ -1,0 +1,56 @@
+"""Сравнивает наш MIME decoder с независимым parser стандартной библиотеки."""
+
+import argparse
+import email.header
+import email.message
+import subprocess
+
+
+def arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("probe")
+    return parser.parse_args()
+
+
+def python_subject() -> bytes:
+    decoded = email.header.decode_header("=?UTF-8?B?0J/RgNC40LLQtdGC?=")
+    parts = []
+    for value, charset in decoded:
+        match value:
+            case bytes():
+                parts.append(value.decode(charset or "ascii"))
+            case str():
+                parts.append(value)
+    return "".join(parts).encode("utf-8")
+
+
+def python_filename() -> bytes:
+    message = email.message.Message()
+    message["Content-Disposition"] = (
+        "attachment; filename*0*=UTF-8''%D1%81%D1%87; "
+        "filename*1*=%D1%91%D1%82.txt"
+    )
+    filename = message.get_filename()
+    if filename is None:
+        raise AssertionError("Python parser did not decode filename")
+    return filename.encode("utf-8")
+
+
+def main() -> None:
+    result = subprocess.run(
+        [arguments().probe],
+        check=True,
+        capture_output=True,
+    )
+    lines = iter(result.stdout.splitlines())
+    actual_subject = next(lines)
+    actual_filename = next(lines)
+    if actual_subject != python_subject():
+        raise AssertionError("encoded-word result differs from Python")
+    if actual_filename != python_filename():
+        raise AssertionError("RFC 2231 filename differs from Python")
+    print("MIME Python comparison passed")
+
+
+if __name__ == "__main__":
+    main()

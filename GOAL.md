@@ -566,3 +566,20 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   соблюдены. G05 остаётся RUNNING: multipart line delimiters, MIME parameters,
   encoded-word, charset profiles и IMAP BODYSTRUCTURE ещё не готовы и не
   объявляются проверенными.
+
+### 2026-09-19: G05 charset, encoded-word и parameter checkpoint
+
+- Внешние имена charset преобразуются в `Charset::UsAscii`, `Utf8` или
+  `Iso8859_1`; неизвестный профиль не угадывается. US-ASCII и UTF-8 проверяются
+  строго, Latin-1 отображается по байтам без повреждения raw source.
+- Отдельный encoded-word decoder поддерживает B и Q, underscore-space и hex
+  escapes. Неверная оболочка, неизвестная transfer encoding, charset или Q
+  escape дают диагностируемый отказ.
+- Structured parameter parser переводит известные media types в enum, учитывает
+  quoted semicolon и escape, extended value, упорядоченные RFC 2231 segments и
+  percent encoding. Пропущенный segment и неизвестный charset отклоняются.
+- PASS 49 Windows unit tests, format и Clippy. Независимый blackbox запустил
+  собранный `mime_probe` и сравнил encoded UTF-8 subject и кириллический
+  `filename*0*`/`filename*1*` с Python `email`: результаты совпали.
+- G05 остаётся RUNNING до line-aware multipart дерева, вложенности, raw ranges
+  частей и IMAP ENVELOPE/BODYSTRUCTURE.
