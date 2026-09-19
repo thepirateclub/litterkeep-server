@@ -85,6 +85,7 @@ pub(super) enum Pending {
         tag: String,
         mailbox: String,
         close: bool,
+        uid_set: Option<imap::sequence_set::SequenceSet>,
     },
     Expunge {
         tag: String,

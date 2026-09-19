@@ -64,6 +64,9 @@ pub enum Command {
     Check,
     Close,
     Expunge,
+    UidExpunge {
+        sequence_set: SequenceSet,
+    },
     List {
         pattern: folder::ListPattern,
     },
@@ -170,11 +173,21 @@ pub fn parse(line: &str) -> TaggedCommand {
             Some(Verb::Fetch) => fetch::parse(&mut tokens, Addressing::Uid),
             Some(Verb::Store) => flags::parse_store(&mut tokens, Addressing::Uid),
             Some(Verb::Search) => search::parse(tokens, Addressing::Uid),
+            Some(Verb::Expunge) => parse_uid_expunge(tokens),
             _ => Command::Unsupported,
         },
         Some(Verb::Unsupported) | None => Command::Unsupported,
     };
     TaggedCommand { tag, command }
+}
+
+fn parse_uid_expunge(mut tokens: impl Iterator<Item = Token>) -> Command {
+    match (next_text(&mut tokens), tokens.next()) {
+        (Some(value), None) => SequenceSet::parse(&value)
+            .map(|sequence_set| Command::UidExpunge { sequence_set })
+            .unwrap_or(Command::Unsupported),
+        _ => Command::Unsupported,
+    }
 }
 
 fn parse_select(tokens: &mut impl Iterator<Item = Token>, read_only: bool) -> Command {

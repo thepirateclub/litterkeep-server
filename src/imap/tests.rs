@@ -201,6 +201,15 @@ fn expunge_requires_no_arguments() {
 }
 
 #[test]
+fn uid_expunge_requires_non_empty_uid_set() {
+    assert!(matches!(
+        parse("a UID EXPUNGE 2:4\r\n").command,
+        Command::UidExpunge { .. }
+    ));
+    assert_eq!(parse("a UID EXPUNGE\r\n").command, Command::Unsupported);
+}
+
+#[test]
 fn close_and_check_require_no_arguments() {
     assert_eq!(parse("a CLOSE\r\n").command, Command::Close);
     assert_eq!(parse("a CHECK\r\n").command, Command::Check);

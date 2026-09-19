@@ -12,6 +12,7 @@ pub(super) fn queue(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
     close: bool,
+    uid_set: Option<imap::sequence_set::SequenceSet>,
 ) -> io::Result<()> {
     if session.selected_read_only && !close {
         return session.push(format!("{tag} NO [READ-ONLY] EXPUNGE denied\r\n").as_bytes());
@@ -34,6 +35,7 @@ pub(super) fn queue(
             tag,
             mailbox,
             close,
+            uid_set,
         },
         slot,
         generation,
@@ -52,6 +54,7 @@ pub(super) fn follow_up(
         tag,
         mailbox,
         close,
+        uid_set,
     } = pending
     else {
         return None;
@@ -66,10 +69,25 @@ pub(super) fn follow_up(
     let mut uids = Vec::new();
     let mut sequence_numbers = Vec::new();
     let mut removed = 0_usize;
+    let resolved_uids = uid_set.as_ref().map(|set| {
+        set.resolve(
+            snapshot
+                .messages
+                .last()
+                .map(|message| message.uid)
+                .unwrap_or(0),
+        )
+    });
     for (offset, message) in snapshot.messages.iter().enumerate() {
         if !message
             .flags
             .contains(crate::mail_flags::SystemFlag::Deleted)
+        {
+            continue;
+        }
+        if resolved_uids
+            .as_ref()
+            .is_some_and(|set| !set.contains(message.uid))
         {
             continue;
         }

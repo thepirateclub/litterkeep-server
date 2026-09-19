@@ -97,11 +97,12 @@ fn imap_line(
     match parsed.command {
         imap::Command::Capability => {
             match (session.tls.is_some(), session.can_starttls()) {
-                (true, _) => session.push(b"* CAPABILITY IMAP4rev1 IDLE AUTH=PLAIN\r\n")?,
-                (false, true) => {
-                    session.push(b"* CAPABILITY IMAP4rev1 IDLE STARTTLS LOGINDISABLED\r\n")?
+                (true, _) => session.push(b"* CAPABILITY IMAP4rev1 IDLE UIDPLUS AUTH=PLAIN\r\n")?,
+                (false, true) => session
+                    .push(b"* CAPABILITY IMAP4rev1 IDLE UIDPLUS STARTTLS LOGINDISABLED\r\n")?,
+                (false, false) => {
+                    session.push(b"* CAPABILITY IMAP4rev1 IDLE UIDPLUS AUTH=PLAIN\r\n")?
                 }
-                (false, false) => session.push(b"* CAPABILITY IMAP4rev1 IDLE AUTH=PLAIN\r\n")?,
             }
             session.push(format!("{} OK CAPABILITY completed\r\n", parsed.tag).as_bytes())?;
         }
@@ -198,10 +199,21 @@ fn imap_line(
             session, parsed.tag, mailbox, attributes, slot, generation, worker, owners, request_id,
         )?,
         imap::Command::Expunge => imap_expunge::queue(
-            session, parsed.tag, slot, generation, worker, owners, request_id, false,
+            session, parsed.tag, slot, generation, worker, owners, request_id, false, None,
         )?,
         imap::Command::Close => imap_expunge::queue(
-            session, parsed.tag, slot, generation, worker, owners, request_id, true,
+            session, parsed.tag, slot, generation, worker, owners, request_id, true, None,
+        )?,
+        imap::Command::UidExpunge { sequence_set } => imap_expunge::queue(
+            session,
+            parsed.tag,
+            slot,
+            generation,
+            worker,
+            owners,
+            request_id,
+            false,
+            Some(sequence_set),
         )?,
         imap::Command::Check => imap_check::execute(session, parsed.tag)?,
         imap::Command::Select { mailbox } => imap_select::queue(

@@ -947,3 +947,14 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - G06 остаётся RUNNING: COPY/MOVE, UID EXPUNGE и UIDPLUS, modified UTF-7,
   полный LIST/SPECIAL-USE профиль, Recent и согласование sequence-map двух
   сессий ещё не завершены.
+
+### 2026-09-20: G06 UID EXPUNGE checkpoint
+
+- `UID EXPUNGE <uid-set>` проходит typed parser и ограничивает durable
+  tombstone только UID из множества, уже имеющие `\\Deleted`. Обычный EXPUNGE
+  остаётся операцией по всем Deleted сообщениям выбранной папки.
+- UIDPLUS объявляется только вместе с реально исполняемыми APPENDUID и UID
+  EXPUNGE, а не как несвязанный capability token.
+- PASS: 91 Windows tests, format, strict Clippy и structural audit.
+- G06 остаётся RUNNING: COPY/MOVE, modified UTF-7, полный LIST/SPECIAL-USE
+  профиль, Recent и согласование sequence-map двух сессий ещё не завершены.
