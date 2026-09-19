@@ -17,7 +17,7 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | G03 | G02 | TLS, AUTH, bounded admission | PASS |
 | G04 | G03 | durable SMTP submission and local delivery | PASS |
 | G05 | G04 | MIME + IMAP, independently checked attachment | PASS |
-| G06 | G05 | IMAP folders, flags, UID, IDLE | NOT RUN |
+| G06 | G05 | IMAP folders, flags, UID, IDLE | RUNNING |
 | G07 | G02 | POP3 backed by the shared store | NOT RUN |
 | G08 | G02 | Sieve and ManageSieve delivery effect | NOT RUN |
 | G09 | G04 | outbound SMTP, pool, retry/DSN | RUNNING |
@@ -654,3 +654,14 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   SMTP -> store -> IMAP. Нереализованные HEADER.FIELDS и полноценный
   инкрементальный IMAP grammar остаются явными задачами G06, а не считаются
   выполненными. Текущий последовательный этап теперь G06.
+
+### 2026-09-19: G06 IMAP lexer checkpoint
+
+- Удалён разбор IMAP через `split_whitespace`. Однопроходный lexer за `O(n)`
+  выделяет atoms, границы списков и quoted strings с escape; число токенов
+  ограничено, чтобы одна команда не создавала неограниченное число объектов.
+- LOGIN теперь сохраняет пробелы внутри quoted username/password, а FETCH
+  разбирает parenthesized attribute как синтаксические токены, не удаляя
+  скобки строковой эвристикой.
+- PASS 64 Windows unit test, format и Clippy. G06 остаётся RUNNING: literals,
+  sequence-set, folders, UID, flags, APPEND и IDLE ещё не реализованы.

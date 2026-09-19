@@ -1,5 +1,9 @@
 //! Декодирование IMAP-команд: текст сети преобразуется в типизированные варианты.
 
+pub mod tokenizer;
+
+use tokenizer::Token;
+
 /// Команда вместе с тегом, которым сервер обязан завершить ответ.
 #[derive(Debug, Eq, PartialEq)]
 pub struct TaggedCommand {
@@ -71,24 +75,24 @@ enum Verb {
 
 /// Разбирает одну CRLF-строку и не оставляет строковые команды в reactor.
 pub fn parse(line: &str) -> TaggedCommand {
-    let mut words = line.split_whitespace();
-    let tag = words.next().unwrap_or("*").into();
-    let command = match parse_verb(words.next().unwrap_or("")) {
-        Verb::Capability => Command::Capability,
-        Verb::StartTls => Command::StartTls,
-        Verb::Login => match (words.next(), words.next()) {
-            (Some(username), Some(password)) => Command::Login {
-                username: atom(username),
-                password: atom(password),
-            },
+    let mut tokens = match tokenizer::tokenize(line) {
+        Ok(tokens) => tokens.into_iter(),
+        Err(_) => return unsupported("*"),
+    };
+    let tag = next_text(&mut tokens).unwrap_or_else(|| "*".into());
+    let command = match next_text(&mut tokens).as_deref().map(parse_verb) {
+        Some(Verb::Capability) => Command::Capability,
+        Some(Verb::StartTls) => Command::StartTls,
+        Some(Verb::Login) => match (next_text(&mut tokens), next_text(&mut tokens)) {
+            (Some(username), Some(password)) => Command::Login { username, password },
             _ => Command::Unsupported,
         },
-        Verb::Logout => Command::Logout,
-        Verb::Select => Command::Select,
-        Verb::Examine => Command::Examine,
-        Verb::Fetch => match (
-            words.next().and_then(|word| word.parse().ok()),
-            words.next().and_then(parse_fetch_attribute),
+        Some(Verb::Logout) => Command::Logout,
+        Some(Verb::Select) => Command::Select,
+        Some(Verb::Examine) => Command::Examine,
+        Some(Verb::Fetch) => match (
+            next_text(&mut tokens).and_then(|word| word.parse().ok()),
+            next_text(&mut tokens).and_then(|word| parse_fetch_attribute(&word)),
         ) {
             (Some(sequence), Some(attribute)) => Command::Fetch {
                 sequence,
@@ -96,9 +100,23 @@ pub fn parse(line: &str) -> TaggedCommand {
             },
             _ => Command::Unsupported,
         },
-        Verb::Unsupported => Command::Unsupported,
+        Some(Verb::Unsupported) | None => Command::Unsupported,
     };
     TaggedCommand { tag, command }
+}
+
+fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
+    tokens.find_map(|token| match token {
+        Token::Text(value) => Some(value),
+        Token::ListStart | Token::ListEnd => None,
+    })
+}
+
+fn unsupported(tag: &str) -> TaggedCommand {
+    TaggedCommand {
+        tag: tag.into(),
+        command: Command::Unsupported,
+    }
 }
 
 fn parse_fetch_attribute(value: &str) -> Option<FetchAttribute> {
@@ -160,11 +178,6 @@ fn parse_partial(value: &str) -> Option<Partial> {
         offset: offset.parse().ok()?,
         count: count.parse().ok()?,
     })
-}
-
-/// Удаляет парные кавычки IMAP atom, не меняя неквотированное значение.
-fn atom(value: &str) -> String {
-    value.trim_matches('"').into()
 }
 
 /// Единственная допустимая граница строкового сравнения протокольного verb.
