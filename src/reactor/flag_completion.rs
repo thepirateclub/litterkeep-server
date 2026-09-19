@@ -62,6 +62,7 @@ pub(super) fn follow_up(
         Pending::WriteFlags {
             addressing: *addressing,
             uids,
+            mailbox: mailbox.clone(),
             silent: *silent,
             tag: tag.clone(),
         },
@@ -73,6 +74,7 @@ pub(super) fn write(session: &mut Session, pending: Pending, response: Response)
     let Pending::WriteFlags {
         addressing,
         uids,
+        mailbox: _,
         silent,
         tag,
     } = pending

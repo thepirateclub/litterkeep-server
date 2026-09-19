@@ -54,6 +54,7 @@ pub(super) enum Pending {
     WriteFlags {
         addressing: imap::Addressing,
         uids: Vec<u64>,
+        mailbox: String,
         silent: bool,
         tag: String,
     },

@@ -1112,3 +1112,18 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   Данные остаются в bind mount `./data/g06-recent-4`, CA: `./data/pki/ca.pem`.
 - G06 остаётся RUNNING: полная синхронизация остальных change classes между
   несколькими selected/IDLE сессиями ещё не реализована.
+
+### 2026-09-20: G06 two-session FLAGS synchronization checkpoint
+
+- Успешный durable `STORE` теперь публикует другим IDLE-сессиям того же
+  selected mailbox untagged `FETCH (UID ... FLAGS ...)`. Инициатор не получает
+  вторую копию completion. `\Recent` кодируется из собственного состояния
+  получателя, поэтому session-local marker не становится общим persistent flag.
+- PASS: Windows `cargo test --all-targets --locked` (107 tests), strict
+  Clippy, format, `git diff --check`, structural audit. Docker Linux test
+  target прошёл 111 tests. Независимый STARTTLS
+  `tests/blackbox/imap_idle_flags.py` подтвердил, что watcher в IDLE получает
+  `\Seen` от writer с `+FLAGS.SILENT`, после чего тот же watcher читает
+  durable `\Seen` через UID FETCH. Данные: bind mount `./data/g06-flags-2`.
+- G06 остаётся RUNNING: остаются согласование delivery/Recent с уже selected
+  сессиями и другие multi-session change classes.

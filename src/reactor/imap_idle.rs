@@ -121,3 +121,60 @@ pub(super) fn notify_expunge(
     }
     Ok(())
 }
+
+/// Рассылает durable FLAGS change другим IDLE-сессиям выбранной папки.
+///
+/// Каждый получатель кодирует `\\Recent` из собственного session-state, а не
+/// копирует FLAGS инициатора: это флаг сессии, не свойства общего message blob.
+pub(super) fn notify_flags(
+    sessions: &mut [Option<SessionLease>],
+    origin: usize,
+    pending: &Pending,
+    response: &Response,
+) -> io::Result<()> {
+    let Pending::WriteFlags { mailbox, uids, .. } = pending else {
+        return Ok(());
+    };
+    let Response::FlagsUpdated {
+        result: Ok(snapshot),
+        ..
+    } = response
+    else {
+        return Ok(());
+    };
+    let changed = uids
+        .iter()
+        .copied()
+        .collect::<std::collections::BTreeSet<_>>();
+    for (slot, entry) in sessions.iter_mut().enumerate() {
+        if slot == origin {
+            continue;
+        }
+        let Some(lease) = entry else { continue };
+        let session = lease.get_mut();
+        if session.selected_mailbox.as_deref() != Some(mailbox) {
+            continue;
+        }
+        if session.imap_idle.is_none() {
+            continue;
+        }
+        for (offset, message) in snapshot.messages.iter().enumerate() {
+            if !changed.contains(&message.uid) {
+                continue;
+            }
+            let sequence = offset.saturating_add(1);
+            let flags = imap::flags::encode_with_recent(
+                message.flags,
+                session.selected_recent.contains(&message.uid),
+            );
+            session.push(
+                format!(
+                    "* {sequence} FETCH (UID {} FLAGS ({flags}))\r\n",
+                    message.uid
+                )
+                .as_bytes(),
+            )?;
+        }
+    }
+    Ok(())
+}

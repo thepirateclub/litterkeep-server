@@ -51,6 +51,7 @@ pub(super) fn complete(
             continue;
         }
         super::imap_idle::notify_expunge(sessions, slot, &pending, &response)?;
+        super::imap_idle::notify_flags(sessions, slot, &pending, &response)?;
         let Some(session) = sessions
             .get_mut(slot)
             .and_then(Option::as_mut)
