@@ -31,7 +31,7 @@ enum Target {
     WorkerWake,
     Session(usize, u64),
 }
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 enum Pending {
     Append,
     ReadForSelect(String),
@@ -286,14 +286,12 @@ fn submit(
     worker: &mut WakingStorageWorker,
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
 ) {
+    let request_id = match &request {
+        Request::Append { request_id, .. } | Request::Read { request_id, .. } => *request_id,
+    };
     match worker.worker.submit(request) {
         Ok(()) => {
-            let request_id = match &request {
-                Request::Append { request_id, .. } | Request::Read { request_id, .. } => {
-                    *request_id
-                }
-            };
-            owners.insert(request_id, (slot, generation, pending));
+            owners.insert(request_id, (slot, generation, pending.clone()));
             session.pending = Some(pending);
         }
         Err(std::sync::mpsc::TrySendError::Full(request)) => {

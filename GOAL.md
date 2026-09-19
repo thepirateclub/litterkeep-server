@@ -63,9 +63,10 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - PASS on the installed Windows toolchain: `cargo fmt --check`; `cargo test
   --locked` (15 passed); `cargo clippy --locked --all-targets -- -D warnings`;
   `cargo build --locked --release --bin litterkeep-server`.
-- NOT RUN: the Linux reactor itself and all G01 network acceptance cases. The
-  installed target list contains only `x86_64-pc-windows-msvc`. An attempted
-  `rustup target add x86_64-unknown-linux-gnu` did not install a usable target,
-  and `cargo check --target x86_64-unknown-linux-gnu` fails before compiling
-  the crate because `std` for that target is absent. `serve` therefore reports
-  this limitation on Windows instead of pretending to provide the service.
+- PASS: `cargo check --locked --target x86_64-unknown-linux-gnu` after adding
+  the matching standard library target. This caught and fixed two Linux-only
+  compile errors that were hidden by the Windows `cfg` path.
+- NOT RUN: the Linux reactor itself and all G01 network acceptance cases. This
+  host runs Windows, so cross-checking proves type checking only, not runtime
+  socket behavior. `serve` reports that limitation on Windows instead of
+  selecting the old blocking listeners.
