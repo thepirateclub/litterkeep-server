@@ -1016,3 +1016,21 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   добавлены только в bind mount `./data/g06-expunge`.
 - G06 остаётся RUNNING: MOVE, полный LIST/SPECIAL-USE профиль, Recent и
   согласование sequence-map двух сессий ещё не завершены.
+
+### 2026-09-20: G06 LIST wildcard and SPECIAL-USE checkpoint
+
+- LIST pattern больше не ограничен тремя exact значениями. Для wildcard внутри
+  имени используется bounded NFA: `*` проходит delimiter, `%` не проходит
+  slash, состояние не разворачивается рекурсивным backtracking.
+- Реализована selection форма RFC 6154 `LIST (SPECIAL-USE) "" "*"`.
+  Она выдаёт только папки с durable enum `SpecialUse`; CAPABILITY объявляет
+  `SPECIAL-USE` именно потому, что эта extended form исполняется. Обычный
+  LIST по-прежнему может вернуть attributes для папок, но не рекламирует
+  неисполненную CREATE-SPECIAL-USE/RETURN форму.
+- PASS: `cargo test --all-targets --locked` (98 tests), strict Clippy,
+  format и structural audit. Независимый STARTTLS `imaplib` сценарий
+  `tests/blackbox/imap_list_special_use.py` подтвердил CAPABILITY,
+  `LIST "" "Invoices/%"`, RFC-строку extended LIST и отсутствие
+  `Invoices/2026` в выборке только special-use папок.
+- G06 остаётся RUNNING: MOVE, часть extended LIST RETURN/CREATE-SPECIAL-USE,
+  Recent и согласование sequence-map двух сессий ещё не завершены.

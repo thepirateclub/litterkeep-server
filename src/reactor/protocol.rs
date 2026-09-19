@@ -96,17 +96,7 @@ fn imap_line(
 ) -> io::Result<()> {
     let parsed = imap::parse(std::str::from_utf8(&line).unwrap_or(""));
     match parsed.command {
-        imap::Command::Capability => {
-            match (session.tls.is_some(), session.can_starttls()) {
-                (true, _) => session.push(b"* CAPABILITY IMAP4rev1 IDLE UIDPLUS AUTH=PLAIN\r\n")?,
-                (false, true) => session
-                    .push(b"* CAPABILITY IMAP4rev1 IDLE UIDPLUS STARTTLS LOGINDISABLED\r\n")?,
-                (false, false) => {
-                    session.push(b"* CAPABILITY IMAP4rev1 IDLE UIDPLUS AUTH=PLAIN\r\n")?
-                }
-            }
-            session.push(format!("{} OK CAPABILITY completed\r\n", parsed.tag).as_bytes())?;
-        }
+        imap::Command::Capability => imap_capability::write(session, &parsed.tag)?,
         imap::Command::StartTls => imap_starttls::begin(session, &parsed.tag)?,
         imap::Command::Noop => {
             session.push(format!("{} OK NOOP completed\r\n", parsed.tag).as_bytes())?
@@ -182,7 +172,10 @@ fn imap_line(
             request_id,
         )?,
         imap::Command::List { pattern } => imap_folders::list(
-            session, parsed.tag, pattern, slot, generation, worker, owners, request_id,
+            session, parsed.tag, pattern, false, slot, generation, worker, owners, request_id,
+        )?,
+        imap::Command::ListSpecial { pattern } => imap_folders::list(
+            session, parsed.tag, pattern, true, slot, generation, worker, owners, request_id,
         )?,
         imap::Command::Subscribe { mailbox } => imap_subscriptions::set(
             session, parsed.tag, mailbox, true, slot, generation, worker, owners, request_id,

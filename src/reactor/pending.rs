@@ -67,6 +67,7 @@ pub(super) enum Pending {
     ListFolders {
         tag: String,
         pattern: imap::folder::ListPattern,
+        special_use_only: bool,
     },
     SetSubscription {
         tag: String,

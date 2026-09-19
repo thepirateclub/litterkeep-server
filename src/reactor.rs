@@ -21,6 +21,8 @@ mod deadline;
 mod flag_completion;
 #[path = "reactor/imap_append.rs"]
 mod imap_append;
+#[path = "reactor/imap_capability.rs"]
+mod imap_capability;
 #[path = "reactor/imap_check.rs"]
 mod imap_check;
 #[path = "reactor/imap_copy.rs"]
@@ -33,6 +35,8 @@ mod imap_fetch_response;
 mod imap_folders;
 #[path = "reactor/imap_idle.rs"]
 mod imap_idle;
+#[path = "reactor/imap_list.rs"]
+mod imap_list;
 #[path = "reactor/imap_literal.rs"]
 mod imap_literal;
 #[path = "reactor/imap_search.rs"]
@@ -59,6 +63,8 @@ mod session;
 mod session_accept;
 #[path = "reactor/session_io.rs"]
 mod session_io;
+#[path = "reactor/smtp_completion.rs"]
+mod smtp_completion;
 #[path = "reactor/smtp_protocol.rs"]
 mod smtp_protocol;
 use completion::{complete, retry_submissions};

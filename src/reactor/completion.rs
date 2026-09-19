@@ -95,7 +95,7 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
         (
             Pending::ValidateRecipient { address },
             Response::RecipientValidated { accepted: true, .. },
-        ) => accept_recipient(session, address),
+        ) => smtp_completion::accept_recipient(session, address),
         (
             Pending::ValidateRecipient { .. },
             Response::RecipientValidated {
@@ -202,9 +202,14 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
         (Pending::MutateFolder { tag, operation }, Response::FolderMutated { result, .. }) => {
             imap_folders::mutated(session, tag, operation, result)
         }
-        (Pending::ListFolders { tag, pattern }, Response::Folders { result, .. }) => {
-            imap_folders::listed(session, tag, pattern, result)
-        }
+        (
+            Pending::ListFolders {
+                tag,
+                pattern,
+                special_use_only,
+            },
+            Response::Folders { result, .. },
+        ) => imap_list::listed(session, tag, pattern, special_use_only, result),
         (
             Pending::SetSubscription { tag, subscribed },
             Response::SubscriptionSet { result, .. },
@@ -237,17 +242,6 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
         ) => session
             .push(format!("{tag} NO [TRYCREATE] COPY destination unavailable\r\n").as_bytes()),
         _ => Ok(()),
-    }
-}
-
-/// Завершает RCPT лишь после проверки policy у владельца account store.
-fn accept_recipient(session: &mut Session, address: String) -> io::Result<()> {
-    let SmtpState::Command(transaction) = &mut session.smtp else {
-        return session.push(b"503 bad sequence\r\n");
-    };
-    match transaction.accept_recipient(address) {
-        Ok(()) => session.push(b"250 ok\r\n"),
-        Err(_) => session.push(b"503 bad sequence\r\n"),
     }
 }
 

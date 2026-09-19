@@ -24,3 +24,20 @@ fn copy_is_typed_for_sequence_and_uid_modes() {
         }
     ));
 }
+
+/// Extended LIST выделяет SPECIAL-USE selection до reactor-а.
+#[test]
+fn special_use_list_and_wildcard_are_typed() {
+    assert!(matches!(
+        parse("a LIST (SPECIAL-USE) \"\" \"*\"\r\n").command,
+        Command::ListSpecial {
+            pattern: crate::imap::folder::ListPattern::All
+        }
+    ));
+    assert!(matches!(
+        parse("a LIST \"\" \"Projects/%\"\r\n").command,
+        Command::List {
+            pattern: crate::imap::folder::ListPattern::Wildcard(_)
+        }
+    ));
+}

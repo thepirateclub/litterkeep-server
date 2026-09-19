@@ -9,6 +9,7 @@ pub enum ListPattern {
     All,
     OneLevel,
     Exact(String),
+    Wildcard(String),
 }
 
 /// Операция нужна completion-слою для точного tagged-ответа.
@@ -66,8 +67,23 @@ pub fn parse_subscribe(mut tokens: impl Iterator<Item = Token>, subscribed: bool
 }
 
 pub fn parse_list(mut tokens: impl Iterator<Item = Token>) -> Command {
-    match parse_pattern(&mut tokens) {
-        Some(pattern) => Command::List { pattern },
+    match tokens.next() {
+        Some(Token::ListStart) => match (tokens.next(), tokens.next()) {
+            (Some(Token::Text(option)), Some(Token::ListEnd))
+                if option.eq_ignore_ascii_case("SPECIAL-USE") =>
+            {
+                parse_pattern(&mut tokens)
+                    .map(|pattern| Command::ListSpecial { pattern })
+                    .unwrap_or(Command::Unsupported)
+            }
+            _ => Command::Unsupported,
+        },
+        Some(first) => {
+            let mut restored = std::iter::once(first).chain(tokens);
+            parse_pattern(&mut restored)
+                .map(|pattern| Command::List { pattern })
+                .unwrap_or(Command::Unsupported)
+        }
         None => Command::Unsupported,
     }
 }
@@ -78,10 +94,17 @@ fn parse_pattern(tokens: &mut impl Iterator<Item = Token>) -> Option<ListPattern
             Some(match pattern.as_str() {
                 "*" => ListPattern::All,
                 "%" => ListPattern::OneLevel,
-                _ => ListPattern::Exact(super::modified_utf7::decode(&pattern).ok()?),
+                _ => list_pattern(super::modified_utf7::decode(&pattern).ok()?),
             })
         }
         _ => None,
+    }
+}
+
+fn list_pattern(pattern: String) -> ListPattern {
+    match (pattern.contains('*'), pattern.contains('%')) {
+        (false, false) => ListPattern::Exact(pattern),
+        _ => ListPattern::Wildcard(pattern),
     }
 }
 

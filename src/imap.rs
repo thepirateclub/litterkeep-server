@@ -81,6 +81,9 @@ pub enum Command {
     List {
         pattern: folder::ListPattern,
     },
+    ListSpecial {
+        pattern: folder::ListPattern,
+    },
     Select {
         mailbox: MailboxName,
     },

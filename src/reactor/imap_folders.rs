@@ -131,6 +131,7 @@ pub(super) fn list(
     session: &mut Session,
     tag: String,
     pattern: imap::folder::ListPattern,
+    special_use_only: bool,
     slot: usize,
     generation: u64,
     worker: &mut WakingStorageWorker,
@@ -146,7 +147,11 @@ pub(super) fn list(
             request_id: *request_id,
             account,
         },
-        Pending::ListFolders { tag, pattern },
+        Pending::ListFolders {
+            tag,
+            pattern,
+            special_use_only,
+        },
         slot,
         generation,
         worker,
@@ -206,35 +211,6 @@ pub(super) fn mutated(
             };
             session.push(format!("{tag} NO [{code}] {verb} failed\r\n").as_bytes())
         }
-    }
-}
-
-pub(super) fn listed(
-    session: &mut Session,
-    tag: String,
-    pattern: imap::folder::ListPattern,
-    result: io::Result<Vec<crate::store::FolderInfo>>,
-) -> io::Result<()> {
-    let folders = match result {
-        Ok(folders) => folders,
-        Err(_) => return session.push(format!("{tag} NO LIST failed\r\n").as_bytes()),
-    };
-    for folder in folders
-        .iter()
-        .filter(|folder| matches_pattern(&folder.name, &pattern))
-    {
-        let attributes = special_use(folder.special_use);
-        let name = quote(&folder.name);
-        session.push(format!("* LIST ({attributes}) \"/\" {name}\r\n").as_bytes())?;
-    }
-    session.push(format!("{tag} OK LIST completed\r\n").as_bytes())
-}
-
-pub(super) fn matches_pattern(name: &str, pattern: &imap::folder::ListPattern) -> bool {
-    match pattern {
-        imap::folder::ListPattern::All => true,
-        imap::folder::ListPattern::OneLevel => !name.contains('/'),
-        imap::folder::ListPattern::Exact(expected) => name == expected,
     }
 }
 
