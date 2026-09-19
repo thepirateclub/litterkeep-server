@@ -958,3 +958,23 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - PASS: 91 Windows tests, format, strict Clippy и structural audit.
 - G06 остаётся RUNNING: COPY/MOVE, modified UTF-7, полный LIST/SPECIAL-USE
   профиль, Recent и согласование sequence-map двух сессий ещё не завершены.
+
+### 2026-09-20: G06 UID EXPUNGE Linux black-box checkpoint
+
+- Добавлен независимый STARTTLS-сценарий
+  `tests/blackbox/imap_uid_expunge.py`. Он создаёт три письма, помечает UID 1
+  и UID 2 как `\\Deleted`, исполняет `UID EXPUNGE 1`, затем проверяет,
+  что в mailbox осталось два письма и точные байты письма UID 2 доступны через
+  `UID FETCH 2 RFC822`.
+- Прогон в фиксированном контейнере `litterkeep-linux-test` с bind mount
+  `./data/g06-expunge` завершился PASS как до restart (`committed`), так и
+  после него (`replayed`). Имена mailbox `UidExpungeFresh` и
+  `UidExpungeFresh2` оставлены в том же локальном каталоге данных; named
+  volumes и дополнительные runtime-каталоги не создавались.
+- PASS: `python -m py_compile tests/blackbox/imap_uid_expunge.py`,
+  `cargo test --all-targets --locked` (91 tests), strict Clippy, format,
+  `docker build -f docker/Dockerfile.linux-test --target test -t
+  litterkeep-server:linux-test .` и независимая проверка реальным Python
+  `imaplib` через STARTTLS.
+- G06 остаётся RUNNING: COPY/MOVE, modified UTF-7, полный LIST/SPECIAL-USE
+  профиль, Recent и согласование sequence-map двух сессий ещё не завершены.
