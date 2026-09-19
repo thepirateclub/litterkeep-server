@@ -77,6 +77,11 @@ pub enum Request {
         request_id: u64,
         account: String,
     },
+    Expunge {
+        request_id: u64,
+        mailbox: String,
+        uids: Vec<u64>,
+    },
 }
 
 #[derive(Debug)]
@@ -128,5 +133,9 @@ pub enum Response {
     Subscriptions {
         request_id: u64,
         result: io::Result<Vec<SubscribedFolder>>,
+    },
+    Expunged {
+        request_id: u64,
+        result: io::Result<Vec<u64>>,
     },
 }

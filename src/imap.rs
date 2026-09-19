@@ -60,6 +60,7 @@ pub enum Command {
         mailbox: MailboxName,
         attributes: Vec<status::StatusAttribute>,
     },
+    Expunge,
     List {
         pattern: folder::ListPattern,
     },
@@ -111,6 +112,7 @@ enum Verb {
     Unsubscribe,
     Lsub,
     Status,
+    Expunge,
     List,
     Select,
     Examine,
@@ -145,6 +147,7 @@ pub fn parse(line: &str) -> TaggedCommand {
         Some(Verb::Unsubscribe) => folder::parse_subscribe(tokens, false),
         Some(Verb::Lsub) => folder::parse_lsub(tokens),
         Some(Verb::Status) => status::parse(tokens),
+        Some(Verb::Expunge) => parse_empty(tokens, Command::Expunge),
         Some(Verb::List) => folder::parse_list(tokens),
         Some(Verb::Select) => parse_select(&mut tokens, false),
         Some(Verb::Examine) => parse_select(&mut tokens, true),
@@ -170,6 +173,13 @@ fn parse_select(tokens: &mut impl Iterator<Item = Token>, read_only: bool) -> Co
     match read_only {
         true => Command::Examine { mailbox },
         false => Command::Select { mailbox },
+    }
+}
+
+fn parse_empty(mut tokens: impl Iterator<Item = Token>, command: Command) -> Command {
+    match tokens.next() {
+        None => command,
+        Some(_) => Command::Unsupported,
     }
 }
 
@@ -204,6 +214,7 @@ fn parse_verb(text: &str) -> Verb {
         "UNSUBSCRIBE" => Verb::Unsubscribe,
         "LSUB" => Verb::Lsub,
         "STATUS" => Verb::Status,
+        "EXPUNGE" => Verb::Expunge,
         "LIST" => Verb::List,
         "SELECT" => Verb::Select,
         "EXAMINE" => Verb::Examine,

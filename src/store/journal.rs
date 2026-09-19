@@ -129,8 +129,11 @@ fn decode_frame(bytes: &[u8], start: usize) -> Result<DecodedFrame, FrameError> 
         1 | VERSION => version,
         _ => return Err(FrameError::Invalid("unsupported journal version")),
     };
-    let uid = u64::from_be_bytes(decoder.take::<8>()?);
+    // Оба формата начинают payload с глобального transaction id, затем UID
+    // конкретного mailbox. Порядок важен: только transaction id определяет
+    // допустимое имя immutable blob при восстановлении после перезапуска.
     let transaction_id = u64::from_be_bytes(decoder.take::<8>()?);
+    let uid = u64::from_be_bytes(decoder.take::<8>()?);
     let (internal_date, flags) = match version {
         1 => (MailDate::from_unix_seconds(0), MessageFlags::default()),
         VERSION => {

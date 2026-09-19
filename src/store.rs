@@ -5,6 +5,8 @@ mod blobs;
 mod commit_log;
 #[path = "store/durability.rs"]
 mod durability;
+#[path = "store/expunges.rs"]
+mod expunges;
 #[path = "store/flags.rs"]
 mod flags;
 #[path = "store/folder_access.rs"]

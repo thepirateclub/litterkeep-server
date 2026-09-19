@@ -16,7 +16,9 @@ stable internal IDs for the whole subtree; DELETE retires an ID permanently and
 refuses INBOX or a parent that still has children. SUBSCRIBE/UNSUBSCRIBE persist
 independently of folder existence, LSUB exposes missing subscriptions as
 `\Noselect`, and STATUS reads mailbox counters without selecting it.
-This is not yet a complete mail server: message-moving
+STORE keeps `\Deleted` separate from durable EXPUNGE tombstones; an EXPUNGE
+rebuilds sequence numbers without reusing UIDs and is denied after EXAMINE.
+This is not yet a complete mail server: COPY/MOVE/CLOSE and message-moving
 IMAP operations, POP3, Sieve, durable
 outbound transport integration and the remaining acceptance matrix are
 unfinished.

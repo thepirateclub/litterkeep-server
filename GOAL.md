@@ -883,3 +883,31 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - G06 остаётся RUNNING: COPY/MOVE/EXPUNGE/CLOSE/CHECK, UID SEARCH,
   modified UTF-7, полный LIST/SPECIAL-USE профиль, Recent и согласование
   sequence-map двух сессий ещё не завершены.
+
+### 2026-09-20: G06 durable EXPUNGE checkpoint
+
+- `EXPUNGE` сначала читает snapshot выбранной папки, вычисляет sequence number
+  каждой `\Deleted` записи, затем передаёт устойчивые UID единственному writer.
+  Untagged `EXPUNGE` и tagged OK выдаются только после fsync tombstone frame.
+- Новый append-only `.expunges` journal replay-ится после mailbox и flags
+  журналов. Он скрывает только окончательно удалённые UID, не меняет UID
+  оставшихся и не откатывает UIDNEXT. Неподтверждённый хвост frame не публикуется.
+- EXAMINE сохраняет `selected_read_only` в session и возвращает
+  `NO [READ-ONLY]` для EXPUNGE. Бинарные blobs пока намеренно не удаляются:
+  они могут разделяться между mailbox, а отдельный GC нужен вместе с анализом
+  ссылок и quota semantics.
+- Исправлен decoder mailbox journal: frame всегда содержит сначала глобальный
+  transaction id, затем UID mailbox. Новый regression test создаёт между двумя
+  письмами Bob независимую транзакцию Alice, поэтому больше не маскирует
+  различие идентификаторов и проверяет restart.
+- PASS: 88 Windows tests, strict Clippy, format и structural audit. Linux
+  Docker target `test` успешно выполнил `cargo test --locked`; runtime image
+  прошёл проверку реальным Python `imaplib` по STARTTLS. В чистой папке
+  `ExpungeFresh` независимый клиент проверил два `\Deleted` сообщения,
+  sequence responses `1`, затем `2`, сохранение второго сообщения. После
+  restart того же фиксированного контейнера tombstone был повторно подтверждён.
+  Отдельно существующий mailbox `Expunge` подтвердил запрет EXPUNGE после
+  EXAMINE и durable replay. Все данные остались в `./data/g06-expunge`.
+- G06 остаётся RUNNING: COPY/MOVE/CLOSE/CHECK, UID EXPUNGE и UIDPLUS,
+  UID SEARCH, modified UTF-7, полный LIST/SPECIAL-USE профиль, Recent и
+  согласование sequence-map двух сессий ещё не завершены.

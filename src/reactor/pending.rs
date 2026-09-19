@@ -76,4 +76,12 @@ pub(super) enum Pending {
         name: String,
         attributes: Vec<imap::status::StatusAttribute>,
     },
+    ReadForExpunge {
+        tag: String,
+        mailbox: String,
+    },
+    Expunge {
+        tag: String,
+        sequence_numbers: Vec<usize>,
+    },
 }

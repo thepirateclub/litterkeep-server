@@ -116,6 +116,7 @@ fn next_uid_is_cached_and_recovered_once() {
     let p = dir();
     let mut store = Store::open(&p).expect("store");
     assert_eq!(store.append("bob", b"one").expect("first"), 1);
+    assert_eq!(store.append("alice", b"other").expect("other mailbox"), 1);
     assert_eq!(store.append("bob", b"two").expect("second"), 2);
     drop(store);
     let mut reopened = Store::open(&p).expect("reopen");

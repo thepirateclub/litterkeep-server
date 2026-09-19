@@ -21,6 +21,8 @@ mod deadline;
 mod flag_completion;
 #[path = "reactor/imap_append.rs"]
 mod imap_append;
+#[path = "reactor/imap_expunge.rs"]
+mod imap_expunge;
 #[path = "reactor/imap_fetch_response.rs"]
 mod imap_fetch_response;
 #[path = "reactor/imap_folders.rs"]

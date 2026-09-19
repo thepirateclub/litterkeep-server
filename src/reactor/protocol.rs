@@ -45,7 +45,6 @@ pub(super) fn process_input(
     }
     Ok(())
 }
-
 pub(super) fn submit(
     session: &mut Session,
     request: Request,
@@ -69,7 +68,8 @@ pub(super) fn submit(
         | Request::ResolveFolder { request_id, .. }
         | Request::ReadFolder { request_id, .. }
         | Request::SetSubscription { request_id, .. }
-        | Request::ListSubscriptions { request_id, .. } => *request_id,
+        | Request::ListSubscriptions { request_id, .. }
+        | Request::Expunge { request_id, .. } => *request_id,
     };
     match worker.worker.submit(request) {
         Ok(()) => {
@@ -84,7 +84,6 @@ pub(super) fn submit(
         }
     }
 }
-
 fn imap_line(
     session: &mut Session,
     line: Vec<u8>,
@@ -197,6 +196,9 @@ fn imap_line(
             attributes,
         } => imap_status::queue(
             session, parsed.tag, mailbox, attributes, slot, generation, worker, owners, request_id,
+        )?,
+        imap::Command::Expunge => imap_expunge::queue(
+            session, parsed.tag, slot, generation, worker, owners, request_id,
         )?,
         imap::Command::Select { mailbox } => imap_select::queue(
             session, parsed.tag, mailbox, false, slot, generation, worker, owners, request_id,

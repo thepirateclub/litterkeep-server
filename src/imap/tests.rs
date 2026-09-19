@@ -194,6 +194,12 @@ fn subscriptions_and_status_are_typed() {
     );
 }
 
+#[test]
+fn expunge_requires_no_arguments() {
+    assert_eq!(parse("a18 EXPUNGE\r\n").command, Command::Expunge);
+    assert_eq!(parse("a19 EXPUNGE now\r\n").command, Command::Unsupported);
+}
+
 /// STORE operation и системные flags не покидают parser строками.
 #[test]
 fn store_flags_are_typed() {

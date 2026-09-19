@@ -20,7 +20,9 @@ impl Store {
         recovery::recover(&root)?;
         let committed = commit_log::committed(&root.join("journal/transactions.log"))?;
         let recovered = mailbox_state::load(&root, &committed)?;
-        let flags = flags::load(&root, &recovered.entries)?;
+        let mut entries = recovered.entries;
+        let flags = flags::load(&root, &entries)?;
+        expunges::load(&root, &mut entries)?;
         let blob_quota = Quota::load(&root.join("blobs"), quota_limit)?;
         let folders = folders::FolderCatalog::load(&root)?;
         let subscriptions = subscriptions::SubscriptionCatalog::load(&root)?;
@@ -32,7 +34,7 @@ impl Store {
             root,
             _writer_lock: lock,
             next_uids: recovered.next_uids,
-            entries: recovered.entries,
+            entries,
             flags,
             folders,
             subscriptions,

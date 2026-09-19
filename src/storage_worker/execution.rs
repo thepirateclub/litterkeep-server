@@ -137,6 +137,14 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             request_id,
             result: store.subscriptions(&account),
         },
+        Request::Expunge {
+            request_id,
+            mailbox,
+            uids,
+        } => Response::Expunged {
+            request_id,
+            result: store.expunge(&mailbox, &uids),
+        },
     }
 }
 

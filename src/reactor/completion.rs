@@ -25,7 +25,8 @@ pub(super) fn complete(
         }
         session.pending = None;
         if let Some((request, next_pending)) =
-            super::flag_completion::follow_up(&pending, &response, next_request)
+            super::imap_expunge::follow_up(&pending, &response, next_request)
+                .or_else(|| super::flag_completion::follow_up(&pending, &response, next_request))
         {
             protocol::submit(
                 session,
@@ -59,6 +60,7 @@ fn response_id(response: &Response) -> u64 {
         | Response::FolderRead { request_id, .. } => *request_id,
         Response::SubscriptionSet { request_id, .. }
         | Response::Subscriptions { request_id, .. } => *request_id,
+        Response::Expunged { request_id, .. } => *request_id,
     }
 }
 
@@ -123,6 +125,7 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
             let snapshot = resolved.snapshot;
             session.selected_mailbox = Some(resolved.key);
             session.selected_exists = snapshot.messages.len();
+            session.selected_read_only = read_only;
             let access = match read_only {
                 true => "READ-ONLY",
                 false => "READ-WRITE",
@@ -204,6 +207,13 @@ fn write_completion(session: &mut Session, pending: Pending, response: Response)
             },
             Response::FolderRead { result, .. },
         ) => imap_status::completed(session, tag, name, attributes, result),
+        (
+            Pending::Expunge {
+                tag,
+                sequence_numbers,
+            },
+            Response::Expunged { result, .. },
+        ) => imap_expunge::completed(session, tag, sequence_numbers, result),
         _ => Ok(()),
     }
 }
