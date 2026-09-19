@@ -39,3 +39,6 @@ TLS files and test artifacts will be placed under `runtime/` and are ignored.
 
 See `GOAL.md` for actual stage status and `litterkeep-rust-terra-goal.md` for
 the requested project contract.
+
+Architecture and ownership boundaries are documented in
+[`docs/architecture.md`](docs/architecture.md).
