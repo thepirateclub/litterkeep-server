@@ -27,6 +27,24 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G10 low-level blob I/O failure checkpoint
+
+- Production-путь публикации blob получил тестовый перехватчик пяти реальных
+  I/O-операций: создание temp-файла, partial/short write, file `sync_all`,
+  атомарный rename и directory sync. Проверка не подменяет код отдельной
+  тестовой реализацией.
+- Short-write инъекция действительно сохраняет только половину payload в temp
+  и возвращает I/O error. После полного переоткрытия Store recovery удаляет
+  temp, неполное письмо остаётся невидимым, а следующий append проходит.
+- Ошибка directory sync моделирует неопределённость после rename: окончательное
+  orphan-имя может существовать, но без transaction commit оно не публикуется.
+  Следующая транзакция выбирает другой blob id и сохраняет правильные байты.
+- PASS checkpoint: Windows 179 tests; strict Clippy, fmt, diff и структурный
+  аудит. Docker Rust 1.97 strict Linux Clippy и 209 tests прошли в image
+  `litterkeep-server:g10-blob-failures`.
+- G10 остаётся RUNNING: нужны границы финального SMTP-ответа и сетевой resource
+  plateau с сохранёнными сырыми измерениями.
+
 ### 2026-09-20: G10 append failure and replay boundary checkpoint
 
 - Append pipeline получил девять типизированных failpoint-границ: публикация

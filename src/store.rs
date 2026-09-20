@@ -1,5 +1,8 @@
 #[path = "store/append.rs"]
 mod append;
+#[cfg(test)]
+#[path = "store/blob_failure_tests.rs"]
+mod blob_failure_tests;
 #[path = "store/blobs.rs"]
 mod blobs;
 #[path = "store/commit_log.rs"]
