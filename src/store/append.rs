@@ -1,7 +1,7 @@
 //! Публикация immutable blob, mailbox links и исходящих jobs одной транзакцией.
 use super::{
     AppendMetadata, Store, WriteState, blobs, commit_log, durability, journal, model, recent,
-    validated_unique_mailboxes,
+    sieve_diagnostics, validated_unique_mailboxes,
 };
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
@@ -17,18 +17,34 @@ impl Store {
         raw: &[u8],
         metadata: AppendMetadata,
     ) -> io::Result<u64> {
-        self.append_many_with_metadata(&[mailbox.to_owned()], raw, metadata, &[])
+        self.append_many_with_metadata(&[mailbox.to_owned()], raw, metadata, &[], &[])
     }
     pub fn append_many(&mut self, mailboxes: &[String], raw: &[u8]) -> io::Result<u64> {
-        self.append_many_with_metadata(mailboxes, raw, AppendMetadata::default(), &[])
+        self.append_many_with_metadata(mailboxes, raw, AppendMetadata::default(), &[], &[])
     }
+    #[cfg(test)]
     pub(crate) fn append_many_with_outbound(
         &mut self,
         mailboxes: &[String],
         raw: &[u8],
         outbound: &[(String, String)],
     ) -> io::Result<u64> {
-        self.append_many_with_metadata(mailboxes, raw, AppendMetadata::default(), outbound)
+        self.append_many_with_metadata(mailboxes, raw, AppendMetadata::default(), outbound, &[])
+    }
+    pub(super) fn append_many_with_sieve(
+        &mut self,
+        mailboxes: &[String],
+        raw: &[u8],
+        outbound: &[(String, String)],
+        diagnostics: &[sieve_diagnostics::PendingDiagnostic],
+    ) -> io::Result<u64> {
+        self.append_many_with_metadata(
+            mailboxes,
+            raw,
+            AppendMetadata::default(),
+            outbound,
+            diagnostics,
+        )
     }
     fn append_many_with_metadata(
         &mut self,
@@ -36,6 +52,7 @@ impl Store {
         raw: &[u8],
         metadata: AppendMetadata,
         outbound: &[(String, String)],
+        diagnostics: &[sieve_diagnostics::PendingDiagnostic],
     ) -> io::Result<u64> {
         self.ensure_writable()?;
         let mailboxes = validated_delivery_mailboxes(mailboxes, outbound)?;
@@ -48,6 +65,10 @@ impl Store {
         for (sender, recipient) in outbound {
             self.queue
                 .enqueue_owned(transaction_id, sender, recipient)?;
+        }
+        if let Err(error) = sieve_diagnostics::append(&self.root, transaction_id, diagnostics) {
+            self.write_state = WriteState::Poisoned;
+            return Err(error);
         }
         match self.commit_links(transaction_id, &links) {
             Ok(()) => self.publish_links(transaction_id, links),

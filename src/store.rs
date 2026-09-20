@@ -59,6 +59,11 @@ mod recent_tests;
 mod recovery;
 #[path = "store/sieve_access.rs"]
 mod sieve_access;
+#[path = "store/sieve_diagnostics.rs"]
+mod sieve_diagnostics;
+#[cfg(test)]
+#[path = "store/sieve_diagnostics_tests.rs"]
+mod sieve_diagnostics_tests;
 #[path = "store/sieve_scripts.rs"]
 mod sieve_scripts;
 #[cfg(test)]
@@ -77,6 +82,7 @@ pub use folder_access::ResolvedMailbox;
 pub use folders::{FolderInfo, SpecialUse};
 pub use model::{AppendMetadata, MailboxSnapshot, Message};
 use quota::Quota;
+pub use sieve_diagnostics::SieveDiagnostic;
 pub use sieve_scripts::ScriptInfo;
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};

@@ -3,6 +3,7 @@
 use super::address;
 use super::ast::{Action, Command, Condition, Script};
 use super::matching;
+use std::fmt;
 
 /// Единственный результат Sieve, который delivery transaction может применить.
 #[derive(Debug, Eq, PartialEq)]
@@ -12,6 +13,43 @@ pub struct DeliveryPlan {
     pub folders: Vec<String>,
     pub redirects: Vec<String>,
 }
+
+/// Типизированная причина отказа bounded executor-а после успешной валидации.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ExecutionError {
+    CommandLimit,
+    RedirectLimit,
+}
+
+impl ExecutionError {
+    /// Стабильный код для долговечного журнала пользовательской диагностики.
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::CommandLimit => "command-limit",
+            Self::RedirectLimit => "redirect-limit",
+        }
+    }
+
+    /// Разбирает только версионированные коды на границе дискового формата.
+    pub fn from_code(value: &str) -> Option<Self> {
+        match value {
+            "command-limit" => Some(Self::CommandLimit),
+            "redirect-limit" => Some(Self::RedirectLimit),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for ExecutionError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            Self::CommandLimit => "sieve execution limit exceeded",
+            Self::RedirectLimit => "sieve redirect limit exceeded",
+        })
+    }
+}
+
+impl std::error::Error for ExecutionError {}
 
 /// Отличает неявный keep от явно запрошенного действия с тем же результатом.
 enum KeepState {
@@ -25,7 +63,7 @@ pub fn execute(
     script: &Script,
     headers: &[(String, String)],
     message_size: usize,
-) -> Result<DeliveryPlan, &'static str> {
+) -> Result<DeliveryPlan, ExecutionError> {
     let mut plan = DeliveryPlan {
         keep: true,
         discard: false,
@@ -55,14 +93,14 @@ fn commands(
     stopped: &mut bool,
     remaining: &mut usize,
     keep_state: &mut KeepState,
-) -> Result<(), &'static str> {
+) -> Result<(), ExecutionError> {
     for command in items {
         if *stopped {
             return Ok(());
         }
         match remaining.checked_sub(1) {
             Some(value) => *remaining = value,
-            None => return Err("sieve execution limit exceeded"),
+            None => return Err(ExecutionError::CommandLimit),
         }
         match command {
             Command::Action(action) => apply(action, plan, stopped, keep_state)?,
@@ -95,7 +133,7 @@ fn apply(
     plan: &mut DeliveryPlan,
     stopped: &mut bool,
     keep_state: &mut KeepState,
-) -> Result<(), &'static str> {
+) -> Result<(), ExecutionError> {
     match action {
         Action::Keep => {
             plan.keep = true;
@@ -111,7 +149,7 @@ fn apply(
         }
         Action::Redirect(address) => {
             if plan.redirects.len() >= 16 {
-                return Err("sieve redirect limit exceeded");
+                return Err(ExecutionError::RedirectLimit);
             }
             cancel_implicit_keep(plan, keep_state);
             plan.redirects.push(address.clone());

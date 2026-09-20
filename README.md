@@ -194,6 +194,20 @@ the script, sends an SMTP message as Alice and reads it from Bob's `Invoices`
 folder through IMAP. The test accounts are `alice/alice-password` and
 `bob/bob-password`.
 
+Если bounded Sieve executor отклоняет уже активную версию во время доставки,
+сервер применяет implicit keep и не публикует частично накопленные redirect или
+fileinto actions. Committed ошибка доступна владельцу в стабильном TSV-профиле:
+
+```sh
+litterkeep-server sieve-errors ./data/g08-sieve-diagnostics bob
+```
+
+Команда offline: она открывает Store как единственный writer и потому не должна
+запускаться параллельно с сервером. Каждая строка содержит delivery transaction,
+account, фактически исполненную версию скрипта и типизированный код ошибки.
+Diagnostic journal ограничен 1 MiB; исчерпание квоты отклоняет transaction до
+SMTP success, а не принимает письмо без обещанной диагностики.
+
 The only runtime binary is `target/release/litterkeep-server`. Current Docker
 test state is placed under ignored `data/` stage directories.
 

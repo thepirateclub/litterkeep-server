@@ -27,6 +27,38 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G08 transactional Sieve runtime-error checkpoint
+
+- Bounded executor возвращает typed `ExecutionError`, а не строку. При runtime
+  error частично построенный DeliveryPlan отбрасывается полностью и применяется
+  RFC-safe implicit keep, поэтому уже принятое письмо не теряется и redirect из
+  недовыполненного плана не публикуется.
+- Диагностика содержит account, точную version активного script, transaction ID
+  и typed error code. Она записывается до общей Store commit-точки и при replay
+  фильтруется по committed transaction IDs вместе с mailbox/queue state.
+  Оборванная transaction поэтому не показывает ложную ошибку пользователю.
+- Добавлена offline-команда `litterkeep-server sieve-errors <data-dir>
+  <account>` со стабильным TSV-выводом. Она фактически запущена на локальном
+  `./data/g08-sieve-diagnostics`; пустой новый Store вернул только корректный
+  header, не создавая фиктивных записей.
+- Store tests вызывают реальный runtime redirect limit: исходное письмо попадает
+  в INBOX, outbound queue остаётся пустой, версия и причина переживают reopen.
+  Failpoint после mailbox frame доказывает, что до global commit не видны ни
+  письмо, ни предварительно записанная Sieve diagnostic.
+- Повторный RCPT одного account дедуплицируется через `HashSet` до исполнения
+  правила, поэтому не создаёт несколько одинаковых redirect jobs или ошибок.
+- Recovery обрезает только оборванный tail diagnostic journal до выдачи writer,
+  но отклоняет завершённый повреждённый frame. После ошибки записи Store
+  становится poisoned и не дописывает данные за неопределённым tail.
+- Diagnostic journal имеет явную квоту 1 MiB. Её исчерпание останавливает
+  transaction до global commit и SMTP success, сохраняя проверяемую семантику.
+- PASS: Windows `cargo test --all-targets --locked` (161 tests), strict Clippy и
+  format. Docker Rust 1.97 strict Linux Clippy и 182 tests прошли в image
+  `litterkeep-server:g08-runtime-error-gate`.
+- G08 остаётся RUNNING: независимый сетевой runtime-error test не запускался,
+  поскольку Docker Desktop bind mount по-прежнему зависает на `init /data`.
+  Осталась отдельная проверка redirect route/loop policy и полный replay matrix.
+
 ### 2026-09-20: G08 Sieve implicit keep semantics checkpoint
 
 - Исполнитель Sieve теперь хранит typed-состояние `Implicit`, `Cancelled` или

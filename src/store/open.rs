@@ -26,6 +26,7 @@ impl Store {
         let lock = open_writer_lock(&root.join("writer.lock"))?;
         recovery::recover(&root)?;
         let committed = commit_log::committed(&root.join("journal/transactions.log"))?;
+        sieve_diagnostics::recover(&root)?;
         let queue = crate::queue::Queue::open(root.join("queue"))?;
         let outbound_transactions = queue.owned_transaction_ids()?;
         let recovered = mailbox_state::load(&root, &committed, &outbound_transactions)?;

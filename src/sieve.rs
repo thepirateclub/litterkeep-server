@@ -27,7 +27,7 @@ mod validate;
 pub use ast::{
     Action, AddressPart, Comparator, Condition, MatchType, Script, SizeRelation, StringMatch,
 };
-pub use execution::{DeliveryPlan, execute};
+pub use execution::{DeliveryPlan, ExecutionError, execute};
 
 /// Разбирает и валидирует script до его сохранения или исполнения.
 pub fn parse(source: &str) -> Result<Script, &'static str> {

@@ -1,6 +1,6 @@
 //! Атомарность Sieve delivery plan, mailbox links и outbound queue после replay.
 
-use super::super::Store;
+use super::super::{SieveDiagnostic, Store, StoreFailpoint};
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -79,6 +79,62 @@ fn explicit_keep_combines_local_delivery_with_redirect() {
 }
 
 #[test]
+fn runtime_error_keeps_mail_and_publishes_versioned_diagnostic() {
+    let root = directory();
+    let mut store = Store::open(&root).expect("open");
+    let info = store
+        .put_sieve_script("bob", "too-many-redirects", redirect_limit_script())
+        .expect("put");
+    store
+        .activate_sieve_script("bob", Some("too-many-redirects"))
+        .expect("activate");
+    let transaction_id = deliver(&mut store, b"Subject: bounded failure\r\n\r\nbody");
+    assert_eq!(folder_count(&mut store, "INBOX"), 1);
+    assert!(store.pending_outbound().expect("outbound").is_empty());
+    assert_eq!(
+        store.sieve_diagnostics("bob").expect("diagnostics"),
+        vec![SieveDiagnostic {
+            transaction_id,
+            account: "bob".into(),
+            script_version: info.version,
+            error: crate::sieve::ExecutionError::RedirectLimit,
+        }]
+    );
+    drop(store);
+    let mut store = Store::open(&root).expect("reopen");
+    assert_eq!(folder_count(&mut store, "INBOX"), 1);
+    assert_eq!(store.sieve_diagnostics("bob").expect("recovered").len(), 1);
+    close(root, store);
+}
+
+#[test]
+fn interrupted_delivery_does_not_publish_sieve_diagnostic() {
+    let root = directory();
+    let mut store = Store::open(&root).expect("open");
+    activate(&mut store, "failure", &redirect_limit_script());
+    store.set_failpoint(StoreFailpoint::AfterFirstMailboxFrame);
+    assert!(
+        store
+            .deliver_sieve_many(
+                &["bob".into()],
+                "alice@litterkeep.test",
+                b"Subject: interrupted\r\n\r\nbody",
+            )
+            .is_err()
+    );
+    drop(store);
+    let mut store = Store::open(&root).expect("reopen");
+    assert_eq!(folder_count(&mut store, "INBOX"), 0);
+    assert!(
+        store
+            .sieve_diagnostics("bob")
+            .expect("diagnostics")
+            .is_empty()
+    );
+    close(root, store);
+}
+
+#[test]
 fn redirect_discard_publishes_queue_without_an_inbox_link() {
     let root = directory();
     let mut store = Store::open(&root).expect("open");
@@ -94,6 +150,23 @@ fn redirect_discard_publishes_queue_without_an_inbox_link() {
     let mut store = Store::open(&root).expect("reopen");
     assert_eq!(folder_count(&mut store, "INBOX"), 0);
     assert_eq!(store.pending_outbound().expect("recovered").len(), 1);
+    close(root, store);
+}
+
+#[test]
+fn duplicate_recipient_executes_sieve_plan_once() {
+    let root = directory();
+    let mut store = Store::open(&root).expect("open");
+    activate(&mut store, "forward", "redirect \"remote@peer.test\";");
+    store
+        .deliver_sieve_many(
+            &["bob".into(), "bob".into()],
+            "alice@litterkeep.test",
+            b"Subject: duplicate recipient\r\n\r\nbody",
+        )
+        .expect("deliver");
+    assert_eq!(store.pending_outbound().expect("outbound").len(), 1);
+    assert_eq!(folder_count(&mut store, "INBOX"), 0);
     close(root, store);
 }
 
@@ -119,6 +192,13 @@ fn folder_count(store: &mut Store, folder: &str) -> usize {
         .snapshot
         .messages
         .len()
+}
+
+fn redirect_limit_script() -> String {
+    (0..17)
+        .map(|number| format!("redirect \"remote-{number}@peer.test\";"))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn close(root: std::path::PathBuf, store: Store) {

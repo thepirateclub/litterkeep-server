@@ -1,7 +1,8 @@
 //! Публичные Store-операции Sieve без раскрытия внутреннего каталога.
 
-use super::{ScriptInfo, Store};
+use super::{ScriptInfo, SieveDiagnostic, Store, sieve_diagnostics};
 use crate::sieve;
+use std::collections::HashSet;
 use std::io;
 
 impl Store {
@@ -55,6 +56,11 @@ impl Store {
         sieve::parse(source).map(|_| ()).map_err(io::Error::other)
     }
 
+    /// Возвращает долговечные runtime-ошибки только committed доставок account.
+    pub fn sieve_diagnostics(&self, account: &str) -> io::Result<Vec<SieveDiagnostic>> {
+        sieve_diagnostics::load(&self.root, &self.committed_transactions, account)
+    }
+
     /// Строит планы всех recipients до первой записи mailbox journal.
     ///
     /// Active source читается вместе с его версией у единственного Store owner,
@@ -69,8 +75,16 @@ impl Store {
         let headers = delivery_headers(raw);
         let mut mailboxes = Vec::new();
         let mut outbound = Vec::new();
+        let mut diagnostics = Vec::new();
+        let mut evaluated = HashSet::with_capacity(accounts.len());
         for account in accounts {
-            let plan = self.delivery_plan(account, &headers, raw.len())?;
+            if !evaluated.insert(account.as_str()) {
+                continue;
+            }
+            let (plan, diagnostic) = self.delivery_plan(account, &headers, raw.len())?;
+            if let Some(value) = diagnostic {
+                diagnostics.push(value);
+            }
             for recipient in plan.redirects {
                 outbound.push((envelope_sender.to_owned(), recipient));
             }
@@ -84,7 +98,7 @@ impl Store {
         if let (true, true) = (mailboxes.is_empty(), outbound.is_empty()) {
             return Ok(0);
         }
-        self.append_many_with_outbound(&mailboxes, raw, &outbound)
+        self.append_many_with_sieve(&mailboxes, raw, &outbound, &diagnostics)
     }
 
     fn delivery_plan(
@@ -92,17 +106,35 @@ impl Store {
         account: &str,
         headers: &[(String, String)],
         message_size: usize,
-    ) -> io::Result<sieve::DeliveryPlan> {
-        let Some((_, source)) = self.active_sieve_script(account)? else {
-            return Ok(sieve::DeliveryPlan {
-                keep: true,
-                discard: false,
-                folders: Vec::new(),
-                redirects: Vec::new(),
-            });
+    ) -> io::Result<(
+        sieve::DeliveryPlan,
+        Option<sieve_diagnostics::PendingDiagnostic>,
+    )> {
+        let Some((version, source)) = self.active_sieve_script(account)? else {
+            return Ok((implicit_keep(), None));
         };
         let script = sieve::parse(&source).map_err(io::Error::other)?;
-        sieve::execute(&script, headers, message_size).map_err(io::Error::other)
+        match sieve::execute(&script, headers, message_size) {
+            Ok(plan) => Ok((plan, None)),
+            Err(error) => Ok((
+                implicit_keep(),
+                Some(sieve_diagnostics::PendingDiagnostic {
+                    account: account.to_owned(),
+                    script_version: version,
+                    error,
+                }),
+            )),
+        }
+    }
+}
+
+/// RFC-safe fallback не исполняет частично построенный план после runtime error.
+fn implicit_keep() -> sieve::DeliveryPlan {
+    sieve::DeliveryPlan {
+        keep: true,
+        discard: false,
+        folders: Vec::new(),
+        redirects: Vec::new(),
     }
 }
 
