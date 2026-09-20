@@ -49,10 +49,7 @@ fn condition_valid(condition: &Condition, depth: usize) -> Result<(), &'static s
         return Err("sieve nesting limit exceeded");
     }
     match condition {
-        Condition::HeaderContains { name, needle } => match (name.is_empty(), needle.is_empty()) {
-            (false, false) => Ok(()),
-            _ => Err("empty sieve header matcher"),
-        },
+        Condition::Header { names, matcher } => string_match_valid(names, matcher),
         Condition::Exists { names } if names.is_empty() => Err("empty sieve exists list"),
         Condition::Not(value) => condition_valid(value, depth.saturating_add(1)),
         Condition::AllOf(values) | Condition::AnyOf(values) if values.is_empty() => {
@@ -61,7 +58,25 @@ fn condition_valid(condition: &Condition, depth: usize) -> Result<(), &'static s
         Condition::AllOf(values) | Condition::AnyOf(values) => values
             .iter()
             .try_for_each(|value| condition_valid(value, depth.saturating_add(1))),
-        Condition::True | Condition::False | Condition::Exists { .. } => Ok(()),
+        Condition::True | Condition::False | Condition::Exists { .. } | Condition::Size { .. } => {
+            Ok(())
+        }
+    }
+}
+
+fn string_match_valid(
+    names: &[String],
+    matcher: &super::ast::StringMatch,
+) -> Result<(), &'static str> {
+    if names.is_empty() || matcher.keys.is_empty() {
+        return Err("empty sieve string matcher");
+    }
+    match (
+        names.iter().any(String::is_empty),
+        matcher.keys.iter().any(String::is_empty),
+    ) {
+        (false, false) => Ok(()),
+        _ => Err("empty sieve string matcher"),
     }
 }
 

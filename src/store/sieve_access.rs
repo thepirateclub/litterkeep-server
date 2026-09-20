@@ -65,7 +65,7 @@ impl Store {
         let headers = delivery_headers(raw);
         let mut mailboxes = Vec::new();
         for account in accounts {
-            let plan = self.delivery_plan(account, &headers)?;
+            let plan = self.delivery_plan(account, &headers, raw.len())?;
             if !plan.redirects.is_empty() {
                 return Err(io::Error::new(
                     io::ErrorKind::Unsupported,
@@ -89,6 +89,7 @@ impl Store {
         &self,
         account: &str,
         headers: &[(String, String)],
+        message_size: usize,
     ) -> io::Result<sieve::DeliveryPlan> {
         let Some((_, source)) = self.active_sieve_script(account)? else {
             return Ok(sieve::DeliveryPlan {
@@ -99,7 +100,7 @@ impl Store {
             });
         };
         let script = sieve::parse(&source).map_err(io::Error::other)?;
-        sieve::execute(&script, headers).map_err(io::Error::other)
+        sieve::execute(&script, headers, message_size).map_err(io::Error::other)
     }
 }
 

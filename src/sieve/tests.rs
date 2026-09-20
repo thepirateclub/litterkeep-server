@@ -5,8 +5,12 @@ use super::*;
 #[test]
 fn invoice_rule_creates_only_invoices_delivery() {
     let script = parse("require [\"fileinto\"]; if header :contains \"subject\" \"[invoice]\" { fileinto \"Invoices\"; stop; }").expect("parse");
-    let plan =
-        execute(&script, &[("Subject".into(), "[invoice] September".into())]).expect("execute");
+    let plan = execute(
+        &script,
+        &[("Subject".into(), "[invoice] September".into())],
+        100,
+    )
+    .expect("execute");
     assert_eq!(plan.folders, vec!["Invoices"]);
     assert!(!plan.keep);
 }
@@ -14,7 +18,7 @@ fn invoice_rule_creates_only_invoices_delivery() {
 #[test]
 fn comments_and_implicit_keep_survive_false_condition() {
     let script = parse("# note\nif false { discard; } else { keep; }").expect("parse");
-    let plan = execute(&script, &[]).expect("execute");
+    let plan = execute(&script, &[], 0).expect("execute");
     assert!(plan.keep);
     assert!(!plan.discard);
 }
@@ -26,13 +30,40 @@ fn elsif_is_an_exclusive_bounded_branch() {
         "if false { discard; } elsif true { fileinto \"Invoices\"; stop; } else { discard; }",
     )
     .expect("parse");
-    let plan = execute(&script, &[]).expect("execute");
+    let plan = execute(&script, &[], 0).expect("execute");
     assert_eq!(plan.folders, vec!["Invoices"]);
     assert!(!plan.discard);
+}
+
+/// Header списки, glob, comparator и size получают один bounded DeliveryPlan.
+#[test]
+fn header_matchers_and_size_select_the_expected_branch() {
+    let script = parse(
+        "if allof [header :matches :comparator \"i;ascii-casemap\" [\"subject\", \"x-topic\"] [\"invoice-*\"], not exists \"x-cancel\", size :over 1K] { fileinto \"Invoices\"; } else { discard; }",
+    )
+    .expect("parse");
+    let plan =
+        execute(&script, &[("Subject".into(), "Invoice-2026".into())], 1_025).expect("execute");
+    assert_eq!(plan.folders, vec!["Invoices"]);
+    assert!(!plan.discard);
+}
+
+/// Octet comparator не подменяет явно выбранный регистр ASCII casemap-ом.
+#[test]
+fn octet_comparator_keeps_case_significant() {
+    let script =
+        parse("if header :is :comparator \"i;octet\" \"subject\" \"Invoice\" { discard; }")
+            .expect("parse");
+    let plan = execute(&script, &[("Subject".into(), "invoice".into())], 10).expect("execute");
+    assert!(plan.keep);
 }
 
 #[test]
 fn invalid_script_does_not_become_a_delivery_plan() {
     assert!(parse("require [\"vacation\"]; keep;").is_err());
     assert!(parse("fileinto \"../Invoices\";").is_err());
+    assert!(
+        parse("if header :comparator \"i;unicode-casemap\" \"subject\" \"x\" { keep; }").is_err()
+    );
+    assert!(parse("if size :over 1T { keep; }").is_err());
 }

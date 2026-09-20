@@ -1,6 +1,7 @@
 //! Bounded исполнение AST в DeliveryPlan без доступа к сети и файловой системе.
 
 use super::ast::{Action, Command, Condition, Script};
+use super::matching;
 
 /// Единственный результат Sieve, который delivery transaction может применить.
 #[derive(Debug, Eq, PartialEq)]
@@ -11,10 +12,11 @@ pub struct DeliveryPlan {
     pub redirects: Vec<String>,
 }
 
-/// Запускает script над разобранными заголовками с фиксированным budget команд.
+/// Запускает script над заголовками и исходным размером с fixed budget команд.
 pub fn execute(
     script: &Script,
     headers: &[(String, String)],
+    message_size: usize,
 ) -> Result<DeliveryPlan, &'static str> {
     let mut plan = DeliveryPlan {
         keep: true,
@@ -27,6 +29,7 @@ pub fn execute(
     commands(
         &script.commands,
         headers,
+        message_size,
         &mut plan,
         &mut stopped,
         &mut remaining,
@@ -37,6 +40,7 @@ pub fn execute(
 fn commands(
     items: &[Command],
     headers: &[(String, String)],
+    message_size: usize,
     plan: &mut DeliveryPlan,
     stopped: &mut bool,
     remaining: &mut usize,
@@ -56,11 +60,11 @@ fn commands(
                 then_commands,
                 else_commands,
             } => {
-                let selected = match matches(condition, headers) {
+                let selected = match matches(condition, headers, message_size) {
                     true => then_commands,
                     false => else_commands,
                 };
-                commands(selected, headers, plan, stopped, remaining)?;
+                commands(selected, headers, message_size, plan, stopped, remaining)?;
             }
         }
     }
@@ -89,28 +93,44 @@ fn apply(action: &Action, plan: &mut DeliveryPlan, stopped: &mut bool) -> Result
     Ok(())
 }
 
-fn matches(condition: &Condition, headers: &[(String, String)]) -> bool {
+fn matches(condition: &Condition, headers: &[(String, String)], message_size: usize) -> bool {
     match condition {
         Condition::True => true,
         Condition::False => false,
-        Condition::HeaderContains { name, needle } => headers
+        Condition::Header { names, matcher } => headers
             .iter()
-            .any(|(candidate, value)| header_contains(candidate, value, name, needle)),
+            .any(|(candidate, value)| header_matches(candidate, value, names, matcher)),
         Condition::Exists { names } => names.iter().all(|name| {
             headers
                 .iter()
                 .any(|(candidate, _)| candidate.eq_ignore_ascii_case(name))
         }),
-        Condition::Not(value) => !matches(value, headers),
-        Condition::AllOf(values) => values.iter().all(|value| matches(value, headers)),
-        Condition::AnyOf(values) => values.iter().any(|value| matches(value, headers)),
+        Condition::Size { relation, limit } => match relation {
+            super::ast::SizeRelation::Over => message_size > *limit,
+            super::ast::SizeRelation::Under => message_size < *limit,
+        },
+        Condition::Not(value) => !matches(value, headers, message_size),
+        Condition::AllOf(values) => values
+            .iter()
+            .all(|value| matches(value, headers, message_size)),
+        Condition::AnyOf(values) => values
+            .iter()
+            .any(|value| matches(value, headers, message_size)),
     }
 }
 
 /// Сначала проверяет имя header, затем его значение, не смешивая условия.
-fn header_contains(candidate: &str, value: &str, name: &str, needle: &str) -> bool {
-    if !candidate.eq_ignore_ascii_case(name) {
+fn header_matches(
+    candidate: &str,
+    value: &str,
+    names: &[String],
+    matcher: &super::ast::StringMatch,
+) -> bool {
+    if !names
+        .iter()
+        .any(|name| candidate.eq_ignore_ascii_case(name))
+    {
         return false;
     }
-    value.contains(needle)
+    matching::matches(value, matcher)
 }

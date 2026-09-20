@@ -59,6 +59,21 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   address/size, match types/comparators, redirect через outbound queue и
   полный внешний ManageSieve matrix.
 
+### 2026-09-20: G08 Sieve matcher and size checkpoint
+
+- AST теперь явно хранит enum match type (`:is`, `:contains`, `:matches`) и
+  comparator (`i;ascii-casemap`, `i;octet`), а не восстанавливает семантику
+  из строк во время доставки. Matcher вынесен в отдельный bounded компонент:
+  glob не использует regex и не делает экспоненциальный backtracking.
+- `header` принимает списки имён и ключей, `size :over`/`:under` сравнивает
+  именно число октетов исходного письма, переданное Store до journal commit.
+  Неподдержанный comparator, переполнение и неверный quantifier отклоняются
+  до публикации script version.
+- PASS: Windows `cargo test --all-targets --locked` (121 tests), strict
+  Clippy, format и Docker Linux test target (128 tests). G08 остаётся
+  RUNNING: отсутствуют `address`-условия, redirect ещё не идёт через outbound
+  queue, нужен полный внешний ManageSieve command/error matrix.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.

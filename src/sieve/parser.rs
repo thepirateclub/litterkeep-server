@@ -1,6 +1,8 @@
 //! Рекурсивный parser начального совместимого подмножества Sieve.
 
-use super::ast::{Action, Command, Condition, Script};
+use super::ast::{
+    Action, Command, Comparator, Condition, MatchType, Script, SizeRelation, StringMatch,
+};
 use super::lexer::Token;
 use std::collections::VecDeque;
 
@@ -13,7 +15,7 @@ pub(super) fn parse(tokens: Vec<Token>) -> Result<Script, &'static str> {
             return Err("sieve command expected");
         };
         match word.as_str() {
-            "require" => requires.extend(strings(&mut input)?),
+            "require" => requires.extend(terminated_strings(&mut input)?),
             "if" => commands.push(if_command(&mut input)?),
             word => action(word, &mut input, &mut commands)?,
         }
@@ -91,8 +93,9 @@ fn condition(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
         "false" => Ok(Condition::False),
         "header" => header(input),
         "exists" => Ok(Condition::Exists {
-            names: strings(input)?,
+            names: string_list(input)?,
         }),
+        "size" => size(input),
         "not" => Ok(Condition::Not(Box::new(condition(input)?))),
         "allof" => conditions(input, Condition::AllOf),
         "anyof" => conditions(input, Condition::AnyOf),
@@ -101,14 +104,92 @@ fn condition(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
 }
 
 fn header(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
-    match input.pop_front() {
-        Some(Token::Atom(tag)) if tag == ":contains" => {}
-        _ => return Err("only :contains header matcher is supported"),
-    }
-    Ok(Condition::HeaderContains {
-        name: one_string(input)?,
-        needle: one_string(input)?,
+    let (match_type, comparator) = match_options(input)?;
+    Ok(Condition::Header {
+        names: string_list(input)?,
+        matcher: StringMatch {
+            match_type,
+            comparator,
+            keys: string_list(input)?,
+        },
     })
+}
+
+/// Разбирает разрешённые match-tags без смешивания с аргументами test-а.
+fn match_options(input: &mut VecDeque<Token>) -> Result<(MatchType, Comparator), &'static str> {
+    let mut kind = MatchType::Is;
+    let mut selected_comparator = Comparator::AsciiCasemap;
+    let mut has_kind = false;
+    let mut has_comparator = false;
+    loop {
+        let Some(Token::Atom(tag)) = input.front() else {
+            return Ok((kind, selected_comparator));
+        };
+        match tag.as_str() {
+            ":is" if !has_kind => {
+                let _ = input.pop_front();
+                kind = MatchType::Is;
+                has_kind = true;
+            }
+            ":contains" if !has_kind => {
+                let _ = input.pop_front();
+                kind = MatchType::Contains;
+                has_kind = true;
+            }
+            ":matches" if !has_kind => {
+                let _ = input.pop_front();
+                kind = MatchType::Matches;
+                has_kind = true;
+            }
+            ":comparator" if !has_comparator => {
+                let _ = input.pop_front();
+                selected_comparator = parse_comparator(&one_string(input)?)?;
+                has_comparator = true;
+            }
+            value if value.starts_with(':') => return Err("unsupported sieve match tag"),
+            _ => return Ok((kind, selected_comparator)),
+        }
+    }
+}
+
+fn parse_comparator(value: &str) -> Result<Comparator, &'static str> {
+    match value {
+        "i;ascii-casemap" => Ok(Comparator::AsciiCasemap),
+        "i;octet" => Ok(Comparator::Octet),
+        _ => Err("unsupported sieve comparator"),
+    }
+}
+
+fn size(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
+    let relation = match atom(input)?.as_str() {
+        ":over" => SizeRelation::Over,
+        ":under" => SizeRelation::Under,
+        _ => return Err("sieve size relation expected"),
+    };
+    Ok(Condition::Size {
+        relation,
+        limit: size_limit(&atom(input)?)?,
+    })
+}
+
+/// RFC-стиль `K`, `M`, `G` quantifier переводится в октеты с проверкой overflow.
+fn size_limit(value: &str) -> Result<usize, &'static str> {
+    let (number, factor) = match value.chars().last() {
+        Some('K' | 'k') => (value.get(..value.len().saturating_sub(1)), 1_024_usize),
+        Some('M' | 'm') => (value.get(..value.len().saturating_sub(1)), 1_048_576_usize),
+        Some('G' | 'g') => (
+            value.get(..value.len().saturating_sub(1)),
+            1_073_741_824_usize,
+        ),
+        Some(_) => (Some(value), 1),
+        None => (None, 1),
+    };
+    number
+        .ok_or("invalid sieve size")?
+        .parse::<usize>()
+        .map_err(|_| "invalid sieve size")?
+        .checked_mul(factor)
+        .ok_or("sieve size overflow")
 }
 
 fn conditions(
@@ -132,7 +213,13 @@ fn conditions(
     }
 }
 
-fn strings(input: &mut VecDeque<Token>) -> Result<Vec<String>, &'static str> {
+fn terminated_strings(input: &mut VecDeque<Token>) -> Result<Vec<String>, &'static str> {
+    let values = string_list(input)?;
+    expect(input, Token::Semicolon)?;
+    Ok(values)
+}
+
+fn string_list(input: &mut VecDeque<Token>) -> Result<Vec<String>, &'static str> {
     match input.front() {
         Some(Token::OpenList) => {
             let _ = input.pop_front();
@@ -142,7 +229,6 @@ fn strings(input: &mut VecDeque<Token>) -> Result<Vec<String>, &'static str> {
                     Some(Token::String(value)) => values.push(value),
                     Some(Token::Comma) => {}
                     Some(Token::CloseList) => {
-                        expect(input, Token::Semicolon)?;
                         return Ok(values);
                     }
                     _ => return Err("invalid sieve string list"),
@@ -151,7 +237,6 @@ fn strings(input: &mut VecDeque<Token>) -> Result<Vec<String>, &'static str> {
         }
         _ => {
             let value = one_string(input)?;
-            expect(input, Token::Semicolon)?;
             Ok(vec![value])
         }
     }

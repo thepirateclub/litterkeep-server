@@ -10,6 +10,8 @@ mod ast;
 mod execution;
 #[path = "sieve/lexer.rs"]
 mod lexer;
+#[path = "sieve/matching.rs"]
+mod matching;
 #[path = "sieve/parser.rs"]
 mod parser;
 #[cfg(test)]
@@ -18,7 +20,7 @@ mod tests;
 #[path = "sieve/validate.rs"]
 mod validate;
 
-pub use ast::{Action, Condition, Script};
+pub use ast::{Action, Comparator, Condition, MatchType, Script, SizeRelation, StringMatch};
 pub use execution::{DeliveryPlan, execute};
 
 /// Разбирает и валидирует script до его сохранения или исполнения.
