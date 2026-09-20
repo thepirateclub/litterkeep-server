@@ -30,8 +30,9 @@ fn scheduler_drains_without_explicit_queue_command() {
     let peer = thread::spawn(move || serve_one(listener));
     let mut storage = WakingStorageWorker::start(&path, 8).expect("storage");
     let mut lifecycle: Orchestrator<Session> = Orchestrator::new();
-    let mut scheduler = OutboundScheduler::start(&address.to_string(), &storage, &mut lifecycle)
-        .expect("scheduler");
+    let route = crate::outbound_route::Route::plain(&address.to_string()).expect("route");
+    let mut scheduler =
+        OutboundScheduler::start(route, &storage, &mut lifecycle).expect("scheduler");
     assert_eq!(lifecycle.stats().waiting_tasks, 1);
     assert_eq!(lifecycle.stats().wait_registrations, 1);
     let deadline = Instant::now() + Duration::from_secs(5);

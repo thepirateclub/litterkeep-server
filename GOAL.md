@@ -27,6 +27,26 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G09 typed TLS route pool checkpoint
+
+- Outbound worker принимает `Route::Plain` либо `Route::ImplicitTls`; variant
+  выбирается до запуска thread. Enum-owned `Pool` физически не позволяет
+  вернуть rustls stream в plaintext pool или смешать разные transport types.
+- Implicit-TLS connection теперь остаётся non-cloneable владельцем rustls
+  stream между доставками. Route key закрепляет числовой address, SNI и CA;
+  channel возвращается в pool только после successful DATA либо accepted RSET.
+- Постоянный reactor scheduler принимает typed route. Новый CLI
+  `serve-all-mail-outbound-tls-starttls` загружает outbound CA отдельно от
+  входящего server certificate и запускает тот же lifecycle/queue state machine.
+- Unit test провёл две SMTP transaction через один TLS connection и подтвердил
+  один idle channel. Linux scheduler test продолжает проверять plaintext variant.
+- PASS: Windows `cargo test --all-targets --locked` (153 tests), strict Clippy;
+  Docker Rust 1.97 strict Linux Clippy и 169 tests в image
+  `litterkeep-server:g09-tls-route-gate`. Format и structural gate выполнены
+  перед commit.
+- G09 остаётся RUNNING до внешнего обмена двух service instances и негативной
+  проверки wrong CA/SAN именно через постоянный scheduler.
+
 ### 2026-09-20: G09 bounded outbound network deadlines checkpoint
 
 - Plaintext и implicit-TLS transport используют один connector contract:

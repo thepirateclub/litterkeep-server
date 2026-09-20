@@ -1,6 +1,6 @@
 //! Bounded worker исходящего SMTP, владеющий pool и не имеющий доступа к Store.
 
-use crate::{outbound::DeliveryOutcome, outbound_pool::ConnectionPool};
+use crate::{outbound::DeliveryOutcome, outbound_route};
 use std::io;
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::thread::{self, JoinHandle};
@@ -35,7 +35,19 @@ impl OutboundWorker {
         queue_capacity: usize,
         pool_capacity: usize,
     ) -> io::Result<Self> {
-        Self::start_with_notifier(address, queue_capacity, pool_capacity, || {})
+        Self::start_route(
+            outbound_route::Route::plain(&address.into())?,
+            queue_capacity,
+            pool_capacity,
+        )
+    }
+
+    pub fn start_route(
+        route: outbound_route::Route,
+        queue_capacity: usize,
+        pool_capacity: usize,
+    ) -> io::Result<Self> {
+        Self::start_route_with_notifier(route, queue_capacity, pool_capacity, || {})
     }
 
     /// Создаёт worker с коротким notifier-ом для внешнего event loop.
@@ -51,7 +63,20 @@ impl OutboundWorker {
     where
         F: FnMut() + Send + 'static,
     {
-        let pool = ConnectionPool::new(address, pool_capacity)?;
+        let route = outbound_route::Route::plain(&address.into())?;
+        Self::start_route_with_notifier(route, queue_capacity, pool_capacity, notifier)
+    }
+
+    pub fn start_route_with_notifier<F>(
+        route: outbound_route::Route,
+        queue_capacity: usize,
+        pool_capacity: usize,
+        notifier: F,
+    ) -> io::Result<Self>
+    where
+        F: FnMut() + Send + 'static,
+    {
+        let pool = outbound_route::Pool::new(route, pool_capacity)?;
         let (jobs, incoming) = mpsc::sync_channel(queue_capacity);
         let (outgoing, completions) = mpsc::channel();
         let thread = thread::Builder::new()
@@ -83,7 +108,7 @@ impl OutboundWorker {
 
 /// Последовательно исполняет SMTP jobs, сохраняя pool owner в одном thread.
 fn run<F>(
-    mut pool: ConnectionPool,
+    mut pool: outbound_route::Pool,
     incoming: Receiver<Job>,
     outgoing: mpsc::Sender<Completion>,
     mut notifier: F,

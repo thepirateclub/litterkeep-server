@@ -65,6 +65,19 @@ Outbound route принимает только явный числовой `IP:p
 секундами. I/O timeout уничтожает грязное соединение, durable job переводится
 в retry policy и такой channel никогда не возвращается в pool.
 
+Для постоянного implicit-TLS маршрута используется отдельная typed команда:
+
+```sh
+litterkeep-server serve-all-mail-outbound-tls-starttls \
+  0.0.0.0:1587 0.0.0.0:1143 0.0.0.0:1110 0.0.0.0:4190 \
+  127.0.0.1:2465 peer.test peer-ca.der ./data/g09-live \
+  server.der server.key.der
+```
+
+TLS route key не смешивается с plaintext: address, проверяемое имя и CA
+закрепляются за отдельным pool. Reuse разрешён после successful DATA или
+подтверждённого RSET; EOF, timeout, TLS error и отказ RSET уничтожают channel.
+
 ## Linux runtime control socket
 
 ```sh

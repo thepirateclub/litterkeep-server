@@ -1,6 +1,6 @@
 //! Linux wakeup-адаптер bounded outbound worker-а для poll-reactor.
 
-use crate::outbound_worker::OutboundWorker;
+use crate::{outbound_route::Route, outbound_worker::OutboundWorker};
 use std::io;
 use std::os::unix::net::UnixStream;
 
@@ -21,12 +21,24 @@ impl WakingOutboundWorker {
         queue_capacity: usize,
         pool_capacity: usize,
     ) -> io::Result<Self> {
+        Self::start_route(
+            Route::plain(&address.into())?,
+            queue_capacity,
+            pool_capacity,
+        )
+    }
+
+    pub fn start_route(
+        route: Route,
+        queue_capacity: usize,
+        pool_capacity: usize,
+    ) -> io::Result<Self> {
         use std::io::Write;
         let (wake_reader, mut wake_writer) = UnixStream::pair()?;
         wake_reader.set_nonblocking(true)?;
         wake_writer.set_nonblocking(true)?;
-        let worker = OutboundWorker::start_with_notifier(
-            address,
+        let worker = OutboundWorker::start_route_with_notifier(
+            route,
             queue_capacity,
             pool_capacity,
             move || {

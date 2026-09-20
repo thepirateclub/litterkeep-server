@@ -115,7 +115,7 @@ use completion_retry::retry_submissions;
 use imap_idle::IdleState;
 use imap_literal::LiteralReceiver;
 use maildrop_lease::MaildropLeases;
-pub use outbound_entry::serve_all_mail_outbound_starttls;
+pub use outbound_entry::{serve_all_mail_outbound_starttls, serve_all_mail_outbound_tls_starttls};
 use pending::Pending;
 use protocol::process_input;
 use reactor_control::service_control;

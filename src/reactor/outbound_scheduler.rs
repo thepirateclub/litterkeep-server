@@ -38,13 +38,13 @@ pub(super) enum Phase {
 impl OutboundScheduler {
     /// Запускает bounded transport owner и сразу запрашивает готовую delivery.
     pub(super) fn start(
-        address: &str,
+        route: crate::outbound_route::Route,
         storage: &WakingStorageWorker,
         lifecycle: &mut Orchestrator<Session>,
     ) -> io::Result<Self> {
         let task = lifecycle.spawn_task();
         let mut scheduler = Self {
-            outbound: WakingOutboundWorker::start(address, 1, 2)?,
+            outbound: WakingOutboundWorker::start_route(route, 1, 2)?,
             ids: SchedulerIds::new(),
             task,
             phase: Phase::Idle(Instant::now()),

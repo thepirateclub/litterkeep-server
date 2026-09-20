@@ -7,7 +7,7 @@ pub(super) fn serve(
     imap_address: Option<&str>,
     pop3_address: Option<&str>,
     managesieve_address: Option<&str>,
-    outbound_address: Option<&str>,
+    outbound_route: Option<crate::outbound_route::Route>,
     root: impl AsRef<Path>,
     tls_mode: TlsMode,
 ) -> io::Result<()> {
@@ -18,9 +18,9 @@ pub(super) fn serve(
     let managesieve_listener = listener::bind(managesieve_address)?;
     let mut worker = WakingStorageWorker::start(root, 64)?;
     let mut lifecycle: Orchestrator<Session> = Orchestrator::new();
-    let mut scheduler = match outbound_address {
-        Some(address) => Some(outbound_scheduler::OutboundScheduler::start(
-            address,
+    let mut scheduler = match outbound_route {
+        Some(route) => Some(outbound_scheduler::OutboundScheduler::start(
+            route,
             &worker,
             &mut lifecycle,
         )?),

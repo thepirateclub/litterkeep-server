@@ -23,6 +23,7 @@ pub mod outbound_pool;
 #[path = "outbound_pool_tests.rs"]
 mod outbound_pool_tests;
 pub mod outbound_queue;
+pub mod outbound_route;
 #[cfg(target_os = "linux")]
 pub mod outbound_service;
 #[cfg(target_os = "linux")]
@@ -32,6 +33,7 @@ mod outbound_service_support;
 #[path = "outbound_tests.rs"]
 mod outbound_tests;
 pub mod outbound_tls;
+pub mod outbound_tls_pool;
 #[cfg(target_os = "linux")]
 pub mod outbound_wakeup;
 pub mod outbound_worker;
