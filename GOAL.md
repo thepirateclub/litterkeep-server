@@ -156,6 +156,16 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   загрузить committed jobs для worker-а, затем нужны delivery state transitions,
   retry и независимый SMTP peer.
 
+### 2026-09-20: G09 committed queue recovery checkpoint
+
+- Store сохраняет recovered global committed transaction IDs и обновляет набор
+  только после успешной global commit publication. `pending_outbound` отдаёт
+  queue jobs через этот набор; restart test проверяет, что committed Sieve
+  redirect снова доступен после `Store::open`.
+- PASS: Windows `cargo test --all-targets --locked` (126 tests), strict Clippy,
+  format и `git diff --check`. G09 остаётся RUNNING: jobs ещё не получают
+  durable state transitions и не передаются исходящему SMTP worker/peer.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.

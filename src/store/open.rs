@@ -51,6 +51,7 @@ impl Store {
             subscriptions,
             sieve_scripts,
             queue,
+            committed_transactions: committed.ids,
             next_transaction_id,
             blob_quota,
             write_state: WriteState::Writable,

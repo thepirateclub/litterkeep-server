@@ -120,9 +120,7 @@ fn delivery_headers(raw: &[u8]) -> Vec<(String, String)> {
 
 #[cfg(test)]
 mod tests {
-    use crate::queue::Queue;
     use crate::store::Store;
-    use std::collections::HashSet;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -203,13 +201,8 @@ mod tests {
                 b"Subject: redirect\r\n\r\nbody",
             )
             .expect("deliver");
-        let mut committed = HashSet::new();
-        committed.insert(transaction_id);
         assert_eq!(
-            Queue::open(root.join("queue"))
-                .expect("queue")
-                .pending_owned(&committed)
-                .expect("owned"),
+            store.pending_outbound().expect("owned"),
             vec![crate::queue::OwnedDelivery {
                 transaction_id,
                 sender: "alice@litterkeep.test".into(),
@@ -218,6 +211,9 @@ mod tests {
             }]
         );
         assert_eq!(store.messages("bob").expect("inbox").len(), 1);
+        drop(store);
+        let store = Store::open(&root).expect("reopen");
+        assert_eq!(store.pending_outbound().expect("recovered").len(), 1);
         drop(store);
         fs::remove_dir_all(root).expect("cleanup");
     }

@@ -92,6 +92,8 @@ pub struct Store {
     sieve_scripts: sieve_scripts::SieveCatalog,
     /// Queue принадлежит тому же единственному writer-у, что и mailbox journal.
     queue: Queue,
+    /// Единственный источник видимости queue jobs после recovery или commit.
+    committed_transactions: HashSet<u64>,
     next_transaction_id: u64,
     blob_quota: Quota,
     write_state: WriteState,

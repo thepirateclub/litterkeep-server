@@ -145,6 +145,12 @@ impl Store {
         self.next_transaction_id = transaction_id
             .checked_add(1)
             .ok_or_else(|| io::Error::other("transaction id exhausted"))?;
+        self.committed_transactions.insert(transaction_id);
         Ok(first_uid)
+    }
+
+    /// Возвращает только jobs, пережившие global Store commit и recovery.
+    pub fn pending_outbound(&self) -> io::Result<Vec<crate::queue::OwnedDelivery>> {
+        self.queue.pending_owned(&self.committed_transactions)
     }
 }
