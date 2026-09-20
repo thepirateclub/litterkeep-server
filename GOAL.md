@@ -2,7 +2,7 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`  
 Root status: ACTIVE  
-Current subgoal: G09
+Current subgoal: G10
 
 The actually available Goal interface was inspected. It supports creating and
 updating one active root goal (`create_goal`, `get_goal`, `update_goal`), but
@@ -20,12 +20,34 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | G06 | G05 | IMAP folders, flags, UID, IDLE | PASS |
 | G07 | G02 | POP3 backed by the shared store | PASS |
 | G08 | G02 | Sieve and ManageSieve delivery effect | PASS |
-| G09 | G04 | outbound SMTP, pool, retry/DSN | RUNNING |
+| G09 | G04 | outbound SMTP, pool, retry/DSN | PASS |
 | G10 | G06,G07,G08,G09 | failure matrix, replay, resource plateaus | NOT RUN |
 | G11 | G10 | offline check/backup and repeatable seed | NOT RUN |
 | G12 | G11 | litterkeep and final acceptance report | NOT RUN |
 
 ## Checkpoints
+
+### 2026-09-20: G09 two-instance exchange and completion checkpoint
+
+- Два одновременно работающих экземпляра нашего бинарника запущены в отдельной
+  Docker-сети с разными container-local `/data`: source с постоянным outbound
+  scheduler и destination с собственным plaintext peer SMTP listener.
+- Независимые ManageSieve/SMTP clients создали две последовательные redirect
+  delivery `remote@peer.test`. Source scheduler после первой и второй job
+  вернулся в Waiting, его observed event version вырос с 82 до 108.
+- На destination после первой доставки реальный lifecycle показал SMTP
+  `TASK id=1:1 state=Ready held=1:1`. После второй доставки сохранились тот же
+  TaskId и тот же socket ResourceId. Это доказывает две SMTP transaction через
+  одно принятое TCP-соединение, без второго accept/handshake.
+- После полного restart destination запущен с IMAP STARTTLS. Независимый
+  `imaplib` нашёл оба разных Subject в ящике `remote`, подтвердив долговечную
+  доставку, а не только прохождение scheduler state machine.
+- Ранее пройденные Linux real-socket tests подтверждают implicit-TLS route,
+  проверку CA/SAN, deadline, dirty/reset pool policy, durable retry и DSN.
+  Текущий внешний обмен проверял локальный plaintext MTA peer, что соответствует
+  выбранному локальному межсерверному профилю и не заявляется публичным MTA.
+- PASS G09: обмен двух экземпляров и server-side reuse доказаны вместе с
+  retry/DSN/cancellation invariants. Следующая активная подцель G10.
 
 ### 2026-09-20: G08 independent runtime-error and completion checkpoint
 

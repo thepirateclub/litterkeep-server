@@ -46,10 +46,12 @@ def deliver(options: argparse.Namespace, context: ssl.SSLContext) -> None:
     message = EmailMessage()
     message["From"] = "alice@litterkeep.test"
     message["To"] = "bob@litterkeep.test"
-    message["Subject"] = "queue redirect peer"
+    message["Subject"] = options.subject
     message.set_content("queue body")
     with smtplib.SMTP(options.host, options.smtp_port, timeout=10) as client:
-        client.ehlo(); client.starttls(context=context); client.ehlo()
+        client.ehlo()
+        client.starttls(context=context)
+        client.ehlo()
         client.login("alice", "alice-password")
         client.sendmail("alice@litterkeep.test", ["bob@litterkeep.test"], message.as_bytes(policy=SMTP))
 
@@ -60,9 +62,13 @@ def main() -> None:
     parser.add_argument("--smtp-port", type=int, required=True)
     parser.add_argument("--managesieve-port", type=int, required=True)
     parser.add_argument("--ca", required=True)
+    parser.add_argument("--subject", default="queue redirect peer")
+    parser.add_argument("--skip-configure", action="store_true")
     options = parser.parse_args()
     context = ssl.create_default_context(cafile=options.ca)
-    configure(options, context); deliver(options, context)
+    if not options.skip_configure:
+        configure(options, context)
+    deliver(options, context)
     print("queue redirect seed: PASS")
 
 
