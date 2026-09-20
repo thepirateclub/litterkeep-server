@@ -12,6 +12,7 @@ import smtplib
 import socket
 import ssl
 from email.message import EmailMessage
+from email.policy import SMTP
 
 
 def require(condition: bool, message: str) -> None:
@@ -68,7 +69,11 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
                 "CHECKSCRIPT literal не проверен",
             )
             first_chunk = b'require ["fileinto"]; '
-            second_chunk = b'if header :contains "subject" "[invoice]" { fileinto "Invoices"; stop; }'
+            second_chunk = (
+                b'if allof [header :contains "subject" "[invoice]", '
+                b'address :detail :is "to" "invoices", size :over 1] '
+                b'{ fileinto "Invoices"; stop; }'
+            )
             source = first_chunk + second_chunk
             havespace = f'HAVESPACE "invoices" {len(source)}\r\n'.encode()
             require(
@@ -132,7 +137,7 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
 def deliver(options: argparse.Namespace, context: ssl.SSLContext) -> None:
     message = EmailMessage()
     message["From"] = "alice@litterkeep.test"
-    message["To"] = "bob@litterkeep.test"
+    message["To"] = "bob+invoices@litterkeep.test"
     message["Subject"] = "[invoice] paid"
     message.set_content("invoice body")
     with smtplib.SMTP(options.host, options.smtp_port, timeout=10) as client:
@@ -140,7 +145,11 @@ def deliver(options: argparse.Namespace, context: ssl.SSLContext) -> None:
         client.starttls(context=context)
         client.ehlo()
         client.login("alice", "alice-password")
-        client.send_message(message)
+        client.sendmail(
+            "alice@litterkeep.test",
+            ["bob@litterkeep.test"],
+            message.as_bytes(policy=SMTP),
+        )
 
 
 def verify_mailbox(options: argparse.Namespace, context: ssl.SSLContext) -> None:

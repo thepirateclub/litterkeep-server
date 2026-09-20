@@ -77,6 +77,25 @@ fn address_test_selects_detail_without_matching_another_recipient() {
     assert_eq!(plan.folders, vec!["Invoices"]);
 }
 
+/// Сетевой fixture использует это составное правило без подмены envelope RCPT.
+#[test]
+fn combined_header_address_and_size_rule_matches_network_fixture() {
+    let script = parse(
+        "require [\"fileinto\"]; if allof [header :contains \"subject\" \"[invoice]\", address :detail :is \"to\" \"invoices\", size :over 1] { fileinto \"Invoices\"; stop; }",
+    )
+    .expect("parse");
+    let plan = execute(
+        &script,
+        &[
+            ("Subject".into(), "[invoice] paid".into()),
+            ("To".into(), "bob+invoices@litterkeep.test".into()),
+        ],
+        100,
+    )
+    .expect("execute");
+    assert_eq!(plan.folders, vec!["Invoices"]);
+}
+
 #[test]
 fn invalid_script_does_not_become_a_delivery_plan() {
     assert!(parse("require [\"vacation\"]; keep;").is_err());

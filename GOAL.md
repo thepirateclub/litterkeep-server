@@ -109,6 +109,18 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   контейнер остановлен. G08 остаётся RUNNING только из-за неинтегрированного
   redirect/outbound queue и полного RFC Sieve failure/replay coverage.
 
+### 2026-09-20: G08 advanced Sieve network fixture
+
+- Независимый uploaded script теперь реально использует `allof`, `header
+  :contains`, `address :detail :is` и `size :over`. SMTP envelope recipient
+  остаётся `bob@litterkeep.test`, а header `To` содержит plus-detail, поэтому
+  проверка не подменяет Sieve routing разрешением другого RCPT account.
+- PASS: Linux Docker SMTP -> Store -> IMAP прочитал письмо в `Invoices` из
+  bind mount `./data/g08-sieve-advanced-network-3`; client serializes RFC 5322
+  с CRLF через standard-library `email.policy.SMTP`. Windows полный suite:
+  124 tests, strict Clippy и format. G08 остаётся RUNNING из-за redirect queue
+  и replay/transaction integration.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.
