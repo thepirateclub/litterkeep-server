@@ -27,6 +27,25 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G10 TCP churn resource plateau checkpoint
+
+- Независимый Python socket client выполнил исходный, не уменьшенный профиль:
+  10 одинаковых циклов по 100 соединений, в каждом 50 SMTP и 50 IMAP, с
+  ограниченной одновременностью 20. Затем профиль полностью повторён для
+  одновременного измерения RSS и числа потоков.
+- После каждого из 20 циклов настоящий local control socket вернул нулевые
+  ready/wait/cancel/terminal task records, нулевые available/leased/quarantined/
+  closed resources, нулевые ready queue, wait registrations и tracked events.
+- Во всех десяти циклах повторного прогона Linux `docker top` показал RSS
+  3316 KiB и ровно 2 потока server process. После нагрузки дополнительные
+  SMTP/IMAP соединения прошли, поэтому плато не получено ценой остановки reactor.
+- Сырые измерения сохранены в локальной поддиректории
+  `data/g10-resource-plateau/measurements.txt`. Runtime использовал
+  container-local `/data`: зависающий bind mount диска H не заявлен рабочим.
+- Runtime image: `litterkeep-server:g10-churn`; container:
+  `litterkeep-g10-churn`. G10 остаётся RUNNING до 32 IMAP IDLE, 10 MiB transfer,
+  deadline/cancel series и границы финального SMTP-ответа.
+
 ### 2026-09-20: G10 low-level blob I/O failure checkpoint
 
 - Production-путь публикации blob получил тестовый перехватчик пяти реальных
