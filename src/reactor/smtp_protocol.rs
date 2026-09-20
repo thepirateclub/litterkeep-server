@@ -95,7 +95,10 @@ fn authenticate(
         Err(_) => return session.push(b"501 5.5.2 invalid AUTH PLAIN response\r\n"),
     };
     let id = next_request(request_id);
-    let account = credentials.account;
+    let account = match crate::local_route::local_login(&credentials.account) {
+        Some(account) => account,
+        None => return session.push(b"535 5.7.8 authentication credentials invalid\r\n"),
+    };
     super::protocol::submit(
         session,
         Request::Authenticate {

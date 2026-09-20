@@ -97,7 +97,10 @@ fn authenticate(
         Err(_) => return session.push(b"NO \"invalid SASL PLAIN\"\r\n"),
     };
     let id = next(request_id);
-    let account = credentials.account;
+    let account = match crate::local_route::local_login(&credentials.account) {
+        Some(account) => account,
+        None => return session.push(b"NO \"authentication failed\"\r\n"),
+    };
     protocol::submit(
         session,
         Request::Authenticate {

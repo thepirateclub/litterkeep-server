@@ -200,6 +200,26 @@ limitation explicitly. The shared test PKI is kept in `./data/pki`. These local
 artifacts are ignored by Git and
 excluded from the Docker build context.
 
+## Подключение litterkeep
+
+Для локального STARTTLS-профиля укажите в litterkeep полный адрес аккаунта,
+например `alice@litterkeep.test`, один сгенерированный пароль из
+`test-accounts.tsv` и следующие endpoints:
+
+```text
+IMAP host: localhost, port: 1143, mode: STARTTLS
+SMTP host: localhost, port: 1587, mode: STARTTLS
+Trust anchor: ca.pem from the initialized test PKI
+```
+
+При подключении физического Android-устройства через USB перенаправляются только
+нужные listener-ы: `adb reverse tcp:1143 tcp:1143` и
+`adb reverse tcp:1587 tcp:1587`. Для Docker host-порты могут отличаться.
+Неизвестный CA должен быть сначала отклонён; затем CA выбирается в штатном
+диалоге litterkeep. Сервер нормализует полный локальный адрес в account owner,
+но не принимает внешний домен. Фактический device-статус и ограничения UI
+зафиксированы в `docs/client-setup.md` и `docs/acceptance.md`.
+
 IMAP IDLE output is bounded per connection. If an individual subscriber stops
 reading and exceeds that bound, only its session lease is retired; the reactor
 and other mailbox subscribers continue from their own coherent projections.

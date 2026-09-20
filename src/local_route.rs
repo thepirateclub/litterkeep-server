@@ -21,6 +21,19 @@ pub fn local_mailbox(address: &str) -> Option<String> {
     }
 }
 
+/// Нормализует протокольный логин в локальное имя владельца.
+///
+/// Короткое имя сохраняется для независимых клиентов и служебных fixtures.
+/// Полный почтовый адрес принимается только для домена, разрешённого тем же
+/// typed route-профилем, что и SMTP envelope. Поэтому внешний домен не может
+/// превратиться в путь credential-файла или получить локальную сессию.
+pub fn local_login(login: &str) -> Option<String> {
+    match login.contains('@') {
+        true => local_mailbox(login),
+        false => Some(login.to_owned()),
+    }
+}
+
 /// Результат разбора domain на единственной string-to-enum границе.
 enum LocalRoute {
     Accepted,
@@ -49,5 +62,12 @@ mod tests {
     #[test]
     fn external_domain_is_not_a_local_mailbox() {
         assert_eq!(local_mailbox("alice@example.test"), None);
+    }
+
+    #[test]
+    fn login_accepts_short_name_and_canonical_local_address() {
+        assert_eq!(local_login("alice"), Some("alice".into()));
+        assert_eq!(local_login("alice@litterkeep.test"), Some("alice".into()));
+        assert_eq!(local_login("alice@example.test"), None);
     }
 }

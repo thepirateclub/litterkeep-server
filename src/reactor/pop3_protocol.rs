@@ -83,6 +83,10 @@ fn authenticate(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<()> {
+    let username = match crate::local_route::local_login(&username) {
+        Some(account) => account,
+        None => return session.push(b"-ERR authentication failed\r\n"),
+    };
     let id = next_id(request_id);
     protocol::submit(
         session,

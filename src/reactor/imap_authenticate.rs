@@ -173,6 +173,13 @@ fn submit_credentials(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) {
+    let account = match crate::local_route::local_login(&account) {
+        Some(account) => account,
+        None => {
+            let _ = session.push(format!("{tag} NO authentication failed\r\n").as_bytes());
+            return;
+        }
+    };
     let id = *request_id;
     *request_id = request_id.wrapping_add(1).max(1);
     protocol::submit(

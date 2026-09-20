@@ -27,6 +27,31 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G12 real litterkeep connection and full-address login checkpoint
+
+- Локальный исходный код litterkeep проверен без изменения его dirty worktree. Физический
+  `TECNO CH6i` был доступен через ADB, установленный package
+  `ru.thpt.letterkeep` использован без очистки существующих данных и cache.
+- Первый реальный setup доказал TLS policy: неизвестный CA был отклонён, затем
+  выбранный пользователем `litterkeep-g12-ca.pem` принят как account trust anchor.
+  После этого обнаружена фактическая несовместимость: litterkeep аутентифицируется
+  полным адресом `alice@litterkeep.test`, а сервер принимал только короткое имя.
+- Добавлена единая typed normalization boundary. Короткий login сохраняется, полный
+  адрес разрешается только через тот же enum route-профиль локальных доменов;
+  внешний домен отклоняется до credential path. IMAP, SMTP, POP3 и ManageSieve
+  получают одно canonical имя владельца.
+- После пересборки litterkeep успешно проверил IMAP и SMTP STARTTLS, показал
+  «Почта подключена», синхронизировал каталог папок и отправил письмо Alice -> Bob.
+  UI подтвердил приём сервером и принятого получателя. Это реальная client-integration
+  проверка, а не результат Python-клиента.
+- Полный T25 не пройден: текущий compose screen не показывает control выбора
+  вложения; повторный setup Bob завершился generic TLS connection error до выбора
+  trust anchor. Получение и скачивание вложения именно litterkeep не объявляются
+  проверенными. Сырые факты: `data/g12-clean/litterkeep-device-measurements.txt`.
+- PASS gates изменения: Windows 190 тестов и strict Clippy; Docker Rust 1.97
+  strict Clippy и 220 Linux тестов, images `litterkeep-server:g12-login-test` и
+  `litterkeep-server:g12-login`.
+
 ### 2026-09-20: G12 repeatable secure init checkpoint
 
 - Команда bootstrap приведена к единственному typed интерфейсу
