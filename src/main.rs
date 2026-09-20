@@ -18,12 +18,14 @@ mod pop3_cli;
 mod queue_cli;
 #[path = "main_runtime.rs"]
 mod runtime_cli;
+#[path = "main_seed.rs"]
+mod seed_cli;
 #[path = "main_sieve.rs"]
 mod sieve_cli;
 
 pub(crate) fn usage() {
     println!(
-        "{PRODUCT} {VERSION}\n\nUsage:\n  litterkeep-server init [data-dir] [account] [password]\n  litterkeep-server check --data-dir <data-dir>\n  litterkeep-server backup --data-dir <data-dir> --output <backup-dir>\n  litterkeep-server deliver <address> <sender> <recipient> <message-file>\n  litterkeep-server deliver-tls <address> <server-name> <ca.der> <sender> <recipient> <message-file>\n  litterkeep-server queue-drain <data-dir> <peer-address> [limit]\n  litterkeep-server sieve-errors <data-dir> <account>\n  litterkeep-server runtime <stats|tasks|resources> --data-dir <data-dir>\n  litterkeep-server runtime inspect <task-id> --data-dir <data-dir>\n  litterkeep-server serve [smtp-address] [imap-address] [data-dir]\n  litterkeep-server serve-tls [smtp-address] [imap-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-starttls [smtp-address] [imap-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-all-starttls [smtp-address] [imap-address] [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-pop3-starttls [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-pop3-tls [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-managesieve-starttls [address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-all-mail-starttls [smtp-address] [imap-address] [pop3-address] [managesieve-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-all-mail-outbound-starttls [smtp-address] [imap-address] [pop3-address] [managesieve-address] [peer-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server help\n  litterkeep-server version"
+        "{PRODUCT} {VERSION}\n\nUsage:\n  litterkeep-server init [data-dir] [account] [password]\n  litterkeep-server seed <smtp> <imap> <server-name> <ca.der> <account> <password-file> <bob-password-file>\n  litterkeep-server check --data-dir <data-dir>\n  litterkeep-server backup --data-dir <data-dir> --output <backup-dir>\n  litterkeep-server deliver <address> <sender> <recipient> <message-file>\n  litterkeep-server deliver-tls <address> <server-name> <ca.der> <sender> <recipient> <message-file>\n  litterkeep-server queue-drain <data-dir> <peer-address> [limit]\n  litterkeep-server sieve-errors <data-dir> <account>\n  litterkeep-server runtime <stats|tasks|resources> --data-dir <data-dir>\n  litterkeep-server runtime inspect <task-id> --data-dir <data-dir>\n  litterkeep-server serve [smtp-address] [imap-address] [data-dir]\n  litterkeep-server serve-tls [smtp-address] [imap-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-starttls [smtp-address] [imap-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-all-starttls [smtp-address] [imap-address] [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-pop3-starttls [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-pop3-tls [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-managesieve-starttls [address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-all-mail-starttls [smtp-address] [imap-address] [pop3-address] [managesieve-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-all-mail-outbound-starttls [smtp-address] [imap-address] [pop3-address] [managesieve-address] [peer-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server help\n  litterkeep-server version"
     );
     println!("  litterkeep-server runtime cancel <task-id> --data-dir <data-dir>");
     println!(
@@ -44,6 +46,7 @@ fn main() -> ExitCode {
         Some("init") => initialize(),
         Some("check") => maintenance_cli::check(),
         Some("backup") => maintenance_cli::backup(),
+        Some("seed") => seed_cli::execute(),
         Some("deliver") => deliver(),
         Some("deliver-tls") => outbound_tls_cli::deliver(),
         Some("queue-drain") => queue_cli::drain(),

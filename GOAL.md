@@ -27,6 +27,24 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G11 first five network seed fixtures checkpoint
+
+- Добавлена команда `seed`, которая читает пароли Alice и Bob из файлов, открывает
+  проверенные implicit-TLS SMTP/IMAP соединения и не пишет Store напрямую.
+- Входящие fixtures доставляются SMTP submission после SASL PLAIN, исторические
+  Sent/Drafts создаются IMAP APPEND. Перед созданием и после commit выполняется
+  IMAP SEARCH по закрытому `X-Litterkeep-Fixture` в папке настоящего владельца.
+- Первый чистый Linux запуск сообщил `created=5 existing=0`; немедленный повтор
+  на том же Store сообщил `created=0 existing=5`. Набор содержит English,
+  русский UTF-8, multipart/alternative, Sent и Draft с binary attachment.
+- Начальный manifest находится в `tests/fixtures/seed-manifest.tsv`, включая
+  MIME path, размер и независимо рассчитанный SHA-256 вложения. Сырые результаты:
+  `data/g11-seed/measurements.txt`; runtime использовал container-local `/data`.
+- PASS gate checkpoint-а: Windows 186 тестов и strict Clippy; Docker Rust 1.97
+  strict Linux Clippy и 216 тестов в image `litterkeep-server:g11-seed-test`.
+- G11 остаётся RUNNING: набор требуется расширить до 30–50, добавить остальные
+  типы fixtures, независимую сверку manifest, ручное письмо и restart-повтор.
+
 ### 2026-09-20: G11 consistent offline backup checkpoint
 
 - Добавлена команда `backup --data-dir <source> --output <new-directory>`.

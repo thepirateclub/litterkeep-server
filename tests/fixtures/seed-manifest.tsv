@@ -1,0 +1,6 @@
+fixture_id	owner	mailbox	delivery	recipient	mime_path	attachment_name	decoded_size	decoded_sha256
+seed-001-plain-en	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
+seed-002-russian	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
+seed-003-alternative	bob	INBOX	SMTP	bob@litterkeep.test	multipart/alternative,text/plain,text/html			
+seed-004-sent	alice	Sent	IMAP_APPEND	alice@litterkeep.test	text/plain			
+seed-005-draft-attachment	alice	Drafts	IMAP_APPEND	alice@litterkeep.test	multipart/mixed,text/plain,application/octet-stream	seed.bin	5	ff5d8507b6a72bee2debce2c0054798deaccdc5d8a1b945b6280ce8aa9cba52e

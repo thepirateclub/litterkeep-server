@@ -55,6 +55,7 @@ pub mod redirect_policy;
 mod redirect_policy_tests;
 pub mod runtime;
 pub mod sasl;
+pub mod seed;
 pub mod sieve;
 pub mod smtp;
 pub mod smtp_trace;

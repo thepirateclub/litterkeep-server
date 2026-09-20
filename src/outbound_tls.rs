@@ -64,6 +64,13 @@ impl Connection {
         }
     }
 
+    /// Аутентифицирует локальный submission-клиент механизмом SASL PLAIN.
+    pub fn authenticate(&mut self, account: &str, password: &[u8]) -> io::Result<()> {
+        let response = crate::sasl::encode_plain(account, password);
+        self.command(&format!("AUTH PLAIN {response}\r\n"))?;
+        self.expect_positive()
+    }
+
     /// Доказывает возврат TLS connection в чистое SMTP состояние.
     pub fn reset(&mut self) -> io::Result<()> {
         self.command("RSET\r\n")?;
@@ -91,7 +98,7 @@ pub fn deliver(
     Connection::connect(address, server_name, ca_der)?.deliver(sender, recipient, message)
 }
 
-fn client_config(ca_der: &[u8]) -> io::Result<Arc<ClientConfig>> {
+pub(crate) fn client_config(ca_der: &[u8]) -> io::Result<Arc<ClientConfig>> {
     let mut roots = RootCertStore::empty();
     roots
         .add(CertificateDer::from(ca_der.to_vec()))

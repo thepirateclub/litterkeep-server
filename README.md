@@ -117,6 +117,20 @@ litterkeep-server backup --data-dir ./data --output ./data-backup
 litterkeep-server check --data-dir ./data-backup
 ```
 
+Первый сетевой seed checkpoint использует implicit-TLS SMTP submission и IMAP
+APPEND. Пароли читаются из файлов и не попадают в аргументы процесса. Повторный
+запуск ищет только собственные `X-Litterkeep-Fixture` в целевых папках, поэтому
+не удваивает fixtures и не удаляет ручную почту:
+
+```text
+litterkeep-server seed 127.0.0.1:1465 127.0.0.1:1993 litterkeep.test \
+  ./ca.der alice ./alice.password ./bob.password
+```
+
+Ожидаемый состав и SHA-256 декодированных вложений записаны в
+`tests/fixtures/seed-manifest.tsv`. Текущий checkpoint содержит пять писем;
+полный G11 расширяет этот же контракт до 30–50 fixtures.
+
 The server owns a local Unix-domain control socket in its poll loop and returns
 only lifecycle metadata: task state, generation-protected IDs and held resource
 IDs. It never returns mail body bytes, passwords or TLS keys. The socket lives
