@@ -61,6 +61,8 @@ mod imap_subscriptions;
 mod local_delivery;
 #[path = "reactor/maildrop_lease.rs"]
 mod maildrop_lease;
+#[path = "reactor/managesieve_completion.rs"]
+mod managesieve_completion;
 #[path = "reactor/managesieve_protocol.rs"]
 mod managesieve_protocol;
 #[path = "reactor/pending.rs"]

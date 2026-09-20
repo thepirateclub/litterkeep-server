@@ -2,6 +2,11 @@
 
 use super::*;
 
+/// Единый ответ COPY/MOVE, когда destination нельзя разрешить в Store.
+pub(super) fn destination_missing(session: &mut Session, tag: String) -> io::Result<()> {
+    session.push(format!("{tag} NO [TRYCREATE] COPY destination unavailable\r\n").as_bytes())
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(super) fn queue(
     session: &mut Session,
