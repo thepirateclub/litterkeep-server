@@ -391,6 +391,22 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   `queue-drain`, TLS route keys/service lifecycle, cancellation и сторонний MTA
   ещё не приняты.
 
+### 2026-09-20: G09 bounded outbound worker checkpoint
+
+- `OutboundWorker` владеет единственным `ConnectionPool` в выделенном thread и
+  принимает только immutable SMTP jobs через bounded `sync_channel`. Worker не
+  получает `Store`, не создаёт thread на job и возвращает completion без
+  блокирования reactor. Явный `shutdown` закрывает jobs channel и присоединяет
+  владельца transport ресурса.
+- PASS: независимый TCP peer принял ровно одно TCP-соединение и подтвердил два
+  последовательных SMTP jobs на этом connection. Windows
+  `cargo test --all-targets --locked`: 147 tests; strict Clippy, format,
+  `git diff --check` и structural audit PASS. Docker Linux test stage: 154
+  tests.
+- G09 остаётся RUNNING: worker ещё не подключён к reactor/durable queue;
+  отсутствуют service wakeup, cancellation, TLS route keys и acceptance со
+  сторонним MTA.
+
 ### 2026-09-20: structural condition-rule compliance checkpoint
 
 - Устранены все найденные в `src` условия `if` с `&&` или `||`: ветвления

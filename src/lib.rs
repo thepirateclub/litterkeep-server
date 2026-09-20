@@ -24,6 +24,10 @@ pub mod outbound_queue;
 #[path = "outbound_tests.rs"]
 mod outbound_tests;
 pub mod outbound_tls;
+pub mod outbound_worker;
+#[cfg(test)]
+#[path = "outbound_worker_tests.rs"]
+mod outbound_worker_tests;
 pub mod platform;
 pub mod pop3;
 pub mod queue;
