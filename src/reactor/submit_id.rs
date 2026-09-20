@@ -33,6 +33,7 @@ pub(super) fn request_id(request: &Request) -> u64 {
         | Request::SieveCheck { request_id, .. }
         | Request::AppendDsn { request_id, .. }
         | Request::OutboundPending { request_id }
+        | Request::OutboundDue { request_id, .. }
         | Request::OutboundBlob { request_id, .. }
         | Request::OutboundTransition { request_id, .. } => *request_id,
     }

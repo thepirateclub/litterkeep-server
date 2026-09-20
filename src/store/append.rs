@@ -163,6 +163,17 @@ impl Store {
             .due_owned(&self.committed_transactions, now_epoch)
     }
 
+    /// Выдаёт не более `limit` due jobs, сохраняя bounded handoff к scheduler-у.
+    pub fn due_outbound_limited(
+        &self,
+        now_epoch: u64,
+        limit: usize,
+    ) -> io::Result<Vec<crate::queue::OwnedDelivery>> {
+        let mut due = self.due_outbound(now_epoch)?;
+        due.truncate(limit);
+        Ok(due)
+    }
+
     /// Читает payload только job, опубликованный общим transaction commit.
     pub fn outbound_blob(&self, delivery: &crate::queue::OwnedDelivery) -> io::Result<Vec<u8>> {
         match self

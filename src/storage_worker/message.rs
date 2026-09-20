@@ -155,6 +155,12 @@ pub enum Request {
     OutboundPending {
         request_id: u64,
     },
+    /// Получает лишь ограниченную пачку due jobs у владельца Store.
+    OutboundDue {
+        request_id: u64,
+        now_epoch: u64,
+        limit: usize,
+    },
     OutboundBlob {
         request_id: u64,
         delivery: crate::queue::OwnedDelivery,
@@ -258,6 +264,10 @@ pub enum Response {
         result: io::Result<Option<u64>>,
     },
     OutboundPending {
+        request_id: u64,
+        result: io::Result<Vec<crate::queue::OwnedDelivery>>,
+    },
+    OutboundDue {
         request_id: u64,
         result: io::Result<Vec<crate::queue::OwnedDelivery>>,
     },

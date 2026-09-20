@@ -266,6 +266,14 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             request_id,
             result: store.pending_outbound(),
         },
+        Request::OutboundDue {
+            request_id,
+            now_epoch,
+            limit,
+        } => Response::OutboundDue {
+            request_id,
+            result: store.due_outbound_limited(now_epoch, limit),
+        },
         Request::OutboundBlob {
             request_id,
             delivery,

@@ -423,6 +423,21 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   durable jobs; сохраняются обязательные service scheduler, cancellation,
   TLS route keys и независимый MTA acceptance.
 
+### 2026-09-20: G09 bounded scheduler contract checkpoint
+
+- Retry state, restart-safe deadline и DSN reason вынесены в единую typed
+  `outbound_policy`; `queue-drain` больше не содержит отдельную копию этих
+  решений. Store worker получил `OutboundDue`, который возвращает не более
+  явно запрошенного лимита committed due jobs. Следующий service scheduler
+  будет запрашивать только свою свободную capacity у Store owner.
+- PASS: новый Store test создал две durable redirect-only jobs и подтвердил
+  выдачу ровно одной при `limit=1`. Windows `cargo test --all-targets --locked`:
+  148 tests; strict Clippy, format и `git diff --check` PASS. Docker Linux
+  test stage: 156 tests.
+- G09 остаётся RUNNING: контракт ещё не означает запуск scheduler-а в server
+  loop. Требуются durable transition before submit, processing completion,
+  service wakeup/timer, cancellation, TLS route keys и independent MTA test.
+
 ### 2026-09-20: structural condition-rule compliance checkpoint
 
 - Устранены все найденные в `src` условия `if` с `&&` или `||`: ветвления

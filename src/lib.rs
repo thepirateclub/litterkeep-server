@@ -15,6 +15,7 @@ pub mod mail_flags;
 pub mod managesieve;
 pub mod mime;
 pub mod outbound;
+pub mod outbound_policy;
 pub mod outbound_pool;
 #[cfg(test)]
 #[path = "outbound_pool_tests.rs"]
