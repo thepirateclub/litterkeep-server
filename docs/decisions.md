@@ -38,7 +38,11 @@ Unix epoch, отдельно от монотонных сроков reactor-а.
 IMAP использует typed parser и state machine. `\Recent` хранится как
 session-local projection: durable delivery фиксирует кандидат UID, а SELECT
 atomарно claim-ит его для одной сессии. Поэтому marker не превращается в
-persistent message flag и не выдаётся после restart.
+persistent message flag. Все уже selected sessions получают marker при live
+уведомлении; это допустимая определённая реализацией сторона неоднозначности
+RFC 3501 для нескольких открытых соединений. Durable кандидат остаётся до
+первого будущего SELECT, переживает restart до claim и после claim больше не
+выдаётся следующей сессии.
 
 ## Отмена и очередь
 

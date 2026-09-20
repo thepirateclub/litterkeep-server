@@ -30,6 +30,11 @@ CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE` и `SPECIAL
 `LOGINDISABLED`; plaintext listener без TLS также не рекламирует парольный
 механизм и отвечает `PRIVACYREQUIRED` на LOGIN/AUTHENTICATE.
 
+При live-доставке все уже selected sessions получают собственный `\Recent`.
+Первый последующий SELECT атомарно забирает durable кандидат; следующий SELECT
+его не видит. Такое детерминированное правило находится в разрешённой RFC 3501
+неоднозначности для нескольких одновременно открытых соединений.
+
 Не заявлены IMAP4rev2, UTF8=ACCEPT, CONDSTORE, QRESYNC, NAMESPACE, COMPRESS,
 SORT, THREAD и полный набор SEARCH keys. Их отсутствие не маскируется пустым
 успешным результатом.

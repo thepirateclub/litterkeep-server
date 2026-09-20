@@ -3,6 +3,9 @@
 use super::super::*;
 use crate::reactor::session::SessionTermination;
 use crate::runtime::Orchestrator;
+use crate::store::Store;
+use std::fs;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[test]
 fn move_updates_source_and_destination_sessions_without_origin_duplicate() {
@@ -80,6 +83,65 @@ fn lagging_subscriber_is_retired_without_harming_healthy_watcher() {
     assert!(find_generation(&mut sessions, 12).termination.is_none());
 }
 
+#[test]
+fn thirty_two_idle_sessions_share_no_threads_or_output_queues() {
+    let mut lifecycle = Orchestrator::new();
+    let mut peers = Vec::new();
+    let mut sessions = Vec::new();
+    for generation in 1..=32 {
+        let (mut lease, peer) = leased_imap(&mut lifecycle, generation);
+        select(lease.get_mut(), "shared-key", 0, true);
+        sessions.push(Some(lease));
+        peers.push(peer);
+    }
+
+    imap_idle::notify(&mut sessions, &[(String::from("shared-key"), 7)]);
+
+    assert_eq!(lifecycle.task_count(), 32);
+    assert_eq!(lifecycle.resource_count(), 32);
+    assert_eq!(peers.len(), 32);
+    assert!(sessions.iter_mut().filter_map(Option::as_mut).all(|lease| {
+        let session = lease.get_mut();
+        matches!(
+            (
+                session.selected_exists,
+                session.selected_recent.contains(&7),
+                session.output.as_slice()
+            ),
+            (1, true, b"* 1 EXISTS\r\n")
+        )
+    }));
+}
+
+#[test]
+fn future_select_claims_recent_once_after_live_notifications() {
+    let root = temporary_root();
+    let mut store = Store::open(&root).expect("store");
+    let mailbox = store.resolve_folder("bob", "INBOX").expect("inbox");
+    let uid = store.append(&mailbox, b"message").expect("append");
+    let mut lifecycle = Orchestrator::new();
+    let (mut first, _first_peer) = leased_imap(&mut lifecycle, 1);
+    let (mut second, _second_peer) = leased_imap(&mut lifecycle, 2);
+    select(first.get_mut(), &mailbox, 0, true);
+    select(second.get_mut(), &mailbox, 0, true);
+    let mut sessions = vec![Some(first), Some(second)];
+
+    imap_idle::notify(&mut sessions, &[(mailbox, uid)]);
+
+    assert!(
+        sessions
+            .iter_mut()
+            .filter_map(Option::as_mut)
+            .all(|lease| { lease.get_mut().selected_recent.contains(&uid) })
+    );
+    let first_select = store.select_folder("bob", "INBOX").expect("claim");
+    assert_eq!(first_select.recent_uids, vec![uid]);
+    let next_select = store.select_folder("bob", "INBOX").expect("next select");
+    assert!(next_select.recent_uids.is_empty());
+    drop(store);
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
 /// Создаёт ресурс ровно тем же путём владения, что production accept loop.
 fn leased_imap(
     lifecycle: &mut Orchestrator<Session>,
@@ -135,4 +197,15 @@ fn find_generation(sessions: &mut [Option<SessionLease>], generation: u64) -> &m
         .map(ResourceLease::get_mut)
         .find(|session| session.generation == generation)
         .expect("session generation")
+}
+
+/// Создаёт изолированный каталог интеграционного Store без общего test state.
+fn temporary_root() -> std::path::PathBuf {
+    std::env::temp_dir().join(format!(
+        "litterkeep-idle-recent-{}",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos()
+    ))
 }

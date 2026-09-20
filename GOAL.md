@@ -27,6 +27,26 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G06 IDLE fan-out and Recent ownership checkpoint
+
+- RFC 3501 оставляет неопределённым, какая из одновременно selected sessions
+  увидит новое письмо с `\Recent`. Профиль продукта фиксирует более простую
+  проверяемую политику: все уже selected sessions получают session-local
+  marker вместе с durable EXISTS; durable кандидат остаётся до первого
+  будущего SELECT, который атомарно claim-ит его. Следующий SELECT marker уже
+  не получает, поэтому `\Recent` не становится persistent message flag.
+- Интеграционный Store/reactor test подтверждает live notification двум
+  владельцам, однократный durable claim будущим SELECT и пустой следующий
+  SELECT. Отдельный профиль создаёт 32 настоящих socket lease в одном
+  Orchestrator, доставляет каждому независимый bounded EXISTS buffer и
+  проверяет ровно 32 task/resource без session threads.
+- PASS: Windows 167 tests, strict Clippy и format. Docker Rust 1.97 strict
+  Linux Clippy и 191 tests прошли в image
+  `litterkeep-server:g06-idle-matrix`.
+- G06 остаётся RUNNING: расширенный SEARCH профиль и независимая сетевая
+  concurrent/reconnect matrix ещё не завершены; Docker bind mount `./data`
+  на этой машине остаётся непригодным для честного black-box запуска.
+
 ### 2026-09-20: G06 isolated IMAP IDLE overflow checkpoint
 
 - Unsolicited IMAP notifications больше не возвращают общую reactor error при
