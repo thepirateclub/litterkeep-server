@@ -108,6 +108,15 @@ mailbox или ожидающая исходящая доставка. Orphan bl
 litterkeep-server check --data-dir ./data
 ```
 
+Согласованный backup разрешён только при остановленном Store owner-е. Каталог
+назначения должен отсутствовать и не может находиться внутри исходного каталога.
+Команда копирует persistent data, синхронизирует копию и сама запускает checker:
+
+```text
+litterkeep-server backup --data-dir ./data --output ./data-backup
+litterkeep-server check --data-dir ./data-backup
+```
+
 The server owns a local Unix-domain control socket in its poll loop and returns
 only lifecycle metadata: task state, generation-protected IDs and held resource
 IDs. It never returns mail body bytes, passwords or TLS keys. The socket lives

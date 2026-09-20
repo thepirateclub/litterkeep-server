@@ -27,6 +27,23 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G11 consistent offline backup checkpoint
+
+- Добавлена команда `backup --data-dir <source> --output <new-directory>`.
+  Она удерживает exclusive Store lock на всём протяжении копирования, заранее
+  проверяет ссылки, не копирует `writer.lock`/`runtime.control`, запрещает
+  symlink и назначение внутри source, синхронизирует файлы и каталоги на Linux.
+- Destination обязан отсутствовать. Частично созданный самой командой каталог
+  удаляется при ошибке копирования. Готовая копия автоматически открывается и
+  проходит тот же integrity checker.
+- Тест восстановления доказал сохранение исходного UID и точных байтов письма.
+  Linux CLI создал и проверил `/backup`, а параллельная попытка при работающем
+  Store owner-е была отклонена. Сырые результаты: `data/g11-backup/measurements.txt`;
+  source и backup находились на container-local filesystem.
+- PASS gate checkpoint-а: Windows 185 тестов и strict Clippy; Docker Rust 1.97
+  strict Linux Clippy и 215 тестов в image `litterkeep-server:g11-backup-test`.
+- G11 остаётся RUNNING до bounded maintenance limits и полного повторяемого seed.
+
 ### 2026-09-20: G11 offline integrity checker checkpoint
 
 - Добавлена команда `check --data-dir`, которая получает эксклюзивную блокировку

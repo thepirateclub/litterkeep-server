@@ -34,3 +34,39 @@ pub(crate) fn check() -> ExitCode {
         }
     }
 }
+
+pub(crate) fn backup() -> ExitCode {
+    let mut arguments = env::args().skip(2);
+    let values = match (
+        arguments.next().as_deref(),
+        arguments.next(),
+        arguments.next().as_deref(),
+        arguments.next(),
+    ) {
+        (Some("--data-dir"), Some(data), Some("--output"), Some(output)) => (data, output),
+        _ => {
+            super::usage();
+            return ExitCode::from(2);
+        }
+    };
+    if arguments.next().is_some() {
+        super::usage();
+        return ExitCode::from(2);
+    }
+    match litterkeep_server::maintenance::backup(values.0, values.1) {
+        Ok(report) => {
+            println!(
+                "BACKUP ok files={} bytes={} referenced_blobs={} orphan_blobs={}",
+                report.files,
+                report.bytes,
+                report.check.referenced_blobs,
+                report.check.orphan_blobs
+            );
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("backup error: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
