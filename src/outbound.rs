@@ -23,9 +23,9 @@ pub enum DeliveryOutcome {
 
 /// Одно чистое SMTP-соединение, которым в текущий момент владеет один caller.
 ///
-/// После ошибки или неуспешного SMTP transaction объект должен быть уничтожен:
-/// peer мог оставить незавершённое состояние MAIL transaction. Возврат в pool
-/// разрешён только после положительного финального ответа DATA.
+/// После I/O ошибки объект должен быть уничтожен: peer мог оставить
+/// незавершённое состояние MAIL transaction. Известный SMTP отказ может быть
+/// очищен только отдельным подтверждённым `RSET`.
 pub struct Connection {
     reader: BufReader<TcpStream>,
     writer: TcpStream,
@@ -78,6 +78,16 @@ impl Connection {
     /// Завершает standalone-соединение. Ошибка QUIT не отменяет уже принятый DATA.
     pub fn quit(&mut self) -> io::Result<()> {
         self.command("QUIT\r\n")?;
+        self.expect_positive()
+    }
+
+    /// Возвращает peer в известное idle-состояние после SMTP отказа.
+    ///
+    /// Пул вызывает этот метод только когда полный ответ исходной команды уже
+    /// прочитан. Ошибка записи, EOF либо неположительный ответ оставляют
+    /// состояние неизвестным, поэтому caller обязан уничтожить connection.
+    pub fn reset(&mut self) -> io::Result<()> {
+        self.command("RSET\r\n")?;
         self.expect_positive()
     }
 

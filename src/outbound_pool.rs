@@ -1,9 +1,9 @@
 //! Ограниченный пул чистых исходящих SMTP соединений одного маршрута.
 //!
 //! Пул владеет реальными `TcpStream`, а не только счётчиком. Connection
-//! возвращается в idle только после positive DATA completion. Любой SMTP reject,
-//! EOF или I/O error уничтожает канал и освобождает слот, поэтому грязный канал
-//! не может быть повторно выдан следующему recipient.
+//! возвращается в idle после positive DATA completion либо подтверждённого RSET.
+//! EOF, I/O error или отказ RSET уничтожают канал и освобождают слот, поэтому
+//! грязный канал не может быть повторно выдан следующему recipient.
 use crate::outbound::{Connection, DeliveryOutcome};
 use std::io;
 
@@ -32,7 +32,7 @@ impl ConnectionPool {
         }
     }
 
-    /// Выполняет delivery и возвращает channel только если SMTP transaction чисто завершён.
+    /// Выполняет delivery и возвращает channel только в доказанно чистом состоянии.
     pub fn deliver(
         &mut self,
         sender: &str,
@@ -47,7 +47,10 @@ impl ConnectionPool {
                 Ok(DeliveryOutcome::Delivered)
             }
             Ok(outcome) => {
-                self.discard(connection);
+                match connection.reset() {
+                    Ok(()) => self.idle.push(connection),
+                    Err(_) => self.discard(connection),
+                }
                 Ok(outcome)
             }
             Err(error) => {

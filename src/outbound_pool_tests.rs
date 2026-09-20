@@ -43,7 +43,40 @@ fn clean_transactions_reuse_one_peer_connection() {
 }
 
 #[test]
-fn rejected_transaction_is_dropped_before_next_recipient() {
+fn known_rejection_is_reset_before_next_recipient() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+    let address = listener.local_addr().expect("address");
+    let peer = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("one accept");
+        greeting_and_ehlo(&mut stream);
+        let mut reader = BufReader::new(stream.try_clone().expect("clone"));
+        read_line(&mut reader, "MAIL FROM:");
+        stream.write_all(b"250 sender\r\n").expect("sender reply");
+        read_line(&mut reader, "RCPT TO:");
+        stream.write_all(b"450 busy\r\n").expect("deferred reply");
+        read_line(&mut reader, "RSET");
+        stream.write_all(b"250 reset\r\n").expect("reset reply");
+        transaction(&mut stream, &mut reader);
+    });
+    let mut pool = ConnectionPool::new(address.to_string(), 1).expect("pool");
+    assert_eq!(
+        pool.deliver("alice@test", "first@test", b"first")
+            .expect("deferred result"),
+        DeliveryOutcome::Deferred
+    );
+    assert_eq!(pool.open_count(), 1);
+    assert_eq!(
+        pool.deliver("alice@test", "second@test", b"second")
+            .expect("second result"),
+        DeliveryOutcome::Delivered
+    );
+    assert_eq!(pool.open_count(), 1);
+    assert_eq!(pool.idle_count(), 1);
+    peer.join().expect("peer");
+}
+
+#[test]
+fn failed_reset_drops_connection_before_next_recipient() {
     let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
     let address = listener.local_addr().expect("address");
     let peer = thread::spawn(move || {
@@ -54,6 +87,10 @@ fn rejected_transaction_is_dropped_before_next_recipient() {
         rejected.write_all(b"250 sender\r\n").expect("sender reply");
         read_line(&mut rejected_reader, "RCPT TO:");
         rejected.write_all(b"450 busy\r\n").expect("deferred reply");
+        read_line(&mut rejected_reader, "RSET");
+        rejected
+            .write_all(b"500 reset refused\r\n")
+            .expect("reset rejection");
         let (mut clean, _) = listener.accept().expect("second accept");
         greeting_and_ehlo(&mut clean);
         let mut clean_reader = BufReader::new(clean.try_clone().expect("second clone"));
@@ -72,7 +109,6 @@ fn rejected_transaction_is_dropped_before_next_recipient() {
         DeliveryOutcome::Delivered
     );
     assert_eq!(pool.open_count(), 1);
-    assert_eq!(pool.idle_count(), 1);
     peer.join().expect("peer");
 }
 

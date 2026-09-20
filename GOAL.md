@@ -358,6 +358,19 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   Docker равен 83 KiB и не содержит `./data`; runtime данные остаются только в
   явно подключаемых bind mounts из `./data`.
 
+### 2026-09-20: G09 SMTP pool reset checkpoint
+
+- После известного SMTP 4xx/5xx pool больше не уничтожает channel только по
+  классу ответа. Он читает полный ответ, отправляет `RSET` и возвращает TCP
+  connection в idle исключительно после положительного полного RSET reply.
+  EOF, I/O error и отказ RSET уничтожают channel до следующего recipient.
+- PASS: отдельный TCP peer подтвердил reuse одного соединения после RCPT 450
+  и `RSET 250`; отдельный peer подтвердил новый accept после `RSET 500`.
+  Windows `cargo test --all-targets --locked`: 139 tests; strict Clippy,
+  format и `git diff --check` PASS. Docker Linux test stage: 146 tests.
+- G09 остаётся RUNNING: TLS route keys/service-owned drain, DSN, cancellation
+  lifecycle и независимый сторонний MTA ещё не проверены.
+
 ### 2026-09-20: structural condition-rule compliance checkpoint
 
 - Устранены все найденные в `src` условия `if` с `&&` или `||`: ветвления
