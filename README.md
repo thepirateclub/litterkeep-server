@@ -77,6 +77,9 @@ litterkeep-server serve-all-mail-outbound-tls-starttls \
 TLS route key не смешивается с plaintext: address, проверяемое имя и CA
 закрепляются за отдельным pool. Reuse разрешён после successful DATA или
 подтверждённого RSET; EOF, timeout, TLS error и отказ RSET уничтожают channel.
+Linux test target дополнительно запускает эту route через постоянный scheduler:
+trusted SAN завершает durable delivery, а неверный SAN оставляет restart-safe
+`Deferred` job вместо потери письма или повторного использования TLS channel.
 
 ## Linux runtime control socket
 

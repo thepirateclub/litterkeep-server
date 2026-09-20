@@ -1,6 +1,4 @@
-//! One Linux `poll(2)` reactor for both public plaintext protocol listeners.
-//!
-//! This deliberately keeps protocol sessions as state machines. A session never
+//! Linux `poll(2)` reactor keeps protocol sessions as state machines. A session never
 //! owns `Store`: it submits a bounded request to the single storage worker and
 //! waits for a completion identified by its slot and generation.
 use crate::platform::linux_poll::{self, Interest};
@@ -78,6 +76,9 @@ mod outbound_scheduler_submit;
 #[cfg(test)]
 #[path = "reactor/outbound_scheduler_tests.rs"]
 mod outbound_scheduler_tests;
+#[cfg(test)]
+#[path = "reactor/outbound_scheduler_tls_tests.rs"]
+mod outbound_scheduler_tls_tests;
 #[path = "reactor/pending.rs"]
 mod pending;
 #[path = "reactor/pop3_completion.rs"]
@@ -129,7 +130,6 @@ const MAX_MESSAGE: usize = 10 * 1024 * 1024;
 const MAX_OUTPUT: usize = MAX_MESSAGE + 16 * 1024;
 const ACCEPT_BUDGET: usize = 16;
 const READ_BUDGET: usize = 16 * 1024;
-
 #[derive(Clone, Copy)]
 enum Kind {
     Smtp,

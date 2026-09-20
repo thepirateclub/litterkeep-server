@@ -27,6 +27,26 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G09 scheduler TLS success and SAN failure checkpoint
+
+- Linux integration test запускает настоящий постоянный scheduler, durable
+  Store worker, bounded TLS transport worker и отдельный rustls SMTP peer.
+  Успешный trusted route проходит queue `Pending -> InFlight -> Delivered`,
+  после reopen Store больше не содержит pending job.
+- Второй тест использует доверенный CA, но неверный SNI. rustls отклоняет SAN,
+  неопределённое соединение уничтожается, а scheduler фиксирует durable
+  `Deferred`, `attempts=1` и ненулевой restart-safe retry deadline.
+- Оба сценария завершаются cooperative cancellation scheduler task, закрытием
+  job channel, `join` transport thread и повторным открытием Store.
+- PASS: Windows `cargo test --all-targets --locked` (153 tests), strict Clippy;
+  Docker Rust 1.97 strict Linux Clippy и 171 test в image
+  `litterkeep-server:g09-scheduler-tls-gate`. Новые Linux tests используют
+  реальные TCP/rustls sockets, а не mock результата transport-а.
+- G09 остаётся RUNNING: нужен внешний обмен двух одновременно запущенных
+  service instances на отдельных `./data` и доказательство pool reuse в этом
+  black-box процессе. Текущий Docker Desktop shared mount всё ещё занят старым
+  зависшим контейнером, поэтому этот отдельный сценарий не объявлен PASS.
+
 ### 2026-09-20: G09 typed TLS route pool checkpoint
 
 - Outbound worker принимает `Route::Plain` либо `Route::ImplicitTls`; variant
