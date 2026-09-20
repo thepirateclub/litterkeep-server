@@ -27,6 +27,22 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G10 simultaneous IMAP IDLE plateau checkpoint
+
+- Независимый raw socket client открыл 32 одновременные IMAP-сессии, для каждой
+  выполнил STARTTLS с проверкой CA/hostname, LOGIN, SELECT и IDLE. Во время
+  удержания control socket показал 32 task и 32 leased TCP/TLS resource.
+- Процесс сохранил ровно 2 потока. После `DONE`, tagged completion и LOGOUT все
+  task/resource/queue/wait/event счётчики вернулись к нулевому baseline.
+- После первого authentication churn allocator удержал RSS 219288 KiB. Поэтому
+  профиль выполнен повторно: после второго полного цикла RSS равен 219324 KiB,
+  прирост только 36 KiB, число потоков осталось 2. Это bounded plateau, а не
+  ложное требование возврата allocator к начальному RSS.
+- Сырые значения сохранены в `data/g10-imap-idle/measurements.txt`. Runtime
+  использовал container-local `/data`; shared bind mount не заявлен рабочим.
+- G10 остаётся RUNNING: ещё требуются 10 MiB transfer, deadline/cancel series и
+  потеря финального SMTP-ответа после durable commit.
+
 ### 2026-09-20: G10 TCP churn resource plateau checkpoint
 
 - Независимый Python socket client выполнил исходный, не уменьшенный профиль:
