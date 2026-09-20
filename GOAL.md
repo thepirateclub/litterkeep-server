@@ -342,9 +342,10 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   Plaintext pool с ним не смешивается, поскольку TLS identity является другим
   route key. CLI `deliver-tls` делает этот путь доступным без runtime Python.
 - PASS: собственный rustls TLS peer с выданным на лету CA принял полный SMTP
-  transaction. Windows: 137 tests, strict Clippy, format и `git diff --check`.
-  G09 остаётся RUNNING: TLS ещё не подключён к durable pool/service route,
-  также отсутствуют automatic drain, DSN и cancellation lifecycle acceptance.
+  transaction. Windows: 137 tests, strict Clippy, format и `git diff --check`;
+  Linux Docker test stage: 144 tests. G09 остаётся RUNNING: TLS ещё не
+  подключён к durable pool/service route, также отсутствуют automatic drain,
+  DSN и cancellation lifecycle acceptance.
 
 ### 2026-09-20: G07 POP3 core foundation
 
