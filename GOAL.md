@@ -49,6 +49,16 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   tests/comparators/actions, redirect не связан с outbound queue, а полный
   внешний ManageSieve matrix всех команд и response codes ещё не завершён.
 
+### 2026-09-20: G08 Sieve elsif checkpoint
+
+- Parser представляет `elsif` вложенным `Command::If` в единственной
+  else-ветви. Поэтому executor использует прежний bounded алгоритм и единый
+  лимит операций, а следующие ветви не исполняются после первого совпадения.
+- PASS: Windows `cargo test --all-targets --locked` (118 tests), strict
+  Clippy, format и `git diff --check`. G08 остаётся RUNNING: ещё требуются
+  address/size, match types/comparators, redirect через outbound queue и
+  полный внешний ManageSieve matrix.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.
