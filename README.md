@@ -22,8 +22,10 @@ This is not yet a complete mail server: POP3/STLS has a verified SMTP-to-INBOX
 read/delete checkpoint with maildrop leases and implicit TLS. ManageSieve has
 a verified STARTTLS/SASL literal checkpoint that activates a `fileinto` rule
 before SMTP-to-IMAP delivery. Broader external interoperability, the remaining
-Sieve language, durable outbound transport integration and failure coverage
-remain unfinished.
+Sieve language, long-lived outbound scheduling inside `server_loop` and wider
+failure coverage remain unfinished. A bounded explicit Linux `queue-drain` is
+implemented and tested against an independent SMTP peer; it is not automatic
+delivery.
 
 ## Developer commands
 
@@ -35,6 +37,19 @@ cargo clippy --locked --all-targets -- -D warnings
 cargo run --locked -- help
 cargo tree --locked -e normal
 ```
+
+## Linux outbound queue drain
+
+```sh
+litterkeep-server queue-drain ./data/g09-service-blackbox host.docker.internal:3555 1
+```
+
+The command owns one bounded Store worker and one bounded outbound SMTP worker.
+It persists `InFlight` before SMTP, waits for worker wake sockets, writes the
+terminal durable state, and publishes a local DSN after a permanent failure.
+The source server must be stopped first because the Store intentionally permits
+only one writer. This is an explicit bounded drain, not the future long-lived
+delivery scheduler.
 
 ## Linux G01 reactor command
 
