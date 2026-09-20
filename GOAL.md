@@ -27,6 +27,20 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G10 deadline and cooperative cancellation series checkpoint
+
+- Независимый клиент одновременно занял все 256 admission slots неполным TLS
+  handshake. 257-е соединение закрыто. Через пятиисекундный deadline все 256
+  owners освобождены, после чего новый полный TLS handshake получил SMTP greeting.
+- Отдельная серия удерживала 10 завершённых TLS-сессий. Control `tasks` показал
+  десять разных TaskId и socket lease; для каждого выполнен настоящий
+  `runtime cancel`. Все команды приняты, все десять клиентов увидели закрытие.
+- После deadline batch и после cancel batch все task/resource/queue/wait/event
+  счётчики вернулись к нулю. Server process сохранил 2 потока. Сырые значения
+  сохранены в `data/g10-deadline-cancel/measurements.txt`.
+- G10 остаётся RUNNING только до матрицы потери финального SMTP-ответа после
+  durable commit и общей проверки накопленных black-box доказательств.
+
 ### 2026-09-20: G10 exact 10 MiB attachment and TLS streaming checkpoint
 
 - Аудит до теста обнаружил, что прежний лимит всего MIME-сообщения 10 MiB не
