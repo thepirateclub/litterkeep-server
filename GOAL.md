@@ -220,6 +220,16 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   RUNNING: drain ещё не имеет CLI/service entrypoint и не проверен против
   независимого Linux SMTP peer.
 
+### 2026-09-20: G09 queue drain CLI checkpoint
+
+- CLI получил `queue-drain <data-dir> <peer-address> [limit]`: открывает
+  единственный Store writer, запускает bounded drain и печатает durable
+  delivered/deferred/permanent counters. Нулевой или некорректный limit
+  отвергается до доступа к хранилищу; default limit равен 8.
+- PASS: Windows `cargo test --all-targets --locked` (128 tests), strict Clippy,
+  format и `git diff --check`; `main.rs` 292 lines. G09 остаётся RUNNING до
+  независимой Linux SMTP peer проверки queue-drain и service integration.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.
