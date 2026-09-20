@@ -208,6 +208,18 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   format и `git diff --check`. G09 остаётся RUNNING: outcome ещё не вызывает
   Store worker transition в bounded queue-drain loop и не проверен peer-ом.
 
+### 2026-09-20: G09 bounded queue drain and crash recovery checkpoint
+
+- Добавлен `outbound_queue::drain`: он берёт не больше указанного числа
+  committed jobs, фиксирует `InFlight`, запускает собственный SMTP transport и
+  записывает `Delivered`, `Deferred` либо `PermanentFailure`. I/O ошибка peer
+  становится `Deferred`, не потерей письма. Recovery mapping переводит stale
+  `InFlight` в `Deferred`; reopen test это подтверждает.
+- PASS: Windows `cargo test --all-targets --locked` (128 tests), strict Clippy,
+  format и `git diff --check`; queue files не длиннее 300 lines. G09 остаётся
+  RUNNING: drain ещё не имеет CLI/service entrypoint и не проверен против
+  независимого Linux SMTP peer.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.

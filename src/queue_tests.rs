@@ -89,3 +89,37 @@ fn owned_transition_survives_reopen_and_removes_pending_job() {
     );
     let _ = fs::remove_dir_all(d);
 }
+
+#[test]
+fn interrupted_owned_delivery_is_deferred_on_reopen() {
+    let d = std::env::temp_dir().join("litterkeep-owned-inflight-test");
+    let q = Queue::open(&d).expect("queue");
+    let delivery = OwnedDelivery {
+        transaction_id: 9,
+        sender: "alice@test".into(),
+        recipient: "remote@test".into(),
+        state: State::Pending,
+    };
+    q.enqueue_owned(
+        delivery.transaction_id,
+        &delivery.sender,
+        &delivery.recipient,
+    )
+    .expect("enqueue");
+    q.transition_owned(&delivery, State::InFlight)
+        .expect("in flight");
+    let mut committed = HashSet::new();
+    committed.insert(delivery.transaction_id);
+    assert_eq!(
+        Queue::open(&d)
+            .expect("reopen")
+            .pending_owned(&committed)
+            .expect("pending")
+            .into_iter()
+            .next()
+            .expect("deferred")
+            .state,
+        State::Deferred
+    );
+    let _ = fs::remove_dir_all(d);
+}

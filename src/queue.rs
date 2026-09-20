@@ -188,11 +188,15 @@ impl Queue {
             let transaction_id = transaction
                 .parse()
                 .map_err(|_| invalid("bad owned transaction"))?;
+            let state = match State::parse(state)? {
+                State::InFlight => State::Deferred,
+                state => state,
+            };
             let delivery = OwnedDelivery {
                 transaction_id,
                 sender: sender.into(),
                 recipient: recipient.into(),
-                state: State::parse(state)?,
+                state,
             };
             latest.insert((transaction_id, delivery.recipient.clone()), delivery);
         }

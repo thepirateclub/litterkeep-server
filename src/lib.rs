@@ -13,6 +13,7 @@ pub mod mail_flags;
 pub mod managesieve;
 pub mod mime;
 pub mod outbound;
+pub mod outbound_queue;
 pub mod platform;
 pub mod pop3;
 pub mod queue;
