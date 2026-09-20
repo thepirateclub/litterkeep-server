@@ -2,7 +2,7 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`  
 Root status: ACTIVE  
-Current subgoal: G08
+Current subgoal: G09
 
 The actually available Goal interface was inspected. It supports creating and
 updating one active root goal (`create_goal`, `get_goal`, `update_goal`), but
@@ -19,13 +19,33 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | G05 | G04 | MIME + IMAP, independently checked attachment | PASS |
 | G06 | G05 | IMAP folders, flags, UID, IDLE | PASS |
 | G07 | G02 | POP3 backed by the shared store | PASS |
-| G08 | G02 | Sieve and ManageSieve delivery effect | RUNNING |
+| G08 | G02 | Sieve and ManageSieve delivery effect | PASS |
 | G09 | G04 | outbound SMTP, pool, retry/DSN | RUNNING |
 | G10 | G06,G07,G08,G09 | failure matrix, replay, resource plateaus | NOT RUN |
 | G11 | G10 | offline check/backup and repeatable seed | NOT RUN |
 | G12 | G11 | litterkeep and final acceptance report | NOT RUN |
 
 ## Checkpoints
+
+### 2026-09-20: G08 independent runtime-error and completion checkpoint
+
+- Новый независимый socket/smtplib/imaplib test загрузил через ManageSieve
+  активный script с 17 redirect actions и отдельно script с redirect при восьми
+  итоговых `Received` hops. SMTP в обоих случаях принял письмо, а IMAP доказал
+  RFC-safe implicit keep вместо потери или частичного применения плана.
+- После полного restart контейнера оба письма снова найдены через IMAP SEARCH.
+  Offline `sieve-errors /data bob` прочитал долговечные typed diagnostics
+  `redirect-limit` и `redirect-loop` с transaction/script version.
+- На том же текущем бинарнике повторно прошёл полный положительный независимый
+  путь ManageSieve literal/commands -> SMTP -> Sieve `fileinto Invoices` ->
+  IMAP UID SEARCH/FETCH.
+- Runtime image использует container-local `/data`, endpoints:
+  SMTP `127.0.0.1:22587`, IMAP `127.0.0.1:22143`, ManageSieve
+  `127.0.0.1:24190`. Shared host `./data` не заявлен проверенным из-за ранее
+  зафиксированного зависания Docker Desktop bind I/O.
+- PASS G08: сетевой upload/activate реально влияет на доставку, invalid update
+  не заменяет active version, bounded execution при ошибке сохраняет письмо,
+  diagnostic/replay и лимиты доказаны. Следующая активная подцель G09.
 
 ### 2026-09-20: G06 independent network and completion checkpoint
 
