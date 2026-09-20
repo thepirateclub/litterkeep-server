@@ -22,10 +22,27 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | G08 | G02 | Sieve and ManageSieve delivery effect | PASS |
 | G09 | G04 | outbound SMTP, pool, retry/DSN | PASS |
 | G10 | G06,G07,G08,G09 | failure matrix, replay, resource plateaus | PASS |
-| G11 | G10 | offline check/backup and repeatable seed | NOT RUN |
+| G11 | G10 | offline check/backup and repeatable seed | RUNNING |
 | G12 | G11 | litterkeep and final acceptance report | NOT RUN |
 
 ## Checkpoints
+
+### 2026-09-20: G11 offline integrity checker checkpoint
+
+- Добавлена команда `check --data-dir`, которая получает эксклюзивную блокировку
+  Store, выполняет штатный recovery framing и полностью читает каждый blob,
+  принадлежащий mailbox либо ожидающей исходящей доставке.
+- Checker раздельно сообщает mailbox links, уникальные referenced blobs, pending
+  deliveries и orphan blobs. Orphan-файлы не удаляются. Отсутствующая ссылка
+  приводит к ошибке, а redirect-only очередь правильно считается владельцем.
+- Linux CLI acceptance подтвердил отказ при работающем Store owner-е с текстом
+  `store writer is already active`, затем успешную проверку после остановки.
+  Сырые результаты сохранены в `data/g11-check/measurements.txt`; runtime data
+  находились в container-local `/data`, так как bind mount не заявлен рабочим.
+- PASS gate checkpoint-а: Windows strict Clippy и 182 теста; Docker Rust 1.97
+  strict Linux Clippy и 212 тестов в image `litterkeep-server:g11-check-test`.
+- G11 остаётся RUNNING: ещё требуются согласованный backup/restore и повторяемый
+  acceptance seed с manifest и проверкой отсутствия дубликатов.
 
 ### 2026-09-20: G10 final SMTP reply-loss and completion checkpoint
 

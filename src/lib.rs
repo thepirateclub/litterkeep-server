@@ -14,6 +14,7 @@ pub mod imap_fetch;
 pub mod local_route;
 pub mod mail_date;
 pub mod mail_flags;
+pub mod maintenance;
 pub mod managesieve;
 pub mod mime;
 pub mod outbound;

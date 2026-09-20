@@ -34,6 +34,8 @@ mod folder_journal_tests;
 mod folders;
 #[path = "store/format.rs"]
 mod format;
+#[path = "store/integrity.rs"]
+mod integrity;
 #[path = "store/journal.rs"]
 mod journal;
 #[path = "store/mailbox_state.rs"]

@@ -99,6 +99,15 @@ litterkeep-server runtime inspect 2:1 --data-dir /data
 litterkeep-server runtime cancel 2:1 --data-dir /data
 ```
 
+Offline-проверка берёт эксклюзивную блокировку Store, выполняет штатное
+восстановление незавершённых записей и читает каждый blob, на который ссылается
+mailbox или ожидающая исходящая доставка. Orphan blobs только подсчитываются и
+не удаляются:
+
+```text
+litterkeep-server check --data-dir ./data
+```
+
 The server owns a local Unix-domain control socket in its poll loop and returns
 only lifecycle metadata: task state, generation-protected IDs and held resource
 IDs. It never returns mail body bytes, passwords or TLS keys. The socket lives
