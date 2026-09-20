@@ -53,7 +53,7 @@ pub struct Delivery {
     pub state: State,
 }
 /// Очередное задание, принадлежащее immutable blob одной Store transaction.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OwnedDelivery {
     pub transaction_id: u64,
     /// Число реально начатых SMTP попыток, зафиксированное в queue journal.

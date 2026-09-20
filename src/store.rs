@@ -38,6 +38,9 @@ mod model;
 mod move_messages;
 #[path = "store/open.rs"]
 mod open;
+#[cfg(all(test, target_os = "linux"))]
+#[path = "store/outbound_service_tests.rs"]
+mod outbound_service_tests;
 #[cfg(test)]
 #[path = "store/outbound_tests.rs"]
 mod outbound_tests;

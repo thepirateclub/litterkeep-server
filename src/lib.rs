@@ -21,6 +21,11 @@ pub mod outbound_pool;
 #[path = "outbound_pool_tests.rs"]
 mod outbound_pool_tests;
 pub mod outbound_queue;
+#[cfg(target_os = "linux")]
+pub mod outbound_service;
+#[cfg(target_os = "linux")]
+#[path = "outbound_service_support.rs"]
+mod outbound_service_support;
 #[cfg(test)]
 #[path = "outbound_tests.rs"]
 mod outbound_tests;

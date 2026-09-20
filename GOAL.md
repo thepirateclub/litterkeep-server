@@ -438,6 +438,23 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   loop. Требуются durable transition before submit, processing completion,
   service wakeup/timer, cancellation, TLS route keys и independent MTA test.
 
+### 2026-09-20: G09 event-driven service drain checkpoint
+
+- Linux `queue-drain` теперь использует `outbound_service`, а не открывает
+  Store рядом с transport loop. Service создаёт bounded Store worker и
+  bounded outbound pool worker, ожидает только их Unix wake sockets, durable
+  фиксирует `InFlight` до SMTP submit и фиксирует final state до DSN. Один
+  job является единственным mutable phase владельцем, поэтому completion не
+  может быть применён к другому recipient.
+- PASS: Linux integration test создаёт committed outbound job, независимый
+  TCP peer принимает SMTP transaction, service получает wake completions и
+  после final transition reopened Store не видит pending job. Docker Linux
+  test stage: 157 tests. Windows: 148 tests, strict Clippy, format,
+  `git diff --check` and current structural audit PASS.
+- G09 остаётся RUNNING: это bounded explicit drain, не long-lived scheduler
+  в `server_loop`; future retry timer, cancellation policy, TLS route keys и
+  independent two-server acceptance ещё не завершены.
+
 ### 2026-09-20: correction of scheduler contract structure
 
 - Первый commit scheduler contract временно увеличил `src/store/tests.rs` до

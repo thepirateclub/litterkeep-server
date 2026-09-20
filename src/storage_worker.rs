@@ -103,6 +103,11 @@ impl WakingStorageWorker {
             }
         }
     }
+
+    /// Останавливает Store owner до уничтожения wake descriptor-а.
+    pub fn shutdown(self) {
+        self.worker.shutdown();
+    }
 }
 
 #[cfg(test)]
