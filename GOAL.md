@@ -23,9 +23,28 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | G09 | G04 | outbound SMTP, pool, retry/DSN | PASS |
 | G10 | G06,G07,G08,G09 | failure matrix, replay, resource plateaus | PASS |
 | G11 | G10 | offline check/backup and repeatable seed | PASS |
-| G12 | G11 | litterkeep and final acceptance report | RUNNING |
+| G12 | G11 | litterkeep and final acceptance report | PASS |
 
 ## Checkpoints
+
+### 2026-09-20: G12 final clean acceptance and report
+
+- На одном чистом container-local `/data` выполнены repeatable init, полный seed,
+  независимая manifest-проверка, process restart, повтор seed/manifest, offline
+  check и восстановимая backup-копия. Финальное состояние после реальной отправки
+  litterkeep: 5 mailboxes, 37 links, 36 referenced blobs, 0 orphan blobs и
+  0 pending deliveries; финальная backup содержит 63 файла и 14,381,601 bytes.
+- Независимый STARTTLS IMAP-сценарий с полным логином Bob нашёл ровно одно письмо
+  с темой `G12-Litterkeep-UI`, которое отправил Android-клиент. Это подтверждает
+  server commit отдельно от UI status отправителя.
+- Итоговая человеческая матрица находится в `docs/acceptance.md`, машинная в
+  `docs/acceptance.tsv`. Из 46 T/R критериев 44 имеют PASS, T23 имеет точный
+  NOT RUN, T25 имеет BLOCKED с фактической причиной. Server-protocol,
+  client-integration и manual-device evidence разделены.
+- Добавлены содержательные документы runtime lifecycle, storage format, protocol
+  coverage, client setup и security. G12 PASS означает завершение требуемого
+  отчёта и доступной приёмки, а не ложное утверждение о third-party MTA или полном
+  attachment-сценарии litterkeep.
 
 ### 2026-09-20: G12 real litterkeep connection and full-address login checkpoint
 

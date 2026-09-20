@@ -1,0 +1,48 @@
+id	status	layer	evidence
+T01	PASS	server-protocol	Cargo tree allowlist; one litterkeep-server process; no DB/MTA/runtime framework
+T02	PASS	server-protocol	tls_smtp_auth_attachment.py and clean G12 seed/manifest run
+T03	PASS	server-protocol	seed manifest: 8 attachments including empty, Unicode name, duplicate names, 10 MiB; SHA-256 match
+T04	PASS	server-protocol	BODYSTRUCTURE, section and partial unit/black-box comparisons
+T05	PASS	server-protocol	imap_flags.py plus STORE/PEEK tests
+T06	PASS	server-protocol	seed Sent/Drafts fixtures and IMAP APPEND tests
+T07	PASS	server-protocol	folder lifecycle, modified UTF-7, special-use, COPY/MOVE black-box tests
+T08	PASS	server-protocol	imap_uid_restart.py and owner isolation tests
+T09	PASS	server-protocol	IDLE delivery/flags/MOVE/EXPUNGE two-session tests
+T10	PASS	server-protocol	POP3 STLS/implicit, RSET/disconnect/QUIT and IMAP conflict tests
+T11	PASS	server-protocol	managesieve_literal_delivery.py
+T12	PASS	server-protocol	invalid update retention and sieve_runtime_errors.py
+T13	PASS	server-protocol	CA, SAN, password, pre-TLS AUTH negative tests
+T14	PASS	server-protocol	partial ClientHello and STARTTLS transition tests
+T15	PASS	server-protocol	authenticated owner boundaries and unknown recipient tests
+T16	PASS	server-protocol	local route, sender policy and redirect route denial tests
+T17	PASS	server-protocol	bounded DATA/literal/AST/queues/quota and large-record gates
+T18	PASS	server-protocol	tls_crash_commit.py and final-reply-loss test
+T19	PASS	server-protocol	incomplete tail, corrupt frame and missing blob tests
+T20	PASS	server-protocol	transaction replay and duplicate-recipient Sieve tests
+T21	PASS	server-protocol	outbound deferred/restart scheduler tests
+T22	PASS	server-protocol	multi-recipient atomic and per-recipient outbound state tests
+T23	NOT RUN	external-integration	No independent third-party MTA was configured in the available environment
+T24	PASS	server-protocol	init hashes stable; seed 35/0 then 0/35 before and after restart
+T25	BLOCKED	client-integration	Alice connected and sent plain mail in litterkeep; current compose UI exposed no attachment selector; Bob setup hit TLS connection error
+T26	PASS	runtime	32-session IDLE plateau, churn and resource registry tests
+T27	PASS	maintenance	backup reopened with same UID/bytes; clean G12 backup checked
+R01	PASS	runtime	orchestrator transfer and registry ownership tests
+R02	PASS	runtime	exclusive resource double-acquire test
+R03	PASS	runtime	timeout keeps live lease occupied
+R04	PASS	runtime	generation and stale completion tests
+R05	PASS	runtime	session generation protects FD slot reuse
+R06	PASS	runtime	signal-between-observe-and-park regression test
+R07	PASS	runtime	versioned wait and bounded ready queue tests
+R08	PASS	runtime	32 IDLE sessions share reactor threads
+R09	PASS	runtime	IMAP IDLE delivery wake black-box tests
+R10	PASS	runtime	lagging subscriber isolated by bounded output
+R11	PASS	runtime	worker wake socket and completion churn tests
+R12	PASS	runtime	abandoned DATA, crash commit and lost final reply tests
+R13	PASS	runtime	cancel timeout retains permit without replacement worker
+R14	PASS	runtime	bounded authentication admission tests
+R15	PASS	outbound	clean transactions reuse one peer connection
+R16	PASS	outbound	failed RSET, EOF, timeout and TLS error drop pool entry
+R17	PASS	outbound	TLS pool identity key and bounded scheduler handoff tests
+R18	PASS	runtime	worker cleanup, durable retry and single Store writer tests
+R19	PASS	runtime	cooperative cancel joins outbound work and preserves queue state
+

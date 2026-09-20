@@ -1,0 +1,38 @@
+# Подключение litterkeep
+
+## Проверенный профиль
+
+Сервер принимает полный локальный login и приводит его к владельцу только после
+проверки typed local-domain policy. Для тестового аккаунта Alice используются:
+
+| Параметр | Значение |
+|---|---|
+| Email/login | `alice@litterkeep.test` |
+| IMAP | `localhost:1143`, STARTTLS |
+| SMTP Submission | `localhost:1587`, STARTTLS |
+| CA | `ca.pem` из локального тестового PKI |
+| Password | строка `alice` из `test-accounts.tsv` |
+
+На физическом Android через USB выполнены только необходимые перенаправления:
+
+```powershell
+adb reverse tcp:1143 tcp:51143
+adb reverse tcp:1587 tcp:51587
+```
+
+Числа справа были host-портами Docker G12. При запуске бинарника прямо на host
+они совпадают с listener-портами. Адрес `10.0.2.2` нужен Android Emulator, но на
+физическом устройстве G12 не использовался.
+
+## Фактический результат
+
+На TECNO CH6i приложение сначала отклонило неизвестный CA. После выбора
+`litterkeep-g12-ca.pem` штатным document picker приложение проверило IMAP и SMTP,
+сохранило Alice, показало каталог папок и отправило письмо Bob. UI подтвердил
+приём письма сервером и принятие адресата.
+
+Полный attachment-сценарий litterkeep не подтверждён. В текущем compose screen
+не было элемента выбора вложения. Настройка Bob во второй попытке завершилась
+generic TLS connection error до предложения выбрать trust anchor. Поэтому
+серверные Python attachment-тесты не выдаются за litterkeep UI evidence.
+

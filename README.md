@@ -286,5 +286,13 @@ test state is placed under ignored `data/` stage directories.
 See `GOAL.md` for actual stage status and `litterkeep-rust-terra-goal.md` for
 the requested project contract.
 
-Architecture and ownership boundaries are documented in
-[`docs/architecture.md`](docs/architecture.md).
+Документация результата:
+
+- [`docs/architecture.md`](docs/architecture.md), архитектура и ownership;
+- [`docs/runtime-lifecycle.md`](docs/runtime-lifecycle.md), задачи и ресурсы;
+- [`docs/storage-format.md`](docs/storage-format.md), durable storage/recovery;
+- [`docs/protocol-coverage.md`](docs/protocol-coverage.md), SMTP/IMAP/POP3/Sieve;
+- [`docs/client-setup.md`](docs/client-setup.md), litterkeep и endpoints;
+- [`docs/security.md`](docs/security.md), security profile;
+- [`docs/acceptance.md`](docs/acceptance.md) и
+  [`docs/acceptance.tsv`](docs/acceptance.tsv), фактическая матрица.
