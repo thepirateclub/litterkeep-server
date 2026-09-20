@@ -14,7 +14,7 @@ pub(super) fn queue(
     close: bool,
     uid_set: Option<imap::sequence_set::SequenceSet>,
 ) -> io::Result<()> {
-    if session.selected_read_only && !close {
+    if matches!((session.selected_read_only, close), (true, false)) {
         return session.push(format!("{tag} NO [READ-ONLY] EXPUNGE denied\r\n").as_bytes());
     }
     let Some(mailbox) = session.selected_mailbox.clone() else {

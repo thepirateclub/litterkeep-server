@@ -69,7 +69,10 @@ fn string_match_valid(
     names: &[String],
     matcher: &super::ast::StringMatch,
 ) -> Result<(), &'static str> {
-    if names.is_empty() || matcher.keys.is_empty() {
+    if matches!(
+        (names.is_empty(), matcher.keys.is_empty()),
+        (true, _) | (_, true)
+    ) {
         return Err("empty sieve string matcher");
     }
     match (

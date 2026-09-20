@@ -164,7 +164,10 @@ fn parse_time(value: &str) -> Option<(u32, u32, u32)> {
         parts.next()?.parse().ok()?,
     );
     match (parts.next(), result) {
-        (None, (hour, minute, second)) if hour < 24 && minute < 60 && second < 60 => Some(result),
+        (None, (hour, minute, second)) => match (hour < 24, minute < 60, second < 60) {
+            (true, true, true) => Some(result),
+            _ => None,
+        },
         _ => None,
     }
 }

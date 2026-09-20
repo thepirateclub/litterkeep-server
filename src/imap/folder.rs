@@ -136,10 +136,14 @@ fn parse_list_pattern(tokens: &mut impl Iterator<Item = Token>) -> Option<ListPa
         None if reference.is_empty() => list_pattern_value(pattern),
         Some(Token::Text(return_name)) if return_name.eq_ignore_ascii_case("RETURN") => {
             match (tokens.next(), tokens.next(), tokens.next(), tokens.next()) {
-                (Some(Token::ListStart), Some(Token::Text(option)), Some(Token::ListEnd), None)
-                    if reference.is_empty() && option.eq_ignore_ascii_case("SPECIAL-USE") =>
-                {
-                    list_pattern_value(pattern)
+                (Some(Token::ListStart), Some(Token::Text(option)), Some(Token::ListEnd), None) => {
+                    match (
+                        reference.is_empty(),
+                        option.eq_ignore_ascii_case("SPECIAL-USE"),
+                    ) {
+                        (true, true) => list_pattern_value(pattern),
+                        (true, false) | (false, _) => None,
+                    }
                 }
                 _ => None,
             }

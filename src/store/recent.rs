@@ -191,7 +191,13 @@ fn decode_at(bytes: &[u8], offset: usize) -> io::Result<Option<(DecodedFrame, us
     let Some(magic) = decoder.take::<4>()? else {
         return Ok(None);
     };
-    if magic != MAGIC || u16::from_be_bytes(decoder.required::<2>()?) != VERSION {
+    if matches!(
+        (
+            magic == MAGIC,
+            u16::from_be_bytes(decoder.required::<2>()?) == VERSION
+        ),
+        (false, _) | (_, false)
+    ) {
         return Err(invalid("bad recent frame"));
     }
     let operation = u8::from_be_bytes(decoder.required::<1>()?);

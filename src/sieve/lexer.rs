@@ -53,7 +53,7 @@ fn block_comment(characters: &mut Peekable<Chars<'_>>) -> Result<(), &'static st
     }
     let mut star = false;
     for character in characters.by_ref() {
-        if star && character == '/' {
+        if matches!((star, character), (true, '/')) {
             return Ok(());
         }
         star = character == '*';

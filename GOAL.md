@@ -347,6 +347,15 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   подключён к durable pool/service route, также отсутствуют automatic drain,
   DSN и cancellation lifecycle acceptance.
 
+### 2026-09-20: structural condition-rule compliance checkpoint
+
+- Устранены все найденные в `src` условия `if` с `&&` или `||`: ветвления
+  выражены через typed tuples, `match` и guards. Для reactor read/write guards
+  сохранено ленивое выполнение I/O, поэтому отсутствие readiness не вызывает
+  лишнего read/flush. Проверка не нашла `mod.rs`, файлов длиннее 300 lines или
+  прямых array-index expressions.
+- PASS: Windows 137 tests, strict Clippy, format и `git diff --check`.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.

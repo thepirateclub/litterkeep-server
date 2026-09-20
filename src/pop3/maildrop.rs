@@ -109,7 +109,10 @@ fn dot_stuff(bytes: &[u8]) -> Vec<u8> {
             value => line.push(*value),
         }
     }
-    if !line.is_empty() || !bytes.ends_with(b"\n") {
+    if matches!(
+        (line.is_empty(), bytes.ends_with(b"\n")),
+        (false, _) | (true, false)
+    ) {
         append_line(&mut output, &line);
     }
     output.extend_from_slice(b".\r\n");
@@ -127,7 +130,7 @@ fn top_bytes(bytes: &[u8], requested: u32) -> Vec<u8> {
     let mut lines = bytes.split_inclusive(|byte| *byte == b'\n');
     for line in lines.by_ref() {
         result.extend_from_slice(line);
-        if line == b"\r\n" || line == b"\n" {
+        if matches!(line, b"\r\n" | b"\n") {
             break;
         }
     }

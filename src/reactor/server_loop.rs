@@ -216,12 +216,18 @@ fn service_session(
     if ready.closed_or_error {
         return close(entry, lifecycle, maildrops);
     }
-    if ready.writable && flush(entry)? {
-        close(entry, lifecycle, maildrops)?;
-        return Ok(());
+    match ready.writable {
+        true if flush(entry)? => {
+            close(entry, lifecycle, maildrops)?;
+            return Ok(());
+        }
+        true | false => {}
     }
-    if ready.readable && read_session(entry, slot, generation, worker, owners, request)? {
-        close(entry, lifecycle, maildrops)?;
+    match ready.readable {
+        true if read_session(entry, slot, generation, worker, owners, request)? => {
+            close(entry, lifecycle, maildrops)?;
+        }
+        true | false => {}
     }
     Ok(())
 }

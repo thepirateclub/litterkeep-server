@@ -45,7 +45,10 @@ impl LiteralReceiver {
         let remaining = self.expected.saturating_sub(self.bytes.len());
         let consumed = remaining.min(input.len());
         self.bytes.extend(input.drain(..consumed));
-        if self.bytes.len() < self.expected || input.len() < 2 {
+        if matches!(
+            (self.bytes.len() < self.expected, input.len() < 2),
+            (true, _) | (_, true)
+        ) {
             return LiteralProgress::Waiting;
         }
         match input.get(..2) {
