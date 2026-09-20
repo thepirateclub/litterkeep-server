@@ -15,7 +15,7 @@ pub(super) fn line(
 ) -> io::Result<()> {
     let command = pop3::parse(std::str::from_utf8(&line).unwrap_or_default());
     if matches!(
-        (command, session.can_starttls()),
+        (&command, session.can_starttls()),
         (pop3::Command::Pass(_), true)
     ) {
         return session.push(b"-ERR STLS required before PASS\r\n");

@@ -117,6 +117,11 @@ mod tests {
         peer.join().expect("peer");
     }
 
+    #[test]
+    fn malformed_ca_is_rejected_before_connect() {
+        assert!(client_config(b"not a DER certificate").is_err());
+    }
+
     fn certificate_chain() -> (Vec<u8>, Vec<u8>, Vec<u8>) {
         let ca_params = CertificateParams::default();
         let ca_key = KeyPair::generate().expect("CA key");

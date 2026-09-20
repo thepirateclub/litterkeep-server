@@ -342,10 +342,21 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   Plaintext pool с ним не смешивается, поскольку TLS identity является другим
   route key. CLI `deliver-tls` делает этот путь доступным без runtime Python.
 - PASS: собственный rustls TLS peer с выданным на лету CA принял полный SMTP
-  transaction. Windows: 137 tests, strict Clippy, format и `git diff --check`;
-  Linux Docker test stage: 144 tests. G09 остаётся RUNNING: TLS ещё не
+  transaction; malformed DER CA отвергается до TCP-подключения. Windows: 138
+  tests, strict Clippy, format и `git diff --check`; Linux Docker test stage:
+  145 tests. G09 остаётся RUNNING: TLS ещё не
   подключён к durable pool/service route, также отсутствуют automatic drain,
   DSN и cancellation lifecycle acceptance.
+
+### 2026-09-20: Linux POP3 ownership correction
+
+- Linux release build обнаружил cfg-specific перенос POP3 `Command` при
+  проверке STLS до передачи команды state machine. Проверка теперь сопоставляет
+  заимствованную команду, поэтому ownership остаётся у единственного `apply`.
+- PASS: Windows `cargo test --all-targets --locked` (138 tests), strict Clippy,
+  format и `git diff --check`; Docker Linux test stage: 145 tests. Контекст
+  Docker равен 83 KiB и не содержит `./data`; runtime данные остаются только в
+  явно подключаемых bind mounts из `./data`.
 
 ### 2026-09-20: structural condition-rule compliance checkpoint
 
