@@ -13,31 +13,59 @@ enum ReplyClass {
     Permanent,
 }
 
+/// Результат SMTP transaction, который очередь переводит в durable state.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DeliveryOutcome {
+    Delivered,
+    Deferred,
+    PermanentFailure,
+}
+
 /// Отправляет один уже сохранённый RFC822 message на локальный SMTP peer.
 ///
 /// Вызывающий владеет очередью и решает retry по классу ошибки. Этот transport
 /// не возвращает соединение в пул: pooling и TLS добавляются отдельным этапом.
-pub fn deliver(address: &str, sender: &str, recipient: &str, message: &[u8]) -> io::Result<()> {
+pub fn deliver(
+    address: &str,
+    sender: &str,
+    recipient: &str,
+    message: &[u8],
+) -> io::Result<DeliveryOutcome> {
     let stream = TcpStream::connect(address)?;
     stream.set_read_timeout(Some(Duration::from_secs(10)))?;
     stream.set_write_timeout(Some(Duration::from_secs(10)))?;
     let mut reader = BufReader::new(stream.try_clone()?);
-    expect(&mut reader, ReplyClass::Positive)?;
+    if let Some(outcome) = expect(&mut reader)? {
+        return Ok(outcome);
+    }
     let mut writer = stream;
     command(&mut writer, "EHLO litterkeep.test\r\n")?;
-    expect(&mut reader, ReplyClass::Positive)?;
+    if let Some(outcome) = expect(&mut reader)? {
+        return Ok(outcome);
+    }
     command(&mut writer, &format!("MAIL FROM:<{sender}>\r\n"))?;
-    expect(&mut reader, ReplyClass::Positive)?;
+    if let Some(outcome) = expect(&mut reader)? {
+        return Ok(outcome);
+    }
     command(&mut writer, &format!("RCPT TO:<{recipient}>\r\n"))?;
-    expect(&mut reader, ReplyClass::Positive)?;
+    if let Some(outcome) = expect(&mut reader)? {
+        return Ok(outcome);
+    }
     command(&mut writer, "DATA\r\n")?;
-    expect(&mut reader, ReplyClass::Positive)?;
+    if let Some(outcome) = expect(&mut reader)? {
+        return Ok(outcome);
+    }
     writer.write_all(message)?;
     writer.write_all(b"\r\n.\r\n")?;
     writer.flush()?;
-    expect(&mut reader, ReplyClass::Positive)?;
+    if let Some(outcome) = expect(&mut reader)? {
+        return Ok(outcome);
+    }
     command(&mut writer, "QUIT\r\n")?;
-    expect(&mut reader, ReplyClass::Positive)
+    match expect(&mut reader)? {
+        Some(outcome) => Ok(outcome),
+        None => Ok(DeliveryOutcome::Delivered),
+    }
 }
 
 /// Записывает одну SMTP command без скрытого буферизованного ownership.
@@ -47,7 +75,7 @@ fn command(writer: &mut TcpStream, command: &str) -> io::Result<()> {
 }
 
 /// Читает complete SMTP reply, включая multiline continuation.
-fn expect(reader: &mut BufReader<TcpStream>, expected: ReplyClass) -> io::Result<()> {
+fn expect(reader: &mut BufReader<TcpStream>) -> io::Result<Option<DeliveryOutcome>> {
     let mut line = String::new();
     loop {
         line.clear();
@@ -59,9 +87,10 @@ fn expect(reader: &mut BufReader<TcpStream>, expected: ReplyClass) -> io::Result
         }
         let (code, continuation) = parse_reply(&line)?;
         if !continuation {
-            return match classify(code) == expected {
-                true => Ok(()),
-                false => Err(io::Error::other("SMTP peer rejected command")),
+            return match classify(code) {
+                ReplyClass::Positive => Ok(None),
+                ReplyClass::Transient => Ok(Some(DeliveryOutcome::Deferred)),
+                ReplyClass::Permanent => Ok(Some(DeliveryOutcome::PermanentFailure)),
             };
         }
     }

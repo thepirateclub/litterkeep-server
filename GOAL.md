@@ -198,6 +198,16 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   G09 остаётся RUNNING: отдельный bounded SMTP transport worker ещё не делает
   TCP peer transaction и не переводит результаты в эти completion requests.
 
+### 2026-09-20: G09 SMTP outcome classification checkpoint
+
+- Собственный outbound SMTP client возвращает typed `DeliveryOutcome`:
+  positive completion, `Deferred` для SMTP 4xx и `PermanentFailure` для 5xx.
+  Системные I/O ошибки остаются `io::Error`; CLI явно показывает оба вида
+  отказа. Это даёт очереди корректное решение о durable следующем state.
+- PASS: Windows `cargo test --all-targets --locked` (127 tests), strict Clippy,
+  format и `git diff --check`. G09 остаётся RUNNING: outcome ещё не вызывает
+  Store worker transition в bounded queue-drain loop и не проверен peer-ом.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.

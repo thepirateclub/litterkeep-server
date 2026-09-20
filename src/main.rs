@@ -67,7 +67,15 @@ fn deliver() -> ExitCode {
         }
     };
     match litterkeep_server::outbound::deliver(&address, &sender, &recipient, &message) {
-        Ok(()) => ExitCode::SUCCESS,
+        Ok(litterkeep_server::outbound::DeliveryOutcome::Delivered) => ExitCode::SUCCESS,
+        Ok(litterkeep_server::outbound::DeliveryOutcome::Deferred) => {
+            eprintln!("delivery deferred by SMTP peer");
+            ExitCode::FAILURE
+        }
+        Ok(litterkeep_server::outbound::DeliveryOutcome::PermanentFailure) => {
+            eprintln!("delivery permanently rejected by SMTP peer");
+            ExitCode::FAILURE
+        }
         Err(error) => {
             eprintln!("delivery error: {error}");
             ExitCode::FAILURE
