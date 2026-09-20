@@ -27,6 +27,31 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G08 Sieve implicit keep semantics checkpoint
+
+- Исполнитель Sieve теперь хранит typed-состояние `Implicit`, `Cancelled` или
+  `Explicit`. Действия `redirect`, `fileinto` и `discard` отменяют только
+  implicit keep; ранее выполненный explicit `keep` сохраняется независимо от
+  порядка последующих delivery actions.
+- Исправлена ошибочная Store-проверка, которая считала INBOX обязательным для
+  одиночного `redirect`. Теперь redirect-only transaction создаёт durable
+  outbound job без mailbox link, сохраняет исходный envelope sender и после
+  terminal transition не восстанавливает job при reopen.
+- Отдельный Store test подтверждает составной план `keep; redirect`: INBOX link
+  и outbound job фиксируются вместе и оба восстанавливаются после повторного
+  открытия Store. Unit test языка дополнительно проверяет сочетание explicit
+  keep, redirect и fileinto.
+- Тесты Store вынесены в отдельный предметный файл, поэтому production-файл
+  снова укладывается в лимит 300 строк без `mod.rs` и без смешивания тестовой и
+  рабочей ответственности.
+- PASS: Windows `cargo test --all-targets --locked` (156 tests), strict Clippy,
+  format и `git diff --check`. Docker Rust 1.97 strict Linux Clippy и 177 tests
+  прошли в image `litterkeep-server:g08-implicit-keep-gate`.
+- G08 остаётся RUNNING: ещё не завершены полный runtime-error/replay matrix и
+  независимый сетевой redirect-only сценарий без дополнительного `discard`.
+  Его нельзя объявлять PASS по одним unit/integration тестам; runtime bind mount
+  Docker Desktop ранее зависал даже после включения file sharing.
+
 ### 2026-09-20: G06 IMAP AUTHENTICATE PLAIN checkpoint
 
 - Устранена ложная capability: `AUTHENTICATE PLAIN` теперь имеет typed

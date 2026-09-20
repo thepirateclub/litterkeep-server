@@ -13,6 +13,13 @@ pub struct DeliveryPlan {
     pub redirects: Vec<String>,
 }
 
+/// Отличает неявный keep от явно запрошенного действия с тем же результатом.
+enum KeepState {
+    Implicit,
+    Cancelled,
+    Explicit,
+}
+
 /// Запускает script над заголовками и исходным размером с fixed budget команд.
 pub fn execute(
     script: &Script,
@@ -27,6 +34,7 @@ pub fn execute(
     };
     let mut stopped = false;
     let mut remaining = 128;
+    let mut keep_state = KeepState::Implicit;
     commands(
         &script.commands,
         headers,
@@ -34,6 +42,7 @@ pub fn execute(
         &mut plan,
         &mut stopped,
         &mut remaining,
+        &mut keep_state,
     )?;
     Ok(plan)
 }
@@ -45,6 +54,7 @@ fn commands(
     plan: &mut DeliveryPlan,
     stopped: &mut bool,
     remaining: &mut usize,
+    keep_state: &mut KeepState,
 ) -> Result<(), &'static str> {
     for command in items {
         if *stopped {
@@ -55,7 +65,7 @@ fn commands(
             None => return Err("sieve execution limit exceeded"),
         }
         match command {
-            Command::Action(action) => apply(action, plan, stopped)?,
+            Command::Action(action) => apply(action, plan, stopped, keep_state)?,
             Command::If {
                 condition,
                 then_commands,
@@ -65,33 +75,58 @@ fn commands(
                     true => then_commands,
                     false => else_commands,
                 };
-                commands(selected, headers, message_size, plan, stopped, remaining)?;
+                commands(
+                    selected,
+                    headers,
+                    message_size,
+                    plan,
+                    stopped,
+                    remaining,
+                    keep_state,
+                )?;
             }
         }
     }
     Ok(())
 }
 
-fn apply(action: &Action, plan: &mut DeliveryPlan, stopped: &mut bool) -> Result<(), &'static str> {
+fn apply(
+    action: &Action,
+    plan: &mut DeliveryPlan,
+    stopped: &mut bool,
+    keep_state: &mut KeepState,
+) -> Result<(), &'static str> {
     match action {
-        Action::Keep => plan.keep = true,
+        Action::Keep => {
+            plan.keep = true;
+            *keep_state = KeepState::Explicit;
+        }
         Action::Discard => {
-            plan.keep = false;
+            cancel_implicit_keep(plan, keep_state);
             plan.discard = true;
         }
         Action::FileInto(folder) => {
-            plan.keep = false;
+            cancel_implicit_keep(plan, keep_state);
             plan.folders.push(folder.clone());
         }
         Action::Redirect(address) => {
             if plan.redirects.len() >= 16 {
                 return Err("sieve redirect limit exceeded");
             }
+            cancel_implicit_keep(plan, keep_state);
             plan.redirects.push(address.clone());
         }
         Action::Stop => *stopped = true,
     }
     Ok(())
+}
+
+/// Delivery action отменяет implicit keep, но не ранее выполненный explicit keep.
+fn cancel_implicit_keep(plan: &mut DeliveryPlan, keep_state: &mut KeepState) {
+    if let KeepState::Implicit = keep_state {
+        plan.keep = false;
+        *keep_state = KeepState::Cancelled;
+    }
 }
 
 fn matches(condition: &Condition, headers: &[(String, String)], message_size: usize) -> bool {

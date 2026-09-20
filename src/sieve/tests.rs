@@ -23,6 +23,30 @@ fn comments_and_implicit_keep_survive_false_condition() {
     assert!(!plan.discard);
 }
 
+/// Redirect сам отменяет implicit keep, но не явное действие keep.
+#[test]
+fn redirect_and_fileinto_preserve_only_explicit_keep() {
+    let redirect = execute(
+        &parse("redirect \"remote@peer.test\";").expect("redirect parse"),
+        &[],
+        0,
+    )
+    .expect("redirect execute");
+    assert!(!redirect.keep);
+    assert_eq!(redirect.redirects, vec!["remote@peer.test"]);
+
+    let combined = execute(
+        &parse("keep; redirect \"remote@peer.test\"; fileinto \"Archive\";")
+            .expect("combined parse"),
+        &[],
+        0,
+    )
+    .expect("combined execute");
+    assert!(combined.keep);
+    assert_eq!(combined.redirects, vec!["remote@peer.test"]);
+    assert_eq!(combined.folders, vec!["Archive"]);
+}
+
 /// `elsif` выбирает первую совпавшую ветвь и не исполняет следующий else.
 #[test]
 fn elsif_is_an_exclusive_bounded_branch() {
