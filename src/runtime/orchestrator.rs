@@ -259,6 +259,7 @@ impl<T> Orchestrator<T> {
         record.state = TaskState::Waiting {
             observed_event_version: current,
         };
+        self.ready.retain(|ready| *ready != task);
         let queue = self.waiters.entry(event).or_default();
         if !queue.contains(&task) {
             queue.push(task);

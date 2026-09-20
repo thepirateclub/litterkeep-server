@@ -482,6 +482,15 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   format и `git diff --check`. G10 остаётся NOT RUN: нет local control socket,
   runtime CLI, plateau/failure matrix и Linux acceptance данного интерфейса.
 
+### 2026-09-20: lifecycle parking correction
+
+- Snapshot обнаружил, что `park_on` оставлял Waiting task в ready queue.
+  Переход теперь удаляет task из ready queue только после атомарной проверки
+  event version и регистрации wait. `signal` остаётся единственным путём,
+  который вернёт parked task в ready state. Это восстанавливает требование
+  освобождать execution slot во время ожидания.
+- PASS: Windows 149 tests, strict Clippy, format и `git diff --check`.
+
 ### 2026-09-20: correction of scheduler contract structure
 
 - Первый commit scheduler contract временно увеличил `src/store/tests.rs` до
