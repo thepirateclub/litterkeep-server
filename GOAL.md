@@ -27,6 +27,23 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G06 sequence-set SEARCH checkpoint
+
+- SEARCH принимает самостоятельный message sequence-set и отдельный
+  `UID <sequence-set>` criterion. Пространство фильтра не смешивается с
+  `SEARCH`/`UID SEARCH` addressing, которое определяет только числа ответа.
+- Существующий bounded `SequenceSet` переиспользован без строковых сравнений и
+  разворачивания диапазонов. Для SEARCH добавлен allocation-free lookup с
+  лимитом 64 wire-диапазона; `*` разрешается относительно snapshot maximum
+  sequence либо maximum UID.
+- Evaluator получает типизированные координаты одного immutable snapshot.
+  Production evaluator и его unit tests разделены по файлам, оба меньше 300
+  строк; прямого индексирования коллекций не добавлено.
+- PASS: Windows 174 tests, strict Clippy и format. Docker Rust 1.97 strict Linux
+  Clippy и 203 tests прошли в image `litterkeep-server:g06-search-sets`.
+- G06 остаётся RUNNING: sent-date SEARCH criteria и независимая сетевая
+  SEARCH/concurrent/reconnect matrix ещё не завершены.
+
 ### 2026-09-20: G06 complete system and session flag SEARCH checkpoint
 
 - SEARCH AST и parser теперь типизированно поддерживают `ANSWERED`,

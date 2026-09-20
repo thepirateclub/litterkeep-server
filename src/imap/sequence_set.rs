@@ -78,6 +78,24 @@ impl SequenceSet {
         }
         ResolvedSequenceSet { ranges: merged }
     }
+
+    /// Проверяет один номер без выделения памяти и сортировки диапазонов.
+    ///
+    /// SEARCH проходит snapshot ровно один раз, а число wire-диапазонов жёстко
+    /// ограничено parser-ом. Поэтому bounded линейный просмотр быстрее
+    /// подготовки отдельного heap-индекса для типичного одиночного критерия.
+    pub fn contains_bounded(&self, value: u64, maximum: u64) -> bool {
+        self.ranges.iter().any(|range| {
+            let start = resolve_endpoint(range.start, maximum);
+            let end = resolve_endpoint(range.end, maximum);
+            let lower = start.min(end);
+            let upper = start.max(end);
+            match value < lower {
+                true => false,
+                false => value <= upper,
+            }
+        })
+    }
 }
 
 impl ResolvedSequenceSet {
@@ -143,5 +161,14 @@ mod tests {
         for invalid in ["", "0", "1,,2", "1:2:3", "4294967296"] {
             assert!(SequenceSet::parse(invalid).is_err(), "accepted {invalid}");
         }
+    }
+
+    #[test]
+    fn bounded_lookup_resolves_last_without_materialization() {
+        let set = SequenceSet::parse("2,8:6,*").expect("sequence set");
+        assert!(set.contains_bounded(2, 11));
+        assert!(set.contains_bounded(7, 11));
+        assert!(set.contains_bounded(11, 11));
+        assert!(!set.contains_bounded(5, 11));
     }
 }

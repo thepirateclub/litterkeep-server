@@ -22,6 +22,8 @@ pub enum SearchKey {
     Recent,
     Old,
     New,
+    SequenceSet(super::sequence_set::SequenceSet),
+    UidSet(super::sequence_set::SequenceSet),
     Header(HeaderSelector, String),
     Body(String),
     Text(String),
@@ -97,6 +99,7 @@ fn parse_one(tokens: &mut VecDeque<Token>) -> Option<SearchKey> {
         "RECENT" => Some(SearchKey::Recent),
         "OLD" => Some(SearchKey::Old),
         "NEW" => Some(SearchKey::New),
+        "UID" => sequence_set(tokens).map(SearchKey::UidSet),
         "SUBJECT" => text(tokens, HeaderName::Subject),
         "FROM" => text(tokens, HeaderName::From),
         "TO" => text(tokens, HeaderName::To),
@@ -116,7 +119,9 @@ fn parse_one(tokens: &mut VecDeque<Token>) -> Option<SearchKey> {
             let right = parse_one(tokens)?;
             Some(SearchKey::Or(Box::new(left), Box::new(right)))
         }
-        _ => None,
+        _ => super::sequence_set::SequenceSet::parse(&value)
+            .ok()
+            .map(SearchKey::SequenceSet),
     }
 }
 
@@ -160,6 +165,10 @@ fn number(tokens: &mut VecDeque<Token>) -> Option<u64> {
 
 fn date(tokens: &mut VecDeque<Token>) -> Option<super::search_date::SearchDate> {
     super::search_date::SearchDate::parse(&argument(tokens)?)
+}
+
+fn sequence_set(tokens: &mut VecDeque<Token>) -> Option<super::sequence_set::SequenceSet> {
+    super::sequence_set::SequenceSet::parse(&argument(tokens)?).ok()
 }
 
 #[cfg(test)]
@@ -219,5 +228,21 @@ mod tests {
                 ..
             } if keys.len() == 9
         ));
+    }
+
+    #[test]
+    fn parses_sequence_and_uid_set_criteria() {
+        let command = imap::parse("a UID SEARCH 2:4 UID 90:*\r\n").command;
+        assert!(matches!(
+            command,
+            Command::Search {
+                addressing: Addressing::Uid,
+                key: SearchKey::And(keys),
+            } if keys.len() == 2
+        ));
+        assert_eq!(
+            imap::parse("a SEARCH UID unknown\r\n").command,
+            Command::Unsupported
+        );
     }
 }
