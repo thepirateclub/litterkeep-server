@@ -1,3 +1,5 @@
+#[path = "store/append.rs"]
+mod append;
 #[path = "store/blobs.rs"]
 mod blobs;
 #[path = "store/commit_log.rs"]
@@ -64,6 +66,7 @@ mod subscriptions;
 #[path = "store/tests.rs"]
 mod tests;
 pub use crate::mail_flags::{FlagMutation, MessageFlags, SystemFlag};
+use crate::queue::Queue;
 pub use folder_access::ResolvedMailbox;
 pub use folders::{FolderInfo, SpecialUse};
 pub use model::{AppendMetadata, MailboxSnapshot, Message};
@@ -71,7 +74,7 @@ use quota::Quota;
 pub use sieve_scripts::ScriptInfo;
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, Write};
+use std::io;
 use std::path::{Path, PathBuf};
 pub use subscriptions::SubscribedFolder;
 pub(super) const DEFAULT_BLOB_QUOTA: u64 = 25 * 1024 * 1024;
@@ -87,6 +90,8 @@ pub struct Store {
     folders: folders::FolderCatalog,
     subscriptions: subscriptions::SubscriptionCatalog,
     sieve_scripts: sieve_scripts::SieveCatalog,
+    /// Queue принадлежит тому же единственному writer-у, что и mailbox journal.
+    queue: Queue,
     next_transaction_id: u64,
     blob_quota: Quota,
     write_state: WriteState,
@@ -104,142 +109,6 @@ enum StoreFailpoint {
     AfterFirstMailboxFrame,
 }
 impl Store {
-    pub fn append(&mut self, mailbox: &str, raw: &[u8]) -> io::Result<u64> {
-        self.append_many(&[mailbox.to_owned()], raw)
-    }
-    /// APPEND фиксирует UID и начальные metadata одним mailbox frame.
-    pub fn append_with_metadata(
-        &mut self,
-        mailbox: &str,
-        raw: &[u8],
-        metadata: AppendMetadata,
-    ) -> io::Result<u64> {
-        self.append_many_with_metadata(&[mailbox.to_owned()], raw, metadata)
-    }
-    /// Фиксирует одну delivery unit для всех уникальных mailbox одним commit.
-    pub fn append_many(&mut self, mailboxes: &[String], raw: &[u8]) -> io::Result<u64> {
-        self.append_many_with_metadata(mailboxes, raw, AppendMetadata::default())
-    }
-
-    fn append_many_with_metadata(
-        &mut self,
-        mailboxes: &[String],
-        raw: &[u8],
-        metadata: AppendMetadata,
-    ) -> io::Result<u64> {
-        self.ensure_writable()?;
-        let mailboxes = validated_unique_mailboxes(mailboxes)?;
-        self.blob_quota.ensure_available(raw.len())?;
-        let mut transaction_id = self.next_transaction_id;
-        let (name, _) = blobs::next_available(&self.root, &mut transaction_id)?;
-        let links = self.prepare_links(&mailboxes, transaction_id, &name, metadata)?;
-        blobs::publish(&self.root, &name, raw)?;
-        self.blob_quota.record(raw.len())?;
-        match self.commit_links(transaction_id, &links) {
-            Ok(()) => self.publish_links(transaction_id, links),
-            Err(error) => {
-                self.write_state = WriteState::Poisoned;
-                Err(error)
-            }
-        }
-    }
-    fn index(&self, mailbox: &str) -> PathBuf {
-        self.root
-            .join("mailboxes")
-            .join(format!("{mailbox}.journal"))
-    }
-
-    fn ensure_writable(&self) -> io::Result<()> {
-        match self.write_state {
-            WriteState::Writable => Ok(()),
-            WriteState::Poisoned => Err(io::Error::other("store writer is poisoned")),
-        }
-    }
-
-    /// Резервирует UID только в памяти; видимость не меняется до commit frame.
-    fn prepare_links(
-        &self,
-        mailboxes: &[String],
-        transaction_id: u64,
-        name: &str,
-        metadata: AppendMetadata,
-    ) -> io::Result<Vec<(String, model::Record)>> {
-        mailboxes
-            .iter()
-            .map(|mailbox| {
-                let uid = self.next_uids.get(mailbox).copied().unwrap_or(1);
-                uid.checked_add(1)
-                    .ok_or_else(|| io::Error::other("uid exhausted"))?;
-                Ok((
-                    mailbox.clone(),
-                    model::Record {
-                        uid,
-                        transaction_id,
-                        blob_transaction_id: transaction_id,
-                        name: name.to_owned(),
-                        flags: metadata.flags,
-                        internal_date: metadata.internal_date,
-                    },
-                ))
-            })
-            .collect()
-    }
-
-    /// Пишет все mailbox links, затем единственную точку commit authority.
-    fn commit_links(
-        &self,
-        transaction_id: u64,
-        links: &[(String, model::Record)],
-    ) -> io::Result<()> {
-        let mut written = 0;
-        for (mailbox, record) in links {
-            let mut file = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(self.index(mailbox))?;
-            file.write_all(&journal::frame(record))?;
-            file.sync_all()?;
-            written += 1;
-            self.check_mailbox_failpoint(written)?;
-        }
-        durability::sync_directory(&self.root.join("mailboxes"))?;
-        recent::add(&self.root, transaction_id, links)?;
-        let mut commits = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(self.root.join("journal/transactions.log"))?;
-        commits.write_all(&commit_log::frame(transaction_id))?;
-        commits.sync_all()?;
-        durability::sync_directory(&self.root.join("journal"))
-    }
-
-    /// Обновляет materialized view только после durable global commit.
-    fn publish_links(
-        &mut self,
-        transaction_id: u64,
-        links: Vec<(String, model::Record)>,
-    ) -> io::Result<u64> {
-        let first_uid = links
-            .first()
-            .map(|(_, record)| record.uid)
-            .ok_or_else(|| io::Error::other("delivery has no mailbox links"))?;
-        for (mailbox, record) in links {
-            let next_uid = record
-                .uid
-                .checked_add(1)
-                .ok_or_else(|| io::Error::other("uid exhausted"))?;
-            self.next_uids.insert(mailbox.clone(), next_uid);
-            self.recent
-                .entry(mailbox.clone())
-                .or_default()
-                .insert(record.uid);
-            self.entries.entry(mailbox).or_default().push(record);
-        }
-        self.next_transaction_id = transaction_id
-            .checked_add(1)
-            .ok_or_else(|| io::Error::other("transaction id exhausted"))?;
-        Ok(first_uid)
-    }
     #[cfg(test)]
     fn set_failpoint(&mut self, failpoint: StoreFailpoint) {
         self.failpoint = Some(failpoint);

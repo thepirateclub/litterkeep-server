@@ -1,0 +1,150 @@
+//! Публикация immutable blob, mailbox links и исходящих jobs одной транзакцией.
+use super::{
+    AppendMetadata, Store, WriteState, blobs, commit_log, durability, journal, model, recent,
+    validated_unique_mailboxes,
+};
+use std::fs::OpenOptions;
+use std::io::{self, Write};
+use std::path::PathBuf;
+
+impl Store {
+    pub fn append(&mut self, mailbox: &str, raw: &[u8]) -> io::Result<u64> {
+        self.append_many(&[mailbox.to_owned()], raw)
+    }
+    pub fn append_with_metadata(
+        &mut self,
+        mailbox: &str,
+        raw: &[u8],
+        metadata: AppendMetadata,
+    ) -> io::Result<u64> {
+        self.append_many_with_metadata(&[mailbox.to_owned()], raw, metadata, &[])
+    }
+    pub fn append_many(&mut self, mailboxes: &[String], raw: &[u8]) -> io::Result<u64> {
+        self.append_many_with_metadata(mailboxes, raw, AppendMetadata::default(), &[])
+    }
+    pub(super) fn append_many_with_outbound(
+        &mut self,
+        mailboxes: &[String],
+        raw: &[u8],
+        outbound: &[(String, String)],
+    ) -> io::Result<u64> {
+        self.append_many_with_metadata(mailboxes, raw, AppendMetadata::default(), outbound)
+    }
+    fn append_many_with_metadata(
+        &mut self,
+        mailboxes: &[String],
+        raw: &[u8],
+        metadata: AppendMetadata,
+        outbound: &[(String, String)],
+    ) -> io::Result<u64> {
+        self.ensure_writable()?;
+        let mailboxes = validated_unique_mailboxes(mailboxes)?;
+        self.blob_quota.ensure_available(raw.len())?;
+        let mut transaction_id = self.next_transaction_id;
+        let (name, _) = blobs::next_available(&self.root, &mut transaction_id)?;
+        let links = self.prepare_links(&mailboxes, transaction_id, &name, metadata)?;
+        blobs::publish(&self.root, &name, raw)?;
+        self.blob_quota.record(raw.len())?;
+        for (sender, recipient) in outbound {
+            self.queue
+                .enqueue_owned(transaction_id, sender, recipient)?;
+        }
+        match self.commit_links(transaction_id, &links) {
+            Ok(()) => self.publish_links(transaction_id, links),
+            Err(error) => {
+                self.write_state = WriteState::Poisoned;
+                Err(error)
+            }
+        }
+    }
+    pub(super) fn index(&self, mailbox: &str) -> PathBuf {
+        self.root
+            .join("mailboxes")
+            .join(format!("{mailbox}.journal"))
+    }
+    pub(super) fn ensure_writable(&self) -> io::Result<()> {
+        match self.write_state {
+            WriteState::Writable => Ok(()),
+            WriteState::Poisoned => Err(io::Error::other("store writer is poisoned")),
+        }
+    }
+    fn prepare_links(
+        &self,
+        mailboxes: &[String],
+        transaction_id: u64,
+        name: &str,
+        metadata: AppendMetadata,
+    ) -> io::Result<Vec<(String, model::Record)>> {
+        mailboxes
+            .iter()
+            .map(|mailbox| {
+                let uid = self.next_uids.get(mailbox).copied().unwrap_or(1);
+                uid.checked_add(1)
+                    .ok_or_else(|| io::Error::other("uid exhausted"))?;
+                Ok((
+                    mailbox.clone(),
+                    model::Record {
+                        uid,
+                        transaction_id,
+                        blob_transaction_id: transaction_id,
+                        name: name.to_owned(),
+                        flags: metadata.flags,
+                        internal_date: metadata.internal_date,
+                    },
+                ))
+            })
+            .collect()
+    }
+    pub(super) fn commit_links(
+        &self,
+        transaction_id: u64,
+        links: &[(String, model::Record)],
+    ) -> io::Result<()> {
+        let mut written = 0;
+        for (mailbox, record) in links {
+            let mut file = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(self.index(mailbox))?;
+            file.write_all(&journal::frame(record))?;
+            file.sync_all()?;
+            written += 1;
+            self.check_mailbox_failpoint(written)?;
+        }
+        durability::sync_directory(&self.root.join("mailboxes"))?;
+        recent::add(&self.root, transaction_id, links)?;
+        let mut commits = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.root.join("journal/transactions.log"))?;
+        commits.write_all(&commit_log::frame(transaction_id))?;
+        commits.sync_all()?;
+        durability::sync_directory(&self.root.join("journal"))
+    }
+    fn publish_links(
+        &mut self,
+        transaction_id: u64,
+        links: Vec<(String, model::Record)>,
+    ) -> io::Result<u64> {
+        let first_uid = links
+            .first()
+            .map(|(_, record)| record.uid)
+            .ok_or_else(|| io::Error::other("delivery has no mailbox links"))?;
+        for (mailbox, record) in links {
+            let next_uid = record
+                .uid
+                .checked_add(1)
+                .ok_or_else(|| io::Error::other("uid exhausted"))?;
+            self.next_uids.insert(mailbox.clone(), next_uid);
+            self.recent
+                .entry(mailbox.clone())
+                .or_default()
+                .insert(record.uid);
+            self.entries.entry(mailbox).or_default().push(record);
+        }
+        self.next_transaction_id = transaction_id
+            .checked_add(1)
+            .ok_or_else(|| io::Error::other("transaction id exhausted"))?;
+        Ok(first_uid)
+    }
+}

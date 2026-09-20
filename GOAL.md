@@ -144,6 +144,18 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   RUNNING: Store ещё должен записывать owned jobs до общего commit, recovery
   должен использовать committed IDs, затем redirect и SMTP transport worker.
 
+### 2026-09-20: G08 redirect and Store queue transaction checkpoint
+
+- Store владеет queue и записывает Sieve redirect job после durable blob, но до
+  единственного global commit. Новый unit test подтверждает: локальный INBOX
+  link и `OwnedDelivery` становятся видимыми вместе, job хранит SMTP envelope
+  sender, а не MIME `From`. `src/store/append.rs` отделяет эту ответственность
+  от Store model, все файлы остаются не длиннее 300 строк.
+- PASS: Windows `cargo test --all-targets --locked` (126 tests), strict Clippy,
+  format и `git diff --check`. G08/G09 остаются RUNNING: recovery должен
+  загрузить committed jobs для worker-а, затем нужны delivery state transitions,
+  retry и независимый SMTP peer.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.

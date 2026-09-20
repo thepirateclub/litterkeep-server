@@ -58,9 +58,8 @@ impl Store {
     /// Строит планы всех recipients до первой записи mailbox journal.
     ///
     /// Active source читается вместе с его версией у единственного Store owner,
-    /// поэтому доставка не может увидеть частично заменённый script. Пока
-    /// redirect не подключён к исходящей очереди, он является delivery error,
-    /// а не незаметно потерянным внешним письмом.
+    /// поэтому доставка не может увидеть частично заменённый script. Redirect
+    /// записывается queue job до той же global commit точки, что и mailbox link.
     pub fn deliver_sieve_many(
         &mut self,
         accounts: &[String],
@@ -73,13 +72,11 @@ impl Store {
         let _ = envelope_sender;
         let headers = delivery_headers(raw);
         let mut mailboxes = Vec::new();
+        let mut outbound = Vec::new();
         for account in accounts {
             let plan = self.delivery_plan(account, &headers, raw.len())?;
-            if !plan.redirects.is_empty() {
-                return Err(io::Error::new(
-                    io::ErrorKind::Unsupported,
-                    "sieve redirect queue is unavailable",
-                ));
+            for recipient in plan.redirects {
+                outbound.push((envelope_sender.to_owned(), recipient));
             }
             if plan.keep {
                 mailboxes.push(self.resolve_folder(account, "INBOX")?);
@@ -91,7 +88,7 @@ impl Store {
         if mailboxes.is_empty() {
             return Ok(0);
         }
-        self.append_many(&mailboxes, raw)
+        self.append_many_with_outbound(&mailboxes, raw, &outbound)
     }
 
     fn delivery_plan(
@@ -123,7 +120,9 @@ fn delivery_headers(raw: &[u8]) -> Vec<(String, String)> {
 
 #[cfg(test)]
 mod tests {
+    use crate::queue::Queue;
     use crate::store::Store;
+    use std::collections::HashSet;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -179,6 +178,46 @@ mod tests {
                 .len(),
             1
         );
+        drop(store);
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn redirect_is_committed_with_local_delivery_and_preserves_envelope_sender() {
+        let root = directory();
+        let mut store = Store::open(&root).expect("open");
+        store
+            .put_sieve_script(
+                "bob",
+                "forward",
+                "require [\"fileinto\"]; redirect \"remote@test\";".into(),
+            )
+            .expect("put");
+        store
+            .activate_sieve_script("bob", Some("forward"))
+            .expect("activate");
+        let transaction_id = store
+            .deliver_sieve_many(
+                &["bob".into()],
+                "alice@litterkeep.test",
+                b"Subject: redirect\r\n\r\nbody",
+            )
+            .expect("deliver");
+        let mut committed = HashSet::new();
+        committed.insert(transaction_id);
+        assert_eq!(
+            Queue::open(root.join("queue"))
+                .expect("queue")
+                .pending_owned(&committed)
+                .expect("owned"),
+            vec![crate::queue::OwnedDelivery {
+                transaction_id,
+                sender: "alice@litterkeep.test".into(),
+                recipient: "remote@test".into(),
+                state: crate::queue::State::Pending,
+            }]
+        );
+        assert_eq!(store.messages("bob").expect("inbox").len(), 1);
         drop(store);
         fs::remove_dir_all(root).expect("cleanup");
     }

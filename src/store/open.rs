@@ -35,6 +35,7 @@ impl Store {
         let folders = folders::FolderCatalog::load(&root)?;
         let subscriptions = subscriptions::SubscriptionCatalog::load(&root)?;
         let sieve_scripts = sieve_scripts::SieveCatalog::load(&root)?;
+        let queue = crate::queue::Queue::open(root.join("queue"))?;
         let next_transaction_id = recovered
             .maximum_transaction_id
             .checked_add(1)
@@ -49,6 +50,7 @@ impl Store {
             folders,
             subscriptions,
             sieve_scripts,
+            queue,
             next_transaction_id,
             blob_quota,
             write_state: WriteState::Writable,
