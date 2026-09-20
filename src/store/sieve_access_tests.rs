@@ -1,6 +1,6 @@
 //! Атомарность Sieve delivery plan, mailbox links и outbound queue после replay.
 
-use super::super::{SieveDiagnostic, Store, StoreFailpoint};
+use super::super::{AppendStage, SieveDiagnostic, Store, StoreFailpoint};
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -112,7 +112,7 @@ fn interrupted_delivery_does_not_publish_sieve_diagnostic() {
     let root = directory();
     let mut store = Store::open(&root).expect("open");
     activate(&mut store, "failure", &redirect_limit_script());
-    store.set_failpoint(StoreFailpoint::AfterFirstMailboxFrame);
+    store.set_failpoint(StoreFailpoint::Stage(AppendStage::FirstMailboxFrame));
     assert!(
         store
             .deliver_sieve_many(

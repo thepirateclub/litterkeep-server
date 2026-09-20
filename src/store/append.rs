@@ -1,7 +1,7 @@
 //! Публикация immutable blob, mailbox links и исходящих jobs одной транзакцией.
 use super::{
-    AppendMetadata, Store, WriteState, blobs, commit_log, durability, journal, model, recent,
-    sieve_diagnostics, validated_unique_mailboxes,
+    AppendMetadata, AppendStage, Store, WriteState, blobs, commit_log, durability, journal, model,
+    recent, sieve_diagnostics, validated_unique_mailboxes,
 };
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
@@ -61,17 +61,32 @@ impl Store {
         let (name, _) = blobs::next_available(&self.root, &mut transaction_id)?;
         let links = self.prepare_links(&mailboxes, transaction_id, &name, metadata)?;
         blobs::publish(&self.root, &name, raw)?;
+        self.check_and_poison(AppendStage::BlobPublished)?;
         self.blob_quota.record(raw.len())?;
         for (sender, recipient) in outbound {
             self.queue
                 .enqueue_owned(transaction_id, sender, recipient)?;
         }
+        self.check_and_poison(AppendStage::QueueWritten)?;
         if let Err(error) = sieve_diagnostics::append(&self.root, transaction_id, diagnostics) {
             self.write_state = WriteState::Poisoned;
             return Err(error);
         }
+        self.check_and_poison(AppendStage::DiagnosticsWritten)?;
         match self.commit_links(transaction_id, &links) {
-            Ok(()) => self.publish_links(transaction_id, links),
+            Ok(()) => {
+                self.check_and_poison(AppendStage::BeforeMemoryPublish)?;
+                self.publish_links(transaction_id, links)
+            }
+            Err(error) => {
+                self.write_state = WriteState::Poisoned;
+                Err(error)
+            }
+        }
+    }
+    fn check_and_poison(&mut self, stage: AppendStage) -> io::Result<()> {
+        match self.check_failpoint(stage) {
+            Ok(()) => Ok(()),
             Err(error) => {
                 self.write_state = WriteState::Poisoned;
                 Err(error)
@@ -130,17 +145,23 @@ impl Store {
             file.write_all(&journal::frame(record))?;
             file.sync_all()?;
             written += 1;
-            self.check_mailbox_failpoint(written)?;
+            if written == 1 {
+                self.check_failpoint(AppendStage::FirstMailboxFrame)?;
+            }
         }
         durability::sync_directory(&self.root.join("mailboxes"))?;
+        self.check_failpoint(AppendStage::MailboxDirectorySynced)?;
         recent::add(&self.root, transaction_id, links)?;
+        self.check_failpoint(AppendStage::RecentWritten)?;
         let mut commits = OpenOptions::new()
             .create(true)
             .append(true)
             .open(self.root.join("journal/transactions.log"))?;
         commits.write_all(&commit_log::frame(transaction_id))?;
         commits.sync_all()?;
-        durability::sync_directory(&self.root.join("journal"))
+        self.check_failpoint(AppendStage::CommitFrameSynced)?;
+        durability::sync_directory(&self.root.join("journal"))?;
+        self.check_failpoint(AppendStage::CommitDirectorySynced)
     }
     fn publish_links(
         &mut self,

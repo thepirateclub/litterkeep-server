@@ -13,6 +13,9 @@ mod durability;
 mod expunge_tests;
 #[path = "store/expunges.rs"]
 mod expunges;
+#[cfg(test)]
+#[path = "store/failure_matrix_tests.rs"]
+mod failure_matrix_tests;
 #[path = "store/flags.rs"]
 mod flags;
 #[path = "store/folder_access.rs"]
@@ -120,7 +123,20 @@ enum WriteState {
 #[cfg(test)]
 #[derive(Clone, Copy, Debug)]
 enum StoreFailpoint {
-    AfterFirstMailboxFrame,
+    Stage(AppendStage),
+}
+/// Долговечные границы одной append transaction в порядке выполнения.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum AppendStage {
+    BlobPublished,
+    QueueWritten,
+    DiagnosticsWritten,
+    FirstMailboxFrame,
+    MailboxDirectorySynced,
+    RecentWritten,
+    CommitFrameSynced,
+    CommitDirectorySynced,
+    BeforeMemoryPublish,
 }
 impl Store {
     #[cfg(test)]
@@ -128,14 +144,16 @@ impl Store {
         self.failpoint = Some(failpoint);
     }
     #[cfg(test)]
-    fn check_mailbox_failpoint(&self, written: usize) -> io::Result<()> {
-        if let (Some(StoreFailpoint::AfterFirstMailboxFrame), 1) = (self.failpoint, written) {
-            return Err(io::Error::other("injected mailbox frame failure"));
+    fn check_failpoint(&self, stage: AppendStage) -> io::Result<()> {
+        match self.failpoint {
+            Some(StoreFailpoint::Stage(expected)) if expected == stage => {
+                Err(io::Error::other(format!("injected {stage:?} failure")))
+            }
+            Some(StoreFailpoint::Stage(_)) | None => Ok(()),
         }
-        Ok(())
     }
     #[cfg(not(test))]
-    fn check_mailbox_failpoint(&self, _written: usize) -> io::Result<()> {
+    fn check_failpoint(&self, _stage: AppendStage) -> io::Result<()> {
         Ok(())
     }
 }

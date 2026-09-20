@@ -27,6 +27,25 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G10 append failure and replay boundary checkpoint
+
+- Append pipeline получил девять типизированных failpoint-границ: публикация
+  blob, запись outbound queue, Sieve diagnostics, первая mailbox frame, sync
+  mailbox directory, recent journal, sync commit frame, sync transaction
+  directory и граница перед публикацией результата в памяти.
+- Для каждой границы тест создаёт новое хранилище, получает ошибку операции,
+  проверяет переход единственного writer в `Poisoned`, запрет последующей
+  записи тем же владельцем, затем полностью переоткрывает данные с диска.
+- До durable commit письмо после replay невидимо. Начиная с синхронизированной
+  commit frame письмо видимо и его исходные байты совпадают. Тем самым отдельно
+  зафиксирована допустимая неопределённость ответа вызывающему после durable
+  commit без повторной или частичной публикации сообщения.
+- PASS checkpoint: Windows 178 tests; strict Clippy, fmt, diff и структурный
+  аудит. Docker Rust 1.97 strict Linux Clippy и 208 tests прошли в image
+  `litterkeep-server:g10-store-failure-matrix`.
+- G10 остаётся RUNNING: нужны низкоуровневые инъекции short write, rename и
+  fsync, а также сетевой churn plateau по live resources и buffers.
+
 ### 2026-09-20: G10 bounded event metadata plateau checkpoint
 
 - Аудит обнаружил фактический unbounded рост: каждый уникальный scheduler

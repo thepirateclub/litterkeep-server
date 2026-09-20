@@ -228,7 +228,7 @@ fn mailbox_frame_without_global_commit_stays_invisible() {
 fn partial_multi_recipient_write_poisoned_and_invisible() {
     let p = dir();
     let mut store = Store::open(&p).expect("store");
-    store.set_failpoint(StoreFailpoint::AfterFirstMailboxFrame);
+    store.set_failpoint(StoreFailpoint::Stage(AppendStage::FirstMailboxFrame));
     let recipients = vec!["bob".to_owned(), "alice".to_owned()];
     assert!(store.append_many(&recipients, b"partial").is_err());
     let poisoned = store
