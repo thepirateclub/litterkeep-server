@@ -53,6 +53,9 @@ fn stats_count_real_leases_and_wait_registrations() {
     assert_eq!(stats.leased_resources, 1);
     assert_eq!(stats.ready_queue_depth, 0);
     assert_eq!(stats.wait_registrations, 1);
+    lifecycle.signal(Event::Completion(7));
+    assert_eq!(lifecycle.stats().ready_tasks, 1);
+    assert_eq!(lifecycle.stats().ready_queue_depth, 1);
     lifecycle.quarantine(lease).expect("quarantine");
     assert_eq!(lifecycle.stats().quarantined_resources, 1);
 }
