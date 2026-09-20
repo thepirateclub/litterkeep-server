@@ -7,7 +7,7 @@ use std::{
 
 /// Категория SMTP-ответа, не зависящая от строковых префиксов.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum ReplyClass {
+pub(crate) enum ReplyClass {
     Positive,
     Transient,
     Permanent,
@@ -121,7 +121,7 @@ fn command(writer: &mut TcpStream, command: &str) -> io::Result<()> {
 }
 
 /// Читает complete SMTP reply, включая multiline continuation.
-fn expect(reader: &mut BufReader<TcpStream>) -> io::Result<Option<DeliveryOutcome>> {
+pub(crate) fn expect<R: BufRead>(reader: &mut R) -> io::Result<Option<DeliveryOutcome>> {
     let mut line = String::new();
     loop {
         line.clear();
@@ -143,7 +143,7 @@ fn expect(reader: &mut BufReader<TcpStream>) -> io::Result<Option<DeliveryOutcom
 }
 
 /// Разбирает числовой SMTP code и continuation marker на protocol boundary.
-fn parse_reply(line: &str) -> io::Result<(u16, bool)> {
+pub(crate) fn parse_reply(line: &str) -> io::Result<(u16, bool)> {
     let code = line
         .get(..3)
         .ok_or_else(|| io::Error::other("short SMTP reply"))?;
@@ -162,7 +162,7 @@ fn parse_reply(line: &str) -> io::Result<(u16, bool)> {
     }
 }
 
-fn classify(code: u16) -> ReplyClass {
+pub(crate) fn classify(code: u16) -> ReplyClass {
     match code / 100 {
         2 | 3 => ReplyClass::Positive,
         4 => ReplyClass::Transient,

@@ -334,6 +334,18 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - `Store::due_outbound` закрепляет due-отбор за единственным владельцем queue:
   transport больше не читает и не фильтрует durable schedule самостоятельно.
 
+### 2026-09-20: G09 outbound TLS transport checkpoint
+
+- Добавлен отдельный implicit-TLS SMTP transport с явными `server-name` и
+  DER CA параметрами. Он строит свой rustls client config, проверяет SNI/CA и
+  только после TLS handshake выполняет SMTP greeting, EHLO, MAIL, RCPT и DATA.
+  Plaintext pool с ним не смешивается, поскольку TLS identity является другим
+  route key. CLI `deliver-tls` делает этот путь доступным без runtime Python.
+- PASS: собственный rustls TLS peer с выданным на лету CA принял полный SMTP
+  transaction. Windows: 137 tests, strict Clippy, format и `git diff --check`.
+  G09 остаётся RUNNING: TLS ещё не подключён к durable pool/service route,
+  также отсутствуют automatic drain, DSN и cancellation lifecycle acceptance.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.
