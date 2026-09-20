@@ -24,18 +24,30 @@ pub(super) fn parse(tokens: Vec<Token>) -> Result<Script, &'static str> {
 fn if_command(input: &mut VecDeque<Token>) -> Result<Command, &'static str> {
     let condition = condition(input)?;
     let then_commands = block(input)?;
-    let else_commands = match input.front() {
-        Some(Token::Atom(word)) if word == "else" => {
-            let _ = input.pop_front();
-            block(input)?
-        }
-        _ => Vec::new(),
-    };
+    let else_commands = alternative(input)?;
     Ok(Command::If {
         condition,
         then_commands,
         else_commands,
     })
+}
+
+/// Представляет `elsif` как вложенный typed If в единственной else-ветви.
+///
+/// Executor уже умеет рекурсивно исполнять `Command::If`, поэтому такой AST
+/// не создаёт второй алгоритм выбора ветви и сохраняет общий лимит команд.
+fn alternative(input: &mut VecDeque<Token>) -> Result<Vec<Command>, &'static str> {
+    match input.front() {
+        Some(Token::Atom(word)) if word == "else" => {
+            let _ = input.pop_front();
+            block(input)
+        }
+        Some(Token::Atom(word)) if word == "elsif" => {
+            let _ = input.pop_front();
+            Ok(vec![if_command(input)?])
+        }
+        _ => Ok(Vec::new()),
+    }
 }
 
 fn block(input: &mut VecDeque<Token>) -> Result<Vec<Command>, &'static str> {

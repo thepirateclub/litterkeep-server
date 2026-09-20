@@ -19,6 +19,18 @@ fn comments_and_implicit_keep_survive_false_condition() {
     assert!(!plan.discard);
 }
 
+/// `elsif` выбирает первую совпавшую ветвь и не исполняет следующий else.
+#[test]
+fn elsif_is_an_exclusive_bounded_branch() {
+    let script = parse(
+        "if false { discard; } elsif true { fileinto \"Invoices\"; stop; } else { discard; }",
+    )
+    .expect("parse");
+    let plan = execute(&script, &[]).expect("execute");
+    assert_eq!(plan.folders, vec!["Invoices"]);
+    assert!(!plan.discard);
+}
+
 #[test]
 fn invalid_script_does_not_become_a_delivery_plan() {
     assert!(parse("require [\"vacation\"]; keep;").is_err());
