@@ -25,14 +25,11 @@ pub fn drain(
     address: &str,
     limit: usize,
 ) -> io::Result<DrainReport> {
-    match limit {
-        0 => {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "outbound limit must be positive",
-            ));
-        }
-        _ => {}
+    if limit == 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "outbound limit must be positive",
+        ));
     }
     let mut storage = WakingStorageWorker::start(root, 1)?;
     let mut outbound = WakingOutboundWorker::start(address, 1, 2)?;

@@ -78,9 +78,8 @@ fn authenticate(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<()> {
-    match session.tls {
-        None => return session.push(b"538 5.7.11 encryption required\r\n"),
-        Some(_) => {}
+    if session.tls.is_none() {
+        return session.push(b"538 5.7.11 encryption required\r\n");
     }
     if session.authenticated_account.is_some() {
         return session.push(b"503 5.5.1 already authenticated\r\n");
@@ -139,12 +138,11 @@ fn recipient(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<()> {
-    match (
+    if let (true, true) = (
         session.tls.is_some(),
         session.authenticated_account.is_none(),
     ) {
-        (true, true) => return session.push(b"530 5.7.0 authentication required\r\n"),
-        (true, false) | (false, _) => {}
+        return session.push(b"530 5.7.0 authentication required\r\n");
     }
     let SmtpState::Command(transaction) = &session.smtp else {
         return session.push(b"503 bad sequence\r\n");
@@ -173,12 +171,11 @@ fn recipient(
 
 /// Применяет команды DATA/RSET к уже проверенной транзакции.
 fn transaction_command(session: &mut Session, command: smtp::Command) -> io::Result<()> {
-    match (
+    if let (true, true) = (
         session.tls.is_some(),
         session.authenticated_account.is_none(),
     ) {
-        (true, true) => return session.push(b"530 5.7.0 authentication required\r\n"),
-        (true, false) | (false, _) => {}
+        return session.push(b"530 5.7.0 authentication required\r\n");
     }
     apply_transaction(session, command)
 }

@@ -4,6 +4,8 @@ use std::process::ExitCode;
 use litterkeep_server::{PRODUCT, VERSION};
 #[path = "main_managesieve.rs"]
 mod managesieve_cli;
+#[path = "main_outbound_server.rs"]
+mod outbound_server_cli;
 #[path = "main_outbound_tls.rs"]
 mod outbound_tls_cli;
 #[path = "main_pop3.rs"]
@@ -15,7 +17,7 @@ mod runtime_cli;
 
 pub(crate) fn usage() {
     println!(
-        "{PRODUCT} {VERSION}\n\nUsage:\n  litterkeep-server init [data-dir] [account] [password]\n  litterkeep-server deliver <address> <sender> <recipient> <message-file>\n  litterkeep-server deliver-tls <address> <server-name> <ca.der> <sender> <recipient> <message-file>\n  litterkeep-server queue-drain <data-dir> <peer-address> [limit]\n  litterkeep-server runtime <stats|tasks|resources> --data-dir <data-dir>\n  litterkeep-server runtime inspect <task-id> --data-dir <data-dir>\n  litterkeep-server serve [smtp-address] [imap-address] [data-dir]\n  litterkeep-server serve-tls [smtp-address] [imap-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-starttls [smtp-address] [imap-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-all-starttls [smtp-address] [imap-address] [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-pop3-starttls [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-pop3-tls [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-managesieve-starttls [address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-all-mail-starttls [smtp-address] [imap-address] [pop3-address] [managesieve-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server help\n  litterkeep-server version"
+        "{PRODUCT} {VERSION}\n\nUsage:\n  litterkeep-server init [data-dir] [account] [password]\n  litterkeep-server deliver <address> <sender> <recipient> <message-file>\n  litterkeep-server deliver-tls <address> <server-name> <ca.der> <sender> <recipient> <message-file>\n  litterkeep-server queue-drain <data-dir> <peer-address> [limit]\n  litterkeep-server runtime <stats|tasks|resources> --data-dir <data-dir>\n  litterkeep-server runtime inspect <task-id> --data-dir <data-dir>\n  litterkeep-server serve [smtp-address] [imap-address] [data-dir]\n  litterkeep-server serve-tls [smtp-address] [imap-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-starttls [smtp-address] [imap-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-all-starttls [smtp-address] [imap-address] [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-pop3-starttls [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-pop3-tls [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-managesieve-starttls [address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-all-mail-starttls [smtp-address] [imap-address] [pop3-address] [managesieve-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-all-mail-outbound-starttls [smtp-address] [imap-address] [pop3-address] [managesieve-address] [peer-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server help\n  litterkeep-server version"
     );
 }
 
@@ -42,6 +44,7 @@ fn main() -> ExitCode {
         Some("serve-all-starttls") => pop3_cli::serve_all_starttls(),
         Some("serve-managesieve-starttls") => managesieve_cli::serve_starttls(),
         Some("serve-all-mail-starttls") => managesieve_cli::serve_all_starttls(),
+        Some("serve-all-mail-outbound-starttls") => outbound_server_cli::serve(),
         Some(command) => {
             eprintln!("unsupported command in this build: {command}\n");
             usage();

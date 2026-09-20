@@ -3,6 +3,7 @@
 use super::*;
 
 /// Ставит чтение только после worker-подтверждённой selected session.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn queue_authenticated_read<F>(
     session: &mut Session,
     tag: String,

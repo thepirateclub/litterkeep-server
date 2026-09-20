@@ -22,7 +22,7 @@ impl Store {
     pub fn append_many(&mut self, mailboxes: &[String], raw: &[u8]) -> io::Result<u64> {
         self.append_many_with_metadata(mailboxes, raw, AppendMetadata::default(), &[])
     }
-    pub(super) fn append_many_with_outbound(
+    pub(crate) fn append_many_with_outbound(
         &mut self,
         mailboxes: &[String],
         raw: &[u8],

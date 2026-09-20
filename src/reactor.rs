@@ -15,6 +15,8 @@ use std::os::fd::AsFd;
 use std::{path::Path, sync::Arc};
 #[path = "reactor/completion.rs"]
 mod completion;
+#[path = "reactor/completion_dispatch.rs"]
+mod completion_dispatch;
 #[path = "reactor/completion_id.rs"]
 mod completion_id;
 #[path = "reactor/completion_retry.rs"]
@@ -65,6 +67,13 @@ mod managesieve_completion;
 mod managesieve_literal;
 #[path = "reactor/managesieve_protocol.rs"]
 mod managesieve_protocol;
+#[path = "reactor/outbound_entry.rs"]
+mod outbound_entry;
+#[path = "reactor/outbound_scheduler.rs"]
+mod outbound_scheduler;
+#[cfg(test)]
+#[path = "reactor/outbound_scheduler_tests.rs"]
+mod outbound_scheduler_tests;
 #[path = "reactor/pending.rs"]
 mod pending;
 #[path = "reactor/pop3_completion.rs"]
@@ -83,6 +92,8 @@ mod server_loop;
 mod session;
 #[path = "reactor/session_accept.rs"]
 mod session_accept;
+#[path = "reactor/session_close.rs"]
+mod session_close;
 #[path = "reactor/session_io.rs"]
 mod session_io;
 #[path = "reactor/smtp_completion.rs"]
@@ -91,11 +102,12 @@ mod smtp_completion;
 mod smtp_protocol;
 #[path = "reactor/submit_id.rs"]
 mod submit_id;
-use completion::complete;
+use completion_dispatch::complete;
 use completion_retry::retry_submissions;
 use imap_idle::IdleState;
 use imap_literal::LiteralReceiver;
 use maildrop_lease::MaildropLeases;
+pub use outbound_entry::serve_all_mail_outbound_starttls;
 use pending::Pending;
 use protocol::process_input;
 use reactor_control::service_control;
@@ -126,6 +138,7 @@ enum Target {
     ManageSieveListener,
     ControlListener,
     WorkerWake,
+    OutboundWake,
     Session(usize, u64),
     ControlSession(usize),
 }
@@ -183,6 +196,7 @@ fn serve_with_tls(
         Some(imap_address),
         None,
         None,
+        None,
         root,
         tls_mode,
     )
@@ -198,6 +212,7 @@ pub fn serve_pop3_starttls(
         None,
         None,
         Some(pop3_address),
+        None,
         None,
         root,
         TlsMode::StartTls(tls_config),
@@ -215,6 +230,7 @@ pub fn serve_managesieve_starttls(
         None,
         None,
         Some(address),
+        None,
         root,
         TlsMode::StartTls(tls_config),
     )
@@ -230,6 +246,7 @@ pub fn serve_pop3_tls(
         None,
         None,
         Some(pop3_address),
+        None,
         None,
         root,
         TlsMode::Implicit(tls_config),
@@ -248,6 +265,7 @@ pub fn serve_all_starttls(
         Some(smtp_address),
         Some(imap_address),
         Some(pop3_address),
+        None,
         None,
         root,
         TlsMode::StartTls(tls_config),
@@ -268,16 +286,8 @@ pub fn serve_all_mail_starttls(
         Some(imap_address),
         Some(pop3_address),
         Some(managesieve_address),
+        None,
         root,
         TlsMode::StartTls(tls_config),
     )
-}
-
-/// Сохраняет единый путь закрытия lease для deadline и poll-loop.
-fn close_session(
-    entry: &mut Option<SessionLease>,
-    lifecycle: &mut Orchestrator<Session>,
-    maildrops: &mut MaildropLeases,
-) -> io::Result<()> {
-    server_loop::close(entry, lifecycle, maildrops)
 }

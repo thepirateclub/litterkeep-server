@@ -151,7 +151,11 @@ fn validated_unique_mailboxes(mailboxes: &[String]) -> io::Result<Vec<String>> {
 }
 #[cfg(target_os = "linux")]
 fn open_writer_lock(path: &Path) -> io::Result<File> {
-    let file = OpenOptions::new().write(true).create(true).open(path)?;
+    let file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(path)?;
     // Нормализуем платформенный EWOULDBLOCK к единому контракту хранилища:
     // занятый каталог уже принадлежит другому writer.
     if let Err(error) = crate::platform::linux_lock::acquire(&file) {

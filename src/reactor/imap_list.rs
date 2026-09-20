@@ -71,10 +71,8 @@ fn wildcard_matches(pattern: &str, name: &str) -> bool {
 fn closure(mut states: Vec<&str>) -> Vec<&str> {
     let mut cursor = 0;
     while let Some(state) = states.get(cursor).copied() {
-        if let Some((token, rest)) = split_first(state) {
-            if matches!(token, '*' | '%') {
-                add_state(&mut states, rest);
-            }
+        if let Some(('*' | '%', rest)) = split_first(state) {
+            add_state(&mut states, rest);
         }
         cursor = cursor.saturating_add(1);
     }
@@ -87,7 +85,7 @@ fn split_first(value: &str) -> Option<(char, &str)> {
 }
 
 fn add_state<'a>(states: &mut Vec<&'a str>, state: &'a str) {
-    if !states.iter().any(|known| *known == state) {
+    if !states.contains(&state) {
         states.push(state);
     }
 }

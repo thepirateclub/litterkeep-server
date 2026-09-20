@@ -27,6 +27,36 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G09 long-lived reactor scheduler checkpoint
+
+- `serve-all-mail-outbound-starttls` запускает один постоянный single-flight
+  scheduler в общем Linux `poll` loop. Scheduler использует тот же Store
+  worker, отдельный bounded SMTP transport owner и отдельный wake fd.
+- Store completions больше не теряются: session dispatcher возвращает
+  не принадлежащие session ответы, а scheduler принимает их только при точном
+  совпадении верхнего диапазона request ID и текущей typed-фазы. Transport
+  completion также проверяет job ID перед durable transition.
+- Пустая очередь переводит scheduler в timed idle. Общий poll deadline выбирает
+  минимум TLS handshake и следующего queue scan; отдельный timer-thread не
+  создаётся. После terminal transition или DSN scheduler немедленно запрашивает
+  следующую due delivery.
+- Linux integration test `scheduler_drains_without_explicit_queue_command`
+  создал durable job, провёл его через настоящий TCP SMTP peer, wakeup Store и
+  transport workers и подтвердил после повторного открытия Store отсутствие
+  pending job без вызова `queue-drain`.
+- PASS: Windows 149 tests, strict Clippy и format; Docker Rust 1.97 gate теперь
+  обязательно устанавливает Clippy и выполнил strict Linux Clippy плюс 163
+  теста. Все Rust/Python файлы не превышают 300 строк, `mod.rs` отсутствует.
+- Попытка дополнительного bind-mount black-box выявила зависание Docker Desktop
+  внутри Unix `bind(2)` на shared volume. Control socket переведён на безопасный
+  `/tmp` socket с owner-only locator в `./data`. Уже зависший контейнер Docker
+  Desktop не смог завершить даже через `docker rm -f`, поэтому этот внешний
+  сценарий не объявлен пройденным; доказательством checkpoint является Linux
+  integration test внутри image build.
+- G09 остаётся RUNNING: ещё нужны scheduler cancellation/clean shutdown,
+  TLS route policy для постоянного сервиса и обмен двух одновременно работающих
+  экземпляров именно через новый service mode.
+
 ### 2026-09-20: G10 local control socket foundation
 
 - Linux reactor теперь владеет bounded Unix-domain control listener-ом и

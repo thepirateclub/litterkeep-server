@@ -7,6 +7,7 @@ pub(super) fn serve(
     imap_address: Option<&str>,
     pop3_address: Option<&str>,
     managesieve_address: Option<&str>,
+    outbound_address: Option<&str>,
     root: impl AsRef<Path>,
     tls_mode: TlsMode,
 ) -> io::Result<()> {
@@ -16,6 +17,12 @@ pub(super) fn serve(
     let pop3_listener = bind(pop3_address)?;
     let managesieve_listener = bind(managesieve_address)?;
     let mut worker = WakingStorageWorker::start(root, 64)?;
+    let mut scheduler = match outbound_address {
+        Some(address) => Some(outbound_scheduler::OutboundScheduler::start(
+            address, &worker,
+        )?),
+        None => None,
+    };
     let control = crate::control::Listener::bind(root)?;
     let mut lifecycle: Orchestrator<Session> = Orchestrator::new();
     let mut sessions: Vec<Option<SessionLease>> = Vec::new();
@@ -34,6 +41,7 @@ pub(super) fn serve(
             &mut control_sessions,
             &tls_mode,
             &mut worker,
+            &mut scheduler,
             &mut lifecycle,
             &mut sessions,
             &mut generation,
@@ -44,7 +52,6 @@ pub(super) fn serve(
     }
 }
 
-/// Создаёт только явно запрошенный listener, сохраняя ownership в poll-loop.
 fn bind(address: Option<&str>) -> io::Result<Option<TcpListener>> {
     let Some(address) = address else {
         return Ok(None);
@@ -64,6 +71,7 @@ fn step(
     control_sessions: &mut Vec<Option<crate::control::Connection>>,
     tls: &TlsMode,
     worker: &mut WakingStorageWorker,
+    scheduler: &mut Option<outbound_scheduler::OutboundScheduler>,
     lifecycle: &mut Orchestrator<Session>,
     sessions: &mut Vec<Option<SessionLease>>,
     generation: &mut u64,
@@ -79,6 +87,10 @@ fn step(
             writable: false,
         },
     )];
+    if let Some(scheduler) = scheduler.as_ref() {
+        targets.push(Target::OutboundWake);
+        poll_fds.push((scheduler.wake_reader().as_fd(), readable()));
+    }
     append_listener(smtp, Target::SmtpListener, &mut targets, &mut poll_fds);
     append_listener(imap, Target::ImapListener, &mut targets, &mut poll_fds);
     append_listener(pop3, Target::Pop3Listener, &mut targets, &mut poll_fds);
@@ -115,8 +127,15 @@ fn step(
             ));
         }
     }
-    let ready = linux_poll::wait(&poll_fds, deadline::poll_timeout(sessions))?;
+    let scheduler_deadline = scheduler.as_ref().and_then(|value| value.deadline());
+    let ready = linux_poll::wait(
+        &poll_fds,
+        deadline::poll_timeout(sessions, scheduler_deadline),
+    )?;
     deadline::expire_handshakes(sessions, lifecycle, maildrops)?;
+    if let Some(scheduler) = scheduler.as_mut() {
+        scheduler.wake_due(worker)?;
+    }
     for (ready, target) in ready.into_iter().zip(targets) {
         dispatch(
             ready,
@@ -129,6 +148,7 @@ fn step(
             control_sessions,
             tls,
             worker,
+            scheduler,
             lifecycle,
             sessions,
             generation,
@@ -179,6 +199,7 @@ fn dispatch(
     control_sessions: &mut Vec<Option<crate::control::Connection>>,
     tls: &TlsMode,
     worker: &mut WakingStorageWorker,
+    scheduler: &mut Option<outbound_scheduler::OutboundScheduler>,
     lifecycle: &mut Orchestrator<Session>,
     sessions: &mut Vec<Option<SessionLease>>,
     generation: &mut u64,
@@ -208,8 +229,19 @@ fn dispatch(
         Target::WorkerWake if ready.readable => {
             worker.drain_wakeup()?;
             let unclaimed = complete(worker, sessions, owners, request, maildrops)?;
-            drop(unclaimed);
+            for response in unclaimed {
+                let Some(scheduler) = scheduler.as_mut() else {
+                    return Err(io::Error::other("unclaimed storage completion"));
+                };
+                scheduler.storage_completed(worker, response)?;
+            }
             retry_submissions(worker, sessions, owners)
+        }
+        Target::OutboundWake if ready.readable => {
+            let Some(scheduler) = scheduler.as_mut() else {
+                return Err(io::Error::other("outbound wake without scheduler"));
+            };
+            scheduler.transport_completed(worker)
         }
         Target::Session(slot, generation) => service_session(
             ready, slot, generation, worker, lifecycle, sessions, owners, request, maildrops,
@@ -219,7 +251,6 @@ fn dispatch(
     }
 }
 
-/// Невозможный target не обращается к отсутствующему listener-у по индексу.
 fn accept(
     listener: Option<&TcpListener>,
     kind: Kind,
@@ -234,6 +265,7 @@ fn accept(
     session_accept::accept(listener, kind, sessions, generation, tls, lifecycle)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn service_session(
     ready: crate::platform::linux_poll::Ready,
     slot: usize,
@@ -249,33 +281,20 @@ fn service_session(
         return Ok(());
     };
     if ready.closed_or_error {
-        return close(entry, lifecycle, maildrops);
+        return session_close::close(entry, lifecycle, maildrops);
     }
     match ready.writable {
         true if flush(entry)? => {
-            close(entry, lifecycle, maildrops)?;
+            session_close::close(entry, lifecycle, maildrops)?;
             return Ok(());
         }
         true | false => {}
     }
     match ready.readable {
         true if read_session(entry, slot, generation, worker, owners, request)? => {
-            close(entry, lifecycle, maildrops)?;
+            session_close::close(entry, lifecycle, maildrops)?;
         }
         true | false => {}
     }
     Ok(())
-}
-pub(super) fn close(
-    entry: &mut Option<SessionLease>,
-    lifecycle: &mut Orchestrator<Session>,
-    maildrops: &mut MaildropLeases,
-) -> io::Result<()> {
-    let Some(lease) = entry.take() else {
-        return Ok(());
-    };
-    maildrops.release_generation(lease.get().generation);
-    lifecycle
-        .close(lease)
-        .map_err(|error| io::Error::other(format!("session close failed: {error:?}")))
 }

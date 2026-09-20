@@ -24,11 +24,12 @@ def require_prefix(actual: bytes, expected: bytes) -> None:
 def main() -> None:
     """Принимает один SMTP-сеанс и возвращает 550 после RCPT."""
     parser = argparse.ArgumentParser()
+    parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, required=True)
     options = parser.parse_args()
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        listener.bind(("127.0.0.1", options.port))
+        listener.bind((options.host, options.port))
         listener.listen(1)
         client, _ = listener.accept()
         with client:

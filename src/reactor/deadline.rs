@@ -2,17 +2,25 @@
 //!
 //! Модуль не закрывает сокеты сам: он только вычисляет время ожидания и
 //! освобождает просроченный session slot через его единственного владельца.
-use super::{MaildropLeases, Orchestrator, Session, SessionLease, close_session};
+use super::{MaildropLeases, Orchestrator, Session, SessionLease};
 use std::io;
 use std::time::Instant;
 
 /// Возвращает миллисекунды до ближайшего handshake либо бесконечное ожидание.
-pub(super) fn poll_timeout(sessions: &[Option<SessionLease>]) -> i32 {
-    let nearest = sessions
+pub(super) fn poll_timeout(
+    sessions: &[Option<SessionLease>],
+    scheduler_deadline: Option<Instant>,
+) -> i32 {
+    let handshake = sessions
         .iter()
         .filter_map(Option::as_ref)
         .filter_map(|lease| lease.get().handshake_deadline())
         .min();
+    let nearest = match (handshake, scheduler_deadline) {
+        (Some(left), Some(right)) => Some(left.min(right)),
+        (Some(value), None) | (None, Some(value)) => Some(value),
+        (None, None) => None,
+    };
     match nearest {
         Some(deadline) => timeout_until(Instant::now(), deadline),
         None => -1,
@@ -31,7 +39,7 @@ pub(super) fn expire_handshakes(
             .as_ref()
             .is_some_and(|lease| lease.get().handshake_expired(now));
         if expired {
-            close_session(entry, lifecycle, maildrops)?;
+            super::session_close::close(entry, lifecycle, maildrops)?;
         }
     }
     Ok(())

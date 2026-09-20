@@ -22,21 +22,12 @@ pub struct Listener {
 }
 
 impl Listener {
-    /// Создаёт сокет с правами только владельца; stale socket удаляется лишь если это socket.
+    /// Создаёт сокет в локальном runtime-dir и owner-only locator в data-dir.
+    ///
+    /// Сокет намеренно не создаётся сначала на shared volume: Docker Desktop
+    /// способен не вернуть ошибку, а навсегда заблокировать системный `bind`.
     pub fn bind(root: impl AsRef<Path>) -> io::Result<Self> {
-        let path = root.as_ref().join("runtime.sock");
-        match bind_socket(&path) {
-            Ok(listener) => Ok(Self {
-                listener,
-                path,
-                locator: None,
-            }),
-            Err(error) if supports_fallback(&error) => {
-                remove_stale_socket(&path)?;
-                bind_temporary_socket(root.as_ref())
-            }
-            Err(error) => Err(error),
-        }
+        bind_temporary_socket(root.as_ref())
     }
 
     /// Descriptor контролируется тем же poll-loop, что и почтовые listener-ы.
@@ -218,14 +209,6 @@ fn bind_socket(path: &Path) -> io::Result<UnixListener> {
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
     listener.set_nonblocking(true)?;
     Ok(listener)
-}
-
-/// Не скрывает обычные ошибки binding-а за fallback, кроме известных non-socket mount-ов.
-fn supports_fallback(error: &io::Error) -> bool {
-    match error.kind() {
-        io::ErrorKind::Unsupported | io::ErrorKind::PermissionDenied => true,
-        _ => matches!(error.raw_os_error(), Some(5)),
-    }
 }
 
 #[cfg(test)]

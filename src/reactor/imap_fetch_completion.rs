@@ -21,12 +21,13 @@ pub(super) fn write(
             imap::Addressing::Sequence => number as u64,
             imap::Addressing::Uid => message.uid,
         };
-        if resolved.contains(candidate) {
-            if let Err(reason) =
-                imap_fetch_response::write(session, number, message, &attribute, addressing)?
-            {
-                return session.push(format!("{tag} NO {reason}\r\n").as_bytes());
-            }
+        if !resolved.contains(candidate) {
+            continue;
+        }
+        if let Err(reason) =
+            imap_fetch_response::write(session, number, message, &attribute, addressing)?
+        {
+            return session.push(format!("{tag} NO {reason}\r\n").as_bytes());
         }
     }
     session.push(format!("{tag} OK FETCH completed\r\n").as_bytes())

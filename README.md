@@ -22,10 +22,9 @@ This is not yet a complete mail server: POP3/STLS has a verified SMTP-to-INBOX
 read/delete checkpoint with maildrop leases and implicit TLS. ManageSieve has
 a verified STARTTLS/SASL literal checkpoint that activates a `fileinto` rule
 before SMTP-to-IMAP delivery. Broader external interoperability, the remaining
-Sieve language, long-lived outbound scheduling inside `server_loop` and wider
-failure coverage remain unfinished. A bounded explicit Linux `queue-drain` is
-implemented and tested against an independent SMTP peer; it is not automatic
-delivery.
+Sieve language and wider failure coverage remain unfinished. Linux also has a
+single-flight long-lived outbound scheduler in the shared `server_loop`; the
+older bounded `queue-drain` remains available for diagnostics and recovery.
 
 ## Developer commands
 
@@ -48,8 +47,15 @@ The command owns one bounded Store worker and one bounded outbound SMTP worker.
 It persists `InFlight` before SMTP, waits for worker wake sockets, writes the
 terminal durable state, and publishes a local DSN after a permanent failure.
 The source server must be stopped first because the Store intentionally permits
-only one writer. This is an explicit bounded drain, not the future long-lived
-delivery scheduler.
+only one writer. This is an explicit bounded drain. Normal service delivery
+uses `serve-all-mail-outbound-starttls`, whose scheduler shares the Store owner
+and reactor wakeup routing with the incoming protocols.
+
+```sh
+litterkeep-server serve-all-mail-outbound-starttls \
+  0.0.0.0:1587 0.0.0.0:1143 0.0.0.0:1110 0.0.0.0:4190 \
+  peer.example:25 ./data/g09-live server.der server.key.der
+```
 
 ## Linux runtime control socket
 
@@ -62,11 +68,11 @@ litterkeep-server runtime inspect 2:1 --data-dir /data
 
 The server owns a local Unix-domain control socket in its poll loop and returns
 only lifecycle metadata: task state, generation-protected IDs and held resource
-IDs. It never returns mail body bytes, passwords or TLS keys. On ordinary Linux
-filesystems the socket is `/data/runtime.sock` and owner-only (`0600`). Docker
-Desktop shared folders cannot create Unix sockets; the server then writes an
-owner-only `/data/runtime.control` locator for a process-local socket under
-`/tmp`. The CLI validates that fallback location before connecting.
+IDs. It never returns mail body bytes, passwords or TLS keys. The socket lives
+under the process-local temporary directory; an owner-only
+`/data/runtime.control` locator names it. This avoids an unbounded Unix
+`bind(2)` stall on Docker Desktop shared folders. The CLI validates that the
+locator remains inside the temporary directory before connecting.
 
 ## Linux G01 reactor command
 
