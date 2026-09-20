@@ -35,7 +35,7 @@ def configure(options: argparse.Namespace, context: ssl.SSLContext) -> None:
             credentials = base64.b64encode(b"\x00bob\x00bob-password")
             wire = b'AUTHENTICATE "PLAIN" "' + credentials + b'"\r\n'
             require(command(client, wire) == b'OK "authenticated"\r\n', "AUTH")
-            source = b'redirect "remote@peer.test";'
+            source = b'redirect "remote@peer.test"; discard;'
             marker = f'PUTSCRIPT "forward" {{{len(source)}+}}\r\n'.encode()
             client.sendall(marker + source)
             require(read_line(client) == b'OK "completed"\r\n', "PUTSCRIPT")

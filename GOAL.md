@@ -288,6 +288,21 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   scenario ещё не проверен в Linux; автоматический retry timing, TLS и pool
   остаются неполными.
 
+### 2026-09-20: G08/G09 redirect-only Linux recovery checkpoint
+
+- Recovery отличает redirect-only transaction от повреждённого commit: ID без
+  mailbox link допустим только при owned SMTP job; blob такой transaction
+  проверяется при открытии Store. Это устраняет ошибку после restart перед
+  `queue-drain`, не ослабляя проверку повреждённых committed mail transactions.
+- PASS: Linux image `litterkeep-server:g09-redirect-discard`, source и peer
+  используют bind-mounted `./data/g09-redirect-*`. ManageSieve загрузил
+  `redirect "remote@peer.test"; discard;`, SMTP принял письмо, source Store
+  после restart drained его как `delivered=1`, а независимый Python IMAP
+  клиент прочитал его у Linux peer. В source mailbox links нет, queue journal
+  содержит terminal `delivered`. Windows: 131 tests, strict Clippy, format и
+  `git diff --check` PASS. G08/G09 остаются RUNNING: нет automatic delayed
+  retry, outbound TLS, pool и cancellation acceptance.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.

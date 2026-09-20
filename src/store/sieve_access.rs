@@ -257,6 +257,13 @@ mod tests {
         assert_eq!(store.messages("bob").expect("inbox").len(), 0);
         assert_eq!(store.pending_outbound().expect("outbound").len(), 1);
         drop(store);
+        let store = Store::open(&root).expect("reopen");
+        assert_eq!(store.messages("bob").expect("recovered inbox").len(), 0);
+        assert_eq!(
+            store.pending_outbound().expect("recovered outbound").len(),
+            1
+        );
+        drop(store);
         fs::remove_dir_all(root).expect("cleanup");
     }
 }

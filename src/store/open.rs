@@ -26,7 +26,9 @@ impl Store {
         let lock = open_writer_lock(&root.join("writer.lock"))?;
         recovery::recover(&root)?;
         let committed = commit_log::committed(&root.join("journal/transactions.log"))?;
-        let recovered = mailbox_state::load(&root, &committed)?;
+        let queue = crate::queue::Queue::open(root.join("queue"))?;
+        let outbound_transactions = queue.owned_transaction_ids()?;
+        let recovered = mailbox_state::load(&root, &committed, &outbound_transactions)?;
         let mut entries = recovered.entries;
         let flags = flags::load(&root, &entries)?;
         expunges::load(&root, &mut entries, &committed)?;
@@ -35,7 +37,6 @@ impl Store {
         let folders = folders::FolderCatalog::load(&root)?;
         let subscriptions = subscriptions::SubscriptionCatalog::load(&root)?;
         let sieve_scripts = sieve_scripts::SieveCatalog::load(&root)?;
-        let queue = crate::queue::Queue::open(root.join("queue"))?;
         let next_transaction_id = recovered
             .maximum_transaction_id
             .checked_add(1)

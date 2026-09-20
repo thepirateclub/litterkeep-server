@@ -170,6 +170,42 @@ impl Queue {
         }
     }
 
+    /// Возвращает transaction IDs, для которых журнал содержит owned SMTP job.
+    ///
+    /// Этот компактный индекс нужен recovery Store: redirect-only transaction не
+    /// имеет mailbox link, но остаётся полностью опубликованной транзакцией.
+    pub fn owned_transaction_ids(&self) -> io::Result<HashSet<u64>> {
+        let source = match fs::read_to_string(&self.path) {
+            Ok(value) => value,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(HashSet::new()),
+            Err(error) => return Err(error),
+        };
+        let mut result = HashSet::new();
+        for line in source.lines() {
+            let mut fields = line.split_whitespace();
+            let state = match fields.next() {
+                Some(value) => value,
+                None => continue,
+            };
+            let transaction = match fields.next() {
+                Some(value) => value,
+                None => continue,
+            };
+            let _third = match fields.next() {
+                Some(value) => value,
+                None => continue,
+            };
+            if fields.next().is_some() {
+                State::parse(state)?;
+                let transaction_id = transaction
+                    .parse()
+                    .map_err(|_| invalid("bad owned transaction"))?;
+                result.insert(transaction_id);
+            }
+        }
+        Ok(result)
+    }
+
     /// Возвращает только jobs, опубликованные общей точкой commit Store.
     pub fn pending_owned(&self, committed: &HashSet<u64>) -> io::Result<Vec<OwnedDelivery>> {
         let source = match fs::read_to_string(&self.path) {

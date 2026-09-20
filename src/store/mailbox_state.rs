@@ -17,7 +17,11 @@ pub(super) struct Recovered {
 }
 
 /// Восстанавливает UID allocators и видимый materialized view.
-pub(super) fn load(root: &Path, committed: &Committed) -> io::Result<Recovered> {
+pub(super) fn load(
+    root: &Path,
+    committed: &Committed,
+    outbound_transactions: &HashSet<u64>,
+) -> io::Result<Recovered> {
     let mut next_uids = HashMap::new();
     let mut entries = HashMap::new();
     let mut maximum_transaction_id = committed.maximum;
@@ -49,12 +53,17 @@ pub(super) fn load(root: &Path, committed: &Committed) -> io::Result<Recovered> 
         next_uids.insert(mailbox.clone(), next_uid);
         entries.insert(mailbox, visible);
     }
-    let all_commits_have_links = committed
-        .ids
-        .iter()
-        .all(|transaction_id| seen_transactions.contains(transaction_id));
-    if !all_commits_have_links {
-        return Err(invalid("committed transaction has no mailbox link"));
+    for transaction_id in &committed.ids {
+        match (
+            seen_transactions.contains(transaction_id),
+            outbound_transactions.contains(transaction_id),
+        ) {
+            (true, _) => {}
+            (false, true) => {
+                fs::metadata(root.join("blobs").join(model::blob_name(*transaction_id)))?;
+            }
+            (false, false) => return Err(invalid("committed transaction has no mailbox link")),
+        }
     }
     Ok(Recovered {
         next_uids,
