@@ -70,31 +70,6 @@ fn initial_metadata_survives_restart_in_mailbox_frame() {
 }
 
 #[test]
-fn due_outbound_limit_bounds_scheduler_handoff() {
-    let path = dir();
-    let mut store = Store::open(&path).expect("store");
-    let no_local_delivery = Vec::new();
-    store
-        .append_many_with_outbound(
-            &no_local_delivery,
-            b"first",
-            &[("alice@test".into(), "first@remote.test".into())],
-        )
-        .expect("first job");
-    store
-        .append_many_with_outbound(
-            &no_local_delivery,
-            b"second",
-            &[("alice@test".into(), "second@remote.test".into())],
-        )
-        .expect("second job");
-    let due = store.due_outbound_limited(0, 1).expect("limited due");
-    assert_eq!(due.len(), 1);
-    assert_eq!(due.first().expect("one job").recipient, "first@remote.test");
-    drop(store);
-    let _ = fs::remove_dir_all(path);
-}
-#[test]
 fn recovery_only_trims_incomplete_tail() {
     let p = dir();
     let mut s = Store::open(&p).unwrap();

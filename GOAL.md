@@ -438,6 +438,15 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   loop. Требуются durable transition before submit, processing completion,
   service wakeup/timer, cancellation, TLS route keys и independent MTA test.
 
+### 2026-09-20: correction of scheduler contract structure
+
+- Первый commit scheduler contract временно увеличил `src/store/tests.rs` до
+  321 physical lines. Нарушение найдено тем же обязательным audit до передачи
+  результата. Тест вынесен в `store/outbound_tests.rs`; история не
+  переписывалась, чтобы факт и исправление были проверяемы отдельным commit.
+- Current structural audit обязан показать не более 300 lines для каждого Rust
+  file перед следующим checkpoint.
+
 ### 2026-09-20: structural condition-rule compliance checkpoint
 
 - Устранены все найденные в `src` условия `if` с `&&` или `||`: ветвления

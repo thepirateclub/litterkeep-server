@@ -38,6 +38,9 @@ mod model;
 mod move_messages;
 #[path = "store/open.rs"]
 mod open;
+#[cfg(test)]
+#[path = "store/outbound_tests.rs"]
+mod outbound_tests;
 #[path = "store/quota.rs"]
 mod quota;
 #[path = "store/read.rs"]
