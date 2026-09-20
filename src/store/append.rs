@@ -154,6 +154,15 @@ impl Store {
         self.queue.pending_owned(&self.committed_transactions)
     }
 
+    /// Возвращает только committed jobs, чей durable retry deadline уже наступил.
+    ///
+    /// Transport не интерпретирует queue journal самостоятельно и не получает
+    /// доступ к Store path: решение о видимости job остаётся у владельца Store.
+    pub fn due_outbound(&self, now_epoch: u64) -> io::Result<Vec<crate::queue::OwnedDelivery>> {
+        self.queue
+            .due_owned(&self.committed_transactions, now_epoch)
+    }
+
     /// Читает payload только job, опубликованный общим transaction commit.
     pub fn outbound_blob(&self, delivery: &crate::queue::OwnedDelivery) -> io::Result<Vec<u8>> {
         match self

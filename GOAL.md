@@ -331,6 +331,8 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   `git diff --check`; Linux Docker test stage: 143 tests. G09 остаётся
   RUNNING: не реализованы service-owned automatic drain, TLS route keys,
   DSN и cancellation lifecycle acceptance.
+- `Store::due_outbound` закрепляет due-отбор за единственным владельцем queue:
+  transport больше не читает и не фильтрует durable schedule самостоятельно.
 
 ### 2026-09-20: G07 POP3 core foundation
 

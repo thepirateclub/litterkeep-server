@@ -32,12 +32,7 @@ pub fn drain_at(
 ) -> io::Result<DrainReport> {
     let mut report = DrainReport::default();
     let mut pool = ConnectionPool::new(address, ROUTE_POOL_CAPACITY)?;
-    for mut delivery in store
-        .pending_outbound()?
-        .into_iter()
-        .filter(|delivery| delivery.next_attempt_epoch <= now_epoch)
-        .take(limit)
-    {
+    for mut delivery in store.due_outbound(now_epoch)?.into_iter().take(limit) {
         delivery.attempts = delivery
             .attempts
             .checked_add(1)
