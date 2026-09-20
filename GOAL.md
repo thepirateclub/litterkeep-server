@@ -176,6 +176,17 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   format и `git diff --check`. G09 остаётся RUNNING: Store должен предоставить
   worker-у transition command и blob read, затем нужен реальный SMTP peer.
 
+### 2026-09-20: G09 Store-owned transport handoff checkpoint
+
+- Store получил typed API `pending_outbound`, `outbound_blob` и
+  `transition_outbound`. Они принимают только committed `OwnedDelivery`, не
+  раскрывают worker-у путь blob и сохраняют queue state через владельца Store.
+  Unit test прошёл pending -> immutable payload -> Delivered -> restart без
+  повторной выдачи terminal job.
+- PASS: Windows `cargo test --all-targets --locked` (127 tests), strict Clippy,
+  format и `git diff --check`. G09 остаётся RUNNING: storage worker protocol
+  и SMTP transport worker ещё не используют этот handoff against real peer.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.

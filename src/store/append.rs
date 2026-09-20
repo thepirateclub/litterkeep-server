@@ -3,7 +3,7 @@ use super::{
     AppendMetadata, Store, WriteState, blobs, commit_log, durability, journal, model, recent,
     validated_unique_mailboxes,
 };
-use std::fs::OpenOptions;
+use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::PathBuf;
 
@@ -152,5 +152,42 @@ impl Store {
     /// Возвращает только jobs, пережившие global Store commit и recovery.
     pub fn pending_outbound(&self) -> io::Result<Vec<crate::queue::OwnedDelivery>> {
         self.queue.pending_owned(&self.committed_transactions)
+    }
+
+    /// Читает payload только job, опубликованный общим transaction commit.
+    pub fn outbound_blob(&self, delivery: &crate::queue::OwnedDelivery) -> io::Result<Vec<u8>> {
+        match self
+            .committed_transactions
+            .contains(&delivery.transaction_id)
+        {
+            true => fs::read(
+                self.root
+                    .join("blobs")
+                    .join(model::blob_name(delivery.transaction_id)),
+            ),
+            false => Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "outbound job is not committed",
+            )),
+        }
+    }
+
+    /// Сохраняет terminal либо retry state только через владельца Store.
+    pub fn transition_outbound(
+        &mut self,
+        delivery: &crate::queue::OwnedDelivery,
+        state: crate::queue::State,
+    ) -> io::Result<()> {
+        self.ensure_writable()?;
+        match self
+            .committed_transactions
+            .contains(&delivery.transaction_id)
+        {
+            true => self.queue.transition_owned(delivery, state),
+            false => Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "outbound job is not committed",
+            )),
+        }
     }
 }

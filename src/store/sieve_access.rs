@@ -201,19 +201,33 @@ mod tests {
                 b"Subject: redirect\r\n\r\nbody",
             )
             .expect("deliver");
-        assert_eq!(
-            store.pending_outbound().expect("owned"),
-            vec![crate::queue::OwnedDelivery {
-                transaction_id,
-                sender: "alice@litterkeep.test".into(),
-                recipient: "remote@test".into(),
-                state: crate::queue::State::Pending,
-            }]
+        let expected = crate::queue::OwnedDelivery {
+            transaction_id,
+            sender: "alice@litterkeep.test".into(),
+            recipient: "remote@test".into(),
+            state: crate::queue::State::Pending,
+        };
+        assert_eq!(store.pending_outbound().expect("owned"), vec![expected]);
+        let delivery = store
+            .pending_outbound()
+            .expect("pending")
+            .into_iter()
+            .next()
+            .expect("job");
+        assert!(
+            store
+                .outbound_blob(&delivery)
+                .expect("blob")
+                .ends_with(b"body")
         );
+        store
+            .transition_outbound(&delivery, crate::queue::State::Delivered)
+            .expect("transition");
+        assert!(store.pending_outbound().expect("delivered").is_empty());
         assert_eq!(store.messages("bob").expect("inbox").len(), 1);
         drop(store);
         let store = Store::open(&root).expect("reopen");
-        assert_eq!(store.pending_outbound().expect("recovered").len(), 1);
+        assert!(store.pending_outbound().expect("recovered").is_empty());
         drop(store);
         fs::remove_dir_all(root).expect("cleanup");
     }
