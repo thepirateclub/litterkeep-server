@@ -123,13 +123,3 @@ fn classify(code: u16) -> ReplyClass {
         _ => ReplyClass::Permanent,
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn parses_multiline_marker_without_indexing() {
-        assert_eq!(parse_reply("250-feature\r\n").expect("reply"), (250, true));
-        assert_eq!(classify(550), ReplyClass::Permanent);
-    }
-}

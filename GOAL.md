@@ -255,6 +255,17 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   RUNNING: отсутствуют automatic service drain, retry schedule/TTL, TLS peer
   transport и connection pool reuse/cancellation acceptance.
 
+### 2026-09-20: G09 outbound 4xx/5xx wire peer checkpoint
+
+- Отдельный standard-library `TcpListener` peer получил реальный SMTP greeting,
+  EHLO, MAIL и RCPT от нашего client-а, затем вернул 450 или 550. Regression
+  tests подтверждают `DeliveryOutcome::Deferred` для 4xx и
+  `PermanentFailure` для 5xx, без DATA после RCPT rejection. Tests вынесены в
+  `outbound_tests.rs`, production transport остаётся 125 lines.
+- PASS: Windows `cargo test --all-targets --locked` (129 tests), strict Clippy,
+  format и `git diff --check`. G09 остаётся RUNNING: отсутствует persistent
+  retry schedule/TTL и automatic service drain/pool.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.
