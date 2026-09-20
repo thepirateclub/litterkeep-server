@@ -455,6 +455,23 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   в `server_loop`; future retry timer, cancellation policy, TLS route keys и
   independent two-server acceptance ещё не завершены.
 
+### 2026-09-20: G09 independent service drain DSN acceptance
+
+- Под Linux Docker создана отдельная stage directory
+  `./data/g09-service-blackbox`. Независимые Python ManageSieve и SMTP clients
+  загрузили `redirect "remote@peer.test"; discard;` и передали письмо source
+  server-у. После остановки source writer контейнерный `queue-drain /data
+  host.docker.internal:3555 1` использовал event-driven service owners.
+- PASS: независимый `smtp_550_peer.py` получил обычные EHLO, MAIL, RCPT 550 и
+  RSET, а CLI сообщил `delivered=0 deferred=0 permanent_failures=1`. После
+  restart source server независимый `queue_dsn_read.py` через IMAP STARTTLS
+  прочитал multipart/report с `Action: failed` и исходным subject. Test
+  container остановлен и удалён; данные и peer logs остаются в указанной
+  `./data` directory.
+- Этот PASS доказывает explicit service drain и DSN, но не long-lived runtime
+  scheduler: G09 остаётся RUNNING до server-loop lifecycle, cancellation,
+  TLS route keys и independent two-server acceptance.
+
 ### 2026-09-20: correction of scheduler contract structure
 
 - Первый commit scheduler contract временно увеличил `src/store/tests.rs` до
