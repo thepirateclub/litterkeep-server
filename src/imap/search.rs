@@ -11,8 +11,17 @@ pub enum SearchKey {
     All,
     Seen,
     Unseen,
+    Answered,
+    Unanswered,
+    Flagged,
+    Unflagged,
     Deleted,
     Undeleted,
+    Draft,
+    Undraft,
+    Recent,
+    Old,
+    New,
     Header(HeaderSelector, String),
     Body(String),
     Text(String),
@@ -77,8 +86,17 @@ fn parse_one(tokens: &mut VecDeque<Token>) -> Option<SearchKey> {
         "ALL" => Some(SearchKey::All),
         "SEEN" => Some(SearchKey::Seen),
         "UNSEEN" => Some(SearchKey::Unseen),
+        "ANSWERED" => Some(SearchKey::Answered),
+        "UNANSWERED" => Some(SearchKey::Unanswered),
+        "FLAGGED" => Some(SearchKey::Flagged),
+        "UNFLAGGED" => Some(SearchKey::Unflagged),
         "DELETED" => Some(SearchKey::Deleted),
         "UNDELETED" => Some(SearchKey::Undeleted),
+        "DRAFT" => Some(SearchKey::Draft),
+        "UNDRAFT" => Some(SearchKey::Undraft),
+        "RECENT" => Some(SearchKey::Recent),
+        "OLD" => Some(SearchKey::Old),
+        "NEW" => Some(SearchKey::New),
         "SUBJECT" => text(tokens, HeaderName::Subject),
         "FROM" => text(tokens, HeaderName::From),
         "TO" => text(tokens, HeaderName::To),
@@ -186,5 +204,20 @@ mod tests {
             imap::parse("a SEARCH (SEEN\r\n").command,
             Command::Unsupported
         );
+    }
+
+    #[test]
+    fn parses_system_and_session_flag_criteria() {
+        let command = imap::parse(
+            "a SEARCH ANSWERED UNANSWERED FLAGGED UNFLAGGED DRAFT UNDRAFT RECENT OLD NEW\r\n",
+        )
+        .command;
+        assert!(matches!(
+            command,
+            Command::Search {
+                key: SearchKey::And(keys),
+                ..
+            } if keys.len() == 9
+        ));
     }
 }

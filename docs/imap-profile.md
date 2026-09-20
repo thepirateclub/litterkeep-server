@@ -17,7 +17,7 @@ CAPABILITY не выдаёт за более широкое расширение
 | Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS, PERMANENTFLAGS, Recent |
 | Message insertion | APPEND | PASS | Bounded literal, flags, INTERNALDATE, APPENDUID после fsync |
 | Reading | FETCH, UID FETCH | PASS | FLAGS, INTERNALDATE, ENVELOPE, BODYSTRUCTURE, MIME sections, partial |
-| Search | SEARCH, UID SEARCH | PARTIAL | Flags, address/header/body/text, size, internal dates, AND/OR/NOT/groups; unsupported keys получают BAD |
+| Search | SEARCH, UID SEARCH | PARTIAL | Все system/session flags, address/header/body/text, size, internal dates, AND/OR/NOT/groups; unsupported keys получают BAD |
 | Flag mutation | STORE, UID STORE | PASS | Replace/add/remove, SILENT, durable batch, read-only denial |
 | Copy and move | COPY, UID COPY, MOVE, UID MOVE | PASS | Atomic links/tombstones, COPYUID, multi-session projection |
 | Deletion | EXPUNGE, UID EXPUNGE, CLOSE | PASS | Durable tombstones, UIDPLUS, sequence-map notifications |

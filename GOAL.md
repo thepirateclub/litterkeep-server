@@ -27,6 +27,24 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G06 complete system and session flag SEARCH checkpoint
+
+- SEARCH AST и parser теперь типизированно поддерживают `ANSWERED`,
+  `UNANSWERED`, `FLAGGED`, `UNFLAGGED`, `DRAFT`, `UNDRAFT`, `RECENT`, `OLD` и
+  `NEW` вместе с ранее реализованными `SEEN`, `UNSEEN`, `DELETED` и
+  `UNDELETED`.
+- Persistent flags читаются из immutable mailbox snapshot. `RECENT`, `OLD` и
+  `NEW` вычисляются только по session-local `selected_recent`; `NEW` означает
+  `RECENT` и отсутствие `Seen`, не создавая ложного persistent-флага.
+- Исправлена композиция boolean SEARCH: вложенные `NOT` и `OR`, содержащие
+  `HEADER` или `BODY`, теперь заранее требуют единственный разбор header block.
+  Отдельный regression test фиксирует эту границу.
+- PASS: Windows 172 tests, strict Clippy, format, structural gate и
+  `git diff --check`. Docker Rust 1.97 strict Linux Clippy и 200 tests прошли в
+  image `litterkeep-server:g06-search-flags`.
+- G06 остаётся RUNNING: sequence-set/UID и sent-date SEARCH criteria, а также
+  независимая сетевая SEARCH/concurrent/reconnect matrix ещё не завершены.
+
 ### 2026-09-20: G06 SEARCH date and boolean checkpoint
 
 - SEARCH AST поддерживает `BEFORE`, `ON`, `SINCE`, `NOT`, бинарный `OR` и
