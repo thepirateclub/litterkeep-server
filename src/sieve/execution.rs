@@ -19,6 +19,8 @@ pub struct DeliveryPlan {
 pub enum ExecutionError {
     CommandLimit,
     RedirectLimit,
+    RedirectRouteDenied,
+    RedirectLoop,
 }
 
 impl ExecutionError {
@@ -27,6 +29,8 @@ impl ExecutionError {
         match self {
             Self::CommandLimit => "command-limit",
             Self::RedirectLimit => "redirect-limit",
+            Self::RedirectRouteDenied => "redirect-route-denied",
+            Self::RedirectLoop => "redirect-loop",
         }
     }
 
@@ -35,6 +39,8 @@ impl ExecutionError {
         match value {
             "command-limit" => Some(Self::CommandLimit),
             "redirect-limit" => Some(Self::RedirectLimit),
+            "redirect-route-denied" => Some(Self::RedirectRouteDenied),
+            "redirect-loop" => Some(Self::RedirectLoop),
             _ => None,
         }
     }
@@ -45,6 +51,8 @@ impl fmt::Display for ExecutionError {
         formatter.write_str(match self {
             Self::CommandLimit => "sieve execution limit exceeded",
             Self::RedirectLimit => "sieve redirect limit exceeded",
+            Self::RedirectRouteDenied => "sieve redirect route denied",
+            Self::RedirectLoop => "sieve redirect hop limit exceeded",
         })
     }
 }

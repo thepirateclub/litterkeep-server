@@ -25,14 +25,14 @@ fn invoice_plan_delivers_to_invoices_and_default_goes_to_inbox() {
 fn redirect_cancels_implicit_keep_and_preserves_envelope_sender() {
     let root = directory();
     let mut store = Store::open(&root).expect("open");
-    activate(&mut store, "forward", "redirect \"remote@test\";");
+    activate(&mut store, "forward", "redirect \"remote@PEER.TEST\";");
     let transaction_id = deliver(&mut store, b"Subject: redirect\r\n\r\nbody");
     let expected = crate::queue::OwnedDelivery {
         transaction_id,
         attempts: 0,
         next_attempt_epoch: 0,
         sender: "alice@litterkeep.test".into(),
-        recipient: "remote@test".into(),
+        recipient: "remote@peer.test".into(),
         state: crate::queue::State::Pending,
     };
     assert_eq!(store.pending_outbound().expect("owned"), vec![expected]);
@@ -167,6 +167,53 @@ fn duplicate_recipient_executes_sieve_plan_once() {
         .expect("deliver");
     assert_eq!(store.pending_outbound().expect("outbound").len(), 1);
     assert_eq!(folder_count(&mut store, "INBOX"), 0);
+    close(root, store);
+}
+
+#[test]
+fn denied_redirect_route_falls_back_to_keep_with_diagnostic() {
+    let root = directory();
+    let mut store = Store::open(&root).expect("open");
+    activate(
+        &mut store,
+        "local-loop",
+        "redirect \"bob@litterkeep.test\";",
+    );
+    deliver(&mut store, b"Subject: denied route\r\n\r\nbody");
+    assert_eq!(folder_count(&mut store, "INBOX"), 1);
+    assert!(store.pending_outbound().expect("outbound").is_empty());
+    assert_eq!(
+        store
+            .sieve_diagnostics("bob")
+            .expect("diagnostic")
+            .last()
+            .map(|value| value.error),
+        Some(crate::sieve::ExecutionError::RedirectRouteDenied)
+    );
+    close(root, store);
+}
+
+#[test]
+fn redirect_hop_limit_falls_back_to_keep_without_queue_job() {
+    let root = directory();
+    let mut store = Store::open(&root).expect("open");
+    activate(&mut store, "forward", "redirect \"remote@peer.test\";");
+    let mut message = String::new();
+    for number in 0..8 {
+        message.push_str(&format!("Received: by relay-{number}\r\n"));
+    }
+    message.push_str("Subject: loop guard\r\n\r\nbody");
+    deliver(&mut store, message.as_bytes());
+    assert_eq!(folder_count(&mut store, "INBOX"), 1);
+    assert!(store.pending_outbound().expect("outbound").is_empty());
+    assert_eq!(
+        store
+            .sieve_diagnostics("bob")
+            .expect("diagnostic")
+            .last()
+            .map(|value| value.error),
+        Some(crate::sieve::ExecutionError::RedirectLoop)
+    );
     close(root, store);
 }
 

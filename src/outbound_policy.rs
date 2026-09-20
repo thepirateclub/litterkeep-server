@@ -15,6 +15,7 @@ const MAX_RETRY_SECONDS: u64 = 3_600;
 pub fn state(result: &io::Result<DeliveryOutcome>, attempts: u8) -> State {
     match result {
         Ok(DeliveryOutcome::Delivered) => State::Delivered,
+        Err(error) if error.kind() == io::ErrorKind::InvalidInput => State::PermanentFailure,
         Ok(DeliveryOutcome::Deferred) | Err(_) => match attempts >= MAX_ATTEMPTS {
             true => State::PermanentFailure,
             false => State::Deferred,
@@ -42,6 +43,9 @@ pub fn dsn_failure(result: &io::Result<DeliveryOutcome>, attempts: u8) -> Option
     match (result, attempts >= MAX_ATTEMPTS) {
         (Ok(DeliveryOutcome::Delivered), _) => None,
         (Ok(DeliveryOutcome::PermanentFailure), _) => Some(dsn::Failure::PermanentSmtp),
+        (Err(error), _) if error.kind() == io::ErrorKind::InvalidInput => {
+            Some(dsn::Failure::RoutePolicy)
+        }
         (Ok(DeliveryOutcome::Deferred) | Err(_), true) => Some(dsn::Failure::RetryExhausted),
         (Ok(DeliveryOutcome::Deferred) | Err(_), false) => None,
     }
@@ -77,5 +81,8 @@ mod tests {
             Some(dsn::Failure::RetryExhausted)
         );
         assert_eq!(dsn_failure(&Ok(DeliveryOutcome::Delivered), 1), None);
+        let denied = Err(io::Error::new(io::ErrorKind::InvalidInput, "denied"));
+        assert_eq!(state(&denied, 1), State::PermanentFailure);
+        assert_eq!(dsn_failure(&denied, 1), Some(dsn::Failure::RoutePolicy));
     }
 }

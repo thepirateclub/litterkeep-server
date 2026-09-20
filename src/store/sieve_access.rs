@@ -115,16 +115,52 @@ impl Store {
         };
         let script = sieve::parse(&source).map_err(io::Error::other)?;
         match sieve::execute(&script, headers, message_size) {
-            Ok(plan) => Ok((plan, None)),
-            Err(error) => Ok((
-                implicit_keep(),
-                Some(sieve_diagnostics::PendingDiagnostic {
-                    account: account.to_owned(),
-                    script_version: version,
-                    error,
-                }),
-            )),
+            Ok(mut plan) => match apply_redirect_policy(&mut plan, headers) {
+                Some(error) => Ok(failed_plan(account, version, error)),
+                None => Ok((plan, None)),
+            },
+            Err(error) => Ok(failed_plan(account, version, error)),
         }
+    }
+}
+
+fn failed_plan(
+    account: &str,
+    script_version: u64,
+    error: sieve::ExecutionError,
+) -> (
+    sieve::DeliveryPlan,
+    Option<sieve_diagnostics::PendingDiagnostic>,
+) {
+    (
+        implicit_keep(),
+        Some(sieve_diagnostics::PendingDiagnostic {
+            account: account.to_owned(),
+            script_version,
+            error,
+        }),
+    )
+}
+
+/// Одинаковая allowlist проверяется до queue и повторно перед transport socket.
+fn apply_redirect_policy(
+    plan: &mut sieve::DeliveryPlan,
+    headers: &[(String, String)],
+) -> Option<sieve::ExecutionError> {
+    let mut canonical = Vec::with_capacity(plan.redirects.len());
+    for address in &plan.redirects {
+        match crate::redirect_policy::Recipient::parse(address) {
+            Ok(recipient) => canonical.push(recipient.canonical()),
+            Err(_) => return Some(sieve::ExecutionError::RedirectRouteDenied),
+        }
+    }
+    plan.redirects = canonical;
+    match (
+        plan.redirects.is_empty(),
+        crate::redirect_policy::hop_limit_reached(headers),
+    ) {
+        (false, true) => Some(sieve::ExecutionError::RedirectLoop),
+        _ => None,
     }
 }
 
@@ -140,8 +176,16 @@ fn implicit_keep() -> sieve::DeliveryPlan {
 
 /// Malformed MIME не отменяет уже принятую SMTP-доставку: правило не совпадает.
 fn delivery_headers(raw: &[u8]) -> Vec<(String, String)> {
-    match crate::mime::headers(raw) {
-        Ok((headers, _)) => headers.into_iter().collect(),
+    match crate::mime::header_block::parse(raw) {
+        Ok(block) => block
+            .fields
+            .into_iter()
+            .filter_map(|field| {
+                String::from_utf8(field.value)
+                    .ok()
+                    .map(|value| (field.name, value))
+            })
+            .collect(),
         Err(_) => Vec::new(),
     }
 }

@@ -42,11 +42,27 @@ fn worker_owns_one_pool_across_two_jobs() {
     peer.join().expect("peer");
 }
 
+#[test]
+fn worker_denies_unrouted_recipient_before_opening_socket() {
+    let worker = OutboundWorker::start("127.0.0.1:9", 1, 1).expect("worker");
+    worker
+        .submit(Job {
+            id: 7,
+            sender: "alice@litterkeep.test".into(),
+            recipient: "alice@litterkeep.test".into(),
+            payload: b"body".to_vec(),
+        })
+        .expect("submit");
+    let error = completion(&worker).result.expect_err("route denied");
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+    worker.shutdown();
+}
+
 fn job(id: u64, payload: &[u8]) -> Job {
     Job {
         id,
         sender: "alice@test".into(),
-        recipient: "bob@test".into(),
+        recipient: "bob@peer.test".into(),
         payload: payload.to_vec(),
     }
 }

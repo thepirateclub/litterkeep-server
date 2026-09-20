@@ -66,6 +66,13 @@ Outbound route принимает только явный числовой `IP:p
 секундами. I/O timeout уничтожает грязное соединение, durable job переводится
 в retry policy и такой channel никогда не возвращается в pool.
 
+Первый фиксированный route-профиль разрешает Sieve redirect только в typed
+домен `peer.test`. Адрес проверяется при построении DeliveryPlan и повторно в
+transport worker до открытия socket-а. Запрещённый route применяет implicit
+keep и пишет Sieve diagnostic; повреждённый queue job получает terminal
+`5.7.1`, а не бессмысленные retry. После восьми `Received` trace fields новый
+redirect также заменяется implicit keep, что ограничивает межсерверную петлю.
+
 Для постоянного implicit-TLS маршрута используется отдельная typed команда:
 
 ```sh

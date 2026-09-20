@@ -67,9 +67,12 @@ impl Pool {
         recipient: &str,
         payload: &[u8],
     ) -> io::Result<outbound::DeliveryOutcome> {
+        let recipient = crate::redirect_policy::Recipient::parse(recipient)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+        let recipient = recipient.canonical();
         match self {
-            Self::Plain(pool) => pool.deliver(sender, recipient, payload),
-            Self::ImplicitTls(pool) => pool.deliver(sender, recipient, payload),
+            Self::Plain(pool) => pool.deliver(sender, &recipient, payload),
+            Self::ImplicitTls(pool) => pool.deliver(sender, &recipient, payload),
         }
     }
 }

@@ -9,6 +9,7 @@
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Failure {
     PermanentSmtp,
+    RoutePolicy,
     RetryExhausted,
 }
 
@@ -115,6 +116,7 @@ fn append(output: &mut Vec<u8>, value: &str) {
 fn status(failure: Failure) -> &'static str {
     match failure {
         Failure::PermanentSmtp => "5.0.0",
+        Failure::RoutePolicy => "5.7.1",
         Failure::RetryExhausted => "4.4.0",
     }
 }
@@ -123,6 +125,7 @@ fn status(failure: Failure) -> &'static str {
 fn explanation(failure: Failure) -> &'static str {
     match failure {
         Failure::PermanentSmtp => "permanent SMTP failure",
+        Failure::RoutePolicy => "recipient route denied by policy",
         Failure::RetryExhausted => "retry budget exhausted",
     }
 }
@@ -182,6 +185,23 @@ mod tests {
             report
                 .windows(b"litterkeep-dsn-7-1".len())
                 .any(|window| { window == b"litterkeep-dsn-7-1" })
+        );
+    }
+
+    #[test]
+    fn route_policy_uses_permanent_security_status() {
+        let report = render(
+            "alice@litterkeep.test",
+            "blocked@example.test",
+            9,
+            b"Subject: blocked\r\n\r\nbody",
+            Failure::RoutePolicy,
+        )
+        .expect("report");
+        assert!(
+            report
+                .windows(b"Status: 5.7.1".len())
+                .any(|window| window == b"Status: 5.7.1")
         );
     }
 }

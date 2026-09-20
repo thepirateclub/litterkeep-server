@@ -48,6 +48,10 @@ pub mod queue;
 mod queue_tests;
 #[cfg(target_os = "linux")]
 pub mod reactor;
+pub mod redirect_policy;
+#[cfg(test)]
+#[path = "redirect_policy_tests.rs"]
+mod redirect_policy_tests;
 pub mod runtime;
 pub mod sasl;
 pub mod sieve;

@@ -27,6 +27,30 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G08 redirect route and loop policy checkpoint
+
+- Общий `redirect_policy` разбирает mailbox в typed `Domain::PeerTest`,
+  проверяет bounded dot-atom и канонизирует domain. Первый локальный профиль
+  разрешает только `peer.test`; `litterkeep.test`, неизвестный domain и
+  malformed address не могут попасть в outbound queue.
+- Store применяет policy после bounded Sieve execution. Запрещённый route или
+  восемь уже существующих `Received` fields отбрасывают весь частичный план,
+  выполняют implicit keep и атомарно публикуют versioned Sieve diagnostic.
+- Sieve projection теперь читает ordered MIME header fields напрямую, поэтому
+  повторные `Received` не схлопываются `BTreeMap` и loop budget проверяет
+  фактическую цепочку trace headers.
+- Outbound worker повторяет ту же policy до получения connection из pool.
+  Повреждённый/старый queue job не открывает socket; typed `InvalidInput`
+  становится terminal `PermanentFailure` с DSN `5.7.1 RoutePolicy`, а не
+  расходует transient retry budget.
+- PASS: Windows `cargo test --all-targets --locked` (167 tests), strict Clippy,
+  format. Docker Rust 1.97 strict Linux Clippy и 188 tests прошли в image
+  `litterkeep-server:g08-redirect-policy-gate`.
+- G08 остаётся RUNNING только до независимого сетевого runtime-error/loop
+  matrix. Его запуск всё ещё невозможен на `./data` из-за зависшего runtime
+  bind mount Docker Desktop; unit/integration доказательство не выдано за
+  black-box PASS.
+
 ### 2026-09-20: G08 transactional Sieve runtime-error checkpoint
 
 - Bounded executor возвращает typed `ExecutionError`, а не строку. При runtime
