@@ -266,6 +266,17 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   format и `git diff --check`. G09 остаётся RUNNING: отсутствует persistent
   retry schedule/TTL и automatic service drain/pool.
 
+### 2026-09-20: G09 durable retry budget checkpoint
+
+- Owned queue frames теперь несут `attempts`; reader сохраняет backward
+  compatibility с прежним форматом без счётчика. Drain увеличивает attempts
+  перед durable `InFlight`, поэтому crash не обнуляет budget. Третья 4xx/I/O
+  deferred попытка становится `PermanentFailure`, что подтверждено unit test.
+- PASS: Windows `cargo test --all-targets --locked` (130 tests), strict Clippy,
+  format, `git diff --check`; queue/transport files не длиннее 300 lines. G09
+  остаётся RUNNING: есть bounded count, но ещё нет persisted next-at/TTL delay,
+  automatic service drain и TLS/pool lifecycle peer acceptance.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.

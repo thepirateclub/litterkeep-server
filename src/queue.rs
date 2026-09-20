@@ -53,6 +53,8 @@ pub struct Delivery {
 #[derive(Debug, Eq, PartialEq)]
 pub struct OwnedDelivery {
     pub transaction_id: u64,
+    /// Число реально начатых SMTP попыток, зафиксированное в queue journal.
+    pub attempts: u8,
     pub sender: String,
     pub recipient: String,
     pub state: State,
@@ -82,7 +84,7 @@ impl Queue {
             .open(&self.path)?;
         writeln!(
             file,
-            "{} {transaction_id} {sender} {recipient}",
+            "{} {transaction_id} 0 {sender} {recipient}",
             State::Pending.wire()
         )?;
         file.sync_all()
@@ -97,9 +99,10 @@ impl Queue {
             .open(&self.path)?;
         writeln!(
             file,
-            "{} {} {} {}",
+            "{} {} {} {} {}",
             state.wire(),
             delivery.transaction_id,
+            delivery.attempts,
             delivery.sender,
             delivery.recipient
         )?;
@@ -181,9 +184,18 @@ impl Queue {
                 .next()
                 .ok_or_else(|| invalid("bad owned queue state"))?;
             let transaction = fields.next().ok_or_else(|| invalid("bad owned queue id"))?;
-            let (sender, recipient) = match (fields.next(), fields.next(), fields.next()) {
-                (Some(sender), Some(recipient), None) => (sender, recipient),
-                (Some(_), None, None) | (None, _, None) | (_, _, Some(_)) => continue,
+            let Some(candidate) = fields.next() else {
+                continue;
+            };
+            let (attempts, sender, recipient) = match candidate.parse::<u8>() {
+                Ok(attempts) => match (fields.next(), fields.next(), fields.next()) {
+                    (Some(sender), Some(recipient), None) => (attempts, sender, recipient),
+                    _ => continue,
+                },
+                Err(_) => match (fields.next(), fields.next()) {
+                    (Some(recipient), None) => (0, candidate, recipient),
+                    _ => continue,
+                },
             };
             let transaction_id = transaction
                 .parse()
@@ -194,6 +206,7 @@ impl Queue {
             };
             let delivery = OwnedDelivery {
                 transaction_id,
+                attempts,
                 sender: sender.into(),
                 recipient: recipient.into(),
                 state,

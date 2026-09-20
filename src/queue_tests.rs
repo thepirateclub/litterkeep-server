@@ -52,6 +52,7 @@ fn owned_delivery_is_invisible_until_store_commit() {
             .expect("pending"),
         vec![OwnedDelivery {
             transaction_id: 7,
+            attempts: 0,
             sender: "alice@test".into(),
             recipient: "remote@test".into(),
             state: State::Pending
@@ -66,6 +67,7 @@ fn owned_transition_survives_reopen_and_removes_pending_job() {
     let q = Queue::open(&d).expect("queue");
     let delivery = OwnedDelivery {
         transaction_id: 8,
+        attempts: 0,
         sender: "alice@test".into(),
         recipient: "remote@test".into(),
         state: State::Pending,
@@ -96,6 +98,7 @@ fn interrupted_owned_delivery_is_deferred_on_reopen() {
     let q = Queue::open(&d).expect("queue");
     let delivery = OwnedDelivery {
         transaction_id: 9,
+        attempts: 0,
         sender: "alice@test".into(),
         recipient: "remote@test".into(),
         state: State::Pending,

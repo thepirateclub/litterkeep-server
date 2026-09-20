@@ -203,6 +203,7 @@ mod tests {
             .expect("deliver");
         let expected = crate::queue::OwnedDelivery {
             transaction_id,
+            attempts: 0,
             sender: "alice@litterkeep.test".into(),
             recipient: "remote@test".into(),
             state: crate::queue::State::Pending,
