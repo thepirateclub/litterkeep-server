@@ -371,6 +371,26 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 - G09 остаётся RUNNING: TLS route keys/service-owned drain, DSN, cancellation
   lifecycle и независимый сторонний MTA ещё не проверены.
 
+### 2026-09-20: G09 local DSN checkpoint
+
+- `queue-drain` после durable `PermanentFailure` строит multipart/report DSN
+  с `message/delivery-status` и исходным RFC822 body. Пустой reverse-path и
+  внешний либо отсутствующий local account не создают bounce. 5xx и исчерпанный
+  retry budget выбирают разные typed причины; публикацию выполняет только
+  Store owner после account/local-route проверки.
+- PASS: Linux Docker scenario с bind mount `./data/g09-dsn-source`: независимый
+  ManageSieve/SMTP client создал redirect job от Alice, независимый socket peer
+  вернул RCPT `550`, `queue-drain` выдал `permanent_failures=1`, а независимый
+  Python IMAP STARTTLS client прочитал у Alice `report-type=delivery-status`,
+  `Action: failed` и исходный subject. Тестовые Docker container/network
+  остановлены и удалены; данные и peer log сохранены в stage directory.
+- PASS: Windows `cargo test --all-targets --locked` (146 tests), strict Clippy,
+  format и `git diff --check`; Docker Linux test stage: 153 tests. Structural
+  audit: нет `mod.rs`, Rust files не длиннее 300 lines, запрещённых составных
+  `if` не найдено. G09 остаётся RUNNING: DSN пока выполняется через explicit
+  `queue-drain`, TLS route keys/service lifecycle, cancellation и сторонний MTA
+  ещё не приняты.
+
 ### 2026-09-20: structural condition-rule compliance checkpoint
 
 - Устранены все найденные в `src` условия `if` с `&&` или `||`: ветвления

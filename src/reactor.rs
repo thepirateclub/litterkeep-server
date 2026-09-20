@@ -57,8 +57,6 @@ mod imap_starttls;
 mod imap_status;
 #[path = "reactor/imap_subscriptions.rs"]
 mod imap_subscriptions;
-#[path = "reactor/local_delivery.rs"]
-mod local_delivery;
 #[path = "reactor/maildrop_lease.rs"]
 mod maildrop_lease;
 #[path = "reactor/managesieve_completion.rs"]

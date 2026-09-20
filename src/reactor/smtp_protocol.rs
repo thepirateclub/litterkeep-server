@@ -2,8 +2,8 @@
 //!
 //! Модуль не обращается к файловому хранилищу напрямую. Проверка учётных
 //! данных и получателей всегда передаётся единственному владельцу store.
-use super::local_delivery::{local_mailbox, local_mailboxes};
 use super::*;
+use crate::local_route::{local_mailbox, local_mailboxes};
 
 /// Обрабатывает одну завершённую CRLF строку SMTP либо строку DATA.
 pub(super) fn smtp_line(

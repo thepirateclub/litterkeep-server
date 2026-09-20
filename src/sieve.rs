@@ -16,6 +16,8 @@ mod lexer;
 mod matching;
 #[path = "sieve/parser.rs"]
 mod parser;
+#[path = "sieve/parser_values.rs"]
+mod parser_values;
 #[cfg(test)]
 #[path = "sieve/tests.rs"]
 mod tests;

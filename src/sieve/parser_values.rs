@@ -1,0 +1,57 @@
+//! Разбор атомов и строковых форм Sieve, общий для parser grammar.
+//!
+//! Этот файл не выбирает команду, test или action. Его единственная
+//! ответственность, извлечь ограниченные lexical values из входной очереди.
+
+use super::lexer::Token;
+use std::collections::VecDeque;
+
+/// Читает список строк, после которого grammar требует semicolon.
+pub(super) fn terminated_strings(input: &mut VecDeque<Token>) -> Result<Vec<String>, &'static str> {
+    let values = string_list(input)?;
+    expect(input, Token::Semicolon)?;
+    Ok(values)
+}
+
+/// Читает одну quoted string либо RFC-style bracket list строк.
+pub(super) fn string_list(input: &mut VecDeque<Token>) -> Result<Vec<String>, &'static str> {
+    match input.front() {
+        Some(Token::OpenList) => {
+            let _ = input.pop_front();
+            let mut values = Vec::new();
+            loop {
+                match input.pop_front() {
+                    Some(Token::String(value)) => values.push(value),
+                    Some(Token::Comma) => {}
+                    Some(Token::CloseList) => return Ok(values),
+                    _ => return Err("invalid sieve string list"),
+                }
+            }
+        }
+        _ => one_string(input).map(|value| vec![value]),
+    }
+}
+
+/// Читает ровно одну quoted string, не принимая atom как неявную строку.
+pub(super) fn one_string(input: &mut VecDeque<Token>) -> Result<String, &'static str> {
+    match input.pop_front() {
+        Some(Token::String(value)) => Ok(value),
+        _ => Err("sieve string expected"),
+    }
+}
+
+/// Читает один atom для keyword или numeric size argument.
+pub(super) fn atom(input: &mut VecDeque<Token>) -> Result<String, &'static str> {
+    match input.pop_front() {
+        Some(Token::Atom(value)) => Ok(value),
+        _ => Err("sieve atom expected"),
+    }
+}
+
+/// Требует конкретный structural token без текстового сравнения.
+pub(super) fn expect(input: &mut VecDeque<Token>, expected: Token) -> Result<(), &'static str> {
+    match input.pop_front() {
+        Some(actual) if actual == expected => Ok(()),
+        _ => Err("unexpected sieve token"),
+    }
+}

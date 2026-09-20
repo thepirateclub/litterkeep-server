@@ -5,6 +5,7 @@ use super::ast::{
     SizeRelation, StringMatch,
 };
 use super::lexer::Token;
+use super::parser_values::{atom, expect, one_string, string_list, terminated_strings};
 use std::collections::VecDeque;
 
 pub(super) fn parse(tokens: Vec<Token>) -> Result<Script, &'static str> {
@@ -251,53 +252,5 @@ fn conditions(
             Some(_) => values.push(condition(input)?),
             None => return Err("unterminated sieve condition list"),
         }
-    }
-}
-
-fn terminated_strings(input: &mut VecDeque<Token>) -> Result<Vec<String>, &'static str> {
-    let values = string_list(input)?;
-    expect(input, Token::Semicolon)?;
-    Ok(values)
-}
-
-fn string_list(input: &mut VecDeque<Token>) -> Result<Vec<String>, &'static str> {
-    match input.front() {
-        Some(Token::OpenList) => {
-            let _ = input.pop_front();
-            let mut values = Vec::new();
-            loop {
-                match input.pop_front() {
-                    Some(Token::String(value)) => values.push(value),
-                    Some(Token::Comma) => {}
-                    Some(Token::CloseList) => {
-                        return Ok(values);
-                    }
-                    _ => return Err("invalid sieve string list"),
-                }
-            }
-        }
-        _ => {
-            let value = one_string(input)?;
-            Ok(vec![value])
-        }
-    }
-}
-
-fn one_string(input: &mut VecDeque<Token>) -> Result<String, &'static str> {
-    match input.pop_front() {
-        Some(Token::String(value)) => Ok(value),
-        _ => Err("sieve string expected"),
-    }
-}
-fn atom(input: &mut VecDeque<Token>) -> Result<String, &'static str> {
-    match input.pop_front() {
-        Some(Token::Atom(value)) => Ok(value),
-        _ => Err("sieve atom expected"),
-    }
-}
-fn expect(input: &mut VecDeque<Token>, expected: Token) -> Result<(), &'static str> {
-    match input.pop_front() {
-        Some(actual) if actual == expected => Ok(()),
-        _ => Err("unexpected sieve token"),
     }
 }

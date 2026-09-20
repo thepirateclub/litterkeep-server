@@ -143,6 +143,15 @@ pub enum Request {
         request_id: u64,
         source: String,
     },
+    /// Публикует DSN только после account/local-route проверки владельцем Store.
+    AppendDsn {
+        request_id: u64,
+        reverse_path: String,
+        recipient: String,
+        transaction_id: u64,
+        original: Vec<u8>,
+        failure: crate::dsn::Failure,
+    },
     OutboundPending {
         request_id: u64,
     },
@@ -242,6 +251,11 @@ pub enum Response {
     SieveSpace {
         request_id: u64,
         result: io::Result<bool>,
+    },
+    /// `None` означает пустой или внешний reverse-path без локальной публикации.
+    DsnAppended {
+        request_id: u64,
+        result: io::Result<Option<u64>>,
     },
     OutboundPending {
         request_id: u64,

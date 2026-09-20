@@ -6,8 +6,10 @@
 
 pub mod accounts;
 pub mod auth;
+pub mod dsn;
 pub mod imap;
 pub mod imap_fetch;
+pub mod local_route;
 pub mod mail_date;
 pub mod mail_flags;
 pub mod managesieve;

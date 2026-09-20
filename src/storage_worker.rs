@@ -1,6 +1,10 @@
 //! The single owner of a mutable Store, fed by a bounded request queue.
+#[path = "storage_worker/dsn_delivery.rs"]
+mod dsn_delivery;
 #[path = "storage_worker/execution.rs"]
 mod execution;
+#[path = "storage_worker/local_delivery.rs"]
+mod local_delivery;
 #[path = "storage_worker/message.rs"]
 mod message;
 use crate::{accounts::Accounts, store::Store};
@@ -173,6 +177,51 @@ mod tests {
         worker.shutdown();
         let store = Store::open(&root).expect("reopen");
         assert!(store.messages("bob").expect("messages").is_empty());
+        drop(store);
+        std::fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn dsn_is_published_only_for_existing_local_sender() {
+        let root = dir();
+        let accounts = Accounts::open(&root).expect("accounts");
+        accounts.create("alice", b"test-password").expect("account");
+        let worker = StorageWorker::start(&root, 1).expect("worker");
+        worker
+            .submit(Request::AppendDsn {
+                request_id: 9,
+                reverse_path: "alice@litterkeep.test".into(),
+                recipient: "remote@peer.test".into(),
+                transaction_id: 42,
+                original: b"Subject: source\r\n\r\nbody".to_vec(),
+                failure: crate::dsn::Failure::PermanentSmtp,
+            })
+            .expect("accepted");
+        let response = loop {
+            if let Ok(response) = worker.try_response() {
+                break response;
+            }
+            std::thread::yield_now();
+        };
+        assert!(matches!(
+            response,
+            Response::DsnAppended {
+                request_id: 9,
+                result: Ok(Some(_))
+            }
+        ));
+        worker.shutdown();
+        let store = Store::open(&root).expect("reopen");
+        let messages = store.messages("alice").expect("messages");
+        assert_eq!(messages.len(), 1);
+        assert!(
+            messages
+                .first()
+                .expect("dsn message")
+                .bytes
+                .windows(b"Action: failed".len())
+                .any(|window| window == b"Action: failed")
+        );
         drop(store);
         std::fs::remove_dir_all(root).expect("cleanup");
     }
