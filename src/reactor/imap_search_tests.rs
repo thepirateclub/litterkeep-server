@@ -143,3 +143,25 @@ fn boolean_header_query_requests_header_parse() {
     )));
     assert!(requires_headers(&query));
 }
+
+#[test]
+fn matches_sent_date_without_falling_back_to_internal_date() {
+    let recent = std::collections::BTreeSet::new();
+    let value = message(b"Date: Mon, 2 Feb 2026 23:00:00 +0000\r\n\r\nbody");
+    let headers = crate::mime::header_block::parse(&value.bytes).expect("headers");
+    let boundary = crate::imap::search_date::SearchDate::parse("2-Feb-2026").expect("date");
+    assert!(matches_key(
+        &value,
+        &SearchKey::SentOn(boundary),
+        Some(&headers),
+        &position(&recent)
+    ));
+    let missing = message(b"Subject: no date\r\n\r\nbody");
+    let missing_headers = crate::mime::header_block::parse(&missing.bytes).expect("headers");
+    assert!(!matches_key(
+        &missing,
+        &SearchKey::SentSince(boundary),
+        Some(&missing_headers),
+        &position(&recent)
+    ));
+}

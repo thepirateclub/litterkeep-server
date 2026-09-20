@@ -90,6 +90,9 @@ fn matches_key(
         SearchKey::Before(date) => message_date(message) < *date,
         SearchKey::On(date) => message_date(message) == *date,
         SearchKey::Since(date) => message_date(message) >= *date,
+        SearchKey::SentBefore(date) => sent_date(headers).is_some_and(|sent| sent < *date),
+        SearchKey::SentOn(date) => sent_date(headers).is_some_and(|sent| sent == *date),
+        SearchKey::SentSince(date) => sent_date(headers).is_some_and(|sent| sent >= *date),
         SearchKey::Not(item) => !matches_key(message, item, headers, position),
         SearchKey::Or(left, right) => match matches_key(message, left, headers, position) {
             true => true,
@@ -103,6 +106,15 @@ fn matches_key(
 
 fn message_date(message: &crate::store::Message) -> crate::imap::search_date::SearchDate {
     crate::imap::search_date::SearchDate::from_mail_date(message.internal_date)
+}
+
+fn sent_date(headers: Option<&HeaderBlock>) -> Option<crate::imap::search_date::SearchDate> {
+    let headers = headers?;
+    headers
+        .fields
+        .iter()
+        .find(|field| field.kind() == HeaderName::Date)
+        .and_then(|field| crate::imap::sent_date::parse(&field.value))
 }
 
 fn header_matches(headers: Option<&HeaderBlock>, selector: &HeaderSelector, needle: &str) -> bool {
@@ -138,7 +150,11 @@ fn body_matches(
 
 fn requires_headers(key: &SearchKey) -> bool {
     match key {
-        SearchKey::Header(..) | SearchKey::Body(_) => true,
+        SearchKey::Header(..)
+        | SearchKey::Body(_)
+        | SearchKey::SentBefore(_)
+        | SearchKey::SentOn(_)
+        | SearchKey::SentSince(_) => true,
         SearchKey::And(keys) => keys.iter().any(requires_headers),
         SearchKey::Not(item) => requires_headers(item),
         SearchKey::Or(left, right) => match requires_headers(left) {

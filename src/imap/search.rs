@@ -32,6 +32,9 @@ pub enum SearchKey {
     Before(super::search_date::SearchDate),
     On(super::search_date::SearchDate),
     Since(super::search_date::SearchDate),
+    SentBefore(super::search_date::SearchDate),
+    SentOn(super::search_date::SearchDate),
+    SentSince(super::search_date::SearchDate),
     Not(Box<SearchKey>),
     Or(Box<SearchKey>, Box<SearchKey>),
     /// Последовательные criteria в SEARCH имеют семантику логического AND.
@@ -113,6 +116,9 @@ fn parse_one(tokens: &mut VecDeque<Token>) -> Option<SearchKey> {
         "BEFORE" => date(tokens).map(SearchKey::Before),
         "ON" => date(tokens).map(SearchKey::On),
         "SINCE" => date(tokens).map(SearchKey::Since),
+        "SENTBEFORE" => date(tokens).map(SearchKey::SentBefore),
+        "SENTON" => date(tokens).map(SearchKey::SentOn),
+        "SENTSINCE" => date(tokens).map(SearchKey::SentSince),
         "NOT" => parse_one(tokens).map(Box::new).map(SearchKey::Not),
         "OR" => {
             let left = parse_one(tokens)?;
@@ -199,9 +205,11 @@ mod tests {
 
     #[test]
     fn parses_dates_boolean_operators_and_groups() {
-        let command =
-            imap::parse("a SEARCH SINCE 1-Feb-2026 OR SUBJECT one (NOT SEEN SMALLER 99)\r\n")
-                .command;
+        let command = imap::parse(
+            "a SEARCH SINCE 1-Feb-2026 SENTBEFORE 3-Feb-2026 SENTON 2-Feb-2026 \
+             SENTSINCE 1-Feb-2026 OR SUBJECT one (NOT SEEN SMALLER 99)\r\n",
+        )
+        .command;
         assert!(matches!(
             command,
             Command::Search {

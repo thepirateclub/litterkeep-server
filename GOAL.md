@@ -27,6 +27,24 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G06 sent-date SEARCH checkpoint
+
+- SEARCH AST, parser и evaluator поддерживают `SENTBEFORE`, `SENTON` и
+  `SENTSINCE`. Они сравнивают календарный UTC-день RFC 5322 `Date`, тогда как
+  `BEFORE`, `ON` и `SINCE` по-прежнему используют сохранённый INTERNALDATE.
+- Парсер отправленной даты вынесен в отдельный файл. Он принимает базовый RFC
+  5322 date-time с необязательным weekday, временем с секундами либо без них и
+  числовой timezone. Некорректная дата, obsolete named zone и отсутствие
+  `Date` не подменяются INTERNALDATE и не дают ложного совпадения.
+- Header block по-прежнему разбирается не более одного раза на сообщение даже
+  при boolean-композиции sent-date, header и body criteria.
+- PASS: Windows 176 tests, strict Clippy и format. Docker Rust 1.97 strict Linux
+  Clippy и 206 tests прошли в image
+  `litterkeep-server:g06-search-sent-date`.
+- G06 остаётся RUNNING: полный обязательный сетевой
+  SEARCH/concurrent/reconnect matrix ещё не завершён; расширения за пределами
+  заявленного профиля продолжают получать BAD.
+
 ### 2026-09-20: G06 sequence-set SEARCH checkpoint
 
 - SEARCH принимает самостоятельный message sequence-set и отдельный
