@@ -37,7 +37,7 @@ impl LocalRoute {
     /// Локальные тестовые домены первого профиля без DNS и MX discovery.
     fn parse(domain: &str) -> Self {
         match domain {
-            "test" | "litterkeep.test" => Self::Accepted,
+            "test" | "litterkeep.test" | "peer.test" => Self::Accepted,
             _ => Self::Rejected,
         }
     }

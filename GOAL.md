@@ -240,6 +240,21 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   format, `git diff --check` и Linux Docker release build. G09 остаётся RUNNING:
   независимый SMTP peer queue-drain ещё не выполнен.
 
+### 2026-09-20: G09 Linux queue drain peer acceptance
+
+- Независимый `queue_redirect_seed.py` по ManageSieve STARTTLS загрузил
+  `redirect "remote@peer.test"` и отправил SMTP письмо source instance. После
+  остановки source writer `queue-drain /data peer:2526 1` в отдельном Linux
+  container выдал `delivered=1 deferred=0 permanent_failures=0`. Независимый
+  Python `imaplib` container прочёл `queue redirect peer` из peer `remote`
+  mailbox. Route policy теперь принимает documented peer domain `peer.test`.
+- PASS: Windows `cargo test --all-targets --locked` (128 tests), strict Clippy,
+  format, Linux Docker release build и два listener/container peer scenario.
+  Все state data только в bind mounts `./data/g09-peer-source` и
+  `./data/g09-peer-dest`; тестовые контейнеры остановлены. G09 остаётся
+  RUNNING: отсутствуют automatic service drain, retry schedule/TTL, TLS peer
+  transport и connection pool reuse/cancellation acceptance.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.
