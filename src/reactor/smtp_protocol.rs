@@ -43,12 +43,12 @@ pub(super) fn smtp_line(
 fn ehlo(session: &mut Session) -> io::Result<()> {
     match (session.tls.is_some(), session.can_starttls()) {
         (true, _) => {
-            session.push(b"250-litterkeep.test\r\n250-AUTH PLAIN\r\n250 SIZE 10485760\r\n")
+            session.push(b"250-litterkeep.test\r\n250-AUTH PLAIN\r\n250 SIZE 26214400\r\n")
         }
         (false, true) => {
-            session.push(b"250-litterkeep.test\r\n250-STARTTLS\r\n250 SIZE 10485760\r\n")
+            session.push(b"250-litterkeep.test\r\n250-STARTTLS\r\n250 SIZE 26214400\r\n")
         }
-        (false, false) => session.push(b"250-litterkeep.test\r\n250 SIZE 10485760\r\n"),
+        (false, false) => session.push(b"250-litterkeep.test\r\n250 SIZE 26214400\r\n"),
     }
 }
 

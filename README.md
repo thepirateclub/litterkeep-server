@@ -142,9 +142,11 @@ The certificate must be trusted by the client and contain the listener host in
 its SAN. Test-only material can be generated with
 `cargo run --locked --example make_test_pki -- ./test-pki`.
 
-The current immutable-message blob budget is 25 MiB per data directory. The
-single storage writer reconstructs actual usage at startup and rejects a new
-message before creating its temporary blob when the budget would be exceeded.
+The full SMTP DATA and IMAP response limit is 25 MiB, so a binary 10 MiB
+attachment still fits after MIME base64 encoding. The current immutable-message
+blob budget is also 25 MiB per data directory. The single storage writer
+reconstructs actual usage at startup and rejects a new message before creating
+its temporary blob when the budget would be exceeded.
 The current on-disk marker is `litterkeep-store-v2`. There is no automatic
 migration from earlier development formats; an unknown or unversioned data
 directory with mail data is rejected.
@@ -155,9 +157,10 @@ against the Linux Docker execution image on 2026-09-19 and compared the decoded
 attachment bytes. Docker is a test environment only, not a required part of
 litterkeep-server.
 
-Linux checks reuse bind-mounted stage directories under `./data`; for example,
-the subscriptions checkpoint uses `./data/g06-subscriptions-status`. The shared
-test PKI is kept in `./data/pki`. These local artifacts are ignored by Git and
+Linux checks keep stage artifacts under `./data`; when Docker Desktop bind I/O
+is unavailable, the same stage uses container-local `/data` and records that
+limitation explicitly. The shared test PKI is kept in `./data/pki`. These local
+artifacts are ignored by Git and
 excluded from the Docker build context.
 
 IMAP IDLE output is bounded per connection. If an individual subscriber stops

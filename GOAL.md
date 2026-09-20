@@ -27,6 +27,28 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G10 exact 10 MiB attachment and TLS streaming checkpoint
+
+- Аудит до теста обнаружил, что прежний лимит всего MIME-сообщения 10 MiB не
+  мог вместить 10 MiB binary attachment после base64. Full-message limit и
+  рекламируемый SMTP SIZE увеличены до разрешённых ТЗ 25 MiB.
+- Реальный тест выявил два независимых TLS backpressure-дефекта. Input терял
+  непринятый хвост большого record, потому что игнорировал partial `read_tls`;
+  теперь каждый record проходит цикл read/process/drain с bounded 64 KiB.
+  Output пытался одним `write_all` заполнить bounded rustls buffer; теперь
+  plaintext передаётся частями и остаток остаётся у session до `POLLOUT`.
+- Независимый `smtplib` через STARTTLS/AUTH отправил точное вложение 10 485 760
+  байт. Полный MIME имел 14 349 525 байт. `imaplib` через STARTTLS скачал RFC822,
+  стандартный Python MIME parser декодировал вложение, размер совпал, SHA-256:
+  `aecf3c2ab8aca74852bca07b54136cecb3fdafdc35540068ed952c0b89538e0d`.
+- После передачи control socket показал нулевой lifecycle baseline; процесс
+  сохранил 2 потока. Сырые значения находятся в локальном
+  `data/g10-large-attachment/measurements.txt`; runtime data были container-local.
+- PASS gate: Windows 179 tests и strict Clippy; Docker Rust 1.97 strict Linux
+  Clippy и 209 tests прошли в image `litterkeep-server:g10-large-test`.
+- G10 остаётся RUNNING до deadline/cancel series и потери финального SMTP-ответа
+  после durable commit.
+
 ### 2026-09-20: G10 simultaneous IMAP IDLE plateau checkpoint
 
 - Независимый raw socket client открыл 32 одновременные IMAP-сессии, для каждой

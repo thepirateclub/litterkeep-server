@@ -69,8 +69,8 @@ fn prepare_wire_output(session: &mut Session) -> io::Result<()> {
         return Ok(());
     };
     if let (false, false) = (tls.is_handshaking(), session.output.is_empty()) {
-        tls.queue_plaintext(&session.output)?;
-        session.output.clear();
+        let accepted = tls.queue_plaintext(&session.output)?;
+        session.output.drain(..accepted);
     }
     let encrypted = tls.take_encrypted()?;
     let next_size = session.wire_output.len().saturating_add(encrypted.len());

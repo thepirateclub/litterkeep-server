@@ -9,10 +9,10 @@ use std::{
     sync::Arc,
 };
 
-/// Максимальный объём plaintext, который один шаг может выдать protocol FSM.
-const MAX_PLAINTEXT_STEP: usize = 16 * 1024;
-/// Верхняя граница накопления неполных TLS records одной сессии.
-const MAX_ENCRYPTED_INPUT: usize = 64 * 1024;
+/// Верхняя граница одного encrypted шага, передаваемого rustls.
+const MAX_ENCRYPTED_STEP: usize = 64 * 1024;
+/// Размер короткого чтения из уже обработанных rustls records.
+const PLAINTEXT_READ_BLOCK: usize = 16 * 1024;
 
 /// Состояние TLS одного принадлежащего reactor-у клиентского соединения.
 pub struct ServerTls {
@@ -36,33 +36,54 @@ impl ServerTls {
     /// который обязан закрыть сессию и не выдавать ее ресурс повторно.
     pub fn receive(&mut self, encrypted: &[u8]) -> io::Result<Vec<u8>> {
         self.encrypted_input.extend_from_slice(encrypted);
-        if self.encrypted_input.len() > MAX_ENCRYPTED_INPUT {
+        if self.encrypted_input.len() > MAX_ENCRYPTED_STEP {
             return Err(io::Error::other("TLS input limit"));
         }
+        let mut plaintext = Vec::new();
         while let Some(length) = complete_record_length(&self.encrypted_input) {
             let record: Vec<u8> = self.encrypted_input.drain(..length).collect();
-            self.connection.read_tls(&mut record.as_slice())?;
-            self.connection
-                .process_new_packets()
-                .map_err(io::Error::other)?;
-        }
-        let mut plaintext = Vec::new();
-        let mut reader = self.connection.reader();
-        match reader
-            .by_ref()
-            .take(MAX_PLAINTEXT_STEP as u64)
-            .read_to_end(&mut plaintext)
-        {
-            Ok(_) => {}
-            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
-            Err(error) => return Err(error),
+            let mut source = record.as_slice();
+            while !source.is_empty() {
+                let consumed = self.connection.read_tls(&mut source)?;
+                self.connection
+                    .process_new_packets()
+                    .map_err(io::Error::other)?;
+                self.drain_plaintext(&mut plaintext)?;
+                if consumed == 0 {
+                    return Err(io::Error::other("rustls did not consume TLS record"));
+                }
+            }
         }
         Ok(plaintext)
     }
 
-    /// Добавляет plaintext protocol-ответ в TLS writer после завершения handshake.
-    pub fn queue_plaintext(&mut self, plaintext: &[u8]) -> io::Result<()> {
-        self.connection.writer().write_all(plaintext)
+    /// Забирает доступный plaintext после каждого шага deframer-а rustls.
+    fn drain_plaintext(&mut self, plaintext: &mut Vec<u8>) -> io::Result<()> {
+        let mut block = [0_u8; PLAINTEXT_READ_BLOCK];
+        let mut reader = self.connection.reader();
+        loop {
+            match reader.read(&mut block) {
+                Ok(0) => break,
+                Ok(count) => {
+                    let next = plaintext.len().saturating_add(count);
+                    if next > MAX_ENCRYPTED_STEP {
+                        return Err(io::Error::other("TLS plaintext step limit"));
+                    }
+                    let Some(received) = block.get(..count) else {
+                        return Err(io::Error::other("invalid TLS plaintext length"));
+                    };
+                    plaintext.extend_from_slice(received);
+                }
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => break,
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(())
+    }
+
+    /// Передаёт в bounded rustls buffer только принятую им часть plaintext.
+    pub fn queue_plaintext(&mut self, plaintext: &[u8]) -> io::Result<usize> {
+        self.connection.writer().write(plaintext)
     }
 
     /// Сообщает, завершён ли handshake и допустим ли protocol plaintext.
@@ -91,7 +112,7 @@ impl ServerTls {
     }
 }
 
-/// Возвращает длину полного TLS record или `None`, пока заголовок либо тело малы.
+/// Возвращает длину полного TLS record, сохраняя неполный хвост для POLLIN.
 fn complete_record_length(bytes: &[u8]) -> Option<usize> {
     let header = bytes.get(..5)?;
     let high = *header.get(3)?;

@@ -122,11 +122,11 @@ use protocol::process_input;
 use reactor_control::service_control;
 use session::{Session, SmtpState};
 use session_io::{flush, read_session};
-
 type SessionLease = ResourceLease<Session>;
 const MAX_SESSIONS: usize = 256;
 const MAX_INPUT: usize = 1024 * 1024;
-const MAX_MESSAGE: usize = 10 * 1024 * 1024;
+// Полное MIME-сообщение учитывает base64 overhead 10 MiB-вложения.
+const MAX_MESSAGE: usize = 25 * 1024 * 1024;
 const MAX_OUTPUT: usize = MAX_MESSAGE + 16 * 1024;
 const ACCEPT_BUDGET: usize = 16;
 const READ_BUDGET: usize = 16 * 1024;
