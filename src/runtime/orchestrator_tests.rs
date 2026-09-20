@@ -86,4 +86,21 @@ fn cancellation_clears_wait_registration_before_safe_retirement() {
     assert_eq!(runtime.stats().wait_registrations, 0);
     assert!(runtime.retire_task(task));
     assert_eq!(runtime.task_count(), 0);
+    assert_eq!(runtime.stats().tracked_events, 0);
+}
+
+#[test]
+fn completion_churn_keeps_event_registry_at_baseline() {
+    let mut runtime = Orchestrator::<()>::new();
+    let task = runtime.spawn_task();
+    for request in 0..10_000 {
+        let event = Event::Completion(request);
+        let observed = runtime.event_version(event);
+        assert_eq!(runtime.park_on(task, event, observed), WakeResult::Parked);
+        runtime.signal(event);
+        assert!(runtime.retire_event(event));
+    }
+    assert_eq!(runtime.stats().tracked_events, 0);
+    assert_eq!(runtime.stats().wait_registrations, 0);
+    assert_eq!(runtime.stats().ready_queue_depth, 1);
 }

@@ -34,6 +34,7 @@ impl<T> Orchestrator<T> {
         for waiters in self.waiters.values_mut() {
             waiters.retain(|waiting| *waiting != task);
         }
+        self.retire_task_events(task);
         true
     }
 

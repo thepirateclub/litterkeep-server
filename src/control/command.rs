@@ -54,7 +54,7 @@ pub(super) fn response<T>(lifecycle: &mut Orchestrator<T>, request: Command) -> 
 fn stats<T>(lifecycle: &Orchestrator<T>) -> String {
     let value = lifecycle.stats();
     format!(
-        "STATS ready_tasks={} waiting_tasks={} cancelling_tasks={} completed_tasks={} failed_tasks={} available_resources={} leased_resources={} quarantined_resources={} closed_resources={} ready_queue_depth={} wait_registrations={}\n",
+        "STATS ready_tasks={} waiting_tasks={} cancelling_tasks={} completed_tasks={} failed_tasks={} available_resources={} leased_resources={} quarantined_resources={} closed_resources={} ready_queue_depth={} wait_registrations={} tracked_events={}\n",
         value.ready_tasks,
         value.waiting_tasks,
         value.cancelling_tasks,
@@ -66,6 +66,7 @@ fn stats<T>(lifecycle: &Orchestrator<T>) -> String {
         value.closed_resources,
         value.ready_queue_depth,
         value.wait_registrations,
+        value.tracked_events,
     )
 }
 

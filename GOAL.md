@@ -21,11 +21,33 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | G07 | G02 | POP3 backed by the shared store | PASS |
 | G08 | G02 | Sieve and ManageSieve delivery effect | PASS |
 | G09 | G04 | outbound SMTP, pool, retry/DSN | PASS |
-| G10 | G06,G07,G08,G09 | failure matrix, replay, resource plateaus | NOT RUN |
+| G10 | G06,G07,G08,G09 | failure matrix, replay, resource plateaus | RUNNING |
 | G11 | G10 | offline check/backup and repeatable seed | NOT RUN |
 | G12 | G11 | litterkeep and final acceptance report | NOT RUN |
 
 ## Checkpoints
+
+### 2026-09-20: G10 bounded event metadata plateau checkpoint
+
+- Аудит обнаружил фактический unbounded рост: каждый уникальный scheduler
+  `Completion(request_id)` оставался в `event_versions` после пробуждения.
+  При долгой работе это превращало registry в бесконечную историю завершений.
+- Event lifecycle вынесен в отдельный `runtime/event_control.rs`. Одноразовое
+  событие удаляется только после фактического signal, снятия wait registration
+  и перехода владельца в Ready/Cancelling. Сигнал без waiter сохраняет version,
+  поэтому защита от lost wake не ослаблена.
+- Retirement task дополнительно удаляет его Timer/Cancel metadata. Runtime
+  `Stats` и CLI теперь показывают `tracked_events`, поэтому плато наблюдаемо, а
+  не скрыто внутри HashMap.
+- Churn test выполнил 10 000 разных completion cycles для одного task и получил
+  `tracked_events=0`, `wait_registrations=0`, `ready_queue_depth=1`.
+- PASS checkpoint: Windows 177 tests и strict Clippy. Docker Rust 1.97 strict
+  Linux Clippy и 207 tests прошли в image
+  `litterkeep-server:g10-event-plateau`. Runtime image
+  `litterkeep-server:g10-runtime` через реальный control socket вернул baseline
+  `tracked_events=0`.
+- G10 остаётся RUNNING: требуется расширить storage failpoint/crash matrix и
+  выполнить сетевой churn plateau по live resources/buffers.
 
 ### 2026-09-20: G09 two-instance exchange and completion checkpoint
 

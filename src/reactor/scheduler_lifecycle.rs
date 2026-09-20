@@ -29,7 +29,10 @@ pub(super) fn wake(
 ) -> io::Result<()> {
     lifecycle.signal(event);
     match lifecycle.task_state(task) {
-        Some(TaskState::Ready | TaskState::Cancelling) => Ok(()),
+        Some(TaskState::Ready | TaskState::Cancelling) => {
+            lifecycle.retire_event(event);
+            Ok(())
+        }
         Some(_) => Err(io::Error::other(
             "scheduler wake produced invalid task state",
         )),

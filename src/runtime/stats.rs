@@ -14,4 +14,6 @@ pub struct Stats {
     pub closed_resources: usize,
     pub ready_queue_depth: usize,
     pub wait_registrations: usize,
+    /// Число version counters живых либо ещё не потреблённых событий.
+    pub tracked_events: usize,
 }

@@ -9,6 +9,7 @@ impl<T> Orchestrator<T> {
         let mut result = Stats {
             ready_queue_depth: self.ready.len(),
             wait_registrations: self.waiters.values().map(Vec::len).sum(),
+            tracked_events: self.event_versions.len(),
             ..Stats::default()
         };
         for task in self.tasks.values() {
