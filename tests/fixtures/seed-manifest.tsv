@@ -1,32 +1,32 @@
 fixture_id	owner	mailbox	delivery	recipient	mime_path	attachment_name	decoded_size	decoded_sha256
-seed-001-plain-en	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-002-russian	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-003-alternative	bob	INBOX	SMTP	bob@litterkeep.test	multipart/alternative,text/plain,text/html			
-seed-004-sent	alice	Sent	IMAP_APPEND	alice@litterkeep.test	text/plain			
-seed-005-draft	alice	Drafts	IMAP_APPEND	alice@litterkeep.test	text/plain			
-seed-006-emoji	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-007-reply	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-008-forward	bob	INBOX	SMTP	bob@litterkeep.test	multipart/mixed,message/rfc822,text/plain			
-seed-009-bcc	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-010-archive	alice	Archive	IMAP_APPEND	alice@litterkeep.test	text/plain			
-seed-011-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-012-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-013-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-014-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-015-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-016-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-017-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-018-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-019-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-020-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-021-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-022-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-023-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-024-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-025-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-026-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-027-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
-seed-028-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain			
+seed-001-plain-en	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-002-russian	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-003-alternative	bob	INBOX	SMTP	bob@litterkeep.test	multipart/alternative,text/plain,text/html	-	-	-
+seed-004-sent	alice	Sent	IMAP_APPEND	alice@litterkeep.test	text/plain	-	-	-
+seed-005-draft	alice	Drafts	IMAP_APPEND	alice@litterkeep.test	text/plain	-	-	-
+seed-006-emoji	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-007-reply	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-008-forward	bob	INBOX	SMTP	bob@litterkeep.test	multipart/mixed,message/rfc822,text/plain	-	-	-
+seed-009-bcc	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-010-archive	alice	Archive	IMAP_APPEND	alice@litterkeep.test	text/plain	-	-	-
+seed-011-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-012-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-013-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-014-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-015-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-016-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-017-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-018-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-019-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-020-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-021-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-022-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-023-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-024-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-025-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-026-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-027-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-028-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
 seed-029-text	bob	INBOX	SMTP	bob@litterkeep.test	multipart/mixed,2	note.txt	22	836024b08ad9882ab21a079818849046cf87684b763824d7595d09e51f6e7304
 seed-030-png	bob	INBOX	SMTP	bob@litterkeep.test	multipart/mixed,2	pixel.png	68	12f132ad3661433766f6cb7f233cce0a61a84577df58cf2f37bc56dc6dad89c5
 seed-031-binary	bob	INBOX	SMTP	bob@litterkeep.test	multipart/mixed,2	bytes.bin	5	ff5d8507b6a72bee2debce2c0054798deaccdc5d8a1b945b6280ce8aa9cba52e

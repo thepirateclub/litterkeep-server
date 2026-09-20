@@ -72,7 +72,7 @@ def fixture_message(client: imaplib.IMAP4_SSL, mailbox: str, fixture_id: str) ->
 
 
 def verify_attachments(raw: bytes, rows: list[dict[str, str]]) -> int:
-    expected = [row for row in rows if row["attachment_name"]]
+    expected = [row for row in rows if row["decoded_sha256"] != "-"]
     message = BytesParser(policy=policy.default).parsebytes(raw)
     actual = [part for part in message.walk() if part.get_content_disposition() == "attachment"]
     first_row = next(iter(rows))
