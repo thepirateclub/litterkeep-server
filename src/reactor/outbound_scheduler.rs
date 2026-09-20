@@ -1,6 +1,7 @@
 //! Долгоживущий владелец исходящей очереди внутри общего reactor-а.
 
-use super::{Response, scheduler_ids::SchedulerIds};
+use super::{Orchestrator, Response, Session, scheduler_ids::SchedulerIds, scheduler_lifecycle};
+use crate::runtime::{Event, TaskId};
 use crate::{
     dsn, outbound_policy,
     outbound_service_support::{now_epoch, submit},
@@ -20,6 +21,7 @@ const IDLE_SCAN: Duration = Duration::from_secs(1);
 pub(super) struct OutboundScheduler {
     outbound: WakingOutboundWorker,
     ids: SchedulerIds,
+    task: TaskId,
     phase: Phase,
 }
 
@@ -35,13 +37,19 @@ enum Phase {
 
 impl OutboundScheduler {
     /// Запускает bounded transport owner и сразу запрашивает готовую delivery.
-    pub(super) fn start(address: &str, storage: &WakingStorageWorker) -> io::Result<Self> {
+    pub(super) fn start(
+        address: &str,
+        storage: &WakingStorageWorker,
+        lifecycle: &mut Orchestrator<Session>,
+    ) -> io::Result<Self> {
+        let task = lifecycle.spawn_task();
         let mut scheduler = Self {
             outbound: WakingOutboundWorker::start(address, 1, 2)?,
             ids: SchedulerIds::new(),
+            task,
             phase: Phase::Idle(Instant::now()),
         };
-        scheduler.request_due(storage)?;
+        scheduler.request_due(storage, lifecycle)?;
         Ok(scheduler)
     }
 
@@ -49,7 +57,6 @@ impl OutboundScheduler {
         self.outbound.wake_reader()
     }
 
-    /// Возвращает deadline только когда очередь сейчас пуста.
     pub(super) fn deadline(&self) -> Option<Instant> {
         match self.phase {
             Phase::Idle(deadline) => Some(deadline),
@@ -57,33 +64,45 @@ impl OutboundScheduler {
         }
     }
 
-    /// После timeout заново читает durable индекс, не создавая timer-thread.
-    pub(super) fn wake_due(&mut self, storage: &WakingStorageWorker) -> io::Result<()> {
+    pub(super) fn wake_due(
+        &mut self,
+        storage: &WakingStorageWorker,
+        lifecycle: &mut Orchestrator<Session>,
+    ) -> io::Result<()> {
         match self.phase {
-            Phase::Idle(deadline) if Instant::now() >= deadline => self.request_due(storage),
+            Phase::Idle(deadline) if Instant::now() >= deadline => {
+                scheduler_lifecycle::wake(lifecycle, self.task, Event::Timer(self.task))?;
+                self.request_due(storage, lifecycle)
+            }
             _ => Ok(()),
         }
     }
 
-    /// Принимает только completion с ID текущего владения scheduler-а.
     pub(super) fn storage_completed(
         &mut self,
         storage: &WakingStorageWorker,
         response: Response,
+        lifecycle: &mut Orchestrator<Session>,
     ) -> io::Result<()> {
         let response_id = super::completion_id::response_id(&response);
         match self.expected_storage_id() {
             Some(expected) if expected == response_id => {}
             _ => return Err(io::Error::other("unowned scheduler storage completion")),
         }
-        self.phase = self.next_storage_phase(storage, response)?;
+        scheduler_lifecycle::wake(lifecycle, self.task, Event::Completion(response_id))?;
+        self.phase = self.next_storage_phase(storage, response, lifecycle)?;
         Ok(())
     }
 
     /// Вычитывает authoritative completion channel после coalesced wakeup.
-    pub(super) fn transport_completed(&mut self, storage: &WakingStorageWorker) -> io::Result<()> {
+    pub(super) fn transport_completed(
+        &mut self,
+        storage: &WakingStorageWorker,
+        lifecycle: &mut Orchestrator<Session>,
+    ) -> io::Result<()> {
         self.outbound.drain_wakeup()?;
         while let Ok(completion) = self.outbound.worker.try_completion() {
+            scheduler_lifecycle::wake(lifecycle, self.task, Event::Completion(completion.id))?;
             let phase = std::mem::replace(&mut self.phase, Phase::Idle(Instant::now()));
             self.phase = match phase {
                 Phase::Transport(job_id, mut delivery, bytes) if job_id == completion.id => {
@@ -93,7 +112,7 @@ impl OutboundScheduler {
                     delivery.state = state;
                     delivery.next_attempt_epoch =
                         outbound_policy::next_attempt_epoch(state, delivery.attempts, now_epoch()?);
-                    let id = self.submit_transition(storage, &delivery, state)?;
+                    let id = self.submit_transition(storage, &delivery, state, lifecycle)?;
                     Phase::Finalize(id, delivery, bytes, failure)
                 }
                 _ => return Err(io::Error::other("unowned outbound completion")),
@@ -106,6 +125,7 @@ impl OutboundScheduler {
         &mut self,
         storage: &WakingStorageWorker,
         response: Response,
+        lifecycle: &mut Orchestrator<Session>,
     ) -> io::Result<Phase> {
         let phase = std::mem::replace(&mut self.phase, Phase::Idle(Instant::now()));
         match (phase, response) {
@@ -117,6 +137,7 @@ impl OutboundScheduler {
                 },
             ) => {
                 let Some(delivery) = jobs.pop() else {
+                    scheduler_lifecycle::wait(lifecycle, self.task, Event::Timer(self.task))?;
                     return Ok(Phase::Idle(Instant::now() + IDLE_SCAN));
                 };
                 let id = self.take_id()?;
@@ -127,6 +148,7 @@ impl OutboundScheduler {
                         delivery: delivery.clone(),
                     },
                 )?;
+                scheduler_lifecycle::wait(lifecycle, self.task, Event::Completion(id))?;
                 Ok(Phase::Blob(id, delivery))
             }
             (
@@ -140,7 +162,7 @@ impl OutboundScheduler {
                     .checked_add(1)
                     .ok_or_else(|| io::Error::other("outbound attempts exhausted"))?;
                 delivery.state = State::InFlight;
-                let id = self.submit_transition(storage, &delivery, State::InFlight)?;
+                let id = self.submit_transition(storage, &delivery, State::InFlight, lifecycle)?;
                 Ok(Phase::Start(id, delivery, bytes))
             }
             (
@@ -159,6 +181,7 @@ impl OutboundScheduler {
                     .map_err(|_| {
                         io::Error::new(io::ErrorKind::WouldBlock, "outbound worker is full")
                     })?;
+                scheduler_lifecycle::wait(lifecycle, self.task, Event::Completion(job_id))?;
                 Ok(Phase::Transport(job_id, delivery, bytes))
             }
             (
@@ -177,6 +200,7 @@ impl OutboundScheduler {
                         failure,
                     },
                 )?;
+                scheduler_lifecycle::wait(lifecycle, self.task, Event::Completion(id))?;
                 Ok(Phase::Dsn(id))
             }
             (
@@ -184,7 +208,7 @@ impl OutboundScheduler {
                 Response::OutboundTransitioned { result: Ok(()), .. },
             )
             | (Phase::Dsn(_), Response::DsnAppended { result: Ok(_), .. }) => {
-                self.request_due(storage)?;
+                self.request_due(storage, lifecycle)?;
                 Ok(std::mem::replace(
                     &mut self.phase,
                     Phase::Idle(Instant::now()),
@@ -229,7 +253,11 @@ impl OutboundScheduler {
         }
     }
 
-    fn request_due(&mut self, storage: &WakingStorageWorker) -> io::Result<()> {
+    fn request_due(
+        &mut self,
+        storage: &WakingStorageWorker,
+        lifecycle: &mut Orchestrator<Session>,
+    ) -> io::Result<()> {
         let id = self.take_id()?;
         submit(
             storage,
@@ -239,6 +267,7 @@ impl OutboundScheduler {
                 limit: 1,
             },
         )?;
+        scheduler_lifecycle::wait(lifecycle, self.task, Event::Completion(id))?;
         self.phase = Phase::Due(id);
         Ok(())
     }
@@ -248,6 +277,7 @@ impl OutboundScheduler {
         storage: &WakingStorageWorker,
         delivery: &OwnedDelivery,
         state: State,
+        lifecycle: &mut Orchestrator<Session>,
     ) -> io::Result<u64> {
         let id = self.take_id()?;
         submit(
@@ -258,6 +288,7 @@ impl OutboundScheduler {
                 state,
             },
         )?;
+        scheduler_lifecycle::wait(lifecycle, self.task, Event::Completion(id))?;
         Ok(id)
     }
 

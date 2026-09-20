@@ -1,6 +1,6 @@
 //! Linux integration test постоянного scheduler-а с настоящим SMTP peer.
 
-use super::outbound_scheduler::OutboundScheduler;
+use super::{Orchestrator, Session, outbound_scheduler::OutboundScheduler};
 use crate::{platform::linux_poll, storage_worker::WakingStorageWorker, store::Store};
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
@@ -29,8 +29,11 @@ fn scheduler_drains_without_explicit_queue_command() {
     let address = listener.local_addr().expect("address");
     let peer = thread::spawn(move || serve_one(listener));
     let mut storage = WakingStorageWorker::start(&path, 8).expect("storage");
-    let mut scheduler =
-        OutboundScheduler::start(&address.to_string(), &storage).expect("scheduler");
+    let mut lifecycle: Orchestrator<Session> = Orchestrator::new();
+    let mut scheduler = OutboundScheduler::start(&address.to_string(), &storage, &mut lifecycle)
+        .expect("scheduler");
+    assert_eq!(lifecycle.stats().waiting_tasks, 1);
+    assert_eq!(lifecycle.stats().wait_registrations, 1);
     let deadline = Instant::now() + Duration::from_secs(5);
 
     loop {
@@ -48,18 +51,20 @@ fn scheduler_drains_without_explicit_queue_command() {
                     storage.drain_wakeup().expect("storage wake");
                     while let Ok(response) = storage.worker.try_response() {
                         scheduler
-                            .storage_completed(&storage, response)
+                            .storage_completed(&storage, response, &mut lifecycle)
                             .expect("storage completion");
                     }
                 }
                 (1, true) => scheduler
-                    .transport_completed(&storage)
+                    .transport_completed(&storage, &mut lifecycle)
                     .expect("transport completion"),
                 (_, false) => {}
                 _ => panic!("unknown poll target"),
             }
         }
-        scheduler.wake_due(&storage).expect("deadline");
+        scheduler
+            .wake_due(&storage, &mut lifecycle)
+            .expect("deadline");
         if let (true, true) = (scheduler.deadline().is_some(), peer.is_finished()) {
             break;
         }
@@ -67,6 +72,8 @@ fn scheduler_drains_without_explicit_queue_command() {
     }
 
     peer.join().expect("peer");
+    assert_eq!(lifecycle.stats().waiting_tasks, 1);
+    assert_eq!(lifecycle.stats().ready_queue_depth, 0);
     drop(scheduler);
     storage.shutdown();
     let store = Store::open(&path).expect("reopen");

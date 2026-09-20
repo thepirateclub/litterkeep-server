@@ -63,6 +63,7 @@ pub enum Event {
     SocketWritable(u64),
     MailboxRevision(u64),
     Completion(u64),
+    Timer(TaskId),
     Cancel(TaskId),
 }
 

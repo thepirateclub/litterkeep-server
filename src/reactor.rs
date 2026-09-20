@@ -59,6 +59,8 @@ mod imap_starttls;
 mod imap_status;
 #[path = "reactor/imap_subscriptions.rs"]
 mod imap_subscriptions;
+#[path = "reactor/listener.rs"]
+mod listener;
 #[path = "reactor/maildrop_lease.rs"]
 mod maildrop_lease;
 #[path = "reactor/managesieve_completion.rs"]
@@ -86,6 +88,8 @@ mod protocol;
 mod reactor_control;
 #[path = "reactor/scheduler_ids.rs"]
 mod scheduler_ids;
+#[path = "reactor/scheduler_lifecycle.rs"]
+mod scheduler_lifecycle;
 #[path = "reactor/server_loop.rs"]
 mod server_loop;
 #[path = "reactor/session.rs"]

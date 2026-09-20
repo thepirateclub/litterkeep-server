@@ -49,7 +49,9 @@ terminal durable state, and publishes a local DSN after a permanent failure.
 The source server must be stopped first because the Store intentionally permits
 only one writer. This is an explicit bounded drain. Normal service delivery
 uses `serve-all-mail-outbound-starttls`, whose scheduler shares the Store owner
-and reactor wakeup routing with the incoming protocols.
+and reactor wakeup routing with the incoming protocols. Every Store request,
+transport job and idle timer is represented by a real versioned wait in the
+shared lifecycle orchestrator and is visible through `runtime tasks`/`stats`.
 
 ```sh
 litterkeep-server serve-all-mail-outbound-starttls \

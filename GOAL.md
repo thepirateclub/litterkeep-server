@@ -27,6 +27,25 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G09 scheduler lifecycle ownership checkpoint
+
+- Постоянный outbound scheduler теперь создаёт реальную task запись в общем
+  `Orchestrator<Session>`, а не только пишет логи или держит локальный enum.
+- Каждая Store и SMTP transport операция паркует task на собственном
+  `Event::Completion(request_id)`. Completion сначала выполняет versioned
+  `signal`, проверяет переход task в `Ready`, затем следующая фаза снова
+  регистрирует ожидание. Пустая очередь использует отдельный typed
+  `Event::Timer(TaskId)` и пробуждается общим poll deadline.
+- Linux integration test после запуска и после полной доставки проверяет
+  `waiting_tasks=1`, `wait_registrations=1` и `ready_queue_depth=0`. Тот же тест
+  подтверждает реальную SMTP-транзакцию и отсутствие pending job после reopen.
+- Listener binding/регистрация вынесены в отдельный файл одной ответственности;
+  все Rust/Python файлы остаются не длиннее 300 строк, `mod.rs` отсутствует.
+- PASS: Windows 149 tests, strict Clippy и format; Docker Rust 1.97 strict Linux
+  Clippy и 163 tests в image `litterkeep-server:lifecycle-gate-2`.
+- G09 остаётся RUNNING: lifecycle task пока нельзя отменить через control API,
+  а завершение process всё ещё не присоединяет transport worker управляемо.
+
 ### 2026-09-20: G09 long-lived reactor scheduler checkpoint
 
 - `serve-all-mail-outbound-starttls` запускает один постоянный single-flight
