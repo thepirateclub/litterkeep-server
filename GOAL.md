@@ -121,6 +121,18 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   124 tests, strict Clippy и format. G08 остаётся RUNNING из-за redirect queue
   и replay/transaction integration.
 
+### 2026-09-20: G08 envelope sender handoff checkpoint
+
+- `AppendMany` теперь переносит SMTP `MAIL FROM` как отдельный
+  `envelope_sender` от reactor через bounded storage worker к Store. Значение
+  взято до `smtp_trace::prepend`, не выводится из MIME `From` и сохраняет
+  допустимый null reverse-path. Это готовит корректный sender для Sieve
+  redirect и исключает подмену envelope данными письма.
+- PASS: Windows `cargo test --all-targets --locked` (124 tests), strict Clippy,
+  format и `git diff --check`. G08 остаётся RUNNING: durable queue frame должен
+  войти в тот же Store transaction commit, затем требуются replay и SMTP peer
+  проверки redirect.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.

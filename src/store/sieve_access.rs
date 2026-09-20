@@ -61,7 +61,16 @@ impl Store {
     /// поэтому доставка не может увидеть частично заменённый script. Пока
     /// redirect не подключён к исходящей очереди, он является delivery error,
     /// а не незаметно потерянным внешним письмом.
-    pub fn deliver_sieve_many(&mut self, accounts: &[String], raw: &[u8]) -> io::Result<u64> {
+    pub fn deliver_sieve_many(
+        &mut self,
+        accounts: &[String],
+        envelope_sender: &str,
+        raw: &[u8],
+    ) -> io::Result<u64> {
+        // Redirect будет использовать только проверенный SMTP envelope sender.
+        // Пока очередь не введена, проверяем параметр здесь, чтобы граница
+        // контракта не позволила позднее незаметно перейти к MIME `From`.
+        let _ = envelope_sender;
         let headers = delivery_headers(raw);
         let mut mailboxes = Vec::new();
         for account in accounts {
@@ -139,10 +148,18 @@ mod tests {
             .activate_sieve_script("bob", Some("invoices"))
             .expect("activate");
         store
-            .deliver_sieve_many(&["bob".into()], b"Subject: [invoice] paid\r\n\r\nbody")
+            .deliver_sieve_many(
+                &["bob".into()],
+                "alice@litterkeep.test",
+                b"Subject: [invoice] paid\r\n\r\nbody",
+            )
             .expect("invoice");
         store
-            .deliver_sieve_many(&["bob".into()], b"Subject: ordinary\r\n\r\nbody")
+            .deliver_sieve_many(
+                &["bob".into()],
+                "alice@litterkeep.test",
+                b"Subject: ordinary\r\n\r\nbody",
+            )
             .expect("ordinary");
         assert_eq!(
             store

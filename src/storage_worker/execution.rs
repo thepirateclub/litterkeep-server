@@ -49,10 +49,11 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
         Request::AppendMany {
             request_id,
             mailboxes,
+            envelope_sender,
             bytes,
         } => Response::Appended {
             request_id,
-            result: append_many(store, accounts, mailboxes, &bytes),
+            result: append_many(store, accounts, mailboxes, &envelope_sender, &bytes),
         },
         Request::Read {
             request_id,
@@ -248,6 +249,7 @@ fn append_many(
     store: &mut Store,
     accounts: &Accounts,
     mailboxes: Vec<String>,
+    envelope_sender: &str,
     bytes: &[u8],
 ) -> io::Result<u64> {
     if mailboxes.is_empty() {
@@ -259,5 +261,5 @@ fn append_many(
             "unknown local recipient",
         ));
     }
-    store.deliver_sieve_many(&mailboxes, bytes)
+    store.deliver_sieve_many(&mailboxes, envelope_sender, bytes)
 }

@@ -237,6 +237,7 @@ fn data_line(
                 Request::AppendMany {
                     request_id: id,
                     mailboxes,
+                    envelope_sender: reverse_path,
                     bytes,
                 },
                 pending,

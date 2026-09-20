@@ -24,6 +24,8 @@ pub enum Request {
     AppendMany {
         request_id: u64,
         mailboxes: Vec<String>,
+        /// SMTP MAIL FROM до добавления trace-заголовков. Это не `From` MIME.
+        envelope_sender: String,
         bytes: Vec<u8>,
     },
     Read {
