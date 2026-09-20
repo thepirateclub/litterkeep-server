@@ -35,12 +35,28 @@ impl OutboundWorker {
         queue_capacity: usize,
         pool_capacity: usize,
     ) -> io::Result<Self> {
+        Self::start_with_notifier(address, queue_capacity, pool_capacity, || {})
+    }
+
+    /// Создаёт worker с коротким notifier-ом для внешнего event loop.
+    ///
+    /// Notifier не передаёт completion и не является его источником истины:
+    /// после spurious либо coalesced wake reactor читает bounded channel.
+    pub fn start_with_notifier<F>(
+        address: impl Into<String>,
+        queue_capacity: usize,
+        pool_capacity: usize,
+        notifier: F,
+    ) -> io::Result<Self>
+    where
+        F: FnMut() + Send + 'static,
+    {
         let pool = ConnectionPool::new(address, pool_capacity)?;
         let (jobs, incoming) = mpsc::sync_channel(queue_capacity);
         let (outgoing, completions) = mpsc::channel();
         let thread = thread::Builder::new()
             .name("litterkeep-outbound-smtp".into())
-            .spawn(move || run(pool, incoming, outgoing))?;
+            .spawn(move || run(pool, incoming, outgoing, notifier))?;
         Ok(Self {
             jobs,
             completions,
@@ -66,11 +82,19 @@ impl OutboundWorker {
 }
 
 /// Последовательно исполняет SMTP jobs, сохраняя pool owner в одном thread.
-fn run(mut pool: ConnectionPool, incoming: Receiver<Job>, outgoing: mpsc::Sender<Completion>) {
+fn run<F>(
+    mut pool: ConnectionPool,
+    incoming: Receiver<Job>,
+    outgoing: mpsc::Sender<Completion>,
+    mut notifier: F,
+) where
+    F: FnMut(),
+{
     for job in incoming {
         let result = pool.deliver(&job.sender, &job.recipient, &job.payload);
         if outgoing.send(Completion { id: job.id, result }).is_err() {
             return;
         }
+        notifier();
     }
 }

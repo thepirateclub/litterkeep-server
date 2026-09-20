@@ -407,6 +407,22 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   отсутствуют service wakeup, cancellation, TLS route keys и acceptance со
   сторонним MTA.
 
+### 2026-09-20: G09 outbound completion wakeup checkpoint
+
+- Linux `WakingOutboundWorker` создаёт Unix wake socket одновременно с
+  bounded transport worker-ом. После каждого completion поток пытается
+  записать только coalesced hint; authoritative result остаётся в channel.
+  Поэтому заполненный wake socket не теряет outcome, а reactor не опрашивает
+  transport в холостом цикле. Shutdown сначала присоединяет владельца pool.
+- PASS: Linux unit test через собственный `poll(2)` подтвердил readable wake
+  socket, вычитал hint и получил `Delivered` completion. Windows
+  `cargo test --all-targets --locked`: 147 tests, strict Clippy, format,
+  `git diff --check` и structural audit PASS. Docker Linux test stage: 155
+  tests.
+- G09 остаётся RUNNING: wakeup ещё не включён в server loop и не получает
+  durable jobs; сохраняются обязательные service scheduler, cancellation,
+  TLS route keys и независимый MTA acceptance.
+
 ### 2026-09-20: structural condition-rule compliance checkpoint
 
 - Устранены все найденные в `src` условия `if` с `&&` или `||`: ветвления

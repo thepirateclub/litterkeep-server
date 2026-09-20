@@ -24,6 +24,8 @@ pub mod outbound_queue;
 #[path = "outbound_tests.rs"]
 mod outbound_tests;
 pub mod outbound_tls;
+#[cfg(target_os = "linux")]
+pub mod outbound_wakeup;
 pub mod outbound_worker;
 #[cfg(test)]
 #[path = "outbound_worker_tests.rs"]

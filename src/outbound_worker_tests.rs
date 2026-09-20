@@ -84,3 +84,42 @@ fn line(reader: &mut BufReader<std::net::TcpStream>, prefix: &str) {
     reader.read_line(&mut value).expect("command");
     assert!(value.starts_with(prefix), "unexpected command: {value}");
 }
+
+#[cfg(target_os = "linux")]
+#[test]
+fn completion_wakes_linux_reactor_socket() {
+    use crate::{outbound_wakeup::WakingOutboundWorker, platform::linux_poll};
+    use std::os::fd::AsFd;
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+    let address = listener.local_addr().expect("address");
+    let peer = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept");
+        stream.write_all(b"220 peer ready\r\n").expect("greeting");
+        let mut reader = BufReader::new(stream.try_clone().expect("clone"));
+        line(&mut reader, "EHLO");
+        stream.write_all(b"250 peer\r\n").expect("ehlo");
+        transaction(&mut stream, &mut reader);
+    });
+    let mut worker = WakingOutboundWorker::start(address.to_string(), 1, 1).expect("worker");
+    worker.worker.submit(job(1, b"wake")).expect("job");
+    let ready = linux_poll::wait(
+        &[(
+            (worker.wake_reader().as_fd()),
+            linux_poll::Interest {
+                readable: true,
+                writable: false,
+            },
+        )],
+        1_000,
+    )
+    .expect("poll");
+    assert!(ready.first().is_some_and(|entry| entry.readable));
+    worker.drain_wakeup().expect("drain wake");
+    assert_eq!(
+        completion(&worker.worker).result.expect("delivery"),
+        DeliveryOutcome::Delivered
+    );
+    worker.shutdown();
+    peer.join().expect("peer");
+}
