@@ -5,10 +5,15 @@ pub(super) fn complete(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     next_request: &mut u64,
     maildrops: &mut MaildropLeases,
-) -> io::Result<()> {
+) -> io::Result<Vec<Response>> {
+    let mut unclaimed = Vec::new();
     while let Ok(response) = worker.worker.try_response() {
         let id = completion_id::response_id(&response);
         let Some((slot, generation, pending)) = owners.remove(&id) else {
+            // Scheduler и protocol session используют один Store owner. Ответ,
+            // не принадлежащий session, нельзя терять: caller маршрутизирует
+            // его typed владельцу в этом же reactor wake-cycle.
+            unclaimed.push(response);
             continue;
         };
         super::imap_idle::notify_completion(sessions, &pending, &response)?;
@@ -73,7 +78,7 @@ pub(super) fn complete(
         write_completion(session, pending, response)?;
         protocol::process_input(session, slot, generation, worker, owners, next_request)?;
     }
-    Ok(())
+    Ok(unclaimed)
 }
 fn write_completion(session: &mut Session, pending: Pending, response: Response) -> io::Result<()> {
     match (pending, response) {

@@ -207,7 +207,8 @@ fn dispatch(
         Target::ControlListener if ready.readable => control.accept(control_sessions),
         Target::WorkerWake if ready.readable => {
             worker.drain_wakeup()?;
-            complete(worker, sessions, owners, request, maildrops)?;
+            let unclaimed = complete(worker, sessions, owners, request, maildrops)?;
+            drop(unclaimed);
             retry_submissions(worker, sessions, owners)
         }
         Target::Session(slot, generation) => service_session(
