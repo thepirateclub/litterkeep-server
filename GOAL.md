@@ -230,6 +230,16 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   format и `git diff --check`; `main.rs` 292 lines. G09 остаётся RUNNING до
   независимой Linux SMTP peer проверки queue-drain и service integration.
 
+### 2026-09-20: G09 Linux outbound completion mapping checkpoint
+
+- Linux Docker release build обнаружил неполный cfg-gated `Response` mapping
+  reactor-а для новых outbound completions. `completion_id` теперь exhaustively
+  покрывает все variants без wildcard; образ `litterkeep-server:g09-queue-runtime`
+  собран из текущего исходного кода.
+- PASS: Windows `cargo test --all-targets --locked` (128 tests), strict Clippy,
+  format, `git diff --check` и Linux Docker release build. G09 остаётся RUNNING:
+  независимый SMTP peer queue-drain ещё не выполнен.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.

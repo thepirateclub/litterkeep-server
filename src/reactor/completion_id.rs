@@ -25,6 +25,9 @@ pub(super) fn response_id(response: &Response) -> u64 {
         | Response::SieveScripts { request_id, .. }
         | Response::SieveSource { request_id, .. }
         | Response::SieveMutated { request_id, .. }
-        | Response::SieveSpace { request_id, .. } => *request_id,
+        | Response::SieveSpace { request_id, .. }
+        | Response::OutboundPending { request_id, .. }
+        | Response::OutboundBlob { request_id, .. }
+        | Response::OutboundTransitioned { request_id, .. } => *request_id,
     }
 }
