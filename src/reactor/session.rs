@@ -24,6 +24,8 @@ pub(super) struct Session {
     pub(super) input: Vec<u8>,
     pub(super) output: Vec<u8>,
     pub(super) wire_output: Vec<u8>,
+    /// Причина локального завершения, не являющаяся ошибкой всего reactor-а.
+    pub(super) termination: Option<SessionTermination>,
     pub(super) tls: Option<ServerTls>,
     starttls_config: Option<Arc<ServerConfig>>,
     starttls_pending: bool,
@@ -77,6 +79,7 @@ impl Session {
             input: Vec::new(),
             output: Vec::new(),
             wire_output: Vec::new(),
+            termination: None,
             tls,
             starttls_config,
             starttls_pending: false,
@@ -130,7 +133,28 @@ impl Session {
         Ok(())
     }
 
+    /// Добавляет unsolicited IMAP-событие, не позволяя медленному подписчику
+    /// исчерпать память или завершить общий серверный цикл.
+    ///
+    /// При переполнении сессия теряет ещё не отправленные события и помечается
+    /// для закрытия единым путём освобождения lease. Клиент обязан выполнить
+    /// повторный SELECT после соединения, поэтому частичная sequence-проекция
+    /// не выдаётся за актуальную.
+    pub(super) fn push_notification(&mut self, bytes: &[u8]) {
+        let next_size = self.output.len().saturating_add(bytes.len());
+        if next_size <= MAX_OUTPUT {
+            self.output.extend_from_slice(bytes);
+            return;
+        }
+        self.output.clear();
+        self.wire_output.clear();
+        self.termination = Some(SessionTermination::NotificationOverflow);
+    }
+
     fn accepts_input(&self) -> bool {
+        if self.termination.is_some() {
+            return false;
+        }
         match (self.pending.is_some(), self.pending_submit.is_some()) {
             (true, _) | (_, true) => false,
             (false, false) => self.output.len() < MAX_OUTPUT,
@@ -224,3 +248,13 @@ impl Session {
         Ok(())
     }
 }
+
+/// Типизированная причина локального закрытия клиентского владельца.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum SessionTermination {
+    /// Отстающий IDLE-подписчик превысил жёсткую границу выходной очереди.
+    NotificationOverflow,
+}
+
+#[path = "session_termination.rs"]
+pub(super) mod termination;

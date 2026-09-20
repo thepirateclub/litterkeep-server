@@ -1,6 +1,7 @@
 //! Проверка межсессионной проекции атомарного MOVE на настоящих lease/socket.
 
 use super::super::*;
+use crate::reactor::session::SessionTermination;
 use crate::runtime::Orchestrator;
 
 #[test]
@@ -30,7 +31,7 @@ fn move_updates_source_and_destination_sessions_without_origin_duplicate() {
         result: Ok(vec![20]),
     };
 
-    imap_idle::notify_transfer(&mut sessions, 0, &pending, &response).expect("notify");
+    imap_idle::notify_transfer(&mut sessions, 0, &pending, &response);
 
     let origin = find(&mut sessions, "source-key", false);
     assert_eq!(origin.selected_exists, 2);
@@ -42,6 +43,41 @@ fn move_updates_source_and_destination_sessions_without_origin_duplicate() {
     assert_eq!(destination.selected_exists, 2);
     assert!(destination.selected_recent.contains(&20));
     assert_eq!(destination.output, b"* 2 EXISTS\r\n");
+}
+
+#[test]
+fn lagging_subscriber_is_retired_without_harming_healthy_watcher() {
+    let mut lifecycle = Orchestrator::new();
+    let (mut lagging, _lagging_peer) = leased_imap(&mut lifecycle, 11);
+    let (mut healthy, _healthy_peer) = leased_imap(&mut lifecycle, 12);
+    select(lagging.get_mut(), "shared-key", 1, true);
+    select(healthy.get_mut(), "shared-key", 1, true);
+    lagging.get_mut().output.resize(MAX_OUTPUT, b'x');
+    let mut sessions = vec![Some(lagging), Some(healthy)];
+
+    imap_idle::notify(&mut sessions, &[(String::from("shared-key"), 41)]);
+
+    let lagging = find_generation(&mut sessions, 11);
+    assert_eq!(
+        lagging.termination,
+        Some(SessionTermination::NotificationOverflow)
+    );
+    assert!(lagging.output.is_empty());
+    let healthy = find_generation(&mut sessions, 12);
+    assert_eq!(healthy.output, b"* 2 EXISTS\r\n");
+    assert!(healthy.selected_recent.contains(&41));
+
+    session::termination::close_terminated(
+        &mut sessions,
+        &mut lifecycle,
+        &mut MaildropLeases::default(),
+    )
+    .expect("controlled close");
+
+    assert_eq!(sessions.iter().filter(|entry| entry.is_some()).count(), 1);
+    assert_eq!(lifecycle.task_count(), 1);
+    assert_eq!(lifecycle.resource_count(), 1);
+    assert!(find_generation(&mut sessions, 12).termination.is_none());
 }
 
 /// Создаёт ресурс ровно тем же путём владения, что production accept loop.
@@ -89,4 +125,14 @@ fn find<'a>(
             )
         })
         .expect("selected session")
+}
+
+/// Находит владельца по generation без прямого обращения к индексу массива.
+fn find_generation(sessions: &mut [Option<SessionLease>], generation: u64) -> &mut Session {
+    sessions
+        .iter_mut()
+        .filter_map(Option::as_mut)
+        .map(ResourceLease::get_mut)
+        .find(|session| session.generation == generation)
+        .expect("session generation")
 }

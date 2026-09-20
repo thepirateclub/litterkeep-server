@@ -18,7 +18,7 @@ pub(super) fn complete(
             unclaimed.push(response);
             continue;
         };
-        super::imap_idle::notify_completion(sessions, &pending, &response)?;
+        super::imap_idle::notify_completion(sessions, &pending, &response);
         if !matches!(sessions.get(slot).and_then(Option::as_ref).map(|lease| lease.get().generation), Some(value) if value == generation)
         {
             continue;
@@ -63,9 +63,9 @@ pub(super) fn complete(
             );
             continue;
         }
-        super::imap_idle::notify_expunge(sessions, slot, &pending, &response)?;
-        super::imap_idle::notify_flags(sessions, slot, &pending, &response)?;
-        super::imap_idle::notify_transfer(sessions, slot, &pending, &response)?;
+        super::imap_idle::notify_expunge(sessions, slot, &pending, &response);
+        super::imap_idle::notify_flags(sessions, slot, &pending, &response);
+        super::imap_idle::notify_transfer(sessions, slot, &pending, &response);
         let Some(session) = sessions
             .get_mut(slot)
             .and_then(Option::as_mut)

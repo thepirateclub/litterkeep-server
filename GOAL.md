@@ -27,6 +27,24 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G06 isolated IMAP IDLE overflow checkpoint
+
+- Unsolicited IMAP notifications больше не возвращают общую reactor error при
+  переполнении bounded session output. Отстающий подписчик получает typed
+  `SessionTermination::NotificationOverflow`; его неотправленные буферы
+  очищаются, а lease закрывается единым путём lifecycle cleanup после dispatch.
+- Остальные selected/IDLE-сессии продолжают получать durable EXISTS, FLAGS,
+  EXPUNGE и COPY/MOVE projection. Отдельный Linux test заполняет очередь одного
+  подписчика до `MAX_OUTPUT`, проверяет корректный EXISTS у второго и доказывает
+  удаление только одного task/resource owner без утечки metadata.
+- PASS: Windows `cargo test` (167 tests), strict Clippy и format. Docker Rust
+  1.97 strict Linux Clippy и 189 tests прошли в image
+  `litterkeep-server:g06-idle-overflow-final`.
+- Docker Desktop file sharing перепроверен фактическим `alpine:3.22` bind mount
+  `H:/github/mail-server/data:/data`. Обращение к `/data` снова зависло, а
+  daemon не смог завершить контейнер в штатный срок. Поэтому сетевой black-box
+  сценарий не объявлен выполненным, G06 остаётся RUNNING.
+
 ### 2026-09-20: G08 redirect route and loop policy checkpoint
 
 - Общий `redirect_policy` разбирает mailbox в typed `Domain::PeerTest`,

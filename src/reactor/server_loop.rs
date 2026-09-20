@@ -161,7 +161,8 @@ fn step(
             maildrops,
         )?;
     }
-    session_cancel::close_cancelled(sessions, lifecycle, maildrops)
+    session_cancel::close_cancelled(sessions, lifecycle, maildrops)?;
+    session::termination::close_terminated(sessions, lifecycle, maildrops)
 }
 
 fn readable() -> Interest {

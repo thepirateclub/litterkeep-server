@@ -35,17 +35,17 @@ pub(super) fn notify_completion(
     sessions: &mut [Option<SessionLease>],
     pending: &Pending,
     response: &Response,
-) -> io::Result<()> {
+) {
     let Response::Appended {
         result: Ok(uid), ..
     } = response
     else {
-        return Ok(());
+        return;
     };
     let mut mailboxes = match pending {
         Pending::Append { mailboxes } => mailboxes.clone(),
         Pending::ImapAppend { mailbox, .. } => vec![mailbox.clone()],
-        _ => return Ok(()),
+        _ => return,
     };
     mailboxes.sort_unstable();
     mailboxes.dedup();
@@ -53,14 +53,11 @@ pub(super) fn notify_completion(
         .into_iter()
         .map(|mailbox| (mailbox, *uid))
         .collect::<Vec<_>>();
-    notify(sessions, &changes)
+    notify(sessions, &changes);
 }
 
 /// Увеличивает EXISTS только после подтверждённого durable append.
-pub(super) fn notify(
-    sessions: &mut [Option<SessionLease>],
-    changed_mailboxes: &[(String, u64)],
-) -> io::Result<()> {
+pub(super) fn notify(sessions: &mut [Option<SessionLease>], changed_mailboxes: &[(String, u64)]) {
     for entry in sessions.iter_mut() {
         let Some(lease) = entry else { continue };
         let session = lease.get_mut();
@@ -80,10 +77,10 @@ pub(super) fn notify(
         session.selected_exists = session.selected_exists.saturating_add(1);
         session.selected_recent.insert(*uid);
         if idle_matches {
-            session.push(format!("* {} EXISTS\r\n", session.selected_exists).as_bytes())?;
+            session
+                .push_notification(format!("* {} EXISTS\r\n", session.selected_exists).as_bytes());
         }
     }
-    Ok(())
 }
 
 /// Рассылает уже durable EXPUNGE другим selected IDLE-сессиям того же mailbox.
@@ -94,24 +91,24 @@ pub(super) fn notify_expunge(
     origin: usize,
     pending: &Pending,
     response: &Response,
-) -> io::Result<()> {
+) {
     let Pending::Expunge {
         mailbox,
         sequence_numbers,
         ..
     } = pending
     else {
-        return Ok(());
+        return;
     };
     let Response::Expunged {
         result: Ok(removed),
         ..
     } = response
     else {
-        return Ok(());
+        return;
     };
     if removed.len() != sequence_numbers.len() {
-        return Ok(());
+        return;
     }
     for (slot, entry) in sessions.iter_mut().enumerate() {
         if slot == origin {
@@ -127,10 +124,9 @@ pub(super) fn notify_expunge(
             continue;
         }
         for number in sequence_numbers {
-            session.push(format!("* {number} EXPUNGE\r\n").as_bytes())?;
+            session.push_notification(format!("* {number} EXPUNGE\r\n").as_bytes());
         }
     }
-    Ok(())
 }
 
 /// Рассылает durable FLAGS change другим IDLE-сессиям выбранной папки.
@@ -142,16 +138,16 @@ pub(super) fn notify_flags(
     origin: usize,
     pending: &Pending,
     response: &Response,
-) -> io::Result<()> {
+) {
     let Pending::WriteFlags { mailbox, uids, .. } = pending else {
-        return Ok(());
+        return;
     };
     let Response::FlagsUpdated {
         result: Ok(snapshot),
         ..
     } = response
     else {
-        return Ok(());
+        return;
     };
     let changed = uids
         .iter()
@@ -178,16 +174,15 @@ pub(super) fn notify_flags(
                 message.flags,
                 session.selected_recent.contains(&message.uid),
             );
-            session.push(
+            session.push_notification(
                 format!(
                     "* {sequence} FETCH (UID {} FLAGS ({flags}))\r\n",
                     message.uid
                 )
                 .as_bytes(),
-            )?;
+            );
         }
     }
-    Ok(())
 }
 
 /// Публикует результат атомарного COPY/MOVE во все затронутые проекции.
@@ -201,7 +196,7 @@ pub(super) fn notify_transfer(
     origin: usize,
     pending: &Pending,
     response: &Response,
-) -> io::Result<()> {
+) {
     let Pending::Copy {
         transfer,
         source,
@@ -211,7 +206,7 @@ pub(super) fn notify_transfer(
         ..
     } = pending
     else {
-        return Ok(());
+        return;
     };
     let destination_uids = match response {
         Response::Copied {
@@ -220,33 +215,28 @@ pub(super) fn notify_transfer(
         | Response::Moved {
             result: Ok(uids), ..
         } => uids,
-        _ => return Ok(()),
+        _ => return,
     };
     if source_uids.len() != destination_uids.len() {
-        return Ok(());
+        return;
     }
     for (slot, entry) in sessions.iter_mut().enumerate() {
         let Some(lease) = entry else { continue };
         let session = lease.get_mut();
-        notify_transfer_destination(session, destination, destination_uids)?;
+        notify_transfer_destination(session, destination, destination_uids);
         if slot == origin {
             continue;
         }
         if let imap::Transfer::Move = transfer {
-            notify_move_source(session, source, source_uids, source_sequences)?;
+            notify_move_source(session, source, source_uids, source_sequences);
         }
     }
-    Ok(())
 }
 
 /// Обновляет destination projection и выдаёт одно агрегированное EXISTS.
-fn notify_transfer_destination(
-    session: &mut Session,
-    destination: &str,
-    destination_uids: &[u64],
-) -> io::Result<()> {
+fn notify_transfer_destination(session: &mut Session, destination: &str, destination_uids: &[u64]) {
     if session.selected_mailbox.as_deref() != Some(destination) {
-        return Ok(());
+        return;
     }
     session.selected_exists = session
         .selected_exists
@@ -255,9 +245,8 @@ fn notify_transfer_destination(
         .selected_recent
         .extend(destination_uids.iter().copied());
     if session.imap_idle.is_some() {
-        session.push(format!("* {} EXISTS\r\n", session.selected_exists).as_bytes())?;
+        session.push_notification(format!("* {} EXISTS\r\n", session.selected_exists).as_bytes());
     }
-    Ok(())
 }
 
 /// Удаляет MOVE source из проекции и будит только реально ожидающий IDLE.
@@ -266,21 +255,20 @@ fn notify_move_source(
     source: &str,
     source_uids: &[u64],
     source_sequences: &[usize],
-) -> io::Result<()> {
+) {
     if session.selected_mailbox.as_deref() != Some(source) {
-        return Ok(());
+        return;
     }
     session.selected_exists = session.selected_exists.saturating_sub(source_uids.len());
     for uid in source_uids {
         session.selected_recent.remove(uid);
     }
     if session.imap_idle.is_none() {
-        return Ok(());
+        return;
     }
     for number in source_sequences {
-        session.push(format!("* {number} EXPUNGE\r\n").as_bytes())?;
+        session.push_notification(format!("* {number} EXPUNGE\r\n").as_bytes());
     }
-    Ok(())
 }
 
 #[cfg(test)]

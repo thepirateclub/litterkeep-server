@@ -160,6 +160,12 @@ the subscriptions checkpoint uses `./data/g06-subscriptions-status`. The shared
 test PKI is kept in `./data/pki`. These local artifacts are ignored by Git and
 excluded from the Docker build context.
 
+IMAP IDLE output is bounded per connection. If an individual subscriber stops
+reading and exceeds that bound, only its session lease is retired; the reactor
+and other mailbox subscribers continue from their own coherent projections.
+After reconnecting, that client must issue SELECT again to obtain a fresh
+sequence-number view.
+
 ## POP3 STARTTLS checkpoint
 
 ```sh
