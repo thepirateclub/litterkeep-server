@@ -5,6 +5,9 @@ pub use lease::ResourceLease;
 #[path = "model.rs"]
 mod model;
 pub use model::{AcquireError, Event, ResourceId, ResourceState, TaskId, TaskState, WakeResult};
+#[path = "stats.rs"]
+mod stats;
+pub use stats::Stats;
 #[cfg(test)]
 #[path = "orchestrator_tests.rs"]
 mod tests;
@@ -213,6 +216,34 @@ impl<T> Orchestrator<T> {
     #[must_use]
     pub fn task_count(&self) -> usize {
         self.tasks.len()
+    }
+
+    /// Возвращает bounded snapshot реальных lifecycle records без владения ими.
+    #[must_use]
+    pub fn stats(&self) -> Stats {
+        let mut result = Stats {
+            ready_queue_depth: self.ready.len(),
+            wait_registrations: self.waiters.values().map(Vec::len).sum(),
+            ..Stats::default()
+        };
+        for task in self.tasks.values() {
+            match task.state {
+                TaskState::Ready => result.ready_tasks += 1,
+                TaskState::Waiting { .. } => result.waiting_tasks += 1,
+                TaskState::Cancelling => result.cancelling_tasks += 1,
+                TaskState::Completed => result.completed_tasks += 1,
+                TaskState::Failed => result.failed_tasks += 1,
+            }
+        }
+        for resource in self.resources.values() {
+            match resource.state {
+                ResourceState::Available => result.available_resources += 1,
+                ResourceState::Leased => result.leased_resources += 1,
+                ResourceState::Quarantined => result.quarantined_resources += 1,
+                ResourceState::Closed => result.closed_resources += 1,
+            }
+        }
+        result
     }
 
     /// Atomic observe-and-register prevents a lost wake in the check/park gap.

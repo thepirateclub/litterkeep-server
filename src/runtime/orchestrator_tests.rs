@@ -38,6 +38,26 @@ fn timeout_cancel_does_not_release_live_lease() {
 }
 
 #[test]
+fn stats_count_real_leases_and_wait_registrations() {
+    let mut lifecycle = Orchestrator::new();
+    let task = lifecycle.spawn_task();
+    let resource = lifecycle.register_resource("socket");
+    let lease = lifecycle.acquire(task, resource).expect("lease");
+    let observed = lifecycle.event_version(Event::Completion(7));
+    assert_eq!(
+        lifecycle.park_on(task, Event::Completion(7), observed),
+        WakeResult::Parked
+    );
+    let stats = lifecycle.stats();
+    assert_eq!(stats.waiting_tasks, 1);
+    assert_eq!(stats.leased_resources, 1);
+    assert_eq!(stats.ready_queue_depth, 1);
+    assert_eq!(stats.wait_registrations, 1);
+    lifecycle.quarantine(lease).expect("quarantine");
+    assert_eq!(lifecycle.stats().quarantined_resources, 1);
+}
+
+#[test]
 fn close_drops_value_and_terminal_registry_records() {
     let mut runtime = Orchestrator::new();
     let task = runtime.spawn_task();

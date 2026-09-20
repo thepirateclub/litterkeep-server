@@ -472,6 +472,16 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   scheduler: G09 остаётся RUNNING до server-loop lifecycle, cancellation,
   TLS route keys и independent two-server acceptance.
 
+### 2026-09-20: G10 lifecycle snapshot foundation
+
+- `Orchestrator::stats` строит read-only snapshot только из актуальных task,
+  resource, ready queue и wait registrations. Snapshot не удерживает lease,
+  не пишет секреты и не создаёт историю terminal records. Unit test проверяет
+  leased/quarantined resource и parked task на настоящих lifecycle transitions.
+- PASS: Windows `cargo test --all-targets --locked` 149 tests, strict Clippy,
+  format и `git diff --check`. G10 остаётся NOT RUN: нет local control socket,
+  runtime CLI, plateau/failure matrix и Linux acceptance данного интерфейса.
+
 ### 2026-09-20: correction of scheduler contract structure
 
 - Первый commit scheduler contract временно увеличил `src/store/tests.rs` до
