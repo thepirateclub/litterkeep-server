@@ -47,18 +47,18 @@ pub fn run(config: &SeedConfig) -> io::Result<SeedReport> {
     smtp.authenticate(&config.account, &config.password)?;
     let mut created = 0_usize;
     let mut existing = 0_usize;
-    for item in fixture::initial() {
+    for item in fixture::all() {
         let imap = match item.owner {
             Owner::Alice => &mut alice_imap,
             Owner::Bob => &mut bob_imap,
         };
-        if imap.contains(item.mailbox.wire(), item.id)? {
+        if imap.contains(item.mailbox.wire(), &item.id)? {
             existing = checked_increment(existing)?;
             continue;
         }
         match item.delivery {
             Delivery::Smtp => {
-                match smtp.deliver("alice@litterkeep.test", item.recipient, item.message)? {
+                match smtp.deliver("alice@litterkeep.test", &item.recipient, &item.message)? {
                     DeliveryOutcome::Delivered => {}
                     DeliveryOutcome::Deferred => {
                         return Err(io::Error::other("seed SMTP deferred"));
@@ -69,10 +69,10 @@ pub fn run(config: &SeedConfig) -> io::Result<SeedReport> {
                 }
             }
             Delivery::ImapAppend => {
-                imap.append(item.mailbox.wire(), item.flags, item.message)?;
+                imap.append(item.mailbox.wire(), &item.flags, &item.message)?;
             }
         }
-        if !imap.contains(item.mailbox.wire(), item.id)? {
+        if !imap.contains(item.mailbox.wire(), &item.id)? {
             return Err(io::Error::other("seed fixture not visible after commit"));
         }
         created = checked_increment(created)?;

@@ -27,6 +27,28 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G11 full 35-message seed and independent manifest checkpoint
+
+- Seed расширен до 35 сообщений: русский/английский текст, emoji, ответы,
+  message/rfc822 forwarding, HTML/plain alternative, Bcc fixture, Sent, Drafts,
+  Archive, флаги и семь attachment-сценариев с восемью файлами.
+- Вложения включают TXT, валидный минимальный PNG, binary, пустой файл,
+  Unicode filename, два одинаковых имени и точный 10 MiB payload. MIME generator
+  разделён по предметным файлам и остаётся bounded полным лимитом сообщения.
+- На чистом Linux Store первый запуск дал `created=35 existing=0`, второй
+  `created=0 existing=35`. После полного process restart результат снова
+  `created=0 existing=35`.
+- Независимый Python `imaplib`/`email`/`hashlib` verifier скачал все сообщения и
+  подтвердил `fixtures=35 attachments=8` по TSV manifest. Отдельное ручное
+  письмо сохранилось после повторного seed и restart в единственном экземпляре.
+- Offline checker после наполнения: `message_links=35`, `referenced_blobs=35`,
+  `orphan_blobs=0`. Сырые результаты находятся в
+  `data/g11-full-seed-acceptance.txt` и `data/g11-full-seed-measurements.txt`.
+- PASS gate checkpoint-а: Windows 186 тестов и strict Clippy; Docker Rust 1.97
+  strict Linux Clippy и 216 тестов в `litterkeep-server:g11-full-seed-test`.
+- G11 остаётся RUNNING до multi-recipient fixture и явной итоговой проверки
+  существующих bounded journal/diagnostic contracts.
+
 ### 2026-09-20: G11 first five network seed fixtures checkpoint
 
 - Добавлена команда `seed`, которая читает пароли Alice и Bob из файлов, открывает

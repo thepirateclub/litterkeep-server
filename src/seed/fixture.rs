@@ -1,25 +1,22 @@
-//! Детерминированные MIME fixtures первого сетевого seed checkpoint-а.
+//! Типизированная модель и объединение детерминированных seed fixtures.
 
-/// Протокол, которым fixture должна попасть в целевую папку.
+#[path = "fixture_attachment.rs"]
+mod attachment;
+#[path = "fixture_basic.rs"]
+mod basic;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum Delivery {
     Smtp,
     ImapAppend,
 }
 
-/// Типизированная стандартная папка вместо строкового состояния seed-а.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum Mailbox {
     Inbox,
     Sent,
     Drafts,
-}
-
-/// Локальный account, которому принадлежит проверяемая папка.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum Owner {
-    Alice,
-    Bob,
+    Archive,
 }
 
 impl Mailbox {
@@ -28,68 +25,61 @@ impl Mailbox {
             Self::Inbox => "INBOX",
             Self::Sent => "Sent",
             Self::Drafts => "Drafts",
+            Self::Archive => "Archive",
         }
     }
 }
 
-/// Полностью воспроизводимое письмо с устойчивым seed identifier.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum Owner {
+    Alice,
+    Bob,
+}
+
 pub(super) struct Fixture {
-    pub id: &'static str,
-    pub recipient: &'static str,
+    pub id: String,
+    pub recipient: String,
     pub mailbox: Mailbox,
     pub owner: Owner,
     pub delivery: Delivery,
-    pub flags: &'static str,
-    pub message: &'static [u8],
+    pub flags: String,
+    pub message: Vec<u8>,
 }
 
-/// Первые пять fixtures покрывают SMTP, APPEND, Unicode, alternative и attachment.
-pub(super) fn initial() -> [Fixture; 5] {
-    [
-        Fixture {
-            id: "seed-001-plain-en",
-            recipient: "bob@litterkeep.test",
-            mailbox: Mailbox::Inbox,
-            owner: Owner::Bob,
-            delivery: Delivery::Smtp,
-            flags: "",
-            message: b"From: Alice <alice@litterkeep.test>\r\nTo: Bob <bob@litterkeep.test>\r\nSubject: Seed plain English\r\nX-Litterkeep-Fixture: seed-001-plain-en\r\nMessage-ID: <seed-001@litterkeep.test>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nHello from the repeatable seed.\r\n",
-        },
-        Fixture {
-            id: "seed-002-russian",
-            recipient: "bob@litterkeep.test",
-            mailbox: Mailbox::Inbox,
-            owner: Owner::Bob,
-            delivery: Delivery::Smtp,
-            flags: "",
-            message: "From: Alice <alice@litterkeep.test>\r\nTo: Bob <bob@litterkeep.test>\r\nSubject: Русское письмо ✉\r\nX-Litterkeep-Fixture: seed-002-russian\r\nMessage-ID: <seed-002@litterkeep.test>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nПривет, Bob! Это проверка UTF-8.\r\n".as_bytes(),
-        },
-        Fixture {
-            id: "seed-003-alternative",
-            recipient: "bob@litterkeep.test",
-            mailbox: Mailbox::Inbox,
-            owner: Owner::Bob,
-            delivery: Delivery::Smtp,
-            flags: "",
-            message: b"From: Alice <alice@litterkeep.test>\r\nTo: Bob <bob@litterkeep.test>\r\nSubject: Plain and HTML\r\nX-Litterkeep-Fixture: seed-003-alternative\r\nMessage-ID: <seed-003@litterkeep.test>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=seed-alt\r\n\r\n--seed-alt\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nPlain version.\r\n--seed-alt\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<p>HTML <strong>version</strong>.</p>\r\n--seed-alt--\r\n",
-        },
-        Fixture {
-            id: "seed-004-sent",
-            recipient: "alice@litterkeep.test",
-            mailbox: Mailbox::Sent,
-            owner: Owner::Alice,
-            delivery: Delivery::ImapAppend,
-            flags: "\\Seen",
-            message: b"From: Alice <alice@litterkeep.test>\r\nTo: Bob <bob@litterkeep.test>\r\nSubject: Historical sent item\r\nX-Litterkeep-Fixture: seed-004-sent\r\nMessage-ID: <seed-004@litterkeep.test>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nStored through IMAP APPEND.\r\n",
-        },
-        Fixture {
-            id: "seed-005-draft-attachment",
-            recipient: "alice@litterkeep.test",
-            mailbox: Mailbox::Drafts,
-            owner: Owner::Alice,
-            delivery: Delivery::ImapAppend,
-            flags: "\\Draft",
-            message: b"From: Alice <alice@litterkeep.test>\r\nTo: QA <qa@litterkeep.test>\r\nSubject: Draft with attachment\r\nX-Litterkeep-Fixture: seed-005-draft-attachment\r\nMessage-ID: <seed-005@litterkeep.test>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=seed-mixed\r\n\r\n--seed-mixed\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nDraft body.\r\n--seed-mixed\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename=seed.bin\r\nContent-Transfer-Encoding: base64\r\n\r\nAAECA/8=\r\n--seed-mixed--\r\n",
-        },
-    ]
+/// Возвращает полный bounded набор из 35 сообщений, включая 10 MiB attachment.
+pub(super) fn all() -> Vec<Fixture> {
+    let mut result = basic::fixtures();
+    result.extend(attachment::fixtures());
+    result
+}
+
+pub(super) fn message(id: &str, subject: &str, extra: &str, media: &str, body: &[u8]) -> Vec<u8> {
+    let mut result = format!(
+        "From: Alice <alice@litterkeep.test>\r\nTo: Bob <bob@litterkeep.test>\r\nSubject: {subject}\r\nX-Litterkeep-Fixture: {id}\r\nMessage-ID: <{id}@litterkeep.test>\r\nMIME-Version: 1.0\r\n{extra}Content-Type: {media}\r\n\r\n"
+    ).into_bytes();
+    result.extend_from_slice(body);
+    result
+}
+
+pub(super) fn fixture(
+    id: &str,
+    mailbox: Mailbox,
+    owner: Owner,
+    delivery: Delivery,
+    flags: &str,
+    message: Vec<u8>,
+) -> Fixture {
+    let recipient = match owner {
+        Owner::Alice => "alice@litterkeep.test",
+        Owner::Bob => "bob@litterkeep.test",
+    };
+    Fixture {
+        id: id.to_owned(),
+        recipient: recipient.to_owned(),
+        mailbox,
+        owner,
+        delivery,
+        flags: flags.to_owned(),
+        message,
+    }
 }

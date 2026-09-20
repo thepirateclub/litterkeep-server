@@ -128,8 +128,9 @@ litterkeep-server seed 127.0.0.1:1465 127.0.0.1:1993 litterkeep.test \
 ```
 
 Ожидаемый состав и SHA-256 декодированных вложений записаны в
-`tests/fixtures/seed-manifest.tsv`. Текущий checkpoint содержит пять писем;
-полный G11 расширяет этот же контракт до 30–50 fixtures.
+`tests/fixtures/seed-manifest.tsv`. Полный набор содержит 35 писем и включает
+текст, Unicode, emoji, ответы, message/rfc822, HTML alternative, Sent/Drafts,
+Archive, флаги и восемь вложений, в том числе точное вложение 10 MiB.
 
 The server owns a local Unix-domain control socket in its poll loop and returns
 only lifecycle metadata: task state, generation-protected IDs and held resource
