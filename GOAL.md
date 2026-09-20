@@ -2,7 +2,7 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`  
 Root status: ACTIVE  
-Current subgoal: G10
+Current subgoal: G11
 
 The actually available Goal interface was inspected. It supports creating and
 updating one active root goal (`create_goal`, `get_goal`, `update_goal`), but
@@ -21,11 +21,26 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | G07 | G02 | POP3 backed by the shared store | PASS |
 | G08 | G02 | Sieve and ManageSieve delivery effect | PASS |
 | G09 | G04 | outbound SMTP, pool, retry/DSN | PASS |
-| G10 | G06,G07,G08,G09 | failure matrix, replay, resource plateaus | RUNNING |
+| G10 | G06,G07,G08,G09 | failure matrix, replay, resource plateaus | PASS |
 | G11 | G10 | offline check/backup and repeatable seed | NOT RUN |
 | G12 | G11 | litterkeep and final acceptance report | NOT RUN |
 
 ## Checkpoints
+
+### 2026-09-20: G10 final SMTP reply-loss and completion checkpoint
+
+- Независимый SMTP-клиент прошёл STARTTLS/AUTH/MAIL/RCPT/DATA, отправил полный
+  terminator и закрыл transport, не читая финальный ответ. Исчезновение session
+  generation не отменило уже принятое задание единственного Store owner-а.
+- Новая STARTTLS IMAP-сессия нашла целое письмо по Subject. Затем server process
+  полностью перезапущен на том же container-local `/data`; повторный IMAP SEARCH
+  снова нашёл commit. После обеих фаз lifecycle baseline был нулевым.
+- Сырые сведения сохранены в `data/g10-final-reply-loss/measurements.txt`.
+- PASS G10: высокоуровневые и низкоуровневые storage failures/replay, lost wake
+  и completion metadata plateau, two-instance peer, 2000 TCP churn connections,
+  32 simultaneous IMAP IDLE, exact 10 MiB attachment, 256 deadline batch,
+  10 cooperative cancellations и финальная SMTP reply-loss граница доказаны.
+  Следующая активная подцель G11.
 
 ### 2026-09-20: G10 deadline and cooperative cancellation series checkpoint
 
