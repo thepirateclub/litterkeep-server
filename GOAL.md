@@ -133,6 +133,17 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   войти в тот же Store transaction commit, затем требуются replay и SMTP peer
   проверки redirect.
 
+### 2026-09-20: G09 transaction-aware queue format checkpoint
+
+- Durable queue теперь имеет typed `OwnedDelivery`: transaction ID immutable
+  blob, envelope sender, recipient и enum state. `pending_owned` возвращает
+  job только когда его ID присутствует в Store global committed set; тест
+  подтверждает невидимость физически записанного, но незафиксированного job.
+- PASS: Windows `cargo test --all-targets --locked` (125 tests), strict Clippy,
+  format и `git diff --check`; `src/queue.rs` 263 lines. G08/G09 остаются
+  RUNNING: Store ещё должен записывать owned jobs до общего commit, recovery
+  должен использовать committed IDs, затем redirect и SMTP transport worker.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.

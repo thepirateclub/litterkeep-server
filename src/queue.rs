@@ -1,6 +1,6 @@
 //! Durable delivery queue journal.
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashSet},
     fs::{self, OpenOptions},
     io::{self, Write},
     path::{Path, PathBuf},
@@ -49,6 +49,14 @@ pub struct Delivery {
     pub recipient: String,
     pub state: State,
 }
+/// Очередное задание, принадлежащее immutable blob одной Store transaction.
+#[derive(Debug, Eq, PartialEq)]
+pub struct OwnedDelivery {
+    pub transaction_id: u64,
+    pub sender: String,
+    pub recipient: String,
+    pub state: State,
+}
 impl Queue {
     pub fn open(root: impl AsRef<Path>) -> io::Result<Self> {
         fs::create_dir_all(root.as_ref())?;
@@ -58,6 +66,26 @@ impl Queue {
     }
     pub fn enqueue(&self, id: &str, recipient: &str) -> io::Result<()> {
         self.record(id, recipient, State::Pending)
+    }
+    /// Пишет job до global Store commit. Видимым его делает только committed ID.
+    pub fn enqueue_owned(
+        &self,
+        transaction_id: u64,
+        sender: &str,
+        recipient: &str,
+    ) -> io::Result<()> {
+        validate_token(sender)?;
+        validate_token(recipient)?;
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.path)?;
+        writeln!(
+            file,
+            "{} {transaction_id} {sender} {recipient}",
+            State::Pending.wire()
+        )?;
+        file.sync_all()
     }
     /// Добавляет новый факт перехода; старые факты сохраняются для recovery.
     pub fn transition(&self, id: &str, recipient: &str, state: State) -> io::Result<()> {
@@ -120,6 +148,63 @@ impl Queue {
             Err(e) => Err(e),
         }
     }
+
+    /// Возвращает только jobs, опубликованные общей точкой commit Store.
+    pub fn pending_owned(&self, committed: &HashSet<u64>) -> io::Result<Vec<OwnedDelivery>> {
+        let source = match fs::read_to_string(&self.path) {
+            Ok(value) => value,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(error) => return Err(error),
+        };
+        let mut latest = BTreeMap::new();
+        for line in source.lines() {
+            let mut fields = line.split_whitespace();
+            let state = fields
+                .next()
+                .ok_or_else(|| invalid("bad owned queue state"))?;
+            let transaction = fields.next().ok_or_else(|| invalid("bad owned queue id"))?;
+            let (sender, recipient) = match (fields.next(), fields.next(), fields.next()) {
+                (Some(sender), Some(recipient), None) => (sender, recipient),
+                (Some(_), None, None) | (None, _, None) | (_, _, Some(_)) => continue,
+            };
+            let transaction_id = transaction
+                .parse()
+                .map_err(|_| invalid("bad owned transaction"))?;
+            let delivery = OwnedDelivery {
+                transaction_id,
+                sender: sender.into(),
+                recipient: recipient.into(),
+                state: State::parse(state)?,
+            };
+            latest.insert((transaction_id, delivery.recipient.clone()), delivery);
+        }
+        Ok(latest
+            .into_values()
+            .filter(|delivery| {
+                match (
+                    committed.contains(&delivery.transaction_id),
+                    matches!(delivery.state, State::Pending | State::Deferred),
+                ) {
+                    (true, true) => true,
+                    (true, false) | (false, _) => false,
+                }
+            })
+            .collect())
+    }
+}
+
+fn validate_token(value: &str) -> io::Result<()> {
+    match value.contains(char::is_whitespace) {
+        true => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "unsafe queue token",
+        )),
+        false => Ok(()),
+    }
+}
+
+fn invalid(message: &'static str) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidData, message)
 }
 #[cfg(test)]
 mod tests {
@@ -148,6 +233,31 @@ mod tests {
         q.transition("message-2", "bob@test", State::Delivered)
             .unwrap();
         assert!(Queue::open(&d).unwrap().pending().unwrap().is_empty());
+        let _ = fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn owned_delivery_is_invisible_until_store_commit() {
+        let d = std::env::temp_dir().join("litterkeep-owned-queue-test");
+        let q = Queue::open(&d).expect("queue");
+        q.enqueue_owned(7, "alice@test", "remote@test")
+            .expect("pending");
+        let committed = HashSet::new();
+        assert!(q.pending_owned(&committed).expect("uncommitted").is_empty());
+        let mut committed = HashSet::new();
+        committed.insert(7);
+        assert_eq!(
+            Queue::open(&d)
+                .expect("reopen")
+                .pending_owned(&committed)
+                .expect("pending"),
+            vec![OwnedDelivery {
+                transaction_id: 7,
+                sender: "alice@test".into(),
+                recipient: "remote@test".into(),
+                state: State::Pending,
+            }]
+        );
         let _ = fs::remove_dir_all(d);
     }
 }
