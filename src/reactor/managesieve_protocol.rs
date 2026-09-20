@@ -11,9 +11,53 @@ pub(super) fn line(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<()> {
+    match managesieve_literal::start(&line) {
+        managesieve_literal::Start::NotLiteral => {}
+        managesieve_literal::Start::Invalid => return session.push(b"NO \"invalid literal\"\r\n"),
+        managesieve_literal::Start::Begin {
+            receiver,
+            continuation,
+        } => {
+            session.managesieve_literal = Some(receiver);
+            if continuation {
+                session.push(b"OK \"ready for literal data\"\r\n")?;
+            }
+            return Ok(());
+        }
+    }
     let command = managesieve::parse(std::str::from_utf8(&line).unwrap_or(""));
     let reply = session.managesieve.apply(command, session.tls.is_some());
     apply(session, reply, slot, generation, worker, owners, request_id)
+}
+
+/// Поглощает уже объявленное тело script literal и сохраняет pipeline bytes.
+pub(super) fn literal(
+    session: &mut Session,
+    slot: usize,
+    generation: u64,
+    worker: &mut WakingStorageWorker,
+    owners: &mut HashMap<u64, (usize, u64, Pending)>,
+    request_id: &mut u64,
+) -> io::Result<bool> {
+    let progress = session
+        .managesieve_literal
+        .as_mut()
+        .expect("ManageSieve literal receiver checked")
+        .consume(&mut session.input);
+    match progress {
+        managesieve_literal::Progress::Waiting => Ok(false),
+        managesieve_literal::Progress::InvalidUtf8 => {
+            session.managesieve_literal = None;
+            session.push(b"NO \"script must be UTF-8\"\r\n")?;
+            Ok(true)
+        }
+        managesieve_literal::Progress::Complete(command) => {
+            session.managesieve_literal = None;
+            let reply = session.managesieve.apply(command, session.tls.is_some());
+            apply(session, reply, slot, generation, worker, owners, request_id)?;
+            Ok(true)
+        }
+    }
 }
 
 fn apply(

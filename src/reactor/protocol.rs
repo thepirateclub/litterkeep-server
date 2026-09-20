@@ -26,6 +26,14 @@ pub(super) fn process_input(
                 None => break,
             }
         }
+        if session.managesieve_literal.is_some() {
+            match super::managesieve_protocol::literal(
+                session, slot, generation, worker, owners, request_id,
+            )? {
+                true => continue,
+                false => break,
+            }
+        }
         if session.imap_idle.is_some() {
             let Some(line) = take_line(&mut session.input) else {
                 break;

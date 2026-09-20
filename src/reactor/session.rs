@@ -50,6 +50,8 @@ pub(super) struct Session {
     pub(super) pop3_mailbox: Option<String>,
     /// ManageSieve FSM не владеет script catalog и ждёт worker completion.
     pub(super) managesieve: managesieve::Session,
+    /// Script literal принадлежит ровно одной ManageSieve session до completion.
+    pub(super) managesieve_literal: Option<managesieve_literal::LiteralReceiver>,
 }
 
 impl Session {
@@ -91,6 +93,7 @@ impl Session {
             pop3: pop3::Session::default(),
             pop3_mailbox: None,
             managesieve: managesieve::Session::default(),
+            managesieve_literal: None,
         };
         result.send_greeting_if_ready()?;
         Ok(result)
@@ -191,6 +194,7 @@ impl Session {
         self.imap_literal = None;
         self.pop3 = pop3::Session::default();
         self.pop3_mailbox = None;
+        self.managesieve_literal = None;
     }
 
     /// Передаёт socket новому rustls handshake только на чистой границе вывода.

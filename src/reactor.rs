@@ -63,6 +63,8 @@ mod local_delivery;
 mod maildrop_lease;
 #[path = "reactor/managesieve_completion.rs"]
 mod managesieve_completion;
+#[path = "reactor/managesieve_literal.rs"]
+mod managesieve_literal;
 #[path = "reactor/managesieve_protocol.rs"]
 mod managesieve_protocol;
 #[path = "reactor/pending.rs"]
@@ -242,6 +244,25 @@ pub fn serve_all_starttls(
         Some(imap_address),
         Some(pop3_address),
         None,
+        root,
+        TlsMode::StartTls(tls_config),
+    )
+}
+
+/// Запускает все входящие протоколы в одном reactor-е и с одним Store owner.
+pub fn serve_all_mail_starttls(
+    smtp_address: &str,
+    imap_address: &str,
+    pop3_address: &str,
+    managesieve_address: &str,
+    root: impl AsRef<Path>,
+    tls_config: Arc<ServerConfig>,
+) -> io::Result<()> {
+    server_loop::serve(
+        Some(smtp_address),
+        Some(imap_address),
+        Some(pop3_address),
+        Some(managesieve_address),
         root,
         TlsMode::StartTls(tls_config),
     )

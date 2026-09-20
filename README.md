@@ -19,10 +19,11 @@ independently of folder existence, LSUB exposes missing subscriptions as
 STORE keeps `\Deleted` separate from durable EXPUNGE tombstones; an EXPUNGE
 rebuilds sequence numbers without reusing UIDs and is denied after EXAMINE.
 This is not yet a complete mail server: POP3/STLS has a verified SMTP-to-INBOX
-read/delete checkpoint with maildrop leases and implicit TLS. Broader external
-interoperability and failure coverage remain unfinished. Sieve, durable
-outbound transport integration and the remaining acceptance matrix are
-unfinished.
+read/delete checkpoint with maildrop leases and implicit TLS. ManageSieve has
+a verified STARTTLS/SASL literal checkpoint that activates a `fileinto` rule
+before SMTP-to-IMAP delivery. Broader external interoperability, the remaining
+Sieve language, durable outbound transport integration and failure coverage
+remain unfinished.
 
 ## Developer commands
 
@@ -105,6 +106,23 @@ python tests/blackbox/pop3_starttls_delivery.py --phase empty --port 11110 --ca 
 `serve-all-starttls` is the one-process acceptance mode: SMTP, IMAP and POP3
 share one storage owner and poll reactor. The destructive POP3 fixture uses
 `./data/g07-pop-destructive` and the dedicated account `pop/pop-password`.
+
+## ManageSieve literal checkpoint
+
+```sh
+cargo run --locked -- init ./runtime alice alice-password
+cargo run --locked -- init ./runtime bob bob-password
+cargo run --locked -- serve-all-mail-starttls 0.0.0.0:1587 0.0.0.0:1143 0.0.0.0:1110 0.0.0.0:4190 ./runtime ./server.der ./server.key.der
+python tests/blackbox/managesieve_literal_delivery.py --smtp-port 1587 --imap-port 1143 --managesieve-port 4190 --ca ./data/pki/ca.pem
+```
+
+All four listeners run in the same process, so the ManageSieve script catalog,
+SMTP delivery and IMAP view share exactly one filesystem Store owner. The
+black-box client performs STARTTLS and SASL PLAIN, checks a synchronous
+`CHECKSCRIPT {n}` literal and a fragmented `PUTSCRIPT {n+}` literal, activates
+the script, sends an SMTP message as Alice and reads it from Bob's `Invoices`
+folder through IMAP. The test accounts are `alice/alice-password` and
+`bob/bob-password`.
 
 The only runtime binary is `target/release/litterkeep-server`. Current Docker
 test state is placed under ignored `data/` stage directories.

@@ -7,11 +7,11 @@ pub(super) fn authenticate(
     account: String,
     accepted: bool,
 ) -> io::Result<()> {
-    let reply = session.managesieve.authenticated(accepted);
+    let authentication_reply = session.managesieve.authenticated(accepted);
     if accepted {
         session.authenticated_account = Some(account);
     }
-    reply(session, reply)
+    reply(session, authentication_reply)
 }
 
 pub(super) fn reply(session: &mut Session, reply: managesieve::Reply) -> io::Result<()> {

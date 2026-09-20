@@ -2,7 +2,7 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`  
 Root status: ACTIVE  
-Current subgoal: G06
+Current subgoal: G08
 
 The actually available Goal interface was inspected. It supports creating and
 updating one active root goal (`create_goal`, `get_goal`, `update_goal`), but
@@ -26,6 +26,28 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | G12 | G11 | litterkeep and final acceptance report | NOT RUN |
 
 ## Checkpoints
+
+### 2026-09-20: G08 ManageSieve literal and shared-reactor checkpoint
+
+- ManageSieve получил собственный ограниченный RFC 5804 literal receiver для
+  `PUTSCRIPT` и `CHECKSCRIPT`. Он принимает `{n+}` и синхронизирующий `{n}`
+  до 65 536 байтов, не выделяет память по неограниченной длине и сохраняет
+  pipeline-байты следующей команды. Это не копия IMAP APPEND: completion
+  наступает ровно после n байтов без вымышленного завершающего CRLF.
+- Добавлен `serve-all-mail-starttls`: SMTP, IMAP, POP3 и ManageSieve работают
+  в одном Linux poll-reactor с одним Store owner. Отдельные процессы не
+  конкурируют за файловый lock и не дают ложной проверки общей семантики.
+- PASS для checkpoint: Windows `cargo test --all-targets --locked` (117
+  tests), strict Clippy, format и structural audit без `mod.rs` и Rust-файлов
+  больше 300 строк; Docker Linux test target прошёл 124 tests. Независимый Python socket
+  сценарий `tests/blackbox/managesieve_literal_delivery.py` проверил STARTTLS,
+  SASL PLAIN, `CHECKSCRIPT {n}` continuation, fragmented `PUTSCRIPT {n+}` и
+  `SETACTIVE`, затем standard-library SMTP отправил Alice -> Bob, а IMAP
+  прочитал письмо из `Invoices`. Использован только bind mount
+  `./data/g08-managesieve`, CA `./data/pki/ca.pem`.
+- G08 остаётся RUNNING: базовый RFC Sieve ещё не покрывает все обязательные
+  tests/comparators/actions, redirect не связан с outbound queue, а полный
+  внешний ManageSieve matrix всех команд и response codes ещё не завершён.
 
 ### 2026-09-20: G07 POP3 core foundation
 
