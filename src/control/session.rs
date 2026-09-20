@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 
 const MAX_REQUEST: usize = 256;
 const ACCEPT_BUDGET: usize = 8;
+const MAX_CONNECTIONS: usize = 16;
 
 /// Владелец local socket, размещённого внутри data-dir сервера.
 pub struct Listener {
@@ -160,9 +161,13 @@ fn parse_response<T>(lifecycle: &Orchestrator<T>, bytes: &[u8]) -> Vec<u8> {
 }
 
 fn place(sessions: &mut Vec<Option<Connection>>, connection: Connection) {
+    let has_capacity = sessions.len() < MAX_CONNECTIONS;
     match sessions.iter_mut().find(|entry| entry.is_none()) {
         Some(slot) => *slot = Some(connection),
-        None => sessions.push(Some(connection)),
+        None if has_capacity => sessions.push(Some(connection)),
+        // Local control не получает неограниченный admission: новый peer
+        // закрывается немедленно, не вытесняя уже диагностируемую сессию.
+        None => drop(connection),
     }
 }
 
@@ -220,5 +225,20 @@ fn supports_fallback(error: &io::Error) -> bool {
     match error.kind() {
         io::ErrorKind::Unsupported | io::ErrorKind::PermissionDenied => true,
         _ => matches!(error.raw_os_error(), Some(5)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn control_admission_keeps_slot_table_bounded() {
+        let mut sessions = Vec::new();
+        for _ in 0..=MAX_CONNECTIONS {
+            let (stream, _peer) = UnixStream::pair().expect("pair");
+            place(&mut sessions, Connection::new(stream).expect("connection"));
+        }
+        assert_eq!(sessions.len(), MAX_CONNECTIONS);
     }
 }

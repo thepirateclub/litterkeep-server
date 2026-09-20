@@ -37,6 +37,8 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   `runtime inspect <task-id>` с обязательным `--data-dir`. Ответы строятся из
   реальных records `Orchestrator`: task state, owner и held resource IDs;
   значения ресурсов, тела почты, пароли и ключи не сериализуются.
+- Control admission ограничен 16 одновременными session slots; лишний local
+  peer закрывается без роста таблицы и без вытеснения уже обслуживаемого запроса.
 - Docker Desktop shared bind mount не поддерживает Unix socket inode. Это
   выявлено фактическим Linux запуском, а не скрыто: только при таком bind error
   server создаёт owner-only locator `runtime.control` к process-local socket в
