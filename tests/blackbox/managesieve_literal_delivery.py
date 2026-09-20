@@ -33,6 +33,11 @@ def command(client: socket.socket, wire: bytes) -> bytes:
     return read_until(client, b"\r\n")
 
 
+def command_until(client: socket.socket, wire: bytes, marker: bytes) -> bytes:
+    client.sendall(wire)
+    return read_until(client, marker)
+
+
 def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> None:
     with socket.create_connection((options.host, options.managesieve_port), timeout=10) as plain:
         greeting = read_until(plain, b'OK "ready"\r\n')
@@ -59,6 +64,11 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
             first_chunk = b'require ["fileinto"]; '
             second_chunk = b'if header :contains "subject" "[invoice]" { fileinto "Invoices"; stop; }'
             source = first_chunk + second_chunk
+            havespace = f'HAVESPACE "invoices" {len(source)}\r\n'.encode()
+            require(
+                command(client, havespace) == b'OK "space available"\r\n',
+                "HAVESPACE не подтвердил допустимый script",
+            )
             marker = f'PUTSCRIPT "invoices" {{{len(source)}+}}\r\n'.encode()
             client.sendall(marker)
             client.sendall(first_chunk)
@@ -71,6 +81,28 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
                 command(client, b'SETACTIVE "invoices"\r\n') == b'OK "completed"\r\n',
                 "SETACTIVE не сохранён",
             )
+            listed = command_until(client, b"LISTSCRIPTS\r\n", b'OK "list completed"\r\n')
+            require(b'"invoices" ACTIVE\r\n' in listed, "LISTSCRIPTS не вернул active script")
+            source_reply = command_until(client, b'GETSCRIPT "invoices"\r\n', b'OK "get completed"\r\n')
+            require(source in source_reply, "GETSCRIPT не вернул исходные байты source")
+            scratch = b"keep;"
+            scratch_marker = f'PUTSCRIPT "scratch" {{{len(scratch)}+}}\r\n'.encode()
+            client.sendall(scratch_marker)
+            client.sendall(scratch)
+            require(
+                read_until(client, b"\r\n") == b'OK "completed"\r\n',
+                "PUTSCRIPT scratch не сохранён",
+            )
+            require(
+                command(client, b'RENAMESCRIPT "scratch" "temporary"\r\n') == b'OK "completed"\r\n',
+                "RENAMESCRIPT не сохранён",
+            )
+            require(
+                command(client, b'DELETESCRIPT "temporary"\r\n') == b'OK "completed"\r\n',
+                "DELETESCRIPT не сохранён",
+            )
+            require(command(client, b"NOOP\r\n") == b'OK "noop"\r\n', "NOOP не принят")
+            require(command(client, b"LOGOUT\r\n") == b'OK "bye"\r\n', "LOGOUT не принят")
 
 
 def deliver(options: argparse.Namespace, context: ssl.SSLContext) -> None:

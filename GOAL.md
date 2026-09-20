@@ -85,6 +85,19 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   RUNNING: redirect ещё не проходит outbound queue, не проверены все команды
   и response codes ManageSieve независимым сетевым matrix.
 
+### 2026-09-20: G08 ManageSieve positive command matrix
+
+- Независимый socket-клиент теперь исполняет по TCP/TLS CAPABILITY, STARTTLS,
+  AUTHENTICATE, HAVESPACE, CHECKSCRIPT, PUTSCRIPT, LISTSCRIPTS, SETACTIVE,
+  GETSCRIPT, RENAMESCRIPT, DELETESCRIPT, NOOP и LOGOUT. Он читает
+  multi-line LIST и literal GETSCRIPT как wire-протокол, а не через наш parser.
+- PASS: Linux Docker image с единым `serve-all-mail-starttls` reactor-ом;
+  положительный matrix завершился SMTP Alice -> Bob и IMAP-чтением `Invoices`.
+  Данные: bind mount `./data/g08-managesieve-matrix`, CA `./data/pki/ca.pem`.
+  После проверки контейнер остановлен. G08 остаётся RUNNING: ещё нет
+  отрицательного matrix response codes и redirect не подключён к durable
+  outbound queue.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.
