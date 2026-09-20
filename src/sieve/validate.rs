@@ -1,9 +1,13 @@
 //! Статическая policy validation до атомарной публикации script версии.
 
-use super::ast::{Action, Command, Condition, Script};
+use super::ast::{Action, Capability, Command, Condition, Script};
 
 pub(super) fn script(script: &Script) -> Result<(), &'static str> {
-    if script.requires.iter().any(|value| value != "fileinto") {
+    if script
+        .requires
+        .iter()
+        .any(|value| matches!(value, Capability::Unsupported(_)))
+    {
         return Err("unsupported sieve require");
     }
     let mut count = 0;

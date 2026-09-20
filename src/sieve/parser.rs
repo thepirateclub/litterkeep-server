@@ -1,8 +1,8 @@
 //! Рекурсивный parser начального совместимого подмножества Sieve.
 
 use super::ast::{
-    Action, AddressPart, Command, Comparator, Condition, MatchType, Script, SizeRelation,
-    StringMatch,
+    Action, AddressPart, Capability, Command, Comparator, Condition, MatchType, Script,
+    SizeRelation, StringMatch,
 };
 use super::lexer::Token;
 use std::collections::VecDeque;
@@ -16,12 +16,21 @@ pub(super) fn parse(tokens: Vec<Token>) -> Result<Script, &'static str> {
             return Err("sieve command expected");
         };
         match word.as_str() {
-            "require" => requires.extend(terminated_strings(&mut input)?),
+            "require" => {
+                requires.extend(terminated_strings(&mut input)?.into_iter().map(capability))
+            }
             "if" => commands.push(if_command(&mut input)?),
             word => action(word, &mut input, &mut commands)?,
         }
     }
     Ok(Script { requires, commands })
+}
+
+fn capability(value: String) -> Capability {
+    match value.as_str() {
+        "fileinto" => Capability::FileInto,
+        _ => Capability::Unsupported(value),
+    }
 }
 
 fn if_command(input: &mut VecDeque<Token>) -> Result<Command, &'static str> {

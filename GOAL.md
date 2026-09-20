@@ -356,6 +356,12 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   прямых array-index expressions.
 - PASS: Windows 137 tests, strict Clippy, format и `git diff --check`.
 
+### 2026-09-20: Sieve capability enum checkpoint
+
+- `require` преобразуется parser-ом в typed `Capability`; validation проверяет
+  `Capability::Unsupported`, а не сравнивает предметное состояние со строкой.
+- PASS: Windows 137 tests, strict Clippy, format и `git diff --check`.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.

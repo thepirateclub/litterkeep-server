@@ -3,8 +3,15 @@
 /// Проверенный script, готовый для bounded execution.
 #[derive(Debug, Eq, PartialEq)]
 pub struct Script {
-    pub requires: Vec<String>,
+    pub requires: Vec<Capability>,
     pub commands: Vec<Command>,
+}
+
+/// Возможность, заявленная script-ом до static validation.
+#[derive(Debug, Eq, PartialEq)]
+pub enum Capability {
+    FileInto,
+    Unsupported(String),
 }
 
 /// Верхнеуровневая команда языка.
