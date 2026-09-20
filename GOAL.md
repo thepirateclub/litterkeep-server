@@ -2,7 +2,7 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`  
 Root status: ACTIVE  
-Current subgoal: G11
+Current subgoal: G12
 
 The actually available Goal interface was inspected. It supports creating and
 updating one active root goal (`create_goal`, `get_goal`, `update_goal`), but
@@ -22,10 +22,29 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | G08 | G02 | Sieve and ManageSieve delivery effect | PASS |
 | G09 | G04 | outbound SMTP, pool, retry/DSN | PASS |
 | G10 | G06,G07,G08,G09 | failure matrix, replay, resource plateaus | PASS |
-| G11 | G10 | offline check/backup and repeatable seed | RUNNING |
+| G11 | G10 | offline check/backup and repeatable seed | PASS |
 | G12 | G11 | litterkeep and final acceptance report | NOT RUN |
 
 ## Checkpoints
+
+### 2026-09-20: G11 multi-recipient and bounded maintenance completion
+
+- Fixture `seed-009-bcc` теперь выполняет одну реальную SMTP transaction с двумя
+  RCPT, Bob и QA, и одним DATA. Seed проверяет наличие письма отдельными IMAP
+  TLS-сессиями обоих владельцев и считает частичное состояние ошибкой, а не
+  создаёт слепой дубль.
+- Чистый Linux прогон снова дал `created=35 existing=0`, повтор
+  `created=0 existing=35`; независимый manifest verifier подтвердил Bob и QA,
+  все 35 fixture IDs и восемь attachment payloads. Сырые данные:
+  `data/g11-multi-recipient.txt`.
+- Явным тестом доказан предел Sieve diagnostic journal в 1 MiB с отказом
+  `StorageFull`. Вместе с ранее проверенными frame payload bounds, blob quota,
+  bounded scheduler handoff и offline check/backup это закрывает maintenance
+  limits без небезопасного удаления журналов.
+- Финальный gate G11: Windows 187 тестов и strict Clippy; Docker Rust 1.97
+  strict Linux Clippy и 217 тестов в `litterkeep-server:g11-final-test`.
+- PASS G11. Следующая активная подцель G12: повторяемый init, чистый запуск,
+  интеграция litterkeep при фактической доступности и итоговый acceptance report.
 
 ### 2026-09-20: G11 full 35-message seed and independent manifest checkpoint
 

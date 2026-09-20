@@ -14,6 +14,7 @@ pub struct SeedConfig {
     pub account: String,
     pub password: Vec<u8>,
     pub bob_password: Vec<u8>,
+    pub qa_password: Vec<u8>,
 }
 
 /// Измеримый результат одного запуска без удаления пользовательских сообщений.
@@ -39,6 +40,13 @@ pub fn run(config: &SeedConfig) -> io::Result<SeedReport> {
         "bob",
         &config.bob_password,
     )?;
+    let mut qa_imap = Client::connect(
+        &config.imap_address,
+        &config.server_name,
+        &config.ca_der,
+        "qa",
+        &config.qa_password,
+    )?;
     let mut smtp = crate::outbound_tls::Connection::connect(
         &config.smtp_address,
         &config.server_name,
@@ -48,17 +56,29 @@ pub fn run(config: &SeedConfig) -> io::Result<SeedReport> {
     let mut created = 0_usize;
     let mut existing = 0_usize;
     for item in fixture::all() {
-        let imap = match item.owner {
-            Owner::Alice => &mut alice_imap,
-            Owner::Bob => &mut bob_imap,
+        let primary_exists = client_for(item.owner, &mut alice_imap, &mut bob_imap, &mut qa_imap)
+            .contains(item.mailbox.wire(), &item.id)?;
+        let additional_exists = match item.additional_owner {
+            Some(owner) => client_for(owner, &mut alice_imap, &mut bob_imap, &mut qa_imap)
+                .contains(item.mailbox.wire(), &item.id)?,
+            None => true,
         };
-        if imap.contains(item.mailbox.wire(), &item.id)? {
-            existing = checked_increment(existing)?;
-            continue;
+        match (primary_exists, additional_exists) {
+            (true, true) => {
+                existing = checked_increment(existing)?;
+                continue;
+            }
+            (false, false) => {}
+            (false, true) if item.additional_owner.is_none() => {}
+            _ => return Err(io::Error::other("partial multi-recipient seed fixture")),
         }
         match item.delivery {
             Delivery::Smtp => {
-                match smtp.deliver("alice@litterkeep.test", &item.recipient, &item.message)? {
+                let mut recipients = vec![item.recipient.clone()];
+                if let Some(recipient) = &item.additional_recipient {
+                    recipients.push(recipient.clone());
+                }
+                match smtp.deliver_many("alice@litterkeep.test", &recipients, &item.message)? {
                     DeliveryOutcome::Delivered => {}
                     DeliveryOutcome::Deferred => {
                         return Err(io::Error::other("seed SMTP deferred"));
@@ -69,15 +89,39 @@ pub fn run(config: &SeedConfig) -> io::Result<SeedReport> {
                 }
             }
             Delivery::ImapAppend => {
-                imap.append(item.mailbox.wire(), &item.flags, &item.message)?;
+                client_for(item.owner, &mut alice_imap, &mut bob_imap, &mut qa_imap).append(
+                    item.mailbox.wire(),
+                    &item.flags,
+                    &item.message,
+                )?;
             }
         }
-        if !imap.contains(item.mailbox.wire(), &item.id)? {
+        let primary_visible = client_for(item.owner, &mut alice_imap, &mut bob_imap, &mut qa_imap)
+            .contains(item.mailbox.wire(), &item.id)?;
+        let additional_visible = match item.additional_owner {
+            Some(owner) => client_for(owner, &mut alice_imap, &mut bob_imap, &mut qa_imap)
+                .contains(item.mailbox.wire(), &item.id)?,
+            None => true,
+        };
+        if !matches!((primary_visible, additional_visible), (true, true)) {
             return Err(io::Error::other("seed fixture not visible after commit"));
         }
         created = checked_increment(created)?;
     }
     Ok(SeedReport { created, existing })
+}
+
+fn client_for<'a>(
+    owner: Owner,
+    alice: &'a mut Client,
+    bob: &'a mut Client,
+    qa: &'a mut Client,
+) -> &'a mut Client {
+    match owner {
+        Owner::Alice => alice,
+        Owner::Bob => bob,
+        Owner::Qa => qa,
+    }
 }
 
 fn checked_increment(value: usize) -> io::Result<usize> {

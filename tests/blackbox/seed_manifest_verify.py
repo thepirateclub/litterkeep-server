@@ -23,6 +23,7 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--alice-password", required=True)
     parser.add_argument("--bob-password", required=True)
+    parser.add_argument("--qa-password", required=True)
     return parser.parse_args()
 
 
@@ -48,7 +49,12 @@ def connect(config: argparse.Namespace, owner: str) -> imaplib.IMAP4_SSL:
         client = imaplib.IMAP4_SSL(config.host, config.port, ssl_context=context)
     finally:
         socket.getaddrinfo = original
-    password = config.alice_password if owner == "alice" else config.bob_password
+    passwords = {
+        "alice": config.alice_password,
+        "bob": config.bob_password,
+        "qa": config.qa_password,
+    }
+    password = passwords[owner]
     status, _ = client.login(owner, password)
     require(status == "OK", f"LOGIN {owner}")
     return client
@@ -101,12 +107,15 @@ def main() -> None:
     try:
         for fixture_id, rows in manifest.items():
             row = next(iter(rows))
-            owner = row["owner"]
-            if owner not in clients:
-                clients[owner] = connect(config, owner)
-            client = clients[owner]
-            raw = fixture_message(client, row["mailbox"], fixture_id)
-            attachments += verify_attachments(raw, rows)
+            first = True
+            for owner in row["owner"].split("+"):
+                if owner not in clients:
+                    clients[owner] = connect(config, owner)
+                client = clients[owner]
+                raw = fixture_message(client, row["mailbox"], fixture_id)
+                if first:
+                    attachments += verify_attachments(raw, rows)
+                    first = False
     finally:
         for client in clients.values():
             client.logout()

@@ -42,13 +42,35 @@ impl Connection {
         recipient: &str,
         message: &[u8],
     ) -> io::Result<DeliveryOutcome> {
+        self.deliver_recipients(sender, &[recipient], message)
+    }
+
+    /// Передаёт один DATA нескольким RCPT без размножения MIME payload.
+    pub fn deliver_many(
+        &mut self,
+        sender: &str,
+        recipients: &[String],
+        message: &[u8],
+    ) -> io::Result<DeliveryOutcome> {
+        let recipients = recipients.iter().map(String::as_str).collect::<Vec<_>>();
+        self.deliver_recipients(sender, &recipients, message)
+    }
+
+    fn deliver_recipients(
+        &mut self,
+        sender: &str,
+        recipients: &[&str],
+        message: &[u8],
+    ) -> io::Result<DeliveryOutcome> {
         self.command(&format!("MAIL FROM:<{sender}>\r\n"))?;
         if let Some(outcome) = outbound::expect(&mut self.stream)? {
             return Ok(outcome);
         }
-        self.command(&format!("RCPT TO:<{recipient}>\r\n"))?;
-        if let Some(outcome) = outbound::expect(&mut self.stream)? {
-            return Ok(outcome);
+        for recipient in recipients {
+            self.command(&format!("RCPT TO:<{recipient}>\r\n"))?;
+            if let Some(outcome) = outbound::expect(&mut self.stream)? {
+                return Ok(outcome);
+            }
         }
         self.command("DATA\r\n")?;
         if let Some(outcome) = outbound::expect(&mut self.stream)? {

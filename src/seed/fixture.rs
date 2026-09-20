@@ -34,11 +34,14 @@ impl Mailbox {
 pub(super) enum Owner {
     Alice,
     Bob,
+    Qa,
 }
 
 pub(super) struct Fixture {
     pub id: String,
     pub recipient: String,
+    pub additional_recipient: Option<String>,
+    pub additional_owner: Option<Owner>,
     pub mailbox: Mailbox,
     pub owner: Owner,
     pub delivery: Delivery,
@@ -72,10 +75,17 @@ pub(super) fn fixture(
     let recipient = match owner {
         Owner::Alice => "alice@litterkeep.test",
         Owner::Bob => "bob@litterkeep.test",
+        Owner::Qa => "qa@litterkeep.test",
+    };
+    let (additional_recipient, additional_owner) = match id {
+        "seed-009-bcc" => (Some("qa@litterkeep.test".to_owned()), Some(Owner::Qa)),
+        _ => (None, None),
     };
     Fixture {
         id: id.to_owned(),
         recipient: recipient.to_owned(),
+        additional_recipient,
+        additional_owner,
         mailbox,
         owner,
         delivery,

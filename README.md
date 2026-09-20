@@ -124,7 +124,7 @@ APPEND. Пароли читаются из файлов и не попадают
 
 ```text
 litterkeep-server seed 127.0.0.1:1465 127.0.0.1:1993 litterkeep.test \
-  ./ca.der alice ./alice.password ./bob.password
+  ./ca.der alice ./alice.password ./bob.password ./qa.password
 ```
 
 Ожидаемый состав и SHA-256 декодированных вложений записаны в

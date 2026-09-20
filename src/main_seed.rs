@@ -26,6 +26,9 @@ pub(crate) fn execute() -> ExitCode {
     let Some(bob_password_path) = arguments.next() else {
         return invalid();
     };
+    let Some(qa_password_path) = arguments.next() else {
+        return invalid();
+    };
     if arguments.next().is_some() {
         return invalid();
     }
@@ -41,6 +44,10 @@ pub(crate) fn execute() -> ExitCode {
         Ok(value) => trim_line_end(value),
         Err(error) => return failed("Bob password read", error),
     };
+    let qa_password = match fs::read(qa_password_path) {
+        Ok(value) => trim_line_end(value),
+        Err(error) => return failed("QA password read", error),
+    };
     let config = SeedConfig {
         smtp_address,
         imap_address,
@@ -49,6 +56,7 @@ pub(crate) fn execute() -> ExitCode {
         account,
         password,
         bob_password,
+        qa_password,
     };
     match run(&config) {
         Ok(report) => {

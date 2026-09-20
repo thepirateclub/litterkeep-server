@@ -7,7 +7,7 @@ seed-005-draft	alice	Drafts	IMAP_APPEND	alice@litterkeep.test	text/plain	-	-	-
 seed-006-emoji	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
 seed-007-reply	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
 seed-008-forward	bob	INBOX	SMTP	bob@litterkeep.test	multipart/mixed,message/rfc822,text/plain	-	-	-
-seed-009-bcc	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
+seed-009-bcc	bob+qa	INBOX	SMTP	bob@litterkeep.test,qa@litterkeep.test	text/plain	-	-	-
 seed-010-archive	alice	Archive	IMAP_APPEND	alice@litterkeep.test	text/plain	-	-	-
 seed-011-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-
 seed-012-thread	bob	INBOX	SMTP	bob@litterkeep.test	text/plain	-	-	-

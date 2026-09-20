@@ -1,6 +1,8 @@
 //! Recovery-проверки отдельного транзакционного журнала ошибок Sieve.
 
 use super::Store;
+use super::sieve_diagnostics::{self, PendingDiagnostic};
+use crate::sieve::ExecutionError;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -42,6 +44,32 @@ fn reopen_rejects_corrupt_complete_diagnostic_frame() {
     fs::write(root.join("journal/sieve-errors.log"), b"1\tbroken\n").expect("corrupt");
     let error = Store::open(&root).expect_err("must reject corruption");
     assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn diagnostic_journal_rejects_growth_beyond_its_disk_budget() {
+    let root = directory();
+    let store = Store::open(&root).expect("open");
+    drop(store);
+    let path = root.join("journal/sieve-errors.log");
+    let file = OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(path)
+        .expect("journal");
+    file.set_len(sieve_diagnostics::MAX_JOURNAL_BYTES)
+        .expect("fill budget");
+    file.sync_all().expect("sync budget");
+    let pending = PendingDiagnostic {
+        account: "bob".to_owned(),
+        script_version: 1,
+        error: ExecutionError::CommandLimit,
+    };
+
+    let error = sieve_diagnostics::append(&root, 1, &[pending]).expect_err("quota");
+    assert_eq!(error.kind(), std::io::ErrorKind::StorageFull);
     fs::remove_dir_all(root).expect("cleanup");
 }
 

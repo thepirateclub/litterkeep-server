@@ -12,7 +12,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 const MAX_ACCOUNT_BYTES: usize = 256;
-const MAX_JOURNAL_BYTES: u64 = 1024 * 1024;
+pub(super) const MAX_JOURNAL_BYTES: u64 = 1024 * 1024;
 
 /// Версия frame после единственной string-to-enum границы codec-а.
 enum FormatVersion {
