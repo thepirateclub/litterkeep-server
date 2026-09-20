@@ -16,6 +16,9 @@ pub mod outbound;
 pub mod platform;
 pub mod pop3;
 pub mod queue;
+#[cfg(test)]
+#[path = "queue_tests.rs"]
+mod queue_tests;
 #[cfg(target_os = "linux")]
 pub mod reactor;
 pub mod runtime;

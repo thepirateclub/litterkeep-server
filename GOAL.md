@@ -166,6 +166,16 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   format и `git diff --check`. G09 остаётся RUNNING: jobs ещё не получают
   durable state transitions и не передаются исходящему SMTP worker/peer.
 
+### 2026-09-20: G09 durable owned queue transitions checkpoint
+
+- `OwnedDelivery` получил append-only `transition_owned`; при recovery reader
+  выбирает последнее состояние transaction/recipient и не выдаёт повторно
+  `Delivered` job. Тест подтверждает это через reopen. Тесты вынесены из
+  production queue journal: `queue.rs` 226 lines, `queue_tests.rs` 91 lines.
+- PASS: Windows `cargo test --all-targets --locked` (127 tests), strict Clippy,
+  format и `git diff --check`. G09 остаётся RUNNING: Store должен предоставить
+  worker-у transition command и blob read, затем нужен реальный SMTP peer.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.

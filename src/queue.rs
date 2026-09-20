@@ -87,6 +87,24 @@ impl Queue {
         )?;
         file.sync_all()
     }
+    /// Фиксирует состояние owned job без изменения immutable envelope данных.
+    pub fn transition_owned(&self, delivery: &OwnedDelivery, state: State) -> io::Result<()> {
+        validate_token(&delivery.sender)?;
+        validate_token(&delivery.recipient)?;
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.path)?;
+        writeln!(
+            file,
+            "{} {} {} {}",
+            state.wire(),
+            delivery.transaction_id,
+            delivery.sender,
+            delivery.recipient
+        )?;
+        file.sync_all()
+    }
     /// Добавляет новый факт перехода; старые факты сохраняются для recovery.
     pub fn transition(&self, id: &str, recipient: &str, state: State) -> io::Result<()> {
         self.record(id, recipient, state)
@@ -205,59 +223,4 @@ fn validate_token(value: &str) -> io::Result<()> {
 
 fn invalid(message: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message)
-}
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn replay_survives_reopen() {
-        let d = std::env::temp_dir().join("litterkeep-queue-test");
-        let q = Queue::open(&d).unwrap();
-        q.enqueue("message-1", "bob@test").unwrap();
-        assert_eq!(
-            Queue::open(&d).unwrap().pending().unwrap(),
-            vec![Delivery {
-                id: "message-1".into(),
-                recipient: "bob@test".into(),
-                state: State::Pending
-            }]
-        );
-        let _ = fs::remove_dir_all(d);
-    }
-
-    #[test]
-    fn latest_transition_wins_after_reopen() {
-        let d = std::env::temp_dir().join("litterkeep-queue-transition-test");
-        let q = Queue::open(&d).unwrap();
-        q.enqueue("message-2", "bob@test").unwrap();
-        q.transition("message-2", "bob@test", State::Delivered)
-            .unwrap();
-        assert!(Queue::open(&d).unwrap().pending().unwrap().is_empty());
-        let _ = fs::remove_dir_all(d);
-    }
-
-    #[test]
-    fn owned_delivery_is_invisible_until_store_commit() {
-        let d = std::env::temp_dir().join("litterkeep-owned-queue-test");
-        let q = Queue::open(&d).expect("queue");
-        q.enqueue_owned(7, "alice@test", "remote@test")
-            .expect("pending");
-        let committed = HashSet::new();
-        assert!(q.pending_owned(&committed).expect("uncommitted").is_empty());
-        let mut committed = HashSet::new();
-        committed.insert(7);
-        assert_eq!(
-            Queue::open(&d)
-                .expect("reopen")
-                .pending_owned(&committed)
-                .expect("pending"),
-            vec![OwnedDelivery {
-                transaction_id: 7,
-                sender: "alice@test".into(),
-                recipient: "remote@test".into(),
-                state: State::Pending,
-            }]
-        );
-        let _ = fs::remove_dir_all(d);
-    }
 }
