@@ -7,11 +7,19 @@ pub(super) fn write_completion(
 ) -> io::Result<()> {
     match (pending, response) {
         (
-            Pending::Authenticate { tag, account },
+            Pending::Authenticate {
+                tag,
+                account,
+                command,
+            },
             Response::Authenticated { accepted: true, .. },
         ) => {
             session.authenticated_account = Some(account);
-            session.push(format!("{tag} OK LOGIN completed\r\n").as_bytes())
+            let verb = match command {
+                AuthenticationCommand::Login => "LOGIN",
+                AuthenticationCommand::Authenticate => "AUTHENTICATE",
+            };
+            session.push(format!("{tag} OK {verb} completed\r\n").as_bytes())
         }
         (
             Pending::Authenticate { tag, .. },

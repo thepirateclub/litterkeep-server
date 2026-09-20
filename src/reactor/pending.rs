@@ -2,12 +2,20 @@
 
 use crate::imap;
 
+/// Команда определяет корректный tagged completion после общей проверки пароля.
+#[derive(Clone, Copy)]
+pub(super) enum AuthenticationCommand {
+    Login,
+    Authenticate,
+}
+
 /// Контекст остаётся у session generation до получения completion.
 #[derive(Clone)]
 pub(super) enum Pending {
     Authenticate {
         tag: String,
         account: String,
+        command: AuthenticationCommand,
     },
     SmtpAuthenticate {
         account: String,

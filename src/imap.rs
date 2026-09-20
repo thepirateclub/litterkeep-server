@@ -1,6 +1,7 @@
 //! Декодирование IMAP-команд: текст сети преобразуется в типизированные варианты.
 
 pub mod append;
+pub mod authenticate;
 pub mod copy;
 pub mod fetch;
 pub mod flags;
@@ -16,6 +17,7 @@ pub mod tokenizer;
 #[path = "imap/copy_tests.rs"]
 mod copy_tests;
 
+pub use authenticate::AuthenticationMechanism;
 pub use fetch::{BodySection, FetchAttribute, Partial};
 pub use idle::{IdleContinuation, parse_idle_continuation};
 use sequence_set::SequenceSet;
@@ -34,6 +36,10 @@ pub enum Command {
     Login {
         username: String,
         password: String,
+    },
+    Authenticate {
+        mechanism: AuthenticationMechanism,
+        initial_response: Option<String>,
     },
     Append {
         mailbox: MailboxName,
@@ -132,6 +138,7 @@ enum Verb {
     Capability,
     StartTls,
     Login,
+    Authenticate,
     Append,
     Logout,
     Noop,
@@ -172,6 +179,7 @@ pub fn parse(line: &str) -> TaggedCommand {
             (Some(username), Some(password)) => Command::Login { username, password },
             _ => Command::Unsupported,
         },
+        Some(Verb::Authenticate) => authenticate::parse(&mut tokens),
         Some(Verb::Append) => append::parse(tokens),
         Some(Verb::Logout) => Command::Logout,
         Some(Verb::Noop) => Command::Noop,
@@ -234,7 +242,7 @@ fn parse_empty(mut tokens: impl Iterator<Item = Token>, command: Command) -> Com
     }
 }
 
-fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
+pub(super) fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
     tokens.find_map(|token| match token {
         Token::Text(value) => Some(value),
         Token::ListStart | Token::ListEnd => None,
@@ -254,6 +262,7 @@ fn parse_verb(text: &str) -> Verb {
         "CAPABILITY" => Verb::Capability,
         "STARTTLS" => Verb::StartTls,
         "LOGIN" => Verb::Login,
+        "AUTHENTICATE" => Verb::Authenticate,
         "APPEND" => Verb::Append,
         "LOGOUT" => Verb::Logout,
         "NOOP" => Verb::Noop,

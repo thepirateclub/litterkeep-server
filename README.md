@@ -5,7 +5,8 @@ It owns its protocol parsers, filesystem store and task/resource lifecycle.
 
 Current checkpoint: TLS and STARTTLS SMTP submission authenticate accounts with
 SASL PLAIN and deliver into the worker-owned filesystem store. IMAP supports
-STARTTLS authentication, durable APPEND to INBOX, SELECT/EXAMINE metadata,
+STARTTLS LOGIN and AUTHENTICATE PLAIN with SASL-IR, durable APPEND to INBOX,
+SELECT/EXAMINE metadata,
 sequence-set, UID FETCH, durable STORE/FETCH FLAGS, ENVELOPE, BODYSTRUCTURE and
 MIME section/partial reads. APPEND atomically preserves initial flags and
 INTERNALDATE with its UID. Event-driven IDLE wakes selected sessions only after

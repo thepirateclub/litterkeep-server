@@ -27,6 +27,35 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G06 IMAP AUTHENTICATE PLAIN checkpoint
+
+- Устранена ложная capability: `AUTHENTICATE PLAIN` теперь имеет typed
+  mechanism, optional SASL initial response, continuation state, явную отмену
+  `*`, общий authzid policy и асинхронную проверку тем же Argon2 Store worker,
+  что LOGIN/SMTP/POP3/ManageSieve. Tagged completion различает LOGIN и
+  AUTHENTICATE через enum, а не строковое восстановление команды.
+- LOGIN и AUTHENTICATE запрещены до реального TLS и после уже успешной
+  аутентификации. Plaintext listener больше не рекламирует `AUTH=PLAIN`.
+  `SASL-IR` объявляется в TLS capability, поскольку initial response реально
+  принимается и проверяется.
+- Общий входной dispatcher отделён от IMAP command dispatcher; SASL
+  continuation обрабатывается до обычной command grammar и остаётся
+  собственностью одной session. Это сохраняет file-level ответственность и
+  лимит 300 строк.
+- Добавлена фактическая матрица rev1 в `docs/imap-profile.md`: реализованные
+  команды, ограниченный SEARCH профиль и явно не заявленные расширения.
+- PASS: Windows `cargo test --all-targets --locked` (154 tests), strict Clippy,
+  format. Docker Rust 1.97 strict Linux Clippy и 175 tests прошли в image
+  `litterkeep-server:g06-imap-auth-gate`. Linux integration использует реальный
+  TCP socket, event wake через `poll`, account journal и Argon2 worker; отдельно
+  проверены успешный continuation, cancel, plaintext denial и повторный вход.
+- Независимый `tests/blackbox/imap_authenticate.py` проверяет обе wire-формы и
+  capability до/после STARTTLS; `py_compile` PASS, сетевой запуск NOT RUN из-за
+  зафиксированного зависания runtime bind mount Docker Desktop.
+- G06 остаётся RUNNING до завершения всей concurrent-change/error matrix и
+  независимой сетевой проверки AUTHENTICATE после восстановления bind-mount
+  runtime Docker Desktop.
+
 ### 2026-09-20: G06 COPY/MOVE multi-session synchronization checkpoint
 
 - После успешного durable COPY/MOVE reactor обновляет destination projection

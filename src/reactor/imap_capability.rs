@@ -4,15 +4,13 @@ use super::*;
 
 pub(super) fn write(session: &mut Session, tag: &str) -> io::Result<()> {
     match (session.tls.is_some(), session.can_starttls()) {
-        (true, _) => {
-            session.push(b"* CAPABILITY IMAP4rev1 IDLE UIDPLUS SPECIAL-USE MOVE AUTH=PLAIN\r\n")?
-        }
+        (true, _) => session
+            .push(b"* CAPABILITY IMAP4rev1 IDLE UIDPLUS SPECIAL-USE MOVE AUTH=PLAIN SASL-IR\r\n")?,
         (false, true) => session.push(
             b"* CAPABILITY IMAP4rev1 IDLE UIDPLUS SPECIAL-USE MOVE STARTTLS LOGINDISABLED\r\n",
         )?,
-        (false, false) => {
-            session.push(b"* CAPABILITY IMAP4rev1 IDLE UIDPLUS SPECIAL-USE MOVE AUTH=PLAIN\r\n")?
-        }
+        (false, false) => session
+            .push(b"* CAPABILITY IMAP4rev1 IDLE UIDPLUS SPECIAL-USE MOVE LOGINDISABLED\r\n")?,
     }
     session.push(format!("{tag} OK CAPABILITY completed\r\n").as_bytes())
 }

@@ -41,6 +41,8 @@ pub(super) struct Session {
     pub(super) selected_read_only: bool,
     /// Активный IDLE сохраняет session lease и не создаёт worker/thread.
     pub(super) imap_idle: Option<IdleState>,
+    /// SASL continuation остаётся у socket owner до ответа либо отмены.
+    pub(super) imap_authenticate: Option<imap_protocol::authenticate::State>,
     /// Ограниченный literal остаётся собственностью этой IMAP-сессии.
     pub(super) imap_literal: Option<LiteralReceiver>,
     pub(super) smtp: SmtpState,
@@ -88,6 +90,7 @@ impl Session {
             selected_recent: BTreeSet::new(),
             selected_read_only: false,
             imap_idle: None,
+            imap_authenticate: None,
             imap_literal: None,
             smtp: SmtpState::Command(smtp::Transaction::default()),
             pop3: pop3::Session::default(),
@@ -181,6 +184,11 @@ impl Session {
         )
     }
 
+    /// Парольные механизмы разрешены только после реального TLS transport-а.
+    pub(super) fn is_encrypted(&self) -> bool {
+        self.tls.is_some()
+    }
+
     /// Планирует upgrade после полной отправки plaintext-ответа `220`.
     pub(super) fn request_starttls(&mut self) {
         self.input.clear();
@@ -191,6 +199,7 @@ impl Session {
         self.selected_exists = 0;
         self.selected_recent.clear();
         self.imap_idle = None;
+        self.imap_authenticate = None;
         self.imap_literal = None;
         self.pop3 = pop3::Session::default();
         self.pop3_mailbox = None;

@@ -1,6 +1,4 @@
-//! Linux `poll(2)` reactor keeps protocol sessions as state machines. A session never
-//! owns `Store`: it submits a bounded request to the single storage worker and
-//! waits for a completion identified by its slot and generation.
+//! Linux `poll(2)` reactor: session FSM submits bounded work to the sole Store owner.
 use crate::platform::linux_poll::{self, Interest};
 use crate::runtime::{Orchestrator, ResourceLease};
 use crate::storage_worker::{Request, Response, WakingStorageWorker};
@@ -45,6 +43,8 @@ mod imap_idle;
 mod imap_list;
 #[path = "reactor/imap_literal.rs"]
 mod imap_literal;
+#[path = "reactor/imap_protocol.rs"]
+mod imap_protocol;
 #[path = "reactor/imap_search.rs"]
 mod imap_search;
 #[path = "reactor/imap_select.rs"]
@@ -117,7 +117,7 @@ use imap_idle::IdleState;
 use imap_literal::LiteralReceiver;
 use maildrop_lease::MaildropLeases;
 pub use outbound_entry::{serve_all_mail_outbound_starttls, serve_all_mail_outbound_tls_starttls};
-use pending::Pending;
+use pending::{AuthenticationCommand, Pending};
 use protocol::process_input;
 use reactor_control::service_control;
 use session::{Session, SmtpState};
