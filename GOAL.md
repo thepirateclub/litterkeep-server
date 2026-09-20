@@ -2,7 +2,7 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`  
 Root status: ACTIVE  
-Current subgoal: G08
+Current subgoal: G09
 
 The actually available Goal interface was inspected. It supports creating and
 updating one active root goal (`create_goal`, `get_goal`, `update_goal`), but
