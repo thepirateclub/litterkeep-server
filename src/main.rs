@@ -2,6 +2,8 @@ use std::env;
 use std::process::ExitCode;
 
 use litterkeep_server::{PRODUCT, VERSION};
+#[path = "main_bootstrap.rs"]
+mod bootstrap_cli;
 #[path = "main_maintenance.rs"]
 mod maintenance_cli;
 #[path = "main_managesieve.rs"]
@@ -22,15 +24,11 @@ mod runtime_cli;
 mod seed_cli;
 #[path = "main_sieve.rs"]
 mod sieve_cli;
+#[path = "main_usage.rs"]
+mod usage_cli;
 
 pub(crate) fn usage() {
-    println!(
-        "{PRODUCT} {VERSION}\n\nUsage:\n  litterkeep-server init [data-dir] [account] [password]\n  litterkeep-server seed <smtp> <imap> <server-name> <ca.der> <account> <password-file> <bob-password-file> <qa-password-file>\n  litterkeep-server check --data-dir <data-dir>\n  litterkeep-server backup --data-dir <data-dir> --output <backup-dir>\n  litterkeep-server deliver <address> <sender> <recipient> <message-file>\n  litterkeep-server deliver-tls <address> <server-name> <ca.der> <sender> <recipient> <message-file>\n  litterkeep-server queue-drain <data-dir> <peer-address> [limit]\n  litterkeep-server sieve-errors <data-dir> <account>\n  litterkeep-server runtime <stats|tasks|resources> --data-dir <data-dir>\n  litterkeep-server runtime inspect <task-id> --data-dir <data-dir>\n  litterkeep-server serve [smtp-address] [imap-address] [data-dir]\n  litterkeep-server serve-tls [smtp-address] [imap-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-starttls [smtp-address] [imap-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-all-starttls [smtp-address] [imap-address] [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-pop3-starttls [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-pop3-tls [pop3-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-managesieve-starttls [address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-all-mail-starttls [smtp-address] [imap-address] [pop3-address] [managesieve-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server serve-all-mail-outbound-starttls [smtp-address] [imap-address] [pop3-address] [managesieve-address] [peer-address] [data-dir] <certificate.der> <key.der>\n  litterkeep-server help\n  litterkeep-server version"
-    );
-    println!("  litterkeep-server runtime cancel <task-id> --data-dir <data-dir>");
-    println!(
-        "  litterkeep-server serve-all-mail-outbound-tls-starttls <smtp> <imap> <pop3> <sieve> <peer-ip:port> <peer-name> <peer-ca.der> <data-dir> <certificate.der> <key.der>"
-    );
+    usage_cli::print();
 }
 
 fn main() -> ExitCode {
@@ -43,7 +41,7 @@ fn main() -> ExitCode {
             println!("{PRODUCT} {VERSION}");
             ExitCode::SUCCESS
         }
-        Some("init") => initialize(),
+        Some("init") => bootstrap_cli::initialize(),
         Some("check") => maintenance_cli::check(),
         Some("backup") => maintenance_cli::backup(),
         Some("seed") => seed_cli::execute(),
@@ -107,42 +105,6 @@ fn deliver() -> ExitCode {
         }
         Err(error) => {
             eprintln!("delivery error: {error}");
-            ExitCode::FAILURE
-        }
-    }
-}
-
-/// Создаёт локальный account для проверяемого запуска.
-///
-/// Значения по умолчанию сохраняют документированный fixture `bob` с паролем
-/// `test-password`, но Linux acceptance может создать независимого получателя.
-fn initialize() -> ExitCode {
-    let mut arguments = env::args().skip(2);
-    let data = arguments.next().unwrap_or_else(|| "runtime".into());
-    let account = arguments.next().unwrap_or_else(|| "bob".into());
-    let password = arguments.next().unwrap_or_else(|| "test-password".into());
-    if arguments.next().is_some() {
-        usage();
-        return ExitCode::from(2);
-    }
-    let accounts = match litterkeep_server::accounts::Accounts::open(&data) {
-        Ok(accounts) => accounts,
-        Err(error) => {
-            eprintln!("init error: {error}");
-            return ExitCode::FAILURE;
-        }
-    };
-    match accounts.create(&account, password.as_bytes()) {
-        Ok(()) => {
-            println!("created account {account}");
-            ExitCode::SUCCESS
-        }
-        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-            println!("account {account} already exists");
-            ExitCode::SUCCESS
-        }
-        Err(error) => {
-            eprintln!("init error: {error}");
             ExitCode::FAILURE
         }
     }

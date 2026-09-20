@@ -149,13 +149,17 @@ cleanup. Outbound scheduler в idle завершается сразу, а при
 ## Linux G01 reactor command
 
 ```sh
-cargo run --locked -- init ./runtime
+cargo run --locked -- init --data-dir ./runtime
 cargo run --locked -- serve 127.0.0.1:2525 127.0.0.1:2143 ./runtime
 ```
 
 This is one process with both listeners and one filesystem-store owner. The
-`init` creates the local test account `bob` with password `test-password`.
-It is a development fixture, not a production account-provisioning mechanism.
+`init` creates the local acceptance accounts `alice`, `bob`, `qa` and `pop`.
+Random passwords are written to `./runtime/test-accounts.tsv`; on Linux this
+file has mode `0600`. The command does not print secrets. A repeated invocation
+validates the existing records and leaves both the password file and PHC hashes
+byte-for-byte unchanged. This is a local acceptance bootstrap, not a production
+account-provisioning mechanism.
 The current host runs Windows, so `serve` refuses to run here rather than
 selecting old blocking listeners. The Linux Docker acceptance result is
 documented below.
@@ -163,14 +167,14 @@ documented below.
 ## Implicit TLS submission command
 
 ```sh
-cargo run --locked -- init ./runtime alice alice-password
-cargo run --locked -- init ./runtime bob bob-password
+cargo run --locked -- init --data-dir ./runtime
 cargo run --locked -- serve-tls 0.0.0.0:1465 0.0.0.0:1993 ./runtime ./server.der ./server.key.der
 ```
 
 Connection parameters for this checkpoint are SMTP submission on port 1465
 with implicit TLS and `AUTH PLAIN`, plus IMAP on port 1993 with implicit TLS.
-The acceptance accounts are `alice/alice-password` and `bob/bob-password`.
+The acceptance account names are `alice` and `bob`; their generated passwords
+are read from `./runtime/test-accounts.tsv`.
 The certificate must be trusted by the client and contain the listener host in
 its SAN. Test-only material can be generated with
 `cargo run --locked --example make_test_pki -- ./test-pki`.
@@ -205,14 +209,14 @@ sequence-number view.
 ## POP3 STARTTLS checkpoint
 
 ```sh
-cargo run --locked -- init ./runtime alice alice-password
-cargo run --locked -- init ./runtime bob bob-password
+cargo run --locked -- init --data-dir ./runtime
 cargo run --locked -- serve-pop3-starttls 0.0.0.0:1110 ./runtime ./server.der ./server.key.der
 cargo run --locked -- serve-pop3-tls 0.0.0.0:1995 ./runtime ./server.der ./server.key.der
 cargo run --locked -- serve-all-starttls 0.0.0.0:1587 0.0.0.0:1143 0.0.0.0:1110 ./runtime ./server.der ./server.key.der
 ```
 
-The POP3 test account is `bob/bob-password`; clients must use STLS before
+The POP3 test account is `pop`; its password is in `test-accounts.tsv`.
+Clients must use STLS before
 `PASS` on port 1110, or implicit TLS on port 1995. The verified Linux test is split into SMTP delivery and POP3 reading so
 the same bind-mounted `./data/g07-pop3` store is reused across server restart:
 
@@ -224,13 +228,12 @@ python tests/blackbox/pop3_starttls_delivery.py --phase empty --port 11110 --ca 
 
 `serve-all-starttls` is the one-process acceptance mode: SMTP, IMAP and POP3
 share one storage owner and poll reactor. The destructive POP3 fixture uses
-`./data/g07-pop-destructive` and the dedicated account `pop/pop-password`.
+`./data/g07-pop-destructive` and the dedicated account `pop`.
 
 ## ManageSieve literal checkpoint
 
 ```sh
-cargo run --locked -- init ./runtime alice alice-password
-cargo run --locked -- init ./runtime bob bob-password
+cargo run --locked -- init --data-dir ./runtime
 cargo run --locked -- serve-all-mail-starttls 0.0.0.0:1587 0.0.0.0:1143 0.0.0.0:1110 0.0.0.0:4190 ./runtime ./server.der ./server.key.der
 python tests/blackbox/managesieve_literal_delivery.py --smtp-port 1587 --imap-port 1143 --managesieve-port 4190 --ca ./data/pki/ca.pem
 ```
@@ -240,8 +243,8 @@ SMTP delivery and IMAP view share exactly one filesystem Store owner. The
 black-box client performs STARTTLS and SASL PLAIN, checks a synchronous
 `CHECKSCRIPT {n}` literal and a fragmented `PUTSCRIPT {n+}` literal, activates
 the script, sends an SMTP message as Alice and reads it from Bob's `Invoices`
-folder through IMAP. The test accounts are `alice/alice-password` and
-`bob/bob-password`.
+folder through IMAP. The test accounts are `alice` and `bob`; generated
+passwords are stored in `test-accounts.tsv`.
 
 Если bounded Sieve executor отклоняет уже активную версию во время доставки,
 сервер применяет implicit keep и не публикует частично накопленные redirect или

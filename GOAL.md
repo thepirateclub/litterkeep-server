@@ -23,9 +23,30 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | G09 | G04 | outbound SMTP, pool, retry/DSN | PASS |
 | G10 | G06,G07,G08,G09 | failure matrix, replay, resource plateaus | PASS |
 | G11 | G10 | offline check/backup and repeatable seed | PASS |
-| G12 | G11 | litterkeep and final acceptance report | NOT RUN |
+| G12 | G11 | litterkeep and final acceptance report | RUNNING |
 
 ## Checkpoints
+
+### 2026-09-20: G12 repeatable secure init checkpoint
+
+- Команда bootstrap приведена к единственному typed интерфейсу
+  `init --data-dir <directory>`. Она создаёт ровно четыре acceptance-аккаунта:
+  `alice`, `bob`, `qa`, `pop`, используя CSPRNG установленного Rust/TLS стека.
+- Пароли не передаются в argv и не печатаются. Локальный файл
+  `test-accounts.tsv` создаётся до PHC-записей, синхронизируется и получает
+  права `0600` на Linux. Повторный init валидирует typed набор владельцев и
+  существующие PHC, не генерирует новые пароли и не перезаписывает hashes.
+- Unit-тест доказал идентичность secret-файла и всех PHC после повтора, а также
+  аутентификацию каждого сохранённого пароля. Windows gate: 189 тестов и strict
+  Clippy. Docker Rust 1.97 gate: 219 тестов и strict Linux Clippy; release image
+  `litterkeep-server:g12-init` успешно собран.
+- Linux CLI acceptance на container-local `/data`: первый запуск сообщил
+  `created=4 existing=0`, второй `created=0 existing=4`; SHA-256 secret-файла и
+  четырёх PHC совпал до байта, mode secret-файла равен `600`. Сырые измерения:
+  `data/g12-init/measurements.txt`.
+- G12 остаётся RUNNING до чистого полного прогона продукта, фактической проверки
+  доступной интеграции litterkeep и итоговой матрицы acceptance без завышения
+  статуса непроверенных сценариев.
 
 ### 2026-09-20: G11 multi-recipient and bounded maintenance completion
 

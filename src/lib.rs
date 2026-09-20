@@ -6,6 +6,7 @@
 
 pub mod accounts;
 pub mod auth;
+pub mod bootstrap;
 #[cfg(target_os = "linux")]
 pub mod control;
 pub mod dsn;
