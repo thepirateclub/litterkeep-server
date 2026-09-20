@@ -277,6 +277,17 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   остаётся RUNNING: есть bounded count, но ещё нет persisted next-at/TTL delay,
   automatic service drain и TLS/pool lifecycle peer acceptance.
 
+### 2026-09-20: G08 redirect-only durable delivery checkpoint
+
+- Sieve `redirect; discard;` теперь публикует durable outbound job без
+  фиктивной INBOX link. Store разрешает пустой список mailbox links только при
+  непустом outbound plan; обычный пустой APPEND по-прежнему получает
+  `InvalidInput`. Queue job, blob и global commit остаются одной transaction.
+- PASS: Windows `cargo test --all-targets --locked` (131 tests), strict Clippy,
+  format и `git diff --check`. G08/G09 остаются RUNNING: redirect-only peer
+  scenario ещё не проверен в Linux; автоматический retry timing, TLS и pool
+  остаются неполными.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.

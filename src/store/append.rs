@@ -38,7 +38,7 @@ impl Store {
         outbound: &[(String, String)],
     ) -> io::Result<u64> {
         self.ensure_writable()?;
-        let mailboxes = validated_unique_mailboxes(mailboxes)?;
+        let mailboxes = validated_delivery_mailboxes(mailboxes, outbound)?;
         self.blob_quota.ensure_available(raw.len())?;
         let mut transaction_id = self.next_transaction_id;
         let (name, _) = blobs::next_available(&self.root, &mut transaction_id)?;
@@ -126,10 +126,10 @@ impl Store {
         transaction_id: u64,
         links: Vec<(String, model::Record)>,
     ) -> io::Result<u64> {
-        let first_uid = links
-            .first()
-            .map(|(_, record)| record.uid)
-            .ok_or_else(|| io::Error::other("delivery has no mailbox links"))?;
+        let first_uid = match links.first() {
+            Some((_, record)) => record.uid,
+            None => transaction_id,
+        };
         for (mailbox, record) in links {
             let next_uid = record
                 .uid
@@ -189,5 +189,17 @@ impl Store {
                 "outbound job is not committed",
             )),
         }
+    }
+}
+
+/// Разрешает redirect-only transaction, но не пустой обычный APPEND.
+fn validated_delivery_mailboxes(
+    mailboxes: &[String],
+    outbound: &[(String, String)],
+) -> io::Result<Vec<String>> {
+    match (mailboxes.is_empty(), outbound.is_empty()) {
+        (false, _) => validated_unique_mailboxes(mailboxes),
+        (true, false) => Ok(Vec::new()),
+        (true, true) => Err(io::Error::new(io::ErrorKind::InvalidInput, "no recipients")),
     }
 }

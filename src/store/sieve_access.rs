@@ -85,7 +85,7 @@ impl Store {
                 mailboxes.push(self.resolve_folder(account, &folder)?);
             }
         }
-        if mailboxes.is_empty() {
+        if let (true, true) = (mailboxes.is_empty(), outbound.is_empty()) {
             return Ok(0);
         }
         self.append_many_with_outbound(&mailboxes, raw, &outbound)
@@ -229,6 +229,33 @@ mod tests {
         drop(store);
         let store = Store::open(&root).expect("reopen");
         assert!(store.pending_outbound().expect("recovered").is_empty());
+        drop(store);
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn redirect_discard_publishes_queue_without_an_inbox_link() {
+        let root = directory();
+        let mut store = Store::open(&root).expect("open");
+        store
+            .put_sieve_script(
+                "bob",
+                "redirect-only",
+                "redirect \"remote@peer.test\"; discard;".into(),
+            )
+            .expect("put");
+        store
+            .activate_sieve_script("bob", Some("redirect-only"))
+            .expect("activate");
+        store
+            .deliver_sieve_many(
+                &["bob".into()],
+                "alice@litterkeep.test",
+                b"Subject: redirect-only\r\n\r\nbody",
+            )
+            .expect("deliver");
+        assert_eq!(store.messages("bob").expect("inbox").len(), 0);
+        assert_eq!(store.pending_outbound().expect("outbound").len(), 1);
         drop(store);
         fs::remove_dir_all(root).expect("cleanup");
     }
