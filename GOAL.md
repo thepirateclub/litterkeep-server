@@ -318,6 +318,20 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   runtime service ownership, persisted next-at/backoff, TLS route keys, DSN
   и cancellation lifecycle acceptance.
 
+### 2026-09-20: G09 durable retry deadline checkpoint
+
+- Owned queue frames теперь сохраняют `next_attempt_epoch` как restart-safe
+  Unix epoch. После deferred delivery используется bounded exponential backoff
+  60/120/240... seconds до 3600 seconds; terminal state не получает deadline.
+  `queue-drain` не выдаёт job раньше deadline. Reader сохраняет совместимость
+  с прежними owned frames, присваивая им immediate retry, а crash в InFlight
+  возвращает job в Deferred без ложной задержки.
+- PASS: restart test подтверждает due-gate на границе epoch, отдельный test
+  читает прежний attempts frame. Windows: 136 tests, strict Clippy, format и
+  `git diff --check`; Linux Docker test stage: 143 tests. G09 остаётся
+  RUNNING: не реализованы service-owned automatic drain, TLS route keys,
+  DSN и cancellation lifecycle acceptance.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.

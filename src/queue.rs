@@ -1,10 +1,13 @@
 //! Durable delivery queue journal.
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::BTreeMap,
     fs::{self, OpenOptions},
     io::{self, Write},
     path::{Path, PathBuf},
 };
+
+#[path = "queue_owned.rs"]
+mod queue_owned;
 #[derive(Debug)]
 pub struct Queue {
     path: PathBuf,
@@ -55,6 +58,8 @@ pub struct OwnedDelivery {
     pub transaction_id: u64,
     /// Число реально начатых SMTP попыток, зафиксированное в queue journal.
     pub attempts: u8,
+    /// Unix epoch seconds, раньше которых deferred job не выдаётся worker-у.
+    pub next_attempt_epoch: u64,
     pub sender: String,
     pub recipient: String,
     pub state: State,
@@ -84,7 +89,7 @@ impl Queue {
             .open(&self.path)?;
         writeln!(
             file,
-            "{} {transaction_id} 0 {sender} {recipient}",
+            "{} {transaction_id} 0 0 {sender} {recipient}",
             State::Pending.wire()
         )?;
         file.sync_all()
@@ -99,10 +104,11 @@ impl Queue {
             .open(&self.path)?;
         writeln!(
             file,
-            "{} {} {} {} {}",
+            "{} {} {} {} {} {}",
             state.wire(),
             delivery.transaction_id,
             delivery.attempts,
+            delivery.next_attempt_epoch,
             delivery.sender,
             delivery.recipient
         )?;
@@ -168,99 +174,6 @@ impl Queue {
             Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(Vec::new()),
             Err(e) => Err(e),
         }
-    }
-
-    /// Возвращает transaction IDs, для которых журнал содержит owned SMTP job.
-    ///
-    /// Этот компактный индекс нужен recovery Store: redirect-only transaction не
-    /// имеет mailbox link, но остаётся полностью опубликованной транзакцией.
-    pub fn owned_transaction_ids(&self) -> io::Result<HashSet<u64>> {
-        let source = match fs::read_to_string(&self.path) {
-            Ok(value) => value,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(HashSet::new()),
-            Err(error) => return Err(error),
-        };
-        let mut result = HashSet::new();
-        for line in source.lines() {
-            let mut fields = line.split_whitespace();
-            let state = match fields.next() {
-                Some(value) => value,
-                None => continue,
-            };
-            let transaction = match fields.next() {
-                Some(value) => value,
-                None => continue,
-            };
-            let _third = match fields.next() {
-                Some(value) => value,
-                None => continue,
-            };
-            if fields.next().is_some() {
-                State::parse(state)?;
-                let transaction_id = transaction
-                    .parse()
-                    .map_err(|_| invalid("bad owned transaction"))?;
-                result.insert(transaction_id);
-            }
-        }
-        Ok(result)
-    }
-
-    /// Возвращает только jobs, опубликованные общей точкой commit Store.
-    pub fn pending_owned(&self, committed: &HashSet<u64>) -> io::Result<Vec<OwnedDelivery>> {
-        let source = match fs::read_to_string(&self.path) {
-            Ok(value) => value,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
-            Err(error) => return Err(error),
-        };
-        let mut latest = BTreeMap::new();
-        for line in source.lines() {
-            let mut fields = line.split_whitespace();
-            let state = fields
-                .next()
-                .ok_or_else(|| invalid("bad owned queue state"))?;
-            let transaction = fields.next().ok_or_else(|| invalid("bad owned queue id"))?;
-            let Some(candidate) = fields.next() else {
-                continue;
-            };
-            let (attempts, sender, recipient) = match candidate.parse::<u8>() {
-                Ok(attempts) => match (fields.next(), fields.next(), fields.next()) {
-                    (Some(sender), Some(recipient), None) => (attempts, sender, recipient),
-                    _ => continue,
-                },
-                Err(_) => match (fields.next(), fields.next()) {
-                    (Some(recipient), None) => (0, candidate, recipient),
-                    _ => continue,
-                },
-            };
-            let transaction_id = transaction
-                .parse()
-                .map_err(|_| invalid("bad owned transaction"))?;
-            let state = match State::parse(state)? {
-                State::InFlight => State::Deferred,
-                state => state,
-            };
-            let delivery = OwnedDelivery {
-                transaction_id,
-                attempts,
-                sender: sender.into(),
-                recipient: recipient.into(),
-                state,
-            };
-            latest.insert((transaction_id, delivery.recipient.clone()), delivery);
-        }
-        Ok(latest
-            .into_values()
-            .filter(|delivery| {
-                match (
-                    committed.contains(&delivery.transaction_id),
-                    matches!(delivery.state, State::Pending | State::Deferred),
-                ) {
-                    (true, true) => true,
-                    (true, false) | (false, _) => false,
-                }
-            })
-            .collect())
     }
 }
 

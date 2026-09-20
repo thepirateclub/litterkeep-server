@@ -53,6 +53,7 @@ fn owned_delivery_is_invisible_until_store_commit() {
         vec![OwnedDelivery {
             transaction_id: 7,
             attempts: 0,
+            next_attempt_epoch: 0,
             sender: "alice@test".into(),
             recipient: "remote@test".into(),
             state: State::Pending
@@ -68,6 +69,7 @@ fn owned_transition_survives_reopen_and_removes_pending_job() {
     let delivery = OwnedDelivery {
         transaction_id: 8,
         attempts: 0,
+        next_attempt_epoch: 0,
         sender: "alice@test".into(),
         recipient: "remote@test".into(),
         state: State::Pending,
@@ -99,6 +101,7 @@ fn interrupted_owned_delivery_is_deferred_on_reopen() {
     let delivery = OwnedDelivery {
         transaction_id: 9,
         attempts: 0,
+        next_attempt_epoch: 0,
         sender: "alice@test".into(),
         recipient: "remote@test".into(),
         state: State::Pending,
@@ -124,5 +127,63 @@ fn interrupted_owned_delivery_is_deferred_on_reopen() {
             .state,
         State::Deferred
     );
+    let _ = fs::remove_dir_all(d);
+}
+
+#[test]
+fn deferred_epoch_survives_reopen_and_gates_due_selection() {
+    let d = std::env::temp_dir().join("litterkeep-owned-retry-deadline-test");
+    let q = Queue::open(&d).expect("queue");
+    let delivery = OwnedDelivery {
+        transaction_id: 10,
+        attempts: 1,
+        next_attempt_epoch: 1_060,
+        sender: "alice@test".into(),
+        recipient: "remote@test".into(),
+        state: State::Deferred,
+    };
+    q.enqueue_owned(
+        delivery.transaction_id,
+        &delivery.sender,
+        &delivery.recipient,
+    )
+    .expect("enqueue");
+    q.transition_owned(&delivery, State::Deferred)
+        .expect("defer");
+    let committed = HashSet::from([delivery.transaction_id]);
+    let reopened = Queue::open(&d).expect("reopen");
+    assert!(
+        reopened
+            .due_owned(&committed, 1_059)
+            .expect("before deadline")
+            .is_empty()
+    );
+    assert_eq!(
+        reopened.due_owned(&committed, 1_060).expect("at deadline"),
+        vec![delivery]
+    );
+    let _ = fs::remove_dir_all(d);
+}
+
+#[test]
+fn previous_attempts_frame_defaults_to_immediate_retry() {
+    let d = std::env::temp_dir().join("litterkeep-owned-queue-v2-test");
+    let queue_dir = d.join("queue");
+    fs::create_dir_all(&queue_dir).expect("queue directory");
+    fs::write(
+        queue_dir.join("delivery.queue"),
+        "deferred 11 2 alice@test remote@test\n",
+    )
+    .expect("previous frame");
+    let committed = HashSet::from([11]);
+    let delivery = Queue::open(&queue_dir)
+        .expect("open")
+        .due_owned(&committed, 0)
+        .expect("due")
+        .into_iter()
+        .next()
+        .expect("delivery");
+    assert_eq!(delivery.attempts, 2);
+    assert_eq!(delivery.next_attempt_epoch, 0);
     let _ = fs::remove_dir_all(d);
 }

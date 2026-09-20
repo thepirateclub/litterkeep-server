@@ -1,9 +1,14 @@
 //! Ограниченный queue drain через собственный SMTP transport.
 use crate::{outbound, outbound_pool::ConnectionPool, queue::State, store::Store};
-use std::io;
+use std::{
+    io,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 const MAX_ATTEMPTS: u8 = 3;
 const ROUTE_POOL_CAPACITY: usize = 2;
+const INITIAL_RETRY_SECONDS: u64 = 60;
+const MAX_RETRY_SECONDS: u64 = 3_600;
 
 /// Итог одной bounded попытки доставки без скрытого бесконечного retry loop.
 #[derive(Debug, Default, Eq, PartialEq)]
@@ -15,9 +20,24 @@ pub struct DrainReport {
 
 /// Обрабатывает не больше `limit` committed jobs владельцем одного Store.
 pub fn drain(store: &mut Store, address: &str, limit: usize) -> io::Result<DrainReport> {
+    drain_at(store, address, limit, now_epoch()?)
+}
+
+/// Обрабатывает due jobs на заданном epoch для детерминированной проверки policy.
+pub fn drain_at(
+    store: &mut Store,
+    address: &str,
+    limit: usize,
+    now_epoch: u64,
+) -> io::Result<DrainReport> {
     let mut report = DrainReport::default();
     let mut pool = ConnectionPool::new(address, ROUTE_POOL_CAPACITY)?;
-    for mut delivery in store.pending_outbound()?.into_iter().take(limit) {
+    for mut delivery in store
+        .pending_outbound()?
+        .into_iter()
+        .filter(|delivery| delivery.next_attempt_epoch <= now_epoch)
+        .take(limit)
+    {
         delivery.attempts = delivery
             .attempts
             .checked_add(1)
@@ -30,10 +50,33 @@ pub fn drain(store: &mut Store, address: &str, limit: usize) -> io::Result<Drain
             delivery.attempts,
         );
         delivery.state = state;
+        delivery.next_attempt_epoch = next_attempt_epoch(state, delivery.attempts, now_epoch);
         store.transition_outbound(&delivery, state)?;
         record(&mut report, state);
     }
     Ok(report)
+}
+
+/// Возвращает durable wall-clock deadline, пригодный для restart процесса.
+fn now_epoch() -> io::Result<u64> {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .map_err(|_| io::Error::other("system clock predates Unix epoch"))
+}
+
+/// Ограничивает retry delay, чтобы счётчик попыток не переполнил duration.
+fn next_attempt_epoch(state: State, attempts: u8, now_epoch: u64) -> u64 {
+    match state {
+        State::Deferred => {
+            let shift = u32::from(attempts.saturating_sub(1)).min(6);
+            let delay = INITIAL_RETRY_SECONDS
+                .saturating_mul(1_u64 << shift)
+                .min(MAX_RETRY_SECONDS);
+            now_epoch.saturating_add(delay)
+        }
+        State::Pending | State::InFlight | State::Delivered | State::PermanentFailure => 0,
+    }
 }
 
 /// Отделяет непредсказуемую I/O ошибку peer-а от terminal SMTP ответа.
@@ -68,5 +111,12 @@ mod tests {
             delivery_state(Ok(outbound::DeliveryOutcome::Deferred), MAX_ATTEMPTS),
             State::PermanentFailure
         );
+    }
+
+    #[test]
+    fn deferred_retry_uses_bounded_epoch_backoff() {
+        assert_eq!(next_attempt_epoch(State::Deferred, 1, 100), 160);
+        assert_eq!(next_attempt_epoch(State::Deferred, 3, 100), 340);
+        assert_eq!(next_attempt_epoch(State::Delivered, 1, 100), 0);
     }
 }
