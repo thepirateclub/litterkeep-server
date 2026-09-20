@@ -50,6 +50,7 @@ fn condition_valid(condition: &Condition, depth: usize) -> Result<(), &'static s
     }
     match condition {
         Condition::Header { names, matcher } => string_match_valid(names, matcher),
+        Condition::Address { names, matcher, .. } => string_match_valid(names, matcher),
         Condition::Exists { names } if names.is_empty() => Err("empty sieve exists list"),
         Condition::Not(value) => condition_valid(value, depth.saturating_add(1)),
         Condition::AllOf(values) | Condition::AnyOf(values) if values.is_empty() => {

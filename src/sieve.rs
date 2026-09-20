@@ -4,6 +4,8 @@
 //! расположен в отдельном файле, чтобы сетевой ManageSieve и storage owner
 //! могли использовать ровно один проверяемый контракт.
 
+#[path = "sieve/address.rs"]
+mod address;
 #[path = "sieve/ast.rs"]
 mod ast;
 #[path = "sieve/execution.rs"]
@@ -20,7 +22,9 @@ mod tests;
 #[path = "sieve/validate.rs"]
 mod validate;
 
-pub use ast::{Action, Comparator, Condition, MatchType, Script, SizeRelation, StringMatch};
+pub use ast::{
+    Action, AddressPart, Comparator, Condition, MatchType, Script, SizeRelation, StringMatch,
+};
 pub use execution::{DeliveryPlan, execute};
 
 /// Разбирает и валидирует script до его сохранения или исполнения.

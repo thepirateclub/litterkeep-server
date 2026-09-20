@@ -1,5 +1,6 @@
 //! Bounded исполнение AST в DeliveryPlan без доступа к сети и файловой системе.
 
+use super::address;
 use super::ast::{Action, Command, Condition, Script};
 use super::matching;
 
@@ -100,6 +101,13 @@ fn matches(condition: &Condition, headers: &[(String, String)], message_size: us
         Condition::Header { names, matcher } => headers
             .iter()
             .any(|(candidate, value)| header_matches(candidate, value, names, matcher)),
+        Condition::Address {
+            names,
+            part,
+            matcher,
+        } => headers
+            .iter()
+            .any(|(candidate, value)| address_matches(candidate, value, names, *part, matcher)),
         Condition::Exists { names } => names.iter().all(|name| {
             headers
                 .iter()
@@ -117,6 +125,24 @@ fn matches(condition: &Condition, headers: &[(String, String)], message_size: us
             .iter()
             .any(|value| matches(value, headers, message_size)),
     }
+}
+
+fn address_matches(
+    candidate: &str,
+    value: &str,
+    names: &[String],
+    part: super::ast::AddressPart,
+    matcher: &super::ast::StringMatch,
+) -> bool {
+    if !names
+        .iter()
+        .any(|name| candidate.eq_ignore_ascii_case(name))
+    {
+        return false;
+    }
+    address::values(value, part)
+        .iter()
+        .any(|value| matching::matches(value, matcher))
 }
 
 /// Сначала проверяет имя header, затем его значение, не смешивая условия.

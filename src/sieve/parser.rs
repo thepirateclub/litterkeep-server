@@ -1,7 +1,8 @@
 //! Рекурсивный parser начального совместимого подмножества Sieve.
 
 use super::ast::{
-    Action, Command, Comparator, Condition, MatchType, Script, SizeRelation, StringMatch,
+    Action, AddressPart, Command, Comparator, Condition, MatchType, Script, SizeRelation,
+    StringMatch,
 };
 use super::lexer::Token;
 use std::collections::VecDeque;
@@ -92,6 +93,7 @@ fn condition(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
         "true" => Ok(Condition::True),
         "false" => Ok(Condition::False),
         "header" => header(input),
+        "address" => address(input),
         "exists" => Ok(Condition::Exists {
             names: string_list(input)?,
         }),
@@ -113,6 +115,36 @@ fn header(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
             keys: string_list(input)?,
         },
     })
+}
+
+fn address(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
+    let part = address_part(input);
+    let (match_type, comparator) = match_options(input)?;
+    Ok(Condition::Address {
+        names: string_list(input)?,
+        part,
+        matcher: StringMatch {
+            match_type,
+            comparator,
+            keys: string_list(input)?,
+        },
+    })
+}
+
+fn address_part(input: &mut VecDeque<Token>) -> AddressPart {
+    let Some(Token::Atom(tag)) = input.front() else {
+        return AddressPart::All;
+    };
+    let part = match tag.as_str() {
+        ":all" => AddressPart::All,
+        ":localpart" => AddressPart::LocalPart,
+        ":domain" => AddressPart::Domain,
+        ":user" => AddressPart::User,
+        ":detail" => AddressPart::Detail,
+        _ => return AddressPart::All,
+    };
+    let _ = input.pop_front();
+    part
 }
 
 /// Разбирает разрешённые match-tags без смешивания с аргументами test-а.

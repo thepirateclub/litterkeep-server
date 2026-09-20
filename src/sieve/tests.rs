@@ -58,6 +58,25 @@ fn octet_comparator_keeps_case_significant() {
     assert!(plan.keep);
 }
 
+/// Address-проекция отделяет plus-detail и использует тот же typed matcher.
+#[test]
+fn address_test_selects_detail_without_matching_another_recipient() {
+    let script = parse(
+        "if address :detail :is \"to\" \"sales\" { fileinto \"Invoices\"; } else { discard; }",
+    )
+    .expect("parse");
+    let plan = execute(
+        &script,
+        &[(
+            "To".into(),
+            "\"Alice, Example\" <alice+sales@example.test>, bob@example.test".into(),
+        )],
+        20,
+    )
+    .expect("execute");
+    assert_eq!(plan.folders, vec!["Invoices"]);
+}
+
 #[test]
 fn invalid_script_does_not_become_a_delivery_plan() {
     assert!(parse("require [\"vacation\"]; keep;").is_err());

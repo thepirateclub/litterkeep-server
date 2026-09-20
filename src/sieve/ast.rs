@@ -37,6 +37,11 @@ pub enum Condition {
         names: Vec<String>,
         matcher: StringMatch,
     },
+    Address {
+        names: Vec<String>,
+        part: AddressPart,
+        matcher: StringMatch,
+    },
     Exists {
         names: Vec<String>,
     },
@@ -77,4 +82,14 @@ pub struct StringMatch {
 pub enum SizeRelation {
     Over,
     Under,
+}
+
+/// Выбираемая Sieve-проекция mailbox из address header.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AddressPart {
+    All,
+    LocalPart,
+    Domain,
+    User,
+    Detail,
 }

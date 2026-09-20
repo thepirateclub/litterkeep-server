@@ -74,6 +74,17 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   RUNNING: отсутствуют `address`-условия, redirect ещё не идёт через outbound
   queue, нужен полный внешний ManageSieve command/error matrix.
 
+### 2026-09-20: G08 Sieve address checkpoint
+
+- `address` test получил отдельный bounded extractor для `:all`, `:localpart`,
+  `:domain`, `:user` и `:detail`; только затем выбранные значения передаются
+  тому же typed matcher-у. Quoted display name и angle-bracket mailbox не
+  ломают delimiter comma, некорректный адрес не становится совпадением.
+- PASS: Windows `cargo test --all-targets --locked` (123 tests), strict
+  Clippy, format и Docker Linux test target (130 tests). G08 остаётся
+  RUNNING: redirect ещё не проходит outbound queue, не проверены все команды
+  и response codes ManageSieve независимым сетевым matrix.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.
