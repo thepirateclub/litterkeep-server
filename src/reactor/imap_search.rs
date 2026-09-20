@@ -48,8 +48,20 @@ fn matches_key(
         SearchKey::Text(needle) => contains(&message.bytes, needle.as_bytes()),
         SearchKey::Larger(size) => usize_as_u64(message.bytes.len()) > *size,
         SearchKey::Smaller(size) => usize_as_u64(message.bytes.len()) < *size,
+        SearchKey::Before(date) => message_date(message) < *date,
+        SearchKey::On(date) => message_date(message) == *date,
+        SearchKey::Since(date) => message_date(message) >= *date,
+        SearchKey::Not(item) => !matches_key(message, item, headers),
+        SearchKey::Or(left, right) => match matches_key(message, left, headers) {
+            true => true,
+            false => matches_key(message, right, headers),
+        },
         SearchKey::And(keys) => keys.iter().all(|item| matches_key(message, item, headers)),
     }
+}
+
+fn message_date(message: &crate::store::Message) -> crate::imap::search_date::SearchDate {
+    crate::imap::search_date::SearchDate::from_mail_date(message.internal_date)
 }
 
 fn header_matches(headers: Option<&HeaderBlock>, selector: &HeaderSelector, needle: &str) -> bool {
@@ -141,5 +153,21 @@ mod tests {
             &SearchKey::Text("subject".into()),
             None
         ));
+    }
+
+    #[test]
+    fn matches_internal_date_and_boolean_tree() {
+        let mut value = message(b"Subject: report\r\n\r\nbody");
+        value.internal_date = MailDate::parse("2-Feb-2026 12:00:00 +0000").expect("date");
+        let boundary =
+            crate::imap::search_date::SearchDate::parse("2-Feb-2026").expect("search date");
+        let query = SearchKey::Or(
+            Box::new(SearchKey::Before(boundary)),
+            Box::new(SearchKey::Not(Box::new(SearchKey::Seen))),
+        );
+        assert!(matches_key(&value, &query, None));
+        assert!(matches_key(&value, &SearchKey::On(boundary), None));
+        assert!(matches_key(&value, &SearchKey::Since(boundary), None));
+        assert!(!matches_key(&value, &SearchKey::Before(boundary), None));
     }
 }

@@ -9,6 +9,8 @@ pub mod folder;
 pub mod idle;
 pub mod modified_utf7;
 pub mod search;
+#[path = "imap/search_date.rs"]
+pub mod search_date;
 pub mod sequence_set;
 pub mod status;
 pub mod tokenizer;

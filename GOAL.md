@@ -27,6 +27,24 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G06 SEARCH date and boolean checkpoint
+
+- SEARCH AST поддерживает `BEFORE`, `ON`, `SINCE`, `NOT`, бинарный `OR` и
+  вложенные parenthesized groups. Последовательность criteria внутри и вне
+  группы остаётся неявным AND по IMAP4rev1, незакрытая или лишняя скобка
+  отвергается parser-ом.
+- Date parser вынесен в отдельный typed `SearchDate`: wire-строка проверяется
+  существующей Gregorian/UTC арифметикой `MailDate`, после чего executor
+  сравнивает только номер календарного дня с сохранённым INTERNALDATE.
+- Unit tests покрывают parser tree, невалидную дату, границы ON/BEFORE/SINCE и
+  short-circuit OR/NOT. Неподдержанные SENT-date и прочие keys всё ещё получают
+  BAD, поэтому профиль не выдаёт неполную семантику за пустой успех.
+- PASS: Windows 171 tests, strict Clippy и format. Docker Rust 1.97 strict
+  Linux Clippy и 197 tests прошли в финальном image
+  `litterkeep-server:g06-search-boolean-date-final`.
+- G06 остаётся RUNNING: расширение остальных базовых flag/date criteria и
+  независимая сетевая SEARCH/concurrent/reconnect matrix ещё не завершены.
+
 ### 2026-09-20: G06 typed content SEARCH checkpoint
 
 - SEARCH больше не ограничен пятью flag predicates. Typed AST поддерживает
