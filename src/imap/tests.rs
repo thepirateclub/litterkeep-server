@@ -250,10 +250,10 @@ fn search_uses_typed_key_and_addressing() {
             key: crate::imap::search::SearchKey::Deleted,
         }
     );
-    assert_eq!(
+    assert!(matches!(
         parse("a SEARCH SUBJECT x\r\n").command,
-        Command::Unsupported
-    );
+        Command::Search { .. }
+    ));
 }
 
 /// STORE operation и системные flags не покидают parser строками.

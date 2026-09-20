@@ -1,12 +1,14 @@
 //! Формирование IMAP SEARCH response из согласованного mailbox snapshot.
 
 use super::*;
+use crate::imap::search::{HeaderSelector, SearchKey};
+use crate::mime::header_block::{HeaderBlock, HeaderName};
 
-/// Публикует только числа того пространства адресации, которое выбрал клиент.
+/// Публикует только числа пространства адресации, выбранного клиентом.
 pub(super) fn completed(
     session: &mut Session,
     addressing: imap::Addressing,
-    key: imap::search::SearchKey,
+    key: SearchKey,
     tag: String,
     messages: Vec<crate::store::Message>,
 ) -> io::Result<()> {
@@ -14,26 +16,130 @@ pub(super) fn completed(
         .iter()
         .enumerate()
         .filter_map(|(offset, message)| {
-            matches_key(message.flags, key).then_some(match addressing {
+            let headers = match requires_headers(&key) {
+                true => crate::mime::header_block::parse(&message.bytes).ok(),
+                false => None,
+            };
+            matches_key(message, &key, headers.as_ref()).then_some(match addressing {
                 imap::Addressing::Sequence => offset.saturating_add(1) as u64,
                 imap::Addressing::Uid => message.uid,
             })
         })
         .map(|value| value.to_string())
         .collect::<Vec<_>>();
-    let suffix = matches.join(" ");
-    session.push(format!("* SEARCH {suffix}\r\n").as_bytes())?;
+    session.push(format!("* SEARCH {}\r\n", matches.join(" ")).as_bytes())?;
     session.push(format!("{tag} OK SEARCH completed\r\n").as_bytes())
 }
 
-/// Сопоставляет типизированный key с bitset без строковых protocol-значений.
-fn matches_key(flags: crate::mail_flags::MessageFlags, key: imap::search::SearchKey) -> bool {
+fn matches_key(
+    message: &crate::store::Message,
+    key: &SearchKey,
+    headers: Option<&HeaderBlock>,
+) -> bool {
     use crate::mail_flags::SystemFlag;
     match key {
-        imap::search::SearchKey::All => true,
-        imap::search::SearchKey::Seen => flags.contains(SystemFlag::Seen),
-        imap::search::SearchKey::Unseen => !flags.contains(SystemFlag::Seen),
-        imap::search::SearchKey::Deleted => flags.contains(SystemFlag::Deleted),
-        imap::search::SearchKey::Undeleted => !flags.contains(SystemFlag::Deleted),
+        SearchKey::All => true,
+        SearchKey::Seen => message.flags.contains(SystemFlag::Seen),
+        SearchKey::Unseen => !message.flags.contains(SystemFlag::Seen),
+        SearchKey::Deleted => message.flags.contains(SystemFlag::Deleted),
+        SearchKey::Undeleted => !message.flags.contains(SystemFlag::Deleted),
+        SearchKey::Header(selector, needle) => header_matches(headers, selector, needle),
+        SearchKey::Body(needle) => body_matches(message, headers, needle),
+        SearchKey::Text(needle) => contains(&message.bytes, needle.as_bytes()),
+        SearchKey::Larger(size) => usize_as_u64(message.bytes.len()) > *size,
+        SearchKey::Smaller(size) => usize_as_u64(message.bytes.len()) < *size,
+        SearchKey::And(keys) => keys.iter().all(|item| matches_key(message, item, headers)),
+    }
+}
+
+fn header_matches(headers: Option<&HeaderBlock>, selector: &HeaderSelector, needle: &str) -> bool {
+    let Some(headers) = headers else {
+        return false;
+    };
+    headers.fields.iter().any(|field| {
+        selector_matches(field.kind(), &field.name, selector)
+            && contains(&field.value, needle.as_bytes())
+    })
+}
+
+fn selector_matches(kind: HeaderName, name: &str, selector: &HeaderSelector) -> bool {
+    match selector {
+        HeaderSelector::Known(expected) => kind == *expected,
+        HeaderSelector::Other(expected) => name == expected,
+    }
+}
+
+fn body_matches(
+    message: &crate::store::Message,
+    headers: Option<&HeaderBlock>,
+    needle: &str,
+) -> bool {
+    let Some(HeaderBlock { body_offset, .. }) = headers else {
+        return false;
+    };
+    message
+        .bytes
+        .get(*body_offset..)
+        .is_some_and(|body| contains(body, needle.as_bytes()))
+}
+
+fn requires_headers(key: &SearchKey) -> bool {
+    match key {
+        SearchKey::Header(..) | SearchKey::Body(_) => true,
+        SearchKey::And(keys) => keys.iter().any(requires_headers),
+        _ => false,
+    }
+}
+
+/// RFC SEARCH string matching является регистронезависимым для ASCII профиля.
+fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+    match needle.is_empty() {
+        true => true,
+        false => haystack
+            .windows(needle.len())
+            .any(|window| window.eq_ignore_ascii_case(needle)),
+    }
+}
+
+fn usize_as_u64(value: usize) -> u64 {
+    u64::try_from(value).unwrap_or(u64::MAX)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mail_date::MailDate;
+    use crate::mail_flags::MessageFlags;
+    use std::path::PathBuf;
+
+    fn message(bytes: &[u8]) -> crate::store::Message {
+        crate::store::Message {
+            uid: 9,
+            path: PathBuf::new(),
+            bytes: bytes.to_vec(),
+            flags: MessageFlags::default(),
+            internal_date: MailDate::from_unix_seconds(0),
+        }
+    }
+
+    #[test]
+    fn matches_headers_body_text_size_and_conjunction() {
+        let value = message(
+            b"From: Alice <a@example.test>\r\nSubject: Report\r\nX-Case: Value\r\n\r\nBody TOKEN",
+        );
+        let query = SearchKey::And(vec![
+            SearchKey::Header(HeaderSelector::Known(HeaderName::From), "ALICE".into()),
+            SearchKey::Header(HeaderSelector::Other("x-case".into()), "value".into()),
+            SearchKey::Body("token".into()),
+            SearchKey::Larger(20),
+        ]);
+        let headers = crate::mime::header_block::parse(&value.bytes).expect("headers");
+        assert!(matches_key(&value, &query, Some(&headers)));
+        assert!(!matches_key(&value, &SearchKey::Smaller(20), None));
+        assert!(matches_key(
+            &value,
+            &SearchKey::Text("subject".into()),
+            None
+        ));
     }
 }

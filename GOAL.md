@@ -27,6 +27,23 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G06 typed content SEARCH checkpoint
+
+- SEARCH больше не ограничен пятью flag predicates. Typed AST поддерживает
+  `FROM`, `TO`, `CC`, `BCC`, `SUBJECT`, произвольный `HEADER`, `BODY`, `TEXT`,
+  `LARGER`, `SMALLER` и неявный AND нескольких последовательных criteria для
+  обычного и UID SEARCH. Неизвестный criterion и отсутствующий аргумент
+  по-прежнему дают BAD, а не ложный пустой SEARCH.
+- Сопоставление работает над immutable bytes согласованного mailbox snapshot.
+  ASCII-поиск регистронезависим; BODY исключает header block, TEXT включает всё
+  сообщение. MIME header block разбирается не более одного раза на сообщение и
+  только для запроса, которому нужны header/body boundaries.
+- PASS: Windows 169 tests, strict Clippy и format. Docker Rust 1.97 strict
+  Linux Clippy и 194 tests прошли в image
+  `litterkeep-server:g06-search-profile`.
+- G06 остаётся RUNNING: date criteria, отрицание/OR и независимый сетевой
+  SEARCH/concurrent/reconnect matrix ещё не завершены.
+
 ### 2026-09-20: G06 IDLE fan-out and Recent ownership checkpoint
 
 - RFC 3501 оставляет неопределённым, какая из одновременно selected sessions
