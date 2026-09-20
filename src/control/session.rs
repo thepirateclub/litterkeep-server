@@ -92,7 +92,7 @@ impl Connection {
         &mut self,
         readable: bool,
         writable: bool,
-        lifecycle: &Orchestrator<T>,
+        lifecycle: &mut Orchestrator<T>,
     ) -> io::Result<ServiceResult> {
         if readable {
             self.read_request(lifecycle)?;
@@ -106,7 +106,7 @@ impl Connection {
         }
     }
 
-    fn read_request<T>(&mut self, lifecycle: &Orchestrator<T>) -> io::Result<()> {
+    fn read_request<T>(&mut self, lifecycle: &mut Orchestrator<T>) -> io::Result<()> {
         let mut chunk = [0_u8; 128];
         loop {
             match self.stream.read(&mut chunk) {
@@ -143,7 +143,7 @@ impl Connection {
     }
 }
 
-fn parse_response<T>(lifecycle: &Orchestrator<T>, bytes: &[u8]) -> Vec<u8> {
+fn parse_response<T>(lifecycle: &mut Orchestrator<T>, bytes: &[u8]) -> Vec<u8> {
     let line = std::str::from_utf8(bytes).unwrap_or_default();
     match Command::parse(line) {
         Ok(command) => response(lifecycle, command).into_bytes(),

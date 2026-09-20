@@ -9,6 +9,7 @@ pub enum Command {
     Tasks,
     Resources,
     Inspect(TaskId),
+    Cancel(TaskId),
 }
 
 impl Command {
@@ -25,13 +26,16 @@ impl Command {
             ("inspect", Some(value), None) => TaskId::parse(value)
                 .map(Self::Inspect)
                 .ok_or("inspect expects task-id slot:generation"),
-            _ => Err("expected stats, tasks, resources, or inspect <task-id>"),
+            ("cancel", Some(value), None) => TaskId::parse(value)
+                .map(Self::Cancel)
+                .ok_or("cancel expects task-id slot:generation"),
+            _ => Err("expected stats, tasks, resources, inspect, or cancel <task-id>"),
         }
     }
 }
 
 /// Формирует line-oriented ответ, пригодный и для CLI, и для ручной диагностики.
-pub(super) fn response<T>(lifecycle: &Orchestrator<T>, request: Command) -> String {
+pub(super) fn response<T>(lifecycle: &mut Orchestrator<T>, request: Command) -> String {
     match request {
         Command::Stats => stats(lifecycle),
         Command::Tasks => tasks(lifecycle.tasks()),
@@ -39,6 +43,10 @@ pub(super) fn response<T>(lifecycle: &Orchestrator<T>, request: Command) -> Stri
         Command::Inspect(id) => match lifecycle.inspect_task(id) {
             Some(task) => task_line(&task),
             None => format!("NOT_FOUND task={id}\n"),
+        },
+        Command::Cancel(id) => match lifecycle.request_cancel(id) {
+            true => format!("CANCEL accepted task={id}\n"),
+            false => format!("NOT_FOUND task={id}\n"),
         },
     }
 }
@@ -104,6 +112,10 @@ mod tests {
             Command::parse("inspect 4:2"),
             Ok(Command::Inspect(TaskId::parse("4:2").expect("id")))
         );
+        assert_eq!(
+            Command::parse("cancel 4:2"),
+            Ok(Command::Cancel(TaskId::parse("4:2").expect("id")))
+        );
         assert!(Command::parse("inspect bad").is_err());
     }
 
@@ -113,8 +125,17 @@ mod tests {
         let task = runtime.spawn_task();
         let resource = runtime.register_resource("secret message bytes");
         let _lease = runtime.acquire(task, resource).expect("lease");
-        let response = super::response(&runtime, Command::Resources);
+        let response = super::response(&mut runtime, Command::Resources);
         assert!(response.contains("RESOURCE"));
         assert!(!response.contains("secret message bytes"));
+    }
+
+    #[test]
+    fn cancel_mutates_the_real_task_record() {
+        let mut runtime = Orchestrator::<()>::new();
+        let task = runtime.spawn_task();
+        let response = super::response(&mut runtime, Command::Cancel(task));
+        assert_eq!(response, format!("CANCEL accepted task={task}\n"));
+        assert_eq!(runtime.stats().cancelling_tasks, 1);
     }
 }

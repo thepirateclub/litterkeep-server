@@ -66,6 +66,7 @@ litterkeep-server runtime stats --data-dir /data
 litterkeep-server runtime tasks --data-dir /data
 litterkeep-server runtime resources --data-dir /data
 litterkeep-server runtime inspect 2:1 --data-dir /data
+litterkeep-server runtime cancel 2:1 --data-dir /data
 ```
 
 The server owns a local Unix-domain control socket in its poll loop and returns
@@ -75,6 +76,12 @@ under the process-local temporary directory; an owner-only
 `/data/runtime.control` locator names it. This avoids an unbounded Unix
 `bind(2)` stall on Docker Desktop shared folders. The CLI validates that the
 locator remains inside the temporary directory before connecting.
+`cancel` переводит task в cooperative cancellation. Для клиентской сессии
+reactor закрывает фактически принадлежащий ей socket lease через единый путь
+cleanup. Outbound scheduler в idle завершается сразу, а при активной доставке
+сначала фиксирует её terminal state, затем закрывает канал worker-а, выполняет
+`join` и удаляет lifecycle metadata. Команда не освобождает чужой или ещё
+используемый ресурс авансом.
 
 ## Linux G01 reactor command
 

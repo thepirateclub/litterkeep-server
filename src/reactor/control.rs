@@ -7,7 +7,7 @@ pub(super) fn service_control(
     ready: crate::platform::linux_poll::Ready,
     slot: usize,
     sessions: &mut [Option<crate::control::Connection>],
-    lifecycle: &Orchestrator<Session>,
+    lifecycle: &mut Orchestrator<Session>,
 ) -> io::Result<()> {
     let Some(entry) = sessions.get_mut(slot) else {
         return Ok(());

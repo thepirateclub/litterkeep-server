@@ -19,13 +19,13 @@ const IDLE_SCAN: Duration = Duration::from_secs(1);
 
 /// Единственный scheduler владеет одной delivery от чтения blob до фиксации итога.
 pub(super) struct OutboundScheduler {
-    outbound: WakingOutboundWorker,
-    ids: SchedulerIds,
-    task: TaskId,
-    phase: Phase,
+    pub(super) outbound: WakingOutboundWorker,
+    pub(super) ids: SchedulerIds,
+    pub(super) task: TaskId,
+    pub(super) phase: Phase,
 }
 
-enum Phase {
+pub(super) enum Phase {
     Due(u64),
     Blob(u64, OwnedDelivery),
     Start(u64, OwnedDelivery, Vec<u8>),
@@ -68,14 +68,21 @@ impl OutboundScheduler {
         &mut self,
         storage: &WakingStorageWorker,
         lifecycle: &mut Orchestrator<Session>,
-    ) -> io::Result<()> {
+    ) -> io::Result<bool> {
+        if let (true, true) = (
+            scheduler_lifecycle::cancelling(lifecycle, self.task),
+            matches!(self.phase, Phase::Idle(_)),
+        ) {
+            return Ok(true);
+        }
         match self.phase {
             Phase::Idle(deadline) if Instant::now() >= deadline => {
                 scheduler_lifecycle::wake(lifecycle, self.task, Event::Timer(self.task))?;
-                self.request_due(storage, lifecycle)
+                self.request_due(storage, lifecycle)?;
             }
-            _ => Ok(()),
+            _ => {}
         }
+        Ok(false)
     }
 
     pub(super) fn storage_completed(
@@ -136,6 +143,9 @@ impl OutboundScheduler {
                     ..
                 },
             ) => {
+                if scheduler_lifecycle::cancelling(lifecycle, self.task) {
+                    return Ok(Phase::Idle(Instant::now()));
+                }
                 let Some(delivery) = jobs.pop() else {
                     scheduler_lifecycle::wait(lifecycle, self.task, Event::Timer(self.task))?;
                     return Ok(Phase::Idle(Instant::now() + IDLE_SCAN));
@@ -208,11 +218,7 @@ impl OutboundScheduler {
                 Response::OutboundTransitioned { result: Ok(()), .. },
             )
             | (Phase::Dsn(_), Response::DsnAppended { result: Ok(_), .. }) => {
-                self.request_due(storage, lifecycle)?;
-                Ok(std::mem::replace(
-                    &mut self.phase,
-                    Phase::Idle(Instant::now()),
-                ))
+                self.continue_or_stop(storage, lifecycle)
             }
             (
                 _,
@@ -253,48 +259,18 @@ impl OutboundScheduler {
         }
     }
 
-    fn request_due(
+    fn continue_or_stop(
         &mut self,
         storage: &WakingStorageWorker,
         lifecycle: &mut Orchestrator<Session>,
-    ) -> io::Result<()> {
-        let id = self.take_id()?;
-        submit(
-            storage,
-            Request::OutboundDue {
-                request_id: id,
-                now_epoch: now_epoch()?,
-                limit: 1,
-            },
-        )?;
-        scheduler_lifecycle::wait(lifecycle, self.task, Event::Completion(id))?;
-        self.phase = Phase::Due(id);
-        Ok(())
-    }
-
-    fn submit_transition(
-        &mut self,
-        storage: &WakingStorageWorker,
-        delivery: &OwnedDelivery,
-        state: State,
-        lifecycle: &mut Orchestrator<Session>,
-    ) -> io::Result<u64> {
-        let id = self.take_id()?;
-        submit(
-            storage,
-            Request::OutboundTransition {
-                request_id: id,
-                delivery: delivery.clone(),
-                state,
-            },
-        )?;
-        scheduler_lifecycle::wait(lifecycle, self.task, Event::Completion(id))?;
-        Ok(id)
-    }
-
-    fn take_id(&mut self) -> io::Result<u64> {
-        self.ids
-            .take()
-            .ok_or_else(|| io::Error::other("scheduler request id exhausted"))
+    ) -> io::Result<Phase> {
+        if scheduler_lifecycle::cancelling(lifecycle, self.task) {
+            return Ok(Phase::Idle(Instant::now()));
+        }
+        self.request_due(storage, lifecycle)?;
+        Ok(std::mem::replace(
+            &mut self.phase,
+            Phase::Idle(Instant::now()),
+        ))
     }
 }

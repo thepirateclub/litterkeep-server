@@ -74,3 +74,16 @@ fn close_drops_value_and_terminal_registry_records() {
         Err(AcquireError::MissingTask)
     ));
 }
+
+#[test]
+fn cancellation_clears_wait_registration_before_safe_retirement() {
+    let mut runtime = Orchestrator::<()>::new();
+    let task = runtime.spawn_task();
+    let event = Event::Timer(task);
+    let observed = runtime.event_version(event);
+    assert_eq!(runtime.park_on(task, event, observed), WakeResult::Parked);
+    assert!(runtime.request_cancel(task));
+    assert_eq!(runtime.stats().wait_registrations, 0);
+    assert!(runtime.retire_task(task));
+    assert_eq!(runtime.task_count(), 0);
+}

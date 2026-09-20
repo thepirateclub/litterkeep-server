@@ -74,7 +74,16 @@ fn scheduler_drains_without_explicit_queue_command() {
     peer.join().expect("peer");
     assert_eq!(lifecycle.stats().waiting_tasks, 1);
     assert_eq!(lifecycle.stats().ready_queue_depth, 0);
-    drop(scheduler);
+    assert!(lifecycle.request_cancel(scheduler.task));
+    assert_eq!(lifecycle.stats().cancelling_tasks, 1);
+    assert_eq!(lifecycle.stats().wait_registrations, 0);
+    assert!(
+        scheduler
+            .wake_due(&storage, &mut lifecycle)
+            .expect("cancel wake")
+    );
+    scheduler.shutdown(&mut lifecycle).expect("shutdown");
+    assert_eq!(lifecycle.task_count(), 0);
     storage.shutdown();
     let store = Store::open(&path).expect("reopen");
     assert!(store.pending_outbound().expect("pending").is_empty());

@@ -73,6 +73,8 @@ mod managesieve_protocol;
 mod outbound_entry;
 #[path = "reactor/outbound_scheduler.rs"]
 mod outbound_scheduler;
+#[path = "reactor/outbound_scheduler_submit.rs"]
+mod outbound_scheduler_submit;
 #[cfg(test)]
 #[path = "reactor/outbound_scheduler_tests.rs"]
 mod outbound_scheduler_tests;
@@ -96,6 +98,8 @@ mod server_loop;
 mod session;
 #[path = "reactor/session_accept.rs"]
 mod session_accept;
+#[path = "reactor/session_cancel.rs"]
+mod session_cancel;
 #[path = "reactor/session_close.rs"]
 mod session_close;
 #[path = "reactor/session_io.rs"]
@@ -119,7 +123,6 @@ use session::{Session, SmtpState};
 use session_io::{flush, read_session};
 
 type SessionLease = ResourceLease<Session>;
-
 const MAX_SESSIONS: usize = 256;
 const MAX_INPUT: usize = 1024 * 1024;
 const MAX_MESSAGE: usize = 10 * 1024 * 1024;

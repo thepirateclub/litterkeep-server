@@ -7,6 +7,8 @@ mod model;
 pub use model::{AcquireError, Event, ResourceId, ResourceState, TaskId, TaskState, WakeResult};
 #[path = "stats.rs"]
 mod stats;
+#[path = "task_control.rs"]
+mod task_control;
 pub use stats::Stats;
 #[path = "introspection.rs"]
 mod introspection;
@@ -265,20 +267,6 @@ impl<T> Orchestrator<T> {
         }
     }
 
-    pub fn request_cancel(&mut self, task: TaskId) -> bool {
-        let Some(record) = self.tasks.get_mut(&task) else {
-            return false;
-        };
-        if matches!(record.state, TaskState::Completed | TaskState::Failed) {
-            return false;
-        }
-        record.state = TaskState::Cancelling;
-        if !self.ready.contains(&task) {
-            self.ready.push_back(task);
-        }
-        true
-    }
-
     #[must_use]
     pub fn task_state(&self, task: TaskId) -> Option<TaskState> {
         self.tasks.get(&task).map(|record| record.state)
@@ -286,8 +274,5 @@ impl<T> Orchestrator<T> {
     #[must_use]
     pub fn resource_state(&self, resource: ResourceId) -> Option<ResourceState> {
         self.resources.get(&resource).map(|record| record.state)
-    }
-    pub fn take_ready(&mut self) -> Option<TaskId> {
-        self.ready.pop_front()
     }
 }

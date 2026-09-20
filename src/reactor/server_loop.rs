@@ -128,8 +128,17 @@ fn step(
         ),
     )?;
     deadline::expire_handshakes(sessions, lifecycle, maildrops)?;
-    if let Some(scheduler) = scheduler.as_mut() {
-        scheduler.wake_due(worker, lifecycle)?;
+    let stop_scheduler = match scheduler.as_mut() {
+        Some(value) => value.wake_due(worker, lifecycle)?,
+        None => false,
+    };
+    if stop_scheduler {
+        let Some(value) = scheduler.take() else {
+            return Err(io::Error::other(
+                "scheduler disappeared during cancellation",
+            ));
+        };
+        value.shutdown(lifecycle)?;
     }
     for (ready, target) in ready.into_iter().zip(targets) {
         dispatch(
@@ -152,7 +161,7 @@ fn step(
             maildrops,
         )?;
     }
-    Ok(())
+    session_cancel::close_cancelled(sessions, lifecycle, maildrops)
 }
 
 fn readable() -> Interest {

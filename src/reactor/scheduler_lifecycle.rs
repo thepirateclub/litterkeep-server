@@ -10,6 +10,9 @@ pub(super) fn wait(
     task: TaskId,
     event: Event,
 ) -> io::Result<()> {
+    if matches!(lifecycle.task_state(task), Some(TaskState::Cancelling)) {
+        return Ok(());
+    }
     let observed = lifecycle.event_version(event);
     match lifecycle.park_on(task, event, observed) {
         WakeResult::Parked => Ok(()),
@@ -26,10 +29,15 @@ pub(super) fn wake(
 ) -> io::Result<()> {
     lifecycle.signal(event);
     match lifecycle.task_state(task) {
-        Some(TaskState::Ready) => Ok(()),
+        Some(TaskState::Ready | TaskState::Cancelling) => Ok(()),
         Some(_) => Err(io::Error::other(
             "scheduler wake produced invalid task state",
         )),
         None => Err(io::Error::other("scheduler task is missing")),
     }
+}
+
+#[must_use]
+pub(super) fn cancelling(lifecycle: &Orchestrator<Session>, task: TaskId) -> bool {
+    matches!(lifecycle.task_state(task), Some(TaskState::Cancelling))
 }

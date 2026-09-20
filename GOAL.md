@@ -27,6 +27,29 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G09 cooperative cancellation checkpoint
+
+- Local control protocol и CLI получили typed команду
+  `runtime cancel <task-id>`. `request_cancel` снимает registrations ожидания,
+  но не выдаёт занятый ресурс повторно и не удаляет task с живым lease.
+- Reactor после обработки готовой poll-пачки закрывает отменённую клиентскую
+  сессию через общий `session_close`: socket, POP3 maildrop lease, resource и
+  task metadata освобождаются одним владельцем. Отложенный Store completion
+  всё ещё коррелируется по generation и безопасно отбрасывается.
+- Outbound scheduler в idle завершается сразу. При активной операции отмена
+  дренирует текущую доставку до durable terminal transition, затем закрывает
+  bounded worker channel, присоединяет thread и только после этого удаляет task.
+- PASS: Windows `cargo test --all-targets --locked` (150 tests), strict Clippy;
+  Docker Rust 1.97 strict Linux Clippy и 166 tests, включая реальное закрытие
+  отменённого socket lease, в `litterkeep-server:cancel-bind-gate-final`.
+  Format, `git diff --check` и structural gate также пройдены.
+- BLOCKED: новое разрешение Docker file sharing проверено успешным read-only
+  запуском с `-v H:/github/mail-server/data:/data`, но write/init остаётся в
+  `Created`. Старый контейнер всё ещё завис внутри прежнего shared mount, поэтому
+  bind-mount black-box отмены не объявлен PASS до перезапуска Docker Desktop.
+- G09 остаётся RUNNING: нет deadline для отмены зависшего transport I/O, TLS
+  route для постоянного scheduler-а и полного межсерверного service matrix.
+
 ### 2026-09-20: G09 scheduler lifecycle ownership checkpoint
 
 - Постоянный outbound scheduler теперь создаёт реальную task запись в общем

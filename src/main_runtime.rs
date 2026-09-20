@@ -29,12 +29,12 @@ fn arguments() -> Result<(String, String), ExitCode> {
     };
     let request = match action.as_str() {
         "stats" | "tasks" | "resources" => action,
-        "inspect" => {
+        "inspect" | "cancel" => {
             let Some(task_id) = values.next() else {
                 usage();
                 return Err(ExitCode::from(2));
             };
-            format!("inspect {task_id}")
+            format!("{action} {task_id}")
         }
         _ => {
             usage();

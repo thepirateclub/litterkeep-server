@@ -11,6 +11,6 @@ pub use session::{Connection, Listener, ServiceResult};
 use crate::runtime::Orchestrator;
 
 /// Строит безопасный текстовый ответ по реальному lifecycle snapshot.
-pub fn response<T>(lifecycle: &Orchestrator<T>, request: Command) -> String {
+pub fn response<T>(lifecycle: &mut Orchestrator<T>, request: Command) -> String {
     command::response(lifecycle, request)
 }
