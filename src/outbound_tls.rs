@@ -11,7 +11,6 @@ use std::{
     io::{self, BufReader, Write},
     net::TcpStream,
     sync::Arc,
-    time::Duration,
 };
 
 /// Выполняет одну implicit-TLS SMTP transaction, проверяя CA и server name.
@@ -26,9 +25,7 @@ pub fn deliver(
     let config = client_config(ca_der)?;
     let name = ServerName::try_from(server_name.to_owned())
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid TLS server name"))?;
-    let stream = TcpStream::connect(address)?;
-    stream.set_read_timeout(Some(Duration::from_secs(10)))?;
-    stream.set_write_timeout(Some(Duration::from_secs(10)))?;
+    let stream = outbound::connect_bounded(address)?;
     let connection = ClientConnection::new(config, name).map_err(io::Error::other)?;
     let mut reader = BufReader::new(StreamOwned::new(connection, stream));
     expect_positive(&mut reader)?;

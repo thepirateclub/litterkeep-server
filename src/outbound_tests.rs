@@ -1,9 +1,10 @@
 //! Wire-проверки собственного outbound SMTP transport против отдельного peer.
-use crate::outbound::{self, DeliveryOutcome};
+use crate::outbound::{self, Connection, DeliveryOutcome, TransportLimits};
 use std::{
-    io::{BufRead, BufReader, Write},
+    io::{self, BufRead, BufReader, Read, Write},
     net::TcpListener,
     thread,
+    time::Duration,
 };
 
 #[test]
@@ -20,6 +21,36 @@ fn peer_550_becomes_permanent_failure() {
         run_rejecting_peer("550 5.1.1 unknown\r\n"),
         DeliveryOutcome::PermanentFailure
     );
+}
+
+#[test]
+fn stalled_greeting_hits_io_deadline_and_drops_the_socket() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+    let address = listener.local_addr().expect("address");
+    let peer = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept");
+        let mut byte = [0_u8; 1];
+        assert_eq!(stream.read(&mut byte).expect("client close"), 0);
+    });
+    let limits = TransportLimits::testing(Duration::from_secs(1), Duration::from_millis(100));
+    let error = match Connection::connect_with_limits(&address.to_string(), limits) {
+        Ok(_) => panic!("silent peer must time out"),
+        Err(error) => error,
+    };
+    assert!(matches!(
+        error.kind(),
+        io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock
+    ));
+    peer.join().expect("peer");
+}
+
+#[test]
+fn route_rejects_hostname_without_starting_hidden_dns() {
+    let error = match Connection::connect("peer.example:25") {
+        Ok(_) => panic!("numeric route required"),
+        Err(error) => error,
+    };
+    assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
 }
 
 fn run_rejecting_peer(reply: &str) -> DeliveryOutcome {

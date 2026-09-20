@@ -40,7 +40,7 @@ cargo tree --locked -e normal
 ## Linux outbound queue drain
 
 ```sh
-litterkeep-server queue-drain ./data/g09-service-blackbox host.docker.internal:3555 1
+litterkeep-server queue-drain ./data/g09-service-blackbox 127.0.0.1:3555 1
 ```
 
 The command owns one bounded Store worker and one bounded outbound SMTP worker.
@@ -56,8 +56,14 @@ shared lifecycle orchestrator and is visible through `runtime tasks`/`stats`.
 ```sh
 litterkeep-server serve-all-mail-outbound-starttls \
   0.0.0.0:1587 0.0.0.0:1143 0.0.0.0:1110 0.0.0.0:4190 \
-  peer.example:25 ./data/g09-live server.der server.key.der
+  127.0.0.1:2526 ./data/g09-live server.der server.key.der
 ```
+
+Outbound route принимает только явный числовой `IP:port`. Это исключает
+скрытый blocking DNS из transport worker-а. TCP connect ограничен пятью
+секундами, а каждая операция чтения и записи SMTP/TLS ограничена десятью
+секундами. I/O timeout уничтожает грязное соединение, durable job переводится
+в retry policy и такой channel никогда не возвращается в pool.
 
 ## Linux runtime control socket
 

@@ -27,6 +27,24 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G09 bounded outbound network deadlines checkpoint
+
+- Plaintext и implicit-TLS transport используют один connector contract:
+  route разбирается в typed `SocketAddr` до worker thread, TCP connect получает
+  deadline 5 секунд, read/write получают deadline 10 секунд.
+- Hostname route отклоняется как `InvalidInput`, поэтому внутри scheduler-а нет
+  скрытого blocking DNS. `ConnectionPool` хранит уже проверенный `SocketAddr` и
+  не разбирает строку заново для каждой доставки.
+- Детерминированный peer-test принимает TCP, не отправляет greeting и ждёт EOF.
+  Клиент получает системный timeout через 100 ms test profile, уничтожает
+  неопределённый channel, после чего peer наблюдает реальное закрытие без sleep.
+- PASS: Windows `cargo test --all-targets --locked` (152 tests), strict Clippy;
+  Docker Rust 1.97 strict Linux Clippy и 168 tests в image
+  `litterkeep-server:g09-deadline-gate`. Format, `git diff --check` и structural
+  gate выполнены перед commit.
+- G09 остаётся RUNNING: постоянный scheduler ещё использует plaintext route;
+  нужны typed TLS route key и двухсерверная проверка service mode.
+
 ### 2026-09-20: G09 cooperative cancellation checkpoint
 
 - Local control protocol и CLI получили typed команду

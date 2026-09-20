@@ -4,12 +4,12 @@
 //! возвращается в idle после positive DATA completion либо подтверждённого RSET.
 //! EOF, I/O error или отказ RSET уничтожают канал и освобождают слот, поэтому
 //! грязный канал не может быть повторно выдан следующему recipient.
-use crate::outbound::{Connection, DeliveryOutcome};
-use std::io;
+use crate::outbound::{self, Connection, DeliveryOutcome};
+use std::{io, net::SocketAddr};
 
 /// Локальный пул одного peer address с жёсткой верхней границей соединений.
 pub struct ConnectionPool {
-    address: String,
+    address: SocketAddr,
     capacity: usize,
     open: usize,
     idle: Vec<Connection>,
@@ -24,7 +24,7 @@ impl ConnectionPool {
                 "outbound pool capacity must be positive",
             )),
             _ => Ok(Self {
-                address: address.into(),
+                address: outbound::parse_route(&address.into())?,
                 capacity,
                 open: 0,
                 idle: Vec::new(),
@@ -88,7 +88,7 @@ impl ConnectionPool {
             .open
             .checked_add(1)
             .ok_or_else(|| io::Error::other("outbound pool counter exhausted"))?;
-        match Connection::connect(&self.address) {
+        match Connection::connect_addr(self.address) {
             Ok(connection) => Ok(connection),
             Err(error) => {
                 self.open -= 1;

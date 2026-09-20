@@ -1,9 +1,34 @@
 //! Собственный минимальный SMTP client transport для delivery worker-а.
 use std::{
     io::{self, BufRead, BufReader, Write},
-    net::TcpStream,
+    net::{SocketAddr, TcpStream},
     time::Duration,
 };
+
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+const IO_TIMEOUT: Duration = Duration::from_secs(10);
+
+#[derive(Clone, Copy)]
+pub(crate) struct TransportLimits {
+    connect: Duration,
+    io: Duration,
+}
+
+impl TransportLimits {
+    #[cfg(test)]
+    pub(crate) fn testing(connect: Duration, io: Duration) -> Self {
+        Self { connect, io }
+    }
+}
+
+impl Default for TransportLimits {
+    fn default() -> Self {
+        Self {
+            connect: CONNECT_TIMEOUT,
+            io: IO_TIMEOUT,
+        }
+    }
+}
 
 /// Категория SMTP-ответа, не зависящая от строковых префиксов.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -34,9 +59,20 @@ pub struct Connection {
 impl Connection {
     /// Открывает TCP, проверяет greeting и устанавливает SMTP session через EHLO.
     pub fn connect(address: &str) -> io::Result<Self> {
-        let stream = TcpStream::connect(address)?;
-        stream.set_read_timeout(Some(Duration::from_secs(10)))?;
-        stream.set_write_timeout(Some(Duration::from_secs(10)))?;
+        Self::connect_addr(parse_route(address)?)
+    }
+
+    pub(crate) fn connect_addr(address: SocketAddr) -> io::Result<Self> {
+        Self::connect_addr_with_limits(address, TransportLimits::default())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn connect_with_limits(address: &str, limits: TransportLimits) -> io::Result<Self> {
+        Self::connect_addr_with_limits(parse_route(address)?, limits)
+    }
+
+    fn connect_addr_with_limits(address: SocketAddr, limits: TransportLimits) -> io::Result<Self> {
+        let stream = connect_bounded_addr(address, limits)?;
         let mut result = Self {
             reader: BufReader::new(stream.try_clone()?),
             writer: stream,
@@ -101,6 +137,27 @@ impl Connection {
             Some(_) => Err(io::Error::other("SMTP peer rejected connection")),
         }
     }
+}
+
+/// Создаёт только числовой TCP route с конечными connect/read/write deadline.
+pub(crate) fn connect_bounded(address: &str) -> io::Result<TcpStream> {
+    connect_bounded_addr(parse_route(address)?, TransportLimits::default())
+}
+
+pub(crate) fn parse_route(address: &str) -> io::Result<SocketAddr> {
+    address.parse::<SocketAddr>().map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "outbound route must be an explicit socket address",
+        )
+    })
+}
+
+fn connect_bounded_addr(address: SocketAddr, limits: TransportLimits) -> io::Result<TcpStream> {
+    let stream = TcpStream::connect_timeout(&address, limits.connect)?;
+    stream.set_read_timeout(Some(limits.io))?;
+    stream.set_write_timeout(Some(limits.io))?;
+    Ok(stream)
 }
 
 /// Отправляет один RFC822 message без повторного использования соединения.
