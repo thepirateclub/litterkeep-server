@@ -187,6 +187,17 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   format и `git diff --check`. G09 остаётся RUNNING: storage worker protocol
   и SMTP transport worker ещё не используют этот handoff against real peer.
 
+### 2026-09-20: G09 bounded worker outbound protocol checkpoint
+
+- Bounded `StorageWorker` получил typed requests/responses для pending jobs,
+  immutable blob и state transition. Единственный Store owner исполняет их,
+  а reactor correlation ID покрывает все новые variants, поэтому completion не
+  теряется и transport не получает Store/file access напрямую.
+- PASS: Windows `cargo test --all-targets --locked` (127 tests), strict Clippy,
+  format и `git diff --check`; `message.rs` 258 lines, `execution.rs` 284.
+  G09 остаётся RUNNING: отдельный bounded SMTP transport worker ещё не делает
+  TCP peer transaction и не переводит результаты в эти completion requests.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.

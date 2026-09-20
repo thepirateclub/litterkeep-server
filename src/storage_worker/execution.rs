@@ -238,6 +238,25 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             request_id,
             result: store.check_sieve_script(&source),
         },
+        Request::OutboundPending { request_id } => Response::OutboundPending {
+            request_id,
+            result: store.pending_outbound(),
+        },
+        Request::OutboundBlob {
+            request_id,
+            delivery,
+        } => Response::OutboundBlob {
+            request_id,
+            result: store.outbound_blob(&delivery),
+        },
+        Request::OutboundTransition {
+            request_id,
+            delivery,
+            state,
+        } => Response::OutboundTransitioned {
+            request_id,
+            result: store.transition_outbound(&delivery, state),
+        },
     }
 }
 

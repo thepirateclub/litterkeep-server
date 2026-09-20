@@ -143,6 +143,18 @@ pub enum Request {
         request_id: u64,
         source: String,
     },
+    OutboundPending {
+        request_id: u64,
+    },
+    OutboundBlob {
+        request_id: u64,
+        delivery: crate::queue::OwnedDelivery,
+    },
+    OutboundTransition {
+        request_id: u64,
+        delivery: crate::queue::OwnedDelivery,
+        state: crate::queue::State,
+    },
 }
 
 #[derive(Debug)]
@@ -230,5 +242,17 @@ pub enum Response {
     SieveSpace {
         request_id: u64,
         result: io::Result<bool>,
+    },
+    OutboundPending {
+        request_id: u64,
+        result: io::Result<Vec<crate::queue::OwnedDelivery>>,
+    },
+    OutboundBlob {
+        request_id: u64,
+        result: io::Result<Vec<u8>>,
+    },
+    OutboundTransitioned {
+        request_id: u64,
+        result: io::Result<()>,
     },
 }
