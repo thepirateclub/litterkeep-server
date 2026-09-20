@@ -2,7 +2,7 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`  
 Root status: ACTIVE  
-Current subgoal: G09
+Current subgoal: G06
 
 The actually available Goal interface was inspected. It supports creating and
 updating one active root goal (`create_goal`, `get_goal`, `update_goal`), but
@@ -26,6 +26,34 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | G12 | G11 | litterkeep and final acceptance report | NOT RUN |
 
 ## Checkpoints
+
+### 2026-09-20: G06 COPY/MOVE multi-session synchronization checkpoint
+
+- После успешного durable COPY/MOVE reactor обновляет destination projection
+  каждой уже selected сессии: увеличивает EXISTS и добавляет destination UID в
+  session-local `\\Recent`. IDLE-получатель немедленно получает агрегированный
+  `EXISTS`, обычная selected-сессия сохраняет согласованное внутреннее состояние.
+- MOVE дополнительно уменьшает EXISTS source-сессий, удаляет перенесённые UID
+  из их `\\Recent` и публикует рассчитанные source sequence numbers как
+  `EXPUNGE` ожидающим IDLE-сессиям. Инициатор исключён только из source
+  broadcast, поскольку его completion уже содержит эти EXPUNGE; destination
+  projection инициатора при совпадении mailbox не теряется.
+- Поиск source sequence numbers переведён с повторного линейного `Vec::contains`
+  на `BTreeSet`, поэтому построение проекции не становится квадратичным.
+- PASS: Windows `cargo test --all-targets --locked` (153 tests), strict Clippy,
+  format, `git diff --check`, отсутствие `mod.rs` и Rust-файлов длиннее 300
+  строк. Docker Rust 1.97 strict Linux Clippy и 172 tests прошли в image
+  `litterkeep-server:g06-transfer-sync-gate`; новый тест использует три
+  настоящих TCP socket и три эксклюзивных lifecycle lease.
+- Независимый сетевой сценарий `tests/blackbox/imap_idle_move.py` подготовлен и
+  проходит `py_compile`, но NOT RUN по протоколу. После разрешения file sharing
+  финальный image собрался, однако новый `docker run --rm -v
+  H:\\github\\mail-server\\data\\g06-idle-move:/data ... init /data bob
+  bob-password` завис до вывода результата, как и прежний runtime-контейнер.
+  Поэтому unit/integration доказательство не выдано за сетевой black-box PASS.
+- G06 остаётся RUNNING: требуется завершить оставшиеся классы concurrent-change
+  matrix и реально выполнить подготовленный COPY/MOVE watcher после
+  восстановления runtime bind-mount I/O Docker Desktop.
 
 ### 2026-09-20: G09 scheduler TLS success and SAN failure checkpoint
 

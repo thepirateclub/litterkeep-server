@@ -119,6 +119,8 @@ pub(super) fn follow_up(
             Pending::Copy {
                 tag: tag.clone(),
                 transfer: *transfer,
+                source: source.clone(),
+                destination: destination.clone(),
                 source_uids: source_uids.clone(),
                 source_sequences: source_sequences.clone(),
             },
@@ -214,10 +216,14 @@ fn selected_uids(
 }
 
 fn selected_sequences(uids: &[u64], messages: &[crate::store::Message]) -> Vec<usize> {
+    let selected = uids
+        .iter()
+        .copied()
+        .collect::<std::collections::BTreeSet<_>>();
     let mut removed = 0_usize;
     let mut sequences = Vec::with_capacity(uids.len());
     for (offset, message) in messages.iter().enumerate() {
-        if uids.contains(&message.uid) {
+        if selected.contains(&message.uid) {
             sequences.push(offset.saturating_add(1).saturating_sub(removed));
             removed = removed.saturating_add(1);
         }

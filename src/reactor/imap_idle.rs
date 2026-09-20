@@ -189,3 +189,100 @@ pub(super) fn notify_flags(
     }
     Ok(())
 }
+
+/// Публикует результат атомарного COPY/MOVE во все затронутые проекции.
+///
+/// Destination получает новые UID как session-local `\\Recent`. При MOVE
+/// source-сессии дополнительно удаляют те же sequence numbers. Инициатор уже
+/// получает source EXPUNGE из completion, поэтому здесь source для него
+/// намеренно пропускается, но destination остаётся видимым даже инициатору.
+pub(super) fn notify_transfer(
+    sessions: &mut [Option<SessionLease>],
+    origin: usize,
+    pending: &Pending,
+    response: &Response,
+) -> io::Result<()> {
+    let Pending::Copy {
+        transfer,
+        source,
+        destination,
+        source_uids,
+        source_sequences,
+        ..
+    } = pending
+    else {
+        return Ok(());
+    };
+    let destination_uids = match response {
+        Response::Copied {
+            result: Ok(uids), ..
+        }
+        | Response::Moved {
+            result: Ok(uids), ..
+        } => uids,
+        _ => return Ok(()),
+    };
+    if source_uids.len() != destination_uids.len() {
+        return Ok(());
+    }
+    for (slot, entry) in sessions.iter_mut().enumerate() {
+        let Some(lease) = entry else { continue };
+        let session = lease.get_mut();
+        notify_transfer_destination(session, destination, destination_uids)?;
+        if slot == origin {
+            continue;
+        }
+        if let imap::Transfer::Move = transfer {
+            notify_move_source(session, source, source_uids, source_sequences)?;
+        }
+    }
+    Ok(())
+}
+
+/// Обновляет destination projection и выдаёт одно агрегированное EXISTS.
+fn notify_transfer_destination(
+    session: &mut Session,
+    destination: &str,
+    destination_uids: &[u64],
+) -> io::Result<()> {
+    if session.selected_mailbox.as_deref() != Some(destination) {
+        return Ok(());
+    }
+    session.selected_exists = session
+        .selected_exists
+        .saturating_add(destination_uids.len());
+    session
+        .selected_recent
+        .extend(destination_uids.iter().copied());
+    if session.imap_idle.is_some() {
+        session.push(format!("* {} EXISTS\r\n", session.selected_exists).as_bytes())?;
+    }
+    Ok(())
+}
+
+/// Удаляет MOVE source из проекции и будит только реально ожидающий IDLE.
+fn notify_move_source(
+    session: &mut Session,
+    source: &str,
+    source_uids: &[u64],
+    source_sequences: &[usize],
+) -> io::Result<()> {
+    if session.selected_mailbox.as_deref() != Some(source) {
+        return Ok(());
+    }
+    session.selected_exists = session.selected_exists.saturating_sub(source_uids.len());
+    for uid in source_uids {
+        session.selected_recent.remove(uid);
+    }
+    if session.imap_idle.is_none() {
+        return Ok(());
+    }
+    for number in source_sequences {
+        session.push(format!("* {number} EXPUNGE\r\n").as_bytes())?;
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+#[path = "imap_idle_tests.rs"]
+mod tests;

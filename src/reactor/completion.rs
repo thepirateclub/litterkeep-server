@@ -194,6 +194,7 @@ pub(super) fn write_completion(
                 transfer,
                 source_uids,
                 source_sequences,
+                ..
             },
             Response::Copied { result, .. },
         ) => imap_copy::completed(
@@ -210,6 +211,7 @@ pub(super) fn write_completion(
                 transfer,
                 source_uids,
                 source_sequences,
+                ..
             },
             Response::Moved { result, .. },
         ) => imap_copy::completed(

@@ -122,6 +122,8 @@ pub(super) enum Pending {
     Copy {
         tag: String,
         transfer: imap::Transfer,
+        source: String,
+        destination: String,
         source_uids: Vec<u64>,
         source_sequences: Vec<usize>,
     },
