@@ -42,6 +42,12 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
     with socket.create_connection((options.host, options.managesieve_port), timeout=10) as plain:
         greeting = read_until(plain, b'OK "ready"\r\n')
         require(b'"STARTTLS"' in greeting, "ManageSieve не объявил STARTTLS")
+        plaintext_credentials = base64.b64encode(b"\x00bob\x00bob-password")
+        plaintext_auth = b'AUTHENTICATE "PLAIN" "' + plaintext_credentials + b'"\r\n'
+        require(
+            command(plain, plaintext_auth) == b'NO "encryption required"\r\n',
+            "plaintext AUTHENTICATE был ошибочно принят",
+        )
         starttls = command(plain, b"STARTTLS\r\n")
         require(starttls == b'OK "begin TLS"\r\n', "STARTTLS ManageSieve отклонён")
         with context.wrap_socket(plain, server_hostname="litterkeep.test") as client:
@@ -69,6 +75,11 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
                 command(client, havespace) == b'OK "space available"\r\n',
                 "HAVESPACE не подтвердил допустимый script",
             )
+            require(
+                command(client, b'HAVESPACE "oversized" 65537\r\n')
+                == b'NO (QUOTA) "space unavailable"\r\n',
+                "HAVESPACE не отверг превышенную квоту",
+            )
             marker = f'PUTSCRIPT "invoices" {{{len(source)}+}}\r\n'.encode()
             client.sendall(marker)
             client.sendall(first_chunk)
@@ -81,8 +92,17 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
                 command(client, b'SETACTIVE "invoices"\r\n') == b'OK "completed"\r\n',
                 "SETACTIVE не сохранён",
             )
+            invalid_source = b"if true { unsupported; }"
+            invalid_marker = f'PUTSCRIPT "broken" {{{len(invalid_source)}+}}\r\n'.encode()
+            client.sendall(invalid_marker)
+            client.sendall(invalid_source)
+            require(
+                read_until(client, b"\r\n") == b'NO "operation failed"\r\n',
+                "некорректный PUTSCRIPT был ошибочно сохранён",
+            )
             listed = command_until(client, b"LISTSCRIPTS\r\n", b'OK "list completed"\r\n')
             require(b'"invoices" ACTIVE\r\n' in listed, "LISTSCRIPTS не вернул active script")
+            require(b'"broken"' not in listed, "невалидная версия попала в LISTSCRIPTS")
             source_reply = command_until(client, b'GETSCRIPT "invoices"\r\n', b'OK "get completed"\r\n')
             require(source in source_reply, "GETSCRIPT не вернул исходные байты source")
             scratch = b"keep;"
@@ -100,6 +120,10 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
             require(
                 command(client, b'DELETESCRIPT "temporary"\r\n') == b'OK "completed"\r\n',
                 "DELETESCRIPT не сохранён",
+            )
+            require(
+                command(client, b'DELETESCRIPT "invoices"\r\n') == b'NO "operation failed"\r\n',
+                "DELETESCRIPT удалил active script",
             )
             require(command(client, b"NOOP\r\n") == b'OK "noop"\r\n', "NOOP не принят")
             require(command(client, b"LOGOUT\r\n") == b'OK "bye"\r\n', "LOGOUT не принят")

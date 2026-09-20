@@ -98,6 +98,17 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   отрицательного matrix response codes и redirect не подключён к durable
   outbound queue.
 
+### 2026-09-20: G08 ManageSieve negative command matrix
+
+- Тот же независимый TCP-клиент подтвердил отказ AUTHENTICATE до STARTTLS,
+  HAVESPACE сверх лимита, невалидного PUTSCRIPT и DELETESCRIPT действующей
+  версии. После неуспешной загрузки LISTSCRIPTS/GETSCRIPT всё ещё возвращают
+  исходную active `invoices`, затем SMTP применяет её к доставке.
+- PASS: Linux Docker `serve-all-mail-starttls`, отдельный bind mount
+  `./data/g08-managesieve-negative`, CA `./data/pki/ca.pem`; тестовый
+  контейнер остановлен. G08 остаётся RUNNING только из-за неинтегрированного
+  redirect/outbound queue и полного RFC Sieve failure/replay coverage.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.
