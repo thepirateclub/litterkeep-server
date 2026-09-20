@@ -2,7 +2,7 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`  
 Root status: ACTIVE  
-Current subgoal: G06
+Current subgoal: G08
 
 The actually available Goal interface was inspected. It supports creating and
 updating one active root goal (`create_goal`, `get_goal`, `update_goal`), but
@@ -17,7 +17,7 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | G03 | G02 | TLS, AUTH, bounded admission | PASS |
 | G04 | G03 | durable SMTP submission and local delivery | PASS |
 | G05 | G04 | MIME + IMAP, independently checked attachment | PASS |
-| G06 | G05 | IMAP folders, flags, UID, IDLE | RUNNING |
+| G06 | G05 | IMAP folders, flags, UID, IDLE | PASS |
 | G07 | G02 | POP3 backed by the shared store | PASS |
 | G08 | G02 | Sieve and ManageSieve delivery effect | RUNNING |
 | G09 | G04 | outbound SMTP, pool, retry/DSN | RUNNING |
@@ -26,6 +26,28 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 | G12 | G11 | litterkeep and final acceptance report | NOT RUN |
 
 ## Checkpoints
+
+### 2026-09-20: G06 independent network and completion checkpoint
+
+- Независимый Python `imaplib` через реальный TCP выполнил STARTTLS, LOGIN,
+  APPEND и полный заявленный SEARCH matrix: persistent/session flags,
+  sequence/UID sets, OR/NOT, TEXT, INTERNALDATE и RFC 5322 sent date.
+- Вторая одновременно открытая IMAP-сессия прочитала тот же snapshot. После
+  полного restart контейнера повторная сессия подтвердила сохранённые UID,
+  flags, content/date results и переход присвоенного `Recent` в `Old`.
+- Повторён обязательный сквозной smoke: независимый `smtplib` отправил письмо
+  Alice через STARTTLS/AUTH, `imaplib` прочитал его у Bob, MIME-вложение совпало
+  побайтно; SHA-256
+  `f3a25aa93aa2fbba28d79260535bbd6a5eb0fc1c24a8b0f04e12b484c1dfe363`.
+- Runtime image: `litterkeep-server:g06-network`; host endpoints проверки:
+  SMTP `127.0.0.1:21587`, IMAP `127.0.0.1:21143`. Данные этой проверки жили в
+  `/data` container layer, потому что Docker Desktop daemon всё ещё не способен
+  завершить старые процессы на shared `./data`. Это не заявлено как проверка
+  bind-mount durability.
+- PASS G06: папки/Sent/Drafts, flags, UID/UIDPLUS, IDLE, две сессии, Recent,
+  partial FETCH и базовый SEARCH имеют unit/integration и независимые сетевые
+  доказательства; ожидающая IDLE-сессия не получает отдельный поток.
+- Следующая активная подцель G08. G07 уже PASS; G08 и G09 ещё RUNNING.
 
 ### 2026-09-20: G06 sent-date SEARCH checkpoint
 
