@@ -75,6 +75,8 @@ mod pop3_protocol;
 mod protocol;
 #[path = "reactor/control.rs"]
 mod reactor_control;
+#[path = "reactor/scheduler_ids.rs"]
+mod scheduler_ids;
 #[path = "reactor/server_loop.rs"]
 mod server_loop;
 #[path = "reactor/session.rs"]
