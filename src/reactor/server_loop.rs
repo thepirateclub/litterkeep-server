@@ -10,23 +10,28 @@ pub(super) fn serve(
     root: impl AsRef<Path>,
     tls_mode: TlsMode,
 ) -> io::Result<()> {
+    let root = root.as_ref();
     let smtp_listener = bind(smtp_address)?;
     let imap_listener = bind(imap_address)?;
     let pop3_listener = bind(pop3_address)?;
     let managesieve_listener = bind(managesieve_address)?;
     let mut worker = WakingStorageWorker::start(root, 64)?;
+    let control = crate::control::Listener::bind(root)?;
     let mut lifecycle: Orchestrator<Session> = Orchestrator::new();
     let mut sessions: Vec<Option<SessionLease>> = Vec::new();
     let mut generation = 1_u64;
     let mut request = 1_u64;
     let mut owners = HashMap::new();
     let mut maildrops = MaildropLeases::default();
+    let mut control_sessions = Vec::new();
     loop {
         step(
             smtp_listener.as_ref(),
             imap_listener.as_ref(),
             pop3_listener.as_ref(),
             managesieve_listener.as_ref(),
+            &control,
+            &mut control_sessions,
             &tls_mode,
             &mut worker,
             &mut lifecycle,
@@ -55,6 +60,8 @@ fn step(
     imap: Option<&TcpListener>,
     pop3: Option<&TcpListener>,
     managesieve: Option<&TcpListener>,
+    control: &crate::control::Listener,
+    control_sessions: &mut Vec<Option<crate::control::Connection>>,
     tls: &TlsMode,
     worker: &mut WakingStorageWorker,
     lifecycle: &mut Orchestrator<Session>,
@@ -81,6 +88,8 @@ fn step(
         &mut targets,
         &mut poll_fds,
     );
+    targets.push(Target::ControlListener);
+    poll_fds.push((control.as_fd(), readable()));
     for (slot, session) in sessions.iter().enumerate() {
         if let Some(lease) = session {
             let value = lease.get();
@@ -90,6 +99,18 @@ fn step(
                 Interest {
                     readable: value.needs_read(),
                     writable: value.needs_write(),
+                },
+            ));
+        }
+    }
+    for (slot, session) in control_sessions.iter().enumerate() {
+        if let Some(connection) = session {
+            targets.push(Target::ControlSession(slot));
+            poll_fds.push((
+                connection.as_fd(),
+                Interest {
+                    readable: true,
+                    writable: connection.wants_write(),
                 },
             ));
         }
@@ -104,6 +125,8 @@ fn step(
             imap,
             pop3,
             managesieve,
+            control,
+            control_sessions,
             tls,
             worker,
             lifecycle,
@@ -137,6 +160,13 @@ fn append_listener<'a>(
     ));
 }
 
+fn readable() -> Interest {
+    Interest {
+        readable: true,
+        writable: false,
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn dispatch(
     ready: crate::platform::linux_poll::Ready,
@@ -145,6 +175,8 @@ fn dispatch(
     imap: Option<&TcpListener>,
     pop3: Option<&TcpListener>,
     managesieve: Option<&TcpListener>,
+    control: &crate::control::Listener,
+    control_sessions: &mut Vec<Option<crate::control::Connection>>,
     tls: &TlsMode,
     worker: &mut WakingStorageWorker,
     lifecycle: &mut Orchestrator<Session>,
@@ -172,6 +204,7 @@ fn dispatch(
             tls,
             lifecycle,
         ),
+        Target::ControlListener if ready.readable => control.accept(control_sessions),
         Target::WorkerWake if ready.readable => {
             worker.drain_wakeup()?;
             complete(worker, sessions, owners, request, maildrops)?;
@@ -180,6 +213,7 @@ fn dispatch(
         Target::Session(slot, generation) => service_session(
             ready, slot, generation, worker, lifecycle, sessions, owners, request, maildrops,
         ),
+        Target::ControlSession(slot) => service_control(ready, slot, control_sessions, lifecycle),
         _ => Ok(()),
     }
 }

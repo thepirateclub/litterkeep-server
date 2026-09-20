@@ -4,6 +4,6 @@
 mod orchestrator;
 
 pub use orchestrator::{
-    AcquireError, Event, Orchestrator, ResourceId, ResourceLease, ResourceState, TaskId, TaskState,
-    WakeResult,
+    AcquireError, Event, Orchestrator, ResourceId, ResourceLease, ResourceSnapshot, ResourceState,
+    TaskId, TaskSnapshot, TaskState, WakeResult,
 };

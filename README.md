@@ -51,6 +51,23 @@ The source server must be stopped first because the Store intentionally permits
 only one writer. This is an explicit bounded drain, not the future long-lived
 delivery scheduler.
 
+## Linux runtime control socket
+
+```sh
+litterkeep-server runtime stats --data-dir /data
+litterkeep-server runtime tasks --data-dir /data
+litterkeep-server runtime resources --data-dir /data
+litterkeep-server runtime inspect 2:1 --data-dir /data
+```
+
+The server owns a local Unix-domain control socket in its poll loop and returns
+only lifecycle metadata: task state, generation-protected IDs and held resource
+IDs. It never returns mail body bytes, passwords or TLS keys. On ordinary Linux
+filesystems the socket is `/data/runtime.sock` and owner-only (`0600`). Docker
+Desktop shared folders cannot create Unix sockets; the server then writes an
+owner-only `/data/runtime.control` locator for a process-local socket under
+`/tmp`. The CLI validates that fallback location before connecting.
+
 ## Linux G01 reactor command
 
 ```sh

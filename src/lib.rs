@@ -6,6 +6,8 @@
 
 pub mod accounts;
 pub mod auth;
+#[cfg(target_os = "linux")]
+pub mod control;
 pub mod dsn;
 pub mod imap;
 pub mod imap_fetch;

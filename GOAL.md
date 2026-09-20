@@ -27,6 +27,30 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
 
 ## Checkpoints
 
+### 2026-09-20: G10 local control socket foundation
+
+- Linux reactor теперь владеет bounded Unix-domain control listener-ом и
+  короткими nonblocking control-сессиями в том же `poll` loop, что SMTP, IMAP,
+  POP3, ManageSieve и Store wakeup. Для диагностики не создаётся отдельный
+  поток и не открывается второй Store writer.
+- CLI добавил `runtime stats`, `runtime tasks`, `runtime resources` и
+  `runtime inspect <task-id>` с обязательным `--data-dir`. Ответы строятся из
+  реальных records `Orchestrator`: task state, owner и held resource IDs;
+  значения ресурсов, тела почты, пароли и ключи не сериализуются.
+- Docker Desktop shared bind mount не поддерживает Unix socket inode. Это
+  выявлено фактическим Linux запуском, а не скрыто: только при таком bind error
+  server создаёт owner-only locator `runtime.control` к process-local socket в
+  `/tmp`; CLI проверяет, что locator не выходит из временного каталога.
+- PASS: Linux Docker image `litterkeep-server:control-runtime` запущен с
+  `./data/g10-control`; независимый `docker exec` выполнил `runtime stats`,
+  `tasks`, `resources` и `inspect 2:1` при удерживаемой SMTP session. Ответ
+  показал `TASK id=2:1 state=Ready held=2:1` и соответствующий leased resource;
+  locator имел права `0600`. До final gate выполнены Windows `cargo test
+  --all-targets --locked` (149 tests), strict Clippy, format и structural audit.
+- G10 остаётся NOT RUN: зависимости G06/G08/G09 ещё не завершены; отсутствуют
+  stop/cancel/restart counters, bounded event ring, полный failure/replay matrix
+  и resource plateau acceptance.
+
 ### 2026-09-20: G08 ManageSieve literal and shared-reactor checkpoint
 
 - ManageSieve получил собственный ограниченный RFC 5804 literal receiver для

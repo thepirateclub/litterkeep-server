@@ -73,6 +73,8 @@ mod pop3_completion;
 mod pop3_protocol;
 #[path = "reactor/protocol.rs"]
 mod protocol;
+#[path = "reactor/control.rs"]
+mod reactor_control;
 #[path = "reactor/server_loop.rs"]
 mod server_loop;
 #[path = "reactor/session.rs"]
@@ -94,6 +96,7 @@ use imap_literal::LiteralReceiver;
 use maildrop_lease::MaildropLeases;
 use pending::Pending;
 use protocol::process_input;
+use reactor_control::service_control;
 use session::{Session, SmtpState};
 use session_io::{flush, read_session};
 
@@ -119,8 +122,10 @@ enum Target {
     ImapListener,
     Pop3Listener,
     ManageSieveListener,
+    ControlListener,
     WorkerWake,
     Session(usize, u64),
+    ControlSession(usize),
 }
 #[derive(Clone)]
 enum TlsMode {
