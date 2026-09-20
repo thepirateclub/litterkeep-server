@@ -1,8 +1,9 @@
 //! Ограниченный queue drain через собственный SMTP transport.
-use crate::{outbound, queue::State, store::Store};
+use crate::{outbound, outbound_pool::ConnectionPool, queue::State, store::Store};
 use std::io;
 
 const MAX_ATTEMPTS: u8 = 3;
+const ROUTE_POOL_CAPACITY: usize = 2;
 
 /// Итог одной bounded попытки доставки без скрытого бесконечного retry loop.
 #[derive(Debug, Default, Eq, PartialEq)]
@@ -15,6 +16,7 @@ pub struct DrainReport {
 /// Обрабатывает не больше `limit` committed jobs владельцем одного Store.
 pub fn drain(store: &mut Store, address: &str, limit: usize) -> io::Result<DrainReport> {
     let mut report = DrainReport::default();
+    let mut pool = ConnectionPool::new(address, ROUTE_POOL_CAPACITY)?;
     for mut delivery in store.pending_outbound()?.into_iter().take(limit) {
         delivery.attempts = delivery
             .attempts
@@ -24,7 +26,7 @@ pub fn drain(store: &mut Store, address: &str, limit: usize) -> io::Result<Drain
         store.transition_outbound(&delivery, State::InFlight)?;
         let payload = store.outbound_blob(&delivery)?;
         let state = delivery_state(
-            outbound::deliver(address, &delivery.sender, &delivery.recipient, &payload),
+            pool.deliver(&delivery.sender, &delivery.recipient, &payload),
             delivery.attempts,
         );
         delivery.state = state;

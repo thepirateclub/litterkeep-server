@@ -303,6 +303,21 @@ authoritative local subgoal ledger, rather than invented Goal API calls.
   `git diff --check` PASS. G08/G09 остаются RUNNING: нет automatic delayed
   retry, outbound TLS, pool и cancellation acceptance.
 
+### 2026-09-20: G09 owned SMTP pool checkpoint
+
+- `ConnectionPool` владеет настоящими TCP channels одного маршрута и имеет
+  capacity 2 для bounded `queue-drain`. После positive final DATA channel
+  возвращается в idle и применяется к следующему job; SMTP reject, EOF и I/O
+  уничтожают channel и освобождают slot, поэтому грязное соединение не
+  выдаётся новому recipient. Разовый CLI `deliver` остаётся отдельным
+  standalone transport.
+- PASS: детерминированные peer tests подтвердили два сообщения на одном TCP
+  connection и новую TCP accept после RCPT 450. Windows: 133 tests, strict
+  Clippy, format и `git diff --check`; Linux Docker test stage: 140 tests.
+  G09 остаётся RUNNING: pool пока живёт только в одном bounded drain, нет
+  runtime service ownership, persisted next-at/backoff, TLS route keys, DSN
+  и cancellation lifecycle acceptance.
+
 ### 2026-09-20: G07 POP3 core foundation
 
 - Заглушка POP3 заменена typed grammar и FSM AUTHORIZATION/TRANSACTION/UPDATE.

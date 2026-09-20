@@ -21,50 +21,96 @@ pub enum DeliveryOutcome {
     PermanentFailure,
 }
 
-/// Отправляет один уже сохранённый RFC822 message на локальный SMTP peer.
+/// Одно чистое SMTP-соединение, которым в текущий момент владеет один caller.
 ///
-/// Вызывающий владеет очередью и решает retry по классу ошибки. Этот transport
-/// не возвращает соединение в пул: pooling и TLS добавляются отдельным этапом.
+/// После ошибки или неуспешного SMTP transaction объект должен быть уничтожен:
+/// peer мог оставить незавершённое состояние MAIL transaction. Возврат в pool
+/// разрешён только после положительного финального ответа DATA.
+pub struct Connection {
+    reader: BufReader<TcpStream>,
+    writer: TcpStream,
+}
+
+impl Connection {
+    /// Открывает TCP, проверяет greeting и устанавливает SMTP session через EHLO.
+    pub fn connect(address: &str) -> io::Result<Self> {
+        let stream = TcpStream::connect(address)?;
+        stream.set_read_timeout(Some(Duration::from_secs(10)))?;
+        stream.set_write_timeout(Some(Duration::from_secs(10)))?;
+        let mut result = Self {
+            reader: BufReader::new(stream.try_clone()?),
+            writer: stream,
+        };
+        result.expect_positive()?;
+        result.command("EHLO litterkeep.test\r\n")?;
+        result.expect_positive()?;
+        Ok(result)
+    }
+
+    /// Выполняет ровно одну SMTP envelope transaction на уже проверенном канале.
+    pub fn deliver(
+        &mut self,
+        sender: &str,
+        recipient: &str,
+        message: &[u8],
+    ) -> io::Result<DeliveryOutcome> {
+        self.command(&format!("MAIL FROM:<{sender}>\r\n"))?;
+        if let Some(outcome) = expect(&mut self.reader)? {
+            return Ok(outcome);
+        }
+        self.command(&format!("RCPT TO:<{recipient}>\r\n"))?;
+        if let Some(outcome) = expect(&mut self.reader)? {
+            return Ok(outcome);
+        }
+        self.command("DATA\r\n")?;
+        if let Some(outcome) = expect(&mut self.reader)? {
+            return Ok(outcome);
+        }
+        self.writer.write_all(message)?;
+        self.writer.write_all(b"\r\n.\r\n")?;
+        self.writer.flush()?;
+        match expect(&mut self.reader)? {
+            Some(outcome) => Ok(outcome),
+            None => Ok(DeliveryOutcome::Delivered),
+        }
+    }
+
+    /// Завершает standalone-соединение. Ошибка QUIT не отменяет уже принятый DATA.
+    pub fn quit(&mut self) -> io::Result<()> {
+        self.command("QUIT\r\n")?;
+        self.expect_positive()
+    }
+
+    fn command(&mut self, wire: &str) -> io::Result<()> {
+        command(&mut self.writer, wire)
+    }
+
+    fn expect_positive(&mut self) -> io::Result<()> {
+        match expect(&mut self.reader)? {
+            None => Ok(()),
+            Some(_) => Err(io::Error::other("SMTP peer rejected connection")),
+        }
+    }
+}
+
+/// Отправляет один RFC822 message без повторного использования соединения.
+///
+/// CLI использует этот путь для разовой диагностики. Очередь доставки использует
+/// `outbound_pool::ConnectionPool`, который возвращает только чистый channel.
 pub fn deliver(
     address: &str,
     sender: &str,
     recipient: &str,
     message: &[u8],
 ) -> io::Result<DeliveryOutcome> {
-    let stream = TcpStream::connect(address)?;
-    stream.set_read_timeout(Some(Duration::from_secs(10)))?;
-    stream.set_write_timeout(Some(Duration::from_secs(10)))?;
-    let mut reader = BufReader::new(stream.try_clone()?);
-    if let Some(outcome) = expect(&mut reader)? {
-        return Ok(outcome);
-    }
-    let mut writer = stream;
-    command(&mut writer, "EHLO litterkeep.test\r\n")?;
-    if let Some(outcome) = expect(&mut reader)? {
-        return Ok(outcome);
-    }
-    command(&mut writer, &format!("MAIL FROM:<{sender}>\r\n"))?;
-    if let Some(outcome) = expect(&mut reader)? {
-        return Ok(outcome);
-    }
-    command(&mut writer, &format!("RCPT TO:<{recipient}>\r\n"))?;
-    if let Some(outcome) = expect(&mut reader)? {
-        return Ok(outcome);
-    }
-    command(&mut writer, "DATA\r\n")?;
-    if let Some(outcome) = expect(&mut reader)? {
-        return Ok(outcome);
-    }
-    writer.write_all(message)?;
-    writer.write_all(b"\r\n.\r\n")?;
-    writer.flush()?;
-    if let Some(outcome) = expect(&mut reader)? {
-        return Ok(outcome);
-    }
-    command(&mut writer, "QUIT\r\n")?;
-    match expect(&mut reader)? {
-        Some(outcome) => Ok(outcome),
-        None => Ok(DeliveryOutcome::Delivered),
+    let mut connection = Connection::connect(address)?;
+    let outcome = connection.deliver(sender, recipient, message)?;
+    match outcome {
+        DeliveryOutcome::Delivered => {
+            let _ = connection.quit();
+            Ok(DeliveryOutcome::Delivered)
+        }
+        DeliveryOutcome::Deferred | DeliveryOutcome::PermanentFailure => Ok(outcome),
     }
 }
 
