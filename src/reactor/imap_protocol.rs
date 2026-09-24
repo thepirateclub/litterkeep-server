@@ -4,6 +4,8 @@ use super::*;
 
 #[path = "imap_enable.rs"]
 mod imap_enable;
+#[path = "imap_search_error.rs"]
+mod imap_search_error;
 
 #[path = "imap_authenticate.rs"]
 pub(super) mod authenticate;
@@ -222,12 +224,21 @@ pub(super) fn line(
             owners,
             request_id,
         )?,
-        imap::Command::Search { addressing, key } => imap_selected::queue_authenticated_read(
+        imap::Command::Search {
+            charset: imap::search_charset::Charset::Unsupported,
+            ..
+        } => imap_search_error::unsupported_charset(session, &parsed.tag)?,
+        imap::Command::Search {
+            addressing,
+            key,
+            charset,
+        } => imap_selected::queue_authenticated_read(
             session,
             parsed.tag,
             |tag, _| Pending::ReadForSearch {
                 addressing,
                 key,
+                charset,
                 tag,
             },
             slot,

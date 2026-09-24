@@ -51,11 +51,18 @@ pub enum HeaderSelector {
 /// Разбирает поддерживаемую последовательность criteria без ложного успеха.
 pub fn parse(tokens: impl Iterator<Item = Token>, addressing: Addressing) -> Command {
     let mut tokens = tokens.collect::<VecDeque<_>>();
+    let Some(charset) = super::search_charset::parse_prefix(&mut tokens) else {
+        return Command::Unsupported;
+    };
     let Some(key) = parse_group(&mut tokens, false) else {
         return Command::Unsupported;
     };
     match tokens.is_empty() {
-        true => Command::Search { addressing, key },
+        true => Command::Search {
+            addressing,
+            key,
+            charset,
+        },
         false => Command::Unsupported,
     }
 }
@@ -205,6 +212,37 @@ mod tests {
         );
     }
 
+    /// SEARCH charset параметр типизируется отдельно от search-program.
+    #[test]
+    fn parses_default_supported_and_unsupported_charsets() {
+        assert!(matches!(
+            imap::parse("a SEARCH SUBJECT \"café\"\r\n").command,
+            Command::Search {
+                charset: super::super::search_charset::Charset::Utf8,
+                ..
+            }
+        ));
+        assert!(matches!(
+            imap::parse("b UID SEARCH CHARSET us-ascii ALL\r\n").command,
+            Command::Search {
+                addressing: Addressing::Uid,
+                charset: super::super::search_charset::Charset::UsAscii,
+                ..
+            }
+        ));
+        assert!(matches!(
+            imap::parse("c SEARCH CHARSET KOI8-R ALL\r\n").command,
+            Command::Search {
+                charset: super::super::search_charset::Charset::Unsupported,
+                ..
+            }
+        ));
+        assert_eq!(
+            imap::parse("d SEARCH CHARSET \"UTF-8\" ALL\r\n").command,
+            Command::Unsupported
+        );
+    }
+
     #[test]
     fn parses_dates_boolean_operators_and_groups() {
         let command = imap::parse(
@@ -248,6 +286,7 @@ mod tests {
             Command::Search {
                 addressing: Addressing::Uid,
                 key: SearchKey::And(keys),
+                ..
             } if keys.len() == 2
         ));
         assert_eq!(

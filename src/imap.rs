@@ -18,6 +18,7 @@ pub mod folder;
 pub mod idle;
 pub mod modified_utf7;
 pub mod search;
+pub mod search_charset;
 #[path = "imap/search_date.rs"]
 pub mod search_date;
 #[path = "imap/sent_date.rs"]
@@ -127,6 +128,7 @@ pub enum Command {
     Search {
         addressing: Addressing,
         key: search::SearchKey,
+        charset: search_charset::Charset,
     },
     Unsupported,
 }

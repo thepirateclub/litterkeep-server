@@ -9,9 +9,14 @@ pub(super) fn completed(
     session: &mut Session,
     addressing: imap::Addressing,
     key: SearchKey,
+    charset: imap::search_charset::Charset,
     tag: String,
     messages: Vec<crate::store::Message>,
 ) -> io::Result<()> {
+    if !charset.accepts(&key) {
+        return session
+            .push(format!("{tag} NO SEARCH criteria do not match charset\r\n").as_bytes());
+    }
     let recent = &session.selected_recent;
     let maximum_sequence = usize_as_u64(messages.len());
     let maximum_uid = messages

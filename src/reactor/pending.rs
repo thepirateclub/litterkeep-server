@@ -76,6 +76,7 @@ pub(super) enum Pending {
     ReadForSearch {
         addressing: imap::Addressing,
         key: imap::search::SearchKey,
+        charset: imap::search_charset::Charset,
         tag: String,
     },
     WriteFlags {

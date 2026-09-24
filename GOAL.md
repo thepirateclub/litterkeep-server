@@ -91,8 +91,8 @@ ManageSieve до заявленного набора современных фо
   подтвердил advertised capabilities, формат `NAMESPACE`, UNSELECT -> повторный
   SELECT и сохранение помеченного `\\Deleted` сообщения. Тестовая папка:
   `./data/g14-imap-body-sections`.
-- G14 остаётся RUNNING: обязательные `ENABLE`, IMAP4rev2 search/ESEARCH,
-  untagged/response grammar и остальной RFC 9051 acceptance ещё не закрыты.
+- G14 остаётся RUNNING: IMAP4rev2 search/ESEARCH, untagged/response grammar и
+  остальной RFC 9051 acceptance ещё не закрыты.
 
 ### 2026-09-24: G14 ENABLE negotiation checkpoint
 
@@ -125,6 +125,24 @@ ManageSieve до заявленного набора современных фо
   `./data/g14-imap-body-sections`.
 - G14 остаётся RUNNING: полная RFC 9051 команда и response grammar ещё не
   реализована. G15-G18 не начаты.
+
+### 2026-09-24: G14 SEARCH charset checkpoint
+
+- SEARCH типизирует `CHARSET`; без параметра используется UTF-8, явно
+  поддерживаются UTF-8 и US-ASCII. Неизвестный charset получает tagged NO с
+  `BADCHARSET (US-ASCII UTF-8)`, а не BAD. Unicode-критерий при заявленном
+  US-ASCII отвергается отдельным NO до сравнения результатов.
+- PASS: Windows format/strict Clippy и 204 теста; Docker Linux Rust 1.97
+  strict Clippy и 236 тестов. Независимый STARTTLS клиент APPEND-ил UTF-8 тело,
+  нашёл его BODY search с UTF-8 и с неявным charset, проверил US-ASCII, NO для
+  unsupported charset и NO для несовместимого US-ASCII criteria. Повторно
+  прошли ENABLE/NAMESPACE/UNSELECT, точные байты вложения
+  `4c7872cd574aabe5cdc9a29678b88b178ef4aac98f051455ff87e207eeea9759` и Seen
+  после restart. Тестовые данные: `./data/g14-imap-body-sections`; созданный
+  для сетевого теста контейнер удалён.
+- Search остаётся PARTIAL: evaluator ещё не декодирует MIME transfer encodings
+  и encoded-word заголовки перед сопоставлением; ESEARCH result options и
+  полный mandatory search-key набор также не закрыты. G15-G18 не начаты.
 
 | Goal | Depends on | Acceptance criterion | Status |
 |---|---|---|---|
