@@ -144,6 +144,20 @@ ManageSieve до заявленного набора современных фо
   остаётся PARTIAL вместе с другими незакрытыми SEARCH keys, MIME charset и
   полным IMAP4rev2 baseline.
 
+### 2026-09-24: G14 ESEARCH empty-result projection checkpoint
+
+- Исправлена сериализация пустого `SEARCH RETURN` результата: ESEARCH остаётся
+  в ответе; ALL/MIN/MAX опускаются; COUNT 0 включается только если COUNT был
+  запрошен. Пустой `RETURN ()` продолжает означать ALL и не подменяется COUNT.
+- PASS: Windows Rust 1.97 format, strict Clippy и 212 тестов; Linux Docker
+  Rust 1.97 release build, strict Clippy и 246 тестов. Независимый STARTTLS
+  `tests/blackbox/imap_esearch.py` подтвердил непустой ESEARCH и пустые выборки
+  ALL, ALL/MIN/MAX/COUNT и `RETURN ()`. Контейнер `litterkeep-g14-esearch-empty`
+  удалён после проверки; использованы этапные данные `./data/g14-esearch`.
+- G14 остаётся RUNNING: SEARCH/ESEARCH все ещё PARTIAL; ещё требуются `$`
+  message sets в других командах, полный mandatory search-key set, charset
+  профиль и остальной IMAP4rev2 baseline.
+
 ### 2026-09-24: G14 NAMESPACE and UNSELECT checkpoint
 
 - Добавлены typed-команды `NAMESPACE` и `UNSELECT`. Персональный namespace

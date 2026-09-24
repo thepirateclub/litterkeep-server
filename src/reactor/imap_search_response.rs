@@ -49,16 +49,23 @@ fn write_extended(
         Addressing::Uid => " UID",
     };
     let mut fields = Vec::new();
+    let count_requested = items.contains(&ReturnItem::Count);
     for item in items {
         append_item(&mut fields, item, values);
     }
-    let body = fields.join(" ");
     let correlator = quoted_tag(tag);
-    let body = match body.is_empty() {
-        true => "COUNT 0".to_owned(),
-        false => body,
+    // RFC 9051 требует COUNT 0 только при запросе COUNT; при пустом наборе
+    // остальные запрошенные поля пропускаются, но ESEARCH response остаётся.
+    if let (true, true) = (fields.is_empty(), count_requested) {
+        fields.push(format!("COUNT {}", values.len()));
+    }
+    let body = fields.join(" ");
+    // Пустой список return-data допустим, поэтому не добавляем лишний пробел.
+    let response = match body.is_empty() {
+        true => format!("* ESEARCH (TAG {correlator}){uid}\r\n"),
+        false => format!("* ESEARCH (TAG {correlator}){uid} {body}\r\n"),
     };
-    session.push(format!("* ESEARCH (TAG {correlator}){uid} {body}\r\n").as_bytes())?;
+    session.push(response.as_bytes())?;
     session.push(format!("{tag} OK SEARCH completed\r\n").as_bytes())
 }
 

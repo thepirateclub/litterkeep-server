@@ -59,7 +59,23 @@ def main() -> None:
     status, data = client.search(None, "RETURN", "(ALL)", "SUBJECT", '"missing"')
     require((status, data), "OK")
     response = client.response("ESEARCH")
-    assert b"COUNT 0" in b" ".join(response[1] or []), response
+    empty_result = b" ".join(response[1] or [])
+    assert b"ALL" not in empty_result, response
+    assert b"COUNT" not in empty_result, response
+    assert b"MIN" not in empty_result, response
+    assert b"MAX" not in empty_result, response
+    status, data = client.search(None, "RETURN", "(COUNT MIN MAX ALL)", "SUBJECT", '"missing"')
+    require((status, data), "OK")
+    response = client.response("ESEARCH")
+    empty_result = b" ".join(response[1] or [])
+    assert b"COUNT 0" in empty_result, response
+    assert b"ALL" not in empty_result, response
+    assert b"MIN" not in empty_result, response
+    assert b"MAX" not in empty_result, response
+    status, data = client.search(None, "RETURN", "()", "SUBJECT", '"missing"')
+    require((status, data), "OK")
+    response = client.response("ESEARCH")
+    assert b"ALL" not in b" ".join(response[1] or []), response
     client.logout()
     print("PASS imap-esearch")
 

@@ -43,7 +43,10 @@ UID-проекцию, отсутствие результата в другой 
 Расширение намеренно не объявляется как SEARCHRES: `$` для FETCH/STORE/COPY и
 UID EXPUNGE ещё не реализован, так что capability остаётся скрытой.
 Явный `SEARCH RETURN` выдаёт ESEARCH с correlator, UID-маркером и опциями
-ALL/COUNT/MIN/MAX; legacy SEARCH остаётся для текущего IMAP4rev1 профиля. MIME
+ALL/COUNT/MIN/MAX. Пустой result set сохраняет запрошенные поля: ALL/MIN/MAX
+не выводятся, COUNT выводится как 0 только если запрошен, ESEARCH response
+при этом остаётся. Пустой `RETURN ()` эквивалентен ALL. Legacy SEARCH остаётся
+для текущего IMAP4rev1 профиля. MIME
 charset вне US-ASCII/UTF-8/ISO-8859-1, `$` в message-set командах и полный
 mandatory search-key set также не реализованы. SEARCHRES capability не
 объявляется, пока generic `$` profile не будет завершён. Это не означает полной
