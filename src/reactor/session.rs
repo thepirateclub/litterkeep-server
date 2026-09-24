@@ -49,6 +49,8 @@ pub(super) struct Session {
     pub(super) imap_authenticate: Option<imap_protocol::authenticate::State>,
     /// Ограниченный literal остаётся собственностью этой IMAP-сессии.
     pub(super) imap_literal: Option<LiteralReceiver>,
+    /// SEARCH literal временно заменяется quoted UTF-8 строкой после приёма.
+    pub(super) imap_search_literal: Option<super::imap_search_literal::Receiver>,
     pub(super) smtp: SmtpState,
     /// POP3 хранит snapshot только до QUIT и не получает Store во владение.
     pub(super) pop3: pop3::Session,
@@ -98,6 +100,7 @@ impl Session {
             imap_idle: None,
             imap_authenticate: None,
             imap_literal: None,
+            imap_search_literal: None,
             smtp: SmtpState::Command(smtp::Transaction::default()),
             pop3: pop3::Session::default(),
             pop3_mailbox: None,
@@ -228,6 +231,7 @@ impl Session {
         self.imap_idle = None;
         self.imap_authenticate = None;
         self.imap_literal = None;
+        self.imap_search_literal = None;
         self.pop3 = pop3::Session::default();
         self.pop3_mailbox = None;
         self.managesieve_literal = None;
@@ -257,6 +261,8 @@ impl Session {
 pub(super) enum SessionTermination {
     /// Отстающий IDLE-подписчик превысил жёсткую границу выходной очереди.
     NotificationOverflow,
+    /// Некорректный UTF-8 SEARCH literal нарушил синтаксис текущей команды.
+    InvalidSearchLiteral,
 }
 
 #[path = "session_termination.rs"]

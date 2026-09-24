@@ -24,7 +24,7 @@ CAPABILITY не выдаёт за более широкое расширение
 | Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS, PERMANENTFLAGS, включая `\\*` для создания пользовательских keywords, Recent |
 | Message insertion | APPEND | PASS | Bounded literal, системные flags и keywords, INTERNALDATE, APPENDUID после fsync |
 | Reading | FETCH, UID FETCH | PARTIAL | Сгруппированные items, ALL/FAST/FULL, UID, RFC822 bytes, BODY HEADER/TEXT/HEADER.FIELDS, MIME parts и partial; BODY/PEEK Seen effects проверены; полная rev2 grammar остаётся |
-| Search | SEARCH, UID SEARCH | PARTIAL | Все базовые SEARCH keys RFC 9051 распознаются и оцениваются; исчерпывающая проверка parser-а перечисляет каждый key. UTF-8 default, UTF-8/US-ASCII CHARSET, BADCHARSET, ESEARCH RETURN ALL/COUNT/MIN/MAX, decoded MIME text and UNKNOWN-CTE verified; MIME text supports US-ASCII, UTF-8, ISO-8859-1 and Windows-1251, rejects undefined CP1251 octet; RETURN SAVE and `$` SEARCH criterion work per session with SELECT/error reset and MIN/MAX selection; FETCH/UID FETCH and STORE/UID STORE `$` map saved UIDs to the active number space, COPY/UID COPY `$` resolve saved UIDs in their respective addressing modes, UID EXPUNGE `$` intersects saved UIDs with `\\Deleted`, empty sets are safe, and pipelined SEARCH SAVE followed by COPY is verified; ESEARCH and SEARCHRES are advertised; other MIME charsets and non-base extensions remain |
+| Search | SEARCH, UID SEARCH | PARTIAL | Все базовые SEARCH keys RFC 9051 распознаются и оцениваются; исчерпывающая проверка parser-а перечисляет каждый key. UTF-8 default, UTF-8/US-ASCII CHARSET, BADCHARSET, synchronizing string literals до 64 KiB, ESEARCH RETURN ALL/COUNT/MIN/MAX, decoded MIME text и UNKNOWN-CTE проверены; MIME text supports US-ASCII, UTF-8, ISO-8859-1 and Windows-1251, rejects undefined CP1251 octet; RETURN SAVE and `$` SEARCH criterion work per session with SELECT/error reset and MIN/MAX selection; FETCH/UID FETCH and STORE/UID STORE `$` map saved UIDs to the active number space, COPY/UID COPY `$` resolve saved UIDs in their respective addressing modes, UID EXPUNGE `$` intersects saved UIDs with `\\Deleted`, empty sets are safe, and pipelined SEARCH SAVE followed by COPY is verified; ESEARCH and SEARCHRES are advertised; other MIME charsets and non-base extensions remain |
 | Flag mutation | STORE, UID STORE | PASS | Системные flags и регистронезависимые keywords: Replace/add/remove, SILENT, один durable batch, read-only denial |
 | Copy and move | COPY, UID COPY, MOVE, UID MOVE | PASS | Atomic links/tombstones, COPYUID, multi-session projection |
 | Deletion | EXPUNGE, UID EXPUNGE, CLOSE | PASS | Durable tombstones, UIDPLUS, sequence-map notifications |
@@ -51,10 +51,10 @@ MIME decoding проверены отдельно. При этом синтак�
 | KEYWORD, UNKEYWORD | Реализованы typed parser/evaluator и сетевые проверки; keywords входят в APPEND v4 и versioned flags journal v2. Старые append v1-v3 и flags v1 читаются как раньше; FETCH FLAGS, STORE и COPY/MOVE сохраняют keywords. STORE обновляет оба класса flags одним checksum/commit frame |
 
 Базовый набор SEARCH keys RFC 9051 закрыт parser/evaluator acceptance; это не
-означает полного SEARCH wire grammar. Строковые criteria пока разбираются из
-командной строки и не принимают synchronizing literal. Адресные SEARCH criteria
-и FETCH ENVELOPE используют одну projection; сложные комментарии, obsolete
-forms и malformed RFC 5322 syntax остаются ограничениями общего address parser-а.
+означает полного SEARCH wire grammar. Quoted strings и synchronizing literals
+до 64 KiB проверены, но non-synchronizing LITERAL+ не объявляется. Адресные
+SEARCH criteria и FETCH ENVELOPE используют одну projection; сложные comments,
+obsolete forms и malformed RFC 5322 syntax остаются ограничениями address parser-а.
 
 G14 keyword checkpoint (2026-09-24): custom flags и KEYWORD/UNKEYWORD прошли
 Windows tests, Linux Rust 1.97 strict Clippy/254 tests и STARTTLS IMAP black-box

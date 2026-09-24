@@ -61,6 +61,23 @@ ManageSieve до заявленного набора современных фо
   Litterkeep этим этапом не проверялось.
 - Данные этапа: `./data/g14-search-key-inventory`. Цель G14 остаётся RUNNING.
 
+### 2026-09-25: G14 SEARCH synchronizing literals checkpoint
+
+- IMAP session reactor принимает bounded synchronizing literals в SEARCH и
+  UID SEARCH без blocking wait и передаёт восстановленную quoted UTF-8 команду
+  существующему typed parser-у. Лимит одного literal: 64 KiB; octet count
+  проверяется до чтения, несколько literals в команде обрабатываются последовательно.
+- Rust tests проверяют фрагментацию на каждой границе, экранирование кавычек и
+  обратной косой черты, пустой literal, неверный UTF-8 и превышение бюджета.
+  Независимый STARTTLS black-box проверил BODY, UID SEARCH, два literals в
+  HEADER, Unicode UTF-8 и пустую строку. Это не подключение приложения Litterkeep.
+- PASS: Rust 1.97 Windows strict Clippy и 238 tests; Linux Docker release build,
+  strict Clippy и 278 tests; runtime black-box PASS. Данные сохранены в
+  `./data/g14-search-literal`; временный контейнер удалён, `litterkeep-g12-phone`
+  сохранён.
+- G14 SEARCH остаётся PARTIAL: LITERAL+ не объявляется, MIME charset и прочие
+  IMAP4rev2 пробелы не закрыты. Цель остаётся RUNNING.
+
 ### 2026-09-25: G14 SEARCHRES UID EXPUNGE checkpoint
 
 - `UID EXPUNGE $` принимает типизированный saved-result set, снимок результата

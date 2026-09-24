@@ -53,6 +53,8 @@ mod imap_namespace;
 mod imap_protocol;
 #[path = "reactor/imap_search.rs"]
 mod imap_search;
+#[path = "reactor/imap_search_literal.rs"]
+mod imap_search_literal;
 #[path = "reactor/imap_select.rs"]
 mod imap_select;
 #[path = "reactor/imap_selected.rs"]

@@ -29,6 +29,25 @@ pub(super) fn process_input(
                 None => break,
             }
         }
+        if session.imap_search_literal.is_some() {
+            let progress = session
+                .imap_search_literal
+                .as_mut()
+                .expect("SEARCH literal state checked")
+                .consume(&mut session.input);
+            match progress {
+                imap_search_literal::Progress::Waiting => break,
+                imap_search_literal::Progress::Complete => {
+                    session.imap_search_literal = None;
+                    continue;
+                }
+                imap_search_literal::Progress::InvalidString => {
+                    session.imap_search_literal = None;
+                    session.termination = Some(session::SessionTermination::InvalidSearchLiteral);
+                    break;
+                }
+            }
+        }
         if session.managesieve_literal.is_some() {
             match super::managesieve_protocol::literal(
                 session, slot, generation, worker, owners, request_id,
@@ -54,9 +73,18 @@ pub(super) fn process_input(
             Kind::Smtp => super::smtp_protocol::smtp_line(
                 session, line, slot, generation, worker, owners, request_id,
             )?,
-            Kind::Imap => super::imap_protocol::line(
-                session, line, slot, generation, worker, owners, request_id,
-            )?,
+            Kind::Imap => match imap_search_literal::start(&line) {
+                imap_search_literal::Start::NotSearchLiteral => super::imap_protocol::line(
+                    session, line, slot, generation, worker, owners, request_id,
+                )?,
+                imap_search_literal::Start::Begin(receiver) => {
+                    session.imap_search_literal = Some(receiver);
+                    session.push(b"+ Ready for SEARCH literal\r\n")?;
+                }
+                imap_search_literal::Start::Reject { tag, reason } => {
+                    session.push(format!("{tag} BAD {reason}\r\n").as_bytes())?;
+                }
+            },
             Kind::Pop3 => super::pop3_protocol::line(
                 session, line, slot, generation, worker, owners, request_id,
             )?,

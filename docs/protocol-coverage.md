@@ -57,9 +57,11 @@ ALL/COUNT/MIN/MAX. Пустой result set сохраняет запрошенн
 не выводятся, COUNT выводится как 0 только если запрошен, ESEARCH response
 при этом остаётся. Пустой `RETURN ()` эквивалентен ALL. Legacy SEARCH остаётся
 для текущего IMAP4rev1 профиля. MIME
-charset вне проверенного набора и SEARCH string literals пока не реализованы.
-Parser acceptance перечисляет все базовые SEARCH keys RFC 9051, evaluator
-покрыт соответствующими unit и сетевыми сценариями. Объявление SEARCHRES не означает полной
+charset вне проверенного набора остаются непроверенными. SEARCH поддерживает
+quoted strings и synchronizing literals до 64 KiB, включая несколько literals
+в одной команде. Parser acceptance перечисляет все базовые SEARCH keys RFC 9051,
+evaluator покрыт соответствующими unit и сетевыми сценариями. Объявление
+SEARCHRES не означает полной
 совместимости IMAP4rev1 или IMAP4rev2: остаются SEARCH/ESEARCH расширения и
 другие несовпадения формальных грамматик; см. [матрицу IMAP](imap-profile.md).
 
