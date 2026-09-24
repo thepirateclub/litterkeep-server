@@ -301,6 +301,24 @@ ManageSieve до заявленного набора современных фо
 - G14 остаётся RUNNING: поддержка иных MIME charset, все RFC 9051 criteria и
   полный IMAP4rev2 command/response baseline не закрыты.
 
+### 2026-09-24: G14 strict no-argument command grammar checkpoint
+
+- CAPABILITY, LOGOUT, NOOP, IDLE и STARTTLS теперь отвергают любой лишний
+  аргумент до dispatch. Reactor возвращает tagged `BAD invalid command syntax`,
+  после чего соединение остаётся пригодным для следующей корректной команды.
+- RFC 9051 разрешает пустой `resp-text`; добавление текста здесь сделано ради
+  совместимости с независимым стандартным `imaplib`, который аварийно завершал
+  разбор такого пустого `BAD`. Это interoperability requirement, не MUST RFC.
+- PASS: Windows format/strict Clippy/221 тест; Docker Rust 1.97 release build,
+  strict Clippy и 256 тестов. Независимый STARTTLS black-box `imaplib`
+  проверил лишний аргумент до TLS, в authenticated и selected states, затем
+  успешный NOOP в той же сессии (`PASS imap-command-grammar`). MIME SEARCH
+  smoke также прошёл (`PASS imap-search-mime`). Litterkeep-подключение не
+  проверялось. Данные: `./data/g14-command-grammar`; контейнер удалён, в Docker
+  остался только пользовательский `litterkeep-g12-phone`.
+- G14 остаётся RUNNING: данный parser checkpoint не закрывает весь mandatory
+  IMAP4rev2 grammar или command/response baseline.
+
 ### 2026-09-24: G14 ESEARCH result checkpoint
 
 - SEARCH RETURN принимает только типизированные ALL/COUNT/MIN/MAX; пустой

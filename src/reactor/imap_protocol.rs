@@ -256,7 +256,9 @@ pub(super) fn line(
             owners,
             request_id,
         )?,
-        imap::Command::Unsupported => session.push(format!("{} BAD\r\n", parsed.tag).as_bytes())?,
+        imap::Command::Unsupported => {
+            session.push(format!("{} BAD invalid command syntax\r\n", parsed.tag).as_bytes())?
+        }
     }
     Ok(())
 }

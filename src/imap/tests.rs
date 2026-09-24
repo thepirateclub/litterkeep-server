@@ -36,6 +36,20 @@ fn namespace_and_unselect_commands_are_typed() {
     assert_eq!(parse("d UNSELECT extra\r\n").command, Command::Unsupported);
 }
 
+/// Команды без аргументов отвергают даже один лишний atom как синтаксическую ошибку.
+#[test]
+fn no_argument_commands_reject_trailing_arguments() {
+    for line in [
+        "a CAPABILITY extra\r\n",
+        "b LOGOUT extra\r\n",
+        "c NOOP extra\r\n",
+        "d IDLE extra\r\n",
+        "e STARTTLS extra\r\n",
+    ] {
+        assert_eq!(parse(line).command, Command::Unsupported, "{line}");
+    }
+}
+
 /// Capability atoms ENABLE становятся типизированными Enum до передачи reactor-у.
 #[test]
 fn enable_capability_atoms_are_typed() {

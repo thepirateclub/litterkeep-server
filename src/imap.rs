@@ -164,19 +164,19 @@ pub fn parse(line: &str) -> TaggedCommand {
     };
     let tag = next_text(&mut tokens).unwrap_or_else(|| "*".into());
     let command = match next_text(&mut tokens).as_deref().map(parse_verb) {
-        Some(Verb::Capability) => Command::Capability,
+        Some(Verb::Capability) => parse_empty(tokens, Command::Capability),
         Some(Verb::Namespace) => parse_empty(tokens, Command::Namespace),
         Some(Verb::Enable) => enable::parse(tokens),
-        Some(Verb::StartTls) => Command::StartTls,
+        Some(Verb::StartTls) => parse_empty(tokens, Command::StartTls),
         Some(Verb::Login) => match (next_text(&mut tokens), next_text(&mut tokens)) {
             (Some(username), Some(password)) => Command::Login { username, password },
             _ => Command::Unsupported,
         },
         Some(Verb::Authenticate) => authenticate::parse(&mut tokens),
         Some(Verb::Append) => append::parse(tokens),
-        Some(Verb::Logout) => Command::Logout,
-        Some(Verb::Noop) => Command::Noop,
-        Some(Verb::Idle) => Command::Idle,
+        Some(Verb::Logout) => parse_empty(tokens, Command::Logout),
+        Some(Verb::Noop) => parse_empty(tokens, Command::Noop),
+        Some(Verb::Idle) => parse_empty(tokens, Command::Idle),
         Some(Verb::Create) => folder::parse_create(tokens),
         Some(Verb::Delete) => folder::parse_delete(tokens),
         Some(Verb::Rename) => folder::parse_rename(tokens),

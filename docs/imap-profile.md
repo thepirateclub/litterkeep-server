@@ -12,7 +12,7 @@ CAPABILITY не выдаёт за более широкое расширение
 
 | Состояние или раздел | Команды и свойства | Статус | Проверяемая граница |
 |---|---|---|---|
-| Any | CAPABILITY, NOOP, LOGOUT | PASS | Tagged/untagged ответы, bounded line decoder |
+| Any | CAPABILITY, NOOP, LOGOUT | PASS | Tagged/untagged ответы, bounded line decoder; безаргументные команды отвергают лишние аргументы |
 | TLS | STARTTLS | PASS | Сброс plaintext state и пошаговый rustls handshake |
 | Authentication | LOGIN | PASS | Только TLS, общий Argon2 worker, повторный вход запрещён |
 | Authentication | AUTHENTICATE PLAIN | PASS | Continuation, cancel, SASL-IR, authzid policy, только TLS |
@@ -75,3 +75,8 @@ CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-U
 Не заявлены IMAP4rev2, UTF8=ACCEPT, CONDSTORE, QRESYNC, COMPRESS,
 SORT, THREAD и полный набор SEARCH keys. Их отсутствие не маскируется пустым
 успешным результатом.
+
+Parser выдаёт типизированный отказ для лишних аргументов у CAPABILITY, LOGOUT,
+NOOP, IDLE и STARTTLS. Tagged BAD содержит читаемый текст причины: пустой
+resp-text допустим в RFC 9051, но стандартный Python imaplib аварийно завершает
+разбор ответа с пустым BAD, поэтому проверяется и межклиентская совместимость.
