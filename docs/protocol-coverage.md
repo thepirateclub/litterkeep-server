@@ -26,8 +26,10 @@ STARTTLS клиент подтвердил, что ENABLE игнорирует �
 проверки BODY/Seen, headers, body, flags и UNSELECT подтверждены отдельно.
 SEARCH использует UTF-8 по умолчанию и поддерживает явные UTF-8/US-ASCII;
 неподдерживаемая кодировка возвращает `NO [BADCHARSET ...]`, а Unicode-criteria
-при US-ASCII отвергаются ответом NO. Декодирование MIME transfer encodings,
-encoded-word заголовков и ESEARCH пока не завершено. Это не означает полной
+при US-ASCII отвергаются ответом NO. Явный `SEARCH RETURN` выдаёт ESEARCH с
+correlator, UID-маркером и опциями ALL/COUNT/MIN/MAX; legacy SEARCH остаётся
+для текущего IMAP4rev1 профиля. SAVE/$, MIME transfer/encoded-word decoding и
+полный mandatory search-key set не реализованы. Это не означает полной
 совместимости IMAP4rev1 или IMAP4rev2: остаются SEARCH/ESEARCH расширения и
 другие несовпадения формальных грамматик; см. [матрицу IMAP](imap-profile.md).
 

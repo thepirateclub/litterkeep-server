@@ -218,6 +218,7 @@ fn search_uses_typed_key_and_addressing() {
             addressing: Addressing::Sequence,
             key: crate::imap::search::SearchKey::Unseen,
             charset: crate::imap::search_charset::Charset::Utf8,
+            result: crate::imap::search_result::ResultRequest::Legacy,
         }
     );
     assert_eq!(
@@ -226,6 +227,7 @@ fn search_uses_typed_key_and_addressing() {
             addressing: Addressing::Uid,
             key: crate::imap::search::SearchKey::Deleted,
             charset: crate::imap::search_charset::Charset::Utf8,
+            result: crate::imap::search_result::ResultRequest::Legacy,
         }
     );
     assert!(matches!(

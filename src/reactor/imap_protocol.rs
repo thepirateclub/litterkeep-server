@@ -6,6 +6,8 @@ use super::*;
 mod imap_enable;
 #[path = "imap_search_error.rs"]
 mod imap_search_error;
+#[path = "imap_search_response.rs"]
+pub(super) mod imap_search_response;
 
 #[path = "imap_authenticate.rs"]
 pub(super) mod authenticate;
@@ -232,6 +234,7 @@ pub(super) fn line(
             addressing,
             key,
             charset,
+            result,
         } => imap_selected::queue_authenticated_read(
             session,
             parsed.tag,
@@ -239,6 +242,7 @@ pub(super) fn line(
                 addressing,
                 key,
                 charset,
+                result,
                 tag,
             },
             slot,

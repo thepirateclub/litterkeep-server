@@ -10,6 +10,7 @@ pub(super) fn completed(
     addressing: imap::Addressing,
     key: SearchKey,
     charset: imap::search_charset::Charset,
+    result: imap::search_result::ResultRequest,
     tag: String,
     messages: Vec<crate::store::Message>,
 ) -> io::Result<()> {
@@ -44,10 +45,8 @@ pub(super) fn completed(
                 imap::Addressing::Uid => message.uid,
             })
         })
-        .map(|value| value.to_string())
         .collect::<Vec<_>>();
-    session.push(format!("* SEARCH {}\r\n", matches.join(" ")).as_bytes())?;
-    session.push(format!("{tag} OK SEARCH completed\r\n").as_bytes())
+    super::imap_protocol::imap_search_response::write(session, addressing, result, &tag, &matches)
 }
 
 /// Координаты сообщения в одном immutable mailbox snapshot.

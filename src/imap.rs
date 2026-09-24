@@ -21,6 +21,7 @@ pub mod search;
 pub mod search_charset;
 #[path = "imap/search_date.rs"]
 pub mod search_date;
+pub mod search_result;
 #[path = "imap/sent_date.rs"]
 pub mod sent_date;
 pub mod sequence_set;
@@ -129,6 +130,7 @@ pub enum Command {
         addressing: Addressing,
         key: search::SearchKey,
         charset: search_charset::Charset,
+        result: search_result::ResultRequest,
     },
     Unsupported,
 }

@@ -144,6 +144,24 @@ ManageSieve до заявленного набора современных фо
   и encoded-word заголовки перед сопоставлением; ESEARCH result options и
   полный mandatory search-key набор также не закрыты. G15-G18 не начаты.
 
+### 2026-09-24: G14 ESEARCH result checkpoint
+
+- SEARCH RETURN принимает только типизированные ALL/COUNT/MIN/MAX; пустой
+  RETURN трактуется как ALL. Ответ ESEARCH содержит TAG correlator и UID marker
+  для UID SEARCH, ALL с точным сжатием полных последовательностей, COUNT,
+  MIN/MAX; при пустом результате сохраняется обязательная непустая response
+  data. Неизвестный/неподдержанный RETURN option отвергается вместо молчаливого
+  успеха. Без RETURN сохраняется legacy SEARCH профиля IMAP4rev1.
+- PASS: Windows `cargo test --all-targets --locked` (206 tests), strict Clippy,
+  format и structural audit. Docker Rust 1.97 test target: strict Clippy и 238
+  tests. Независимый STARTTLS blackbox создал отдельный mailbox, проверил
+  correlator, UID marker, ALL/COUNT/MIN/MAX, пустой результат и сохранение
+  legacy SEARCH; вывод `PASS imap-esearch`. Временный серверный контейнер
+  использует только `./data/g14-esearch` и после тестов удаляется.
+- Search остаётся PARTIAL: SAVE и `$`, расширения с параметрами, полный набор
+  criteria, MIME transfer decoding и encoded-word decoding не реализованы.
+  IMAP4rev2 не рекламируется; G14 остаётся RUNNING.
+
 | Goal | Depends on | Acceptance criterion | Status |
 |---|---|---|---|
 | G00 | none | build, help, lock, dependency report, saved goal | PASS |

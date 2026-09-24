@@ -159,13 +159,22 @@ pub(super) fn write_completion(
                 addressing,
                 key,
                 charset,
+                result,
                 tag,
             },
             Response::Read {
                 result: Ok(snapshot),
                 ..
             },
-        ) => imap_search::completed(session, addressing, key, charset, tag, snapshot.messages),
+        ) => imap_search::completed(
+            session,
+            addressing,
+            key,
+            charset,
+            result,
+            tag,
+            snapshot.messages,
+        ),
         (_, Response::Read { .. }) => session.push(b"451 storage failure\r\n"),
         (pending @ Pending::WriteFlags { .. }, response @ Response::FlagsUpdated { .. }) => {
             super::flag_completion::write(session, pending, response)
