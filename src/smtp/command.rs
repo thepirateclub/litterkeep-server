@@ -49,6 +49,8 @@ pub enum ParseError {
 pub const MAX_MESSAGE_SIZE: u64 = 25 * 1024 * 1024;
 /// Базовый предел SMTP-командной строки, включая завершающие CRLF октеты.
 pub const MAX_COMMAND_LINE_SIZE: usize = 512;
+/// Максимальный SMTP reverse-path/forward-path вместе с угловыми скобками.
+pub const MAX_PATH_SIZE: usize = 256;
 
 /// Преобразует одну полную CRLF строку в закрытый набор SMTP команд.
 pub fn parse(line: &str) -> Result<Command, ParseError> {
@@ -159,6 +161,9 @@ fn parse_path<'a>(
     let Some((mailbox, suffix)) = path.split_once('>') else {
         return Err(ParseError::Syntax);
     };
+    if mailbox.len().saturating_add(2) > MAX_PATH_SIZE {
+        return Err(ParseError::Syntax);
+    }
     if mailbox.is_empty() && !accepts_empty_path {
         return Err(ParseError::Syntax);
     }

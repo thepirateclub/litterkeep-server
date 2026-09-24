@@ -80,6 +80,34 @@ fn accepts_empty_reverse_path_but_requires_recipient_path() {
     assert_eq!(parse("RCPT TO:<>\r\n"), Err(ParseError::Syntax));
 }
 
+/// Проверяет включение угловых скобок в RFC 5321 path limit.
+#[test]
+fn enforces_256_octet_reverse_and_forward_paths() {
+    let maximum_domain = format!("{}.{}.{}", "a".repeat(63), "b".repeat(63), "c".repeat(61));
+    let overlong_domain = format!("{}.{}.{}", "a".repeat(63), "b".repeat(63), "c".repeat(62));
+    let local_part = "u".repeat(64);
+    let maximum_path = format!("{local_part}@{maximum_domain}");
+    let overlong_path = format!("{local_part}@{overlong_domain}");
+
+    assert_eq!(maximum_path.len() + 2, MAX_PATH_SIZE);
+    assert!(matches!(
+        parse(&format!("MAIL FROM:<{maximum_path}>\r\n")),
+        Ok(Command::Mail(_))
+    ));
+    assert_eq!(
+        parse(&format!("MAIL FROM:<{overlong_path}>\r\n")),
+        Err(ParseError::Syntax)
+    );
+    assert!(matches!(
+        parse(&format!("RCPT TO:<{maximum_path}>\r\n")),
+        Ok(Command::Rcpt(_))
+    ));
+    assert_eq!(
+        parse(&format!("RCPT TO:<{overlong_path}>\r\n")),
+        Err(ParseError::Syntax)
+    );
+}
+
 #[test]
 fn parses_supported_commands_and_auth_mechanism() {
     assert_eq!(

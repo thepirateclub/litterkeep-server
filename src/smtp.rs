@@ -2,7 +2,8 @@
 #[path = "smtp/command.rs"]
 mod command;
 pub use command::{
-    BodyMode, Command, MAX_COMMAND_LINE_SIZE, MAX_MESSAGE_SIZE, MailFrom, ParseError, parse,
+    BodyMode, Command, MAX_COMMAND_LINE_SIZE, MAX_MESSAGE_SIZE, MAX_PATH_SIZE, MailFrom,
+    ParseError, parse,
 };
 
 /// Уровень SMTP greeting, определяющий допустимость ESMTP extensions.

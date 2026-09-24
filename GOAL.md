@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G15
 
+### 2026-09-25: G15 RFC 5321 reverse/forward path limit checkpoint
+
+- SMTP parser измеряет reverse-path и forward-path в октетах вместе с `< >`.
+  Пути длиной до 256 принимаются грамматикой, 257 отклоняются как syntax error;
+  одинаковое правило применяется к MAIL FROM и RCPT TO.
+- PASS: Windows Rust 1.97.1: 250 тестов, strict Clippy, fmt и diff checks.
+  Linux Docker Rust 1.97: release-сборка, strict Clippy и 290 тестов.
+  Независимый SMTP runtime проверил границы обоих путей, затем повторно прошли
+  command-line 512/513, SIZE/8BITMIME и фактическая SMTP-to-IMAP доставка.
+- Black-box `tests/blackbox/smtp_path_length.py` проходит py_compile и runtime.
+  Stage data/TLS находятся в `./data/g15-smtp-path-length`; временный контейнер
+  удалён, `litterkeep-g12-phone` оставлен.
+- G15 остаётся RUNNING: ограничения адресных компонентов и полный RFC 5321
+  профиль требуют отдельных проверок.
+
 ### 2026-09-25: G15 RFC 5321 command-line length checkpoint
 
 - SMTP command reader проверяет полную строку вместе с CRLF до разбора команды.
