@@ -38,6 +38,71 @@ fn body_peek_partial_is_typed() {
     );
 }
 
+/// HEADER.FIELDS grammar keeps field-name subset and BODY.PEEK semantics typed.
+#[test]
+fn header_fields_sections_are_typed() {
+    assert_eq!(
+        parse("a FETCH 1 (BODY.PEEK[HEADER.FIELDS (Subject FROM)]<2.10>)\r\n").command,
+        Command::Fetch {
+            addressing: Addressing::Sequence,
+            sequence_set: SequenceSet::parse("1").unwrap(),
+            attributes: vec![FetchAttribute::Body {
+                peek: true,
+                section: BodySection::HeaderFields {
+                    path: Vec::new(),
+                    names: vec!["Subject".into(), "FROM".into()],
+                    excluded: false,
+                },
+                partial: Some(Partial {
+                    offset: 2,
+                    count: 10,
+                }),
+            }],
+        }
+    );
+}
+
+/// HEADER.FIELDS.NOT с part path выбирает вложенное RFC822 message.
+#[test]
+fn nested_header_fields_not_is_typed() {
+    let Command::Fetch { attributes, .. } =
+        parse("a FETCH 1 (BODY[1.HEADER.FIELDS.NOT (BCC)] )\r\n").command
+    else {
+        panic!("nested header fields request was not parsed");
+    };
+    assert_eq!(
+        attributes,
+        vec![FetchAttribute::Body {
+            peek: false,
+            section: BodySection::HeaderFields {
+                path: vec![1],
+                names: vec!["BCC".into()],
+                excluded: true,
+            },
+            partial: None,
+        }]
+    );
+}
+
+#[test]
+fn nested_numeric_body_path_keeps_every_part_number() {
+    let command = parse("A1 FETCH 1 BODY.PEEK[1.2]");
+    assert!(matches!(
+        command.command,
+        Command::Fetch {
+            attributes,
+            ..
+        } if attributes.contains(&FetchAttribute::Body {
+            peek: true,
+            section: BodySection::Part {
+                path: vec![1, 2],
+                mime_headers: false,
+            },
+            partial: None,
+        })
+    ));
+}
+
 /// UID FETCH не смешивает UID-диапазон с номерами последовательностей.
 #[test]
 fn uid_fetch_is_typed() {

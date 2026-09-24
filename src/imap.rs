@@ -7,6 +7,7 @@ pub mod copy;
 #[path = "imap/copy_tests.rs"]
 mod copy_tests;
 pub mod fetch;
+mod fetch_section;
 #[cfg(test)]
 #[path = "imap/fetch_tests.rs"]
 mod fetch_tests;

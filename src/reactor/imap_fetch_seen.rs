@@ -1,0 +1,160 @@
+//! Durable-семантика \Seen для IMAP BODY и RFC822 FETCH items.
+
+use super::*;
+
+/// Запрашивает durable \Seen до выдачи обычного BODY клиенту.
+pub(super) fn follow_up(
+    pending: &Pending,
+    response: &Response,
+    next_request: &mut u64,
+) -> Option<(Request, Pending)> {
+    let Pending::ReadForFetch {
+        addressing,
+        sequence_set,
+        attributes,
+        tag,
+        mailbox,
+        read_only,
+    } = pending
+    else {
+        return None;
+    };
+    let Response::Read {
+        result: Ok(snapshot),
+        ..
+    } = response
+    else {
+        return None;
+    };
+    if *read_only || !sets_seen(attributes) {
+        return None;
+    }
+    let uids = unseen_uids(*addressing, sequence_set, snapshot);
+    if uids.is_empty() {
+        return None;
+    }
+    let request_id = *next_request;
+    *next_request = next_request.wrapping_add(1).max(1);
+    Some((
+        Request::UpdateFlags {
+            request_id,
+            mailbox: mailbox.clone(),
+            uids: uids.clone(),
+            mutation: crate::mail_flags::FlagMutation::Add,
+            flags: crate::mail_flags::MessageFlags::from_flags([
+                crate::mail_flags::SystemFlag::Seen,
+            ]),
+        },
+        Pending::FetchReadForSeen {
+            addressing: *addressing,
+            sequence_set: sequence_set.clone(),
+            attributes: attributes.clone(),
+            tag: tag.clone(),
+            mailbox: mailbox.clone(),
+            uids,
+        },
+    ))
+}
+
+fn sets_seen(attributes: &[imap::FetchAttribute]) -> bool {
+    attributes.iter().any(|attribute| match attribute {
+        imap::FetchAttribute::Rfc822 => true,
+        imap::FetchAttribute::Body { peek, .. } => !peek,
+        _ => false,
+    })
+}
+
+fn unseen_uids(
+    addressing: imap::Addressing,
+    sequence_set: &imap::sequence_set::SequenceSet,
+    snapshot: &crate::store::MailboxSnapshot,
+) -> Vec<u64> {
+    let maximum = match addressing {
+        imap::Addressing::Sequence => snapshot.messages.len() as u64,
+        imap::Addressing::Uid => snapshot
+            .messages
+            .last()
+            .map(|message| message.uid)
+            .unwrap_or(0),
+    };
+    let selected = sequence_set.resolve(maximum);
+    snapshot
+        .messages
+        .iter()
+        .enumerate()
+        .filter_map(|(offset, message)| {
+            let sequence = offset.saturating_add(1) as u64;
+            let candidate = match addressing {
+                imap::Addressing::Sequence => sequence,
+                imap::Addressing::Uid => message.uid,
+            };
+            match (
+                selected.contains(candidate),
+                message.flags.contains(crate::mail_flags::SystemFlag::Seen),
+            ) {
+                (true, false) => Some(message.uid),
+                _ => None,
+            }
+        })
+        .collect()
+}
+
+/// Выдаёт BODY только после успешной записи флагов в файловое хранилище.
+pub(super) fn write(session: &mut Session, pending: Pending, response: Response) -> io::Result<()> {
+    let Pending::FetchReadForSeen {
+        addressing,
+        sequence_set,
+        attributes,
+        tag,
+        ..
+    } = pending
+    else {
+        return Ok(());
+    };
+    let Response::FlagsUpdated { result, .. } = response else {
+        return Ok(());
+    };
+    let snapshot = match result {
+        Ok(snapshot) => snapshot,
+        Err(_) => return session.push(format!("{tag} NO FETCH failed\r\n").as_bytes()),
+    };
+    imap_fetch_completion::write(
+        session,
+        addressing,
+        sequence_set,
+        attributes,
+        tag,
+        snapshot.messages,
+    )
+}
+
+/// Публикует durable FLAGS изменения прочим ожидающим IDLE-сессиям.
+pub(super) fn notify_flags(
+    sessions: &mut [Option<SessionLease>],
+    origin: usize,
+    pending: &Pending,
+    response: &Response,
+) {
+    let Pending::FetchReadForSeen {
+        addressing,
+        mailbox,
+        uids,
+        tag,
+        ..
+    } = pending
+    else {
+        return;
+    };
+    let notification = Pending::WriteFlags {
+        addressing: *addressing,
+        uids: uids.clone(),
+        mailbox: mailbox.clone(),
+        silent: true,
+        tag: tag.clone(),
+    };
+    super::imap_idle::notify_flags(sessions, origin, &notification, response);
+}
+
+#[cfg(test)]
+#[path = "imap_fetch_seen_tests.rs"]
+mod tests;

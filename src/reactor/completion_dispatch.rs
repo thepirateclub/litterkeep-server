@@ -33,6 +33,7 @@ pub(super) fn complete(
         if let Some((request, next_pending)) =
             super::imap_expunge::follow_up(&pending, &response, next_request)
                 .or_else(|| super::flag_completion::follow_up(&pending, &response, next_request))
+                .or_else(|| super::imap_fetch_seen::follow_up(&pending, &response, next_request))
                 .or_else(|| super::imap_copy::follow_up(&pending, &response, next_request))
                 .or_else(|| {
                     super::pop3_protocol::follow_up(
@@ -65,6 +66,7 @@ pub(super) fn complete(
         }
         super::imap_idle::notify_expunge(sessions, slot, &pending, &response);
         super::imap_idle::notify_flags(sessions, slot, &pending, &response);
+        super::imap_fetch_seen::notify_flags(sessions, slot, &pending, &response);
         super::imap_idle::notify_transfer(sessions, slot, &pending, &response);
         let Some(session) = sessions
             .get_mut(slot)

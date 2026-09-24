@@ -21,7 +21,7 @@ ManageSieve до заявленного набора современных фо
 | Goal | Depends on | Acceptance criterion | Status |
 |---|---|---|---|
 | G13 | G12 | IMAP FETCH data-item list, ALL/FAST/FULL, UID response semantics, literal wire and attachment-byte acceptance | PASS |
-| G14 | G13 | IMAP4rev2 RFC 9051 baseline plus tested IMAP4rev1 client compatibility | NOT RUN |
+| G14 | G13 | IMAP4rev2 RFC 9051 baseline plus tested IMAP4rev1 client compatibility | RUNNING |
 | G15 | G12 | SMTP RFC 5321/6409/8314 baseline, including SMTPUTF8 RFC 6531 | NOT RUN |
 | G16 | G12 | POP3 RFC 1939 extensions RFC 2449/5034/6856 and secure TLS profile | NOT RUN |
 | G17 | G12 | MIME RFC 5322/2045-2049 updates and Sieve RFC 5228/ManageSieve RFC 5804 profile | NOT RUN |
@@ -56,6 +56,26 @@ ManageSieve до заявленного набора современных фо
   extension exists.
 - Next: G14, inventory each mandatory IMAP4rev2 command/data grammar against
   executable tests, then implement missing semantics without widening CAPABILITY.
+
+### 2026-09-24: G14 BODY sections and durable Seen checkpoint
+
+- Реализованы RFC BODY section selectors `HEADER`, `TEXT`,
+  `HEADER.FIELDS`/`.NOT`, вложенные `message/rfc822` selectors, MIME part bytes
+  и partial octet ranges. Field matching не зависит от регистра, повторяющиеся
+  поля и исходные folded bytes сохраняются.
+- Обычный `BODY[...]` и `RFC822` для writable SELECT теперь сначала записывают
+  `\\Seen` через единственный Store owner, затем выдают FETCH. `BODY.PEEK[...]`
+  и FETCH в `EXAMINE` не меняют флаг; другие ожидающие IDLE-клиенты получают
+  durable FLAGS notification.
+- PASS: Windows format/strict Clippy/199 тестов; Linux Docker release build,
+  strict Clippy и 231 тест, включая два reactor unit-теста Seen; независимый
+  STARTTLS SMTP -> IMAP-клиент сверил `HEADER`, `TEXT`, `HEADER.FIELDS` и
+  `.NOT`, подтвердил точные октеты вложения (`sha256=4c7872cd574aabe5cdc9a29678b88b178ef4aac98f051455ff87e207eeea9759`),
+  отсутствие `\\Seen` после PEEK и появление после BODY. После остановки и
+  повторного запуска сервера отдельное подключение подтвердило сохранение
+  `\\Seen`. Данные: `./data/g14-imap-body-sections`.
+- G14 остаётся RUNNING: этот checkpoint не подтверждает полный RFC 9051 набор
+  команд/расширений и совместимость всего IMAP4rev1 профиля. G15-G18 не начаты.
 
 | Goal | Depends on | Acceptance criterion | Status |
 |---|---|---|---|

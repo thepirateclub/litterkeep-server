@@ -83,7 +83,7 @@ fn append_attribute(
         imap::FetchAttribute::Body { .. } => {
             let data = crate::imap_fetch::select(&message.bytes, attribute)
                 .map_err(|_| "invalid BODY section")?;
-            append_literal(response, first, &data.label, data.bytes);
+            append_literal(response, first, &data.label, data.bytes.as_ref());
             Ok(())
         }
         imap::FetchAttribute::Envelope => {

@@ -129,7 +129,13 @@ pub(super) fn write_completion(
             Response::FolderResolved { result, .. },
         ) => imap_append::resolved(session, tag, literal_size, metadata, result),
         (
-            Pending::ReadForFetch(addressing, sequence_set, attributes, tag),
+            Pending::ReadForFetch {
+                addressing,
+                sequence_set,
+                attributes,
+                tag,
+                ..
+            },
             Response::Read {
                 result: Ok(snapshot),
                 ..
@@ -142,6 +148,12 @@ pub(super) fn write_completion(
             tag,
             snapshot.messages,
         ),
+        (Pending::FetchReadForSeen { tag, .. }, Response::Read { .. }) => {
+            session.push(format!("{tag} NO FETCH failed\r\n").as_bytes())
+        }
+        (pending @ Pending::FetchReadForSeen { .. }, response @ Response::FlagsUpdated { .. }) => {
+            super::imap_fetch_seen::write(session, pending, response)
+        }
         (
             Pending::ReadForSearch {
                 addressing,

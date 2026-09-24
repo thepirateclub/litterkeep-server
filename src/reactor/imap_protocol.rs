@@ -170,16 +170,26 @@ pub(super) fn line(
             addressing,
             sequence_set,
             attributes,
-        } => imap_selected::queue_authenticated_read(
-            session,
-            parsed.tag,
-            |tag, _| Pending::ReadForFetch(addressing, sequence_set, attributes, tag),
-            slot,
-            generation,
-            worker,
-            owners,
-            request_id,
-        )?,
+        } => {
+            let read_only = session.selected_read_only;
+            imap_selected::queue_authenticated_read(
+                session,
+                parsed.tag,
+                |tag, mailbox| Pending::ReadForFetch {
+                    addressing,
+                    sequence_set,
+                    attributes,
+                    tag,
+                    mailbox,
+                    read_only,
+                },
+                slot,
+                generation,
+                worker,
+                owners,
+                request_id,
+            )?
+        }
         imap::Command::Store {
             addressing,
             sequence_set,

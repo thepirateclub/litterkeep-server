@@ -2,7 +2,7 @@
 
 use super::sequence_set::SequenceSet;
 use super::tokenizer::Token;
-use super::{Addressing, Command};
+use super::{Addressing, Command, fetch_section};
 
 /// Один элемент стандартного набора данных FETCH.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -25,6 +25,17 @@ pub enum FetchAttribute {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BodySection {
     EntireMessage,
+    Headers {
+        path: Vec<usize>,
+    },
+    Text {
+        path: Vec<usize>,
+    },
+    HeaderFields {
+        path: Vec<usize>,
+        names: Vec<String>,
+        excluded: bool,
+    },
     Part {
         path: Vec<usize>,
         mime_headers: bool,
@@ -101,11 +112,11 @@ fn parse_attribute_list(tokens: &mut impl Iterator<Item = Token>) -> Option<Vec<
         Token::ListStart => loop {
             match tokens.next()? {
                 Token::ListEnd => break,
-                Token::Text(value) => attributes.extend(parse_request_item(&value)?),
+                Token::Text(value) => attributes.extend(parse_request_item(&value, tokens)?),
                 Token::ListStart => return None,
             }
         },
-        Token::Text(value) => attributes.extend(parse_request_item(&value)?),
+        Token::Text(value) => attributes.extend(parse_request_item(&value, tokens)?),
         Token::ListEnd => return None,
     }
     match attributes.is_empty() {
@@ -114,75 +125,14 @@ fn parse_attribute_list(tokens: &mut impl Iterator<Item = Token>) -> Option<Vec<
     }
 }
 
-fn parse_request_item(value: &str) -> Option<Vec<FetchAttribute>> {
+fn parse_request_item(
+    value: &str,
+    tokens: &mut impl Iterator<Item = Token>,
+) -> Option<Vec<FetchAttribute>> {
     match FetchMacro::parse(value) {
         Some(fetch_macro) => Some(fetch_macro.attributes()),
-        None => Some(vec![parse_attribute(value)?]),
+        None => Some(vec![fetch_section::parse(value, tokens)?]),
     }
-}
-
-fn parse_attribute(value: &str) -> Option<FetchAttribute> {
-    let token = value.trim_matches(['(', ')']);
-    match token.to_ascii_uppercase().as_str() {
-        "RFC822" => Some(FetchAttribute::Rfc822),
-        "RFC822.SIZE" => Some(FetchAttribute::Rfc822Size),
-        "BODYSTRUCTURE" => Some(FetchAttribute::BodyStructure),
-        "ENVELOPE" => Some(FetchAttribute::Envelope),
-        "FLAGS" => Some(FetchAttribute::Flags),
-        "INTERNALDATE" => Some(FetchAttribute::InternalDate),
-        "UID" => Some(FetchAttribute::Uid),
-        _ => parse_body_attribute(token),
-    }
-}
-
-fn parse_body_attribute(token: &str) -> Option<FetchAttribute> {
-    let upper = token.to_ascii_uppercase();
-    let (peek, after_prefix) = match (
-        upper.strip_prefix("BODY.PEEK["),
-        upper.strip_prefix("BODY["),
-    ) {
-        (Some(value), _) => (true, value),
-        (None, Some(value)) => (false, value),
-        (None, None) => return None,
-    };
-    let (section_text, suffix) = after_prefix.split_once(']')?;
-    let section = parse_body_section(section_text)?;
-    let partial = match suffix {
-        "" => None,
-        value => Some(parse_partial(value)?),
-    };
-    Some(FetchAttribute::Body {
-        peek,
-        section,
-        partial,
-    })
-}
-
-fn parse_body_section(value: &str) -> Option<BodySection> {
-    if value.is_empty() {
-        return Some(BodySection::EntireMessage);
-    }
-    let mut path = Vec::new();
-    let mut mime_headers = false;
-    for component in value.split('.') {
-        match component {
-            "MIME" => mime_headers = true,
-            number => path.push(number.parse::<usize>().ok()?),
-        }
-    }
-    match path.is_empty() {
-        true => None,
-        false => Some(BodySection::Part { path, mime_headers }),
-    }
-}
-
-fn parse_partial(value: &str) -> Option<Partial> {
-    let inner = value.strip_prefix('<')?.strip_suffix('>')?;
-    let (offset, count) = inner.split_once('.')?;
-    Some(Partial {
-        offset: offset.parse().ok()?,
-        count: count.parse().ok()?,
-    })
 }
 
 fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {

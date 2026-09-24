@@ -35,6 +35,8 @@ mod imap_expunge;
 mod imap_fetch_completion;
 #[path = "reactor/imap_fetch_response.rs"]
 mod imap_fetch_response;
+#[path = "reactor/imap_fetch_seen.rs"]
+mod imap_fetch_seen;
 #[path = "reactor/imap_folders.rs"]
 mod imap_folders;
 #[path = "reactor/imap_idle.rs"]
