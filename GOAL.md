@@ -2,7 +2,21 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
-Current subgoal: G14
+Current subgoal: G15
+
+### 2026-09-25: G15 RFC 1870 SIZE checkpoint
+
+- SMTP-командная грамматика теперь сохраняет `MAIL FROM SIZE=n`, проверяет
+  формат RFC 1870 и отвергает неподдерживаемые ESMTP параметры с точным кодом.
+  Объявленный предел и фактический лимит DATA используют одно значение.
+- PASS: Windows Rust 1.97.1: 247 тестов и строгий Clippy. Linux Docker Rust
+  1.97: release-сборка, строгий Clippy, 287 тестов. Независимый STARTTLS
+  black-box проверил SIZE advertisement, ранний 552, malformed/duplicate
+  параметры (501), unsupported MAIL/RCPT параметры (555) и восстановление
+  сессии после отказа.
+- Данные этапа: `./data/g15-smtp-size`. G15 остаётся RUNNING: покрыта только
+  эта часть SMTP, полный RFC 5321/6409/8314 и SMTPUTF8 ещё не проверены.
+  Временный контейнер удалён; `litterkeep-g12-phone` сохранён.
 
 ### 2026-09-25: G14 FETCH BODY item and FULL macro checkpoint
 

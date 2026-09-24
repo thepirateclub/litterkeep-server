@@ -7,6 +7,13 @@ Submission поддерживает implicit TLS и STARTTLS, EHLO, AUTH PLAIN, 
 AUTH запрещён. Envelope sender должен принадлежать authenticated owner. Local
 route не является open relay.
 
+RFC 1870 SIZE объявляется с фактическим фиксированным пределом сообщения.
+Единственный корректный `MAIL FROM ... SIZE=n` разбирается до DATA; значение
+выше предела получает 552, некорректная грамматика или повтор SIZE получают
+501. Неподдерживаемые ESMTP параметры MAIL/RCPT получают 555, а не игнорируются.
+Независимый STARTTLS black-box проверяет эти ответы и восстановление сессии.
+Это не закрывает прочие обязательные команды RFC 5321 и SMTPUTF8.
+
 ## IMAP
 
 Реализованы STARTTLS/implicit TLS, LOGIN, AUTHENTICATE PLAIN с SASL-IR, LIST,

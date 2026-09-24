@@ -139,7 +139,7 @@ type SessionLease = ResourceLease<Session>;
 const MAX_SESSIONS: usize = 256;
 const MAX_INPUT: usize = 1024 * 1024;
 // Полное MIME-сообщение учитывает base64 overhead 10 MiB-вложения.
-const MAX_MESSAGE: usize = 25 * 1024 * 1024;
+const MAX_MESSAGE: usize = crate::smtp::MAX_MESSAGE_SIZE as usize;
 const MAX_OUTPUT: usize = MAX_MESSAGE + 16 * 1024;
 const ACCEPT_BUDGET: usize = 16;
 const READ_BUDGET: usize = 16 * 1024;

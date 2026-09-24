@@ -20,7 +20,13 @@ pub(super) fn smtp_line(
     }
     let command = match smtp::parse(std::str::from_utf8(&line).unwrap_or("")) {
         Ok(command) => command,
-        Err(_) => return session.push(b"500 syntax error\r\n"),
+        Err(smtp::ParseError::Syntax) => return session.push(b"501 5.5.2 syntax error\r\n"),
+        Err(smtp::ParseError::UnsupportedParameter) => {
+            return session.push(b"555 5.5.4 unsupported command parameter\r\n");
+        }
+        Err(smtp::ParseError::UnsupportedAuthenticationMechanism) => {
+            return session.push(b"504 5.5.4 unsupported authentication mechanism\r\n");
+        }
     };
     match command {
         smtp::Command::Quit => session.push(b"221 bye\r\n"),
@@ -31,7 +37,7 @@ pub(super) fn smtp_line(
         smtp::Command::AuthPlain(response) => authenticate(
             session, response, slot, generation, worker, owners, request_id,
         ),
-        smtp::Command::Mail(address) => mail(session, address),
+        smtp::Command::Mail(sender) => mail(session, sender),
         smtp::Command::Rcpt(address) => recipient(
             session, address, slot, generation, worker, owners, request_id,
         ),
@@ -116,19 +122,21 @@ fn authenticate(
 }
 
 /// Принимает MAIL только от аутентифицированного владельца локального адреса.
-fn mail(session: &mut Session, address: String) -> io::Result<()> {
-    match (
+fn mail(session: &mut Session, mail: smtp::MailFrom) -> io::Result<()> {
+    let sender_is_authorized = match (
         session.tls.is_some(),
         session.authenticated_account.as_deref(),
     ) {
         (true, None) => return session.push(b"530 5.7.0 authentication required\r\n"),
-        (false, _) => return apply_transaction(session, smtp::Command::Mail(address)),
-        (true, Some(account)) => match local_mailbox(&address).as_deref() {
-            Some(mailbox) if mailbox == account => {}
-            Some(_) | None => return session.push(b"553 5.7.1 sender not authorized\r\n"),
-        },
+        (false, _) => true,
+        (true, Some(account)) => {
+            matches!(local_mailbox(&mail.reverse_path).as_deref(), Some(mailbox) if mailbox == account)
+        }
+    };
+    match sender_is_authorized {
+        false => session.push(b"553 5.7.1 sender not authorized\r\n"),
+        true => apply_mail(session, mail),
     }
-    apply_transaction(session, smtp::Command::Mail(address))
 }
 
 /// Проверяет локального получателя через account owner перед изменением envelope.
@@ -199,6 +207,16 @@ fn apply_transaction(session: &mut Session, command: smtp::Command) -> io::Resul
         }
         Ok(false) => session.push(b"250 ok\r\n"),
         Err(_) => session.push(b"503 bad sequence\r\n"),
+    }
+}
+
+/// Применяет принятую typed MAIL-команду через обычную transaction FSM.
+fn apply_mail(session: &mut Session, mail: smtp::MailFrom) -> io::Result<()> {
+    match mail.declared_size {
+        Some(size) if size > smtp::MAX_MESSAGE_SIZE as u128 => {
+            session.push(b"552 5.3.4 message size exceeds fixed maximum\r\n")
+        }
+        Some(_) | None => apply_transaction(session, smtp::Command::Mail(mail)),
     }
 }
 
