@@ -23,7 +23,7 @@ CAPABILITY не выдаёт за более широкое расширение
 | Subscription | SUBSCRIBE, UNSUBSCRIBE | PASS | Durable subscription независимо от существования папки |
 | Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS, PERMANENTFLAGS, включая `\\*` для создания пользовательских keywords, Recent |
 | Message insertion | APPEND | PASS | Bounded literal, системные flags и keywords, INTERNALDATE, APPENDUID после fsync |
-| Reading | FETCH, UID FETCH | PARTIAL | Сгруппированные items, ALL/FAST/FULL, UID, RFC822 bytes, BODY HEADER/TEXT/HEADER.FIELDS, MIME parts и partial; BODY/PEEK Seen effects проверены; полная rev2 grammar остаётся |
+| Reading | FETCH, UID FETCH | PARTIAL | Сгруппированные items, ALL/FAST/FULL, UID, RFC822 bytes, BODY sections/partial и BINARY/BINARY.PEEK/BINARY.SIZE; decoded MIME leaf parts, Base64/QP, literal8 для NUL, decoded partial, UNKNOWN-CTE и BINARY/PEEK Seen effects проверены. Полная rev2 grammar остаётся |
 | Search | SEARCH, UID SEARCH | PARTIAL | Все базовые SEARCH keys RFC 9051 распознаются и оцениваются; исчерпывающая проверка parser-а перечисляет каждый key. UTF-8 default, UTF-8/US-ASCII CHARSET, BADCHARSET, synchronizing string literals до 64 KiB, ESEARCH RETURN ALL/COUNT/MIN/MAX, decoded MIME text и UNKNOWN-CTE проверены; MIME text supports US-ASCII, UTF-8, ISO-8859-1 and Windows-1251, rejects undefined CP1251 octet; RETURN SAVE and `$` SEARCH criterion work per session with SELECT/error reset and MIN/MAX selection; FETCH/UID FETCH and STORE/UID STORE `$` map saved UIDs to the active number space, COPY/UID COPY `$` resolve saved UIDs in their respective addressing modes, UID EXPUNGE `$` intersects saved UIDs with `\\Deleted`, empty sets are safe, and pipelined SEARCH SAVE followed by COPY is verified; ESEARCH and SEARCHRES are advertised; other MIME charsets and non-base extensions remain |
 | Flag mutation | STORE, UID STORE | PASS | Системные flags и регистронезависимые keywords: Replace/add/remove, SILENT, один durable batch, read-only denial |
 | Copy and move | COPY, UID COPY, MOVE, UID MOVE | PASS | Atomic links/tombstones, COPYUID, multi-session projection |
@@ -59,6 +59,15 @@ obsolete forms и malformed RFC 5322 syntax остаются ограничен�
 G14 keyword checkpoint (2026-09-24): custom flags и KEYWORD/UNKEYWORD прошли
 Windows tests, Linux Rust 1.97 strict Clippy/254 tests и STARTTLS IMAP black-box
 с повторным открытием data directory. Остальной профиль G14 остаётся RUNNING.
+
+G14 BINARY checkpoint (2026-09-25): RFC 9051 BINARY, BINARY.PEEK и
+BINARY.SIZE распознаются как typed FETCH items. MIME CTE декодируется до
+применения partial range; NUL в ответе сериализуется literal8, текстовые
+части нормализуются к CRLF, неизвестная transfer encoding даёт tagged
+NO [UNKNOWN-CTE]. Независимый STARTTLS black-box доставил вложение по SMTP,
+сравнил каждый decoded octet через BINARY и проверил SIZE, partial, Seen/PEEK и
+UNKNOWN-CTE. Это не проверка приложения Litterkeep. Другие RFC 9051 FETCH items,
+команды и расширения ещё не закрыты, поэтому профиль остаётся IMAP4rev1/PARTIAL.
 
 CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-USE`,
 `NAMESPACE`, `UNSELECT`, `ENABLE`, `ESEARCH` и `SEARCHRES`. ENABLE игнорирует

@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G14
 
+### 2026-09-25: G14 RFC 9051 BINARY checkpoint
+
+- FETCH parser и typed модель принимают BINARY, BINARY.PEEK и BINARY.SIZE.
+  Собственный MIME path resolver выбирает leaf part, декодирует transfer
+  encoding и применяет partial к decoded octets; текстовые части выдаются с
+  CRLF canonicalization, NUL сериализуется literal8, UNKNOWN-CTE сохраняет
+  стандартизованный response code. BINARY без PEEK фиксирует Seen, PEEK и SIZE
+  его не меняют.
+- PASS: Windows Rust 1.97.1, 246 тестов, строгий Clippy; Linux Docker Rust 1.97,
+  286 тестов и строгий Clippy; runtime image собран. Независимый STARTTLS
+  black-box доставил MIME вложение через SMTP, проверил BINARY.SIZE, каждый
+  decoded байт, literal8 с NUL, partial, Seen/PEEK и tagged UNKNOWN-CTE.
+  Подключение приложения Litterkeep не проверялось.
+- Данные этапа: ./data/g14-binary-fetch. Временный контейнер удалён,
+  litterkeep-g12-phone сохранён. G14 остаётся RUNNING: полный IMAP4rev2
+  baseline и остальные RFC 9051 команды/расширения ещё не закрыты.
+
 The actually available Goal interface was inspected. It supports creating and
 updating one active root goal (`create_goal`, `get_goal`, `update_goal`), but
 has no subgoal/dependency operation. The G00-G12 rows below are therefore the

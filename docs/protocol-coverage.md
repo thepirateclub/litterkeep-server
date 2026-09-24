@@ -24,6 +24,12 @@ STARTTLS клиент подтвердил, что ENABLE игнорирует �
 возвращает пустой `ENABLED` и не меняет CAPABILITY. Сетевая проверка также
 подтвердила отказ от quoted capability и сквозное совпадение байтов вложения;
 проверки BODY/Seen, headers, body, flags и UNSELECT подтверждены отдельно.
+RFC 9051 BINARY, BINARY.PEEK и BINARY.SIZE декодируют MIME CTE до
+partial slicing; BINARY применяет literal8 при NUL, нормализует текст к CRLF
+и выдаёт tagged NO [UNKNOWN-CTE] для неизвестного кодирования. Независимый
+STARTTLS acceptance отправил вложение через SMTP и сравнил все байты BINARY;
+также проверены SIZE, decoded partial, Seen/PEEK и UNKNOWN-CTE. Это не проверка
+клиента Litterkeep. Остальные требования IMAP4rev2 остаются непокрытыми.
 SEARCH использует UTF-8 по умолчанию и поддерживает явные UTF-8/US-ASCII;
 неподдерживаемая кодировка возвращает `NO [BADCHARSET ...]`, а Unicode-criteria
 при US-ASCII отвергаются ответом NO. `BODY`/`TEXT` декодируют Base64 и

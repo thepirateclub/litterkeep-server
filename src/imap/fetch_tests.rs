@@ -39,6 +39,49 @@ fn body_peek_partial_is_typed() {
     );
 }
 
+/// BINARY, PEEK и SIZE сохраняют числовой MIME path и decoded partial.
+#[test]
+fn binary_fetch_items_are_typed() {
+    let Command::Fetch { attributes, .. } =
+        parse("a FETCH 1 (BINARY.PEEK[2.1]<3.7> BINARY[1] BINARY.SIZE[2.1])\r\n").command
+    else {
+        panic!("BINARY items were not parsed");
+    };
+    assert_eq!(
+        attributes,
+        vec![
+            FetchAttribute::Binary {
+                section: vec![2, 1],
+                peek: true,
+                partial: Some(Partial {
+                    offset: 3,
+                    count: 7,
+                }),
+            },
+            FetchAttribute::Binary {
+                section: vec![1],
+                peek: false,
+                partial: None,
+            },
+            FetchAttribute::BinarySize {
+                section: vec![2, 1],
+            },
+        ]
+    );
+}
+
+/// BINARY paths непустые, а decoded partial count является положительным.
+#[test]
+fn binary_rejects_empty_path_and_zero_partial_count() {
+    for request in [
+        "a FETCH 1 (BINARY[])",
+        "a FETCH 1 (BINARY.SIZE[])",
+        "a FETCH 1 (BINARY[1]<0.0>)",
+    ] {
+        assert!(matches!(parse(request).command, Command::Unsupported));
+    }
+}
+
 /// HEADER.FIELDS grammar keeps field-name subset and BODY.PEEK semantics typed.
 #[test]
 fn header_fields_sections_are_typed() {

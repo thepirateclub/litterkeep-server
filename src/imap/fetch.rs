@@ -14,6 +14,16 @@ pub enum FetchAttribute {
     Flags,
     InternalDate,
     Uid,
+    /// Декодированные октеты MIME leaf part и правила Seen для PEEK.
+    Binary {
+        section: Vec<usize>,
+        peek: bool,
+        partial: Option<Partial>,
+    },
+    /// Размер декодированного MIME leaf part без изменения флагов сообщения.
+    BinarySize {
+        section: Vec<usize>,
+    },
     Body {
         peek: bool,
         section: BodySection,

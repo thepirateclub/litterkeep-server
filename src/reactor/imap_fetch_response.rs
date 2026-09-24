@@ -14,7 +14,7 @@ pub(super) fn write(
     message: &crate::store::Message,
     attributes: &[imap::FetchAttribute],
     addressing: imap::Addressing,
-) -> io::Result<Result<(), &'static str>> {
+) -> io::Result<Result<(), crate::imap_fetch::FetchError>> {
     let mut response = format!("* {number} FETCH (").into_bytes();
     let mut first = true;
     let mut uid_written = false;
@@ -40,7 +40,7 @@ pub(super) fn write(
             return Ok(Err(reason));
         }
         if response.len() > super::MAX_OUTPUT {
-            return Ok(Err("FETCH response exceeds output limit"));
+            return Ok(Err(crate::imap_fetch::FetchError::InvalidSection));
         }
     }
     response.extend_from_slice(b")\r\n");
@@ -54,7 +54,7 @@ fn append_attribute(
     session: &Session,
     message: &crate::store::Message,
     attribute: &imap::FetchAttribute,
-) -> Result<(), &'static str> {
+) -> Result<(), crate::imap_fetch::FetchError> {
     match attribute {
         imap::FetchAttribute::Uid => {
             append_item(response, first, "UID", message.uid.to_string().as_bytes());
@@ -76,19 +76,37 @@ fn append_attribute(
         imap::FetchAttribute::BodyStructure => {
             let structure = crate::mime::tree::parse(&message.bytes)
                 .and_then(|entity| crate::mime::bodystructure::encode(&entity, &message.bytes))
-                .map_err(|_| "malformed MIME message")?;
+                .map_err(|_| crate::imap_fetch::FetchError::InvalidSection)?;
             append_item(response, first, "BODYSTRUCTURE", structure.as_bytes());
             Ok(())
         }
         imap::FetchAttribute::Body { .. } => {
             let data = crate::imap_fetch::select(&message.bytes, attribute)
-                .map_err(|_| "invalid BODY section")?;
+                .map_err(|_| crate::imap_fetch::FetchError::InvalidSection)?;
             append_literal(response, first, &data.label, data.bytes.as_ref());
+            Ok(())
+        }
+        imap::FetchAttribute::Binary { .. } => {
+            let data = crate::imap_fetch::select_binary(&message.bytes, attribute)?;
+            append_binary_literal(response, first, &data.label, data.bytes.as_ref());
+            Ok(())
+        }
+        imap::FetchAttribute::BinarySize { section } => {
+            let size = crate::imap_fetch::binary_size(&message.bytes, attribute)?;
+            let label = format!(
+                "BINARY.SIZE[{}]",
+                section
+                    .iter()
+                    .map(usize::to_string)
+                    .collect::<Vec<_>>()
+                    .join(".")
+            );
+            append_item(response, first, &label, size.to_string().as_bytes());
             Ok(())
         }
         imap::FetchAttribute::Envelope => {
             let envelope = crate::mime::envelope::encode(&message.bytes)
-                .map_err(|_| "malformed message headers")?;
+                .map_err(|_| crate::imap_fetch::FetchError::InvalidSection)?;
             append_item(response, first, "ENVELOPE", envelope.as_bytes());
             Ok(())
         }
@@ -120,6 +138,18 @@ fn append_literal(response: &mut Vec<u8>, first: &mut bool, label: &str, bytes: 
     append_separator(response, first);
     response.extend_from_slice(label.as_bytes());
     response.extend_from_slice(format!(" {{{}}}\r\n", bytes.len()).as_bytes());
+    response.extend_from_slice(bytes);
+}
+
+/// BINARY response использует literal8, когда decoded данные содержат NUL.
+fn append_binary_literal(response: &mut Vec<u8>, first: &mut bool, label: &str, bytes: &[u8]) {
+    append_separator(response, first);
+    response.extend_from_slice(label.as_bytes());
+    let marker = match bytes.contains(&0) {
+        true => format!(" ~{{{}}}\r\n", bytes.len()),
+        false => format!(" {{{}}}\r\n", bytes.len()),
+    };
+    response.extend_from_slice(marker.as_bytes());
     response.extend_from_slice(bytes);
 }
 

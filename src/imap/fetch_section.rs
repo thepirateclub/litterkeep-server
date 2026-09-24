@@ -17,10 +17,54 @@ pub(super) fn parse(
         "FLAGS" => Some(FetchAttribute::Flags),
         "INTERNALDATE" => Some(FetchAttribute::InternalDate),
         "UID" => Some(FetchAttribute::Uid),
-        _ => match parse_body_attribute(token) {
+        _ => match parse_binary_attribute(token) {
             Some(attribute) => Some(attribute),
-            None => parse_header_fields_attribute(token, tokens),
+            None => match parse_body_attribute(token) {
+                Some(attribute) => Some(attribute),
+                None => parse_header_fields_attribute(token, tokens),
+            },
         },
+    }
+}
+
+/// Распознаёт три FETCH items RFC 9051 без повторной интерпретации в reactor.
+fn parse_binary_attribute(token: &str) -> Option<FetchAttribute> {
+    let upper = token.to_ascii_uppercase();
+    match upper.strip_prefix("BINARY.SIZE[") {
+        Some(value) => {
+            let section = value.strip_suffix(']')?;
+            Some(FetchAttribute::BinarySize {
+                section: parse_binary_path(section)?,
+            })
+        }
+        None => {
+            let (peek, value) = match (
+                upper.strip_prefix("BINARY.PEEK["),
+                upper.strip_prefix("BINARY["),
+            ) {
+                (Some(value), _) => (true, value),
+                (None, Some(value)) => (false, value),
+                (None, None) => return None,
+            };
+            let (section, suffix) = value.split_once(']')?;
+            Some(FetchAttribute::Binary {
+                section: parse_binary_path(section)?,
+                peek,
+                partial: match suffix {
+                    "" => None,
+                    other => Some(parse_partial(other)?),
+                },
+            })
+        }
+    }
+}
+
+/// Проверяет непустой section-binary path и запрещает нулевые номера частей.
+fn parse_binary_path(value: &str) -> Option<Vec<usize>> {
+    let path = parse_numeric_path(value)?;
+    match (!path.is_empty(), path.iter().all(|number| *number > 0)) {
+        (true, true) => Some(path),
+        _ => None,
     }
 }
 
@@ -170,8 +214,10 @@ fn parse_numeric_path(value: &str) -> Option<Vec<usize>> {
 fn parse_partial(value: &str) -> Option<Partial> {
     let inner = value.strip_prefix('<')?.strip_suffix('>')?;
     let (offset, count) = inner.split_once('.')?;
-    Some(Partial {
-        offset: offset.parse().ok()?,
-        count: count.parse().ok()?,
-    })
+    let offset = offset.parse().ok()?;
+    let count = count.parse::<usize>().ok()?;
+    match count > 0 {
+        true => Some(Partial { offset, count }),
+        false => None,
+    }
 }

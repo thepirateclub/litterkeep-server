@@ -28,7 +28,15 @@ pub(super) fn write(
         if let Err(reason) =
             imap_fetch_response::write(session, number, message, &attributes, addressing)?
         {
-            return session.push(format!("{tag} NO {reason}\r\n").as_bytes());
+            let response = match reason {
+                crate::imap_fetch::FetchError::UnknownContentTransferEncoding => {
+                    format!("{tag} NO [UNKNOWN-CTE] unsupported MIME encoding\r\n")
+                }
+                crate::imap_fetch::FetchError::InvalidSection => {
+                    format!("{tag} NO FETCH failed\r\n")
+                }
+            };
+            return session.push(response.as_bytes());
         }
     }
     session.push(format!("{tag} OK FETCH completed\r\n").as_bytes())

@@ -3,6 +3,9 @@
 use crate::imap::{FetchAttribute, Partial};
 use std::borrow::Cow;
 
+#[cfg(any(target_os = "linux", test))]
+#[path = "imap_fetch/binary.rs"]
+mod binary;
 #[path = "imap_fetch/sections.rs"]
 mod sections;
 
@@ -10,6 +13,13 @@ mod sections;
 pub struct FetchData<'a> {
     pub label: String,
     pub bytes: Cow<'a, [u8]>,
+}
+
+/// Результат FETCH section parsing без потери UNKNOWN-CTE на wire-границе.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum FetchError {
+    InvalidSection,
+    UnknownContentTransferEncoding,
 }
 
 /// Извлекает исходную BODY section, затем применяет partial к уже выбранным октетам.
@@ -25,6 +35,30 @@ pub fn select<'a>(
     };
     let selected = sections::select(message, section)?;
     apply_partial(selected.label, selected.bytes, *partial)
+}
+
+/// Декодирует один typed BINARY item, не меняя владельца оригинального письма.
+#[cfg(target_os = "linux")]
+pub(crate) fn select_binary(
+    message: &[u8],
+    attribute: &FetchAttribute,
+) -> Result<FetchData<'static>, FetchError> {
+    let FetchAttribute::Binary {
+        section, partial, ..
+    } = attribute
+    else {
+        return Err(FetchError::InvalidSection);
+    };
+    binary::select(message, section, *partial)
+}
+
+/// Вычисляет decoded SIZE для одного typed BINARY.SIZE item.
+#[cfg(target_os = "linux")]
+pub(crate) fn binary_size(message: &[u8], attribute: &FetchAttribute) -> Result<usize, FetchError> {
+    let FetchAttribute::BinarySize { section } = attribute else {
+        return Err(FetchError::InvalidSection);
+    };
+    binary::decoded_size(message, section)
 }
 
 fn apply_partial<'a>(
