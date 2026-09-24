@@ -10,6 +10,68 @@ struct Address {
     host: String,
 }
 
+/// Семантические поля ENVELOPE, используемые базовыми IMAP SEARCH keys.
+#[derive(Debug, Default)]
+pub(crate) struct SearchProjection {
+    subject: Option<String>,
+    from: Option<String>,
+    to: Option<String>,
+    cc: Option<String>,
+    bcc: Option<String>,
+}
+
+impl SearchProjection {
+    /// Возвращает текст одного поля без wire-разделителей RFC 5322 address-list.
+    pub(crate) fn field(&self, name: HeaderName) -> Option<&str> {
+        match name {
+            HeaderName::Subject => self.subject.as_deref(),
+            HeaderName::From => self.from.as_deref(),
+            HeaderName::To => self.to.as_deref(),
+            HeaderName::Cc => self.cc.as_deref(),
+            HeaderName::Bcc => self.bcc.as_deref(),
+            _ => None,
+        }
+    }
+}
+
+/// Строит ровно те декодированные поля, которые выдаются в IMAP ENVELOPE.
+pub(crate) fn search_projection(fields: &[HeaderField]) -> SearchProjection {
+    SearchProjection {
+        subject: decoded_single(fields, HeaderName::Subject).ok().flatten(),
+        from: address_search_text(fields, HeaderName::From),
+        to: address_search_text(fields, HeaderName::To),
+        cc: address_search_text(fields, HeaderName::Cc),
+        bcc: address_search_text(fields, HeaderName::Bcc),
+    }
+}
+
+fn address_search_text(fields: &[HeaderField], name: HeaderName) -> Option<String> {
+    let parsed = addresses(fields_for(fields, name)).ok()?;
+    // SEARCH сравнивает смысловые ENVELOPE components, а не RFC 5322 wire
+    // delimiters наподобие угловых скобок, запятых и encoded-word оболочки.
+    let values = parsed
+        .iter()
+        .flat_map(|address| {
+            let addr_spec = format!("{}@{}", address.mailbox, address.host);
+            [
+                address.name.clone(),
+                Some(address.mailbox.clone()),
+                Some(address.host.clone()),
+                Some(addr_spec),
+            ]
+        })
+        .flatten()
+        .collect::<Vec<_>>();
+    match values.is_empty() {
+        true => None,
+        false => Some(values.join(" ")),
+    }
+}
+
+fn fields_for(fields: &[HeaderField], name: HeaderName) -> Vec<&HeaderField> {
+    fields.iter().filter(|field| field.kind() == name).collect()
+}
+
 /// Кодирует десять обязательных полей IMAP ENVELOPE.
 pub fn encode(message: &[u8]) -> Result<String, &'static str> {
     let headers = header_block::parse(message)?;

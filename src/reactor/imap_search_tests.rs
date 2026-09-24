@@ -152,6 +152,45 @@ fn boolean_header_query_requests_header_parse() {
     assert!(requires_headers(&query));
 }
 
+/// Envelope searches omit RFC 5322 delimiters absent from ENVELOPE values.
+#[test]
+fn address_search_uses_decoded_envelope_fields_not_raw_headers() {
+    let recent = std::collections::BTreeSet::new();
+    let value = message(
+        b"From: =?UTF-8?Q?Alice?= <alice@example.test>\r\n\
+          To: Bob <bob@example.test>\r\n\
+          Cc: Team <team@example.test>\r\n\
+          Bcc: Hidden <hidden@example.test>\r\n\
+          Subject: =?UTF-8?Q?Quarterly_report?=\r\n\r\nbody",
+    );
+    let document = crate::mime::search_text::SearchDocument::parse(&value.bytes, false)
+        .expect("search document");
+    for (field, needle) in [
+        (HeaderName::From, "alice@example.test"),
+        (HeaderName::To, "bob@example.test"),
+        (HeaderName::Cc, "team@example.test"),
+        (HeaderName::Bcc, "hidden@example.test"),
+        (HeaderName::Subject, "quarterly report"),
+    ] {
+        assert!(
+            matches_key(
+                &value,
+                &SearchKey::Envelope(field, needle.into()),
+                Some(&document),
+                &position(&recent)
+            ),
+            "field={field:?} needle={needle:?} projection matched={}",
+            document.envelope_contains(field, needle)
+        );
+    }
+    assert!(!matches_key(
+        &value,
+        &SearchKey::Envelope(HeaderName::From, "<alice".into()),
+        Some(&document),
+        &position(&recent)
+    ));
+}
+
 #[test]
 fn save_projection_obeys_esearch_min_and_max_selection() {
     let matches = vec![

@@ -27,6 +27,10 @@ def main() -> None:
     qp_body = quopri.encodestring("café q".encode("utf-8"))
     attachment = base64.b64encode(b"hidden-attachment-token")
     message = (
+        b"From: Alice <alice@example.test>\r\n"
+        b"To: Bob <bob@example.test>\r\n"
+        b"Cc: Team <team@example.test>\r\n"
+        b"Bcc: Hidden <hidden@example.test>\r\n"
         b"Subject: =?UTF-8?B?" + encoded_subject + b"?=\r\n"
         b"Content-Type: multipart/mixed; boundary=search-boundary\r\n\r\n"
         b"--search-boundary\r\n"
@@ -58,6 +62,21 @@ def main() -> None:
             "OK",
         )
     require(client.select(mailbox), "OK")
+    for criterion, value in [
+        (b"FROM", "alice@example.test"),
+        (b"TO", "bob@example.test"),
+        (b"CC", "team@example.test"),
+        (b"BCC", "hidden@example.test"),
+        (b"SUBJECT", "Привет тема"),
+    ]:
+        result = require(raw_search(client, criterion, quoted(value)), "OK")
+        assert result == [b"1"], (criterion, result)
+    envelope_only = require(raw_search(client, b"FROM", quoted("<alice")), "OK")
+    assert envelope_only == [b""], envelope_only
+    raw_header = require(
+        raw_search(client, b"HEADER", b"FROM", quoted("<alice")), "OK"
+    )
+    assert raw_header == [b"1"], raw_header
     saved_search = raw_search(
         client,
         b"RETURN",

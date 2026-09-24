@@ -26,6 +26,8 @@ pub enum SearchKey {
     UidSet(super::sequence_set::SequenceSet),
     /// Сообщение присутствует в сохранённом SEARCH result этой сессии.
     Saved,
+    /// Поля сообщения, сопоставляемые с IMAP ENVELOPE, а не сырым заголовком.
+    Envelope(HeaderName, String),
     Header(HeaderSelector, String),
     Body(String),
     Text(String),
@@ -117,11 +119,11 @@ fn parse_one(tokens: &mut VecDeque<Token>) -> Option<SearchKey> {
         "OLD" => Some(SearchKey::Old),
         "NEW" => Some(SearchKey::New),
         "UID" => sequence_set(tokens).map(SearchKey::UidSet),
-        "SUBJECT" => text(tokens, HeaderName::Subject),
-        "FROM" => text(tokens, HeaderName::From),
-        "TO" => text(tokens, HeaderName::To),
-        "CC" => text(tokens, HeaderName::Cc),
-        "BCC" => text(tokens, HeaderName::Bcc),
+        "SUBJECT" => envelope(tokens, HeaderName::Subject),
+        "FROM" => envelope(tokens, HeaderName::From),
+        "TO" => envelope(tokens, HeaderName::To),
+        "CC" => envelope(tokens, HeaderName::Cc),
+        "BCC" => envelope(tokens, HeaderName::Bcc),
         "HEADER" => header(tokens),
         "BODY" => argument(tokens).map(SearchKey::Body),
         "TEXT" => argument(tokens).map(SearchKey::Text),
@@ -146,8 +148,8 @@ fn parse_one(tokens: &mut VecDeque<Token>) -> Option<SearchKey> {
     }
 }
 
-fn text(tokens: &mut VecDeque<Token>, name: HeaderName) -> Option<SearchKey> {
-    argument(tokens).map(|value| SearchKey::Header(HeaderSelector::Known(name), value))
+fn envelope(tokens: &mut VecDeque<Token>, name: HeaderName) -> Option<SearchKey> {
+    argument(tokens).map(|value| SearchKey::Envelope(name, value))
 }
 
 fn header(tokens: &mut VecDeque<Token>) -> Option<SearchKey> {
@@ -205,6 +207,31 @@ mod tests {
             panic!("search command");
         };
         assert!(matches!(key, SearchKey::And(keys) if keys.len() == 3));
+    }
+
+    /// Адресные ключи остаются отдельными от произвольного HEADER поиска.
+    #[test]
+    fn parses_envelope_keys_as_typed_projection_queries() {
+        let command =
+            imap::parse("a SEARCH SUBJECT report FROM alice TO bob CC team BCC hidden\r\n").command;
+        assert!(matches!(
+            command,
+            Command::Search {
+                key: SearchKey::And(keys),
+                ..
+            } if matches!(keys.first(), Some(SearchKey::Envelope(HeaderName::Subject, _)))
+                && matches!(keys.get(1), Some(SearchKey::Envelope(HeaderName::From, _)))
+                && matches!(keys.get(2), Some(SearchKey::Envelope(HeaderName::To, _)))
+                && matches!(keys.get(3), Some(SearchKey::Envelope(HeaderName::Cc, _)))
+                && matches!(keys.get(4), Some(SearchKey::Envelope(HeaderName::Bcc, _)))
+        ));
+        assert!(matches!(
+            imap::parse("a SEARCH HEADER SUBJECT report\r\n").command,
+            Command::Search {
+                key: SearchKey::Header(HeaderSelector::Known(HeaderName::Subject), _),
+                ..
+            }
+        ));
     }
 
     #[test]

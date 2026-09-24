@@ -22,6 +22,8 @@ pub struct HeaderText {
 #[derive(Debug)]
 pub struct SearchDocument {
     pub headers: Vec<HeaderText>,
+    /// Поля SUBJECT/адресов в той же модели, что и IMAP ENVELOPE FETCH.
+    envelope: super::envelope::SearchProjection,
     body_text: Vec<String>,
 }
 
@@ -29,6 +31,7 @@ impl SearchDocument {
     /// Разбирает заголовки и по запросу строит bounded MIME text projection.
     pub fn parse(raw: &[u8], include_body: bool) -> Result<Self, SearchTextError> {
         let header_block = header_block::parse(raw).map_err(|_| SearchTextError::InvalidMessage)?;
+        let envelope = super::envelope::search_projection(&header_block.fields);
         let headers = header_block
             .fields
             .into_iter()
@@ -46,7 +49,11 @@ impl SearchDocument {
         if let Some(Ok(root)) = include_body.then(|| tree::parse(raw)) {
             collect_text(&root, raw, &mut body_text, false)?;
         }
-        Ok(Self { headers, body_text })
+        Ok(Self {
+            headers,
+            envelope,
+            body_text,
+        })
     }
 
     /// Ищет подстроку в декодированных text/* leaf parts без MIME-заголовков.
@@ -71,6 +78,13 @@ impl SearchDocument {
                 }) || self.body_contains(needle)
             }
         }
+    }
+
+    /// Сравнивает SEARCH-критерий с полем структурированного IMAP ENVELOPE.
+    pub fn envelope_contains(&self, field: HeaderName, needle: &str) -> bool {
+        self.envelope
+            .field(field)
+            .is_some_and(|value| contains_case_insensitive_ascii(value, needle))
     }
 }
 

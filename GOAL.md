@@ -172,6 +172,24 @@ ManageSieve до заявленного набора современных фо
   ENVELOPE. Источник нормы: RFC 9051, раздел 6.4.4.
 - G14 остаётся RUNNING; capability IMAP4rev2/SEARCHRES не расширялась.
 
+### 2026-09-24: G14 envelope-based address SEARCH checkpoint
+
+- SUBJECT/FROM/TO/CC/BCC получили отдельный typed `Envelope` search key и
+  сравниваются с decoded ENVELOPE projection, общей с FETCH ENVELOPE. Для
+  адреса сопоставляются display name, mailbox, host и канонический
+  `mailbox@host`; wire delimiters вроде `<` не создают ложное совпадение.
+  Обычный HEADER поиск остаётся привязан к исходным header values.
+- PASS: Windows Rust 1.97 strict Clippy и 213 тестов; Linux Docker Rust 1.97
+  strict Clippy, release build и 248 тестов, включая Linux-only evaluator test.
+  Независимый STARTTLS `tests/blackbox/imap_search_mime.py` проверил пять
+  envelope criteria, отрицательный `<alice` match и отдельное положительное
+  `HEADER FROM` совпадение. Контейнер `litterkeep-g14-envelope-search` удалён;
+  данные этапа `./data/g14-search-mime` сохранены. Structural audit: 241 Rust
+  файл, все не длиннее 300 строк, `mod.rs` отсутствует.
+- Ограничения общего ENVELOPE address parser-а на группы и malformed syntax
+  остаются; `KEYWORD`/`UNKEYWORD` требуют отдельного durable custom-flags этапа.
+  G14 остаётся RUNNING и IMAP4rev2 capability не объявляется.
+
 ### 2026-09-24: G14 NAMESPACE and UNSELECT checkpoint
 
 - Добавлены typed-команды `NAMESPACE` и `UNSELECT`. Персональный namespace

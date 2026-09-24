@@ -46,15 +46,15 @@ MIME decoding проверены отдельно. При этом синтак�
 | BEFORE/ON/SINCE, SENTBEFORE/SENTON/SENTSINCE, LARGER/SMALLER | Parser/evaluator реализованы; даты сравниваются по календарному дню согласно профилю |
 | NOT, OR, скобочная группа и неявный AND | Parser/evaluator реализованы |
 | HEADER, BODY, TEXT | Parser/evaluator и ограниченный MIME charset/transfer decoding реализованы; см. SEARCH строку основной таблицы |
-| SUBJECT, FROM, TO, CC, BCC | Поиск реализован по декодированным RFC 5322 header values; это не эквивалентно точной IMAP ENVELOPE projection на malformed/необычных заголовках, поэтому семантика остаётся PARTIAL |
+| SUBJECT, FROM, TO, CC, BCC | Parser/evaluator используют ту же decoded ENVELOPE projection, что и FETCH ENVELOPE; адрес сравнивается по имени, mailbox, host и `mailbox@host`, без RFC 5322 delimiters. Неподдержанная/невалидная address syntax остаётся ограничением общего ENVELOPE parser-а |
 | KEYWORD, UNKEYWORD | Не реализованы: durable message model и FLAGS journal пока хранят только системный битовый набор; пользовательские keyword flags нельзя корректно искать или выдавать |
 
 Следующий SEARCH checkpoint требует добавить пользовательские flags как
 долговечную часть message metadata с корректным APPEND/STORE/COPY/MOVE,
 FETCH FLAGS, recovery и совместимостью существующих журналов; затем реализовать
-KEYWORD/UNKEYWORD и независимые сетевые тесты. Отдельным изменением нужно
-сопоставить адресные SEARCH criteria с той же ENVELOPE projection, что выдаёт
-FETCH ENVELOPE, чтобы избежать расхождения между чтением и поиском.
+KEYWORD/UNKEYWORD и независимые сетевые тесты. Адресные SEARCH criteria и FETCH
+ENVELOPE теперь используют одну projection, но оба наследуют ограничения общего
+RFC 5322 address parser-а на группах и malformed syntax.
 
 CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-USE`,
 `NAMESPACE`, `UNSELECT` и `ENABLE`. ENABLE игнорирует неизвестные и пока не

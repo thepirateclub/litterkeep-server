@@ -193,6 +193,9 @@ fn matches_key(
         }
         SearchKey::UidSet(set) => set.contains_bounded(message.uid, position.maximum_uid),
         SearchKey::Saved => position.saved_search_uids.contains(&message.uid),
+        SearchKey::Envelope(field, needle) => {
+            document.is_some_and(|value| value.envelope_contains(*field, needle))
+        }
         SearchKey::Header(selector, needle) => header_matches(document, selector, needle),
         SearchKey::Body(needle) => document.is_some_and(|value| value.body_contains(needle)),
         SearchKey::Text(needle) => document.is_some_and(|value| value.text_contains(needle)),
@@ -252,6 +255,7 @@ fn selector_matches(kind: HeaderName, name: &str, selector: &HeaderSelector) -> 
 fn requires_headers(key: &SearchKey) -> bool {
     match key {
         SearchKey::Header(..)
+        | SearchKey::Envelope(..)
         | SearchKey::Body(_)
         | SearchKey::Text(_)
         | SearchKey::SentBefore(_)
