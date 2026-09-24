@@ -13,7 +13,16 @@ pub(super) enum SmtpState {
         bytes: Vec<u8>,
         recipients: Vec<String>,
         reverse_path: String,
+        oversized: bool,
     },
+}
+
+/// DATA принимает длинные тела, но команды остаются ограниченными одним MiB.
+fn session_input_limit(session: &Session) -> usize {
+    match (&session.kind, &session.smtp) {
+        (Kind::Smtp, SmtpState::Data { .. }) => MAX_MESSAGE + MAX_INPUT,
+        _ => MAX_INPUT,
+    }
 }
 
 /// Все буферы, аутентификация и TLS transport одного клиентского владельца.
@@ -172,6 +181,11 @@ impl Session {
             Some(tls) if tls.wants_read() => true,
             _ => self.accepts_input(),
         }
+    }
+
+    /// Ограничивает командные буферы; DATA потоково обрабатывается построчно.
+    pub(super) fn input_limit_exceeded(&self) -> bool {
+        self.input.len() > session_input_limit(self)
     }
 
     pub(super) fn needs_write(&self) -> bool {

@@ -202,6 +202,7 @@ fn apply_transaction(session: &mut Session, command: smtp::Command) -> io::Resul
                 bytes: Vec::new(),
                 recipients: envelope.recipients,
                 reverse_path: envelope.reverse_path,
+                oversized: false,
             };
             session.push(b"354 end with <CRLF>.<CRLF>\r\n")
         }
@@ -234,12 +235,17 @@ fn data_line(
         bytes,
         recipients,
         reverse_path,
+        oversized,
     } = &mut session.smtp
     else {
         return Ok(());
     };
     match line.as_slice() {
         b".\r\n" => {
+            if *oversized {
+                session.smtp = SmtpState::Command(smtp::Transaction::default());
+                return session.push(b"552 5.3.4 message too large\r\n");
+            }
             let bytes = std::mem::take(bytes);
             let reverse_path = std::mem::take(reverse_path);
             let mailboxes = local_mailboxes(std::mem::take(recipients));
@@ -265,14 +271,17 @@ fn data_line(
                 owners,
             );
         }
-        _ if bytes.len().saturating_add(line.len()) > MAX_MESSAGE => {
-            session.smtp = SmtpState::Command(smtp::Transaction::default());
-            session.push(b"552 message too large\r\n")?;
+        _ if *oversized => {}
+        _ => {
+            let content = match line.strip_prefix(b"..") {
+                Some(unstuffed) => unstuffed,
+                None => line.as_slice(),
+            };
+            match bytes.len().saturating_add(content.len()) > MAX_MESSAGE {
+                true => *oversized = true,
+                false => bytes.extend_from_slice(content),
+            }
         }
-        _ => match line.strip_prefix(b"..") {
-            Some(unstuffed) => bytes.extend_from_slice(unstuffed),
-            None => bytes.extend_from_slice(&line),
-        },
     }
     Ok(())
 }

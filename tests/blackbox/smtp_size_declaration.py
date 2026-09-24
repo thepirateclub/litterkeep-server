@@ -63,6 +63,13 @@ def main():
             "unsupported RCPT parameter",
         )
         expect_reply(client.rset(), 250, "reset after accepted MAIL")
+
+        expect_reply(client.mail("alice@test"), 250, "MAIL without SIZE")
+        expect_reply(client.rcpt("bob@test"), 250, "RCPT before oversized DATA")
+        expect_reply(client.docmd("DATA"), 354, "DATA before oversized body")
+        client.send(("x" * (MAXIMUM + 1) + "\r\n.\r\n").encode("ascii"))
+        expect_reply(client.getreply(), 552, "oversized DATA body")
+        expect_reply(client.noop(), 250, "session after oversized DATA")
     print("PASS smtp-size-declaration: SIZE, 552, 501, 555, session recovery")
 
 

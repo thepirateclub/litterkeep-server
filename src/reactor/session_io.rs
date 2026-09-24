@@ -53,7 +53,7 @@ pub(super) fn read_session(
         Err(error) if error.kind() == io::ErrorKind::WouldBlock => return Ok(false),
         Err(_) => return Ok(true),
     }
-    if session.input.len() > MAX_INPUT {
+    if session.input_limit_exceeded() {
         return Ok(true);
     }
     if session.tls.as_ref().is_some_and(ServerTls::is_handshaking) {
