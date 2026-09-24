@@ -158,6 +158,20 @@ ManageSieve до заявленного набора современных фо
   message sets в других командах, полный mandatory search-key set, charset
   профиль и остальной IMAP4rev2 baseline.
 
+### 2026-09-24: G14 SEARCH key RFC inventory checkpoint
+
+- Сверка с перечнем search keys RFC 9051 отделила реализованные parser/evaluator
+  от фактической семантики. `KEYWORD` и `UNKEYWORD` отсутствуют, так как message
+  model и durable FLAGS journal поддерживают только системные биты. SUBJECT,
+  FROM, TO, CC и BCC пока сканируют decoded RFC 5322 header values, а не
+  единую IMAP ENVELOPE projection; на malformed и необычных заголовках это
+  оставляет несовместимость. Границы записаны в `docs/imap-profile.md`.
+- Этот checkpoint намеренно не помечает SEARCH полным: следующий этап должен
+  безопасно добавить durable custom flags и их APPEND/STORE/COPY/MOVE/FETCH/replay
+  семантику, а отдельный сетевой этап должен выровнять address criteria с
+  ENVELOPE. Источник нормы: RFC 9051, раздел 6.4.4.
+- G14 остаётся RUNNING; capability IMAP4rev2/SEARCHRES не расширялась.
+
 ### 2026-09-24: G14 NAMESPACE and UNSELECT checkpoint
 
 - Добавлены typed-команды `NAMESPACE` и `UNSELECT`. Персональный namespace

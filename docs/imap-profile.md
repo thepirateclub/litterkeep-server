@@ -33,6 +33,29 @@ CAPABILITY не выдаёт за более широкое расширение
 | Waiting | IDLE, DONE | PASS | Event wakeup без session thread и без polling loop |
 | Special use | LIST SPECIAL-USE, RETURN, CREATE USE | PASS | Durable enum attributes, без догадки по имени папки |
 
+## SEARCH key audit по RFC 9051
+
+Базовые ключи sequence-set, UID, ALL, system/session flags, internal/sent
+dates, size, NOT/OR и группировка имеют parser и evaluator. HEADER/BODY/TEXT и
+MIME decoding проверены отдельно. При этом синтаксис и семантика не полностью
+совпадают с RFC:
+
+| RFC 9051 key group | Фактическое состояние |
+|---|---|
+| `<sequence-set>`, UID, ALL, ANSWERED/UNANSWERED, DELETED/UNDELETED, DRAFT/UNDRAFT, FLAGGED/UNFLAGGED, SEEN/UNSEEN, RECENT/OLD/NEW | Parser/evaluator реализованы; RECENT является session projection |
+| BEFORE/ON/SINCE, SENTBEFORE/SENTON/SENTSINCE, LARGER/SMALLER | Parser/evaluator реализованы; даты сравниваются по календарному дню согласно профилю |
+| NOT, OR, скобочная группа и неявный AND | Parser/evaluator реализованы |
+| HEADER, BODY, TEXT | Parser/evaluator и ограниченный MIME charset/transfer decoding реализованы; см. SEARCH строку основной таблицы |
+| SUBJECT, FROM, TO, CC, BCC | Поиск реализован по декодированным RFC 5322 header values; это не эквивалентно точной IMAP ENVELOPE projection на malformed/необычных заголовках, поэтому семантика остаётся PARTIAL |
+| KEYWORD, UNKEYWORD | Не реализованы: durable message model и FLAGS journal пока хранят только системный битовый набор; пользовательские keyword flags нельзя корректно искать или выдавать |
+
+Следующий SEARCH checkpoint требует добавить пользовательские flags как
+долговечную часть message metadata с корректным APPEND/STORE/COPY/MOVE,
+FETCH FLAGS, recovery и совместимостью существующих журналов; затем реализовать
+KEYWORD/UNKEYWORD и независимые сетевые тесты. Отдельным изменением нужно
+сопоставить адресные SEARCH criteria с той же ENVELOPE projection, что выдаёт
+FETCH ENVELOPE, чтобы избежать расхождения между чтением и поиском.
+
 CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-USE`,
 `NAMESPACE`, `UNSELECT` и `ENABLE`. ENABLE игнорирует неизвестные и пока не
 поддерживаемые расширения по RFC и возвращает пустой `ENABLED`, поскольку сервер
