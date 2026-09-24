@@ -94,6 +94,22 @@ ManageSieve до заявленного набора современных фо
 - G14 остаётся RUNNING: обязательные `ENABLE`, IMAP4rev2 search/ESEARCH,
   untagged/response grammar и остальной RFC 9051 acceptance ещё не закрыты.
 
+### 2026-09-24: G14 ENABLE negotiation checkpoint
+
+- Добавлена типизированная команда `ENABLE`; capability атомы разбираются в
+  enum, а неизвестные/неподдерживаемые возможности игнорируются по RFC. Ответ
+  содержит пустой `ENABLED`, поскольку включаемых сервером расширений пока нет;
+  `IMAP4rev2` и `UTF8=ACCEPT` не активируются и не рекламируются.
+- PASS: Windows `cargo fmt --check`, strict Clippy и 201 тест; Linux Rust 1.97
+  Docker test target прошёл strict Clippy и 233 теста. Независимый STARTTLS
+  клиент проверил ENABLE, NAMESPACE и UNSELECT. Повторная сквозная SMTP -> IMAP
+  проверка BODY подтвердила байты вложения SHA256
+  `4c7872cd574aabe5cdc9a29678b88b178ef4aac98f051455ff87e207eeea9759`, а после
+  restart отдельная IMAP-сессия подтвердила durable `\\Seen`. Данные находятся
+  в bind mount `./data/g14-imap-body-sections`.
+- G14 остаётся RUNNING: обязательные IMAP4rev2 команды, поисковая и response
+  грамматики и полный клиентский профиль ещё не закрыты. G15-G18 не начаты.
+
 | Goal | Depends on | Acceptance criterion | Status |
 |---|---|---|---|
 | G00 | none | build, help, lock, dependency report, saved goal | PASS |

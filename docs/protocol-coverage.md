@@ -18,10 +18,12 @@ IDLE/DONE и durable Recent. UIDVALIDITY и UID переживают restart.
 и FULL, включает UID в ответы UID FETCH и сохраняет literal как точные октеты.
 `BODY` поддерживает полное сообщение, HEADER/TEXT, HEADER.FIELDS/NOT, числовые
 MIME paths, вложенный `message/rfc822` и partial ranges; durable `\\Seen`
-различает BODY/RFC822, PEEK и EXAMINE. `NAMESPACE` и `UNSELECT` рекламируются
-как доступные команды текущего IMAP4rev1 профиля. Сетевые проверки независимым
-STARTTLS клиентом подтвердили вложение, headers, body, флаги и возврат из
-UNSELECT без удаления помеченного сообщения. Это не означает полной
+различает BODY/RFC822, PEEK и EXAMINE. `NAMESPACE`, `UNSELECT` и `ENABLE`
+рекламируются как доступные команды текущего IMAP4rev1 профиля. Независимый
+STARTTLS клиент подтвердил, что ENABLE игнорирует неизвестный capability,
+возвращает пустой `ENABLED` и не меняет CAPABILITY. Сетевые проверки также
+подтвердили вложение, headers, body, флаги и UNSELECT без expunge помеченного
+сообщения. Это не означает полной
 совместимости IMAP4rev1 или IMAP4rev2: остаются SEARCH/ESEARCH расширения и
 другие несовпадения формальных грамматик; см. [матрицу IMAP](imap-profile.md).
 

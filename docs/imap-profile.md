@@ -18,6 +18,7 @@ CAPABILITY не выдаёт за более широкое расширение
 | Authentication | AUTHENTICATE PLAIN | PASS | Continuation, cancel, SASL-IR, authzid policy, только TLS |
 | Mailbox discovery | LIST, LSUB, STATUS | PASS | modified UTF-7, `*`/`%`, delimiter, durable catalog |
 | Namespace | NAMESPACE | PASS | Advertised and tested; personal namespace is `""` with `/` delimiter, unavailable classes are NIL |
+| Extension negotiation | ENABLE | PARTIAL | Unknown and unsupported capability atoms are ignored; empty `ENABLED` and stable CAPABILITY verified; no enable-able extension is implemented yet |
 | Mailbox mutation | CREATE, DELETE, RENAME | PASS | Durable journal, subtree rename, retired folder IDs |
 | Subscription | SUBSCRIBE, UNSUBSCRIBE | PASS | Durable subscription независимо от существования папки |
 | Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS, PERMANENTFLAGS, Recent |
@@ -33,7 +34,10 @@ CAPABILITY не выдаёт за более широкое расширение
 | Special use | LIST SPECIAL-USE, RETURN, CREATE USE | PASS | Durable enum attributes, без догадки по имени папки |
 
 CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-USE`,
-`NAMESPACE` и `UNSELECT`.
+`NAMESPACE`, `UNSELECT` и `ENABLE`. ENABLE игнорирует неизвестные и пока не
+поддерживаемые расширения по RFC и возвращает пустой `ENABLED`, поскольку сервер
+пока не включает ни одной дополнительной возможности. `IMAP4rev2` и
+`UTF8=ACCEPT` не активируются и не рекламируются.
 `AUTH=PLAIN SASL-IR` доступен только внутри TLS. До STARTTLS сервер выдаёт
 `LOGINDISABLED`; plaintext listener без TLS также не рекламирует парольный
 механизм и отвечает `PRIVACYREQUIRED` на LOGIN/AUTHENTICATE.

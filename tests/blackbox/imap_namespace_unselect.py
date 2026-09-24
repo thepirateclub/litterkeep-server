@@ -20,9 +20,21 @@ with imaplib.IMAP4(OPTIONS.host, OPTIONS.imap_port, timeout=10) as imap:
     capability_atoms = b" ".join(capabilities).upper()
     assert b"NAMESPACE" in capability_atoms, capabilities
     assert b"UNSELECT" in capability_atoms, capabilities
+    assert b"ENABLE" in capability_atoms, capabilities
     imap.starttls(ssl_context=TLS_CONTEXT)
+    status, tls_capabilities = imap.capability()
+    assert status == "OK", (status, tls_capabilities)
     status, _ = imap.login("bob", BOB_PASSWORD)
     assert status == "OK", status
+
+    status, enabled = imap.enable("X-LITTERKEEP-UNKNOWN")
+    assert status == "OK", (status, enabled)
+    enabled_status, enabled_values = imap.response("ENABLED")
+    assert enabled_status == "ENABLED", (enabled_status, enabled_values)
+    assert b" ".join(enabled_values).strip() == b"", enabled_values
+    status, capabilities_after_enable = imap.capability()
+    assert status == "OK", (status, capabilities_after_enable)
+    assert capabilities_after_enable == tls_capabilities, capabilities_after_enable
 
     status, namespace = imap.namespace()
     assert status == "OK", (status, namespace)

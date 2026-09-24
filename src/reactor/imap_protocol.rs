@@ -2,6 +2,9 @@
 
 use super::*;
 
+#[path = "imap_enable.rs"]
+mod imap_enable;
+
 #[path = "imap_authenticate.rs"]
 pub(super) mod authenticate;
 
@@ -19,6 +22,9 @@ pub(super) fn line(
     match parsed.command {
         imap::Command::Capability => imap_capability::write(session, &parsed.tag)?,
         imap::Command::Namespace => imap_namespace::write(session, &parsed.tag)?,
+        imap::Command::Enable { capabilities } => {
+            imap_enable::execute(session, &parsed.tag, capabilities)?
+        }
         imap::Command::StartTls => imap_starttls::begin(session, &parsed.tag)?,
         imap::Command::Noop => {
             session.push(format!("{} OK NOOP completed\r\n", parsed.tag).as_bytes())?

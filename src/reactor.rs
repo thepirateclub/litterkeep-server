@@ -99,6 +99,8 @@ mod reactor_control;
 mod scheduler_ids;
 #[path = "reactor/scheduler_lifecycle.rs"]
 mod scheduler_lifecycle;
+#[path = "reactor/server_all_starttls.rs"]
+mod server_all_starttls;
 #[path = "reactor/server_loop.rs"]
 mod server_loop;
 #[path = "reactor/session.rs"]
@@ -126,6 +128,7 @@ pub use outbound_entry::{serve_all_mail_outbound_starttls, serve_all_mail_outbou
 use pending::{AuthenticationCommand, Pending};
 use protocol::process_input;
 use reactor_control::service_control;
+pub use server_all_starttls::serve_all_starttls;
 use session::{Session, SmtpState};
 use session_io::{flush, read_session};
 type SessionLease = ResourceLease<Session>;
@@ -263,25 +266,6 @@ pub fn serve_pop3_tls(
         None,
         root,
         TlsMode::Implicit(tls_config),
-    )
-}
-
-/// Запускает три STARTTLS listener-а в одном poll-reactor и с одним Store owner.
-pub fn serve_all_starttls(
-    smtp_address: &str,
-    imap_address: &str,
-    pop3_address: &str,
-    root: impl AsRef<Path>,
-    tls_config: Arc<ServerConfig>,
-) -> io::Result<()> {
-    server_loop::serve(
-        Some(smtp_address),
-        Some(imap_address),
-        Some(pop3_address),
-        None,
-        None,
-        root,
-        TlsMode::StartTls(tls_config),
     )
 }
 

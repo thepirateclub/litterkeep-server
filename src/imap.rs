@@ -2,10 +2,12 @@
 
 pub mod append;
 pub mod authenticate;
+mod command_verb;
 pub mod copy;
 #[cfg(test)]
 #[path = "imap/copy_tests.rs"]
 mod copy_tests;
+pub mod enable;
 pub mod fetch;
 mod fetch_section;
 #[cfg(test)]
@@ -24,6 +26,7 @@ pub mod sequence_set;
 pub mod status;
 pub mod tokenizer;
 pub use authenticate::AuthenticationMechanism;
+use command_verb::{Verb, parse_verb};
 pub use fetch::{BodySection, FetchAttribute, Partial};
 pub use idle::{IdleContinuation, parse_idle_continuation};
 use sequence_set::SequenceSet;
@@ -39,6 +42,9 @@ pub struct TaggedCommand {
 pub enum Command {
     Capability,
     Namespace,
+    Enable {
+        capabilities: Vec<enable::Capability>,
+    },
     StartTls,
     Login {
         username: String,
@@ -141,40 +147,6 @@ pub enum Transfer {
     Copy,
     Move,
 }
-/// Внутренний verb до проверки аргументов команды.
-enum Verb {
-    Capability,
-    Namespace,
-    StartTls,
-    Login,
-    Authenticate,
-    Append,
-    Logout,
-    Noop,
-    Idle,
-    Create,
-    Delete,
-    Rename,
-    Subscribe,
-    Unsubscribe,
-    Lsub,
-    Status,
-    Check,
-    Close,
-    Unselect,
-    Copy,
-    Move,
-    Expunge,
-    List,
-    Select,
-    Examine,
-    Fetch,
-    Store,
-    Search,
-    Uid,
-    Unsupported,
-}
-
 /// Разбирает одну CRLF-строку и не оставляет строковые команды в reactor.
 pub fn parse(line: &str) -> TaggedCommand {
     let mut tokens = match tokenizer::tokenize(line) {
@@ -185,6 +157,7 @@ pub fn parse(line: &str) -> TaggedCommand {
     let command = match next_text(&mut tokens).as_deref().map(parse_verb) {
         Some(Verb::Capability) => Command::Capability,
         Some(Verb::Namespace) => parse_empty(tokens, Command::Namespace),
+        Some(Verb::Enable) => enable::parse(tokens),
         Some(Verb::StartTls) => Command::StartTls,
         Some(Verb::Login) => match (next_text(&mut tokens), next_text(&mut tokens)) {
             (Some(username), Some(password)) => Command::Login { username, password },
@@ -265,42 +238,6 @@ fn unsupported(tag: &str) -> TaggedCommand {
     TaggedCommand {
         tag: tag.into(),
         command: Command::Unsupported,
-    }
-}
-
-/// Единственная допустимая граница строкового сравнения протокольного verb.
-fn parse_verb(text: &str) -> Verb {
-    match text.to_ascii_uppercase().as_str() {
-        "CAPABILITY" => Verb::Capability,
-        "NAMESPACE" => Verb::Namespace,
-        "STARTTLS" => Verb::StartTls,
-        "LOGIN" => Verb::Login,
-        "AUTHENTICATE" => Verb::Authenticate,
-        "APPEND" => Verb::Append,
-        "LOGOUT" => Verb::Logout,
-        "NOOP" => Verb::Noop,
-        "IDLE" => Verb::Idle,
-        "CREATE" => Verb::Create,
-        "DELETE" => Verb::Delete,
-        "RENAME" => Verb::Rename,
-        "SUBSCRIBE" => Verb::Subscribe,
-        "UNSUBSCRIBE" => Verb::Unsubscribe,
-        "LSUB" => Verb::Lsub,
-        "STATUS" => Verb::Status,
-        "CHECK" => Verb::Check,
-        "CLOSE" => Verb::Close,
-        "UNSELECT" => Verb::Unselect,
-        "COPY" => Verb::Copy,
-        "MOVE" => Verb::Move,
-        "EXPUNGE" => Verb::Expunge,
-        "LIST" => Verb::List,
-        "SELECT" => Verb::Select,
-        "EXAMINE" => Verb::Examine,
-        "FETCH" => Verb::Fetch,
-        "STORE" => Verb::Store,
-        "SEARCH" => Verb::Search,
-        "UID" => Verb::Uid,
-        _ => Verb::Unsupported,
     }
 }
 
