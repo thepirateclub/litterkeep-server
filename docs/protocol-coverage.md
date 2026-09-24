@@ -10,6 +10,10 @@ dot terminator. `BODY=7BIT` и режим без BODY ограничивают �
 До TLS AUTH запрещён. Envelope sender должен принадлежать authenticated owner.
 Local route не является open relay.
 
+SMTP session требует HELO/EHLO перед MAIL/RCPT/DATA. HELO включает только базовый
+SMTP режим: ESMTP MAIL-параметры, AUTH и STARTTLS требуют EHLO. Успешные HELO и
+EHLO сбрасывают незавершённый envelope; это проверяется независимым клиентом.
+
 RFC 5321 VRFY отвечает `252` без проверки и раскрытия существования mailbox;
 EXPN распознаётся, но возвращает `502`, так как сервер не предоставляет mailing
 list expansion. HELP выдаёт многострочный список команд, HELP с аргументом

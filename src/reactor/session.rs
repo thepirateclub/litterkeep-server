@@ -62,6 +62,7 @@ pub(super) struct Session {
     /// SEARCH literal временно заменяется quoted UTF-8 строкой после приёма.
     pub(super) imap_search_literal: Option<super::imap_search_literal::Receiver>,
     pub(super) smtp: SmtpState,
+    pub(super) smtp_greeting: smtp::GreetingMode,
     pub(super) smtp_body_mode: crate::smtp::BodyMode,
     /// POP3 хранит snapshot только до QUIT и не получает Store во владение.
     pub(super) pop3: pop3::Session,
@@ -113,6 +114,7 @@ impl Session {
             imap_literal: None,
             imap_search_literal: None,
             smtp: SmtpState::Command(smtp::Transaction::default()),
+            smtp_greeting: smtp::GreetingMode::NotEstablished,
             smtp_body_mode: crate::smtp::BodyMode::SevenBit,
             pop3: pop3::Session::default(),
             pop3_mailbox: None,
@@ -241,6 +243,7 @@ impl Session {
         self.input.clear();
         self.starttls_pending = true;
         self.smtp = SmtpState::Command(smtp::Transaction::default());
+        self.smtp_greeting = smtp::GreetingMode::NotEstablished;
         self.smtp_body_mode = crate::smtp::BodyMode::SevenBit;
         self.authenticated_account = None;
         self.selected_mailbox = None;

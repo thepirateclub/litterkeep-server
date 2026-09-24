@@ -30,17 +30,20 @@ pub(super) fn smtp_line(
             return session.push(b"504 5.5.4 unsupported authentication mechanism\r\n");
         }
     };
+    if let Some(reply) = super::smtp_greeting::requirement(session, &command) {
+        return reply;
+    }
     match command {
         smtp::Command::Quit => session.push(b"221 bye\r\n"),
-        smtp::Command::Ehlo(_) => ehlo(session),
-        smtp::Command::Helo(_) => session.push(b"250 litterkeep.test\r\n"),
+        smtp::Command::Ehlo(_) => super::smtp_greeting::ehlo(session),
+        smtp::Command::Helo(_) => super::smtp_greeting::helo(session),
         smtp::Command::Noop(_) => session.push(b"250 2.0.0 ok\r\n"),
         smtp::Command::Vrfy(_) => {
             session.push(b"252 2.5.2 cannot verify user, but will accept message\r\n")
         }
         smtp::Command::Expn(_) => session.push(b"502 5.5.1 mailing lists are not supported\r\n"),
         smtp::Command::Help(topic) => help(session, topic),
-        smtp::Command::StartTls => starttls(session),
+        smtp::Command::StartTls => super::smtp_greeting::starttls(session),
         smtp::Command::AuthPlain(response) => authenticate(
             session, response, slot, generation, worker, owners, request_id,
         ),
@@ -59,36 +62,6 @@ fn help(session: &mut Session, topic: Option<String>) -> io::Result<()> {
         None => session.push(
             b"214-Commands: EHLO HELO MAIL RCPT DATA RSET NOOP VRFY EXPN HELP QUIT\r\n214 End of HELP\r\n",
         ),
-    }
-}
-
-/// Рекламирует AUTH только после implicit-TLS handshake.
-fn ehlo(session: &mut Session) -> io::Result<()> {
-    match (session.tls.is_some(), session.can_starttls()) {
-        (true, _) => session.push(
-            b"250-litterkeep.test\r\n250-AUTH PLAIN\r\n250-8BITMIME\r\n250 SIZE 26214400\r\n",
-        ),
-        (false, true) => session
-            .push(b"250-litterkeep.test\r\n250-STARTTLS\r\n250-8BITMIME\r\n250 SIZE 26214400\r\n"),
-        (false, false) => {
-            session.push(b"250-litterkeep.test\r\n250-8BITMIME\r\n250 SIZE 26214400\r\n")
-        }
-    }
-}
-
-/// Переводит plaintext submission в TLS только вне активной транзакции.
-fn starttls(session: &mut Session) -> io::Result<()> {
-    let SmtpState::Command(transaction) = &session.smtp else {
-        return session.push(b"503 5.5.1 bad sequence\r\n");
-    };
-    match (session.can_starttls(), transaction.has_sender()) {
-        (true, false) => {
-            session.push(b"220 2.0.0 ready to start TLS\r\n")?;
-            session.request_starttls();
-            Ok(())
-        }
-        (true, true) => session.push(b"503 5.5.1 bad sequence\r\n"),
-        (false, _) => session.push(b"454 4.7.0 TLS not available\r\n"),
     }
 }
 

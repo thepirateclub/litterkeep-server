@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G15
 
+### 2026-09-25: G15 RFC 5321 greeting and transaction reset checkpoint
+
+- В SMTP session введены `NotEstablished`, `Basic` и `Extended` greeting mode.
+  MAIL/RCPT/DATA до HELO/EHLO получают 503. HELO разрешает базовый SMTP, но
+  блокирует ESMTP параметры, AUTH и STARTTLS. Успешные HELO/EHLO сбрасывают
+  незавершённый envelope и body mode; STARTTLS возвращает session к новому EHLO.
+- PASS: Windows Rust 1.97.1: 248 тестов и строгий Clippy. Linux Docker Rust
+  1.97: release-сборка, строгий Clippy, 288 тестов и независимый STARTTLS
+  black-box. Клиент проверил MAIL до greeting, HELO extension gate, сброс
+  envelope повторным HELO/EHLO и полный прежний SMTP SIZE/8BITMIME набор.
+- Данные `./data/g15-smtp-rfc-greeting`; временный контейнер удалён,
+  `litterkeep-g12-phone` оставлен. Коммит будет отдельным для checkpoint.
+- G15 остаётся RUNNING: это начальный RFC 5321 transaction state, не полная
+  SMTP-командная и ESMTP-совместимость.
+
 ### 2026-09-25: G15 RFC 5321 VRFY, EXPN, HELP and NOOP checkpoint
 
 - SMTP parser распознаёт VRFY/EXPN/HELP и принимает необязательную строку NOOP.

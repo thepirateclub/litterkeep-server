@@ -121,6 +121,8 @@ mod session_io;
 mod smtp_completion;
 #[path = "reactor/smtp_data.rs"]
 mod smtp_data;
+#[path = "reactor/smtp_greeting.rs"]
+mod smtp_greeting;
 #[path = "reactor/smtp_protocol.rs"]
 mod smtp_protocol;
 #[path = "reactor/submit_id.rs"]

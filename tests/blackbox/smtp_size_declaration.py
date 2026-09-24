@@ -26,12 +26,49 @@ def main():
     tls_context.check_hostname = False
     tls_context.verify_mode = ssl.CERT_NONE
     with smtplib.SMTP(HOST, PORT, timeout=10) as client:
+        expect_reply(
+            client.docmd("MAIL", "FROM:<alice@test>"),
+            503,
+            "MAIL requires HELO or EHLO",
+        )
         client.starttls(context=tls_context)
         code, capabilities = client.ehlo()
         advertised = (f"SIZE {MAXIMUM}".encode("ascii"), b"8BITMIME")
         if code != 250 or any(item not in capabilities for item in advertised):
             raise AssertionError(f"SMTP capabilities absent: {code} {capabilities!r}")
         client.login("alice", os.environ["LITTERKEEP_ALICE_PASSWORD"])
+
+        expect_reply(client.mail("alice@test"), 250, "MAIL before repeated HELO")
+        expect_reply(client.rcpt("bob@test"), 250, "RCPT before repeated HELO")
+        expect_reply(client.helo("basic.example"), 250, "basic HELO")
+        expect_reply(
+            client.rcpt("bob@test"),
+            503,
+            "repeated HELO clears the previous transaction",
+        )
+        expect_reply(
+            client.docmd("MAIL", "FROM:<alice@test> SIZE=1"),
+            555,
+            "ESMTP parameter requires EHLO",
+        )
+        expect_reply(
+            client.docmd("AUTH", "PLAIN invalid"),
+            503,
+            "AUTH requires EHLO",
+        )
+        expect_reply(client.mail("alice@test"), 250, "basic SMTP MAIL")
+        expect_reply(client.rcpt("bob@test"), 250, "basic SMTP RCPT")
+        expect_reply(client.rset(), 250, "RSET from basic greeting")
+
+        expect_reply(client.ehlo("extended.example"), 250, "extended EHLO")
+        expect_reply(client.mail("alice@test"), 250, "MAIL before repeated EHLO")
+        expect_reply(client.ehlo("reset.example"), 250, "repeated EHLO")
+        expect_reply(
+            client.rcpt("bob@test"),
+            503,
+            "repeated EHLO clears the previous transaction",
+        )
+        expect_reply(client.noop(), 250, "session after EHLO reset")
 
         expect_reply(
             client.mail("alice@test", options=[f"SIZE={MAXIMUM + 1}"]),

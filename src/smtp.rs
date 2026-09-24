@@ -3,6 +3,14 @@
 mod command;
 pub use command::{BodyMode, Command, MAX_MESSAGE_SIZE, MailFrom, ParseError, parse};
 
+/// Уровень SMTP greeting, определяющий допустимость ESMTP extensions.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum GreetingMode {
+    NotEstablished,
+    Basic,
+    Extended,
+}
+
 /// Проверенный envelope, передаваемый из SMTP FSM в локальную delivery.
 #[derive(Debug, Eq, PartialEq)]
 pub struct Envelope {
