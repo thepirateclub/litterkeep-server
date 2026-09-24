@@ -155,6 +155,9 @@ fn recipient(
     if !transaction.can_accept_recipient() {
         return session.push(b"503 bad sequence\r\n");
     }
+    if !transaction.has_recipient_capacity() {
+        return session.push(b"452 4.5.3 too many recipients\r\n");
+    }
     let Some(mailbox) = local_mailbox(&address) else {
         return session.push(b"550 unknown local recipient\r\n");
     };

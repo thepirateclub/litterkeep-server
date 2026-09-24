@@ -65,6 +65,11 @@ impl Transaction {
         self.sender.is_some()
     }
 
+    /// Проверяет наличие места до асинхронной проверки account policy.
+    pub fn has_recipient_capacity(&self) -> bool {
+        self.recipients.len() < MAX_RECIPIENTS
+    }
+
     /// Сообщает, начата ли envelope-транзакция командой MAIL.
     pub fn has_sender(&self) -> bool {
         self.sender.is_some()
@@ -162,10 +167,12 @@ mod tests {
                 .accept_recipient(format!("recipient-{number}@test"))
                 .expect("within limit");
         }
+        assert!(!transaction.has_recipient_capacity());
         assert!(
             transaction
                 .accept_recipient("one-more@test".into())
                 .is_err()
         );
+        assert_eq!(transaction.recipients.len(), MAX_RECIPIENTS);
     }
 }

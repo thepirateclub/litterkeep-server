@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G15
 
+### 2026-09-25: G15 RFC 5321 recipient buffer limit checkpoint
+
+- SMTP проверяет вместимость envelope до асинхронной проверки локальной политики.
+  Первые 100 RCPT принимаются, следующий получает `452 4.5.3`; уже принятые
+  адресаты и возможность завершить DATA сохраняются.
+- PASS: Windows Rust 1.97.1: 251 тест, strict Clippy, fmt и diff checks. Linux
+  Docker Rust 1.97: release-сборка, strict Clippy и 291 тест. Независимый
+  STARTTLS SMTP/IMAP black-box принял 100 RCPT, получил 452 на 101-й, отправил
+  DATA и нашёл сообщение у Bob через IMAP.
+- Black-box: `tests/blackbox/smtp_recipient_limit.py`; stage data/TLS:
+  `./data/g15-smtp-recipient-limit`. Временный контейнер удалён;
+  `litterkeep-g12-phone` оставлен.
+- G15 остаётся RUNNING: лимит буфера RCPT не является полной реализацией
+  RFC 5321 и современных ESMTP-расширений.
+
 ### 2026-09-25: G15 RFC 5321 local-part octet checkpoint
 
 - Для обычного SMTP mailbox адреса парсер ограничивает local-part 64 октетами;
