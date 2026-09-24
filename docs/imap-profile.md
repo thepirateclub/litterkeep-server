@@ -16,7 +16,7 @@ CAPABILITY не выдаёт за более широкое расширение
 | TLS | STARTTLS | PASS | Сброс plaintext state и пошаговый rustls handshake |
 | Authentication | LOGIN | PASS | Только TLS, общий Argon2 worker, повторный вход запрещён |
 | Authentication | AUTHENTICATE PLAIN | PASS | Continuation, cancel, SASL-IR, authzid policy, только TLS |
-| Mailbox discovery | LIST, LSUB, STATUS | PARTIAL | modified UTF-7, `*`/`%`, root discovery, SUBSCRIBED, RECURSIVEMATCH with CHILDINFO for SUBSCRIBED/SPECIAL-USE, RETURN (CHILDREN), and RETURN (SUBSCRIBED) verified; missing names retain `\\NonExistent`; STATUS return and complete reference-name profile remain incomplete |
+| Mailbox discovery | LIST, LSUB, STATUS | PARTIAL | modified UTF-7, `*`/`%`, root discovery, empty selection `()`, SUBSCRIBED, RECURSIVEMATCH with CHILDINFO for SUBSCRIBED/SPECIAL-USE, RETURN (CHILDREN), RETURN (SUBSCRIBED), and RETURN STATUS (MESSAGES/UIDNEXT/UIDVALIDITY/UNSEEN/DELETED/SIZE) verified; missing names are selected only by SUBSCRIBED and retain `\\NonExistent`; complete reference-name profile remains incomplete |
 | Namespace | NAMESPACE | PASS | Advertised and tested; personal namespace is `""` with `/` delimiter, unavailable classes are NIL |
 | Extension negotiation | ENABLE | PARTIAL | Atom and quoted-string token forms are distinguished; unsupported capability atoms are ignored; empty `ENABLED` and stable CAPABILITY verified; no enable-able extension is implemented yet |
 | Mailbox mutation | CREATE, DELETE, RENAME | PASS | Durable journal, subtree rename, retired folder IDs |

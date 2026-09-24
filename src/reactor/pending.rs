@@ -157,7 +157,7 @@ pub(super) enum Pending {
 }
 
 /// Разделяет legacy LSUB и RFC LIST response, не смешивая их на wire.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(super) enum SubscriptionResponse {
     Lsub,
     List {

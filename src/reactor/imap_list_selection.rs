@@ -12,6 +12,8 @@ struct Entry {
     special_use: Option<crate::store::SpecialUse>,
     /// Рассчитывается только по реально существующим папкам каталога.
     has_children: bool,
+    /// Присутствует только при запросе STATUS и только у реальной папки.
+    status: Option<crate::store::MailboxStatus>,
 }
 
 /// Результат отбора с признаком необходимости CHILDINFO для потомков.
@@ -32,13 +34,18 @@ pub(super) fn listed(
     let entries = entries(snapshot);
     let results = project(&entries, &pattern, selection);
     for result in results.values() {
-        write_entry(session, result, selection, returns)?;
+        write_entry(session, result, &pattern, selection, &returns)?;
     }
     session.push(format!("{tag} OK LIST completed\r\n").as_bytes())
 }
 
 /// Сливает каталог и подписки, сохраняя отсутствующие mailbox отдельными записями.
 fn entries(snapshot: crate::store::SubscriptionSnapshot) -> BTreeMap<String, Entry> {
+    let mut statuses = snapshot
+        .statuses
+        .into_iter()
+        .map(|status| (key(&status.name), status))
+        .collect::<BTreeMap<_, _>>();
     let subscribed_names = snapshot
         .subscriptions
         .iter()
@@ -60,6 +67,7 @@ fn entries(snapshot: crate::store::SubscriptionSnapshot) -> BTreeMap<String, Ent
                 subscribed: subscribed_names.contains(&folder_key),
                 special_use: folder.special_use,
                 has_children: child_parents.contains(&folder_key),
+                status: statuses.remove(&folder_key),
             },
         );
     }
@@ -72,6 +80,7 @@ fn entries(snapshot: crate::store::SubscriptionSnapshot) -> BTreeMap<String, Ent
             subscribed: true,
             special_use: subscription.special_use,
             has_children,
+            status: None,
         });
     }
     entries
@@ -140,6 +149,7 @@ fn add_ancestors(
             subscribed: false,
             special_use: None,
             has_children: false,
+            status: None,
         });
         match results.get_mut(&parent_key) {
             Some(result) => result.child_info = true,
@@ -160,20 +170,22 @@ fn add_ancestors(
 fn selected(entry: &Entry, selection: imap::folder::ListSelection) -> bool {
     !matches!(
         (
+            entry.exists,
             selection.subscribed,
             entry.subscribed,
             selection.special_use,
             entry.special_use.is_some(),
         ),
-        (true, false, _, _) | (_, _, true, false)
+        (_, true, false, _, _) | (_, _, _, true, false) | (false, false, _, _, _)
     )
 }
 
 fn write_entry(
     session: &mut Session,
     result: &ResultEntry,
+    pattern: &imap::folder::ListPattern,
     selection: imap::folder::ListSelection,
-    returns: imap::folder::ListReturnOptions,
+    returns: &imap::folder::ListReturnOptions,
 ) -> io::Result<()> {
     let attributes = attributes(&result.entry, selection, returns);
     let name = imap_folders::quote(&result.entry.name);
@@ -182,14 +194,37 @@ fn write_entry(
     } else {
         String::new()
     };
-    session.push(format!("* LIST ({attributes}) \"/\" {name}{child_info}\r\n").as_bytes())
+    session.push(format!("* LIST ({attributes}) \"/\" {name}{child_info}\r\n").as_bytes())?;
+    let status = matching_status(result, pattern, selection, returns);
+    match status {
+        Some(status) => imap_list_status::write(session, &name, status, &returns.status),
+        None => Ok(()),
+    }
+}
+
+/// Возвращает STATUS только имени, совпавшему с собственным pattern и selection.
+fn matching_status<'a>(
+    result: &'a ResultEntry,
+    pattern: &imap::folder::ListPattern,
+    selection: imap::folder::ListSelection,
+    returns: &imap::folder::ListReturnOptions,
+) -> Option<&'a crate::store::MailboxStatus> {
+    match (
+        result.entry.exists,
+        selected(&result.entry, selection),
+        imap_list::matches_pattern(&result.entry.name, pattern),
+        returns.needs_status_projection(),
+    ) {
+        (true, true, true, true) => result.entry.status.as_ref(),
+        _ => None,
+    }
 }
 
 /// Возвращает независимые атрибуты отсутствия, подписки и special-use.
 fn attributes(
     entry: &Entry,
     selection: imap::folder::ListSelection,
-    returns: imap::folder::ListReturnOptions,
+    returns: &imap::folder::ListReturnOptions,
 ) -> String {
     let mut values = Vec::new();
     if !entry.exists {

@@ -51,11 +51,20 @@ pub(super) fn list(
     let Some(account) = session.authenticated_account.clone() else {
         return session.push(format!("{tag} NO authenticate first\r\n").as_bytes());
     };
+    let (include_status, include_size) = match &response {
+        SubscriptionResponse::Lsub => (false, false),
+        SubscriptionResponse::List { returns, .. } => (
+            returns.needs_status_projection(),
+            returns.needs_size_projection(),
+        ),
+    };
     submit(
         session,
         Request::ListSubscriptions {
             request_id: *request_id,
             account,
+            include_status,
+            include_size,
         },
         Pending::ListSubscriptions {
             tag,

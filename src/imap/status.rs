@@ -11,6 +11,8 @@ pub enum StatusAttribute {
     UidValidity,
     Unseen,
     Recent,
+    Deleted,
+    Size,
 }
 
 pub(super) fn parse(mut tokens: impl Iterator<Item = Token>) -> Command {
@@ -44,14 +46,43 @@ pub(super) fn parse(mut tokens: impl Iterator<Item = Token>) -> Command {
     }
 }
 
-fn parse_attribute(value: &str) -> Option<StatusAttribute> {
+pub(super) fn parse_attribute(value: &str) -> Option<StatusAttribute> {
     match value.to_ascii_uppercase().as_str() {
         "MESSAGES" => Some(StatusAttribute::Messages),
         "UIDNEXT" => Some(StatusAttribute::UidNext),
         "UIDVALIDITY" => Some(StatusAttribute::UidValidity),
         "UNSEEN" => Some(StatusAttribute::Unseen),
         "RECENT" => Some(StatusAttribute::Recent),
+        "DELETED" => Some(StatusAttribute::Deleted),
+        "SIZE" => Some(StatusAttribute::Size),
         _ => None,
+    }
+}
+
+/// Разбирает STATUS return items; RECENT оставлен только для rev1-команды STATUS.
+pub(super) fn parse_return_attributes(
+    tokens: &mut impl Iterator<Item = Token>,
+) -> Option<Vec<StatusAttribute>> {
+    if !matches!(tokens.next(), Some(Token::ListStart)) {
+        return None;
+    }
+    let mut attributes = Vec::new();
+    loop {
+        match tokens.next() {
+            Some(Token::Text(value)) => {
+                let attribute = parse_attribute(&value)?;
+                if matches!(attribute, StatusAttribute::Recent) {
+                    return None;
+                }
+                if !attributes.contains(&attribute) {
+                    attributes.push(attribute);
+                }
+            }
+            Some(Token::ListEnd) if !attributes.is_empty() => return Some(attributes),
+            Some(Token::ListStart) | Some(Token::Quoted(_)) | Some(Token::ListEnd) | None => {
+                return None;
+            }
+        }
     }
 }
 

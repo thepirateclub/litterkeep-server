@@ -32,6 +32,8 @@ mod folder_journal;
 #[cfg(test)]
 #[path = "store/folder_journal_tests.rs"]
 mod folder_journal_tests;
+#[path = "store/folder_status.rs"]
+mod folder_status;
 #[path = "store/folders.rs"]
 mod folders;
 #[path = "store/format.rs"]
@@ -93,6 +95,7 @@ use crate::mail_flags::StoredFlags;
 pub use crate::mail_flags::{FlagMutation, MessageFlags, SystemFlag};
 use crate::queue::Queue;
 pub use folder_access::ResolvedMailbox;
+pub use folder_status::MailboxStatus;
 pub use folders::{FolderInfo, SpecialUse};
 pub use model::{AppendMetadata, MailboxSnapshot, Message};
 use quota::Quota;

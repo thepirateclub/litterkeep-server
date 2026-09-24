@@ -75,6 +75,26 @@ pub(super) fn completed(
                 format!("UNSEEN {count}")
             }
             StatusAttribute::Recent => format!("RECENT {recent_count}"),
+            StatusAttribute::Deleted => {
+                let count = snapshot
+                    .messages
+                    .iter()
+                    .filter(|message| {
+                        message
+                            .flags
+                            .contains(crate::mail_flags::SystemFlag::Deleted)
+                    })
+                    .count();
+                format!("DELETED {count}")
+            }
+            StatusAttribute::Size => {
+                let size = snapshot
+                    .messages
+                    .iter()
+                    .map(|message| message.bytes.len() as u64)
+                    .sum::<u64>();
+                format!("SIZE {size}")
+            }
         };
         values.push(value);
     }

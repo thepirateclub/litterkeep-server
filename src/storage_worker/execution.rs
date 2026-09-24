@@ -152,9 +152,11 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
         Request::ListSubscriptions {
             request_id,
             account,
+            include_status,
+            include_size,
         } => Response::Subscriptions {
             request_id,
-            result: store.subscription_snapshot(&account),
+            result: store.subscription_snapshot_with_status(&account, include_status, include_size),
         },
         Request::Expunge {
             request_id,

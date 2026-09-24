@@ -24,6 +24,16 @@ impl Store {
 
     /// Возвращает подписки и каталог одной операцией единственного Store owner-а.
     pub fn subscription_snapshot(&mut self, account: &str) -> io::Result<SubscriptionSnapshot> {
+        self.subscription_snapshot_with_status(account, false, false)
+    }
+
+    /// Включает быстрые счётчики и, по запросу, размеры в тот же Store snapshot.
+    pub fn subscription_snapshot_with_status(
+        &mut self,
+        account: &str,
+        include_status: bool,
+        include_size: bool,
+    ) -> io::Result<SubscriptionSnapshot> {
         self.ensure_writable()?;
         let names = self.subscriptions.list(account)?;
         let folders = self.folders.list(account)?;
@@ -41,9 +51,14 @@ impl Store {
                 }
             })
             .collect();
+        let statuses = match include_status {
+            true => super::folder_status::summaries(self, account, &folders, include_size)?,
+            false => Vec::new(),
+        };
         Ok(SubscriptionSnapshot {
             subscriptions,
             folders,
+            statuses,
         })
     }
 }
@@ -100,6 +115,56 @@ mod tests {
             .expect("unsubscribe");
         assert_eq!(reopened.subscriptions("bob").expect("remaining").len(), 1);
         drop(reopened);
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    /// LIST status использует journal metadata и считает флаги и размеры без чтения blob.
+    #[test]
+    fn status_snapshot_reports_counts_uid_and_exact_blob_octets() {
+        let root = std::env::temp_dir().join(format!(
+            "litterkeep-list-status-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let mut store = Store::open(&root).expect("store");
+        let seen_deleted = b"Subject: gone\r\n\r\nbody";
+        store
+            .append_with_metadata(
+                "bob",
+                seen_deleted,
+                crate::store::AppendMetadata {
+                    flags: crate::mail_flags::MessageFlags::from_flags([
+                        crate::mail_flags::SystemFlag::Seen,
+                        crate::mail_flags::SystemFlag::Deleted,
+                    ]),
+                    ..crate::store::AppendMetadata::default()
+                },
+            )
+            .expect("append deleted");
+        let unseen = b"Subject: new\r\n\r\ntext";
+        store.append("bob", unseen).expect("append unseen");
+
+        let snapshot = store
+            .subscription_snapshot_with_status("bob", true, true)
+            .expect("status snapshot");
+        let inbox = snapshot
+            .statuses
+            .iter()
+            .find(|status| status.name == "INBOX")
+            .expect("inbox status");
+        assert_eq!(inbox.messages, 2);
+        assert_eq!(inbox.uid_next, 3);
+        assert_eq!(inbox.uid_validity, 1);
+        assert_eq!(inbox.unseen, 1);
+        assert_eq!(inbox.deleted, 1);
+        assert_eq!(inbox.size, Some((seen_deleted.len() + unseen.len()) as u64));
+        let without_status = store
+            .subscription_snapshot_with_status("bob", false, false)
+            .expect("folder-only snapshot");
+        assert!(without_status.statuses.is_empty());
+        drop(store);
         fs::remove_dir_all(root).expect("cleanup");
     }
 }

@@ -23,7 +23,7 @@ pub struct ListSelection {
 }
 
 /// Указывает, какие дополнительные свойства должны присутствовать в LIST.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ListReturnOptions {
     /// Возвращать точный durable статус подписки каждого совпавшего имени.
     pub subscribed: bool,
@@ -31,12 +31,27 @@ pub struct ListReturnOptions {
     pub special_use: bool,
     /// Вычислять наличие дочерних mailbox по полному каталогу.
     pub children: bool,
+    /// Упорядоченные STATUS data items для каждого совпавшего mailbox.
+    pub status: Vec<super::status::StatusAttribute>,
 }
 
 impl ListReturnOptions {
     /// CHILDREN и SUBSCRIBED требуют сверки с полным snapshot каталога.
-    pub fn needs_catalog_projection(self) -> bool {
-        !matches!((self.subscribed, self.children), (false, false))
+    pub fn needs_catalog_projection(&self) -> bool {
+        !matches!(
+            (self.subscribed, self.children, self.status.is_empty()),
+            (false, false, true)
+        )
+    }
+
+    /// Указывает, требуется ли построить mailbox status summaries в Store owner.
+    pub fn needs_status_projection(&self) -> bool {
+        !self.status.is_empty()
+    }
+
+    /// SIZE требует чтения только длин файлов, остальные счётчики берутся из metadata.
+    pub fn needs_size_projection(&self) -> bool {
+        self.status.contains(&super::status::StatusAttribute::Size)
     }
 }
 

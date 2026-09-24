@@ -25,6 +25,8 @@ pub struct SubscribedFolder {
 pub struct SubscriptionSnapshot {
     pub subscriptions: Vec<SubscribedFolder>,
     pub folders: Vec<super::FolderInfo>,
+    /// Вычисляется только для LIST RETURN STATUS и только над metadata.
+    pub statuses: Vec<super::MailboxStatus>,
 }
 
 #[derive(Debug)]

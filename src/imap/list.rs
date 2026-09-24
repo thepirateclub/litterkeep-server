@@ -19,6 +19,7 @@ enum ReturnOption {
     SpecialUse,
     Subscribed,
     Children,
+    Status,
 }
 
 /// Разбирает LIST и не переносит необработанные имена опций в reactor.
@@ -54,31 +55,25 @@ fn parse_extended(tokens: &mut impl Iterator<Item = Token>) -> Command {
 fn parse_selection(tokens: &mut impl Iterator<Item = Token>) -> Option<ListSelection> {
     let mut selection = ListSelection::default();
     let mut remote = false;
-    let mut found = false;
     loop {
         match tokens.next() {
             Some(Token::ListEnd) => break,
-            Some(Token::Text(name)) => {
-                found = true;
-                match selection_option(&name)? {
-                    SelectionOption::Subscribed => selection.subscribed = true,
-                    SelectionOption::SpecialUse => selection.special_use = true,
-                    SelectionOption::RecursiveMatch => selection.recursive_match = true,
-                    SelectionOption::Remote => remote = true,
-                }
-            }
+            Some(Token::Text(name)) => match selection_option(&name)? {
+                SelectionOption::Subscribed => selection.subscribed = true,
+                SelectionOption::SpecialUse => selection.special_use = true,
+                SelectionOption::RecursiveMatch => selection.recursive_match = true,
+                SelectionOption::Remote => remote = true,
+            },
             _ => return None,
         }
     }
     match (
-        found,
         selection.recursive_match,
         selection.subscribed,
         selection.special_use,
     ) {
-        (false, _, _, _) => None,
-        (_, true, false, false) => None,
-        (_, _, _, _) => {
+        (true, false, false) => None,
+        (_, _, _) => {
             // В сервере пока нет модели удалённых mailbox, поэтому REMOTE не
             // добавляет отдельные имена и не меняет локальную выборку.
             let _remote_is_ignored_without_remote_mailboxes = remote;
@@ -150,6 +145,9 @@ fn parse_return(
                 ReturnOption::SpecialUse => options.special_use = true,
                 ReturnOption::Subscribed => options.subscribed = true,
                 ReturnOption::Children => options.children = true,
+                ReturnOption::Status => {
+                    options.status = super::status::parse_return_attributes(tokens)?;
+                }
             },
             _ => return None,
         }
@@ -166,6 +164,7 @@ fn return_option(name: &str) -> Option<ReturnOption> {
         "SPECIAL-USE" => Some(ReturnOption::SpecialUse),
         "SUBSCRIBED" => Some(ReturnOption::Subscribed),
         "CHILDREN" => Some(ReturnOption::Children),
+        "STATUS" => Some(ReturnOption::Status),
         _ => None,
     }
 }
@@ -251,6 +250,7 @@ mod tests {
                     subscribed: true,
                     special_use: false,
                     children: true,
+                    status: Vec::new(),
                 },
             }
         );
@@ -260,7 +260,33 @@ mod tests {
     #[test]
     fn unsupported_list_return_option_is_rejected() {
         assert_eq!(
-            crate::imap::parse("a LIST \"\" \"*\" RETURN (STATUS (MESSAGES))\r\n").command,
+            crate::imap::parse("a LIST \"\" \"*\" RETURN (UNKNOWN)\r\n").command,
+            Command::Unsupported
+        );
+    }
+
+    /// STATUS items typed; повторы схлопываются, а rev1 RECENT не подменяет rev2 набор.
+    #[test]
+    fn list_status_return_items_are_typed_and_deduplicated() {
+        assert_eq!(
+            crate::imap::parse(
+                "a LIST () \"\" \"*\" RETURN (STATUS (MESSAGES UNSEEN MESSAGES SIZE))\r\n"
+            )
+            .command,
+            Command::List {
+                pattern: ListPattern::All,
+                returns: ListReturnOptions {
+                    status: vec![
+                        super::super::status::StatusAttribute::Messages,
+                        super::super::status::StatusAttribute::Unseen,
+                        super::super::status::StatusAttribute::Size,
+                    ],
+                    ..ListReturnOptions::default()
+                },
+            }
+        );
+        assert_eq!(
+            crate::imap::parse("a LIST \"\" \"*\" RETURN (STATUS (RECENT))\r\n").command,
             Command::Unsupported
         );
     }

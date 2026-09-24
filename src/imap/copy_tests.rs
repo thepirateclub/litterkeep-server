@@ -76,6 +76,7 @@ fn list_return_special_use_keeps_the_requested_selection() {
                 subscribed: false,
                 special_use: true,
                 children: false,
+                status: _,
             }
         }
     ));

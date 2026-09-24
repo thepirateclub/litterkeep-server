@@ -85,6 +85,8 @@ pub enum Request {
     ListSubscriptions {
         request_id: u64,
         account: String,
+        include_status: bool,
+        include_size: bool,
     },
     Expunge {
         request_id: u64,

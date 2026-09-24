@@ -27,6 +27,33 @@ ManageSieve до заявленного набора современных фо
 | G17 | G12 | MIME RFC 5322/2045-2049 updates and Sieve RFC 5228/ManageSieve RFC 5804 profile | NOT RUN |
 | G18 | G14,G15,G16,G17 | Cross-protocol Linux acceptance, truthful capabilities and final coverage matrix | NOT RUN |
 
+### 2026-09-24: G14 LIST RETURN STATUS checkpoint
+
+- Добавлен `LIST RETURN (STATUS (...))` для MESSAGES, UIDNEXT, UIDVALIDITY,
+  UNSEEN, DELETED и SIZE. Один Store-owner snapshot строит точные счётчики из
+  mailbox journal и текущих durable flags; тела сообщений не читаются, а SIZE
+  вычисляется только по длинам blob-файлов, если поле запрошено.
+- Для каждого реально существующего mailbox, совпавшего с pattern и selection,
+  ответ STATUS отправляется сразу после LIST. Синтетические родители от
+  RECURSIVEMATCH и отсутствующие подписанные mailbox получают LIST по правилам
+  выбора, но не получают STATUS. Обычный LIST исключает отсутствующие имена;
+  они выбираются только `SUBSCRIBED` selection. `RETURN (SUBSCRIBED)` лишь
+  добавляет точный атрибут уже выбранным именам.
+- Принимается пустой initial selection `LIST ()`. `RECENT` намеренно отвергается
+  внутри rev2 `RETURN STATUS`, но остаётся доступным в совместимой STATUS
+  команде rev1. Неизвестные status items отвергаются.
+- Независимый STARTTLS-клиент проверил точные счётчики после APPEND с `\\Deleted`,
+  STATUS непосредственно после LIST, отсутствие STATUS для несуществующей
+  подписанной папки и пустой selection. Это не тест пользовательского клиента.
+- Windows Rust 1.97.1: форматирование, strict Clippy, 228 тестов PASS. Linux
+  Docker Rust 1.97: release build, strict Clippy, 263 теста PASS; финальный
+  независимый STARTTLS black-box прошёл.
+- Данные этапа сохранены в `./data/g14-list-status`; контейнер
+  `litterkeep-g14-list-status` остановлен и удалён, `litterkeep-g12-phone`
+  оставлен нетронутым.
+- STATUS return теперь проверен; полный reference-name pattern, прочие
+  LIST-EXTENDED элементы и завершение G14 остаются в работе.
+
 ### 2026-09-24: G14 LIST RETURN CHILDREN checkpoint
 
 - Добавлены типизированные `RETURN (CHILDREN)` и `RETURN (SUBSCRIBED)` для
@@ -34,7 +61,8 @@ ManageSieve до заявленного набора современных фо
   вычисляется по фактическому каталогу mailbox из одного snapshot, а не по
   подпискам: каждый ответ получает ровно `\\HasChildren` либо
   `\\HasNoChildren`. SUBSCRIBED return отображает durable состояние для всех
-  совпавших имен, включая отсутствующие.
+  совпавших имён; отсутствующие имена выбираются только initial selection
+  `SUBSCRIBED`.
 - Независимый STARTTLS-клиент проверяет mailbox с дочерней папкой, лист, имя
   подписки без mailbox и комбинированный CHILDREN+SUBSCRIBED. Это не проверка
   пользовательского litterkeep-клиента.
@@ -45,9 +73,9 @@ ManageSieve до заявленного набора современных фо
   strict Clippy и 226 тестов PASS. Данные сохранены в
   `./data/g14-list-children`; контейнер `litterkeep-g14-list-children`
   остановлен и удалён. `litterkeep-g12-phone` не затронут.
-- LIST теперь покрывает CHILDREN и SUBSCRIBED return; STATUS return, полный
-  reference-name pattern profile и прочие расширенные элементы остаются
-  непроверенными. G14 остаётся RUNNING.
+- LIST теперь покрывает CHILDREN и SUBSCRIBED return; полный reference-name
+  pattern profile и прочие расширенные элементы остаются непроверенными.
+  G14 остаётся RUNNING.
 
 ### 2026-09-24: G14 LIST RECURSIVEMATCH checkpoint
 

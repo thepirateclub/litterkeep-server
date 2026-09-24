@@ -5,6 +5,7 @@ import imaplib
 import os
 import ssl
 import uuid
+from itertools import pairwise
 
 
 def require(status: str, detail: object, expected: str, operation: str) -> object:
@@ -24,6 +25,36 @@ def tagged_command(client: imaplib.IMAP4, command: bytes, expected: str) -> None
     client.send(tag + b" " + command + b"\r\n")
     status, detail = client._get_tagged_response(tag)
     require(status, detail, expected, command.decode("ascii"))
+
+
+def ordered_list_command(client: imaplib.IMAP4, command: bytes) -> list[bytes]:
+    """Сохраняет wire-порядок untagged ответов, чтобы проверить LIST/STATUS соседство."""
+    responses: list[bytes] = []
+    original = client._get_response
+
+    def capture(*args: object, **kwargs: object) -> bytes | None:
+        response = original(*args, **kwargs)
+        if response is not None:
+            responses.append(response)
+        return response
+
+    client._get_response = capture
+    try:
+        tagged_command(client, command, "OK")
+    finally:
+        client._get_response = original
+    return responses
+
+
+def require_adjacent(
+    responses: list[bytes], list_prefix: bytes, status_prefix: bytes, operation: str
+) -> None:
+    matched = any(
+        first.startswith(list_prefix) and second.startswith(status_prefix)
+        for first, second in pairwise(responses)
+    )
+    if not matched:
+        raise AssertionError(f"{operation}: LIST and STATUS were not adjacent: {responses!r}")
 
 
 def require_record(records: bytes, expected: bytes, operation: str) -> None:
@@ -54,6 +85,12 @@ def main() -> None:
     phantom_child = f"Phantom{suffix}/Nested"
     require(*client.create(present_name), "OK", "CREATE")
     require(*client.create(child_name), "OK", "CREATE nested")
+    status_message = b"Subject: status fixture\r\n\r\nstatus body\r\n"
+    require(
+        *client.append(present_name, "(\\Deleted)", None, status_message),
+        "OK",
+        "APPEND status fixture",
+    )
     require(*client.subscribe(present_name), "OK", "SUBSCRIBE existing")
     require(*client.subscribe(missing_name), "OK", "SUBSCRIBE missing")
     require(*client.subscribe(child_name), "OK", "SUBSCRIBE nested")
@@ -109,11 +146,7 @@ def main() -> None:
         f'(\\HasNoChildren) "/" "{child_name}"'.encode(),
         "leaf mailbox",
     )
-    require_record(
-        children,
-        f'(\\NonExistent \\HasNoChildren) "/" "{missing_name}"'.encode(),
-        "missing subscription without children",
-    )
+    reject_record(children, missing_name.encode(), "ordinary list excludes missing subscription")
     subscribed_children = list_command(
         client, b'LIST "" "*" RETURN (SUBSCRIBED CHILDREN)'
     )
@@ -124,12 +157,46 @@ def main() -> None:
     )
     require_record(
         subscribed_children,
-        f'(\\NonExistent \\Subscribed \\HasNoChildren) "/" "{missing_name}"'.encode(),
-        "combined absent subscription",
+        f'(\\HasChildren) "/" "{special_parent}"'.encode(),
+        "SUBSCRIBED return does not select a non-subscribed mailbox",
+    )
+    reject_record(
+        subscribed_children,
+        missing_name.encode(),
+        "SUBSCRIBED return does not select nonexistent mailbox",
+    )
+    status_command = (
+        b'LIST () "" "' + present_name.encode() + b'" RETURN '
+        b'(STATUS (MESSAGES UNSEEN DELETED SIZE UIDNEXT UIDVALIDITY))'
+    )
+    ordered = ordered_list_command(client, status_command)
+    require_adjacent(
+        ordered,
+        f'* LIST () "/" "{present_name}"'.encode(),
+        (
+            f'* STATUS "{present_name}" (MESSAGES 1 UNSEEN 1 DELETED 1 '
+            f'SIZE {len(status_message)} UIDNEXT 2 UIDVALIDITY 1)'
+        ).encode(),
+        "STATUS for existing matching mailbox",
+    )
+    absent_status = ordered_list_command(
+        client,
+        b'LIST (SUBSCRIBED) "" "' + missing_name.encode() + b'" '
+        b'RETURN (STATUS (MESSAGES))',
+    )
+    require_record(
+        b"\n".join(absent_status),
+        f'* LIST (\\NonExistent \\Subscribed) "/" "{missing_name}"'.encode(),
+        "missing subscribed mailbox remains listable",
+    )
+    reject_record(
+        b"\n".join(absent_status),
+        f'* STATUS "{missing_name}"'.encode(),
+        "missing mailbox has no STATUS response",
     )
     list_command(client, b'LIST (RECURSIVEMATCH) "" "%"', "BAD")
     client.logout()
-    print("PASS imap-list-subscribed: recursive parents, CHILDINFO, CHILDREN and invalid option")
+    print("PASS imap-list-subscribed: recursive parents, CHILDINFO, CHILDREN, STATUS order and invalid option")
 
 
 if __name__ == "__main__":
