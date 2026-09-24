@@ -8,6 +8,7 @@ use std::collections::{BTreeMap, HashMap};
 pub enum MediaType {
     TextPlain,
     TextHtml,
+    TextOther(String),
     MultipartMixed,
     MultipartAlternative,
     MultipartRelated,
@@ -22,6 +23,7 @@ impl MediaType {
         match self {
             Self::TextPlain => ("TEXT", "PLAIN"),
             Self::TextHtml => ("TEXT", "HTML"),
+            Self::TextOther(subtype) => ("TEXT", subtype),
             Self::MultipartMixed => ("MULTIPART", "MIXED"),
             Self::MultipartAlternative => ("MULTIPART", "ALTERNATIVE"),
             Self::MultipartRelated => ("MULTIPART", "RELATED"),
@@ -233,7 +235,8 @@ fn hex(byte: u8) -> Option<u8> {
 }
 
 fn parse_media_type(value: &str) -> MediaType {
-    match value.to_ascii_lowercase().as_str() {
+    let normalized = value.to_ascii_lowercase();
+    match normalized.as_str() {
         "text/plain" => MediaType::TextPlain,
         "text/html" => MediaType::TextHtml,
         "multipart/mixed" => MediaType::MultipartMixed,
@@ -241,7 +244,10 @@ fn parse_media_type(value: &str) -> MediaType {
         "multipart/related" => MediaType::MultipartRelated,
         "message/rfc822" => MediaType::MessageRfc822,
         "application/octet-stream" => MediaType::ApplicationOctetStream,
-        _ => MediaType::Other(value.to_owned()),
+        _ => match normalized.split_once('/') {
+            Some(("text", subtype)) => MediaType::TextOther(subtype.to_owned()),
+            _ => MediaType::Other(normalized),
+        },
     }
 }
 

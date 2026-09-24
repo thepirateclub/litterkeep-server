@@ -2,7 +2,8 @@
 
 use super::*;
 use crate::imap::search::{HeaderSelector, SearchKey};
-use crate::mime::header_block::{HeaderBlock, HeaderName};
+use crate::mime::header_block::HeaderName;
+use crate::mime::search_text::SearchDocument;
 
 /// Публикует только числа пространства адресации, выбранного клиентом.
 pub(super) fn completed(
@@ -29,8 +30,8 @@ pub(super) fn completed(
         .iter()
         .enumerate()
         .filter_map(|(offset, message)| {
-            let headers = match requires_headers(&key) {
-                true => crate::mime::header_block::parse(&message.bytes).ok(),
+            let document = match requires_headers(&key) {
+                true => SearchDocument::parse(&message.bytes, requires_body(&key)).ok(),
                 false => None,
             };
             let sequence = usize_as_u64(offset.saturating_add(1));
@@ -40,7 +41,7 @@ pub(super) fn completed(
                 maximum_uid,
                 recent,
             };
-            matches_key(message, &key, headers.as_ref(), &position).then_some(match addressing {
+            matches_key(message, &key, document.as_ref(), &position).then_some(match addressing {
                 imap::Addressing::Sequence => offset.saturating_add(1) as u64,
                 imap::Addressing::Uid => message.uid,
             })
@@ -60,7 +61,7 @@ struct MatchPosition<'a> {
 fn matches_key(
     message: &crate::store::Message,
     key: &SearchKey,
-    headers: Option<&HeaderBlock>,
+    document: Option<&SearchDocument>,
     position: &MatchPosition<'_>,
 ) -> bool {
     use crate::mail_flags::SystemFlag;
@@ -86,25 +87,25 @@ fn matches_key(
             set.contains_bounded(position.sequence, position.maximum_sequence)
         }
         SearchKey::UidSet(set) => set.contains_bounded(message.uid, position.maximum_uid),
-        SearchKey::Header(selector, needle) => header_matches(headers, selector, needle),
-        SearchKey::Body(needle) => body_matches(message, headers, needle),
-        SearchKey::Text(needle) => contains(&message.bytes, needle.as_bytes()),
+        SearchKey::Header(selector, needle) => header_matches(document, selector, needle),
+        SearchKey::Body(needle) => document.is_some_and(|value| value.body_contains(needle)),
+        SearchKey::Text(needle) => document.is_some_and(|value| value.text_contains(needle)),
         SearchKey::Larger(size) => usize_as_u64(message.bytes.len()) > *size,
         SearchKey::Smaller(size) => usize_as_u64(message.bytes.len()) < *size,
         SearchKey::Before(date) => message_date(message) < *date,
         SearchKey::On(date) => message_date(message) == *date,
         SearchKey::Since(date) => message_date(message) >= *date,
-        SearchKey::SentBefore(date) => sent_date(headers).is_some_and(|sent| sent < *date),
-        SearchKey::SentOn(date) => sent_date(headers).is_some_and(|sent| sent == *date),
-        SearchKey::SentSince(date) => sent_date(headers).is_some_and(|sent| sent >= *date),
-        SearchKey::Not(item) => !matches_key(message, item, headers, position),
-        SearchKey::Or(left, right) => match matches_key(message, left, headers, position) {
+        SearchKey::SentBefore(date) => sent_date(document).is_some_and(|sent| sent < *date),
+        SearchKey::SentOn(date) => sent_date(document).is_some_and(|sent| sent == *date),
+        SearchKey::SentSince(date) => sent_date(document).is_some_and(|sent| sent >= *date),
+        SearchKey::Not(item) => !matches_key(message, item, document, position),
+        SearchKey::Or(left, right) => match matches_key(message, left, document, position) {
             true => true,
-            false => matches_key(message, right, headers, position),
+            false => matches_key(message, right, document, position),
         },
         SearchKey::And(keys) => keys
             .iter()
-            .all(|item| matches_key(message, item, headers, position)),
+            .all(|item| matches_key(message, item, document, position)),
     }
 }
 
@@ -112,22 +113,26 @@ fn message_date(message: &crate::store::Message) -> crate::imap::search_date::Se
     crate::imap::search_date::SearchDate::from_mail_date(message.internal_date)
 }
 
-fn sent_date(headers: Option<&HeaderBlock>) -> Option<crate::imap::search_date::SearchDate> {
-    let headers = headers?;
-    headers
-        .fields
+fn sent_date(document: Option<&SearchDocument>) -> Option<crate::imap::search_date::SearchDate> {
+    let document = document?;
+    document
+        .headers
         .iter()
-        .find(|field| field.kind() == HeaderName::Date)
-        .and_then(|field| crate::imap::sent_date::parse(&field.value))
+        .find(|field| field.kind == HeaderName::Date)
+        .and_then(|field| crate::imap::sent_date::parse(field.value.as_bytes()))
 }
 
-fn header_matches(headers: Option<&HeaderBlock>, selector: &HeaderSelector, needle: &str) -> bool {
-    let Some(headers) = headers else {
+fn header_matches(
+    document: Option<&SearchDocument>,
+    selector: &HeaderSelector,
+    needle: &str,
+) -> bool {
+    let Some(document) = document else {
         return false;
     };
-    headers.fields.iter().any(|field| {
-        selector_matches(field.kind(), &field.name, selector)
-            && contains(&field.value, needle.as_bytes())
+    document.headers.iter().any(|field| {
+        selector_matches(field.kind, &field.name, selector)
+            && crate::mime::search_text::contains_case_insensitive_ascii(&field.value, needle)
     })
 }
 
@@ -138,24 +143,11 @@ fn selector_matches(kind: HeaderName, name: &str, selector: &HeaderSelector) -> 
     }
 }
 
-fn body_matches(
-    message: &crate::store::Message,
-    headers: Option<&HeaderBlock>,
-    needle: &str,
-) -> bool {
-    let Some(HeaderBlock { body_offset, .. }) = headers else {
-        return false;
-    };
-    message
-        .bytes
-        .get(*body_offset..)
-        .is_some_and(|body| contains(body, needle.as_bytes()))
-}
-
 fn requires_headers(key: &SearchKey) -> bool {
     match key {
         SearchKey::Header(..)
         | SearchKey::Body(_)
+        | SearchKey::Text(_)
         | SearchKey::SentBefore(_)
         | SearchKey::SentOn(_)
         | SearchKey::SentSince(_) => true,
@@ -169,13 +161,13 @@ fn requires_headers(key: &SearchKey) -> bool {
     }
 }
 
-/// RFC SEARCH string matching является регистронезависимым для ASCII профиля.
-fn contains(haystack: &[u8], needle: &[u8]) -> bool {
-    match needle.is_empty() {
-        true => true,
-        false => haystack
-            .windows(needle.len())
-            .any(|window| window.eq_ignore_ascii_case(needle)),
+fn requires_body(key: &SearchKey) -> bool {
+    match key {
+        SearchKey::Body(_) | SearchKey::Text(_) => true,
+        SearchKey::And(keys) => keys.iter().any(requires_body),
+        SearchKey::Not(item) => requires_body(item),
+        SearchKey::Or(left, right) => requires_body(left) || requires_body(right),
+        _ => false,
     }
 }
 

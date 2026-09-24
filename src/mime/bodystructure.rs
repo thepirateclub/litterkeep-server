@@ -48,7 +48,9 @@ fn encode_leaf(entity: &Entity, message: &[u8]) -> Result<String, &'static str> 
         body.len()
     );
     match entity.media_type {
-        MediaType::TextPlain | MediaType::TextHtml => Ok(format!("{base} {})", line_count(body))),
+        MediaType::TextPlain | MediaType::TextHtml | MediaType::TextOther(_) => {
+            Ok(format!("{base} {})", line_count(body)))
+        }
         _ => Ok(format!("{base})")),
     }
 }

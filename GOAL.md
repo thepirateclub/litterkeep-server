@@ -77,6 +77,30 @@ ManageSieve до заявленного набора современных фо
 - G14 остаётся RUNNING: этот checkpoint не подтверждает полный RFC 9051 набор
   команд/расширений и совместимость всего IMAP4rev1 профиля. G15-G18 не начаты.
 
+### 2026-09-24: G14 decoded MIME SEARCH checkpoint
+
+- `BODY`/`TEXT` теперь сравнивают декодированные `text/*` leaf parts: Base64 и
+  quoted-printable переводятся в октеты, затем применяется ограниченный charset
+  профиль US-ASCII, UTF-8 и ISO-8859-1. RFC 2047 encoded-word декодируется в
+  outer headers и MIME-part headers; `HEADER` использует decoded outer values.
+  `BODY` не ищет внешние заголовки и не сканирует
+  `application/octet-stream` attachment bytes. Projection строится один раз на
+  сообщение в пределах одного SEARCH.
+- Неизвестный charset, невалидная transfer encoding или некорректный текст не
+  сопоставляются как исходные encoded octets. Другие MIME charset пока не
+  поддерживаются, поэтому такой text part не даёт совпадений.
+- PASS: Windows `cargo fmt --check`, strict Clippy и 209 тестов; Docker Linux
+  Rust 1.97 test target прошёл strict Clippy и 241 тест; независимый Python
+  STARTTLS-клиент подтвердил Base64 UTF-8, quoted-printable UTF-8,
+  RFC 2047 outer/MIME заголовки, различие BODY/TEXT и исключение бинарного
+  вложения (`PASS imap-search-mime`). Python syntax и structural audit также
+  прошли: 241 Rust-файл, каждый не более 300 строк, `mod.rs` отсутствует.
+  Тестовый контейнер `litterkeep-g14-search-mime` удалён после проверки;
+  данные сохранены в `./data/g14-search-mime`.
+- SEARCH остаётся PARTIAL: неподдерживаемые MIME charset, SAVE/`$`, полный
+  mandatory SEARCH key set и полная IMAP4rev2 grammar не закрыты. CAPABILITY
+  по-прежнему не объявляет IMAP4rev2.
+
 ### 2026-09-24: G14 NAMESPACE and UNSELECT checkpoint
 
 - Добавлены typed-команды `NAMESPACE` и `UNSELECT`. Персональный namespace

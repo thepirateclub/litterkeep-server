@@ -1,6 +1,6 @@
 //! Рекурсивное MIME-дерево с абсолютными диапазонами исходного RFC822.
 
-use super::header_block::{self, HeaderName};
+use super::header_block::{self, HeaderField, HeaderName};
 use super::parameters::{self, MediaType};
 use super::transfer::TransferEncoding;
 use std::collections::BTreeMap;
@@ -12,6 +12,8 @@ const MAX_PARTS: usize = 256;
 /// MIME entity не копирует тело: все диапазоны указывают в исходный message.
 #[derive(Debug, Eq, PartialEq)]
 pub struct Entity {
+    /// MIME-заголовки entity после unfold без повторного чтения большого body.
+    pub headers: Vec<HeaderField>,
     pub raw_range: Range<usize>,
     pub header_range: Range<usize>,
     pub body_range: Range<usize>,
@@ -111,6 +113,7 @@ fn parse_entity(
         _ => {}
     }
     Ok(Entity {
+        headers: headers.fields,
         raw_range: base..base + raw.len(),
         header_range: base..base + headers.body_offset.saturating_sub(2),
         body_range: base + headers.body_offset..base + raw.len(),

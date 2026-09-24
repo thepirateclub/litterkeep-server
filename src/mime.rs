@@ -15,6 +15,8 @@ pub mod header_block;
 pub mod parameters;
 #[path = "mime/quoted_printable.rs"]
 pub mod quoted_printable;
+#[path = "mime/search_text.rs"]
+pub mod search_text;
 #[path = "mime/transfer.rs"]
 pub mod transfer;
 #[path = "mime/tree.rs"]

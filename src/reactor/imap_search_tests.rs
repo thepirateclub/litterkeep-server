@@ -35,12 +35,13 @@ fn matches_headers_body_text_size_and_conjunction() {
         SearchKey::Body("token".into()),
         SearchKey::Larger(20),
     ]);
-    let headers = crate::mime::header_block::parse(&value.bytes).expect("headers");
+    let document = crate::mime::search_text::SearchDocument::parse(&value.bytes, true)
+        .expect("search document");
     let recent = std::collections::BTreeSet::new();
     assert!(matches_key(
         &value,
         &query,
-        Some(&headers),
+        Some(&document),
         &position(&recent)
     ));
     assert!(!matches_key(
@@ -52,7 +53,7 @@ fn matches_headers_body_text_size_and_conjunction() {
     assert!(matches_key(
         &value,
         &SearchKey::Text("subject".into()),
-        None,
+        Some(&document),
         &position(&recent)
     ));
 }
@@ -148,20 +149,22 @@ fn boolean_header_query_requests_header_parse() {
 fn matches_sent_date_without_falling_back_to_internal_date() {
     let recent = std::collections::BTreeSet::new();
     let value = message(b"Date: Mon, 2 Feb 2026 23:00:00 +0000\r\n\r\nbody");
-    let headers = crate::mime::header_block::parse(&value.bytes).expect("headers");
+    let document = crate::mime::search_text::SearchDocument::parse(&value.bytes, false)
+        .expect("search document");
     let boundary = crate::imap::search_date::SearchDate::parse("2-Feb-2026").expect("date");
     assert!(matches_key(
         &value,
         &SearchKey::SentOn(boundary),
-        Some(&headers),
+        Some(&document),
         &position(&recent)
     ));
     let missing = message(b"Subject: no date\r\n\r\nbody");
-    let missing_headers = crate::mime::header_block::parse(&missing.bytes).expect("headers");
+    let missing_document = crate::mime::search_text::SearchDocument::parse(&missing.bytes, false)
+        .expect("search document");
     assert!(!matches_key(
         &missing,
         &SearchKey::SentSince(boundary),
-        Some(&missing_headers),
+        Some(&missing_document),
         &position(&recent)
     ));
 }
