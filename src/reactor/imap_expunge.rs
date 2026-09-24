@@ -12,7 +12,7 @@ pub(super) fn queue(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
     close: bool,
-    uid_set: Option<imap::sequence_set::SequenceSet>,
+    uid_set: Option<imap::sequence_set::MessageSet>,
 ) -> io::Result<()> {
     if matches!((session.selected_read_only, close), (true, false)) {
         return session.push(format!("{tag} NO [READ-ONLY] EXPUNGE denied\r\n").as_bytes());
@@ -23,6 +23,7 @@ pub(super) fn queue(
     if session.selected_read_only {
         return close_completed(session, tag);
     }
+    let saved_uids = session.saved_search_uids.clone();
     let id = *request_id;
     *request_id = request_id.wrapping_add(1).max(1);
     protocol::submit(
@@ -36,6 +37,7 @@ pub(super) fn queue(
             mailbox,
             close,
             uid_set,
+            saved_uids,
         },
         slot,
         generation,
@@ -55,6 +57,7 @@ pub(super) fn follow_up(
         mailbox,
         close,
         uid_set,
+        saved_uids,
     } = pending
     else {
         return None;
@@ -69,15 +72,11 @@ pub(super) fn follow_up(
     let mut uids = Vec::new();
     let mut sequence_numbers = Vec::new();
     let mut removed = 0_usize;
-    let resolved_uids = uid_set.as_ref().map(|set| {
-        set.resolve(
-            snapshot
-                .messages
-                .last()
-                .map(|message| message.uid)
-                .unwrap_or(0),
-        )
-    });
+    let maximum_uid = snapshot
+        .messages
+        .last()
+        .map(|message| message.uid)
+        .unwrap_or(0);
     for (offset, message) in snapshot.messages.iter().enumerate() {
         if !message
             .flags
@@ -85,10 +84,7 @@ pub(super) fn follow_up(
         {
             continue;
         }
-        if resolved_uids
-            .as_ref()
-            .is_some_and(|set| !set.contains(message.uid))
-        {
+        if !selected_uid(uid_set.as_ref(), message.uid, maximum_uid, saved_uids) {
             continue;
         }
         let sequence = offset.saturating_add(1).saturating_sub(removed);
@@ -111,6 +107,22 @@ pub(super) fn follow_up(
             close: *close,
         },
     ))
+}
+
+/// UID EXPUNGE объединяет \\Deleted с explicit UID set или RFC saved result.
+fn selected_uid(
+    uid_set: Option<&imap::sequence_set::MessageSet>,
+    uid: u64,
+    maximum_uid: u64,
+    saved_uids: &std::collections::BTreeSet<u64>,
+) -> bool {
+    match uid_set {
+        None => true,
+        Some(imap::sequence_set::MessageSet::Explicit(explicit)) => {
+            explicit.contains_bounded(uid, maximum_uid)
+        }
+        Some(imap::sequence_set::MessageSet::Saved) => saved_uids.contains(&uid),
+    }
 }
 
 pub(super) fn completed(

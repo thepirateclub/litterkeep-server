@@ -218,6 +218,12 @@ fn uid_expunge_requires_non_empty_uid_set() {
         Command::UidExpunge { .. }
     ));
     assert_eq!(parse("a UID EXPUNGE\r\n").command, Command::Unsupported);
+    assert!(matches!(
+        parse("a UID EXPUNGE $\r\n").command,
+        Command::UidExpunge {
+            sequence_set: crate::imap::sequence_set::MessageSet::Saved
+        }
+    ));
 }
 
 #[test]

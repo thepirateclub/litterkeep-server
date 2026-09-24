@@ -27,6 +27,21 @@ ManageSieve до заявленного набора современных фо
 | G17 | G12 | MIME RFC 5322/2045-2049 updates and Sieve RFC 5228/ManageSieve RFC 5804 profile | NOT RUN |
 | G18 | G14,G15,G16,G17 | Cross-protocol Linux acceptance, truthful capabilities and final coverage matrix | NOT RUN |
 
+### 2026-09-25: G14 SEARCHRES UID EXPUNGE checkpoint
+
+- `UID EXPUNGE $` принимает типизированный saved-result set, снимок результата
+  фиксируется при постановке операции в очередь, а удаляются только сообщения
+  одновременно с `\\Deleted` и сохранённым UID.
+- Независимый STARTTLS black-box проверил два удалённых флага: сохранённый UID
+  удалён, несохранённый остался; пустой saved result не изменил mailbox.
+- Проверки: Rust 1.97.1, 232 Windows unit tests, строгий Clippy, Linux Docker
+  Rust 1.97, 267 tests и Clippy, затем runtime black-box PASS. Это не тест
+  подключения из приложения Litterkeep. Данные этапа: `./data/g14-searchres-expunge`.
+- SEARCHRES capability остаётся скрытой: `$` в COPY/UID COPY и корректный
+  порядок конвейерных зависимостей SEARCH SAVE пока не реализованы.
+- Временный контейнер этапа удалён после проверки; сохранённый
+  `litterkeep-g12-phone` не затрагивался. G14 остаётся RUNNING.
+
 ### 2026-09-25: G14 SEARCHRES STORE checkpoint
 
 - `STORE $` и `UID STORE $` теперь используют тот же typed saved-result,

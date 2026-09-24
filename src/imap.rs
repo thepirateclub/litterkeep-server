@@ -110,7 +110,7 @@ pub enum Command {
     },
     Expunge,
     UidExpunge {
-        sequence_set: SequenceSet,
+        sequence_set: sequence_set::MessageSet,
     },
     List {
         pattern: folder::ListPattern,
@@ -222,7 +222,7 @@ pub fn parse(line: &str) -> TaggedCommand {
 
 fn parse_uid_expunge(mut tokens: impl Iterator<Item = Token>) -> Command {
     match (next_text(&mut tokens), tokens.next()) {
-        (Some(value), None) => SequenceSet::parse(&value)
+        (Some(value), None) => sequence_set::MessageSet::parse(&value)
             .map(|sequence_set| Command::UidExpunge { sequence_set })
             .unwrap_or(Command::Unsupported),
         _ => Command::Unsupported,

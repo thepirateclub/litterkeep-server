@@ -121,7 +121,8 @@ pub(super) enum Pending {
         tag: String,
         mailbox: String,
         close: bool,
-        uid_set: Option<imap::sequence_set::SequenceSet>,
+        uid_set: Option<imap::sequence_set::MessageSet>,
+        saved_uids: std::collections::BTreeSet<u64>,
     },
     Expunge {
         tag: String,

@@ -103,8 +103,23 @@ def main() -> None:
     if b" FETCH " in response_bytes(empty_fetch):
         raise AssertionError(f"empty saved result returned a FETCH item: {empty_fetch!r}")
     require(client.store("$", "+FLAGS", "(\\Flagged)"), "STORE empty saved result")
+
+    require(
+        client.uid("STORE", "1,3", "+FLAGS", "(\\Deleted)"),
+        "mark two messages deleted",
+    )
+    saved_search(client, third_marker, uid=True)
+    require(client.uid("EXPUNGE", "$"), "UID EXPUNGE saved result")
+    remaining = require(client.uid("SEARCH", "ALL"), "UID SEARCH after saved EXPUNGE")
+    if response_bytes(remaining).strip() != b"1":
+        raise AssertionError(f"UID EXPUNGE $ removed outside saved result: {remaining!r}")
+    saved_search(client, f"{mailbox}-absent", uid=True)
+    require(client.uid("EXPUNGE", "$"), "UID EXPUNGE empty saved result")
+    remaining_after_empty = require(client.uid("SEARCH", "ALL"), "UID SEARCH after empty EXPUNGE")
+    if response_bytes(remaining_after_empty).strip() != b"1":
+        raise AssertionError(f"empty UID EXPUNGE changed mailbox: {remaining_after_empty!r}")
     client.logout()
-    print("PASS imap-searchres-fetch: FETCH/STORE sequence and UID mapping, empty result")
+    print("PASS imap-searchres: FETCH/STORE/UID EXPUNGE, number mapping, empty result")
 
 
 if __name__ == "__main__":
