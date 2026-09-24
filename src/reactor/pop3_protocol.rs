@@ -13,6 +13,9 @@ pub(super) fn line(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<()> {
+    if line.len() > pop3::MAX_COMMAND_LINE_SIZE {
+        return session.push(b"-ERR command line too long\r\n");
+    }
     let command = pop3::parse(std::str::from_utf8(&line).unwrap_or_default());
     if matches!(
         (&command, session.can_starttls()),

@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G15
 
+### 2026-09-25: POP3 RFC 2449 command-line bound checkpoint
+
+- POP3 parser принимает только завершённые CRLF команды из printable ASCII,
+  разделённые одиночным SP. Предел CAPA-enabled RFC 2449 равен 255 октетам
+  целиком с CRLF; более длинная строка получает `-ERR`, уже потреблённая строка
+  не ломает синхронизацию следующей команды.
+- PASS: Windows Rust 1.97.1: 263 теста, strict Clippy, fmt и diff checks.
+  Linux Docker Rust 1.97: release image, strict Clippy и 303 теста. Независимый
+  STLS клиент подтвердил 255 accepted, 256 rejected, затем успешные USER/PASS,
+  STAT и QUIT в той же сессии.
+- Тест: `tests/blackbox/pop3_command_length.py`; stage data/TLS:
+  `./data/g15-pop3-command-length`. Временный контейнер удалён;
+  `litterkeep-g12-phone` оставлен.
+- Это только POP3 command framing/grammar checkpoint. Остальные состояния,
+  ответы, extension semantics и взаимодействие с клиентами продолжают аудит.
+
 ### 2026-09-25: G15 RFC 5321 Postmaster acceptance checkpoint
 
 - RCPT принимает bare `<Postmaster>` без домена и локальный

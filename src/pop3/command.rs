@@ -19,10 +19,22 @@ pub enum Command {
     Invalid,
 }
 
-/// Единственная граница POP3 string verb с точной arity-проверкой.
+/// RFC 2449 ограничивает команду вместе с CRLF 255 октетами.
+pub const MAX_COMMAND_LINE_SIZE: usize = 255;
+
+/// Единственная граница POP3 command line и её точной arity-проверки.
 pub fn parse(line: &str) -> Command {
-    let mut words = line.split_whitespace();
+    let Some(command) = line.strip_suffix("\r\n") else {
+        return Command::Invalid;
+    };
+    if line.len() > MAX_COMMAND_LINE_SIZE || !printable_command(command) {
+        return Command::Invalid;
+    }
+    let mut words = command.split(' ');
     let verb = words.next().unwrap_or_default().to_ascii_uppercase();
+    if !(3..=4).contains(&verb.len()) {
+        return Command::Invalid;
+    }
     match verb.as_str() {
         "USER" => text(words.next(), words.next()).map_or(Command::Invalid, Command::User),
         "PASS" => text(words.next(), words.next()).map_or(Command::Invalid, Command::Pass),
@@ -39,6 +51,13 @@ pub fn parse(line: &str) -> Command {
         "STLS" => empty(words.next(), Command::Stls),
         _ => Command::Invalid,
     }
+}
+
+/// POP3 keywords и параметры используют печатный ASCII и один SP separator.
+fn printable_command(command: &str) -> bool {
+    command
+        .bytes()
+        .all(|octet| octet == b' ' || (33..=126).contains(&octet))
 }
 
 fn text(value: Option<&str>, extra: Option<&str>) -> Option<String> {
@@ -87,3 +106,7 @@ fn top(number: Option<&str>, lines: Option<&str>, extra: Option<&str>) -> Comman
         _ => Command::Invalid,
     }
 }
+
+#[cfg(test)]
+#[path = "command_tests.rs"]
+mod tests;

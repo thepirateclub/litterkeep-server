@@ -1,0 +1,46 @@
+//! Проверяет POP3 command grammar, printable ASCII и RFC 2449 длины.
+use super::*;
+
+#[test]
+fn accepts_command_at_rfc2449_octet_limit() {
+    let username = "u".repeat(248);
+    let wire = format!("USER {username}\r\n");
+    assert_eq!(wire.len(), MAX_COMMAND_LINE_SIZE);
+    assert_eq!(parse(&wire), Command::User(username));
+}
+
+#[test]
+fn rejects_command_over_rfc2449_octet_limit() {
+    let wire = format!("USER {}\r\n", "u".repeat(249));
+    assert_eq!(wire.len(), MAX_COMMAND_LINE_SIZE + 1);
+    assert_eq!(parse(&wire), Command::Invalid);
+}
+
+#[test]
+fn rejects_non_printable_non_ascii_and_noncanonical_separators() {
+    for wire in [
+        "USER  bob\r\n",
+        "USER\tbob\r\n",
+        "USER bob \r\n",
+        "USER b\u{0001}ob\r\n",
+        "USER bоб\r\n",
+        "US bob\r\n",
+        "USER bob\n",
+    ] {
+        assert_eq!(parse(wire), Command::Invalid, "wire command: {wire:?}");
+    }
+}
+
+#[test]
+fn preserves_normal_command_arity() {
+    assert_eq!(parse("STAT\r\n"), Command::Stat);
+    assert_eq!(parse("USER bob\r\n"), Command::User("bob".into()));
+    assert_eq!(
+        parse("TOP 2 3\r\n"),
+        Command::Top {
+            number: 2,
+            lines: 3
+        }
+    );
+    assert_eq!(parse("NOOP extra\r\n"), Command::Invalid);
+}

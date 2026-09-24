@@ -10,7 +10,7 @@ mod maildrop;
 #[path = "pop3/session.rs"]
 mod session;
 
-pub use command::{Command, parse};
+pub use command::{Command, MAX_COMMAND_LINE_SIZE, parse};
 pub use maildrop::Maildrop;
 pub use session::{Reply, Session};
 
