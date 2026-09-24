@@ -8,6 +8,8 @@ use super::{Command, MailboxName};
 pub enum ListPattern {
     /// Базовый LIST-запрос delimiter и корневого имени mailbox hierarchy.
     Root,
+    /// Delimiter discovery для непустой reference hierarchy.
+    RootReference(String),
     All,
     OneLevel,
     Exact(String),

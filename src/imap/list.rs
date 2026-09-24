@@ -114,14 +114,16 @@ fn parse_pattern_tail(
     let reference = next_text(tokens)?;
     let pattern = next_text(tokens)?;
     match tokens.next() {
-        None if reference.is_empty() => match (allow_root, pattern.is_empty()) {
-            (true, true) => Some((ListPattern::Root, ListReturnOptions::default())),
-            (_, false) => Some((list_pattern_value(pattern)?, ListReturnOptions::default())),
-            (false, true) => Some((
-                ListPattern::Exact(String::new()),
-                ListReturnOptions::default(),
-            )),
-        },
+        None => {
+            let resolved = super::list_reference::resolve(&reference, &pattern)?;
+            match (allow_root, pattern.is_empty(), reference.is_empty()) {
+                (false, true, true) => Some((
+                    ListPattern::Exact(String::new()),
+                    ListReturnOptions::default(),
+                )),
+                _ => Some((resolved, ListReturnOptions::default())),
+            }
+        }
         Some(Token::Text(return_name)) if return_name.eq_ignore_ascii_case("RETURN") => {
             parse_return(tokens, reference, pattern)
         }
@@ -134,7 +136,7 @@ fn parse_return(
     reference: String,
     pattern: String,
 ) -> Option<(ListPattern, ListReturnOptions)> {
-    if !reference.is_empty() || !matches!(tokens.next(), Some(Token::ListStart)) {
+    if !matches!(tokens.next(), Some(Token::ListStart)) {
         return None;
     }
     let mut options = ListReturnOptions::default();
@@ -153,7 +155,10 @@ fn parse_return(
         }
     }
     match tokens.next() {
-        None => Some((list_pattern_value(pattern)?, options)),
+        None => Some((
+            super::list_reference::resolve(&reference, &pattern)?,
+            options,
+        )),
         _ => None,
     }
 }
@@ -167,17 +172,6 @@ fn return_option(name: &str) -> Option<ReturnOption> {
         "STATUS" => Some(ReturnOption::Status),
         _ => None,
     }
-}
-
-fn list_pattern_value(pattern: String) -> Option<ListPattern> {
-    Some(match pattern.as_str() {
-        "*" => ListPattern::All,
-        "%" => ListPattern::OneLevel,
-        _ => match (pattern.contains('*'), pattern.contains('%')) {
-            (false, false) => ListPattern::Exact(super::modified_utf7::decode(&pattern).ok()?),
-            _ => ListPattern::Wildcard(super::modified_utf7::decode(&pattern).ok()?),
-        },
-    })
 }
 
 /// Сохраняет двухстрочную грамматику и прежнюю семантику LSUB.

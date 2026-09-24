@@ -17,6 +17,8 @@ pub mod flags;
 pub mod folder;
 pub mod idle;
 pub mod list;
+#[path = "imap/list_reference.rs"]
+mod list_reference;
 pub mod modified_utf7;
 pub mod search;
 pub mod search_charset;

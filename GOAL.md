@@ -27,6 +27,24 @@ ManageSieve до заявленного набора современных фо
 | G17 | G12 | MIME RFC 5322/2045-2049 updates and Sieve RFC 5228/ManageSieve RFC 5804 profile | NOT RUN |
 | G18 | G14,G15,G16,G17 | Cross-protocol Linux acceptance, truthful capabilities and final coverage matrix | NOT RUN |
 
+### 2026-09-24: G14 LIST reference-name checkpoint
+
+- `LIST reference pattern` разрешает относительный шаблон в контексте папки:
+  непустая reference получает `/` separator при необходимости, wildcard `*` и
+  `%` применяется к полному каноническому имени. Ответ содержит полное имя.
+  Пустой pattern выполняет delimiter/root discovery для заданного reference.
+- Независимый STARTTLS-клиент проверил root discovery, `%` без перехода на
+  следующий уровень, `*` с переходом на вложенный уровень и комбинацию
+  reference с `RETURN (CHILDREN)`. Это не проверка пользовательского клиента.
+- PASS: Windows Rust 1.97.1 format/strict Clippy/230 tests; Linux Docker
+  Rust 1.97 release image, strict Clippy/265 tests и независимый Python
+  STARTTLS black-box.
+- Данные этапа сохранены в `./data/g14-list-reference`; black-box контейнер
+  остановить и удалить после проверки, `litterkeep-g12-phone` не затрагивать.
+- Граница реализации: сервер имеет только personal namespace с delimiter `/`;
+  namespace breakout и multi-namespace naming не реализованы. Поэтому G14
+  остаётся RUNNING, хотя относительный reference profile проверен.
+
 ### 2026-09-24: G14 LIST RETURN STATUS checkpoint
 
 - Добавлен `LIST RETURN (STATUS (...))` для MESSAGES, UIDNEXT, UIDVALIDITY,

@@ -82,9 +82,11 @@ def main() -> None:
     present_name = f"SubscribedPresent{suffix}"
     missing_name = f"SubscribedMissing{suffix}"
     child_name = f"{present_name}/Nested"
+    grandchild_name = f"{child_name}/January"
     phantom_child = f"Phantom{suffix}/Nested"
     require(*client.create(present_name), "OK", "CREATE")
     require(*client.create(child_name), "OK", "CREATE nested")
+    require(*client.create(grandchild_name), "OK", "CREATE grandchild")
     status_message = b"Subject: status fixture\r\n\r\nstatus body\r\n"
     require(
         *client.append(present_name, "(\\Deleted)", None, status_message),
@@ -95,6 +97,30 @@ def main() -> None:
     require(*client.subscribe(missing_name), "OK", "SUBSCRIBE missing")
     require(*client.subscribe(child_name), "OK", "SUBSCRIBE nested")
     require(*client.subscribe(phantom_child), "OK", "SUBSCRIBE phantom child")
+
+    root_status, reference_root = client.list(present_name + "/", "")
+    require(root_status, reference_root, "OK", "reference root discovery")
+    if reference_root != [f'(\\Noselect) "/" "{present_name}"'.encode()]:
+        raise AssertionError(f"reference root: {reference_root!r}")
+
+    relative = list_command(
+        client, f'LIST "{present_name}/" "%"'.encode()
+    )
+    require_record(relative, f'"{child_name}"'.encode(), "reference one-level child")
+    reject_record(relative, grandchild_name.encode(), "reference percent stays one level")
+    relative_recursive = list_command(
+        client, f'LIST "{present_name}" "*"'.encode()
+    )
+    require_record(relative_recursive, f'"{grandchild_name}"'.encode(), "reference star crosses levels")
+    relative_return = list_command(
+        client,
+        f'LIST "{present_name}/" "%" RETURN (CHILDREN)'.encode(),
+    )
+    require_record(
+        relative_return,
+        f'(\\HasChildren) "/" "{child_name}"'.encode(),
+        "reference with return options",
+    )
     special_parent = f"Special{suffix}"
     special_child = f"{special_parent}/Sent"
     require(*client.create(special_parent), "OK", "CREATE special parent")
@@ -143,7 +169,12 @@ def main() -> None:
     )
     require_record(
         children,
-        f'(\\HasNoChildren) "/" "{child_name}"'.encode(),
+        f'(\\HasChildren) "/" "{child_name}"'.encode(),
+        "nested mailbox with child",
+    )
+    require_record(
+        children,
+        f'(\\HasNoChildren) "/" "{grandchild_name}"'.encode(),
         "leaf mailbox",
     )
     reject_record(children, missing_name.encode(), "ordinary list excludes missing subscription")

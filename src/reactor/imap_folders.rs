@@ -145,10 +145,14 @@ pub(super) fn list(
     };
     // Separator и пустой root относятся к namespace сервера, а не к каталогу
     // сохранённых папок аккаунта; отвечаем без лишней работы Store owner-а.
-    if let imap::folder::ListPattern::Root = &pattern {
-        return session.push(
-            format!("* LIST (\\Noselect) \"/\" \"\"\r\n{tag} OK LIST completed\r\n").as_bytes(),
-        );
+    match &pattern {
+        imap::folder::ListPattern::Root => {
+            return root_response(session, &tag, "");
+        }
+        imap::folder::ListPattern::RootReference(root) => {
+            return root_response(session, &tag, root);
+        }
+        _ => {}
     }
     submit_folder(
         session,
@@ -168,6 +172,17 @@ pub(super) fn list(
         request_id,
     );
     Ok(())
+}
+
+/// Возвращает separator и каноническое имя корня без чтения каталога.
+fn root_response(session: &mut Session, tag: &str, root: &str) -> io::Result<()> {
+    session.push(
+        format!(
+            "* LIST (\\Noselect) \"/\" {}\r\n{tag} OK LIST completed\r\n",
+            imap_folders::quote(root)
+        )
+        .as_bytes(),
+    )
 }
 
 #[allow(clippy::too_many_arguments)]
