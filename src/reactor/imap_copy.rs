@@ -13,7 +13,7 @@ pub(super) fn queue(
     tag: String,
     transfer: imap::Transfer,
     addressing: imap::Addressing,
-    sequence_set: imap::sequence_set::SequenceSet,
+    sequence_set: imap::sequence_set::MessageSet,
     destination: imap::MailboxName,
     slot: usize,
     generation: u64,
@@ -31,6 +31,7 @@ pub(super) fn queue(
         return session.push(format!("{tag} NO [READ-ONLY] COPY denied\r\n").as_bytes());
     }
     let destination_name = wire_name(destination);
+    let saved_uids = session.saved_search_uids.clone();
     let id = *request_id;
     *request_id = request_id.wrapping_add(1).max(1);
     protocol::submit(
@@ -47,6 +48,7 @@ pub(super) fn queue(
             account,
             source,
             destination_name,
+            saved_uids,
         },
         slot,
         generation,
@@ -72,13 +74,15 @@ pub(super) fn follow_up(
                 account,
                 source,
                 destination_name,
+                saved_uids,
             },
             Response::Read {
                 result: Ok(snapshot),
                 ..
             },
         ) => {
-            let source_uids = selected_uids(*addressing, sequence_set, &snapshot.messages);
+            let source_uids =
+                selected_uids(*addressing, sequence_set, saved_uids, &snapshot.messages);
             let source_sequences = selected_sequences(&source_uids, &snapshot.messages);
             let request_id = next(next_request);
             Some((
@@ -195,25 +199,37 @@ fn verb(transfer: imap::Transfer) -> &'static str {
     }
 }
 
+/// Разрешает командный набор к UID по одному согласованному снимку ящика.
+///
+/// Явный набор проверяется в запрошенном пространстве нумерации: sequence
+/// number берётся из позиции сообщения, а UID из его устойчивого идентификатора.
+/// Сохранённый результат всегда содержит UID, поэтому для `$` адресация команды
+/// не меняет состав набора; UID сопоставляются напрямую с тем же снимком.
 fn selected_uids(
     addressing: imap::Addressing,
-    sequence_set: &imap::sequence_set::SequenceSet,
+    sequence_set: &imap::sequence_set::MessageSet,
+    saved_uids: &std::collections::BTreeSet<u64>,
     messages: &[crate::store::Message],
 ) -> Vec<u64> {
     let maximum = match addressing {
         imap::Addressing::Sequence => messages.len() as u64,
         imap::Addressing::Uid => messages.last().map(|message| message.uid).unwrap_or(0),
     };
-    let resolved = sequence_set.resolve(maximum);
     messages
         .iter()
         .enumerate()
         .filter_map(|(offset, message)| {
-            let candidate = match addressing {
-                imap::Addressing::Sequence => offset.saturating_add(1) as u64,
-                imap::Addressing::Uid => message.uid,
+            let matches = match sequence_set {
+                imap::sequence_set::MessageSet::Explicit(explicit) => {
+                    let candidate = match addressing {
+                        imap::Addressing::Sequence => offset.saturating_add(1) as u64,
+                        imap::Addressing::Uid => message.uid,
+                    };
+                    explicit.contains_bounded(candidate, maximum)
+                }
+                imap::sequence_set::MessageSet::Saved => saved_uids.contains(&message.uid),
             };
-            resolved.contains(candidate).then_some(message.uid)
+            matches.then_some(message.uid)
         })
         .collect()
 }

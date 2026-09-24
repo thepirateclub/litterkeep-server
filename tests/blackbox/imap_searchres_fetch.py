@@ -103,6 +103,45 @@ def main() -> None:
     if b" FETCH " in response_bytes(empty_fetch):
         raise AssertionError(f"empty saved result returned a FETCH item: {empty_fetch!r}")
     require(client.store("$", "+FLAGS", "(\\Flagged)"), "STORE empty saved result")
+    empty_sequence_copy = f"{mailbox}-empty-sequence-copy"
+    require(client.create(empty_sequence_copy), "CREATE empty sequence COPY destination")
+    require(client.copy("$", empty_sequence_copy), "COPY empty saved result")
+    require(client.select(empty_sequence_copy), "SELECT empty sequence COPY destination")
+    empty_sequence = require(client.uid("SEARCH", "ALL"), "SEARCH empty sequence COPY result")
+    if response_bytes(empty_sequence).strip():
+        raise AssertionError(f"COPY empty saved result copied a message: {empty_sequence!r}")
+
+    sequence_copy = f"{mailbox}-sequence-copy"
+    require(client.create(sequence_copy), "CREATE sequence COPY destination")
+    require(client.select(mailbox), "SELECT source before sequence COPY")
+    saved_search(client, third_marker)
+    require(client.copy("$", sequence_copy), "COPY saved sequence result")
+    require(client.select(sequence_copy), "SELECT sequence COPY destination")
+    copied_sequence = require(client.uid("SEARCH", "ALL"), "SEARCH sequence COPY result")
+    if response_bytes(copied_sequence).strip() != b"1":
+        raise AssertionError(f"COPY $ did not copy exactly one saved message: {copied_sequence!r}")
+
+    uid_copy = f"{mailbox}-uid-copy"
+    require(client.create(uid_copy), "CREATE UID COPY destination")
+    require(client.select(mailbox), "SELECT source before UID COPY")
+    saved_search(client, first_marker, uid=True)
+    require(client.uid("COPY", "$", uid_copy), "UID COPY saved UID result")
+    require(client.select(uid_copy), "SELECT UID COPY destination")
+    copied_uid = require(client.uid("SEARCH", "ALL"), "SEARCH UID COPY result")
+    if response_bytes(copied_uid).strip() != b"1":
+        raise AssertionError(f"UID COPY $ did not copy exactly one saved message: {copied_uid!r}")
+
+    empty_uid_copy = f"{mailbox}-empty-uid-copy"
+    require(client.create(empty_uid_copy), "CREATE empty UID COPY destination")
+    require(client.select(mailbox), "SELECT source before empty UID COPY")
+    saved_search(client, f"{mailbox}-absent", uid=True)
+    require(client.uid("COPY", "$", empty_uid_copy), "UID COPY empty saved result")
+    require(client.select(empty_uid_copy), "SELECT empty UID COPY destination")
+    empty_uid = require(client.uid("SEARCH", "ALL"), "SEARCH empty UID COPY result")
+    if response_bytes(empty_uid).strip():
+        raise AssertionError(f"UID COPY empty saved result copied a message: {empty_uid!r}")
+
+    require(client.select(mailbox), "SELECT source before expunge")
 
     require(
         client.uid("STORE", "1,3", "+FLAGS", "(\\Deleted)"),
@@ -119,7 +158,7 @@ def main() -> None:
     if response_bytes(remaining_after_empty).strip() != b"1":
         raise AssertionError(f"empty UID EXPUNGE changed mailbox: {remaining_after_empty!r}")
     client.logout()
-    print("PASS imap-searchres: FETCH/STORE/UID EXPUNGE, number mapping, empty result")
+    print("PASS imap-searchres: FETCH/STORE/COPY/UID COPY/UID EXPUNGE, mapping, empty sets")
 
 
 if __name__ == "__main__":

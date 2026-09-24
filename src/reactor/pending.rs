@@ -134,10 +134,11 @@ pub(super) enum Pending {
         tag: String,
         transfer: imap::Transfer,
         addressing: imap::Addressing,
-        sequence_set: imap::sequence_set::SequenceSet,
+        sequence_set: imap::sequence_set::MessageSet,
         account: String,
         source: String,
         destination_name: String,
+        saved_uids: std::collections::BTreeSet<u64>,
     },
     ResolveCopyDestination {
         tag: String,

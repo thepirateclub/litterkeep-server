@@ -1,5 +1,6 @@
 //! Проверки parser-а COPY в отдельной предметной области.
 
+use super::sequence_set::{MessageSet, SequenceSet};
 use super::*;
 
 /// COPY сохраняет отдельно sequence number/UID addressing и destination mailbox.
@@ -16,12 +17,36 @@ fn copy_is_typed_for_sequence_and_uid_modes() {
     };
     assert_eq!(addressing, Addressing::Sequence);
     assert_eq!(transfer, Transfer::Copy);
-    assert_eq!(sequence_set, SequenceSet::parse("2:1").expect("set"));
+    assert_eq!(
+        sequence_set,
+        MessageSet::Explicit(SequenceSet::parse("2:1").expect("set"))
+    );
     assert_eq!(destination, MailboxName::Named("Sent".into()));
     assert!(matches!(
         parse("a UID COPY 4 Archive\r\n").command,
         Command::Copy {
             addressing: Addressing::Uid,
+            ..
+        }
+    ));
+}
+
+/// COPY и UID COPY принимают `$` как типизированную сохранённую выборку.
+#[test]
+fn copy_accepts_saved_search_result_in_both_number_spaces() {
+    assert!(matches!(
+        parse("a COPY $ Archive\r\n").command,
+        Command::Copy {
+            addressing: Addressing::Sequence,
+            sequence_set: MessageSet::Saved,
+            ..
+        }
+    ));
+    assert!(matches!(
+        parse("a UID COPY $ Archive\r\n").command,
+        Command::Copy {
+            addressing: Addressing::Uid,
+            sequence_set: MessageSet::Saved,
             ..
         }
     ));

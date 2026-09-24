@@ -42,6 +42,23 @@ ManageSieve до заявленного набора современных фо
 - Временный контейнер этапа удалён после проверки; сохранённый
   `litterkeep-g12-phone` не затрагивался. G14 остаётся RUNNING.
 
+### 2026-09-25: G14 SEARCHRES COPY checkpoint
+
+- `COPY $` и `UID COPY $` разбираются как `MessageSet::Saved`. Очередь
+  фиксирует сохранённый UID set при поступлении команды; единый source snapshot
+  сопоставляет его UID независимо от sequence/UID addressing, затем выполняется
+  существующий durable COPY/COPYUID путь.
+- Независимый STARTTLS сценарий создал отдельные назначения и проверил, что
+  каждый вариант скопировал ровно одно выбранное письмо. Это не проверка
+  подключения из приложения Litterkeep.
+- PASS: Windows Rust 1.97.1 strict Clippy и 233 tests; Linux Docker Rust 1.97
+  release build, strict Clippy и 268 tests; независимый сетевой black-box.
+  Данные: `./data/g14-searchres-copy`.
+- Остаточный пробел SEARCHRES: исполнение pipelined SAVE-зависимостей до
+  tagged completion. Capability SEARCHRES по-прежнему не рекламируется.
+- Временный контейнер `litterkeep-g14-searchres-copy` удалён;
+  `litterkeep-g12-phone` сохранён. G14 остаётся RUNNING.
+
 ### 2026-09-25: G14 SEARCHRES STORE checkpoint
 
 - `STORE $` и `UID STORE $` теперь используют тот же typed saved-result,

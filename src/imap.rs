@@ -40,6 +40,7 @@ pub use authenticate::AuthenticationMechanism;
 use command_verb::{Verb, parse_verb};
 pub use fetch::{BodySection, FetchAttribute, Partial};
 pub use idle::{IdleContinuation, parse_idle_continuation};
+#[cfg(test)]
 use sequence_set::SequenceSet;
 use tokenizer::Token;
 /// Команда вместе с тегом, которым сервер обязан завершить ответ.
@@ -105,7 +106,7 @@ pub enum Command {
     Copy {
         transfer: Transfer,
         addressing: Addressing,
-        sequence_set: SequenceSet,
+        sequence_set: sequence_set::MessageSet,
         destination: MailboxName,
     },
     Expunge,

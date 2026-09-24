@@ -40,10 +40,10 @@ SEARCH завершается tagged `NO [UNKNOWN-CTE]` без частично�
 его не меняет. При одном SAVE ESEARCH response подавляется, а SAVE с MIN/MAX
 сохраняет соответствующий край. Независимый клиент проверяет сохранение,
 UID-проекцию, отсутствие результата в другой сессии и reset после SELECT/error.
-Расширение намеренно не объявляется как SEARCHRES: `$` для FETCH/STORE и
-UID EXPUNGE поддерживается, но `$` для COPY/UID COPY и упорядочивание
-конвейерных зависимостей SEARCH SAVE ещё не реализованы, так что capability
-остаётся скрытой.
+Расширение намеренно не объявляется как SEARCHRES: `$` для FETCH/STORE,
+COPY/UID COPY и UID EXPUNGE поддерживается, но упорядочивание конвейерных
+зависимостей SEARCH SAVE ещё не реализовано, так что capability остаётся
+скрытой.
 Явный `SEARCH RETURN` выдаёт ESEARCH с correlator, UID-маркером и опциями
 ALL/COUNT/MIN/MAX. Пустой result set сохраняет запрошенные поля: ALL/MIN/MAX
 не выводятся, COUNT выводится как 0 только если запрошен, ESEARCH response

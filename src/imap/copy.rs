@@ -1,6 +1,6 @@
 //! Типизированная grammar COPY и UID COPY.
 
-use super::sequence_set::SequenceSet;
+use super::sequence_set::MessageSet;
 use super::tokenizer::Token;
 use super::{Addressing, Command, Transfer, folder};
 
@@ -16,7 +16,7 @@ pub(super) fn parse(
         tokens.next(),
     ) {
         (Some(sequence), Some(destination), None) => match (
-            SequenceSet::parse(&sequence).ok(),
+            MessageSet::parse(&sequence).ok(),
             folder::mailbox(destination),
         ) {
             (Some(sequence_set), Some(destination)) => Command::Copy {
