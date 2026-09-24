@@ -27,6 +27,23 @@ ManageSieve до заявленного набора современных фо
 | G17 | G12 | MIME RFC 5322/2045-2049 updates and Sieve RFC 5228/ManageSieve RFC 5804 profile | NOT RUN |
 | G18 | G14,G15,G16,G17 | Cross-protocol Linux acceptance, truthful capabilities and final coverage matrix | NOT RUN |
 
+### 2026-09-25: G14 RFC 5322 address groups checkpoint
+
+- ENVELOPE address parsing now preserves typed mailbox, group-start, and
+  group-end entries. FETCH ENVELOPE emits RFC 9051 group markers and an empty
+  group remains represented. SEARCH address keys use the same decoded
+  projection, including the group phrase and member mailbox components.
+- Unit tests cover multiple members, empty groups, and unbalanced boundaries.
+  Independent STARTTLS black-box verified FETCH ENVELOPE plus TO/CC/BCC search
+  over a three-member group, an empty Cc group, and a Bcc member. Это не тест
+  подключения из приложения Litterkeep.
+- PASS: Windows Rust 1.97.1 strict Clippy и 237 tests; Linux Docker Rust 1.97
+  strict Clippy и 272 tests; runtime image build и сетевой black-box PASS.
+  Данные: `./data/g14-envelope-groups`.
+- RFC-комментарии/obsolete forms и прочие формальные несовпадения адресного
+  parser-а остаются ограничениями. Контейнер этапа удалён, `litterkeep-g12-phone`
+  сохранён. G14 остаётся RUNNING.
+
 ### 2026-09-25: G14 SEARCHRES UID EXPUNGE checkpoint
 
 - `UID EXPUNGE $` принимает типизированный saved-result set, снимок результата

@@ -34,6 +34,12 @@ application/octet-stream вложение, а TEXT включает decoded oute
 Неизвестная charset и невалидная transfer encoding не сравниваются как raw
 octets. Если у текстовой MIME-части неизвестный Content-Transfer-Encoding,
 SEARCH завершается tagged `NO [UNKNOWN-CTE]` без частичного результата.
+RFC 5322 address groups разбираются в типизированные start/member/end элементы:
+FETCH ENVELOPE выдаёт group marker (`NIL NIL group NIL`), mailbox участников
+и end marker (`NIL NIL NIL NIL`), включая пустую группу. SEARCH FROM/TO/CC/BCC
+использует эту же проекцию и находит имя группы и адрес участника. Независимый
+STARTTLS black-box проверил группу с тремя mailbox, пустую Cc-группу и Bcc
+member. RFC-комментарии и obsolete address forms ещё не поддержаны полностью.
 `RETURN (SAVE)` сохраняет UIDs в состоянии одной сессии, а `$` SEARCH criterion
 сопоставляет их как для SEARCH, так и UID SEARCH. Успешный SELECT, SAVE-команда
 с ответом NO, EXPUNGE и MOVE сбрасывают/синхронизируют результат; обычный SEARCH

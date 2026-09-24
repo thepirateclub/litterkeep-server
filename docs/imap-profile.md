@@ -46,7 +46,8 @@ MIME decoding проверены отдельно. При этом синтак�
 | BEFORE/ON/SINCE, SENTBEFORE/SENTON/SENTSINCE, LARGER/SMALLER | Parser/evaluator реализованы; даты сравниваются по календарному дню согласно профилю |
 | NOT, OR, скобочная группа и неявный AND | Parser/evaluator реализованы |
 | HEADER, BODY, TEXT | Parser/evaluator и ограниченный MIME charset/transfer decoding реализованы; body charset: US-ASCII, UTF-8, ISO-8859-1, Windows-1251; см. SEARCH строку основной таблицы |
-| SUBJECT, FROM, TO, CC, BCC | Parser/evaluator используют ту же decoded ENVELOPE projection, что и FETCH ENVELOPE; адрес сравнивается по имени, mailbox, host и `mailbox@host`, без RFC 5322 delimiters. Неподдержанная/невалидная address syntax остаётся ограничением общего ENVELOPE parser-а |
+| SUBJECT, FROM, TO, CC, BCC | Parser/evaluator используют ту же decoded ENVELOPE projection, что и FETCH ENVELOPE; адрес сравнивается по имени, mailbox, host и `mailbox@host`, без RFC 5322 wire delimiters. RFC 5322 группы, включая пустую группу, сериализуются start/member/end адресными структурами и проверены сетевым клиентом; сложные комментарии, obsolete forms и malformed syntax остаются ограничениями общего parser-а |
+| Address groups | FETCH ENVELOPE, SEARCH address keys | PARTIAL | RFC 5322 group start/member/end encoding and empty-group markers plus group/member SEARCH matching verified; comments and obsolete address syntax remain limited |
 | KEYWORD, UNKEYWORD | Реализованы typed parser/evaluator и сетевые проверки; keywords входят в APPEND v4 и versioned flags journal v2. Старые append v1-v3 и flags v1 читаются как раньше; FETCH FLAGS, STORE и COPY/MOVE сохраняют keywords. STORE обновляет оба класса flags одним checksum/commit frame |
 
 Следующий SEARCH checkpoint теперь должен закрыть оставшиеся ключи и проверку

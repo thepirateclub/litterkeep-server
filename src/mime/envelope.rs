@@ -1,14 +1,8 @@
 //! Формирование IMAP ENVELOPE из структурированных RFC 5322 заголовков.
 
 use super::encoded_word;
+use super::envelope_address;
 use super::header_block::{self, HeaderField, HeaderName};
-
-#[derive(Debug, Eq, PartialEq)]
-struct Address {
-    name: Option<String>,
-    mailbox: String,
-    host: String,
-}
 
 /// Семантические поля ENVELOPE, используемые базовыми IMAP SEARCH keys.
 #[derive(Debug, Default)]
@@ -46,26 +40,8 @@ pub(crate) fn search_projection(fields: &[HeaderField]) -> SearchProjection {
 }
 
 fn address_search_text(fields: &[HeaderField], name: HeaderName) -> Option<String> {
-    let parsed = addresses(fields_for(fields, name)).ok()?;
-    // SEARCH сравнивает смысловые ENVELOPE components, а не RFC 5322 wire
-    // delimiters наподобие угловых скобок, запятых и encoded-word оболочки.
-    let values = parsed
-        .iter()
-        .flat_map(|address| {
-            let addr_spec = format!("{}@{}", address.mailbox, address.host);
-            [
-                address.name.clone(),
-                Some(address.mailbox.clone()),
-                Some(address.host.clone()),
-                Some(addr_spec),
-            ]
-        })
-        .flatten()
-        .collect::<Vec<_>>();
-    match values.is_empty() {
-        true => None,
-        false => Some(values.join(" ")),
-    }
+    let parsed = envelope_address::parse(fields_for(fields, name)).ok()?;
+    envelope_address::search_text(&parsed)
 }
 
 fn fields_for(fields: &[HeaderField], name: HeaderName) -> Vec<&HeaderField> {
@@ -75,19 +51,30 @@ fn fields_for(fields: &[HeaderField], name: HeaderName) -> Vec<&HeaderField> {
 /// Кодирует десять обязательных полей IMAP ENVELOPE.
 pub fn encode(message: &[u8]) -> Result<String, &'static str> {
     let headers = header_block::parse(message)?;
-    let from = addresses(fields(&headers.fields, HeaderName::From))?;
-    let sender = addresses_or_default(fields(&headers.fields, HeaderName::Sender), &from)?;
-    let reply_to = addresses_or_default(fields(&headers.fields, HeaderName::ReplyTo), &from)?;
+    let from = envelope_address::parse(fields(&headers.fields, HeaderName::From))?;
+    let sender =
+        envelope_address::with_default(fields(&headers.fields, HeaderName::Sender), &from)?;
+    let reply_to =
+        envelope_address::with_default(fields(&headers.fields, HeaderName::ReplyTo), &from)?;
     Ok(format!(
         "({} {} {} {} {} {} {} {} {} {})",
         nstring(single(&headers.fields, HeaderName::Date)?)?,
         nstring(decoded_single(&headers.fields, HeaderName::Subject)?)?,
-        address_list(&from)?,
-        address_list(&sender)?,
-        address_list(&reply_to)?,
-        address_list(&addresses(fields(&headers.fields, HeaderName::To))?)?,
-        address_list(&addresses(fields(&headers.fields, HeaderName::Cc))?)?,
-        address_list(&addresses(fields(&headers.fields, HeaderName::Bcc))?)?,
+        envelope_address::encode_list(&from)?,
+        envelope_address::encode_list(&sender)?,
+        envelope_address::encode_list(&reply_to)?,
+        envelope_address::encode_list(&envelope_address::parse(fields(
+            &headers.fields,
+            HeaderName::To,
+        ))?)?,
+        envelope_address::encode_list(&envelope_address::parse(fields(
+            &headers.fields,
+            HeaderName::Cc,
+        ))?)?,
+        envelope_address::encode_list(&envelope_address::parse(fields(
+            &headers.fields,
+            HeaderName::Bcc,
+        ))?)?,
         nstring(single(&headers.fields, HeaderName::InReplyTo)?)?,
         nstring(single(&headers.fields, HeaderName::MessageId)?)?,
     ))
@@ -115,110 +102,6 @@ fn decoded_single(
     Ok(Some(encoded_word::decode_header(&value)?))
 }
 
-fn addresses(fields: Vec<&HeaderField>) -> Result<Vec<Address>, &'static str> {
-    let mut result = Vec::new();
-    for field in fields {
-        let value = std::str::from_utf8(&field.value).map_err(|_| "address header is not UTF-8")?;
-        for item in split_addresses(value)? {
-            result.push(parse_address(item.trim())?);
-        }
-    }
-    Ok(result)
-}
-
-fn addresses_or_default(
-    fields: Vec<&HeaderField>,
-    fallback: &[Address],
-) -> Result<Vec<Address>, &'static str> {
-    let parsed = addresses(fields)?;
-    match parsed.is_empty() {
-        true => Ok(fallback.to_vec()),
-        false => Ok(parsed),
-    }
-}
-
-fn split_addresses(value: &str) -> Result<Vec<&str>, &'static str> {
-    let mut result = Vec::new();
-    let mut quoted = false;
-    let mut angle = false;
-    let mut start = 0_usize;
-    for (position, character) in value.char_indices() {
-        match character {
-            '"' => quoted = !quoted,
-            '<' if !quoted => angle = true,
-            '>' if !quoted => angle = false,
-            ',' if matches!((quoted, angle), (false, false)) => {
-                result.push(
-                    value
-                        .get(start..position)
-                        .ok_or("invalid address boundary")?,
-                );
-                start = position.saturating_add(1);
-            }
-            _ => {}
-        }
-    }
-    match (quoted, angle) {
-        (true, _) | (false, true) => return Err("unterminated address syntax"),
-        (false, false) => {}
-    }
-    result.push(value.get(start..).ok_or("invalid address tail")?);
-    Ok(result)
-}
-
-fn parse_address(value: &str) -> Result<Address, &'static str> {
-    let (name, addr_spec) = match (value.find('<'), value.rfind('>')) {
-        (Some(open), Some(close)) => {
-            let name = value.get(..open).ok_or("invalid display name")?.trim();
-            let address = value
-                .get(open.saturating_add(1)..close)
-                .ok_or("invalid angle address")?;
-            (decode_name(name)?, address)
-        }
-        (None, None) => (None, value.trim()),
-        _ => return Err("unbalanced angle address"),
-    };
-    let (mailbox, host) = addr_spec.split_once('@').ok_or("address has no domain")?;
-    if mailbox.is_empty() {
-        return Err("address mailbox is empty");
-    }
-    if host.is_empty() {
-        return Err("address host is empty");
-    }
-    Ok(Address {
-        name,
-        mailbox: mailbox.to_owned(),
-        host: host.to_owned(),
-    })
-}
-
-fn decode_name(value: &str) -> Result<Option<String>, &'static str> {
-    let unquoted = value.trim_matches('"').trim();
-    if unquoted.is_empty() {
-        return Ok(None);
-    }
-    Ok(Some(
-        encoded_word::decode(unquoted).unwrap_or_else(|_| unquoted.to_owned()),
-    ))
-}
-
-fn address_list(addresses: &[Address]) -> Result<String, &'static str> {
-    if addresses.is_empty() {
-        return Ok("NIL".to_owned());
-    }
-    let mut output = String::from("(");
-    for address in addresses {
-        output.push_str(&format!(
-            "({} NIL {} {})",
-            nstring(address.name.clone())?,
-            nstring(Some(address.mailbox.clone()))?,
-            nstring(Some(address.host.clone()))?
-        ));
-    }
-    output.push(')');
-    Ok(output)
-}
-
 fn nstring(value: Option<String>) -> Result<String, &'static str> {
     let Some(value) = value else {
         return Ok("NIL".to_owned());
@@ -236,16 +119,6 @@ fn nstring(value: Option<String>) -> Result<String, &'static str> {
     }
     output.push('"');
     Ok(output)
-}
-
-impl Clone for Address {
-    fn clone(&self) -> Self {
-        Self {
-            name: self.name.clone(),
-            mailbox: self.mailbox.clone(),
-            host: self.host.clone(),
-        }
-    }
 }
 
 #[cfg(test)]
