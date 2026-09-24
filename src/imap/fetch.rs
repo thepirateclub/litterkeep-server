@@ -9,6 +9,8 @@ use super::{Addressing, Command, fetch_section};
 pub enum FetchAttribute {
     Rfc822,
     Rfc822Size,
+    /// Нерасширяемая MIME-структура, стандартный FETCH item BODY.
+    BodyStructureBasic,
     BodyStructure,
     Envelope,
     Flags,
@@ -97,7 +99,7 @@ impl FetchMacro {
                 FetchAttribute::InternalDate,
                 FetchAttribute::Rfc822Size,
                 FetchAttribute::Envelope,
-                FetchAttribute::BodyStructure,
+                FetchAttribute::BodyStructureBasic,
             ],
         }
     }

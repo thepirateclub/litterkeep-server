@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G14
 
+### 2026-09-25: G14 FETCH BODY item and FULL macro checkpoint
+
+- Добавлен отдельный typed BODY structure item. FULL теперь раскрывается
+  строго в FLAGS, INTERNALDATE, RFC822.SIZE, ENVELOPE и BODY; BODYSTRUCTURE
+  остаётся доступным как отдельный item. До исправления FULL ошибочно выдавал
+  BODYSTRUCTURE.
+- PASS: Windows Rust 1.97.1, 247 тестов и строгий Clippy; Linux Docker Rust
+  1.97, 287 тестов и строгий Clippy; runtime image и независимый SMTP/IMAP
+  STARTTLS attachment black-box прошли. Клиент проверил BODY, BODYSTRUCTURE,
+  каждый макрос и совпадение decoded байтов вложения.
+- Данные этапа: ./data/g14-fetch-body-item. Временный контейнер удалён,
+  litterkeep-g12-phone сохранён. Проверка приложения Litterkeep не выполнялась;
+  G14 остаётся RUNNING.
+
 ### 2026-09-25: G14 RFC 9051 BINARY checkpoint
 
 - FETCH parser и typed модель принимают BINARY, BINARY.PEEK и BINARY.SIZE.

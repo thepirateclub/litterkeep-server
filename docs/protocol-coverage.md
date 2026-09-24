@@ -16,6 +16,8 @@ IDLE/DONE и durable Recent. UIDVALIDITY и UID переживают restart.
 
 `FETCH` принимает одиночные и сгруппированные data items, раскрывает ALL, FAST
 и FULL, включает UID в ответы UID FETCH и сохраняет literal как точные октеты.
+`BODY` и `BODYSTRUCTURE` поддерживаются как отдельные запросы; FULL раскрывается
+в BODY согласно RFC 9051, а не в BODYSTRUCTURE.
 `BODY` поддерживает полное сообщение, HEADER/TEXT, HEADER.FIELDS/NOT, числовые
 MIME paths, вложенный `message/rfc822` и partial ranges; durable `\\Seen`
 различает BODY/RFC822, PEEK и EXAMINE. `NAMESPACE`, `UNSELECT` и `ENABLE`

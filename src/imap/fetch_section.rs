@@ -12,6 +12,7 @@ pub(super) fn parse(
     match token.to_ascii_uppercase().as_str() {
         "RFC822" => Some(FetchAttribute::Rfc822),
         "RFC822.SIZE" => Some(FetchAttribute::Rfc822Size),
+        "BODY" => Some(FetchAttribute::BodyStructureBasic),
         "BODYSTRUCTURE" => Some(FetchAttribute::BodyStructure),
         "ENVELOPE" => Some(FetchAttribute::Envelope),
         "FLAGS" => Some(FetchAttribute::Flags),

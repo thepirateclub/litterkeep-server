@@ -66,7 +66,7 @@ with imaplib.IMAP4(OPTIONS.host, OPTIONS.imap_port, timeout=10) as imap:
     assert status == "OK", (status, count)
     assert message_count >= 1, message_count
     status, records = imap.fetch(
-        str(message_count), "(UID FLAGS RFC822.SIZE INTERNALDATE BODYSTRUCTURE RFC822)"
+        str(message_count), "(UID FLAGS RFC822.SIZE INTERNALDATE BODY BODYSTRUCTURE RFC822)"
     )
     assert status == "OK", (status, records)
     metadata = metadata_line(records)
@@ -75,6 +75,7 @@ with imaplib.IMAP4(OPTIONS.host, OPTIONS.imap_port, timeout=10) as imap:
         "FLAGS ",
         "RFC822.SIZE ",
         "INTERNALDATE ",
+        "BODY ",
         "BODYSTRUCTURE ",
         "RFC822 {",
     ):
@@ -84,7 +85,7 @@ with imaplib.IMAP4(OPTIONS.host, OPTIONS.imap_port, timeout=10) as imap:
         ("FAST", ("FLAGS ", "INTERNALDATE ", "RFC822.SIZE ")),
         (
             "FULL",
-            ("FLAGS ", "INTERNALDATE ", "RFC822.SIZE ", "ENVELOPE ", "BODYSTRUCTURE "),
+            ("FLAGS ", "INTERNALDATE ", "RFC822.SIZE ", "ENVELOPE ", "BODY "),
         ),
     )
     for macro, expected_items in macros:

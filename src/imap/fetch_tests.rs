@@ -16,6 +16,22 @@ fn fetch_attribute_is_typed() {
     );
 }
 
+/// BODY и BODYSTRUCTURE остаются отдельными fetch item names.
+#[test]
+fn body_and_bodystructure_items_are_typed_separately() {
+    let Command::Fetch { attributes, .. } = parse("a FETCH 2 (BODY BODYSTRUCTURE)\r\n").command
+    else {
+        panic!("BODY data items were not parsed");
+    };
+    assert_eq!(
+        attributes,
+        vec![
+            FetchAttribute::BodyStructureBasic,
+            FetchAttribute::BodyStructure
+        ]
+    );
+}
+
 /// BODY section и диапазон partial представлены отдельными типами.
 #[test]
 fn body_peek_partial_is_typed() {
@@ -229,7 +245,7 @@ fn fetch_macros_expand_to_their_protocol_data_items() {
                 FetchAttribute::InternalDate,
                 FetchAttribute::Rfc822Size,
                 FetchAttribute::Envelope,
-                FetchAttribute::BodyStructure,
+                FetchAttribute::BodyStructureBasic,
             ],
         ),
     ];
