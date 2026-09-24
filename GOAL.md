@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G15
 
+### 2026-09-25: G15 RFC 5321 command-line length checkpoint
+
+- SMTP command reader проверяет полную строку вместе с CRLF до разбора команды.
+  Строка длиннее 512 октетов получает 500; уже отделённая CRLF строка полностью
+  потреблена, последующие команды остаются синхронизированы. DATA продолжает
+  использовать отдельный лимит RFC 5321 для text lines.
+- PASS: Windows Rust 1.97.1: `cargo test --all-targets` (249 тестов), strict
+  Clippy, `cargo fmt --check`, `git diff --check`. Linux Docker Rust 1.97:
+  release-сборка, strict Clippy, 289 тестов. Независимый runtime клиент получил
+  250 на строку длиной 512, 500 на строку длиной 513 и 250 на следующий NOOP.
+  Существующий SMTP SIZE/8BITMIME плюс доставка SMTP-to-IMAP повторно прошли.
+- Black-box файлы разделены по функциям: `tests/blackbox/smtp_command_line.py`
+  и `tests/blackbox/smtp_size_declaration.py`; оба проходят py_compile.
+  Данные и тестовый TLS key этапа в `./data/g15-smtp-command-line`. Временный
+  runtime контейнер удалён, `litterkeep-g12-phone` оставлен.
+- G15 остаётся RUNNING: базовый command line bound не закрывает RFC 5321 целиком.
+
 ### 2026-09-25: G15 RFC 5321 repeated MAIL transaction checkpoint
 
 - Открытая SMTP transaction теперь отклоняет повторный MAIL ответом 503; FSM

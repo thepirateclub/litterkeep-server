@@ -20,6 +20,9 @@ pub(super) fn smtp_line(
             session, line, slot, generation, worker, owners, request_id,
         );
     }
+    if line.len() > smtp::MAX_COMMAND_LINE_SIZE {
+        return session.push(b"500 5.5.2 command line too long\r\n");
+    }
     let command = match smtp::parse(std::str::from_utf8(&line).unwrap_or("")) {
         Ok(command) => command,
         Err(smtp::ParseError::Syntax) => return session.push(b"501 5.5.2 syntax error\r\n"),

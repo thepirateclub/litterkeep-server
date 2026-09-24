@@ -1,7 +1,9 @@
 //! SMTP submission transaction state.
 #[path = "smtp/command.rs"]
 mod command;
-pub use command::{BodyMode, Command, MAX_MESSAGE_SIZE, MailFrom, ParseError, parse};
+pub use command::{
+    BodyMode, Command, MAX_COMMAND_LINE_SIZE, MAX_MESSAGE_SIZE, MailFrom, ParseError, parse,
+};
 
 /// Уровень SMTP greeting, определяющий допустимость ESMTP extensions.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
