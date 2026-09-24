@@ -98,6 +98,21 @@ def main() -> None:
     )
     attachment_term = require(attachment_term, "OK")
     assert attachment_term == [b""], attachment_term
+    unknown_cte = (
+        b"Content-Type: text/plain; charset=utf-8\r\n"
+        b"Content-Transfer-Encoding: x-private\r\n\r\n"
+        b"searchable-after-decode-error"
+    )
+    require(client.append(mailbox, None, None, unknown_cte), "OK")
+    tag = client._command("SEARCH", b"BODY", quoted("searchable-after-decode-error"))
+    status, detail = client._command_complete("SEARCH", tag)
+    assert status == "NO", (status, detail)
+    assert b"UNKNOWN-CTE" in b" ".join(detail), detail
+    _, response_items = client.response("SEARCH")
+    search_result = b" ".join(
+        item for item in (response_items or []) if item is not None
+    ).strip()
+    assert not search_result, search_result
     client.logout()
     print("PASS imap-search-mime")
 
@@ -106,8 +121,8 @@ def raw_search(client: imaplib.IMAP4, *arguments: bytes) -> tuple[str, list[byte
     """Отправляет Unicode criteria как UTF-8 octets без ASCII conversion."""
     tag = client._command("SEARCH", *arguments)
     status, data = client._command_complete("SEARCH", tag)
-    result = client.response("SEARCH")
-    return status, result[1] or []
+    _, response_items = client.response("SEARCH")
+    return status, response_items or []
 
 
 def quoted(value: str) -> bytes:

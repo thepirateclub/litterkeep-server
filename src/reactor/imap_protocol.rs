@@ -5,7 +5,7 @@ use super::*;
 #[path = "imap_enable.rs"]
 mod imap_enable;
 #[path = "imap_search_error.rs"]
-mod imap_search_error;
+pub(super) mod imap_search_error;
 #[path = "imap_search_response.rs"]
 pub(super) mod imap_search_response;
 

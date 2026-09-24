@@ -32,13 +32,12 @@ encoded words декодируются в outer и MIME-part headers. Незав
 тест подтвердил, что BODY не ищет outer Subject и бинарное
 application/octet-stream вложение, а TEXT включает decoded outer headers.
 Неизвестная charset и невалидная transfer encoding не сравниваются как raw
-octets. Явный `SEARCH RETURN` выдаёт ESEARCH с
-correlator, UID-маркером и опциями ALL/COUNT/MIN/MAX; legacy SEARCH остаётся
-для текущего IMAP4rev1 профиля. RFC 9051 требует при неизвестном
-Content-Transfer-Encoding tagged `NO [UNKNOWN-CTE]`; сейчас такой leaf
-пропускается без ошибки, то есть не создаёт raw-octet совпадения, но остаётся
-несоответствием RFC. MIME charset вне US-ASCII/UTF-8/ISO-8859-1, SAVE/$ и полный
-mandatory search-key set также не реализованы. Это не означает полной
+octets. Если у текстовой MIME-части неизвестный Content-Transfer-Encoding,
+SEARCH завершается tagged `NO [UNKNOWN-CTE]` без частичного результата.
+Явный `SEARCH RETURN` выдаёт ESEARCH с correlator, UID-маркером и опциями
+ALL/COUNT/MIN/MAX; legacy SEARCH остаётся для текущего IMAP4rev1 профиля. MIME
+charset вне US-ASCII/UTF-8/ISO-8859-1, SAVE/$ и полный mandatory search-key set
+также не реализованы. Это не означает полной
 совместимости IMAP4rev1 или IMAP4rev2: остаются SEARCH/ESEARCH расширения и
 другие несовпадения формальных грамматик; см. [матрицу IMAP](imap-profile.md).
 

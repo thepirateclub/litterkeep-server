@@ -28,3 +28,13 @@ fn unknown_charset_and_malformed_transfer_are_not_searched_as_raw_octets() {
     assert!(!document.body_contains("Привет"));
     assert!(!document.body_contains("0J/RgNC40LLQtdGC"));
 }
+
+#[test]
+fn unknown_transfer_encoding_aborts_body_projection_with_typed_error() {
+    let raw = b"Content-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: x-private\r\n\r\nsearchable";
+    let result = SearchDocument::parse(raw, true);
+    assert!(matches!(
+        result,
+        Err(SearchTextError::UnknownContentTransferEncoding)
+    ));
+}

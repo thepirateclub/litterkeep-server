@@ -24,7 +24,7 @@ CAPABILITY не выдаёт за более широкое расширение
 | Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS, PERMANENTFLAGS, Recent |
 | Message insertion | APPEND | PASS | Bounded literal, flags, INTERNALDATE, APPENDUID после fsync |
 | Reading | FETCH, UID FETCH | PARTIAL | Сгруппированные items, ALL/FAST/FULL, UID, RFC822 bytes, BODY HEADER/TEXT/HEADER.FIELDS, MIME parts и partial; BODY/PEEK Seen effects проверены; полная rev2 grammar остаётся |
-| Search | SEARCH, UID SEARCH | PARTIAL | Sequence/UID sets, system/session flags, address/header/body/text, size, internal/sent dates, AND/OR/NOT/groups; UTF-8 default, UTF-8/US-ASCII CHARSET, BADCHARSET, ESEARCH RETURN ALL/COUNT/MIN/MAX, RFC 2047 headers and Base64/quoted-printable text parts with US-ASCII/UTF-8/ISO-8859-1 verified; unknown CTE currently skips the leaf instead of returning required NO [UNKNOWN-CTE]; other MIME charsets, SEARCH SAVE/$ and full key set remain |
+| Search | SEARCH, UID SEARCH | PARTIAL | Sequence/UID sets, system/session flags, address/header/body/text, size, internal/sent dates, AND/OR/NOT/groups; UTF-8 default, UTF-8/US-ASCII CHARSET, BADCHARSET, ESEARCH RETURN ALL/COUNT/MIN/MAX, RFC 2047 headers and Base64/quoted-printable text parts with US-ASCII/UTF-8/ISO-8859-1 verified; unknown text-part CTE returns NO [UNKNOWN-CTE] without partial results; other MIME charsets, SEARCH SAVE/$ and full key set remain |
 | Flag mutation | STORE, UID STORE | PASS | Replace/add/remove, SILENT, durable batch, read-only denial |
 | Copy and move | COPY, UID COPY, MOVE, UID MOVE | PASS | Atomic links/tombstones, COPYUID, multi-session projection |
 | Deletion | EXPUNGE, UID EXPUNGE, CLOSE | PASS | Durable tombstones, UIDPLUS, sequence-map notifications |

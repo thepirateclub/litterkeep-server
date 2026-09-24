@@ -3,6 +3,13 @@
 use super::header_block::{self, HeaderName};
 use super::{charset::Charset, encoded_word, parameters::MediaType, tree};
 
+/// Ошибки, которые должны покинуть MIME projection и повлиять на IMAP SEARCH.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SearchTextError {
+    InvalidMessage,
+    UnknownContentTransferEncoding,
+}
+
 /// Одно декодированное поле outer message header для HEADER/TEXT критериев.
 #[derive(Debug)]
 pub struct HeaderText {
@@ -20,8 +27,8 @@ pub struct SearchDocument {
 
 impl SearchDocument {
     /// Разбирает заголовки и по запросу строит bounded MIME text projection.
-    pub fn parse(raw: &[u8], include_body: bool) -> Result<Self, &'static str> {
-        let header_block = header_block::parse(raw)?;
+    pub fn parse(raw: &[u8], include_body: bool) -> Result<Self, SearchTextError> {
+        let header_block = header_block::parse(raw).map_err(|_| SearchTextError::InvalidMessage)?;
         let headers = header_block
             .fields
             .into_iter()
@@ -37,7 +44,7 @@ impl SearchDocument {
             .collect();
         let mut body_text = Vec::new();
         if let Some(Ok(root)) = include_body.then(|| tree::parse(raw)) {
-            collect_text(&root, raw, &mut body_text, false);
+            collect_text(&root, raw, &mut body_text, false)?;
         }
         Ok(Self { headers, body_text })
     }
@@ -72,7 +79,7 @@ fn collect_text(
     raw: &[u8],
     output: &mut Vec<String>,
     include_part_headers: bool,
-) {
+) -> Result<(), SearchTextError> {
     if include_part_headers {
         for field in &entity.headers {
             output.push(field.name.clone());
@@ -83,14 +90,17 @@ fn collect_text(
     }
     match is_textual(&entity.media_type) {
         true if entity.children.is_empty() => {
-            if let Some(text) = decode_text_leaf(entity, raw) {
+            if let Some(text) = decode_text_leaf(entity, raw)? {
                 output.push(text);
             }
         }
-        _ => entity.children.iter().for_each(|child| {
-            collect_text(child, raw, output, true);
-        }),
+        _ => {
+            for child in &entity.children {
+                collect_text(child, raw, output, true)?;
+            }
+        }
     }
+    Ok(())
 }
 
 fn decode_header_value(value: &[u8]) -> Option<String> {
@@ -105,15 +115,24 @@ fn is_textual(media_type: &MediaType) -> bool {
     )
 }
 
-fn decode_text_leaf(entity: &tree::Entity, raw: &[u8]) -> Option<String> {
-    let decoded = entity.decoded_body(raw).ok()?;
+fn decode_text_leaf(entity: &tree::Entity, raw: &[u8]) -> Result<Option<String>, SearchTextError> {
+    if let super::transfer::TransferEncoding::Unsupported(_) = &entity.transfer_encoding {
+        return Err(SearchTextError::UnknownContentTransferEncoding);
+    }
+    let decoded = match entity.decoded_body(raw) {
+        Ok(bytes) => bytes,
+        Err(_) => return Ok(None),
+    };
     let charset = entity
         .parameters
         .get("charset")
         .map(|name| Charset::parse(name))
         .unwrap_or(Ok(Charset::UsAscii))
-        .ok()?;
-    charset.decode(&decoded).ok()
+        .ok();
+    let Some(charset) = charset else {
+        return Ok(None);
+    };
+    Ok(charset.decode(&decoded).ok())
 }
 
 /// RFC-совместимая минимальная нечувствительность к ASCII-регистру.

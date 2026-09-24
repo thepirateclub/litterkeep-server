@@ -19,6 +19,19 @@ pub(super) fn completed(
         return session
             .push(format!("{tag} NO SEARCH criteria do not match charset\r\n").as_bytes());
     }
+    let documents = match search_documents(&messages, &key) {
+        Ok(documents) => documents,
+        Err(crate::mime::search_text::SearchTextError::UnknownContentTransferEncoding) => {
+            return super::imap_protocol::imap_search_error::unknown_content_transfer_encoding(
+                session, &tag,
+            );
+        }
+        Err(crate::mime::search_text::SearchTextError::InvalidMessage) => {
+            std::iter::repeat_with(|| None)
+                .take(messages.len())
+                .collect()
+        }
+    };
     let recent = &session.selected_recent;
     let maximum_sequence = usize_as_u64(messages.len());
     let maximum_uid = messages
@@ -29,11 +42,8 @@ pub(super) fn completed(
     let matches = messages
         .iter()
         .enumerate()
-        .filter_map(|(offset, message)| {
-            let document = match requires_headers(&key) {
-                true => SearchDocument::parse(&message.bytes, requires_body(&key)).ok(),
-                false => None,
-            };
+        .zip(&documents)
+        .filter_map(|((offset, message), document)| {
             let sequence = usize_as_u64(offset.saturating_add(1));
             let position = MatchPosition {
                 sequence,
@@ -48,6 +58,27 @@ pub(super) fn completed(
         })
         .collect::<Vec<_>>();
     super::imap_protocol::imap_search_response::write(session, addressing, result, &tag, &matches)
+}
+
+/// Строит MIME-проекции до вычисления совпадений, чтобы ошибка декодирования
+/// не позволила отправить клиенту неполный SEARCH/ESEARCH результат.
+fn search_documents(
+    messages: &[crate::store::Message],
+    key: &SearchKey,
+) -> Result<Vec<Option<SearchDocument>>, crate::mime::search_text::SearchTextError> {
+    messages
+        .iter()
+        .map(|message| match requires_headers(key) {
+            false => Ok(None),
+            true => match SearchDocument::parse(&message.bytes, requires_body(key)) {
+                Ok(document) => Ok(Some(document)),
+                Err(error @ crate::mime::search_text::SearchTextError::UnknownContentTransferEncoding) => {
+                    Err(error)
+                }
+                Err(crate::mime::search_text::SearchTextError::InvalidMessage) => Ok(None),
+            },
+        })
+        .collect()
 }
 
 /// Координаты сообщения в одном immutable mailbox snapshot.
