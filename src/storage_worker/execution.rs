@@ -154,7 +154,7 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             account,
         } => Response::Subscriptions {
             request_id,
-            result: store.subscriptions(&account),
+            result: store.subscription_snapshot(&account),
         },
         Request::Expunge {
             request_id,

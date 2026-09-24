@@ -43,6 +43,7 @@ mod imap_folders;
 mod imap_idle;
 #[path = "reactor/imap_list.rs"]
 mod imap_list;
+mod imap_list_selection;
 #[path = "reactor/imap_literal.rs"]
 mod imap_literal;
 #[path = "reactor/imap_namespace.rs"]

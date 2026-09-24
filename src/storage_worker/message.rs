@@ -1,7 +1,7 @@
 //! Типизированные сообщения bounded-канала между reactor и владельцем store.
 
 use crate::mail_flags::{FlagMutation, MessageFlags};
-use crate::store::{MailboxSnapshot, ResolvedMailbox, SubscribedFolder};
+use crate::store::{MailboxSnapshot, ResolvedMailbox, SubscriptionSnapshot};
 use std::io;
 
 #[derive(Debug)]
@@ -225,7 +225,7 @@ pub enum Response {
     },
     Subscriptions {
         request_id: u64,
-        result: io::Result<Vec<SubscribedFolder>>,
+        result: io::Result<SubscriptionSnapshot>,
     },
     Expunged {
         request_id: u64,

@@ -119,10 +119,7 @@ pub(super) fn line(
         imap::Command::List { pattern } => imap_folders::list(
             session, parsed.tag, pattern, false, slot, generation, worker, owners, request_id,
         )?,
-        imap::Command::ListSpecial { pattern } => imap_folders::list(
-            session, parsed.tag, pattern, true, slot, generation, worker, owners, request_id,
-        )?,
-        imap::Command::ListSubscribed { pattern } => imap_subscriptions::list(
+        imap::Command::ListSelection { pattern, selection } => imap_subscriptions::list(
             session,
             parsed.tag,
             pattern,
@@ -131,7 +128,7 @@ pub(super) fn line(
             worker,
             owners,
             request_id,
-            SubscriptionResponse::List,
+            SubscriptionResponse::List(selection),
         )?,
         imap::Command::Subscribe { mailbox } => imap_subscriptions::set(
             session, parsed.tag, mailbox, true, slot, generation, worker, owners, request_id,

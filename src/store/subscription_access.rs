@@ -1,6 +1,6 @@
 //! Store facade для подписок и LSUB-проекции каталога.
 
-use super::{Store, SubscribedFolder};
+use super::{Store, SubscribedFolder, SubscriptionSnapshot};
 use std::io;
 
 impl Store {
@@ -18,10 +18,16 @@ impl Store {
 
     /// Возвращает подписанные имена, включая удалённые mailbox как `\Noselect`.
     pub fn subscriptions(&mut self, account: &str) -> io::Result<Vec<SubscribedFolder>> {
+        self.subscription_snapshot(account)
+            .map(|snapshot| snapshot.subscriptions)
+    }
+
+    /// Возвращает подписки и каталог одной операцией единственного Store owner-а.
+    pub fn subscription_snapshot(&mut self, account: &str) -> io::Result<SubscriptionSnapshot> {
         self.ensure_writable()?;
         let names = self.subscriptions.list(account)?;
         let folders = self.folders.list(account)?;
-        Ok(names
+        let subscriptions = names
             .into_iter()
             .map(|name| {
                 let existing = folders.iter().find(|folder| match folder.special_use {
@@ -34,7 +40,11 @@ impl Store {
                     special_use: existing.and_then(|folder| folder.special_use),
                 }
             })
-            .collect())
+            .collect();
+        Ok(SubscriptionSnapshot {
+            subscriptions,
+            folders,
+        })
     }
 }
 

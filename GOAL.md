@@ -27,6 +27,30 @@ ManageSieve до заявленного набора современных фо
 | G17 | G12 | MIME RFC 5322/2045-2049 updates and Sieve RFC 5228/ManageSieve RFC 5804 profile | NOT RUN |
 | G18 | G14,G15,G16,G17 | Cross-protocol Linux acceptance, truthful capabilities and final coverage matrix | NOT RUN |
 
+### 2026-09-24: G14 LIST RECURSIVEMATCH checkpoint
+
+- Parser переводит selection options `SUBSCRIBED`, `SPECIAL-USE`,
+  `RECURSIVEMATCH` и `REMOTE` в typed criteria. Дубликаты устраняются;
+  `RECURSIVEMATCH` без другого selection option возвращает BAD. `REMOTE`
+  принимается как no-op, поскольку сервер не имеет удалённых mailbox.
+- Storage owner возвращает одним ответом snapshot каталога и подписок.
+  Проекция extended LIST выдаёт подходящих потомков и родителей, только если
+  родитель совпадает с LIST pattern, дедуплицирует имена и добавляет точный
+  `CHILDINFO` для SUBSCRIBED/SPECIAL-USE. Родитель, которого нет в каталоге,
+  получает `\\NonExistent`; `\\Subscribed` комбинируется с ним независимо.
+- Независимый STARTTLS-клиент проверил подписанные существующие и отсутствующие
+  папки, рекурсивный `%` с CHILDINFO для существующего и отсутствующего
+  родителя, `*` без лишнего CHILDINFO, SPECIAL-USE selection и BAD для
+  одиночного RECURSIVEMATCH: `PASS imap-list-subscribed`. Это не проверка
+  пользовательского litterkeep-клиента.
+- PASS: Windows Rust 1.97 форматирование, strict Clippy и 224 теста; Linux
+  Docker release build Rust 1.97, strict Clippy и 259 тестов; Python TLS
+  black-box. Собственный контейнер `litterkeep-g14-list-subscribed` удалён,
+  `litterkeep-g12-phone` оставлен. Данные этапа: `./data/g14-list-subscribed`.
+- LIST остаётся PARTIAL: CHILDREN и STATUS return, полный reference-name
+  profile и другие LIST-EXTENDED return options остаются следующими пробелами.
+  G14 остаётся RUNNING.
+
 ### 2026-09-24: G14 LIST SUBSCRIBED checkpoint
 
 - `LIST (SUBSCRIBED) "" pattern` теперь проходит как типизированная команда

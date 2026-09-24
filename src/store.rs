@@ -102,7 +102,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
-pub use subscriptions::SubscribedFolder;
+pub use subscriptions::{SubscribedFolder, SubscriptionSnapshot};
 pub(super) const DEFAULT_BLOB_QUOTA: u64 = 25 * 1024 * 1024;
 #[derive(Debug)]
 pub struct Store {

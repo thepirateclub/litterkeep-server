@@ -16,6 +16,7 @@ mod fetch_tests;
 pub mod flags;
 pub mod folder;
 pub mod idle;
+pub mod list;
 pub mod modified_utf7;
 pub mod search;
 pub mod search_charset;
@@ -109,12 +110,10 @@ pub enum Command {
     List {
         pattern: folder::ListPattern,
     },
-    ListSpecial {
+    /// Критерии отбора extended LIST после сетевого разбора.
+    ListSelection {
         pattern: folder::ListPattern,
-    },
-    /// LIST selection option выбирает сохранённый список подписок.
-    ListSubscribed {
-        pattern: folder::ListPattern,
+        selection: folder::ListSelection,
     },
     Select {
         mailbox: MailboxName,
@@ -186,7 +185,7 @@ pub fn parse(line: &str) -> TaggedCommand {
         Some(Verb::Rename) => folder::parse_rename(tokens),
         Some(Verb::Subscribe) => folder::parse_subscribe(tokens, true),
         Some(Verb::Unsubscribe) => folder::parse_subscribe(tokens, false),
-        Some(Verb::Lsub) => folder::parse_lsub(tokens),
+        Some(Verb::Lsub) => list::parse_lsub(tokens),
         Some(Verb::Status) => status::parse(tokens),
         Some(Verb::Check) => parse_empty(tokens, Command::Check),
         Some(Verb::Close) => parse_empty(tokens, Command::Close),
@@ -194,7 +193,7 @@ pub fn parse(line: &str) -> TaggedCommand {
         Some(Verb::Copy) => copy::parse(tokens, Addressing::Sequence, Transfer::Copy),
         Some(Verb::Move) => copy::parse(tokens, Addressing::Sequence, Transfer::Move),
         Some(Verb::Expunge) => parse_empty(tokens, Command::Expunge),
-        Some(Verb::List) => folder::parse_list(tokens),
+        Some(Verb::List) => list::parse(tokens),
         Some(Verb::Select) => parse_select(&mut tokens, false),
         Some(Verb::Examine) => parse_select(&mut tokens, true),
         Some(Verb::Fetch) => fetch::parse(&mut tokens, Addressing::Sequence),

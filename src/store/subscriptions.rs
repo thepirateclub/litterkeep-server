@@ -20,6 +20,13 @@ pub struct SubscribedFolder {
     pub special_use: Option<SpecialUse>,
 }
 
+/// Согласованный снимок каталога и подписок для extended LIST selection.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SubscriptionSnapshot {
+    pub subscriptions: Vec<SubscribedFolder>,
+    pub folders: Vec<super::FolderInfo>,
+}
+
 #[derive(Debug)]
 pub(super) struct SubscriptionCatalog {
     root: PathBuf,

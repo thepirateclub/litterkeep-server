@@ -47,8 +47,13 @@ fn move_is_typed_for_sequence_and_uid_modes() {
 fn special_use_list_and_wildcard_are_typed() {
     assert!(matches!(
         parse("a LIST (SPECIAL-USE) \"\" \"*\"\r\n").command,
-        Command::ListSpecial {
-            pattern: crate::imap::folder::ListPattern::All
+        Command::ListSelection {
+            pattern: crate::imap::folder::ListPattern::All,
+            selection: crate::imap::folder::ListSelection {
+                subscribed: false,
+                special_use: true,
+                recursive_match: false,
+            },
         }
     ));
     assert!(matches!(

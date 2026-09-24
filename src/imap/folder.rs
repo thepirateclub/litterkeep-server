@@ -14,6 +14,14 @@ pub enum ListPattern {
     Wildcard(String),
 }
 
+/// Критерии выбора initial extended LIST после сетевого парсинга.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct ListSelection {
+    pub subscribed: bool,
+    pub special_use: bool,
+    pub recursive_match: bool,
+}
+
 /// Операция нужна completion-слою для точного tagged-ответа.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Mutation {
@@ -107,106 +115,6 @@ pub fn parse_subscribe(mut tokens: impl Iterator<Item = Token>, subscribed: bool
     }
 }
 
-pub fn parse_list(mut tokens: impl Iterator<Item = Token>) -> Command {
-    match tokens.next() {
-        Some(Token::ListStart) => parse_list_option(&mut tokens),
-        Some(first) => {
-            let mut restored = std::iter::once(first).chain(tokens);
-            parse_list_pattern(&mut restored)
-                .map(|pattern| Command::List { pattern })
-                .unwrap_or(Command::Unsupported)
-        }
-        None => Command::Unsupported,
-    }
-}
-
-/// Разбирает ровно одну selection-опцию, поддержанную текущим профилем.
-fn parse_list_option(tokens: &mut impl Iterator<Item = Token>) -> Command {
-    let option = match tokens.next() {
-        Some(Token::Text(option)) => option.to_ascii_uppercase(),
-        _ => return Command::Unsupported,
-    };
-    let mut valid = true;
-    loop {
-        match tokens.next() {
-            Some(Token::ListEnd) => break,
-            Some(Token::Text(duplicate)) if duplicate.eq_ignore_ascii_case(&option) => {}
-            _ => valid = false,
-        }
-        if !valid {
-            return Command::Unsupported;
-        }
-    }
-    match option.as_str() {
-        "SPECIAL-USE" => parse_pattern(tokens)
-            .map(|pattern| Command::ListSpecial { pattern })
-            .unwrap_or(Command::Unsupported),
-        "SUBSCRIBED" => parse_pattern(tokens)
-            .map(|pattern| Command::ListSubscribed { pattern })
-            .unwrap_or(Command::Unsupported),
-        _ => Command::Unsupported,
-    }
-}
-
-/// Принимает LIST RETURN (SPECIAL-USE): атрибуты уже вычисляются каталогом,
-/// поэтому эта форма не меняет выборку, а требует их в каждом LIST-ответе.
-fn parse_list_pattern(tokens: &mut impl Iterator<Item = Token>) -> Option<ListPattern> {
-    let reference = next_text(tokens)?;
-    let pattern = next_text(tokens)?;
-    match tokens.next() {
-        None if reference.is_empty() => match pattern.is_empty() {
-            true => Some(ListPattern::Root),
-            false => list_pattern_value(pattern),
-        },
-        Some(Token::Text(return_name)) if return_name.eq_ignore_ascii_case("RETURN") => {
-            match (tokens.next(), tokens.next(), tokens.next(), tokens.next()) {
-                (Some(Token::ListStart), Some(Token::Text(option)), Some(Token::ListEnd), None) => {
-                    match (
-                        reference.is_empty(),
-                        option.eq_ignore_ascii_case("SPECIAL-USE"),
-                    ) {
-                        (true, true) => list_pattern_value(pattern),
-                        (true, false) | (false, _) => None,
-                    }
-                }
-                _ => None,
-            }
-        }
-        _ => None,
-    }
-}
-
-fn list_pattern_value(pattern: String) -> Option<ListPattern> {
-    Some(match pattern.as_str() {
-        "*" => ListPattern::All,
-        "%" => ListPattern::OneLevel,
-        _ => list_pattern(super::modified_utf7::decode(&pattern).ok()?),
-    })
-}
-
-fn parse_pattern(tokens: &mut impl Iterator<Item = Token>) -> Option<ListPattern> {
-    match (next_text(tokens), next_text(tokens), tokens.next()) {
-        (Some(reference), Some(pattern), None) if reference.is_empty() => {
-            list_pattern_value(pattern)
-        }
-        _ => None,
-    }
-}
-
-fn list_pattern(pattern: String) -> ListPattern {
-    match (pattern.contains('*'), pattern.contains('%')) {
-        (false, false) => ListPattern::Exact(pattern),
-        _ => ListPattern::Wildcard(pattern),
-    }
-}
-
-pub fn parse_lsub(mut tokens: impl Iterator<Item = Token>) -> Command {
-    match parse_pattern(&mut tokens) {
-        Some(pattern) => Command::Lsub { pattern },
-        None => Command::Unsupported,
-    }
-}
-
 pub(super) fn mailbox(value: String) -> Option<MailboxName> {
     let decoded = super::modified_utf7::decode(&value).ok()?;
     match decoded.to_ascii_uppercase().as_str() {
@@ -219,54 +127,5 @@ fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
     match tokens.next()? {
         Token::Text(value) | Token::Quoted(value) => Some(value),
         Token::ListStart | Token::ListEnd => None,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Пустой базовый pattern запрашивает delimiter, а не mailbox с пустым именем.
-    #[test]
-    fn empty_basic_list_pattern_requests_hierarchy_root() {
-        assert_eq!(
-            crate::imap::parse("a LIST \"\" \"\"\r\n").command,
-            Command::List {
-                pattern: ListPattern::Root,
-            }
-        );
-    }
-
-    /// В extended syntax пустое mailbox pattern не превращается в root discovery.
-    #[test]
-    fn empty_extended_list_pattern_stays_an_empty_match() {
-        assert_eq!(
-            crate::imap::parse("a LIST \"\" \"\" RETURN (SPECIAL-USE)\r\n").command,
-            Command::List {
-                pattern: ListPattern::Exact(String::new()),
-            }
-        );
-    }
-
-    /// SUBSCRIBED selection сохраняет отдельную семантику LIST, не превращаясь в LSUB.
-    #[test]
-    fn subscribed_selection_is_typed_as_list_subscribed() {
-        assert_eq!(
-            crate::imap::parse("a LIST (SUBSCRIBED) \"\" \"Invoices/%\"\r\n").command,
-            Command::ListSubscribed {
-                pattern: ListPattern::Wildcard("Invoices/%".into()),
-            }
-        );
-    }
-
-    /// Повтор одной selection-опции действует как единственная опция по RFC.
-    #[test]
-    fn duplicate_subscribed_selection_is_accepted_once() {
-        assert_eq!(
-            crate::imap::parse("a LIST (SUBSCRIBED SUBSCRIBED) \"\" \"*\"\r\n").command,
-            Command::ListSubscribed {
-                pattern: ListPattern::All,
-            }
-        );
     }
 }
