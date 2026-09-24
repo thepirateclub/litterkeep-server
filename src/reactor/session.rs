@@ -39,6 +39,8 @@ pub(super) struct Session {
     pub(super) selected_exists: usize,
     /// `\\Recent` принадлежит session, а не persistent MessageFlags.
     pub(super) selected_recent: BTreeSet<u64>,
+    /// UIDs последнего успешного SEARCH RETURN (SAVE), только для этой сессии.
+    pub(super) saved_search_uids: BTreeSet<u64>,
     /// EXAMINE запрещает все изменяющие выбранный mailbox команды.
     pub(super) selected_read_only: bool,
     /// Активный IDLE сохраняет session lease и не создаёт worker/thread.
@@ -91,6 +93,7 @@ impl Session {
             selected_mailbox: None,
             selected_exists: 0,
             selected_recent: BTreeSet::new(),
+            saved_search_uids: BTreeSet::new(),
             selected_read_only: false,
             imap_idle: None,
             imap_authenticate: None,

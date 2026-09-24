@@ -130,6 +130,9 @@ pub(super) fn completed(
         }
     }
     session.selected_exists = session.selected_exists.saturating_sub(removed.len());
+    for uid in &removed {
+        session.saved_search_uids.remove(uid);
+    }
     match close {
         true => close_completed(session, tag),
         false => session.push(format!("{tag} OK EXPUNGE completed\r\n").as_bytes()),
@@ -141,5 +144,6 @@ fn close_completed(session: &mut Session, tag: String) -> io::Result<()> {
     session.selected_mailbox = None;
     session.selected_exists = 0;
     session.selected_read_only = false;
+    session.saved_search_uids.clear();
     session.push(format!("{tag} OK CLOSE completed\r\n").as_bytes())
 }

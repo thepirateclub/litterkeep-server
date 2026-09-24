@@ -8,6 +8,7 @@ pub(super) fn execute(session: &mut Session, tag: String) -> io::Result<()> {
         Some(_) => {
             session.selected_exists = 0;
             session.selected_recent.clear();
+            session.saved_search_uids.clear();
             session.selected_read_only = false;
             session.imap_idle = None;
             session.push(format!("{tag} OK UNSELECT completed\r\n").as_bytes())

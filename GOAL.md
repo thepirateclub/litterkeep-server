@@ -119,6 +119,31 @@ ManageSieve до заявленного набора современных фо
 - G14/Search остаётся PARTIAL: charset вне текущего профиля, SAVE/`$`, полный
   mandatory SEARCH key set и полная IMAP4rev2 grammar ещё не закрыты.
 
+### 2026-09-24: G14 SEARCH SAVE session-result checkpoint
+
+- SEARCH RETURN принимает SAVE как типизированный ESEARCH option. Успешная
+  команда сохраняет UID projection в конкретной IMAP-сессии. Один SAVE подавляет
+  ESEARCH response; SAVE вместе с ALL/COUNT сохраняет весь результат, а SAVE
+  вместе только с MIN/MAX сохраняет соответствующие крайние сообщения.
+  `$` распознаётся как отдельный SearchKey и работает в SEARCH и UID SEARCH,
+  независимо от того, каким из этих двух режимов набор был сохранён.
+- Обычный SEARCH не изменяет набор. SEARCH RETURN SAVE, завершившийся NO,
+  очищает его; BAD grammar не меняет. Успешный SELECT/EXAMINE очищает набор,
+  EXPUNGE/MOVE удаляет из него выбывшие UIDs. Независимый STARTTLS тест
+  проверяет сохранение, cross-mode UID/sequence projection, отсутствие утечки
+  в другую сессию, не-SAVE NO сохранение, SAVE NO очистку и SELECT reset.
+- PASS: Windows Rust 1.97 `cargo fmt --check`, strict Clippy и 212 тестов;
+  Docker Linux Rust 1.97 release build, strict Clippy и 246 тестов. Независимый
+  Python STARTTLS клиент подтвердил MIME SEARCH и SEARCH SAVE сценарии
+  (`PASS imap-search-mime`). Python syntax и structural audit прошли: 241
+  Rust-файл, все не более 300 строк, `mod.rs` отсутствует. Созданный
+  `litterkeep-g14-searchres` удалён; этапные данные сохранены в
+  `./data/g14-search-mime`.
+- Это не завершённый SEARCHRES профиль: `$` в FETCH/STORE/COPY/UID EXPUNGE
+  не принимается, поэтому `SEARCHRES` capability не рекламируется. G14/Search
+  остаётся PARTIAL вместе с другими незакрытыми SEARCH keys, MIME charset и
+  полным IMAP4rev2 baseline.
+
 ### 2026-09-24: G14 NAMESPACE and UNSELECT checkpoint
 
 - Добавлены typed-команды `NAMESPACE` и `UNSELECT`. Персональный namespace

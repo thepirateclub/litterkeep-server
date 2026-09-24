@@ -228,8 +228,9 @@ pub(super) fn line(
         )?,
         imap::Command::Search {
             charset: imap::search_charset::Charset::Unsupported,
+            result,
             ..
-        } => imap_search_error::unsupported_charset(session, &parsed.tag)?,
+        } => imap_search_error::unsupported_charset(session, &parsed.tag, result.saves_result())?,
         imap::Command::Search {
             addressing,
             key,

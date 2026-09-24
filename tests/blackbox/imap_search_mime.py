@@ -47,7 +47,61 @@ def main() -> None:
         + b"\r\n--search-boundary--\r\n"
     )
     require(client.append(mailbox, None, None, message), "OK")
+    for subject in (b"secondary-two", b"secondary-three"):
+        require(
+            client.append(
+                mailbox,
+                None,
+                None,
+                b"Subject: " + subject + b"\r\n\r\nsecondary body\r\n",
+            ),
+            "OK",
+        )
     require(client.select(mailbox), "OK")
+    saved_search = raw_search(
+        client,
+        b"RETURN",
+        b"(SAVE)",
+        b"CHARSET",
+        b"UTF-8",
+        b"HEADER",
+        b"SUBJECT",
+        quoted("тема"),
+    )
+    assert saved_search == ("OK", []), saved_search
+    _, saved_esearch = client.response("ESEARCH")
+    assert not [item for item in (saved_esearch or []) if item is not None]
+    saved_sequence = require(raw_search(client, b"$"), "OK")
+    assert saved_sequence == [b"1"], saved_sequence
+    saved_uid = require(client.uid("SEARCH", "$"), "OK")
+    assert saved_uid == [b"1"], saved_uid
+    other = imaplib.IMAP4(options.host, options.port, timeout=10)
+    other.starttls(ssl_context=context)
+    require(other.login("bob", os.environ["LITTERKEEP_BOB_PASSWORD"]), "OK")
+    require(other.select(mailbox), "OK")
+    isolated_search = require(raw_search(other, b"$"), "OK")
+    assert isolated_search == [b""], isolated_search
+    other.logout()
+    min_max_save = raw_search(client, b"RETURN", b"(SAVE MIN MAX)", b"ALL")
+    assert min_max_save == ("OK", []), min_max_save
+    _, min_max_items = client.response("ESEARCH")
+    min_max_text = b" ".join(item for item in (min_max_items or []) if item is not None)
+    assert b"MIN 1" in min_max_text and b"MAX 3" in min_max_text, min_max_text
+    min_max_search = require(raw_search(client, b"$"), "OK")
+    assert min_max_search == [b"1 3"], min_max_search
+    require(
+        raw_search(
+            client,
+            b"RETURN",
+            b"(SAVE)",
+            b"CHARSET",
+            b"UTF-8",
+            b"HEADER",
+            b"SUBJECT",
+            quoted("тема"),
+        ),
+        "OK",
+    )
     body_unicode = require(
         raw_search(client, b"CHARSET", b"UTF-8", b"BODY", quoted("Привет")),
         "OK",
@@ -113,6 +167,32 @@ def main() -> None:
         item for item in (response_items or []) if item is not None
     ).strip()
     assert not search_result, search_result
+    preserved_search = require(raw_search(client, b"$"), "OK")
+    assert preserved_search == [b"1"], preserved_search
+    tag = client._command(
+        "SEARCH", b"RETURN", b"(SAVE)", b"BODY", quoted("searchable-after-decode-error")
+    )
+    status, detail = client._command_complete("SEARCH", tag)
+    assert status == "NO", (status, detail)
+    assert b"UNKNOWN-CTE" in b" ".join(detail), detail
+    cleared_search = require(raw_search(client, b"$"), "OK")
+    assert cleared_search == [b""], cleared_search
+    require(
+        raw_search(
+            client,
+            b"RETURN",
+            b"(SAVE)",
+            b"CHARSET",
+            b"UTF-8",
+            b"HEADER",
+            b"SUBJECT",
+            quoted("тема"),
+        ),
+        "OK",
+    )
+    require(client.select(mailbox), "OK")
+    reset_search = require(raw_search(client, b"$"), "OK")
+    assert reset_search == [b""], reset_search
     client.logout()
     print("PASS imap-search-mime")
 
@@ -122,7 +202,7 @@ def raw_search(client: imaplib.IMAP4, *arguments: bytes) -> tuple[str, list[byte
     tag = client._command("SEARCH", *arguments)
     status, data = client._command_complete("SEARCH", tag)
     _, response_items = client.response("SEARCH")
-    return status, response_items or []
+    return status, [item for item in (response_items or []) if item is not None]
 
 
 def quoted(value: str) -> bytes:

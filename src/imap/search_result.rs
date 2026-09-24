@@ -10,6 +10,7 @@ pub enum ReturnItem {
     Count,
     Min,
     Max,
+    Save,
 }
 
 /// Отличает совместимый legacy SEARCH от явно запрошенного ESEARCH.
@@ -26,6 +27,11 @@ impl ResultRequest {
             true => Self::Extended(vec![ReturnItem::All]),
             false => Self::Extended(items),
         }
+    }
+
+    /// Сообщает, должен ли успешный SEARCH заменить session search result.
+    pub fn saves_result(&self) -> bool {
+        matches!(self, Self::Extended(items) if items.contains(&ReturnItem::Save))
     }
 }
 
@@ -74,6 +80,7 @@ fn parse_item(value: &str) -> Option<ReturnItem> {
         "COUNT" => Some(ReturnItem::Count),
         "MIN" => Some(ReturnItem::Min),
         "MAX" => Some(ReturnItem::Max),
+        "SAVE" => Some(ReturnItem::Save),
         _ => None,
     }
 }

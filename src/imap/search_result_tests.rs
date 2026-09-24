@@ -24,6 +24,18 @@ fn parses_extended_result_items_and_defaults_empty_list_to_all() {
 }
 
 #[test]
+fn parses_save_alongside_result_items() {
+    let command = crate::imap::parse("a SEARCH RETURN (SAVE MIN) ALL\r\n").command;
+    assert!(matches!(
+        command,
+        crate::imap::Command::Search {
+            result: ResultRequest::Extended(items),
+            ..
+        } if items == vec![ReturnItem::Save, ReturnItem::Min]
+    ));
+}
+
+#[test]
 fn rejects_unknown_or_malformed_return_items() {
     for line in [
         "a SEARCH RETURN (PARTIAL 1:2) ALL\r\n",

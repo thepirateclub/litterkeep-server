@@ -16,12 +16,14 @@ pub(super) fn completed(
     messages: Vec<crate::store::Message>,
 ) -> io::Result<()> {
     if !charset.accepts(&key) {
+        clear_failed_saved_result(session, &result);
         return session
             .push(format!("{tag} NO SEARCH criteria do not match charset\r\n").as_bytes());
     }
     let documents = match search_documents(&messages, &key) {
         Ok(documents) => documents,
         Err(crate::mime::search_text::SearchTextError::UnknownContentTransferEncoding) => {
+            clear_failed_saved_result(session, &result);
             return super::imap_protocol::imap_search_error::unknown_content_transfer_encoding(
                 session, &tag,
             );
@@ -39,7 +41,7 @@ pub(super) fn completed(
         .map(|message| message.uid)
         .max()
         .unwrap_or(0);
-    let matches = messages
+    let matching_messages = messages
         .iter()
         .enumerate()
         .zip(&documents)
@@ -50,14 +52,85 @@ pub(super) fn completed(
                 maximum_sequence,
                 maximum_uid,
                 recent,
+                saved_search_uids: &session.saved_search_uids,
             };
-            matches_key(message, &key, document.as_ref(), &position).then_some(match addressing {
-                imap::Addressing::Sequence => offset.saturating_add(1) as u64,
-                imap::Addressing::Uid => message.uid,
+            matches_key(message, &key, document.as_ref(), &position).then_some(SearchMatch {
+                number: match addressing {
+                    imap::Addressing::Sequence => offset.saturating_add(1) as u64,
+                    imap::Addressing::Uid => message.uid,
+                },
+                uid: message.uid,
             })
         })
         .collect::<Vec<_>>();
-    super::imap_protocol::imap_search_response::write(session, addressing, result, &tag, &matches)
+    let values = matching_messages
+        .iter()
+        .map(|matched| matched.number)
+        .collect::<Vec<_>>();
+    if result.saves_result() {
+        session.saved_search_uids = saved_uids(&result, &matching_messages);
+    }
+    super::imap_protocol::imap_search_response::write(session, addressing, result, &tag, &values)
+}
+
+/// Одна находка хранит внешний номер и UID, не смешивая адресные пространства.
+struct SearchMatch {
+    number: u64,
+    uid: u64,
+}
+
+/// Вычисляет RFC 5182 SAVE projection для запрошенных ESEARCH return items.
+fn saved_uids(
+    request: &imap::search_result::ResultRequest,
+    matches: &[SearchMatch],
+) -> std::collections::BTreeSet<u64> {
+    let imap::search_result::ResultRequest::Extended(items) = request else {
+        return std::collections::BTreeSet::new();
+    };
+    let save_all = matches!(
+        (
+            items.contains(&imap::search_result::ReturnItem::All),
+            items.contains(&imap::search_result::ReturnItem::Count),
+            items.contains(&imap::search_result::ReturnItem::Min),
+            items.contains(&imap::search_result::ReturnItem::Max),
+        ),
+        (true, _, _, _) | (_, true, _, _) | (false, false, false, false)
+    );
+    let minimum = matches.iter().map(|matched| matched.number).min();
+    let maximum = matches.iter().map(|matched| matched.number).max();
+    matches
+        .iter()
+        .filter(|matched| match save_all {
+            true => true,
+            false => is_extreme(matched.number, items, minimum, maximum),
+        })
+        .map(|matched| matched.uid)
+        .collect()
+}
+
+/// При SAVE MIN/MAX сохраняет только указанный край найденного набора.
+fn is_extreme(
+    number: u64,
+    items: &[imap::search_result::ReturnItem],
+    minimum: Option<u64>,
+    maximum: Option<u64>,
+) -> bool {
+    matches!(
+        (
+            items.contains(&imap::search_result::ReturnItem::Min),
+            Some(number) == minimum,
+            items.contains(&imap::search_result::ReturnItem::Max),
+            Some(number) == maximum,
+        ),
+        (true, true, _, _) | (_, _, true, true)
+    )
+}
+
+/// Ошибка SEARCH с SAVE очищает сохранённый результат по RFC 5182.
+fn clear_failed_saved_result(session: &mut Session, request: &imap::search_result::ResultRequest) {
+    if request.saves_result() {
+        session.saved_search_uids.clear();
+    }
 }
 
 /// Строит MIME-проекции до вычисления совпадений, чтобы ошибка декодирования
@@ -87,6 +160,7 @@ struct MatchPosition<'a> {
     maximum_sequence: u64,
     maximum_uid: u64,
     recent: &'a std::collections::BTreeSet<u64>,
+    saved_search_uids: &'a std::collections::BTreeSet<u64>,
 }
 
 fn matches_key(
@@ -118,6 +192,7 @@ fn matches_key(
             set.contains_bounded(position.sequence, position.maximum_sequence)
         }
         SearchKey::UidSet(set) => set.contains_bounded(message.uid, position.maximum_uid),
+        SearchKey::Saved => position.saved_search_uids.contains(&message.uid),
         SearchKey::Header(selector, needle) => header_matches(document, selector, needle),
         SearchKey::Body(needle) => document.is_some_and(|value| value.body_contains(needle)),
         SearchKey::Text(needle) => document.is_some_and(|value| value.text_contains(needle)),

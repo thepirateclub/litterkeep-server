@@ -145,6 +145,9 @@ pub(super) fn completed(
             let source = sequence_set(&source_uids);
             let destination = sequence_set(&destination_uids);
             if matches!(transfer, imap::Transfer::Move) {
+                for uid in &source_uids {
+                    session.saved_search_uids.remove(uid);
+                }
                 for number in source_sequences {
                     session.push(format!("* {number} EXPUNGE\r\n").as_bytes())?;
                 }

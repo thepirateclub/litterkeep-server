@@ -4,6 +4,12 @@ use super::*;
 use crate::mail_date::MailDate;
 use crate::mail_flags::MessageFlags;
 use std::path::PathBuf;
+use std::sync::OnceLock;
+
+fn empty_saved_search() -> &'static std::collections::BTreeSet<u64> {
+    static EMPTY: OnceLock<std::collections::BTreeSet<u64>> = OnceLock::new();
+    EMPTY.get_or_init(std::collections::BTreeSet::new)
+}
 
 fn position(recent: &std::collections::BTreeSet<u64>) -> MatchPosition<'_> {
     MatchPosition {
@@ -11,6 +17,7 @@ fn position(recent: &std::collections::BTreeSet<u64>) -> MatchPosition<'_> {
         maximum_sequence: 5,
         maximum_uid: 12,
         recent,
+        saved_search_uids: empty_saved_search(),
     }
 }
 
@@ -143,6 +150,41 @@ fn boolean_header_query_requests_header_parse() {
         Box::new(SearchKey::Body("ignored".into())),
     )));
     assert!(requires_headers(&query));
+}
+
+#[test]
+fn save_projection_obeys_esearch_min_and_max_selection() {
+    let matches = vec![
+        SearchMatch { number: 2, uid: 12 },
+        SearchMatch { number: 4, uid: 14 },
+        SearchMatch { number: 9, uid: 19 },
+    ];
+    let min_max = crate::imap::search_result::ResultRequest::Extended(vec![
+        crate::imap::search_result::ReturnItem::Save,
+        crate::imap::search_result::ReturnItem::Min,
+        crate::imap::search_result::ReturnItem::Max,
+    ]);
+    assert_eq!(saved_uids(&min_max, &matches), [12, 19].into());
+    let min_only = crate::imap::search_result::ResultRequest::Extended(vec![
+        crate::imap::search_result::ReturnItem::Save,
+        crate::imap::search_result::ReturnItem::Min,
+    ]);
+    assert_eq!(saved_uids(&min_only, &matches), [12].into());
+}
+
+#[test]
+fn saved_search_key_matches_uids_independent_of_sequence_context() {
+    let value = message(b"Subject: saved\r\n\r\nbody");
+    let recent = std::collections::BTreeSet::new();
+    let saved = std::collections::BTreeSet::from([value.uid]);
+    let position = MatchPosition {
+        sequence: 3,
+        maximum_sequence: 5,
+        maximum_uid: 12,
+        recent: &recent,
+        saved_search_uids: &saved,
+    };
+    assert!(matches_key(&value, &SearchKey::Saved, None, &position));
 }
 
 #[test]

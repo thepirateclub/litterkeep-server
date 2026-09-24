@@ -24,6 +24,8 @@ pub enum SearchKey {
     New,
     SequenceSet(super::sequence_set::SequenceSet),
     UidSet(super::sequence_set::SequenceSet),
+    /// Сообщение присутствует в сохранённом SEARCH result этой сессии.
+    Saved,
     Header(HeaderSelector, String),
     Body(String),
     Text(String),
@@ -137,6 +139,7 @@ fn parse_one(tokens: &mut VecDeque<Token>) -> Option<SearchKey> {
             let right = parse_one(tokens)?;
             Some(SearchKey::Or(Box::new(left), Box::new(right)))
         }
+        "$" => Some(SearchKey::Saved),
         _ => super::sequence_set::SequenceSet::parse(&value)
             .ok()
             .map(SearchKey::SequenceSet),
@@ -264,6 +267,22 @@ mod tests {
         ));
         assert_eq!(
             imap::parse("a SEARCH UID unknown\r\n").command,
+            Command::Unsupported
+        );
+    }
+
+    #[test]
+    fn parses_saved_search_reference_as_a_typed_key() {
+        let command = imap::parse("a SEARCH (OR $ 3:5)\r\n").command;
+        assert!(matches!(
+            command,
+            Command::Search {
+                key: SearchKey::Or(left, _),
+                ..
+            } if matches!(*left, SearchKey::Saved)
+        ));
+        assert_eq!(
+            imap::parse("a FETCH $ FLAGS\r\n").command,
             Command::Unsupported
         );
     }

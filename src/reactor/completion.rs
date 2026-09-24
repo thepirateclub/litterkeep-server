@@ -85,6 +85,7 @@ pub(super) fn write_completion(
         ) => {
             let snapshot = resolved.snapshot;
             session.selected_mailbox = Some(resolved.key);
+            session.saved_search_uids.clear();
             session.selected_exists = snapshot.messages.len();
             session.selected_recent = resolved.recent_uids.into_iter().collect();
             session.selected_read_only = read_only;
@@ -175,6 +176,12 @@ pub(super) fn write_completion(
             tag,
             snapshot.messages,
         ),
+        (Pending::ReadForSearch { result, tag, .. }, Response::Read { result: Err(_), .. }) => {
+            if result.saves_result() {
+                session.saved_search_uids.clear();
+            }
+            session.push(format!("{tag} NO SEARCH failed\r\n").as_bytes())
+        }
         (_, Response::Read { .. }) => session.push(b"451 storage failure\r\n"),
         (pending @ Pending::WriteFlags { .. }, response @ Response::FlagsUpdated { .. }) => {
             super::flag_completion::write(session, pending, response)

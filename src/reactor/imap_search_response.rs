@@ -16,7 +16,14 @@ pub(in crate::reactor) fn write(
 ) -> io::Result<()> {
     match request {
         ResultRequest::Legacy => write_legacy(session, tag, values),
-        ResultRequest::Extended(items) => write_extended(session, addressing, tag, items, values),
+        ResultRequest::Extended(items) => {
+            match items.iter().any(|item| !matches!(item, ReturnItem::Save)) {
+                true => write_extended(session, addressing, tag, items, values),
+                false => {
+                    session.push(format!("{tag} OK SEARCH completed, result saved\r\n").as_bytes())
+                }
+            }
+        }
     }
 }
 
@@ -74,5 +81,6 @@ fn append_item(fields: &mut Vec<String>, item: ReturnItem, values: &[u64]) {
             fields.push(format!("MAX {}", values.iter().max().copied().unwrap_or(0)))
         }
         ReturnItem::All => {}
+        ReturnItem::Save => {}
     }
 }

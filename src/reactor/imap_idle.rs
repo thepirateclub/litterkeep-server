@@ -119,6 +119,9 @@ pub(super) fn notify_expunge(
         if session.selected_mailbox.as_deref() != Some(mailbox) {
             continue;
         }
+        for uid in removed {
+            session.saved_search_uids.remove(uid);
+        }
         session.selected_exists = session.selected_exists.saturating_sub(removed.len());
         if session.imap_idle.is_none() {
             continue;
@@ -262,6 +265,7 @@ fn notify_move_source(
     session.selected_exists = session.selected_exists.saturating_sub(source_uids.len());
     for uid in source_uids {
         session.selected_recent.remove(uid);
+        session.saved_search_uids.remove(uid);
     }
     if session.imap_idle.is_none() {
         return;

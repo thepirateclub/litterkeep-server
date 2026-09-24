@@ -34,10 +34,19 @@ application/octet-stream вложение, а TEXT включает decoded oute
 Неизвестная charset и невалидная transfer encoding не сравниваются как raw
 octets. Если у текстовой MIME-части неизвестный Content-Transfer-Encoding,
 SEARCH завершается tagged `NO [UNKNOWN-CTE]` без частичного результата.
+`RETURN (SAVE)` сохраняет UIDs в состоянии одной сессии, а `$` SEARCH criterion
+сопоставляет их как для SEARCH, так и UID SEARCH. Успешный SELECT, SAVE-команда
+с ответом NO, EXPUNGE и MOVE сбрасывают/синхронизируют результат; обычный SEARCH
+его не меняет. При одном SAVE ESEARCH response подавляется, а SAVE с MIN/MAX
+сохраняет соответствующий край. Независимый клиент проверяет сохранение,
+UID-проекцию, отсутствие результата в другой сессии и reset после SELECT/error.
+Расширение намеренно не объявляется как SEARCHRES: `$` для FETCH/STORE/COPY и
+UID EXPUNGE ещё не реализован, так что capability остаётся скрытой.
 Явный `SEARCH RETURN` выдаёт ESEARCH с correlator, UID-маркером и опциями
 ALL/COUNT/MIN/MAX; legacy SEARCH остаётся для текущего IMAP4rev1 профиля. MIME
-charset вне US-ASCII/UTF-8/ISO-8859-1, SAVE/$ и полный mandatory search-key set
-также не реализованы. Это не означает полной
+charset вне US-ASCII/UTF-8/ISO-8859-1, `$` в message-set командах и полный
+mandatory search-key set также не реализованы. SEARCHRES capability не
+объявляется, пока generic `$` profile не будет завершён. Это не означает полной
 совместимости IMAP4rev1 или IMAP4rev2: остаются SEARCH/ESEARCH расширения и
 другие несовпадения формальных грамматик; см. [матрицу IMAP](imap-profile.md).
 
