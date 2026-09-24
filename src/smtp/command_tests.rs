@@ -108,6 +108,30 @@ fn enforces_256_octet_reverse_and_forward_paths() {
     );
 }
 
+/// Проверяет 64-октетный local-part в обоих видах SMTP path.
+#[test]
+fn enforces_64_octet_local_parts() {
+    let maximum_mailbox = format!("{}@test", "u".repeat(MAX_LOCAL_PART_SIZE));
+    let overlong_mailbox = format!("{}@test", "u".repeat(MAX_LOCAL_PART_SIZE + 1));
+
+    assert!(matches!(
+        parse(&format!("MAIL FROM:<{maximum_mailbox}>\r\n")),
+        Ok(Command::Mail(_))
+    ));
+    assert_eq!(
+        parse(&format!("MAIL FROM:<{overlong_mailbox}>\r\n")),
+        Err(ParseError::Syntax)
+    );
+    assert!(matches!(
+        parse(&format!("RCPT TO:<{maximum_mailbox}>\r\n")),
+        Ok(Command::Rcpt(_))
+    ));
+    assert_eq!(
+        parse(&format!("RCPT TO:<{overlong_mailbox}>\r\n")),
+        Err(ParseError::Syntax)
+    );
+}
+
 #[test]
 fn parses_supported_commands_and_auth_mechanism() {
     assert_eq!(

@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G15
 
+### 2026-09-25: G15 RFC 5321 local-part octet checkpoint
+
+- Для обычного SMTP mailbox адреса парсер ограничивает local-part 64 октетами;
+  единая проверка действует для reverse-path MAIL FROM и forward-path RCPT TO.
+  Ограничение учитывает UTF-8 byte length, а не число Unicode scalar values.
+- PASS: Windows Rust 1.97.1: 251 тест, strict Clippy, fmt и diff checks.
+  Linux Docker Rust 1.97: release image, strict Clippy и 291 тест.
+  STARTTLS black-box подтвердил 64-октетный mailbox на parser/policy границе
+  и `501` при 65 октетах для MAIL/RCPT; также прошли path, command, SIZE,
+  8BITMIME и SMTP-to-IMAP regression проверки.
+- Функциональный тест `tests/blackbox/smtp_local_part_length.py` проходит
+  py_compile и runtime. Данные этапа `./data/g15-smtp-local-part`; временный
+  контейнер удалён, `litterkeep-g12-phone` оставлен.
+- G15 остаётся RUNNING: не реализованы полная RFC mailbox/address грамматика,
+  Postmaster routing, SMTPUTF8 и прочие обязательные проверки профиля.
+
 ### 2026-09-25: G15 RFC 5321 reverse/forward path limit checkpoint
 
 - SMTP parser измеряет reverse-path и forward-path в октетах вместе с `< >`.
