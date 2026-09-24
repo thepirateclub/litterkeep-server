@@ -4,6 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G15
 
+### 2026-09-25: G15 RFC 5321 VRFY, EXPN, HELP and NOOP checkpoint
+
+- SMTP parser распознаёт VRFY/EXPN/HELP и принимает необязательную строку NOOP.
+  VRFY всегда возвращает privacy-safe 252 без раскрытия mailbox; EXPN возвращает
+  502, поскольку mailing-list expansion не реализован. HELP предоставляет
+  многострочный список команд. Эти команды не мутируют активный envelope.
+- PASS: Windows Rust 1.97.1: 248 тестов и строгий Clippy. Linux Docker Rust
+  1.97: release-сборка, строгий Clippy, 288 тестов и независимый STARTTLS
+  black-box: VRFY=252, EXPN=502, HELP multiline, NOOP с параметром, сохранение
+  активного envelope при VRFY/RCPT. Данные `./data/g15-smtp-rfc-commands`;
+  временный контейнер удалён, `litterkeep-g12-phone` оставлен.
+- G15 остаётся RUNNING: это совместимость команд RFC 5321, а не полный профиль.
+
 ### 2026-09-25: G15 RFC 6152 8BITMIME checkpoint
 
 - Добавлена typed грамматика `BODY=7BIT/8BITMIME`; сервер рекламирует 8BITMIME

@@ -34,7 +34,12 @@ pub(super) fn smtp_line(
         smtp::Command::Quit => session.push(b"221 bye\r\n"),
         smtp::Command::Ehlo(_) => ehlo(session),
         smtp::Command::Helo(_) => session.push(b"250 litterkeep.test\r\n"),
-        smtp::Command::Noop => session.push(b"250 ok\r\n"),
+        smtp::Command::Noop(_) => session.push(b"250 2.0.0 ok\r\n"),
+        smtp::Command::Vrfy(_) => {
+            session.push(b"252 2.5.2 cannot verify user, but will accept message\r\n")
+        }
+        smtp::Command::Expn(_) => session.push(b"502 5.5.1 mailing lists are not supported\r\n"),
+        smtp::Command::Help(topic) => help(session, topic),
         smtp::Command::StartTls => starttls(session),
         smtp::Command::AuthPlain(response) => authenticate(
             session, response, slot, generation, worker, owners, request_id,
@@ -44,6 +49,16 @@ pub(super) fn smtp_line(
             session, address, slot, generation, worker, owners, request_id,
         ),
         command => transaction_command(session, command),
+    }
+}
+
+/// Возвращает справку RFC 5321 без влияния на активный mail transaction.
+fn help(session: &mut Session, topic: Option<String>) -> io::Result<()> {
+    match topic {
+        Some(_) => session.push(b"214 2.0.0 use HELP for the command list\r\n"),
+        None => session.push(
+            b"214-Commands: EHLO HELO MAIL RCPT DATA RSET NOOP VRFY EXPN HELP QUIT\r\n214 End of HELP\r\n",
+        ),
     }
 }
 

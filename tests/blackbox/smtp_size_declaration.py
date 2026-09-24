@@ -68,6 +68,19 @@ def main():
         )
         expect_reply(client.rset(), 250, "reset after accepted MAIL")
 
+        expect_reply(client.docmd("VRFY", "alice@test"), 252, "privacy-safe VRFY")
+        expect_reply(client.docmd("EXPN", "staff"), 502, "disabled EXPN")
+        help_reply = client.docmd("HELP")
+        expect_reply(help_reply, 214, "HELP command list")
+        if b"VRFY" not in help_reply[1] or b"QUIT" not in help_reply[1]:
+            raise AssertionError(f"HELP omits supported SMTP commands: {help_reply!r}")
+        expect_reply(client.docmd("NOOP", "ignored argument"), 250, "NOOP parameter")
+
+        expect_reply(client.mail("alice@test"), 250, "MAIL before verify commands")
+        expect_reply(client.docmd("VRFY", "bob@test"), 252, "VRFY during envelope")
+        expect_reply(client.rcpt("bob@test"), 250, "VRFY preserves active envelope")
+        expect_reply(client.rset(), 250, "RSET after verify commands")
+
         expect_reply(client.mail("alice@test"), 250, "MAIL without SIZE")
         expect_reply(client.rcpt("bob@test"), 250, "RCPT before oversized DATA")
         expect_reply(client.docmd("DATA"), 354, "DATA before oversized body")

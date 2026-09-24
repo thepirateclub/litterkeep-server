@@ -10,8 +10,14 @@ pub enum Command {
     Data,
     /// Initial response механизма SASL PLAIN в base64-представлении.
     AuthPlain(String),
+    /// Проверка имени, не раскрывающая наличие локального пользователя.
+    Vrfy(String),
+    /// Запрос списка участников, который локальная политика запрещает.
+    Expn(String),
+    /// Справка SMTP с необязательным именем команды.
+    Help(Option<String>),
     StartTls,
-    Noop,
+    Noop(Option<String>),
     Rset,
     Quit,
 }
@@ -53,11 +59,32 @@ pub fn parse(line: &str) -> Result<Command, ParseError> {
         "RCPT" => parse_recipient(argument).map(Command::Rcpt),
         "DATA" if argument.is_empty() => Ok(Command::Data),
         "AUTH" => parse_auth(argument),
+        "VRFY" => parse_string_command(argument).map(Command::Vrfy),
+        "EXPN" => parse_string_command(argument).map(Command::Expn),
+        "HELP" => parse_optional_string(argument).map(Command::Help),
         "STARTTLS" if argument.is_empty() => Ok(Command::StartTls),
-        "NOOP" if argument.is_empty() => Ok(Command::Noop),
+        "NOOP" => parse_optional_string(argument).map(Command::Noop),
         "RSET" if argument.is_empty() => Ok(Command::Rset),
         "QUIT" if argument.is_empty() => Ok(Command::Quit),
         _ => Err(ParseError::Syntax),
+    }
+}
+
+/// Проверяет RFC 5321 printable ASCII string без CRLF и пустого аргумента.
+fn parse_string_command(argument: &str) -> Result<String, ParseError> {
+    let value = argument.trim();
+    let valid = !value.is_empty() && value.bytes().all(|byte| (32..=126).contains(&byte));
+    match valid {
+        true => Ok(value.to_owned()),
+        false => Err(ParseError::Syntax),
+    }
+}
+
+/// Разбирает необязательный параметр HELP/NOOP без изменения его значения.
+fn parse_optional_string(argument: &str) -> Result<Option<String>, ParseError> {
+    match argument.trim().is_empty() {
+        true => Ok(None),
+        false => parse_string_command(argument).map(Some),
     }
 }
 
@@ -266,7 +293,17 @@ mod tests {
             Ok(Command::AuthPlain("AGJvYgB0ZXN0LXBhc3N3b3Jk".into()))
         );
         assert_eq!(parse("STARTTLS\r\n"), Ok(Command::StartTls));
-        assert_eq!(parse("NOOP\r\n"), Ok(Command::Noop));
+        assert_eq!(parse("NOOP\r\n"), Ok(Command::Noop(None)));
+        assert_eq!(
+            parse("NOOP keep state\r\n"),
+            Ok(Command::Noop(Some("keep state".into())))
+        );
+        assert_eq!(
+            parse("VRFY alice@test\r\n"),
+            Ok(Command::Vrfy("alice@test".into()))
+        );
+        assert_eq!(parse("EXPN team\r\n"), Ok(Command::Expn("team".into())));
+        assert_eq!(parse("HELP\r\n"), Ok(Command::Help(None)));
         assert_eq!(
             parse("HELO sender.test\r\n"),
             Ok(Command::Helo("sender.test".into()))
