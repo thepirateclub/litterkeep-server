@@ -1,7 +1,7 @@
 //! SMTP submission transaction state.
 #[path = "smtp/command.rs"]
 mod command;
-pub use command::{Command, MAX_MESSAGE_SIZE, MailFrom, ParseError, parse};
+pub use command::{BodyMode, Command, MAX_MESSAGE_SIZE, MailFrom, ParseError, parse};
 
 /// Проверенный envelope, передаваемый из SMTP FSM в локальную delivery.
 #[derive(Debug, Eq, PartialEq)]

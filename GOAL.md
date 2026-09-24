@@ -4,6 +4,25 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G15
 
+### 2026-09-25: G15 RFC 6152 8BITMIME checkpoint
+
+- Добавлена typed грамматика `BODY=7BIT/8BITMIME`; сервер рекламирует 8BITMIME
+  только с поддержкой полного high-bit octet пути. DATA проверяет SMTP line
+  limit и ASCII в 7BIT режиме; избыточное тело отбрасывается до terminator.
+- Независимая проверка отправляет MIME text с UTF-8 octets через STARTTLS,
+  читает BODY.PEEK[TEXT] через IMAP и сравнивает исходные bytes. Та же проверка
+  убеждается, что high-bit DATA без BODY=8BITMIME отклоняется после dot и
+  соединение остаётся синхронизировано.
+- PASS: Windows Rust 1.97.1: 248 тестов, строгий Clippy. Linux Docker Rust
+  1.97: release-сборка, строгий Clippy, 288 тестов и независимый SMTP/IMAP
+  STARTTLS black-box. Подтверждены UTF-8 payload octets, 7BIT rejection,
+  oversized DATA drain и последующий NOOP. Все изменённые исходники короче
+  300 строк. Данные: `./data/g15-smtp-8bitmime`; временный контейнер удалён,
+  `litterkeep-g12-phone` сохранён.
+- Результат покрывает профиль передачи high-bit MIME text и проверенный
+  round-trip, но не является исчерпывающей сертификацией RFC 6152 для всех
+  MIME валидаторов и SMTP peer комбинаций. SMTPUTF8 ещё не рекламируется.
+
 ### 2026-09-25: G15 RFC 1870 SIZE checkpoint
 
 - SMTP-командная грамматика теперь сохраняет `MAIL FROM SIZE=n`, проверяет

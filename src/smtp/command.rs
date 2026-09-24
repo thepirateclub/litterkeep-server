@@ -21,6 +21,14 @@ pub enum Command {
 pub struct MailFrom {
     pub reverse_path: String,
     pub declared_size: Option<u128>,
+    pub body_mode: BodyMode,
+}
+
+/// RFC 6152 body declaration; default traffic remains strict seven-bit SMTP.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BodyMode {
+    SevenBit,
+    EightBitMime,
 }
 
 /// Причина отказа parser-а позволяет выбрать точный SMTP reply code.
@@ -69,16 +77,29 @@ fn parse_mail_from(argument: &str) -> Result<MailFrom, ParseError> {
     let (reverse_path, suffix) = parse_path(argument, "FROM:", true)?;
     let parsed_parameters = suffix
         .split_ascii_whitespace()
-        .map(parse_size_parameter)
+        .map(parse_mail_parameter)
         .collect::<Result<Vec<_>, _>>()?;
-    let declared_size = match parsed_parameters.as_slice() {
-        [] => None,
-        [size] => Some(*size),
-        _ => return Err(ParseError::Syntax),
-    };
+    let mut declared_size = None;
+    let mut body_mode = BodyMode::SevenBit;
+    let mut size_seen = false;
+    let mut body_seen = false;
+    for parameter in parsed_parameters {
+        match parameter {
+            MailParameter::Size(size) if !size_seen => {
+                declared_size = Some(size);
+                size_seen = true;
+            }
+            MailParameter::Body(mode) if !body_seen => {
+                body_mode = mode;
+                body_seen = true;
+            }
+            MailParameter::Size(_) | MailParameter::Body(_) => return Err(ParseError::Syntax),
+        }
+    }
     Ok(MailFrom {
         reverse_path,
         declared_size,
+        body_mode,
     })
 }
 
@@ -122,12 +143,28 @@ fn parse_path<'a>(
 }
 
 /// Преобразует ESMTP parameter keyword в явно поддерживаемый enum.
-fn parse_size_parameter(parameter: &str) -> Result<u128, ParseError> {
+fn parse_mail_parameter(parameter: &str) -> Result<MailParameter, ParseError> {
     let (name, value) = parameter.split_once('=').ok_or(ParseError::Syntax)?;
     match name.to_ascii_uppercase().as_str() {
-        "SIZE" => parse_size(value),
+        "SIZE" => parse_size(value).map(MailParameter::Size),
+        "BODY" => parse_body_mode(value).map(MailParameter::Body),
         _ => Err(ParseError::UnsupportedParameter),
     }
+}
+
+/// Преобразует BODY в перечисление только после EHLO-поддержки 8BITMIME.
+fn parse_body_mode(value: &str) -> Result<BodyMode, ParseError> {
+    match value.to_ascii_uppercase().as_str() {
+        "7BIT" => Ok(BodyMode::SevenBit),
+        "8BITMIME" => Ok(BodyMode::EightBitMime),
+        _ => Err(ParseError::Syntax),
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum MailParameter {
+    Size(u128),
+    Body(BodyMode),
 }
 
 /// Ограничивает SIZE value диапазоном RFC 1870: от 1 до 20 цифр.
@@ -150,7 +187,33 @@ mod tests {
             Ok(Command::Mail(MailFrom {
                 reverse_path: "alice@test".into(),
                 declared_size: Some(37),
+                body_mode: BodyMode::SevenBit,
             }))
+        );
+    }
+
+    /// Разбирает RFC 6152 body modes и поддерживает совместный SIZE.
+    #[test]
+    fn parses_8bitmime_body_mode_and_parameter_order() {
+        assert_eq!(
+            parse("MAIL FROM:<alice@test> BODY=8BITMIME SIZE=23\r\n"),
+            Ok(Command::Mail(MailFrom {
+                reverse_path: "alice@test".into(),
+                declared_size: Some(23),
+                body_mode: BodyMode::EightBitMime,
+            }))
+        );
+        assert_eq!(
+            parse("MAIL FROM:<alice@test> BODY=7BIT\r\n"),
+            Ok(Command::Mail(MailFrom {
+                reverse_path: "alice@test".into(),
+                declared_size: None,
+                body_mode: BodyMode::SevenBit,
+            }))
+        );
+        assert_eq!(
+            parse("MAIL FROM:<alice@test> BODY=8BITMIME BODY=7BIT\r\n"),
+            Err(ParseError::Syntax)
         );
     }
 
@@ -168,10 +231,7 @@ mod tests {
                 "MAIL FROM:<alice@test> SIZE=1 SIZE=2\r\n",
                 ParseError::Syntax,
             ),
-            (
-                "MAIL FROM:<alice@test> BODY=8BITMIME\r\n",
-                ParseError::UnsupportedParameter,
-            ),
+            ("MAIL FROM:<alice@test> BODY=FOO\r\n", ParseError::Syntax),
             (
                 "RCPT TO:<bob@test> NOTIFY=SUCCESS\r\n",
                 ParseError::UnsupportedParameter,
@@ -189,6 +249,7 @@ mod tests {
             Ok(Command::Mail(MailFrom {
                 reverse_path: String::new(),
                 declared_size: None,
+                body_mode: BodyMode::SevenBit,
             }))
         );
         assert_eq!(

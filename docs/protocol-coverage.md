@@ -3,9 +3,12 @@
 ## SMTP
 
 Submission поддерживает implicit TLS и STARTTLS, EHLO, AUTH PLAIN, MAIL SIZE,
-несколько RCPT, DATA с однократным dot-unstuffing, RSET, NOOP и QUIT. До TLS
-AUTH запрещён. Envelope sender должен принадлежать authenticated owner. Local
-route не является open relay.
+несколько RCPT, DATA с однократным dot-unstuffing, RSET, NOOP и QUIT. Также
+рекламируется RFC 6152 `8BITMIME`: `BODY=8BITMIME` разрешает high-bit octets,
+которые сохраняются до IMAP, а без него DATA с такими octets отклоняется после
+dot terminator. `BODY=7BIT` и режим без BODY ограничивают содержимое US-ASCII.
+До TLS AUTH запрещён. Envelope sender должен принадлежать authenticated owner.
+Local route не является open relay.
 
 RFC 1870 SIZE объявляется с фактическим фиксированным пределом сообщения.
 Единственный корректный `MAIL FROM ... SIZE=n` разбирается до DATA; значение
@@ -16,7 +19,12 @@ RFC 1870 SIZE объявляется с фактическим фиксиров�
 накапливать тело, но продолжает потоково читать до завершающей точки; после неё
 возвращает 552 и сохраняет синхронизацию команд. Проверено независимым клиентом
 на теле размером 25 MiB + 1 байт с последующим NOOP.
-Это не закрывает прочие обязательные команды RFC 5321 и SMTPUTF8.
+Независимый клиент передал UTF-8 MIME text с `Content-Transfer-Encoding: 8bit`
+через SMTP и сравнил payload octets после IMAP `BODY.PEEK[TEXT]`. Проверены
+также 7BIT rejection, oversized DATA drain и синхронизация последующего NOOP.
+Это проверка конкретного high-bit text сценария, не исчерпывающая сертификация
+RFC 6152 для всех MIME content и SMTP peer комбинаций. SMTPUTF8 не рекламируется.
+Строки DATA ограничены 1000 octets вместе с CRLF.
 
 ## IMAP
 

@@ -14,6 +14,7 @@ pub(super) enum SmtpState {
         recipients: Vec<String>,
         reverse_path: String,
         oversized: bool,
+        body_mode: crate::smtp::BodyMode,
     },
 }
 
@@ -61,6 +62,7 @@ pub(super) struct Session {
     /// SEARCH literal временно заменяется quoted UTF-8 строкой после приёма.
     pub(super) imap_search_literal: Option<super::imap_search_literal::Receiver>,
     pub(super) smtp: SmtpState,
+    pub(super) smtp_body_mode: crate::smtp::BodyMode,
     /// POP3 хранит snapshot только до QUIT и не получает Store во владение.
     pub(super) pop3: pop3::Session,
     /// Внутренний ключ INBOX нужен для durable применения POP3 DELE на QUIT.
@@ -111,6 +113,7 @@ impl Session {
             imap_literal: None,
             imap_search_literal: None,
             smtp: SmtpState::Command(smtp::Transaction::default()),
+            smtp_body_mode: crate::smtp::BodyMode::SevenBit,
             pop3: pop3::Session::default(),
             pop3_mailbox: None,
             managesieve: managesieve::Session::default(),
@@ -238,6 +241,7 @@ impl Session {
         self.input.clear();
         self.starttls_pending = true;
         self.smtp = SmtpState::Command(smtp::Transaction::default());
+        self.smtp_body_mode = crate::smtp::BodyMode::SevenBit;
         self.authenticated_account = None;
         self.selected_mailbox = None;
         self.selected_exists = 0;

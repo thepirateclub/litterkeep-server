@@ -3,7 +3,7 @@
 //! Модуль не обращается к файловому хранилищу напрямую. Проверка учётных
 //! данных и получателей всегда передаётся единственному владельцу store.
 use super::*;
-use crate::local_route::{local_mailbox, local_mailboxes};
+use crate::local_route::local_mailbox;
 
 /// Обрабатывает одну завершённую CRLF строку SMTP либо строку DATA.
 pub(super) fn smtp_line(
@@ -16,7 +16,9 @@ pub(super) fn smtp_line(
     request_id: &mut u64,
 ) -> io::Result<()> {
     if matches!(session.smtp, SmtpState::Data { .. }) {
-        return data_line(session, line, slot, generation, worker, owners, request_id);
+        return super::smtp_data::data_line(
+            session, line, slot, generation, worker, owners, request_id,
+        );
     }
     let command = match smtp::parse(std::str::from_utf8(&line).unwrap_or("")) {
         Ok(command) => command,
@@ -48,13 +50,14 @@ pub(super) fn smtp_line(
 /// Рекламирует AUTH только после implicit-TLS handshake.
 fn ehlo(session: &mut Session) -> io::Result<()> {
     match (session.tls.is_some(), session.can_starttls()) {
-        (true, _) => {
-            session.push(b"250-litterkeep.test\r\n250-AUTH PLAIN\r\n250 SIZE 26214400\r\n")
+        (true, _) => session.push(
+            b"250-litterkeep.test\r\n250-AUTH PLAIN\r\n250-8BITMIME\r\n250 SIZE 26214400\r\n",
+        ),
+        (false, true) => session
+            .push(b"250-litterkeep.test\r\n250-STARTTLS\r\n250-8BITMIME\r\n250 SIZE 26214400\r\n"),
+        (false, false) => {
+            session.push(b"250-litterkeep.test\r\n250-8BITMIME\r\n250 SIZE 26214400\r\n")
         }
-        (false, true) => {
-            session.push(b"250-litterkeep.test\r\n250-STARTTLS\r\n250 SIZE 26214400\r\n")
-        }
-        (false, false) => session.push(b"250-litterkeep.test\r\n250 SIZE 26214400\r\n"),
     }
 }
 
@@ -203,6 +206,7 @@ fn apply_transaction(session: &mut Session, command: smtp::Command) -> io::Resul
                 recipients: envelope.recipients,
                 reverse_path: envelope.reverse_path,
                 oversized: false,
+                body_mode: session.smtp_body_mode,
             };
             session.push(b"354 end with <CRLF>.<CRLF>\r\n")
         }
@@ -213,77 +217,32 @@ fn apply_transaction(session: &mut Session, command: smtp::Command) -> io::Resul
 
 /// Применяет принятую typed MAIL-команду через обычную transaction FSM.
 fn apply_mail(session: &mut Session, mail: smtp::MailFrom) -> io::Result<()> {
+    let body_mode = mail.body_mode;
     match mail.declared_size {
         Some(size) if size > smtp::MAX_MESSAGE_SIZE as u128 => {
             session.push(b"552 5.3.4 message size exceeds fixed maximum\r\n")
         }
-        Some(_) | None => apply_transaction(session, smtp::Command::Mail(mail)),
+        Some(_) | None => apply_mail_transaction(session, mail, body_mode),
     }
 }
 
-/// Накопление DATA ограничено независимо от скорости и размера TCP records.
-fn data_line(
+/// Переводит согласованный MAIL body mode в состояние ожидающей DATA.
+fn apply_mail_transaction(
     session: &mut Session,
-    line: Vec<u8>,
-    slot: usize,
-    generation: u64,
-    worker: &mut WakingStorageWorker,
-    owners: &mut HashMap<u64, (usize, u64, Pending)>,
-    request_id: &mut u64,
+    mail: smtp::MailFrom,
+    body_mode: smtp::BodyMode,
 ) -> io::Result<()> {
-    let SmtpState::Data {
-        bytes,
-        recipients,
-        reverse_path,
-        oversized,
-    } = &mut session.smtp
-    else {
-        return Ok(());
-    };
-    match line.as_slice() {
-        b".\r\n" => {
-            if *oversized {
-                session.smtp = SmtpState::Command(smtp::Transaction::default());
-                return session.push(b"552 5.3.4 message too large\r\n");
+    let reply = apply_transaction(session, smtp::Command::Mail(mail));
+    match reply {
+        Ok(()) => {
+            match &session.smtp {
+                SmtpState::Command(_) => session.smtp_body_mode = body_mode,
+                SmtpState::Data { .. } => return session.push(b"503 bad sequence\r\n"),
             }
-            let bytes = std::mem::take(bytes);
-            let reverse_path = std::mem::take(reverse_path);
-            let mailboxes = local_mailboxes(std::mem::take(recipients));
-            session.smtp = SmtpState::Command(smtp::Transaction::default());
-            let bytes =
-                crate::smtp_trace::prepend(&bytes, &reverse_path, std::time::SystemTime::now())?;
-            let id = next_request(request_id);
-            let pending = Pending::Append {
-                mailboxes: mailboxes.clone(),
-            };
-            super::protocol::submit(
-                session,
-                Request::AppendMany {
-                    request_id: id,
-                    mailboxes,
-                    envelope_sender: reverse_path,
-                    bytes,
-                },
-                pending,
-                slot,
-                generation,
-                worker,
-                owners,
-            );
+            Ok(())
         }
-        _ if *oversized => {}
-        _ => {
-            let content = match line.strip_prefix(b"..") {
-                Some(unstuffed) => unstuffed,
-                None => line.as_slice(),
-            };
-            match bytes.len().saturating_add(content.len()) > MAX_MESSAGE {
-                true => *oversized = true,
-                false => bytes.extend_from_slice(content),
-            }
-        }
+        Err(error) => Err(error),
     }
-    Ok(())
 }
 
 /// Выдаёт следующий ненулевой request id без дублирования арифметики.
