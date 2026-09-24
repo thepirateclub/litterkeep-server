@@ -143,6 +143,13 @@ pub(super) fn list(
     let Some(account) = session.authenticated_account.clone() else {
         return session.push(format!("{tag} NO authenticate first\r\n").as_bytes());
     };
+    // Separator и пустой root относятся к namespace сервера, а не к каталогу
+    // сохранённых папок аккаунта; отвечаем без лишней работы Store owner-а.
+    if let imap::folder::ListPattern::Root = &pattern {
+        return session.push(
+            format!("* LIST (\\Noselect) \"/\" \"\"\r\n{tag} OK LIST completed\r\n").as_bytes(),
+        );
+    }
     submit_folder(
         session,
         Request::ListFolders {

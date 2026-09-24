@@ -26,6 +26,7 @@ pub(super) fn listed(
 
 pub(super) fn matches_pattern(name: &str, pattern: &imap::folder::ListPattern) -> bool {
     match pattern {
+        imap::folder::ListPattern::Root => false,
         imap::folder::ListPattern::All => true,
         imap::folder::ListPattern::OneLevel => !name.contains('/'),
         imap::folder::ListPattern::Exact(expected) => name == expected,

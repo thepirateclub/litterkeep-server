@@ -319,6 +319,20 @@ ManageSieve до заявленного набора современных фо
 - G14 остаётся RUNNING: данный parser checkpoint не закрывает весь mandatory
   IMAP4rev2 grammar или command/response baseline.
 
+### 2026-09-24: G14 basic LIST delimiter discovery checkpoint
+
+- Базовый `LIST "" ""` теперь типизирован как root discovery и возвращает
+  `* LIST (\\Noselect) "/" ""`, после чего tagged OK. Extended LIST с пустым
+  pattern остаётся обычным пустым совпадением, а не ошибочно выдаёт root.
+- PASS: Windows `cargo fmt --check`, strict Clippy и 223 теста; Docker Rust
+  1.97 release build, strict Clippy и 258 тестов. Независимый STARTTLS Python
+  IMAP-клиент сравнил точный delimiter/root LIST item: `PASS imap-list-root`.
+  Данные: `./data/g14-list-root`; контейнер удалён, пользовательский
+  `litterkeep-g12-phone` сохранён.
+- RFC 9051 LIST остаётся PARTIAL: обязательные SUBSCRIBED selection и другие
+  LIST-EXTENDED варианты ещё не реализованы; подключение через litterkeep не
+  проверялось, IMAP4rev2 не рекламируется.
+
 ### 2026-09-24: G14 ESEARCH result checkpoint
 
 - SEARCH RETURN принимает только типизированные ALL/COUNT/MIN/MAX; пустой

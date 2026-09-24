@@ -6,6 +6,8 @@ use super::{Command, MailboxName};
 /// Ограниченный и явно поддерживаемый LIST wildcard profile.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ListPattern {
+    /// Базовый LIST-запрос delimiter и корневого имени mailbox hierarchy.
+    Root,
     All,
     OneLevel,
     Exact(String),
@@ -133,7 +135,10 @@ fn parse_list_pattern(tokens: &mut impl Iterator<Item = Token>) -> Option<ListPa
     let reference = next_text(tokens)?;
     let pattern = next_text(tokens)?;
     match tokens.next() {
-        None if reference.is_empty() => list_pattern_value(pattern),
+        None if reference.is_empty() => match pattern.is_empty() {
+            true => Some(ListPattern::Root),
+            false => list_pattern_value(pattern),
+        },
         Some(Token::Text(return_name)) if return_name.eq_ignore_ascii_case("RETURN") => {
             match (tokens.next(), tokens.next(), tokens.next(), tokens.next()) {
                 (Some(Token::ListStart), Some(Token::Text(option)), Some(Token::ListEnd), None) => {
@@ -195,5 +200,32 @@ fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
     match tokens.next()? {
         Token::Text(value) | Token::Quoted(value) => Some(value),
         Token::ListStart | Token::ListEnd => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Пустой базовый pattern запрашивает delimiter, а не mailbox с пустым именем.
+    #[test]
+    fn empty_basic_list_pattern_requests_hierarchy_root() {
+        assert_eq!(
+            crate::imap::parse("a LIST \"\" \"\"\r\n").command,
+            Command::List {
+                pattern: ListPattern::Root,
+            }
+        );
+    }
+
+    /// В extended syntax пустое mailbox pattern не превращается в root discovery.
+    #[test]
+    fn empty_extended_list_pattern_stays_an_empty_match() {
+        assert_eq!(
+            crate::imap::parse("a LIST \"\" \"\" RETURN (SPECIAL-USE)\r\n").command,
+            Command::List {
+                pattern: ListPattern::Exact(String::new()),
+            }
+        );
     }
 }
