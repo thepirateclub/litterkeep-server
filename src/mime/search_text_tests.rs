@@ -23,10 +23,19 @@ fn header_only_document_decodes_rfc2047_without_scanning_the_body() {
 
 #[test]
 fn unknown_charset_and_malformed_transfer_are_not_searched_as_raw_octets() {
-    let raw = b"Content-Type: text/plain; charset=windows-1251\r\nContent-Transfer-Encoding: base64\r\n\r\n0J/RgNC40LLQtdGC";
+    let raw = b"Content-Type: text/plain; charset=x-private\r\nContent-Transfer-Encoding: base64\r\n\r\n0J/RgNC40LLQtdGC";
     let document = SearchDocument::parse(raw, true).expect("search document");
     assert!(!document.body_contains("Привет"));
     assert!(!document.body_contains("0J/RgNC40LLQtdGC"));
+}
+
+/// Русский MIME текст декодируется из Windows-1251 в SEARCH projection.
+#[test]
+fn windows_1251_body_is_decoded_before_search() {
+    let raw = b"Content-Type: text/plain; charset=windows-1251\r\nContent-Transfer-Encoding: 8bit\r\n\r\n\xcf\xf0\xe8\xe2\xe5\xf2";
+    let document = SearchDocument::parse(raw, true).expect("search document");
+    assert!(document.body_contains("Привет"));
+    assert!(!document.body_contains("hello"));
 }
 
 #[test]

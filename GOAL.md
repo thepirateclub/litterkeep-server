@@ -281,6 +281,26 @@ ManageSieve до заявленного набора современных фо
   и encoded-word заголовки перед сопоставлением; ESEARCH result options и
   полный mandatory search-key набор также не закрыты. G15-G18 не начаты.
 
+### 2026-09-24: G14 Windows-1251 MIME search checkpoint
+
+- MIME text decoder поддерживает явно названные Windows-1251/CP1251 aliases,
+  преобразует кириллические и punctuation octets в Unicode и отвергает
+  неопределённый октет `0x98`. Неизвестные charset по-прежнему пропускаются без
+  raw-byte search. SEARCH CHARSET остаётся отдельным UTF-8/US-ASCII контрактом.
+- Добавлены unit-тест MIME projection и независимая STARTTLS black-box проверка:
+  письмо с Windows-1251 body находится Unicode-критерием `BODY "Привет"`.
+- PASS: Windows `cargo fmt --check`, `cargo clippy --all-targets --locked --
+  -D warnings` и `cargo test --all-targets --locked` (220 тестов); Docker image
+  `litterkeep-server:g14-test` на Rust 1.97 прошёл release build, strict
+  Clippy и 255 тестов. `tests/blackbox/imap_search_mime.py` после STARTTLS
+  подтвердил Windows-1251 MIME body и остальные SEARCH кейсы: `PASS
+  imap-search-mime`. Использовался только независимый Python IMAP-клиент,
+  подключение из litterkeep не проверялось. Stage data: `./data/g14-charset`.
+  Контейнер `litterkeep-g14-charset` остановлен и удалён; в `docker ps -a`
+  остался только пользовательский `litterkeep-g12-phone`.
+- G14 остаётся RUNNING: поддержка иных MIME charset, все RFC 9051 criteria и
+  полный IMAP4rev2 command/response baseline не закрыты.
+
 ### 2026-09-24: G14 ESEARCH result checkpoint
 
 - SEARCH RETURN принимает только типизированные ALL/COUNT/MIN/MAX; пустой

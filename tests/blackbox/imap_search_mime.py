@@ -212,6 +212,20 @@ def main() -> None:
     require(client.select(mailbox), "OK")
     reset_search = require(raw_search(client, b"$"), "OK")
     assert reset_search == [b""], reset_search
+    charset_mailbox = f"Charset-{uuid.uuid4().hex}"
+    require(client.create(charset_mailbox), "OK")
+    cp1251_message = (
+        b"Content-Type: text/plain; charset=windows-1251\r\n"
+        b"Content-Transfer-Encoding: 8bit\r\n\r\n"
+        b"\xcf\xf0\xe8\xe2\xe5\xf2"
+    )
+    require(client.append(charset_mailbox, None, None, cp1251_message), "OK")
+    require(client.select(charset_mailbox), "OK")
+    cp1251_result = require(
+        raw_search(client, b"CHARSET", b"UTF-8", b"BODY", quoted("Привет")),
+        "OK",
+    )
+    assert cp1251_result == [b"1"], cp1251_result
     client.logout()
     print("PASS imap-search-mime")
 

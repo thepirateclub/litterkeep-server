@@ -24,7 +24,7 @@ CAPABILITY не выдаёт за более широкое расширение
 | Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS, PERMANENTFLAGS, включая `\\*` для создания пользовательских keywords, Recent |
 | Message insertion | APPEND | PASS | Bounded literal, системные flags и keywords, INTERNALDATE, APPENDUID после fsync |
 | Reading | FETCH, UID FETCH | PARTIAL | Сгруппированные items, ALL/FAST/FULL, UID, RFC822 bytes, BODY HEADER/TEXT/HEADER.FIELDS, MIME parts и partial; BODY/PEEK Seen effects проверены; полная rev2 grammar остаётся |
-| Search | SEARCH, UID SEARCH | PARTIAL | Sequence/UID sets, system/session flags, KEYWORD/UNKEYWORD, address/header/body/text, size, internal/sent dates, AND/OR/NOT/groups; UTF-8 default, UTF-8/US-ASCII CHARSET, BADCHARSET, ESEARCH RETURN ALL/COUNT/MIN/MAX, decoded MIME text and UNKNOWN-CTE verified; RETURN SAVE and `$` SEARCH criterion work per session with SELECT/error reset and MIN/MAX selection; generic `$` message sets in FETCH/STORE/COPY/EXPUNGE are not implemented and SEARCHRES is not advertised; other MIME charsets and full key set remain |
+| Search | SEARCH, UID SEARCH | PARTIAL | Sequence/UID sets, system/session flags, KEYWORD/UNKEYWORD, address/header/body/text, size, internal/sent dates, AND/OR/NOT/groups; UTF-8 default, UTF-8/US-ASCII CHARSET, BADCHARSET, ESEARCH RETURN ALL/COUNT/MIN/MAX, decoded MIME text and UNKNOWN-CTE verified; MIME text supports US-ASCII, UTF-8, ISO-8859-1 and Windows-1251, rejects undefined CP1251 octet; RETURN SAVE and `$` SEARCH criterion work per session with SELECT/error reset and MIN/MAX selection; generic `$` message sets in FETCH/STORE/COPY/EXPUNGE are not implemented and SEARCHRES is not advertised; other MIME charsets and full key set remain |
 | Flag mutation | STORE, UID STORE | PASS | Системные flags и регистронезависимые keywords: Replace/add/remove, SILENT, один durable batch, read-only denial |
 | Copy and move | COPY, UID COPY, MOVE, UID MOVE | PASS | Atomic links/tombstones, COPYUID, multi-session projection |
 | Deletion | EXPUNGE, UID EXPUNGE, CLOSE | PASS | Durable tombstones, UIDPLUS, sequence-map notifications |
@@ -45,7 +45,7 @@ MIME decoding проверены отдельно. При этом синтак�
 | `<sequence-set>`, UID, ALL, ANSWERED/UNANSWERED, DELETED/UNDELETED, DRAFT/UNDRAFT, FLAGGED/UNFLAGGED, SEEN/UNSEEN, RECENT/OLD/NEW | Parser/evaluator реализованы; RECENT является session projection |
 | BEFORE/ON/SINCE, SENTBEFORE/SENTON/SENTSINCE, LARGER/SMALLER | Parser/evaluator реализованы; даты сравниваются по календарному дню согласно профилю |
 | NOT, OR, скобочная группа и неявный AND | Parser/evaluator реализованы |
-| HEADER, BODY, TEXT | Parser/evaluator и ограниченный MIME charset/transfer decoding реализованы; см. SEARCH строку основной таблицы |
+| HEADER, BODY, TEXT | Parser/evaluator и ограниченный MIME charset/transfer decoding реализованы; body charset: US-ASCII, UTF-8, ISO-8859-1, Windows-1251; см. SEARCH строку основной таблицы |
 | SUBJECT, FROM, TO, CC, BCC | Parser/evaluator используют ту же decoded ENVELOPE projection, что и FETCH ENVELOPE; адрес сравнивается по имени, mailbox, host и `mailbox@host`, без RFC 5322 delimiters. Неподдержанная/невалидная address syntax остаётся ограничением общего ENVELOPE parser-а |
 | KEYWORD, UNKEYWORD | Реализованы typed parser/evaluator и сетевые проверки; keywords входят в APPEND v4 и versioned flags journal v2. Старые append v1-v3 и flags v1 читаются как раньше; FETCH FLAGS, STORE и COPY/MOVE сохраняют keywords. STORE обновляет оба класса flags одним checksum/commit frame |
 

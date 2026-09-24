@@ -134,7 +134,10 @@ mod tests {
 
     #[test]
     fn rejects_unknown_charset_and_bad_q_escape() {
-        assert!(decode("=?windows-1251?B?0J/RgNC40LLQtdGC?=").is_err());
+        assert_eq!(
+            decode("=?windows-1251?Q?=CF=F0=E8=E2=E5=F2?=").expect("cp1251"),
+            "Привет"
+        );
         assert!(decode("=?UTF-8?Q?bad=ZZ?=").is_err());
     }
 
