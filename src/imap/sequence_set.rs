@@ -24,6 +24,24 @@ pub struct SequenceSet {
     ranges: Vec<Range>,
 }
 
+/// Выборка сообщений FETCH: явный набор номеров либо RFC 5182 saved result.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum MessageSet {
+    Explicit(SequenceSet),
+    Saved,
+}
+
+impl MessageSet {
+    /// Разбирает `$` отдельно, не смешивая extension marker с диапазонами.
+    pub fn parse(input: &str) -> Result<Self, &'static str> {
+        let mut characters = input.chars();
+        match (characters.next(), characters.next()) {
+            (Some('$'), None) => Ok(Self::Saved),
+            _ => SequenceSet::parse(input).map(Self::Explicit),
+        }
+    }
+}
+
 /// Нормализованный снимок диапазонов для многократного быстрого поиска.
 pub struct ResolvedSequenceSet {
     ranges: Vec<(u64, u64)>,

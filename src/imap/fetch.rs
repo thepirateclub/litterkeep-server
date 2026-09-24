@@ -1,6 +1,6 @@
 //! Типизированные атрибуты и grammar команды FETCH.
 
-use super::sequence_set::SequenceSet;
+use super::sequence_set::MessageSet;
 use super::tokenizer::Token;
 use super::{Addressing, Command, fetch_section};
 
@@ -94,7 +94,7 @@ impl FetchMacro {
 }
 
 pub(super) fn parse(tokens: &mut impl Iterator<Item = Token>, addressing: Addressing) -> Command {
-    let sequence_set = next_text(tokens).and_then(|word| SequenceSet::parse(&word).ok());
+    let sequence_set = next_text(tokens).and_then(|word| MessageSet::parse(&word).ok());
     let attributes = parse_attribute_list(tokens);
     match (sequence_set, attributes, tokens.next()) {
         (Some(sequence_set), Some(attributes), None) => Command::Fetch {

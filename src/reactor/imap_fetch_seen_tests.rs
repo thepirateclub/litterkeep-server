@@ -23,7 +23,9 @@ fn snapshot() -> MailboxSnapshot {
 fn pending(peek: bool, read_only: bool) -> Pending {
     Pending::ReadForFetch {
         addressing: imap::Addressing::Sequence,
-        sequence_set: imap::sequence_set::SequenceSet::parse("1").unwrap(),
+        sequence_set: imap::sequence_set::MessageSet::Explicit(
+            imap::sequence_set::SequenceSet::parse("1").unwrap(),
+        ),
         attributes: vec![imap::FetchAttribute::Body {
             peek,
             section: imap::BodySection::EntireMessage,
@@ -32,6 +34,7 @@ fn pending(peek: bool, read_only: bool) -> Pending {
         tag: "A1".to_owned(),
         mailbox: "alice/INBOX".to_owned(),
         read_only,
+        saved_uids: Default::default(),
     }
 }
 

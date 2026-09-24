@@ -135,6 +135,7 @@ pub(super) fn write_completion(
                 sequence_set,
                 attributes,
                 tag,
+                saved_uids,
                 ..
             },
             Response::Read {
@@ -147,6 +148,7 @@ pub(super) fn write_completion(
             sequence_set,
             attributes,
             tag,
+            &saved_uids,
             snapshot.messages,
         ),
         (Pending::FetchReadForSeen { tag, .. }, Response::Read { .. }) => {

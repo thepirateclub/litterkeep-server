@@ -27,6 +27,25 @@ ManageSieve до заявленного набора современных фо
 | G17 | G12 | MIME RFC 5322/2045-2049 updates and Sieve RFC 5228/ManageSieve RFC 5804 profile | NOT RUN |
 | G18 | G14,G15,G16,G17 | Cross-protocol Linux acceptance, truthful capabilities and final coverage matrix | NOT RUN |
 
+### 2026-09-24: G14 SEARCHRES FETCH checkpoint
+
+- `FETCH $` и `UID FETCH $` принимают typed saved-result selection из RFC 5182.
+  В сессии результат хранится по UID; обычный FETCH разрешает эти UID в текущие
+  sequence numbers, поэтому выборка остаётся корректной после EXPUNGE. Снимок
+  saved UID set фиксируется при постановке read-запроса и переносится через
+  durable `\\Seen` follow-up для BODY/RFC822.
+- Независимый STARTTLS black-box создал UID gap, сохранил отдельные SEARCH и
+  UID SEARCH результаты, проверил FETCH mapping sequence 2 / UID 3, UID FETCH,
+  `\\Seen` для BODY и пустой saved result без untagged FETCH. Это не проверка
+  приложения Litterkeep.
+- PASS: Windows Rust 1.97.1 format, strict Clippy и 231 test; Linux Docker
+  Rust 1.97 release build, strict Clippy и 266 tests; Python STARTTLS black-box.
+- Данные этапа сохранены в `./data/g14-searchres-fetch`; тестовый контейнер
+  после проверки остановить и удалить, `litterkeep-g12-phone` оставить.
+- Это не полная реализация SEARCHRES: `$` в STORE/COPY/UID EXPUNGE,
+  pipelined ordering/dependency и capability advertisement остаются
+  непроверенными. SEARCHRES не рекламируется, G14 остаётся RUNNING.
+
 ### 2026-09-24: G14 LIST reference-name checkpoint
 
 - `LIST reference pattern` разрешает относительный шаблон в контексте папки:

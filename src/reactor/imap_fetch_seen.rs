@@ -15,6 +15,7 @@ pub(super) fn follow_up(
         tag,
         mailbox,
         read_only,
+        saved_uids,
     } = pending
     else {
         return None;
@@ -29,7 +30,7 @@ pub(super) fn follow_up(
     if *read_only || !sets_seen(attributes) {
         return None;
     }
-    let uids = unseen_uids(*addressing, sequence_set, snapshot);
+    let uids = unseen_uids(*addressing, sequence_set, snapshot, saved_uids);
     if uids.is_empty() {
         return None;
     }
@@ -53,6 +54,7 @@ pub(super) fn follow_up(
             tag: tag.clone(),
             mailbox: mailbox.clone(),
             uids,
+            saved_uids: saved_uids.clone(),
         },
     ))
 }
@@ -67,8 +69,9 @@ fn sets_seen(attributes: &[imap::FetchAttribute]) -> bool {
 
 fn unseen_uids(
     addressing: imap::Addressing,
-    sequence_set: &imap::sequence_set::SequenceSet,
+    sequence_set: &imap::sequence_set::MessageSet,
     snapshot: &crate::store::MailboxSnapshot,
+    saved_uids: &std::collections::BTreeSet<u64>,
 ) -> Vec<u64> {
     let maximum = match addressing {
         imap::Addressing::Sequence => snapshot.messages.len() as u64,
@@ -78,7 +81,6 @@ fn unseen_uids(
             .map(|message| message.uid)
             .unwrap_or(0),
     };
-    let selected = sequence_set.resolve(maximum);
     snapshot
         .messages
         .iter()
@@ -90,7 +92,13 @@ fn unseen_uids(
                 imap::Addressing::Uid => message.uid,
             };
             match (
-                selected.contains(candidate),
+                imap_fetch_completion::matches(
+                    sequence_set,
+                    candidate,
+                    message.uid,
+                    maximum,
+                    saved_uids,
+                ),
                 message.flags.contains(crate::mail_flags::SystemFlag::Seen),
             ) {
                 (true, false) => Some(message.uid),
@@ -107,6 +115,7 @@ pub(super) fn write(session: &mut Session, pending: Pending, response: Response)
         sequence_set,
         attributes,
         tag,
+        saved_uids,
         ..
     } = pending
     else {
@@ -125,6 +134,7 @@ pub(super) fn write(session: &mut Session, pending: Pending, response: Response)
         sequence_set,
         attributes,
         tag,
+        &saved_uids,
         snapshot.messages,
     )
 }

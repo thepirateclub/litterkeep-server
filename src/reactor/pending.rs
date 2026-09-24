@@ -49,20 +49,22 @@ pub(super) enum Pending {
     },
     ReadForFetch {
         addressing: imap::Addressing,
-        sequence_set: imap::sequence_set::SequenceSet,
+        sequence_set: imap::sequence_set::MessageSet,
         attributes: Vec<imap::FetchAttribute>,
         tag: String,
         mailbox: String,
         read_only: bool,
+        saved_uids: std::collections::BTreeSet<u64>,
     },
     /// BODY устанавливает \Seen только после durable snapshot и mutation.
     FetchReadForSeen {
         addressing: imap::Addressing,
-        sequence_set: imap::sequence_set::SequenceSet,
+        sequence_set: imap::sequence_set::MessageSet,
         attributes: Vec<imap::FetchAttribute>,
         tag: String,
         mailbox: String,
         uids: Vec<u64>,
+        saved_uids: std::collections::BTreeSet<u64>,
     },
     ReadForStore {
         addressing: imap::Addressing,

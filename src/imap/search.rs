@@ -283,9 +283,12 @@ mod tests {
                 ..
             } if matches!(*left, SearchKey::Saved)
         ));
-        assert_eq!(
+        assert!(matches!(
             imap::parse("a FETCH $ FLAGS\r\n").command,
-            Command::Unsupported
-        );
+            Command::Fetch {
+                sequence_set: super::super::sequence_set::MessageSet::Saved,
+                ..
+            }
+        ));
     }
 }

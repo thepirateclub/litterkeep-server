@@ -127,7 +127,7 @@ pub enum Command {
     },
     Fetch {
         addressing: Addressing,
-        sequence_set: SequenceSet,
+        sequence_set: sequence_set::MessageSet,
         attributes: Vec<FetchAttribute>,
     },
     Store {

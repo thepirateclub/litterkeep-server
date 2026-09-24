@@ -195,6 +195,7 @@ pub(super) fn line(
             attributes,
         } => {
             let read_only = session.selected_read_only;
+            let saved_uids = session.saved_search_uids.clone();
             imap_selected::queue_authenticated_read(
                 session,
                 parsed.tag,
@@ -205,6 +206,7 @@ pub(super) fn line(
                     tag,
                     mailbox,
                     read_only,
+                    saved_uids,
                 },
                 slot,
                 generation,

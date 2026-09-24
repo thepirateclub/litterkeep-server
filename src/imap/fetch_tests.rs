@@ -1,6 +1,7 @@
 //! Проверки grammar FETCH: группы атрибутов, макросы и MIME-части.
 
 use super::*;
+use crate::imap::sequence_set::MessageSet;
 
 /// Атрибут остаётся типизированным после разбора скобочного списка.
 #[test]
@@ -9,7 +10,7 @@ fn fetch_attribute_is_typed() {
         parse("a3 FETCH 2 (BODYSTRUCTURE)\r\n").command,
         Command::Fetch {
             addressing: Addressing::Sequence,
-            sequence_set: SequenceSet::parse("2").unwrap(),
+            sequence_set: MessageSet::Explicit(SequenceSet::parse("2").unwrap(),),
             attributes: vec![FetchAttribute::BodyStructure],
         }
     );
@@ -22,7 +23,7 @@ fn body_peek_partial_is_typed() {
         parse("a4 FETCH 1 (BODY.PEEK[2.MIME]<3.7>)\r\n").command,
         Command::Fetch {
             addressing: Addressing::Sequence,
-            sequence_set: SequenceSet::parse("1").unwrap(),
+            sequence_set: MessageSet::Explicit(SequenceSet::parse("1").unwrap(),),
             attributes: vec![FetchAttribute::Body {
                 peek: true,
                 section: BodySection::Part {
@@ -45,7 +46,7 @@ fn header_fields_sections_are_typed() {
         parse("a FETCH 1 (BODY.PEEK[HEADER.FIELDS (Subject FROM)]<2.10>)\r\n").command,
         Command::Fetch {
             addressing: Addressing::Sequence,
-            sequence_set: SequenceSet::parse("1").unwrap(),
+            sequence_set: MessageSet::Explicit(SequenceSet::parse("1").unwrap(),),
             attributes: vec![FetchAttribute::Body {
                 peek: true,
                 section: BodySection::HeaderFields {
@@ -110,10 +111,32 @@ fn uid_fetch_is_typed() {
         parse("a5 UID FETCH 20:10 (RFC822.SIZE)\r\n").command,
         Command::Fetch {
             addressing: Addressing::Uid,
-            sequence_set: SequenceSet::parse("20:10").unwrap(),
+            sequence_set: MessageSet::Explicit(SequenceSet::parse("20:10").unwrap(),),
             attributes: vec![FetchAttribute::Rfc822Size],
         }
     );
+}
+
+/// Saved-result marker is distinct from invalid numeric sequence syntax.
+#[test]
+fn fetch_saved_result_is_typed_for_sequence_and_uid_modes() {
+    let saved = MessageSet::Saved;
+    assert!(matches!(
+        parse("a6 FETCH $ (UID FLAGS)\r\n").command,
+        Command::Fetch {
+            addressing: Addressing::Sequence,
+            sequence_set,
+            ..
+        } if sequence_set == saved
+    ));
+    assert!(matches!(
+        parse("a7 UID FETCH $ (FLAGS)\r\n").command,
+        Command::Fetch {
+            addressing: Addressing::Uid,
+            sequence_set,
+            ..
+        } if sequence_set == saved
+    ));
 }
 
 /// Сервер принимает несколько data item и сохраняет порядок запроса.
