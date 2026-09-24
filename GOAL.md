@@ -86,9 +86,12 @@ ManageSieve до заявленного набора современных фо
   `BODY` не ищет внешние заголовки и не сканирует
   `application/octet-stream` attachment bytes. Projection строится один раз на
   сообщение в пределах одного SEARCH.
-- Неизвестный charset, невалидная transfer encoding или некорректный текст не
-  сопоставляются как исходные encoded octets. Другие MIME charset пока не
-  поддерживаются, поэтому такой text part не даёт совпадений.
+- Для неизвестной charset, невалидной transfer encoding или некорректного
+  текста исходные encoded octets не сопоставляются. Это только безопасный отказ
+  от ложного совпадения, не полное RFC-поведение: RFC 9051 требует для
+  неизвестного Content-Transfer-Encoding завершить SEARCH ответом
+  `NO [UNKNOWN-CTE]`, тогда как текущий evaluator пропускает такой leaf part.
+  Другие MIME charset также пока не поддерживаются и не дают совпадений.
 - PASS: Windows `cargo fmt --check`, strict Clippy и 209 тестов; Docker Linux
   Rust 1.97 test target прошёл strict Clippy и 241 тест; независимый Python
   STARTTLS-клиент подтвердил Base64 UTF-8, quoted-printable UTF-8,
@@ -97,9 +100,9 @@ ManageSieve до заявленного набора современных фо
   прошли: 241 Rust-файл, каждый не более 300 строк, `mod.rs` отсутствует.
   Тестовый контейнер `litterkeep-g14-search-mime` удалён после проверки;
   данные сохранены в `./data/g14-search-mime`.
-- SEARCH остаётся PARTIAL: неподдерживаемые MIME charset, SAVE/`$`, полный
-  mandatory SEARCH key set и полная IMAP4rev2 grammar не закрыты. CAPABILITY
-  по-прежнему не объявляет IMAP4rev2.
+- SEARCH остаётся PARTIAL: `UNKNOWN-CTE` error response, неподдерживаемые MIME
+  charset, SAVE/`$`, полный mandatory SEARCH key set и полная IMAP4rev2 grammar
+  не закрыты. CAPABILITY по-прежнему не объявляет IMAP4rev2.
 
 ### 2026-09-24: G14 NAMESPACE and UNSELECT checkpoint
 
