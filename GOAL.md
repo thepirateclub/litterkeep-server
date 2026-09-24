@@ -77,6 +77,23 @@ ManageSieve до заявленного набора современных фо
 - G14 остаётся RUNNING: этот checkpoint не подтверждает полный RFC 9051 набор
   команд/расширений и совместимость всего IMAP4rev1 профиля. G15-G18 не начаты.
 
+### 2026-09-24: G14 NAMESPACE and UNSELECT checkpoint
+
+- Добавлены typed-команды `NAMESPACE` и `UNSELECT`. Персональный namespace
+  сообщает prefix `""` и delimiter `/`, а недоступные other-user/shared классы
+  остаются `NIL`. `UNSELECT` возвращает сессию в authenticated state, очищает
+  selected projection и не expunge-ит сообщения с `\\Deleted`.
+- `CAPABILITY` теперь рекламирует `NAMESPACE` и `UNSELECT` вместе с прежним
+  IMAP4rev1 профилем. Это расширение не рекламирует IMAP4rev2 и не меняет
+  существующую TLS/authentication политику.
+- PASS: Windows typed parser test/strict Clippy; Linux Docker release build,
+  strict Clippy и 232 теста; независимый STARTTLS Python `imaplib` тест
+  подтвердил advertised capabilities, формат `NAMESPACE`, UNSELECT -> повторный
+  SELECT и сохранение помеченного `\\Deleted` сообщения. Тестовая папка:
+  `./data/g14-imap-body-sections`.
+- G14 остаётся RUNNING: обязательные `ENABLE`, IMAP4rev2 search/ESEARCH,
+  untagged/response grammar и остальной RFC 9051 acceptance ещё не закрыты.
+
 | Goal | Depends on | Acceptance criterion | Status |
 |---|---|---|---|
 | G00 | none | build, help, lock, dependency report, saved goal | PASS |

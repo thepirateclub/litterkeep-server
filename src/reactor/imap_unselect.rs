@@ -1,0 +1,19 @@
+//! Сброс выбранной IMAP mailbox без физического удаления \Deleted сообщений.
+
+use super::*;
+
+/// Освобождает session projection и возвращает соединение в authenticated state.
+pub(super) fn execute(session: &mut Session, tag: String) -> io::Result<()> {
+    match session.selected_mailbox.take() {
+        Some(_) => {
+            session.selected_exists = 0;
+            session.selected_recent.clear();
+            session.selected_read_only = false;
+            session.imap_idle = None;
+            session.push(format!("{tag} OK UNSELECT completed\r\n").as_bytes())
+        }
+        None => {
+            session.push(format!("{tag} BAD UNSELECT requires selected mailbox\r\n").as_bytes())
+        }
+    }
+}

@@ -16,10 +16,14 @@ IDLE/DONE и durable Recent. UIDVALIDITY и UID переживают restart.
 
 `FETCH` принимает одиночные и сгруппированные data items, раскрывает ALL, FAST
 и FULL, включает UID в ответы UID FETCH и сохраняет literal как точные октеты.
-Сетевой acceptance для сгруппированного FETCH и полного MIME-вложения выполнен
-независимым STARTTLS клиентом. Это не означает полной совместимости IMAP4rev1:
-отдельно остаются все неуказанные грамматики BODY header sections, FETCH side
-effects, SEARCH keys и расширения; см. [матрицу IMAP](imap-profile.md).
+`BODY` поддерживает полное сообщение, HEADER/TEXT, HEADER.FIELDS/NOT, числовые
+MIME paths, вложенный `message/rfc822` и partial ranges; durable `\\Seen`
+различает BODY/RFC822, PEEK и EXAMINE. `NAMESPACE` и `UNSELECT` рекламируются
+как доступные команды текущего IMAP4rev1 профиля. Сетевые проверки независимым
+STARTTLS клиентом подтвердили вложение, headers, body, флаги и возврат из
+UNSELECT без удаления помеченного сообщения. Это не означает полной
+совместимости IMAP4rev1 или IMAP4rev2: остаются SEARCH/ESEARCH расширения и
+другие несовпадения формальных грамматик; см. [матрицу IMAP](imap-profile.md).
 
 ## POP3
 

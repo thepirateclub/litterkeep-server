@@ -38,6 +38,7 @@ pub struct TaggedCommand {
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
     Capability,
+    Namespace,
     StartTls,
     Login {
         username: String,
@@ -82,6 +83,7 @@ pub enum Command {
     },
     Check,
     Close,
+    Unselect,
     Copy {
         transfer: Transfer,
         addressing: Addressing,
@@ -142,6 +144,7 @@ pub enum Transfer {
 /// Внутренний verb до проверки аргументов команды.
 enum Verb {
     Capability,
+    Namespace,
     StartTls,
     Login,
     Authenticate,
@@ -158,6 +161,7 @@ enum Verb {
     Status,
     Check,
     Close,
+    Unselect,
     Copy,
     Move,
     Expunge,
@@ -180,6 +184,7 @@ pub fn parse(line: &str) -> TaggedCommand {
     let tag = next_text(&mut tokens).unwrap_or_else(|| "*".into());
     let command = match next_text(&mut tokens).as_deref().map(parse_verb) {
         Some(Verb::Capability) => Command::Capability,
+        Some(Verb::Namespace) => parse_empty(tokens, Command::Namespace),
         Some(Verb::StartTls) => Command::StartTls,
         Some(Verb::Login) => match (next_text(&mut tokens), next_text(&mut tokens)) {
             (Some(username), Some(password)) => Command::Login { username, password },
@@ -199,6 +204,7 @@ pub fn parse(line: &str) -> TaggedCommand {
         Some(Verb::Status) => status::parse(tokens),
         Some(Verb::Check) => parse_empty(tokens, Command::Check),
         Some(Verb::Close) => parse_empty(tokens, Command::Close),
+        Some(Verb::Unselect) => parse_empty(tokens, Command::Unselect),
         Some(Verb::Copy) => copy::parse(tokens, Addressing::Sequence, Transfer::Copy),
         Some(Verb::Move) => copy::parse(tokens, Addressing::Sequence, Transfer::Move),
         Some(Verb::Expunge) => parse_empty(tokens, Command::Expunge),
@@ -266,6 +272,7 @@ fn unsupported(tag: &str) -> TaggedCommand {
 fn parse_verb(text: &str) -> Verb {
     match text.to_ascii_uppercase().as_str() {
         "CAPABILITY" => Verb::Capability,
+        "NAMESPACE" => Verb::Namespace,
         "STARTTLS" => Verb::StartTls,
         "LOGIN" => Verb::Login,
         "AUTHENTICATE" => Verb::Authenticate,
@@ -282,6 +289,7 @@ fn parse_verb(text: &str) -> Verb {
         "STATUS" => Verb::Status,
         "CHECK" => Verb::Check,
         "CLOSE" => Verb::Close,
+        "UNSELECT" => Verb::Unselect,
         "COPY" => Verb::Copy,
         "MOVE" => Verb::Move,
         "EXPUNGE" => Verb::Expunge,

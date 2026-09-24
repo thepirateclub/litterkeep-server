@@ -27,6 +27,15 @@ fn starttls_is_typed() {
     );
 }
 
+/// NAMESPACE и UNSELECT принимают только пустую аргументную форму.
+#[test]
+fn namespace_and_unselect_commands_are_typed() {
+    assert_eq!(parse("a NAMESPACE\r\n").command, Command::Namespace);
+    assert_eq!(parse("b UNSELECT\r\n").command, Command::Unselect);
+    assert_eq!(parse("c NAMESPACE extra\r\n").command, Command::Unsupported);
+    assert_eq!(parse("d UNSELECT extra\r\n").command, Command::Unsupported);
+}
+
 /// Специальное имя INBOX нормализуется без строкового сравнения в reactor.
 #[test]
 fn inbox_is_typed_case_insensitively() {

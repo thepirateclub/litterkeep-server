@@ -18,6 +18,7 @@ pub(super) fn line(
     let parsed = imap::parse(std::str::from_utf8(&line).unwrap_or(""));
     match parsed.command {
         imap::Command::Capability => imap_capability::write(session, &parsed.tag)?,
+        imap::Command::Namespace => imap_namespace::write(session, &parsed.tag)?,
         imap::Command::StartTls => imap_starttls::begin(session, &parsed.tag)?,
         imap::Command::Noop => {
             session.push(format!("{} OK NOOP completed\r\n", parsed.tag).as_bytes())?
@@ -130,6 +131,7 @@ pub(super) fn line(
         imap::Command::Close => imap_expunge::queue(
             session, parsed.tag, slot, generation, worker, owners, request_id, true, None,
         )?,
+        imap::Command::Unselect => imap_unselect::execute(session, parsed.tag)?,
         imap::Command::UidExpunge { sequence_set } => imap_expunge::queue(
             session,
             parsed.tag,

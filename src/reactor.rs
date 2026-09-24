@@ -45,6 +45,8 @@ mod imap_idle;
 mod imap_list;
 #[path = "reactor/imap_literal.rs"]
 mod imap_literal;
+#[path = "reactor/imap_namespace.rs"]
+mod imap_namespace;
 #[path = "reactor/imap_protocol.rs"]
 mod imap_protocol;
 #[path = "reactor/imap_search.rs"]
@@ -59,6 +61,8 @@ mod imap_starttls;
 mod imap_status;
 #[path = "reactor/imap_subscriptions.rs"]
 mod imap_subscriptions;
+#[path = "reactor/imap_unselect.rs"]
+mod imap_unselect;
 #[path = "reactor/listener.rs"]
 mod listener;
 #[path = "reactor/maildrop_lease.rs"]

@@ -17,20 +17,23 @@ CAPABILITY не выдаёт за более широкое расширение
 | Authentication | LOGIN | PASS | Только TLS, общий Argon2 worker, повторный вход запрещён |
 | Authentication | AUTHENTICATE PLAIN | PASS | Continuation, cancel, SASL-IR, authzid policy, только TLS |
 | Mailbox discovery | LIST, LSUB, STATUS | PASS | modified UTF-7, `*`/`%`, delimiter, durable catalog |
+| Namespace | NAMESPACE | PASS | Advertised and tested; personal namespace is `""` with `/` delimiter, unavailable classes are NIL |
 | Mailbox mutation | CREATE, DELETE, RENAME | PASS | Durable journal, subtree rename, retired folder IDs |
 | Subscription | SUBSCRIBE, UNSUBSCRIBE | PASS | Durable subscription независимо от существования папки |
 | Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS, PERMANENTFLAGS, Recent |
 | Message insertion | APPEND | PASS | Bounded literal, flags, INTERNALDATE, APPENDUID после fsync |
-| Reading | FETCH, UID FETCH | PARTIAL | Одиночные/групповые data items, ALL/FAST/FULL, UID и RFC822 literal проверены; BODY sections/partial проверяются отдельным профилем; header-field sections и расширения остаются вне заявленного набора |
+| Reading | FETCH, UID FETCH | PARTIAL | Сгруппированные items, ALL/FAST/FULL, UID, RFC822 bytes, BODY HEADER/TEXT/HEADER.FIELDS, MIME parts и partial; BODY/PEEK Seen effects проверены; полная rev2 grammar остаётся |
 | Search | SEARCH, UID SEARCH | PARTIAL | Sequence/UID sets, все system/session flags, address/header/body/text, size, internal/sent dates, AND/OR/NOT/groups; unsupported keys получают BAD |
 | Flag mutation | STORE, UID STORE | PASS | Replace/add/remove, SILENT, durable batch, read-only denial |
 | Copy and move | COPY, UID COPY, MOVE, UID MOVE | PASS | Atomic links/tombstones, COPYUID, multi-session projection |
 | Deletion | EXPUNGE, UID EXPUNGE, CLOSE | PASS | Durable tombstones, UIDPLUS, sequence-map notifications |
+| Selection lifecycle | UNSELECT | PASS | Advertised and tested; returns to authenticated state without expunging `\\Deleted` |
 | Synchronization | CHECK | PASS | Tagged completion после ранее завершённых durable операций |
 | Waiting | IDLE, DONE | PASS | Event wakeup без session thread и без polling loop |
 | Special use | LIST SPECIAL-USE, RETURN, CREATE USE | PASS | Durable enum attributes, без догадки по имени папки |
 
-CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE` и `SPECIAL-USE`.
+CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-USE`,
+`NAMESPACE` и `UNSELECT`.
 `AUTH=PLAIN SASL-IR` доступен только внутри TLS. До STARTTLS сервер выдаёт
 `LOGINDISABLED`; plaintext listener без TLS также не рекламирует парольный
 механизм и отвечает `PRIVACYREQUIRED` на LOGIN/AUTHENTICATE.
@@ -40,6 +43,6 @@ CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE` и `SPECIAL
 его не видит. Такое детерминированное правило находится в разрешённой RFC 3501
 неоднозначности для нескольких одновременно открытых соединений.
 
-Не заявлены IMAP4rev2, UTF8=ACCEPT, CONDSTORE, QRESYNC, NAMESPACE, COMPRESS,
+Не заявлены IMAP4rev2, UTF8=ACCEPT, CONDSTORE, QRESYNC, COMPRESS,
 SORT, THREAD и полный набор SEARCH keys. Их отсутствие не маскируется пустым
 успешным результатом.
