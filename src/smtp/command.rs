@@ -1,5 +1,8 @@
 //! Типизированная грамматика SMTP команд и расширенного MAIL FROM.
 
+#[path = "address.rs"]
+mod address;
+
 /// Команда SMTP после разбора wire-строки без потери ESMTP параметров.
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
@@ -166,10 +169,7 @@ fn parse_path<'a>(
     if mailbox.len().saturating_add(2) > MAX_PATH_SIZE {
         return Err(ParseError::Syntax);
     }
-    if mailbox
-        .rsplit_once('@')
-        .is_some_and(|(local_part, _)| local_part.len() > MAX_LOCAL_PART_SIZE)
-    {
+    if !mailbox.is_empty() && !address::is_dot_atom_mailbox(mailbox) {
         return Err(ParseError::Syntax);
     }
     if mailbox.is_empty() && !accepts_empty_path {

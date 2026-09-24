@@ -132,6 +132,27 @@ fn enforces_64_octet_local_parts() {
     );
 }
 
+/// Применяет ограниченную mailbox грамматику одинаково к MAIL и RCPT.
+#[test]
+fn rejects_malformed_mailbox_in_both_paths() {
+    for mailbox in [
+        "@test",
+        ".alice@test",
+        "alice.@test",
+        "a..b@test",
+        "a@-bad.test",
+    ] {
+        assert!(
+            parse(&format!("MAIL FROM:<{mailbox}>\r\n")).is_err(),
+            "MAIL mailbox: {mailbox}"
+        );
+        assert!(
+            parse(&format!("RCPT TO:<{mailbox}>\r\n")).is_err(),
+            "RCPT mailbox: {mailbox}"
+        );
+    }
+}
+
 #[test]
 fn parses_supported_commands_and_auth_mechanism() {
     assert_eq!(

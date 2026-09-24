@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G15
 
+### 2026-09-25: G15 RFC 5321 dot-atom mailbox checkpoint
+
+- SMTP parser проверяет обычный ASCII dot-atom local-part и DNS domain labels
+  в обеих командах MAIL FROM/RCPT TO: запрещены пустые/краевые/повторные точки,
+  пустые или более 63 октетов labels, дефис по краям и не-ASCII домен.
+- PASS: Windows Rust 1.97.1: 256 тестов, strict Clippy, fmt и diff checks.
+  Linux Docker Rust 1.97: release image, strict Clippy и 296 тестов.
+  Независимый STARTTLS SMTP black-box получил 501 для malformed mailbox в MAIL
+  и RCPT, 250 для корректных путей; recipient-limit black-box и доставка Bob
+  через IMAP также прошли.
+- Проверки: `tests/blackbox/smtp_mailbox_syntax.py` и прежний
+  `tests/blackbox/smtp_recipient_limit.py`; данные `./data/g15-smtp-mailbox-syntax`.
+  Временный контейнер удалён, `litterkeep-g12-phone` оставлен.
+- Ограниченный parser пока не принимает quoted local-parts, domain literals,
+  source routes и SMTPUTF8; G15 остаётся RUNNING, RFC 5321 профиль не закрыт.
+
 ### 2026-09-25: G15 RFC 5321 recipient buffer limit checkpoint
 
 - SMTP проверяет вместимость envelope до асинхронной проверки локальной политики.
