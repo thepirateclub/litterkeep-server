@@ -69,6 +69,7 @@ pub fn parse_store(tokens: &mut impl Iterator<Item = Token>, addressing: Address
     };
     let values = tokens.filter_map(|token| match token {
         Token::Text(value) => Some(value),
+        Token::Quoted(value) => Some(value),
         Token::ListStart | Token::ListEnd => None,
     });
     match parse_set(values) {
@@ -85,7 +86,7 @@ pub fn parse_store(tokens: &mut impl Iterator<Item = Token>, addressing: Address
 
 fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
     tokens.find_map(|token| match token {
-        Token::Text(value) => Some(value),
+        Token::Text(value) | Token::Quoted(value) => Some(value),
         Token::ListStart | Token::ListEnd => None,
     })
 }

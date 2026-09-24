@@ -193,7 +193,7 @@ pub(super) fn mailbox(value: String) -> Option<MailboxName> {
 
 fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
     match tokens.next()? {
-        Token::Text(value) => Some(value),
+        Token::Text(value) | Token::Quoted(value) => Some(value),
         Token::ListStart | Token::ListEnd => None,
     }
 }

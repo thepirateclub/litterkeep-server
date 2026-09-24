@@ -30,6 +30,7 @@ pub(super) fn parse(mut tokens: impl Iterator<Item = Token>) -> Command {
                 Some(attribute) => attributes.push(attribute),
                 None => return Command::Unsupported,
             },
+            Some(Token::Quoted(_)) => return Command::Unsupported,
             Some(Token::ListEnd) => break,
             Some(Token::ListStart) | None => return Command::Unsupported,
         }
@@ -56,7 +57,7 @@ fn parse_attribute(value: &str) -> Option<StatusAttribute> {
 
 fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
     match tokens.next()? {
-        Token::Text(value) => Some(value),
+        Token::Text(value) | Token::Quoted(value) => Some(value),
         Token::ListStart | Token::ListEnd => None,
     }
 }

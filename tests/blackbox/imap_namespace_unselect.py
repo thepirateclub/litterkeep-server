@@ -29,6 +29,9 @@ with imaplib.IMAP4(OPTIONS.host, OPTIONS.imap_port, timeout=10) as imap:
 
     status, enabled = imap.enable("X-LITTERKEEP-UNKNOWN")
     assert status == "OK", (status, enabled)
+    tag = imap._command("ENABLE", '"X-LITTERKEEP-UNKNOWN"')
+    malformed_response = imap.readline()
+    assert malformed_response.startswith(tag + b" BAD"), malformed_response
     enabled_status, enabled_values = imap.response("ENABLED")
     assert enabled_status == "ENABLED", (enabled_status, enabled_values)
     assert b" ".join(enabled_values).strip() == b"", enabled_values

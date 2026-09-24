@@ -113,10 +113,12 @@ fn parse_attribute_list(tokens: &mut impl Iterator<Item = Token>) -> Option<Vec<
             match tokens.next()? {
                 Token::ListEnd => break,
                 Token::Text(value) => attributes.extend(parse_request_item(&value, tokens)?),
+                Token::Quoted(value) => attributes.extend(parse_request_item(&value, tokens)?),
                 Token::ListStart => return None,
             }
         },
         Token::Text(value) => attributes.extend(parse_request_item(&value, tokens)?),
+        Token::Quoted(value) => attributes.extend(parse_request_item(&value, tokens)?),
         Token::ListEnd => return None,
     }
     match attributes.is_empty() {
@@ -137,7 +139,7 @@ fn parse_request_item(
 
 fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
     tokens.find_map(|token| match token {
-        Token::Text(value) => Some(value),
+        Token::Text(value) | Token::Quoted(value) => Some(value),
         Token::ListStart | Token::ListEnd => None,
     })
 }

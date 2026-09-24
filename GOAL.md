@@ -110,6 +110,22 @@ ManageSieve до заявленного набора современных фо
 - G14 остаётся RUNNING: обязательные IMAP4rev2 команды, поисковая и response
   грамматики и полный клиентский профиль ещё не закрыты. G15-G18 не начаты.
 
+### 2026-09-24: G14 IMAP atom and quoted-string distinction checkpoint
+
+- IMAP lexer сохраняет различие между `atom` и `quoted string` в Enum токенов.
+  Команды с атомарной grammar могут точно отклонять quoted string, тогда как
+  текстовые аргументы сохраняют обработку обоих wire-форматов.
+- PASS: Windows `cargo fmt --check`, strict Clippy и 202 теста, structural audit
+  (нет `mod.rs`, Rust-файлы не превышают 300 строк); Docker Linux Rust 1.97
+  прошёл strict Clippy и 234 теста. STARTTLS blackbox подтвердил BAD для
+  `ENABLE "X-LITTERKEEP-UNKNOWN"`, затем успешные ENABLE/NAMESPACE/UNSELECT;
+  SMTP -> IMAP вложение совпало по SHA256
+  `4c7872cd574aabe5cdc9a29678b88b178ef4aac98f051455ff87e207eeea9759`.
+  Временный контейнер удалён после тестов; данные сохранены в
+  `./data/g14-imap-body-sections`.
+- G14 остаётся RUNNING: полная RFC 9051 команда и response grammar ещё не
+  реализована. G15-G18 не начаты.
+
 | Goal | Depends on | Acceptance criterion | Status |
 |---|---|---|---|
 | G00 | none | build, help, lock, dependency report, saved goal | PASS |

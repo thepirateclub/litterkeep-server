@@ -51,6 +51,10 @@ fn enable_capability_atoms_are_typed() {
     );
     assert_eq!(parse("b ENABLE\r\n").command, Command::Unsupported);
     assert_eq!(
+        parse("b ENABLE \"IMAP4rev2\"\r\n").command,
+        Command::Unsupported
+    );
+    assert_eq!(
         parse("c ENABLE (IMAP4rev2)\r\n").command,
         Command::Unsupported
     );

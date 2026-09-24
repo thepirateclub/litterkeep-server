@@ -7,8 +7,10 @@
 /// Синтаксический токен IMAP-команды.
 #[derive(Debug, Eq, PartialEq)]
 pub enum Token {
-    /// Atom либо уже декодированная quoted string.
+    /// Неэкранированный протокольный atom.
     Text(String),
+    /// Quoted string с уже обработанными escape-последовательностями.
+    Quoted(String),
     /// Открывающая круглая скобка списка.
     ListStart,
     /// Закрывающая круглая скобка списка.
@@ -27,7 +29,7 @@ pub fn tokenize(line: &str) -> Result<Vec<Token>, &'static str> {
             ')' => push(&mut tokens, Token::ListEnd, MAX_TOKENS)?,
             '"' => {
                 let value = quoted(&mut chars)?;
-                push(&mut tokens, Token::Text(value), MAX_TOKENS)?;
+                push(&mut tokens, Token::Quoted(value), MAX_TOKENS)?;
             }
             first => {
                 let value = atom(first, &mut chars);
@@ -88,7 +90,7 @@ where
 mod tests {
     use super::*;
 
-    /// Лексер сохраняет пробелы и декодирует escape только внутри quoted string.
+    /// Лексер сохраняет синтаксический вид quoted string и декодирует его escape.
     #[test]
     fn quoted_string_is_one_token() {
         assert_eq!(
@@ -96,8 +98,8 @@ mod tests {
             Ok(vec![
                 Token::Text("a".into()),
                 Token::Text("LOGIN".into()),
-                Token::Text("bob smith".into()),
-                Token::Text("p\"ass".into()),
+                Token::Quoted("bob smith".into()),
+                Token::Quoted("p\"ass".into()),
             ])
         );
     }
@@ -114,6 +116,20 @@ mod tests {
                 Token::ListStart,
                 Token::Text("BODYSTRUCTURE".into()),
                 Token::ListEnd,
+            ])
+        );
+    }
+
+    /// Quoted string остаётся отличим от atom для проверки грамматики команд.
+    #[test]
+    fn quoted_and_atom_tokens_keep_distinct_variants() {
+        assert_eq!(
+            tokenize("a ENABLE X-TEST \"Y-TEST\"\r\n"),
+            Ok(vec![
+                Token::Text("a".into()),
+                Token::Text("ENABLE".into()),
+                Token::Text("X-TEST".into()),
+                Token::Quoted("Y-TEST".into()),
             ])
         );
     }

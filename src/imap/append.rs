@@ -17,7 +17,9 @@ pub fn parse(tokens: impl Iterator<Item = Token>) -> Command {
             Some(flags) => flags,
             None => return Command::Unsupported,
         },
-        Some(Token::Text(_)) | Some(Token::ListEnd) | None => MessageFlags::default(),
+        Some(Token::Text(_)) | Some(Token::Quoted(_)) | Some(Token::ListEnd) | None => {
+            MessageFlags::default()
+        }
     };
     let Some(value) = next_text(&mut tokens) else {
         return Command::Unsupported;
@@ -50,12 +52,15 @@ fn parse_flags(
 ) -> Option<MessageFlags> {
     match tokens.next() {
         Some(Token::ListStart) => {}
-        Some(Token::Text(_)) | Some(Token::ListEnd) | None => return None,
+        Some(Token::Text(_)) | Some(Token::Quoted(_)) | Some(Token::ListEnd) | None => {
+            return None;
+        }
     }
     let mut values = Vec::new();
     loop {
         match tokens.next()? {
             Token::Text(value) => values.push(value),
+            Token::Quoted(value) => values.push(value),
             Token::ListEnd => return flags::parse_set(values),
             Token::ListStart => return None,
         }
@@ -68,7 +73,7 @@ fn mailbox(value: String) -> Option<MailboxName> {
 
 fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
     match tokens.next()? {
-        Token::Text(value) => Some(value),
+        Token::Text(value) | Token::Quoted(value) => Some(value),
         Token::ListStart | Token::ListEnd => None,
     }
 }

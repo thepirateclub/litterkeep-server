@@ -229,7 +229,7 @@ fn parse_empty(mut tokens: impl Iterator<Item = Token>, command: Command) -> Com
 
 pub(super) fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
     tokens.find_map(|token| match token {
-        Token::Text(value) => Some(value),
+        Token::Text(value) | Token::Quoted(value) => Some(value),
         Token::ListStart | Token::ListEnd => None,
     })
 }
