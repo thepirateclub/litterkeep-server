@@ -69,3 +69,54 @@ fn parses_keyword_search_keys_and_rejects_invalid_flags() {
         Command::Unsupported
     );
 }
+
+/// Каждый базовый search-key RFC 9051 должен распознаваться отдельно.
+#[test]
+fn parses_every_base_rfc_9051_search_key() {
+    let criteria = [
+        "1:3",
+        "ALL",
+        "ANSWERED",
+        "BCC hidden",
+        "BEFORE 1-Feb-2026",
+        "BODY term",
+        "CC team",
+        "DELETED",
+        "DRAFT",
+        "FLAGGED",
+        "FROM alice",
+        "HEADER SUBJECT term",
+        "KEYWORD $Junk",
+        "LARGER 10",
+        "NEW",
+        "NOT SEEN",
+        "OLD",
+        "ON 1-Feb-2026",
+        "OR SEEN ANSWERED",
+        "RECENT",
+        "SEEN",
+        "SENTBEFORE 1-Feb-2026",
+        "SENTON 1-Feb-2026",
+        "SENTSINCE 1-Feb-2026",
+        "SINCE 1-Feb-2026",
+        "SMALLER 10",
+        "SUBJECT report",
+        "TEXT term",
+        "TO bob",
+        "UID 1:3",
+        "UNANSWERED",
+        "UNDELETED",
+        "UNDRAFT",
+        "UNFLAGGED",
+        "UNKEYWORD $Junk",
+        "UNSEEN",
+    ];
+
+    for criterion in criteria {
+        let command = format!("a SEARCH {criterion}\r\n");
+        assert!(
+            matches!(imap::parse(&command).command, Command::Search { .. }),
+            "RFC 9051 search key was rejected: {criterion}"
+        );
+    }
+}

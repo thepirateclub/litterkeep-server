@@ -44,6 +44,23 @@ ManageSieve до заявленного набора современных фо
   parser-а остаются ограничениями. Контейнер этапа удалён, `litterkeep-g12-phone`
   сохранён. G14 остаётся RUNNING.
 
+### 2026-09-25: G14 базовый SEARCH key inventory checkpoint
+
+- Сверка parser-а с базовым перечнем ключей RFC 9051 подтвердила, что все
+  стандартные ключи уже представлены в typed модели и evaluator-е. Добавлен
+  единый исчерпывающий parser-тест, который отдельно проверяет принятие каждого
+  ключа, включая sequence-set, UID и обе формы keyword.
+- В матрицах устранено устаревшее заявление, что полный базовый набор ключей
+  отсутствует. SEARCH остаётся PARTIAL по другим причинам: ограниченный charset,
+  не поддержанные SEARCH string literals и не базовые расширения. RFC 5322
+  address groups больше не перечисляются как незакрытый пробел; ограничения
+  parser-а на comments, obsolete forms и malformed syntax сохранены.
+- PASS: Windows Rust 1.97.1 strict Clippy и 238 tests; Linux Docker Rust 1.97
+  release build, strict Clippy и 273 tests. Сетевой MIME/SEARCH и UID SEARCH
+  acceptance остаются отдельными ранее проверенными сценариями; приложение
+  Litterkeep этим этапом не проверялось.
+- Данные этапа: `./data/g14-search-key-inventory`. Цель G14 остаётся RUNNING.
+
 ### 2026-09-25: G14 SEARCHRES UID EXPUNGE checkpoint
 
 - `UID EXPUNGE $` принимает типизированный saved-result set, снимок результата
