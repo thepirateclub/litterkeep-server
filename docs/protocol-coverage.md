@@ -14,6 +14,13 @@ LSUB, CREATE/RENAME/DELETE, SELECT/EXAMINE, STATUS, APPEND, SEARCH, FETCH,
 BODYSTRUCTURE, MIME sections/partial, STORE, COPY, MOVE, EXPUNGE, UID EXPUNGE,
 IDLE/DONE и durable Recent. UIDVALIDITY и UID переживают restart.
 
+`FETCH` принимает одиночные и сгруппированные data items, раскрывает ALL, FAST
+и FULL, включает UID в ответы UID FETCH и сохраняет literal как точные октеты.
+Сетевой acceptance для сгруппированного FETCH и полного MIME-вложения выполнен
+независимым STARTTLS клиентом. Это не означает полной совместимости IMAP4rev1:
+отдельно остаются все неуказанные грамматики BODY header sections, FETCH side
+effects, SEARCH keys и расширения; см. [матрицу IMAP](imap-profile.md).
+
 ## POP3
 
 Поддерживаются STLS и implicit TLS, USER/PASS, STAT, LIST, UIDL, RETR, DELE,
@@ -32,4 +39,3 @@ SETACTIVE, DELETESCRIPT и RENAMESCRIPT.
 Маршрут задаётся явно как IP:port и typed TLS policy. Scheduler durable,
 single-flight, применяет bounded retry/backoff и DSN. Pool повторно выдаёт только
 чистое соединение после success либо подтверждённого RSET.
-

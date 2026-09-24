@@ -1,4 +1,9 @@
-# Матрица IMAP4rev1
+# Матрица текущего IMAP4rev1 и целевого IMAP4rev2
+
+Сервер пока объявляет IMAP4rev1. Целевой современный baseline для следующего
+этапа - RFC 9051 IMAP4rev2; его нельзя объявлять до выполнения обязательной
+семантики и сетевых acceptance-тестов. Наличие расширений не выводится из того,
+что клиент случайно использовал соответствующую команду.
 
 Матрица фиксирует фактически исполняемый профиль, а не желаемый список.
 `PASS` означает наличие типизированного parser-а, reactor state transition и
@@ -16,7 +21,7 @@ CAPABILITY не выдаёт за более широкое расширение
 | Subscription | SUBSCRIBE, UNSUBSCRIBE | PASS | Durable subscription независимо от существования папки |
 | Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS, PERMANENTFLAGS, Recent |
 | Message insertion | APPEND | PASS | Bounded literal, flags, INTERNALDATE, APPENDUID после fsync |
-| Reading | FETCH, UID FETCH | PASS | FLAGS, INTERNALDATE, ENVELOPE, BODYSTRUCTURE, MIME sections, partial |
+| Reading | FETCH, UID FETCH | PARTIAL | Одиночные/групповые data items, ALL/FAST/FULL, UID и RFC822 literal проверены; BODY sections/partial проверяются отдельным профилем; header-field sections и расширения остаются вне заявленного набора |
 | Search | SEARCH, UID SEARCH | PARTIAL | Sequence/UID sets, все system/session flags, address/header/body/text, size, internal/sent dates, AND/OR/NOT/groups; unsupported keys получают BAD |
 | Flag mutation | STORE, UID STORE | PASS | Replace/add/remove, SILENT, durable batch, read-only denial |
 | Copy and move | COPY, UID COPY, MOVE, UID MOVE | PASS | Atomic links/tombstones, COPYUID, multi-session projection |

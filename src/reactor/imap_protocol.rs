@@ -169,11 +169,11 @@ pub(super) fn line(
         imap::Command::Fetch {
             addressing,
             sequence_set,
-            attribute,
+            attributes,
         } => imap_selected::queue_authenticated_read(
             session,
             parsed.tag,
-            |tag, _| Pending::ReadForFetch(addressing, sequence_set, attribute, tag),
+            |tag, _| Pending::ReadForFetch(addressing, sequence_set, attributes, tag),
             slot,
             generation,
             worker,

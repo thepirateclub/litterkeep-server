@@ -27,55 +27,6 @@ fn starttls_is_typed() {
     );
 }
 
-/// FETCH attribute остаётся типизированным после lexer-а списков.
-#[test]
-fn fetch_attribute_is_typed() {
-    assert_eq!(
-        parse("a3 FETCH 2 (BODYSTRUCTURE)\r\n").command,
-        Command::Fetch {
-            addressing: Addressing::Sequence,
-            sequence_set: SequenceSet::parse("2").unwrap(),
-            attribute: FetchAttribute::BodyStructure,
-        }
-    );
-}
-
-/// BODY section и partial измеряются отдельными предметными типами.
-#[test]
-fn body_peek_partial_is_typed() {
-    assert_eq!(
-        parse("a4 FETCH 1 (BODY.PEEK[2.MIME]<3.7>)\r\n").command,
-        Command::Fetch {
-            addressing: Addressing::Sequence,
-            sequence_set: SequenceSet::parse("1").unwrap(),
-            attribute: FetchAttribute::Body {
-                peek: true,
-                section: BodySection::Part {
-                    path: vec![2],
-                    mime_headers: true,
-                },
-                partial: Some(Partial {
-                    offset: 3,
-                    count: 7
-                }),
-            },
-        }
-    );
-}
-
-/// UID FETCH сохраняет отдельное пространство адресации до store snapshot.
-#[test]
-fn uid_fetch_is_typed() {
-    assert_eq!(
-        parse("a5 UID FETCH 20:10 (RFC822.SIZE)\r\n").command,
-        Command::Fetch {
-            addressing: Addressing::Uid,
-            sequence_set: SequenceSet::parse("20:10").unwrap(),
-            attribute: FetchAttribute::Rfc822Size,
-        }
-    );
-}
-
 /// Специальное имя INBOX нормализуется без строкового сравнения в reactor.
 #[test]
 fn inbox_is_typed_case_insensitively() {
@@ -119,14 +70,6 @@ fn append_metadata_is_typed() {
         internal_date.expect("date").encode(),
         "19-Sep-2026 09:34:56 +0000"
     );
-}
-
-#[test]
-fn internal_date_fetch_is_typed() {
-    let Command::Fetch { attribute, .. } = parse("a9 FETCH 1 INTERNALDATE\r\n").command else {
-        panic!("FETCH not parsed");
-    };
-    assert_eq!(attribute, FetchAttribute::InternalDate);
 }
 
 #[test]

@@ -50,7 +50,7 @@ pub(super) enum Pending {
     ReadForFetch(
         imap::Addressing,
         imap::sequence_set::SequenceSet,
-        imap::FetchAttribute,
+        Vec<imap::FetchAttribute>,
         String,
     ),
     ReadForStore {

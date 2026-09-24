@@ -3,7 +3,13 @@
 pub mod append;
 pub mod authenticate;
 pub mod copy;
+#[cfg(test)]
+#[path = "imap/copy_tests.rs"]
+mod copy_tests;
 pub mod fetch;
+#[cfg(test)]
+#[path = "imap/fetch_tests.rs"]
+mod fetch_tests;
 pub mod flags;
 pub mod folder;
 pub mod idle;
@@ -16,11 +22,6 @@ pub mod sent_date;
 pub mod sequence_set;
 pub mod status;
 pub mod tokenizer;
-
-#[cfg(test)]
-#[path = "imap/copy_tests.rs"]
-mod copy_tests;
-
 pub use authenticate::AuthenticationMechanism;
 pub use fetch::{BodySection, FetchAttribute, Partial};
 pub use idle::{IdleContinuation, parse_idle_continuation};
@@ -105,7 +106,7 @@ pub enum Command {
     Fetch {
         addressing: Addressing,
         sequence_set: SequenceSet,
-        attribute: FetchAttribute,
+        attributes: Vec<FetchAttribute>,
     },
     Store {
         addressing: Addressing,

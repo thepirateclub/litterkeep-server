@@ -1,13 +1,61 @@
 # Goal ledger
 
-Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`  
+Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
-Current subgoal: G12
+Current subgoal: G14
 
 The actually available Goal interface was inspected. It supports creating and
 updating one active root goal (`create_goal`, `get_goal`, `update_goal`), but
 has no subgoal/dependency operation. The G00-G12 rows below are therefore the
 authoritative local subgoal ledger, rather than invented Goal API calls.
+
+## Protocol-completeness extension
+
+Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
+Objective: довести стандартизованные профили SMTP, IMAP, POP3, MIME, Sieve и
+ManageSieve до заявленного набора современных форм, подтверждая каждую
+возможность сетевыми и отрицательными тестами. «Полный» означает перечисленные
+в матрицах RFC-команды и расширения, а не неограниченное обещание реализовать
+любую спецификацию почты.
+
+| Goal | Depends on | Acceptance criterion | Status |
+|---|---|---|---|
+| G13 | G12 | IMAP FETCH data-item list, ALL/FAST/FULL, UID response semantics, literal wire and attachment-byte acceptance | PASS |
+| G14 | G13 | IMAP4rev2 RFC 9051 baseline plus tested IMAP4rev1 client compatibility | NOT RUN |
+| G15 | G12 | SMTP RFC 5321/6409/8314 baseline, including SMTPUTF8 RFC 6531 | NOT RUN |
+| G16 | G12 | POP3 RFC 1939 extensions RFC 2449/5034/6856 and secure TLS profile | NOT RUN |
+| G17 | G12 | MIME RFC 5322/2045-2049 updates and Sieve RFC 5228/ManageSieve RFC 5804 profile | NOT RUN |
+| G18 | G14,G15,G16,G17 | Cross-protocol Linux acceptance, truthful capabilities and final coverage matrix | NOT RUN |
+
+### G13: IMAP FETCH baseline compatibility checkpoint
+
+- `FETCH` is now represented as a typed list of data items across parser,
+  pending request and reactor completion. UID FETCH always emits UID, while a
+  requested duplicate UID item is not repeated.
+- The standard ALL, FAST and FULL macros expand into their protocol-defined
+  typed data-item sets. A combined response is bounded by the session output
+  limit before publication.
+- `tests/blackbox/smtp_imap_attachment.py` now authenticates over STARTTLS,
+  verifies grouped FETCH, ALL/FAST/FULL, UID FETCH auto-response semantics, and
+  exact decoded attachment bytes.
+- PASS: `cargo fmt --check`; `cargo clippy --all-targets --locked -- -D warnings`;
+  `cargo test --all-targets --locked` (192 Windows tests); Linux Docker target
+  `docker build -f docker/Dockerfile.linux-test --target test -t
+  litterkeep-server:g13-test .` (strict Clippy, 222 tests); Python syntax check;
+  Linux STARTTLS SMTP -> IMAP black-box attachment verifier returned
+  `sha256=3434bddb77229b18aab16f5a2894661d44505548389f84c11bce6d6b50efa4a4`.
+- Data is isolated under `./data/g13-protocol-profile`; black-box TLS trust was
+  deliberately disabled for the local generated test certificate. Production
+  certificate validation is not part of this test.
+- G13 does not close IMAP4rev1: BODY header selectors, RFC side effects, the full
+  SEARCH key grammar and advertised extensions remain for G14.
+- Standards scope was corrected after RFC lookup: the modern IMAP target is
+  IMAP4rev2 (RFC 9051), not just the currently advertised IMAP4rev1. SMTP,
+  POP3, MIME and Sieve milestones likewise name their base standards and the
+  selected current updates/extensions rather than claiming every optional
+  extension exists.
+- Next: G14, inventory each mandatory IMAP4rev2 command/data grammar against
+  executable tests, then implement missing semantics without widening CAPABILITY.
 
 | Goal | Depends on | Acceptance criterion | Status |
 |---|---|---|---|

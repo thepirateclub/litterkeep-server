@@ -6,7 +6,7 @@ pub(super) fn write(
     session: &mut Session,
     addressing: imap::Addressing,
     sequence_set: imap::sequence_set::SequenceSet,
-    attribute: imap::FetchAttribute,
+    attributes: Vec<imap::FetchAttribute>,
     tag: String,
     messages: Vec<crate::store::Message>,
 ) -> io::Result<()> {
@@ -25,7 +25,7 @@ pub(super) fn write(
             continue;
         }
         if let Err(reason) =
-            imap_fetch_response::write(session, number, message, &attribute, addressing)?
+            imap_fetch_response::write(session, number, message, &attributes, addressing)?
         {
             return session.push(format!("{tag} NO {reason}\r\n").as_bytes());
         }

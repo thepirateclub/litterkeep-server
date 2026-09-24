@@ -129,7 +129,7 @@ pub(super) fn write_completion(
             Response::FolderResolved { result, .. },
         ) => imap_append::resolved(session, tag, literal_size, metadata, result),
         (
-            Pending::ReadForFetch(addressing, sequence_set, attribute, tag),
+            Pending::ReadForFetch(addressing, sequence_set, attributes, tag),
             Response::Read {
                 result: Ok(snapshot),
                 ..
@@ -138,7 +138,7 @@ pub(super) fn write_completion(
             session,
             addressing,
             sequence_set,
-            attribute,
+            attributes,
             tag,
             snapshot.messages,
         ),
