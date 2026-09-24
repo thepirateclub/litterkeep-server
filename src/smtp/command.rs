@@ -110,7 +110,7 @@ fn parse_auth(argument: &str) -> Result<Command, ParseError> {
 
 /// Разбирает reverse-path и ровно один необязательный SIZE параметр.
 fn parse_mail_from(argument: &str) -> Result<MailFrom, ParseError> {
-    let (reverse_path, suffix) = parse_path(argument, "FROM:", true)?;
+    let (reverse_path, suffix) = parse_path(argument, "FROM:", PathKind::Reverse)?;
     let parsed_parameters = suffix
         .split_ascii_whitespace()
         .map(parse_mail_parameter)
@@ -141,7 +141,7 @@ fn parse_mail_from(argument: &str) -> Result<MailFrom, ParseError> {
 
 /// MAIL не рекламирует иные расширения, а RCPT пока принимает только path.
 fn parse_recipient(argument: &str) -> Result<String, ParseError> {
-    let (recipient, suffix) = parse_path(argument, "TO:", false)?;
+    let (recipient, suffix) = parse_path(argument, "TO:", PathKind::Forward)?;
     match suffix.is_empty() {
         true => Ok(recipient),
         false => Err(ParseError::UnsupportedParameter),
@@ -152,7 +152,7 @@ fn parse_recipient(argument: &str) -> Result<String, ParseError> {
 fn parse_path<'a>(
     argument: &'a str,
     prefix: &str,
-    accepts_empty_path: bool,
+    kind: PathKind,
 ) -> Result<(String, &'a str), ParseError> {
     let (actual, rest) = argument.split_once(':').ok_or(ParseError::Syntax)?;
     let expected = prefix.strip_suffix(':').unwrap_or(prefix);
@@ -169,11 +169,11 @@ fn parse_path<'a>(
     if mailbox.len().saturating_add(2) > MAX_PATH_SIZE {
         return Err(ParseError::Syntax);
     }
-    if !mailbox.is_empty() && !address::is_dot_atom_mailbox(mailbox) {
-        return Err(ParseError::Syntax);
-    }
-    if mailbox.is_empty() && !accepts_empty_path {
-        return Err(ParseError::Syntax);
+    match (kind, address::classify_mailbox(mailbox)) {
+        (PathKind::Reverse, address::MailboxForm::NullReversePath)
+        | (_, address::MailboxForm::DotAtom)
+        | (PathKind::Forward, address::MailboxForm::BarePostmaster) => {}
+        _ => return Err(ParseError::Syntax),
     }
     match suffix.is_empty() {
         true => Ok((mailbox.to_owned(), "")),
@@ -182,6 +182,13 @@ fn parse_path<'a>(
         }
         false => Err(ParseError::Syntax),
     }
+}
+
+/// Роль SMTP path задаёт допустимые специальные mailbox формы.
+#[derive(Clone, Copy)]
+enum PathKind {
+    Reverse,
+    Forward,
 }
 
 /// Преобразует ESMTP parameter keyword в явно поддерживаемый enum.

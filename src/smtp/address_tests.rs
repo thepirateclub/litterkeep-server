@@ -40,3 +40,11 @@ fn enforces_each_dns_label_octet_limit() {
     assert!(is_dot_atom_mailbox(&valid));
     assert!(!is_dot_atom_mailbox(&invalid));
 }
+
+#[test]
+fn classifies_bare_postmaster_case_insensitively() {
+    for mailbox in ["Postmaster", "POSTMASTER", "postmaster"] {
+        assert_eq!(classify_mailbox(mailbox), MailboxForm::BarePostmaster);
+    }
+    assert_eq!(classify_mailbox(""), MailboxForm::NullReversePath);
+}

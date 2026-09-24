@@ -17,7 +17,10 @@ pub(super) fn append_many(
     if mailboxes.is_empty() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "no recipients"));
     }
-    if !mailboxes.iter().all(|mailbox| accounts.exists(mailbox)) {
+    if !mailboxes
+        .iter()
+        .all(|mailbox| crate::local_route::known_recipient(mailbox, |name| accounts.exists(name)))
+    {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
             "unknown local recipient",

@@ -3,7 +3,7 @@
 //! Модуль не обращается к файловому хранилищу напрямую. Проверка учётных
 //! данных и получателей всегда передаётся единственному владельцу store.
 use super::*;
-use crate::local_route::local_mailbox;
+use crate::local_route::{local_mailbox, local_recipient};
 
 /// Обрабатывает одну завершённую CRLF строку SMTP либо строку DATA.
 pub(super) fn smtp_line(
@@ -158,7 +158,7 @@ fn recipient(
     if !transaction.has_recipient_capacity() {
         return session.push(b"452 4.5.3 too many recipients\r\n");
     }
-    let Some(mailbox) = local_mailbox(&address) else {
+    let Some(mailbox) = local_recipient(&address) else {
         return session.push(b"550 unknown local recipient\r\n");
     };
     let id = next_request(request_id);

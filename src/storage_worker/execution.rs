@@ -34,7 +34,7 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             mailbox,
         } => Response::RecipientValidated {
             request_id,
-            accepted: accounts.exists(&mailbox),
+            accepted: crate::local_route::known_recipient(&mailbox, |name| accounts.exists(name)),
         },
         Request::Append {
             request_id,

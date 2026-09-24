@@ -8,8 +8,31 @@
 pub fn local_mailboxes(recipients: Vec<String>) -> Vec<String> {
     recipients
         .into_iter()
-        .filter_map(|recipient| local_mailbox(&recipient))
+        .filter_map(|recipient| local_recipient(&recipient))
         .collect()
+}
+
+/// Типизированная цель локальной SMTP-доставки.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum LocalRecipient<'a> {
+    Account(&'a str),
+    Postmaster,
+}
+
+/// Проверяет mailbox адресата с учётом системной Postmaster доставки.
+pub fn known_recipient(mailbox: &str, account_exists: impl FnOnce(&str) -> bool) -> bool {
+    match classify_recipient_mailbox(mailbox) {
+        LocalRecipient::Postmaster => true,
+        LocalRecipient::Account(name) => account_exists(name),
+    }
+}
+
+/// Разбирает Store mailbox к типизированной пользовательской или системной цели.
+fn classify_recipient_mailbox(mailbox: &str) -> LocalRecipient<'_> {
+    match mailbox.eq_ignore_ascii_case("postmaster") {
+        true => LocalRecipient::Postmaster,
+        false => LocalRecipient::Account(mailbox),
+    }
 }
 
 /// Отделяет local-part от домена только для разрешённого локального маршрута.
@@ -18,6 +41,22 @@ pub fn local_mailbox(address: &str) -> Option<String> {
     match LocalRoute::parse(domain) {
         LocalRoute::Accepted => Some(mailbox.to_owned()),
         LocalRoute::Rejected => None,
+    }
+}
+
+/// Нормализует RCPT путь в локальный mailbox, включая bare Postmaster.
+pub fn local_recipient(address: &str) -> Option<String> {
+    let (mailbox, domain) = match address.split_once('@') {
+        Some((mailbox, domain)) => match LocalRoute::parse(domain) {
+            LocalRoute::Accepted => (mailbox, Some(domain)),
+            LocalRoute::Rejected => return None,
+        },
+        None => (address, None),
+    };
+    match (classify_recipient_mailbox(mailbox), domain) {
+        (LocalRecipient::Postmaster, _) => Some("postmaster".to_owned()),
+        (LocalRecipient::Account(name), Some(_)) => Some(name.to_owned()),
+        (LocalRecipient::Account(_), None) => None,
     }
 }
 
@@ -43,7 +82,7 @@ enum LocalRoute {
 impl LocalRoute {
     /// Локальные домены первого профиля без DNS/MX discovery.
     fn parse(domain: &str) -> Self {
-        match domain {
+        match domain.to_ascii_lowercase().as_str() {
             "test" | "litterkeep.test" | "peer.test" => Self::Accepted,
             _ => Self::Rejected,
         }
@@ -69,5 +108,20 @@ mod tests {
         assert_eq!(local_login("alice"), Some("alice".into()));
         assert_eq!(local_login("alice@litterkeep.test"), Some("alice".into()));
         assert_eq!(local_login("alice@example.test"), None);
+    }
+
+    #[test]
+    fn postmaster_routes_without_domain_and_case_insensitively() {
+        for address in ["Postmaster", "POSTMASTER", "postmaster@test"] {
+            assert_eq!(local_recipient(address), Some("postmaster".into()));
+        }
+        assert_eq!(local_recipient("postmaster@example.test"), None);
+    }
+
+    #[test]
+    fn only_postmaster_bypasses_account_existence() {
+        assert!(known_recipient("POSTMASTER", |_| false));
+        assert!(!known_recipient("missing", |_| false));
+        assert!(known_recipient("alice", |name| name == "alice"));
     }
 }

@@ -1,9 +1,28 @@
 //! Ограниченная грамматика обычного SMTP dot-atom mailbox.
 
-/// Проверяет ASCII mailbox и длины его local-part/domain по SMTP/DNS профилю.
+/// Форма mailbox после ограниченного синтаксического разбора.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum MailboxForm {
+    NullReversePath,
+    DotAtom,
+    BarePostmaster,
+    Invalid,
+}
+
+/// Классифицирует поддержанные SMTP mailbox формы.
 ///
 /// Quoted local-part и address-literal намеренно не принимаются этим профилем.
-pub(super) fn is_dot_atom_mailbox(mailbox: &str) -> bool {
+pub(super) fn classify_mailbox(mailbox: &str) -> MailboxForm {
+    match mailbox {
+        "" => MailboxForm::NullReversePath,
+        _ if mailbox.eq_ignore_ascii_case("postmaster") => MailboxForm::BarePostmaster,
+        _ if is_dot_atom_mailbox(mailbox) => MailboxForm::DotAtom,
+        _ => MailboxForm::Invalid,
+    }
+}
+
+/// Проверяет ASCII mailbox и длины его local-part/domain по SMTP/DNS профилю.
+fn is_dot_atom_mailbox(mailbox: &str) -> bool {
     let Some((local_part, domain)) = mailbox.split_once('@') else {
         return false;
     };

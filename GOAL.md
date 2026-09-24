@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G15
 
+### 2026-09-25: G15 RFC 5321 Postmaster acceptance checkpoint
+
+- RCPT принимает bare `<Postmaster>` без домена и локальный
+  `postmaster@domain` без учёта регистра local-part; сравнение domain следует
+  DNS case-insensitive правилам. Оба варианта направляются в отдельный
+  системный mailbox `postmaster`, не создавая парольную account-запись.
+- PASS: Windows Rust 1.97.1: 259 тестов, strict Clippy, fmt и diff checks.
+  Чистая Linux Docker Rust 1.97 сборка прошла strict Clippy и 299 тестов.
+  Независимый STARTTLS SMTP black-box принял bare и qualified Postmaster,
+  отклонил необслуживаемый домен 550, отправил DATA и подтвердил непустой
+  долговечный `mailboxes/postmaster.journal`.
+- Тест: `tests/blackbox/smtp_postmaster.py`; отдельные данные:
+  `./data/g15-smtp-postmaster`. Временный контейнер удалён;
+  `litterkeep-g12-phone` оставлен.
+- Системный mailbox сохранён, но текущая account-аутентификация не предоставляет
+  операторский доступ к нему. Quoted mailbox, address-literals, source routes и
+  SMTPUTF8 остаются непокрытыми; G15 остаётся RUNNING.
+
 ### 2026-09-25: G15 RFC 5321 dot-atom mailbox checkpoint
 
 - SMTP parser проверяет обычный ASCII dot-atom local-part и DNS domain labels

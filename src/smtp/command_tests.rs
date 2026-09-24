@@ -78,6 +78,13 @@ fn accepts_empty_reverse_path_but_requires_recipient_path() {
         Ok(Command::Rcpt("bob@test".into()))
     );
     assert_eq!(parse("RCPT TO:<>\r\n"), Err(ParseError::Syntax));
+    for recipient in ["Postmaster", "POSTMASTER", "postmaster"] {
+        assert_eq!(
+            parse(&format!("RCPT TO:<{recipient}>\r\n")),
+            Ok(Command::Rcpt(recipient.to_owned()))
+        );
+    }
+    assert_eq!(parse("MAIL FROM:<Postmaster>\r\n"), Err(ParseError::Syntax));
 }
 
 /// Проверяет включение угловых скобок в RFC 5321 path limit.
