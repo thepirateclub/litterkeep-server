@@ -58,7 +58,7 @@ impl LiteralReceiver {
                     tag: std::mem::take(&mut self.tag),
                     mailbox: std::mem::take(&mut self.mailbox),
                     bytes: std::mem::take(&mut self.bytes),
-                    metadata: self.metadata,
+                    metadata: self.metadata.clone(),
                 })
             }
             Some(_) | None => LiteralProgress::InvalidTerminator(std::mem::take(&mut self.tag)),

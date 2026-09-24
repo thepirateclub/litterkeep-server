@@ -19,6 +19,8 @@ mod expunges;
 #[cfg(test)]
 #[path = "store/failure_matrix_tests.rs"]
 mod failure_matrix_tests;
+#[path = "store/flag_journal.rs"]
+mod flag_journal;
 #[path = "store/flags.rs"]
 mod flags;
 #[path = "store/folder_access.rs"]
@@ -38,6 +40,9 @@ mod format;
 mod integrity;
 #[path = "store/journal.rs"]
 mod journal;
+#[cfg(test)]
+#[path = "store/keyword_tests.rs"]
+mod keyword_tests;
 #[path = "store/mailbox_state.rs"]
 mod mailbox_state;
 #[path = "store/model.rs"]
@@ -84,6 +89,7 @@ mod subscriptions;
 #[cfg(test)]
 #[path = "store/tests.rs"]
 mod tests;
+use crate::mail_flags::StoredFlags;
 pub use crate::mail_flags::{FlagMutation, MessageFlags, SystemFlag};
 use crate::queue::Queue;
 pub use folder_access::ResolvedMailbox;
@@ -104,7 +110,7 @@ pub struct Store {
     _writer_lock: File,
     next_uids: HashMap<String, u64>,
     entries: HashMap<String, Vec<model::Record>>,
-    flags: HashMap<String, HashMap<u64, MessageFlags>>,
+    flags: HashMap<String, HashMap<u64, StoredFlags>>,
     /// UID, ещё не назначенные одной selected IMAP-сессии как `\\Recent`.
     recent: HashMap<String, std::collections::BTreeSet<u64>>,
     folders: folders::FolderCatalog,

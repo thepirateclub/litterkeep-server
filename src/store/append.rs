@@ -125,6 +125,7 @@ impl Store {
                         blob_transaction_id: transaction_id,
                         name: name.to_owned(),
                         flags: metadata.flags,
+                        keywords: metadata.keywords.clone(),
                         internal_date: metadata.internal_date,
                     },
                 ))

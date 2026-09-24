@@ -62,6 +62,7 @@ pub(super) fn line(
             mailbox,
             literal_size,
             flags,
+            keywords,
             internal_date,
         } => imap_append::begin(
             session,
@@ -70,6 +71,7 @@ pub(super) fn line(
             literal_size,
             crate::store::AppendMetadata {
                 flags,
+                keywords,
                 internal_date: internal_date.unwrap_or_else(crate::mail_date::MailDate::now),
             },
             slot,
@@ -208,6 +210,7 @@ pub(super) fn line(
             mutation,
             silent,
             flags,
+            keywords,
         } => imap_selected::queue_authenticated_read(
             session,
             parsed.tag,
@@ -216,6 +219,7 @@ pub(super) fn line(
                 sequence_set,
                 mutation,
                 flags,
+                keywords,
                 silent,
                 tag,
                 mailbox,

@@ -73,10 +73,11 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             uids,
             mutation,
             flags,
+            keywords,
         } => Response::FlagsUpdated {
             request_id,
             result: store
-                .update_flags(&mailbox, &uids, mutation, flags)
+                .update_stored_flags(&mailbox, &uids, mutation, flags, &keywords)
                 .and_then(|()| store.snapshot(&mailbox)),
         },
         Request::CreateFolder {

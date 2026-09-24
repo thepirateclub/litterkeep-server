@@ -21,6 +21,9 @@ pub mod search;
 pub mod search_charset;
 #[path = "imap/search_date.rs"]
 pub mod search_date;
+#[cfg(test)]
+#[path = "imap/search_parser_tests.rs"]
+mod search_parser_tests;
 pub mod search_result;
 #[path = "imap/sent_date.rs"]
 pub mod sent_date;
@@ -60,6 +63,7 @@ pub enum Command {
         mailbox: MailboxName,
         literal_size: usize,
         flags: crate::mail_flags::MessageFlags,
+        keywords: std::collections::BTreeSet<crate::mail_flags::KeywordFlag>,
         internal_date: Option<crate::mail_date::MailDate>,
     },
     Logout,
@@ -125,6 +129,7 @@ pub enum Command {
         mutation: crate::mail_flags::FlagMutation,
         silent: bool,
         flags: crate::mail_flags::MessageFlags,
+        keywords: std::collections::BTreeSet<crate::mail_flags::KeywordFlag>,
     },
     Search {
         addressing: Addressing,

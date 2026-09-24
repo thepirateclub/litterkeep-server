@@ -23,6 +23,7 @@ fn record(uid: u64, transaction_id: u64) -> model::Record {
         blob_transaction_id: transaction_id,
         name: format!("message-{transaction_id}.eml"),
         flags: MessageFlags::default(),
+        keywords: std::collections::BTreeSet::new(),
         internal_date: crate::mail_date::MailDate::from_unix_seconds(0),
     }
 }
@@ -54,16 +55,18 @@ fn initial_metadata_survives_restart_in_mailbox_frame() {
     ]);
     let metadata = AppendMetadata {
         flags,
+        keywords: std::collections::BTreeSet::new(),
         internal_date: crate::mail_date::MailDate::from_unix_seconds(1_790_000_000),
     };
     store
-        .append_with_metadata("bob", b"metadata", metadata)
+        .append_with_metadata("bob", b"metadata", metadata.clone())
         .expect("append");
     drop(store);
     let reopened = Store::open(&p).expect("reopen");
     let messages = reopened.messages("bob").expect("messages");
     let message = messages.first().expect("message");
     assert_eq!(message.flags, flags);
+    assert!(message.keywords.is_empty());
     assert_eq!(message.internal_date, metadata.internal_date);
     drop(reopened);
     let _ = fs::remove_dir_all(p);

@@ -80,6 +80,7 @@ fn append_literal_size_is_typed() {
             mailbox: MailboxName::Inbox,
             literal_size: 42,
             flags: crate::mail_flags::MessageFlags::default(),
+            keywords: std::collections::BTreeSet::new(),
             internal_date: None,
         }
     );
@@ -90,6 +91,7 @@ fn append_metadata_is_typed() {
     let Command::Append {
         literal_size,
         flags,
+        keywords,
         internal_date,
         ..
     } = parse("a8 APPEND INBOX (\\Seen \\Draft) \"19-Sep-2026 12:34:56 +0300\" {9}\r\n").command
@@ -99,6 +101,7 @@ fn append_metadata_is_typed() {
     assert_eq!(literal_size, 9);
     assert!(flags.contains(crate::mail_flags::SystemFlag::Seen));
     assert!(flags.contains(crate::mail_flags::SystemFlag::Draft));
+    assert!(keywords.is_empty());
     assert_eq!(
         internal_date.expect("date").encode(),
         "19-Sep-2026 09:34:56 +0000"
@@ -245,6 +248,7 @@ fn store_flags_are_typed() {
         mutation,
         silent,
         flags,
+        keywords,
     } = parse("a8 UID STORE 4:9 +FLAGS.SILENT (\\Seen \\Flagged)\r\n").command
     else {
         panic!("STORE was not parsed");
@@ -255,6 +259,7 @@ fn store_flags_are_typed() {
     assert!(silent);
     assert!(flags.contains(crate::mail_flags::SystemFlag::Seen));
     assert!(flags.contains(crate::mail_flags::SystemFlag::Flagged));
+    assert!(keywords.is_empty());
 }
 
 /// DONE разбирается как continuation, а не как tagged команда.

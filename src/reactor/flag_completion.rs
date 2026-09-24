@@ -13,6 +13,7 @@ pub(super) fn follow_up(
         sequence_set,
         mutation,
         flags,
+        keywords,
         silent,
         tag,
         mailbox,
@@ -58,6 +59,7 @@ pub(super) fn follow_up(
             uids: uids.clone(),
             mutation: *mutation,
             flags: *flags,
+            keywords: keywords.clone(),
         },
         Pending::WriteFlags {
             addressing: *addressing,
@@ -98,8 +100,9 @@ pub(super) fn write(session: &mut Session, pending: Pending, response: Response)
                 imap::Addressing::Sequence => String::new(),
                 imap::Addressing::Uid => format!("UID {} ", message.uid),
             };
-            let flags = imap::flags::encode_with_recent(
+            let flags = imap::flags::encode_stored(
                 message.flags,
+                &message.keywords,
                 session.selected_recent.contains(&message.uid),
             );
             session.push(format!("* {sequence} FETCH ({uid}FLAGS ({flags}))\r\n").as_bytes())?;

@@ -4,13 +4,17 @@
 //! полного frame с неверной checksum или commit marker: recovery обрезает
 //! только первый случай и никогда не ищет следующий случайный magic.
 use super::model::{Record, blob_name};
-use crate::{mail_date::MailDate, mail_flags::MessageFlags};
+use crate::{
+    mail_date::MailDate,
+    mail_flags::{KeywordFlag, MessageFlags},
+};
+use std::collections::BTreeSet;
 use std::fs::{self, OpenOptions};
 use std::io;
 use std::path::Path;
 
 const MAGIC: [u8; 4] = *b"LKJF";
-const VERSION: u16 = 3;
+const VERSION: u16 = 4;
 const COMMIT: u32 = 0xc0de_c0de;
 const MAX_PAYLOAD: usize = 1024;
 
@@ -26,6 +30,14 @@ pub(super) fn frame(record: &Record) -> Vec<u8> {
     bytes.extend_from_slice(&record.uid.to_be_bytes());
     bytes.extend_from_slice(&record.internal_date.unix_seconds().to_be_bytes());
     bytes.push(record.flags.bits());
+    let keyword_count = u16::try_from(record.keywords.len()).expect("bounded keyword count");
+    bytes.extend_from_slice(&keyword_count.to_be_bytes());
+    for keyword in &record.keywords {
+        let value = keyword.as_str().as_bytes();
+        let length = u16::try_from(value.len()).expect("bounded keyword length");
+        bytes.extend_from_slice(&length.to_be_bytes());
+        bytes.extend_from_slice(value);
+    }
     bytes.extend_from_slice(&payload_length.to_be_bytes());
     bytes.extend_from_slice(payload);
     let sum = checksum(&bytes);
@@ -96,6 +108,7 @@ fn scan(_mailbox: &str, bytes: &[u8]) -> io::Result<Scan> {
             blob_transaction_id: decoded.blob_transaction_id,
             name: decoded.name,
             flags: decoded.flags,
+            keywords: decoded.keywords,
             internal_date: decoded.internal_date,
         });
     }
@@ -111,6 +124,7 @@ struct DecodedFrame {
     blob_transaction_id: u64,
     name: String,
     flags: MessageFlags,
+    keywords: BTreeSet<KeywordFlag>,
     internal_date: MailDate,
     next: usize,
 }
@@ -129,7 +143,7 @@ fn decode_frame(bytes: &[u8], start: usize) -> Result<DecodedFrame, FrameError> 
     }
     let version = u16::from_be_bytes(decoder.take::<2>()?);
     let version = match version {
-        1 | 2 | VERSION => version,
+        1 | 2 | 3 | VERSION => version,
         _ => return Err(FrameError::Invalid("unsupported journal version")),
     };
     // Все форматы начинают payload с transaction ID ссылки. Начиная с v3
@@ -138,17 +152,25 @@ fn decode_frame(bytes: &[u8], start: usize) -> Result<DecodedFrame, FrameError> 
     let transaction_id = u64::from_be_bytes(decoder.take::<8>()?);
     let blob_transaction_id = match version {
         1 | 2 => transaction_id,
-        VERSION => u64::from_be_bytes(decoder.take::<8>()?),
+        3 | VERSION => u64::from_be_bytes(decoder.take::<8>()?),
         _ => unreachable!("version checked"),
     };
     let uid = u64::from_be_bytes(decoder.take::<8>()?);
-    let (internal_date, flags) = match version {
-        1 => (MailDate::from_unix_seconds(0), MessageFlags::default()),
-        2 | VERSION => {
+    let (internal_date, flags, keywords) = match version {
+        1 => (
+            MailDate::from_unix_seconds(0),
+            MessageFlags::default(),
+            BTreeSet::new(),
+        ),
+        2 | 3 | VERSION => {
             let seconds = i64::from_be_bytes(decoder.take::<8>()?);
             let flags = MessageFlags::from_bits(u8::from_be_bytes(decoder.take::<1>()?))
                 .map_err(|_| FrameError::Invalid("unknown initial flags"))?;
-            (MailDate::from_unix_seconds(seconds), flags)
+            let keywords = match version {
+                VERSION => decoder.keywords()?,
+                _ => BTreeSet::new(),
+            };
+            (MailDate::from_unix_seconds(seconds), flags, keywords)
         }
         _ => unreachable!("version checked"),
     };
@@ -177,6 +199,7 @@ fn decode_frame(bytes: &[u8], start: usize) -> Result<DecodedFrame, FrameError> 
         blob_transaction_id,
         name,
         flags,
+        keywords,
         internal_date,
         next: decoder.position(),
     })
@@ -213,6 +236,21 @@ impl<'a> Decoder<'a> {
             .ok_or(FrameError::Incomplete)?;
         self.offset = end;
         Ok(slice)
+    }
+
+    fn keywords(&mut self) -> Result<BTreeSet<KeywordFlag>, FrameError> {
+        let count = u16::from_be_bytes(self.take::<2>()?);
+        let mut values = BTreeSet::new();
+        for _ in 0..count {
+            let length = usize::from(u16::from_be_bytes(self.take::<2>()?));
+            let raw = std::str::from_utf8(self.take_slice(length)?)
+                .map_err(|_| FrameError::Invalid("non-utf8 keyword"))?;
+            let keyword = KeywordFlag::parse(raw).ok_or(FrameError::Invalid("invalid keyword"))?;
+            if !values.insert(keyword) {
+                return Err(FrameError::Invalid("duplicate keyword"));
+            }
+        }
+        Ok(values)
     }
 }
 

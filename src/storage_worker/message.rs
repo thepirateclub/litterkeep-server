@@ -38,6 +38,7 @@ pub enum Request {
         uids: Vec<u64>,
         mutation: FlagMutation,
         flags: MessageFlags,
+        keywords: std::collections::BTreeSet<crate::mail_flags::KeywordFlag>,
     },
     CreateFolder {
         request_id: u64,

@@ -182,6 +182,8 @@ fn matches_key(
         SearchKey::Undeleted => !message.flags.contains(SystemFlag::Deleted),
         SearchKey::Draft => message.flags.contains(SystemFlag::Draft),
         SearchKey::Undraft => !message.flags.contains(SystemFlag::Draft),
+        SearchKey::Keyword(keyword) => message.keywords.contains(keyword),
+        SearchKey::Unkeyword(keyword) => !message.keywords.contains(keyword),
         SearchKey::Recent => position.recent.contains(&message.uid),
         SearchKey::Old => !position.recent.contains(&message.uid),
         SearchKey::New => match position.recent.contains(&message.uid) {

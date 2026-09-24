@@ -44,6 +44,7 @@ pub(super) fn follow_up(
             flags: crate::mail_flags::MessageFlags::from_flags([
                 crate::mail_flags::SystemFlag::Seen,
             ]),
+            keywords: std::collections::BTreeSet::new(),
         },
         Pending::FetchReadForSeen {
             addressing: *addressing,

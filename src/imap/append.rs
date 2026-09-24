@@ -4,7 +4,7 @@ use super::flags;
 use super::tokenizer::Token;
 use super::{Command, MailboxName};
 use crate::mail_date::MailDate;
-use crate::mail_flags::MessageFlags;
+use crate::mail_flags::StoredFlags;
 
 /// Разбирает APPEND слева направо, не угадывая назначение уже разобранных полей.
 pub fn parse(tokens: impl Iterator<Item = Token>) -> Command {
@@ -12,13 +12,13 @@ pub fn parse(tokens: impl Iterator<Item = Token>) -> Command {
     let Some(mailbox) = next_text(&mut tokens).and_then(mailbox) else {
         return Command::Unsupported;
     };
-    let flags = match tokens.peek() {
+    let stored_flags = match tokens.peek() {
         Some(Token::ListStart) => match parse_flags(&mut tokens) {
             Some(flags) => flags,
             None => return Command::Unsupported,
         },
         Some(Token::Text(_)) | Some(Token::Quoted(_)) | Some(Token::ListEnd) | None => {
-            MessageFlags::default()
+            StoredFlags::default()
         }
     };
     let Some(value) = next_text(&mut tokens) else {
@@ -40,7 +40,8 @@ pub fn parse(tokens: impl Iterator<Item = Token>) -> Command {
         (Some(literal_size), None) => Command::Append {
             mailbox,
             literal_size,
-            flags,
+            flags: stored_flags.system,
+            keywords: stored_flags.keywords,
             internal_date,
         },
         _ => Command::Unsupported,
@@ -49,7 +50,7 @@ pub fn parse(tokens: impl Iterator<Item = Token>) -> Command {
 
 fn parse_flags(
     tokens: &mut std::iter::Peekable<impl Iterator<Item = Token>>,
-) -> Option<MessageFlags> {
+) -> Option<StoredFlags> {
     match tokens.next() {
         Some(Token::ListStart) => {}
         Some(Token::Text(_)) | Some(Token::Quoted(_)) | Some(Token::ListEnd) | None => {
@@ -61,7 +62,7 @@ fn parse_flags(
         match tokens.next()? {
             Token::Text(value) => values.push(value),
             Token::Quoted(value) => values.push(value),
-            Token::ListEnd => return flags::parse_set(values),
+            Token::ListEnd => return flags::parse_stored_set(values),
             Token::ListStart => return None,
         }
     }

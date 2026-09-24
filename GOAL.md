@@ -27,6 +27,30 @@ ManageSieve до заявленного набора современных фо
 | G17 | G12 | MIME RFC 5322/2045-2049 updates and Sieve RFC 5228/ManageSieve RFC 5804 profile | NOT RUN |
 | G18 | G14,G15,G16,G17 | Cross-protocol Linux acceptance, truthful capabilities and final coverage matrix | NOT RUN |
 
+### 2026-09-24: G14 durable keyword flags and SEARCH checkpoint
+
+- Реализованы пользовательские IMAP keywords как регистронезависимые typed
+  atoms. APPEND записывает начальное состояние в journal v4; durable flags
+  journal пишет полный mixed system/keyword batch в v2 frame с checksum и
+  commit marker. Восстановление продолжает читать APPEND v1-v3 и flags v1,
+  обрезает только неполный v2 tail и отвергает повреждённый завершённый frame.
+- STORE FLAGS/+/− применяет оба класса флагов одной durable операцией;
+  внутреннее выставление `\\Seen` меняет только системную часть. FETCH FLAGS,
+  IDLE notifications, COPY/MOVE и повторное открытие сохраняют keywords.
+  SELECT сообщает `\\*` в PERMANENTFLAGS. SEARCH KEYWORD/UNKEYWORD использует
+  typed KeywordFlag, неизвестные `\\flag-extension` не принимаются.
+- PASS: Windows `cargo fmt --check`, strict Clippy и 219 тестов; независимые
+  тесты legacy flags v1 и recovery неполного v2 frame. Linux Docker Rust 1.97
+  собрал release binary, strict Clippy и 254 теста прошли. IMAP black-box в
+  Linux-контейнере проверил APPEND keyword, mixed STORE add/remove/replace,
+  FETCH FLAGS, KEYWORD/UNKEYWORD; `verify-only` после перезапуска на актуальном
+  образе подтвердил персистентность после смешанной замены flags. Stage data:
+  `./data/g14-keywords-replacement`; все созданные для проверки контейнеры
+  удалены, user-owned `litterkeep-g12-phone` сохранён.
+- Контракт keyword atom сверён с RFC 9051. Ограничение остаётся честным:
+  сервер всё ещё рекламирует IMAP4rev1, G14 не закрыт, полный SEARCH набор и
+  полный RFC 9051 response grammar ещё не выполнены.
+
 ### G13: IMAP FETCH baseline compatibility checkpoint
 
 - `FETCH` is now represented as a typed list of data items across parser,

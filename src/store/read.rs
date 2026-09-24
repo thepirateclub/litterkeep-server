@@ -23,8 +23,14 @@ impl Store {
                         .flags
                         .get(mailbox)
                         .and_then(|flags| flags.get(&record.uid))
-                        .copied()
+                        .map(|flags| flags.system)
                         .unwrap_or(record.flags),
+                    keywords: self
+                        .flags
+                        .get(mailbox)
+                        .and_then(|values| values.get(&record.uid))
+                        .map(|flags| flags.keywords.clone())
+                        .unwrap_or_else(|| record.keywords.clone()),
                     internal_date: record.internal_date,
                 })
             })

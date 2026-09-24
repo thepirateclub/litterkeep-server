@@ -93,8 +93,9 @@ fn append_attribute(
             Ok(())
         }
         imap::FetchAttribute::Flags => {
-            let flags = imap::flags::encode_with_recent(
+            let flags = imap::flags::encode_stored(
                 message.flags,
+                &message.keywords,
                 session.selected_recent.contains(&message.uid),
             );
             append_item(response, first, "FLAGS", format!("({flags})").as_bytes());

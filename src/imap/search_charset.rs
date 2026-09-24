@@ -53,6 +53,7 @@ pub(super) fn parse_prefix(tokens: &mut VecDeque<Token>) -> Option<Charset> {
 fn key_is_ascii(key: &SearchKey) -> bool {
     match key {
         SearchKey::Envelope(_, value) => value.is_ascii(),
+        SearchKey::Keyword(_) | SearchKey::Unkeyword(_) => true,
         SearchKey::Header(selector, value) => selector_is_ascii(selector) && value.is_ascii(),
         SearchKey::Body(value) | SearchKey::Text(value) => value.is_ascii(),
         SearchKey::Not(item) => key_is_ascii(item),

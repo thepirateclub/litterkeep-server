@@ -21,11 +21,11 @@ CAPABILITY не выдаёт за более широкое расширение
 | Extension negotiation | ENABLE | PARTIAL | Atom and quoted-string token forms are distinguished; unsupported capability atoms are ignored; empty `ENABLED` and stable CAPABILITY verified; no enable-able extension is implemented yet |
 | Mailbox mutation | CREATE, DELETE, RENAME | PASS | Durable journal, subtree rename, retired folder IDs |
 | Subscription | SUBSCRIBE, UNSUBSCRIBE | PASS | Durable subscription независимо от существования папки |
-| Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS, PERMANENTFLAGS, Recent |
-| Message insertion | APPEND | PASS | Bounded literal, flags, INTERNALDATE, APPENDUID после fsync |
+| Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS, PERMANENTFLAGS, включая `\\*` для создания пользовательских keywords, Recent |
+| Message insertion | APPEND | PASS | Bounded literal, системные flags и keywords, INTERNALDATE, APPENDUID после fsync |
 | Reading | FETCH, UID FETCH | PARTIAL | Сгруппированные items, ALL/FAST/FULL, UID, RFC822 bytes, BODY HEADER/TEXT/HEADER.FIELDS, MIME parts и partial; BODY/PEEK Seen effects проверены; полная rev2 grammar остаётся |
-| Search | SEARCH, UID SEARCH | PARTIAL | Sequence/UID sets, system/session flags, address/header/body/text, size, internal/sent dates, AND/OR/NOT/groups; UTF-8 default, UTF-8/US-ASCII CHARSET, BADCHARSET, ESEARCH RETURN ALL/COUNT/MIN/MAX, decoded MIME text and UNKNOWN-CTE verified; RETURN SAVE and `$` SEARCH criterion work per session with SELECT/error reset and MIN/MAX selection; generic `$` message sets in FETCH/STORE/COPY/EXPUNGE are not implemented and SEARCHRES is not advertised; other MIME charsets and full key set remain |
-| Flag mutation | STORE, UID STORE | PASS | Replace/add/remove, SILENT, durable batch, read-only denial |
+| Search | SEARCH, UID SEARCH | PARTIAL | Sequence/UID sets, system/session flags, KEYWORD/UNKEYWORD, address/header/body/text, size, internal/sent dates, AND/OR/NOT/groups; UTF-8 default, UTF-8/US-ASCII CHARSET, BADCHARSET, ESEARCH RETURN ALL/COUNT/MIN/MAX, decoded MIME text and UNKNOWN-CTE verified; RETURN SAVE and `$` SEARCH criterion work per session with SELECT/error reset and MIN/MAX selection; generic `$` message sets in FETCH/STORE/COPY/EXPUNGE are not implemented and SEARCHRES is not advertised; other MIME charsets and full key set remain |
+| Flag mutation | STORE, UID STORE | PASS | Системные flags и регистронезависимые keywords: Replace/add/remove, SILENT, один durable batch, read-only denial |
 | Copy and move | COPY, UID COPY, MOVE, UID MOVE | PASS | Atomic links/tombstones, COPYUID, multi-session projection |
 | Deletion | EXPUNGE, UID EXPUNGE, CLOSE | PASS | Durable tombstones, UIDPLUS, sequence-map notifications |
 | Selection lifecycle | UNSELECT | PASS | Advertised and tested; returns to authenticated state without expunging `\\Deleted` |
@@ -47,14 +47,16 @@ MIME decoding проверены отдельно. При этом синтак�
 | NOT, OR, скобочная группа и неявный AND | Parser/evaluator реализованы |
 | HEADER, BODY, TEXT | Parser/evaluator и ограниченный MIME charset/transfer decoding реализованы; см. SEARCH строку основной таблицы |
 | SUBJECT, FROM, TO, CC, BCC | Parser/evaluator используют ту же decoded ENVELOPE projection, что и FETCH ENVELOPE; адрес сравнивается по имени, mailbox, host и `mailbox@host`, без RFC 5322 delimiters. Неподдержанная/невалидная address syntax остаётся ограничением общего ENVELOPE parser-а |
-| KEYWORD, UNKEYWORD | Не реализованы: durable message model и FLAGS journal пока хранят только системный битовый набор; пользовательские keyword flags нельзя корректно искать или выдавать |
+| KEYWORD, UNKEYWORD | Реализованы typed parser/evaluator и сетевые проверки; keywords входят в APPEND v4 и versioned flags journal v2. Старые append v1-v3 и flags v1 читаются как раньше; FETCH FLAGS, STORE и COPY/MOVE сохраняют keywords. STORE обновляет оба класса flags одним checksum/commit frame |
 
-Следующий SEARCH checkpoint требует добавить пользовательские flags как
-долговечную часть message metadata с корректным APPEND/STORE/COPY/MOVE,
-FETCH FLAGS, recovery и совместимостью существующих журналов; затем реализовать
-KEYWORD/UNKEYWORD и независимые сетевые тесты. Адресные SEARCH criteria и FETCH
-ENVELOPE теперь используют одну projection, но оба наследуют ограничения общего
-RFC 5322 address parser-а на группах и malformed syntax.
+Следующий SEARCH checkpoint теперь должен закрыть оставшиеся ключи и проверку
+RFC grammar. Адресные SEARCH criteria и FETCH ENVELOPE используют одну
+projection, но оба наследуют ограничения общего RFC 5322 address parser-а на
+группах и malformed syntax.
+
+G14 keyword checkpoint (2026-09-24): custom flags и KEYWORD/UNKEYWORD прошли
+Windows tests, Linux Rust 1.97 strict Clippy/254 tests и STARTTLS IMAP black-box
+с повторным открытием data directory. Остальной профиль G14 остаётся RUNNING.
 
 CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-USE`,
 `NAMESPACE`, `UNSELECT` и `ENABLE`. ENABLE игнорирует неизвестные и пока не

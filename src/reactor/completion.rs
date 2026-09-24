@@ -100,7 +100,7 @@ pub(super) fn write_completion(
                      * {} RECENT\r\n\
                      * OK [UIDVALIDITY {}] UIDs valid\r\n\
                      * OK [UIDNEXT {}] Predicted next UID\r\n\
-                     * OK [PERMANENTFLAGS (\\Answered \\Flagged \\Deleted \\Seen \\Draft)] Flags permitted\r\n\
+                     * OK [PERMANENTFLAGS (\\Answered \\Flagged \\Deleted \\Seen \\Draft \\*)] Flags permitted\r\n\
                      {tag} OK [{access}] SELECT completed\r\n",
                     snapshot.messages.len(),
                     session.selected_recent.len(),

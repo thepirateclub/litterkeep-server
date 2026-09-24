@@ -173,8 +173,9 @@ pub(super) fn notify_flags(
                 continue;
             }
             let sequence = offset.saturating_add(1);
-            let flags = imap::flags::encode_with_recent(
+            let flags = imap::flags::encode_stored(
                 message.flags,
+                &message.keywords,
                 session.selected_recent.contains(&message.uid),
             );
             session.push_notification(

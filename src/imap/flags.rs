@@ -3,7 +3,8 @@
 use super::sequence_set::SequenceSet;
 use super::tokenizer::Token;
 use super::{Addressing, Command};
-use crate::mail_flags::{FlagMutation, MessageFlags, SystemFlag};
+use crate::mail_flags::{FlagMutation, KeywordFlag, MessageFlags, StoredFlags, SystemFlag};
+use std::collections::BTreeSet;
 
 /// Режим STORE, включая подавление untagged FETCH ответа.
 pub struct StoreMode {
@@ -58,6 +59,48 @@ pub fn parse_set(values: impl IntoIterator<Item = String>) -> Option<MessageFlag
         .map(MessageFlags::from_flags)
 }
 
+/// Разделяет зарегистрированные системные флаги от расширяемых keywords.
+pub fn parse_stored_set(values: impl IntoIterator<Item = String>) -> Option<StoredFlags> {
+    values
+        .into_iter()
+        .try_fold(StoredFlags::default(), |mut stored, value| {
+            let normalized = value.to_ascii_uppercase();
+            match system_flag(&normalized) {
+                Some(flag) => stored.system = add(stored.system, flag),
+                None => match normalized.starts_with('\\') {
+                    true => return None,
+                    false => {
+                        stored.keywords.insert(KeywordFlag::parse(&value)?);
+                    }
+                },
+            }
+            Some(stored)
+        })
+}
+
+fn system_flag(value: &str) -> Option<SystemFlag> {
+    match value {
+        "\\ANSWERED" => Some(SystemFlag::Answered),
+        "\\FLAGGED" => Some(SystemFlag::Flagged),
+        "\\DELETED" => Some(SystemFlag::Deleted),
+        "\\SEEN" => Some(SystemFlag::Seen),
+        "\\DRAFT" => Some(SystemFlag::Draft),
+        _ => None,
+    }
+}
+
+fn add(flags: MessageFlags, flag: SystemFlag) -> MessageFlags {
+    MessageFlags::from_flags([flag]).mutate(crate::mail_flags::FlagMutation::Add, flags)
+}
+
+/// Преобразует системные флаги и keywords в один STORE операнд.
+pub fn parse_store_set(
+    values: impl IntoIterator<Item = String>,
+) -> Option<(MessageFlags, BTreeSet<KeywordFlag>)> {
+    let flags = parse_stored_set(values)?;
+    Some((flags.system, flags.keywords))
+}
+
 /// Разбирает аргументы STORE после уже типизированного пространства адресации.
 pub fn parse_store(tokens: &mut impl Iterator<Item = Token>, addressing: Addressing) -> Command {
     let Some(sequence_set) = next_text(tokens).and_then(|value| SequenceSet::parse(&value).ok())
@@ -72,13 +115,14 @@ pub fn parse_store(tokens: &mut impl Iterator<Item = Token>, addressing: Address
         Token::Quoted(value) => Some(value),
         Token::ListStart | Token::ListEnd => None,
     });
-    match parse_set(values) {
-        Some(flags) => Command::Store {
+    match parse_store_set(values) {
+        Some((flags, keywords)) => Command::Store {
             addressing,
             sequence_set,
             mutation: mode.mutation,
             silent: mode.silent,
             flags,
+            keywords,
         },
         None => Command::Unsupported,
     }
@@ -112,5 +156,19 @@ pub fn encode_with_recent(flags: MessageFlags, recent: bool) -> String {
     if recent {
         values.push("\\Recent");
     }
+    values.join(" ")
+}
+
+/// Кодирует все сохранённые флаги, добавляя только session-local Recent.
+pub fn encode_stored(
+    flags: MessageFlags,
+    keywords: &BTreeSet<KeywordFlag>,
+    recent: bool,
+) -> String {
+    let mut values = encode_with_recent(flags, recent)
+        .split_ascii_whitespace()
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    values.extend(keywords.iter().map(|keyword| keyword.as_str().to_owned()));
     values.join(" ")
 }

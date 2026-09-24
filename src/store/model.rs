@@ -1,11 +1,16 @@
-use crate::{mail_date::MailDate, mail_flags::MessageFlags};
-use std::{io, path::PathBuf};
+use crate::{
+    mail_date::MailDate,
+    mail_flags::{KeywordFlag, MessageFlags},
+};
+use std::{collections::BTreeSet, io, path::PathBuf};
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Message {
     pub uid: u64,
     pub path: PathBuf,
     pub bytes: Vec<u8>,
     pub flags: MessageFlags,
+    /// Расширяемые пользовательские IMAP flags из того же durable snapshot.
+    pub keywords: BTreeSet<KeywordFlag>,
     pub internal_date: MailDate,
 }
 
@@ -25,13 +30,16 @@ pub struct Record {
     pub blob_transaction_id: u64,
     pub name: String,
     pub flags: MessageFlags,
+    /// Начальные keywords, фиксируемые в версии 4 mailbox journal.
+    pub keywords: BTreeSet<KeywordFlag>,
     pub internal_date: MailDate,
 }
 
 /// Начальные метаданные одной mailbox entry, фиксируемые вместе с UID.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AppendMetadata {
     pub flags: MessageFlags,
+    pub keywords: BTreeSet<KeywordFlag>,
     pub internal_date: MailDate,
 }
 
@@ -39,6 +47,7 @@ impl Default for AppendMetadata {
     fn default() -> Self {
         Self {
             flags: MessageFlags::default(),
+            keywords: BTreeSet::new(),
             internal_date: MailDate::now(),
         }
     }

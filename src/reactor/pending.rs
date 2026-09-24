@@ -69,6 +69,7 @@ pub(super) enum Pending {
         sequence_set: imap::sequence_set::SequenceSet,
         mutation: crate::mail_flags::FlagMutation,
         flags: crate::mail_flags::MessageFlags,
+        keywords: std::collections::BTreeSet<crate::mail_flags::KeywordFlag>,
         silent: bool,
         tag: String,
         mailbox: String,

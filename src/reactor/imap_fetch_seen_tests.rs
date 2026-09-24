@@ -14,6 +14,7 @@ fn snapshot() -> MailboxSnapshot {
             path: PathBuf::from("message-1.eml"),
             bytes: b"Subject: unread\r\n\r\nbody".to_vec(),
             flags: crate::mail_flags::MessageFlags::default(),
+            keywords: std::collections::BTreeSet::new(),
             internal_date: MailDate::now(),
         }],
     }

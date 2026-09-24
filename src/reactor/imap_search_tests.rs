@@ -27,6 +27,7 @@ fn message(bytes: &[u8]) -> crate::store::Message {
         path: PathBuf::new(),
         bytes: bytes.to_vec(),
         flags: MessageFlags::default(),
+        keywords: std::collections::BTreeSet::new(),
         internal_date: MailDate::from_unix_seconds(0),
     }
 }

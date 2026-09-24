@@ -10,6 +10,7 @@ fn message(uid: u64, bytes: &[u8]) -> Message {
         path: PathBuf::new(),
         bytes: bytes.to_vec(),
         flags: MessageFlags::default(),
+        keywords: std::collections::BTreeSet::new(),
         internal_date: MailDate::from_unix_seconds(0),
     }
 }

@@ -46,10 +46,14 @@ impl Store {
                 .flags
                 .get(source)
                 .and_then(|values| values.get(uid))
-                .copied()
-                .unwrap_or(record.flags);
+                .cloned()
+                .unwrap_or_else(|| crate::mail_flags::StoredFlags {
+                    system: record.flags,
+                    keywords: record.keywords.clone(),
+                });
             let mut copy = record.clone();
-            copy.flags = flags;
+            copy.flags = flags.system;
+            copy.keywords = flags.keywords;
             selected.push(copy);
         }
         Ok(selected)
@@ -76,6 +80,7 @@ impl Store {
                     blob_transaction_id: record.blob_transaction_id,
                     name: record.name,
                     flags: record.flags,
+                    keywords: record.keywords,
                     internal_date: record.internal_date,
                 },
             ));
