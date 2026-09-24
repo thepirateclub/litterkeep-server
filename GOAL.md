@@ -27,6 +27,28 @@ ManageSieve до заявленного набора современных фо
 | G17 | G12 | MIME RFC 5322/2045-2049 updates and Sieve RFC 5228/ManageSieve RFC 5804 profile | NOT RUN |
 | G18 | G14,G15,G16,G17 | Cross-protocol Linux acceptance, truthful capabilities and final coverage matrix | NOT RUN |
 
+### 2026-09-24: G14 LIST SUBSCRIBED checkpoint
+
+- `LIST (SUBSCRIBED) "" pattern` теперь проходит как типизированная команда
+  LIST, отдельно от legacy LSUB. Фильтрация идёт по durable subscription list,
+  имена совпадают по каноническому wildcard pattern, включая папки, которых
+  сейчас нет в каталоге. Повтор selection-опции принимается как одна опция.
+  Ответ LIST включает `\\Subscribed`; отсутствующая папка также помечается
+  `\\NonExistent`, как показывает пример RFC 9051. Стандарт требует точного
+  набора подписанных имён, допускает отсутствующие папки и требует поддержку
+  этого initial selection option.
+- Независимый STARTTLS-клиент создал существующую папку, подписал её и
+  отсутствующее имя, затем проверил оба точных атрибута в `LIST` response:
+  `PASS imap-list-subscribed`. Это не подключение через пользовательский
+  litterkeep-клиент.
+- PASS: Windows Rust 1.97 `cargo fmt --check`, strict Clippy и 225 тестов;
+  Linux Docker Rust 1.97 release build, strict Clippy и 260 тестов; независимая
+  Python TLS-проверка. Свой контейнер `litterkeep-g14-list-subscribed`
+  остановлен и удалён; пользовательский `litterkeep-g12-phone` оставлен.
+  Stage data: `./data/g14-list-subscribed`.
+- LIST остаётся PARTIAL: `RECURSIVEMATCH`, `CHILDREN` и LIST RETURN STATUS не
+  покрыты; G14 остаётся RUNNING, полный IMAP4rev2 baseline не заявляется.
+
 ### 2026-09-24: G14 durable keyword flags and SEARCH checkpoint
 
 - Реализованы пользовательские IMAP keywords как регистронезависимые typed

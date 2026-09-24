@@ -107,6 +107,7 @@ pub(super) enum Pending {
     ListSubscriptions {
         tag: String,
         pattern: imap::folder::ListPattern,
+        response: SubscriptionResponse,
     },
     Status {
         tag: String,
@@ -153,4 +154,11 @@ pub(super) enum Pending {
         account: String,
     },
     ManageSieveCommand,
+}
+
+/// Разделяет legacy LSUB и RFC LIST response, не смешивая их на wire.
+#[derive(Clone, Copy)]
+pub(super) enum SubscriptionResponse {
+    Lsub,
+    List,
 }

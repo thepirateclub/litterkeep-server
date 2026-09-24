@@ -205,9 +205,14 @@ pub(super) fn write_completion(
             Pending::SetSubscription { tag, subscribed },
             Response::SubscriptionSet { result, .. },
         ) => imap_subscriptions::set_completed(session, tag, subscribed, result),
-        (Pending::ListSubscriptions { tag, pattern }, Response::Subscriptions { result, .. }) => {
-            imap_subscriptions::listed(session, tag, pattern, result)
-        }
+        (
+            Pending::ListSubscriptions {
+                tag,
+                pattern,
+                response,
+            },
+            Response::Subscriptions { result, .. },
+        ) => imap_subscriptions::listed(session, tag, pattern, response, result),
         (
             Pending::Status {
                 tag,

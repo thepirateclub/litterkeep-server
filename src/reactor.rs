@@ -125,7 +125,7 @@ use imap_idle::IdleState;
 use imap_literal::LiteralReceiver;
 use maildrop_lease::MaildropLeases;
 pub use outbound_entry::{serve_all_mail_outbound_starttls, serve_all_mail_outbound_tls_starttls};
-use pending::{AuthenticationCommand, Pending};
+use pending::{AuthenticationCommand, Pending, SubscriptionResponse};
 use protocol::process_input;
 use reactor_control::service_control;
 pub use server_all_starttls::serve_all_starttls;

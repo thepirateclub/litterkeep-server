@@ -112,6 +112,10 @@ pub enum Command {
     ListSpecial {
         pattern: folder::ListPattern,
     },
+    /// LIST selection option выбирает сохранённый список подписок.
+    ListSubscribed {
+        pattern: folder::ListPattern,
+    },
     Select {
         mailbox: MailboxName,
     },

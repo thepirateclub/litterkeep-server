@@ -109,16 +109,7 @@ pub fn parse_subscribe(mut tokens: impl Iterator<Item = Token>, subscribed: bool
 
 pub fn parse_list(mut tokens: impl Iterator<Item = Token>) -> Command {
     match tokens.next() {
-        Some(Token::ListStart) => match (tokens.next(), tokens.next()) {
-            (Some(Token::Text(option)), Some(Token::ListEnd))
-                if option.eq_ignore_ascii_case("SPECIAL-USE") =>
-            {
-                parse_pattern(&mut tokens)
-                    .map(|pattern| Command::ListSpecial { pattern })
-                    .unwrap_or(Command::Unsupported)
-            }
-            _ => Command::Unsupported,
-        },
+        Some(Token::ListStart) => parse_list_option(&mut tokens),
         Some(first) => {
             let mut restored = std::iter::once(first).chain(tokens);
             parse_list_pattern(&mut restored)
@@ -126,6 +117,34 @@ pub fn parse_list(mut tokens: impl Iterator<Item = Token>) -> Command {
                 .unwrap_or(Command::Unsupported)
         }
         None => Command::Unsupported,
+    }
+}
+
+/// Разбирает ровно одну selection-опцию, поддержанную текущим профилем.
+fn parse_list_option(tokens: &mut impl Iterator<Item = Token>) -> Command {
+    let option = match tokens.next() {
+        Some(Token::Text(option)) => option.to_ascii_uppercase(),
+        _ => return Command::Unsupported,
+    };
+    let mut valid = true;
+    loop {
+        match tokens.next() {
+            Some(Token::ListEnd) => break,
+            Some(Token::Text(duplicate)) if duplicate.eq_ignore_ascii_case(&option) => {}
+            _ => valid = false,
+        }
+        if !valid {
+            return Command::Unsupported;
+        }
+    }
+    match option.as_str() {
+        "SPECIAL-USE" => parse_pattern(tokens)
+            .map(|pattern| Command::ListSpecial { pattern })
+            .unwrap_or(Command::Unsupported),
+        "SUBSCRIBED" => parse_pattern(tokens)
+            .map(|pattern| Command::ListSubscribed { pattern })
+            .unwrap_or(Command::Unsupported),
+        _ => Command::Unsupported,
     }
 }
 
@@ -225,6 +244,28 @@ mod tests {
             crate::imap::parse("a LIST \"\" \"\" RETURN (SPECIAL-USE)\r\n").command,
             Command::List {
                 pattern: ListPattern::Exact(String::new()),
+            }
+        );
+    }
+
+    /// SUBSCRIBED selection сохраняет отдельную семантику LIST, не превращаясь в LSUB.
+    #[test]
+    fn subscribed_selection_is_typed_as_list_subscribed() {
+        assert_eq!(
+            crate::imap::parse("a LIST (SUBSCRIBED) \"\" \"Invoices/%\"\r\n").command,
+            Command::ListSubscribed {
+                pattern: ListPattern::Wildcard("Invoices/%".into()),
+            }
+        );
+    }
+
+    /// Повтор одной selection-опции действует как единственная опция по RFC.
+    #[test]
+    fn duplicate_subscribed_selection_is_accepted_once() {
+        assert_eq!(
+            crate::imap::parse("a LIST (SUBSCRIBED SUBSCRIBED) \"\" \"*\"\r\n").command,
+            Command::ListSubscribed {
+                pattern: ListPattern::All,
             }
         );
     }
