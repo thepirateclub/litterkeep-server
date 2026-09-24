@@ -109,11 +109,13 @@ pub enum Command {
     },
     List {
         pattern: folder::ListPattern,
+        returns: folder::ListReturnOptions,
     },
     /// Критерии отбора extended LIST после сетевого разбора.
     ListSelection {
         pattern: folder::ListPattern,
         selection: folder::ListSelection,
+        returns: folder::ListReturnOptions,
     },
     Select {
         mailbox: MailboxName,

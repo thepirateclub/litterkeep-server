@@ -10,6 +10,8 @@ struct Entry {
     exists: bool,
     subscribed: bool,
     special_use: Option<crate::store::SpecialUse>,
+    /// Рассчитывается только по реально существующим папкам каталога.
+    has_children: bool,
 }
 
 /// Результат отбора с признаком необходимости CHILDINFO для потомков.
@@ -24,12 +26,13 @@ pub(super) fn listed(
     tag: String,
     pattern: imap::folder::ListPattern,
     selection: imap::folder::ListSelection,
+    returns: imap::folder::ListReturnOptions,
     snapshot: crate::store::SubscriptionSnapshot,
 ) -> io::Result<()> {
     let entries = entries(snapshot);
     let results = project(&entries, &pattern, selection);
     for result in results.values() {
-        write_entry(session, result, selection)?;
+        write_entry(session, result, selection, returns)?;
     }
     session.push(format!("{tag} OK LIST completed\r\n").as_bytes())
 }
@@ -42,6 +45,11 @@ fn entries(snapshot: crate::store::SubscriptionSnapshot) -> BTreeMap<String, Ent
         .map(|folder| key(&folder.name))
         .collect::<HashSet<_>>();
     let mut entries = BTreeMap::new();
+    let child_parents = snapshot
+        .folders
+        .iter()
+        .filter_map(|folder| folder.name.rsplit_once('/').map(|(parent, _)| key(parent)))
+        .collect::<HashSet<_>>();
     for folder in snapshot.folders {
         let folder_key = key(&folder.name);
         entries.insert(
@@ -51,16 +59,19 @@ fn entries(snapshot: crate::store::SubscriptionSnapshot) -> BTreeMap<String, Ent
                 exists: true,
                 subscribed: subscribed_names.contains(&folder_key),
                 special_use: folder.special_use,
+                has_children: child_parents.contains(&folder_key),
             },
         );
     }
     for subscription in snapshot.subscriptions {
         let folder_key = key(&subscription.name);
+        let has_children = child_parents.contains(&folder_key);
         entries.entry(folder_key).or_insert(Entry {
             name: subscription.name,
             exists: false,
             subscribed: true,
             special_use: subscription.special_use,
+            has_children,
         });
     }
     entries
@@ -128,6 +139,7 @@ fn add_ancestors(
             exists: false,
             subscribed: false,
             special_use: None,
+            has_children: false,
         });
         match results.get_mut(&parent_key) {
             Some(result) => result.child_info = true,
@@ -161,8 +173,9 @@ fn write_entry(
     session: &mut Session,
     result: &ResultEntry,
     selection: imap::folder::ListSelection,
+    returns: imap::folder::ListReturnOptions,
 ) -> io::Result<()> {
-    let attributes = attributes(&result.entry, selection);
+    let attributes = attributes(&result.entry, selection, returns);
     let name = imap_folders::quote(&result.entry.name);
     let child_info = if result.child_info {
         child_info(selection)
@@ -173,13 +186,27 @@ fn write_entry(
 }
 
 /// Возвращает независимые атрибуты отсутствия, подписки и special-use.
-fn attributes(entry: &Entry, selection: imap::folder::ListSelection) -> String {
+fn attributes(
+    entry: &Entry,
+    selection: imap::folder::ListSelection,
+    returns: imap::folder::ListReturnOptions,
+) -> String {
     let mut values = Vec::new();
     if !entry.exists {
         values.push("\\NonExistent");
     }
-    if matches!((entry.subscribed, selection.subscribed), (true, true)) {
+    if matches!(
+        (entry.subscribed, selection.subscribed || returns.subscribed),
+        (true, true)
+    ) {
         values.push("\\Subscribed");
+    }
+    if returns.children {
+        let children_attribute = match entry.has_children {
+            true => "\\HasChildren",
+            false => "\\HasNoChildren",
+        };
+        values.push(children_attribute);
     }
     if let Some(special_use) = entry.special_use {
         let value = imap_folders::special_use(Some(special_use));

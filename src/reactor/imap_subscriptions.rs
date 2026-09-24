@@ -101,7 +101,7 @@ pub(super) fn listed(
                 SubscriptionResponse::Lsub => {
                     session.push(format!("{tag} NO LSUB failed\r\n").as_bytes())
                 }
-                SubscriptionResponse::List(_) => {
+                SubscriptionResponse::List { .. } => {
                     session.push(format!("{tag} NO LIST failed\r\n").as_bytes())
                 }
             };
@@ -109,8 +109,8 @@ pub(super) fn listed(
     };
     match response {
         SubscriptionResponse::Lsub => listed_lsub(session, tag, pattern, snapshot.subscriptions),
-        SubscriptionResponse::List(selection) => {
-            imap_list_selection::listed(session, tag, pattern, selection, snapshot)
+        SubscriptionResponse::List { selection, returns } => {
+            imap_list_selection::listed(session, tag, pattern, selection, returns, snapshot)
         }
     }
 }

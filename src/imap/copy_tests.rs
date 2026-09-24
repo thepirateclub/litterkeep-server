@@ -54,12 +54,14 @@ fn special_use_list_and_wildcard_are_typed() {
                 special_use: true,
                 recursive_match: false,
             },
+            ..
         }
     ));
     assert!(matches!(
         parse("a LIST \"\" \"Projects/%\"\r\n").command,
         Command::List {
-            pattern: crate::imap::folder::ListPattern::Wildcard(_)
+            pattern: crate::imap::folder::ListPattern::Wildcard(_),
+            ..
         }
     ));
 }
@@ -69,7 +71,12 @@ fn list_return_special_use_keeps_the_requested_selection() {
     assert!(matches!(
         parse("a LIST \"\" \"*\" RETURN (SPECIAL-USE)\r\n").command,
         Command::List {
-            pattern: folder::ListPattern::All
+            pattern: folder::ListPattern::All,
+            returns: folder::ListReturnOptions {
+                subscribed: false,
+                special_use: true,
+                children: false,
+            }
         }
     ));
 }

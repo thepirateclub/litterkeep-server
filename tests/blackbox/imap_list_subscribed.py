@@ -98,9 +98,38 @@ def main() -> None:
         '("CHILDINFO" ("SPECIAL-USE"))'
     ).encode()
     require_record(special, special_parent_record, "recursive special-use parent")
+    children = list_command(client, b'LIST "" "*" RETURN (CHILDREN)')
+    require_record(
+        children,
+        f'(\\HasChildren) "/" "{present_name}"'.encode(),
+        "parent with child",
+    )
+    require_record(
+        children,
+        f'(\\HasNoChildren) "/" "{child_name}"'.encode(),
+        "leaf mailbox",
+    )
+    require_record(
+        children,
+        f'(\\NonExistent \\HasNoChildren) "/" "{missing_name}"'.encode(),
+        "missing subscription without children",
+    )
+    subscribed_children = list_command(
+        client, b'LIST "" "*" RETURN (SUBSCRIBED CHILDREN)'
+    )
+    require_record(
+        subscribed_children,
+        f'(\\Subscribed \\HasChildren) "/" "{present_name}"'.encode(),
+        "combined return options",
+    )
+    require_record(
+        subscribed_children,
+        f'(\\NonExistent \\Subscribed \\HasNoChildren) "/" "{missing_name}"'.encode(),
+        "combined absent subscription",
+    )
     list_command(client, b'LIST (RECURSIVEMATCH) "" "%"', "BAD")
     client.logout()
-    print("PASS imap-list-subscribed: recursive parents, CHILDINFO and invalid option")
+    print("PASS imap-list-subscribed: recursive parents, CHILDINFO, CHILDREN and invalid option")
 
 
 if __name__ == "__main__":

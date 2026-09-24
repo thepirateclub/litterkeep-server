@@ -134,7 +134,8 @@ fn create_and_list_are_typed() {
     assert_eq!(
         parse("a11 LIST \"\" \"%\"\r\n").command,
         Command::List {
-            pattern: crate::imap::folder::ListPattern::OneLevel
+            pattern: crate::imap::folder::ListPattern::OneLevel,
+            returns: crate::imap::folder::ListReturnOptions::default(),
         }
     );
 }

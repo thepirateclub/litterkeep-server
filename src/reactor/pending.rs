@@ -160,5 +160,8 @@ pub(super) enum Pending {
 #[derive(Clone, Copy)]
 pub(super) enum SubscriptionResponse {
     Lsub,
-    List(imap::folder::ListSelection),
+    List {
+        selection: imap::folder::ListSelection,
+        returns: imap::folder::ListReturnOptions,
+    },
 }

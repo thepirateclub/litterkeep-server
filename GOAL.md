@@ -27,6 +27,28 @@ ManageSieve до заявленного набора современных фо
 | G17 | G12 | MIME RFC 5322/2045-2049 updates and Sieve RFC 5228/ManageSieve RFC 5804 profile | NOT RUN |
 | G18 | G14,G15,G16,G17 | Cross-protocol Linux acceptance, truthful capabilities and final coverage matrix | NOT RUN |
 
+### 2026-09-24: G14 LIST RETURN CHILDREN checkpoint
+
+- Добавлены типизированные `RETURN (CHILDREN)` и `RETURN (SUBSCRIBED)` для
+  базового LIST, включая комбинацию опций и устранение дубликатов. CHILDREN
+  вычисляется по фактическому каталогу mailbox из одного snapshot, а не по
+  подпискам: каждый ответ получает ровно `\\HasChildren` либо
+  `\\HasNoChildren`. SUBSCRIBED return отображает durable состояние для всех
+  совпавших имен, включая отсутствующие.
+- Независимый STARTTLS-клиент проверяет mailbox с дочерней папкой, лист, имя
+  подписки без mailbox и комбинированный CHILDREN+SUBSCRIBED. Это не проверка
+  пользовательского litterkeep-клиента.
+- Windows: Rust 1.97 `cargo fmt --check`, strict Clippy и 225 тестов PASS.
+- Linux Docker release build Rust 1.97, strict Clippy и 261 тест PASS; runtime
+  image собран, независимый Python STARTTLS black-box прошёл.
+- Финально после отрицательного parser-теста: Windows Rust 1.97 format,
+  strict Clippy и 226 тестов PASS. Данные сохранены в
+  `./data/g14-list-children`; контейнер `litterkeep-g14-list-children`
+  остановлен и удалён. `litterkeep-g12-phone` не затронут.
+- LIST теперь покрывает CHILDREN и SUBSCRIBED return; STATUS return, полный
+  reference-name pattern profile и прочие расширенные элементы остаются
+  непроверенными. G14 остаётся RUNNING.
+
 ### 2026-09-24: G14 LIST RECURSIVEMATCH checkpoint
 
 - Parser переводит selection options `SUBSCRIBED`, `SPECIAL-USE`,
@@ -47,8 +69,8 @@ ManageSieve до заявленного набора современных фо
   Docker release build Rust 1.97, strict Clippy и 259 тестов; Python TLS
   black-box. Собственный контейнер `litterkeep-g14-list-subscribed` удалён,
   `litterkeep-g12-phone` оставлен. Данные этапа: `./data/g14-list-subscribed`.
-- LIST остаётся PARTIAL: CHILDREN и STATUS return, полный reference-name
-  profile и другие LIST-EXTENDED return options остаются следующими пробелами.
+- LIST остаётся PARTIAL: STATUS return, полный reference-name profile и другие
+  LIST-EXTENDED return options остаются следующими пробелами.
   G14 остаётся RUNNING.
 
 ### 2026-09-24: G14 LIST SUBSCRIBED checkpoint

@@ -4,6 +4,8 @@ use super::*;
 
 #[path = "imap_enable.rs"]
 mod imap_enable;
+#[path = "imap_list_dispatch.rs"]
+mod imap_list_dispatch;
 #[path = "imap_search_error.rs"]
 pub(super) mod imap_search_error;
 #[path = "imap_search_response.rs"]
@@ -116,37 +118,28 @@ pub(super) fn line(
             owners,
             request_id,
         )?,
-        imap::Command::List { pattern } => imap_folders::list(
-            session, parsed.tag, pattern, false, slot, generation, worker, owners, request_id,
-        )?,
-        imap::Command::ListSelection { pattern, selection } => imap_subscriptions::list(
-            session,
-            parsed.tag,
+        imap::Command::List { pattern, returns } => {
+            imap_list_dispatch::Dispatch::new(slot, generation, worker, owners, request_id)
+                .basic(session, parsed.tag, pattern, returns)?
+        }
+        imap::Command::ListSelection {
             pattern,
-            slot,
-            generation,
-            worker,
-            owners,
-            request_id,
-            SubscriptionResponse::List(selection),
-        )?,
-        imap::Command::Subscribe { mailbox } => imap_subscriptions::set(
-            session, parsed.tag, mailbox, true, slot, generation, worker, owners, request_id,
-        )?,
-        imap::Command::Unsubscribe { mailbox } => imap_subscriptions::set(
-            session, parsed.tag, mailbox, false, slot, generation, worker, owners, request_id,
-        )?,
-        imap::Command::Lsub { pattern } => imap_subscriptions::list(
-            session,
-            parsed.tag,
-            pattern,
-            slot,
-            generation,
-            worker,
-            owners,
-            request_id,
-            SubscriptionResponse::Lsub,
-        )?,
+            selection,
+            returns,
+        } => imap_list_dispatch::Dispatch::new(slot, generation, worker, owners, request_id)
+            .selected(session, parsed.tag, pattern, selection, returns)?,
+        imap::Command::Subscribe { mailbox } => {
+            imap_list_dispatch::Dispatch::new(slot, generation, worker, owners, request_id)
+                .subscription(session, parsed.tag, mailbox, true)?
+        }
+        imap::Command::Unsubscribe { mailbox } => {
+            imap_list_dispatch::Dispatch::new(slot, generation, worker, owners, request_id)
+                .subscription(session, parsed.tag, mailbox, false)?
+        }
+        imap::Command::Lsub { pattern } => {
+            imap_list_dispatch::Dispatch::new(slot, generation, worker, owners, request_id)
+                .lsub(session, parsed.tag, pattern)?
+        }
         imap::Command::Status {
             mailbox,
             attributes,

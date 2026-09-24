@@ -22,6 +22,24 @@ pub struct ListSelection {
     pub recursive_match: bool,
 }
 
+/// Указывает, какие дополнительные свойства должны присутствовать в LIST.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct ListReturnOptions {
+    /// Возвращать точный durable статус подписки каждого совпавшего имени.
+    pub subscribed: bool,
+    /// Возвращать известные enum Special-Use атрибуты mailbox.
+    pub special_use: bool,
+    /// Вычислять наличие дочерних mailbox по полному каталогу.
+    pub children: bool,
+}
+
+impl ListReturnOptions {
+    /// CHILDREN и SUBSCRIBED требуют сверки с полным snapshot каталога.
+    pub fn needs_catalog_projection(self) -> bool {
+        !matches!((self.subscribed, self.children), (false, false))
+    }
+}
+
 /// Операция нужна completion-слою для точного tagged-ответа.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Mutation {
