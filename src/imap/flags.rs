@@ -1,6 +1,6 @@
 //! Преобразование IMAP flag atoms в общую типизированную модель.
 
-use super::sequence_set::SequenceSet;
+use super::sequence_set::MessageSet;
 use super::tokenizer::Token;
 use super::{Addressing, Command};
 use crate::mail_flags::{FlagMutation, KeywordFlag, MessageFlags, StoredFlags, SystemFlag};
@@ -103,7 +103,7 @@ pub fn parse_store_set(
 
 /// Разбирает аргументы STORE после уже типизированного пространства адресации.
 pub fn parse_store(tokens: &mut impl Iterator<Item = Token>, addressing: Addressing) -> Command {
-    let Some(sequence_set) = next_text(tokens).and_then(|value| SequenceSet::parse(&value).ok())
+    let Some(sequence_set) = next_text(tokens).and_then(|value| MessageSet::parse(&value).ok())
     else {
         return Command::Unsupported;
     };

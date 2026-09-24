@@ -68,13 +68,14 @@ pub(super) enum Pending {
     },
     ReadForStore {
         addressing: imap::Addressing,
-        sequence_set: imap::sequence_set::SequenceSet,
+        sequence_set: imap::sequence_set::MessageSet,
         mutation: crate::mail_flags::FlagMutation,
         flags: crate::mail_flags::MessageFlags,
         keywords: std::collections::BTreeSet<crate::mail_flags::KeywordFlag>,
         silent: bool,
         tag: String,
         mailbox: String,
+        saved_uids: std::collections::BTreeSet<u64>,
     },
     ReadForSearch {
         addressing: imap::Addressing,

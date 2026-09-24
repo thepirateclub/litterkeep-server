@@ -27,6 +27,23 @@ ManageSieve до заявленного набора современных фо
 | G17 | G12 | MIME RFC 5322/2045-2049 updates and Sieve RFC 5228/ManageSieve RFC 5804 profile | NOT RUN |
 | G18 | G14,G15,G16,G17 | Cross-protocol Linux acceptance, truthful capabilities and final coverage matrix | NOT RUN |
 
+### 2026-09-25: G14 SEARCHRES STORE checkpoint
+
+- `STORE $` и `UID STORE $` теперь используют тот же typed saved-result,
+  сохранённый при постановке чтения. Поскольку session result хранит UID,
+  sequence STORE преобразует его через текущий snapshot; UID STORE напрямую
+  выбирает те же UID. Durable flags mutation остаётся одной batch-операцией.
+- Независимый STARTTLS black-box сохранил SEARCH и UID SEARCH results,
+  выполнил оба STORE варианта, проверил флаги только на выбранных письмах и
+  подтвердил корректный tagged OK для пустого `$`. Это не клиент Litterkeep.
+- PASS: Windows Rust 1.97.1 format, strict Clippy и 232 tests; Linux Docker
+  Rust 1.97 release build, strict Clippy и 267 tests; независимый Python
+  STARTTLS acceptance.
+- Изолированные данные сохранены в `./data/g14-searchres-store`; созданный
+  black-box контейнер остановлен и удалён, `litterkeep-g12-phone` сохранён.
+- SEARCHRES остаётся не рекламируемым: `$` в COPY/UID COPY/UID EXPUNGE и
+  последовательное выполнение pipelined SAVE-зависимостей ещё не реализованы.
+
 ### 2026-09-24: G14 SEARCHRES FETCH checkpoint
 
 - `FETCH $` и `UID FETCH $` принимают typed saved-result selection из RFC 5182.

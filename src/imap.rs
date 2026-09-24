@@ -32,6 +32,9 @@ pub mod search_result;
 pub mod sent_date;
 pub mod sequence_set;
 pub mod status;
+#[cfg(test)]
+#[path = "imap/store_tests.rs"]
+mod store_tests;
 pub mod tokenizer;
 pub use authenticate::AuthenticationMechanism;
 use command_verb::{Verb, parse_verb};
@@ -132,7 +135,7 @@ pub enum Command {
     },
     Store {
         addressing: Addressing,
-        sequence_set: SequenceSet,
+        sequence_set: sequence_set::MessageSet,
         mutation: crate::mail_flags::FlagMutation,
         silent: bool,
         flags: crate::mail_flags::MessageFlags,

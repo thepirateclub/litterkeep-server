@@ -17,6 +17,7 @@ pub(super) fn follow_up(
         silent,
         tag,
         mailbox,
+        saved_uids,
     } = pending
     else {
         return None;
@@ -36,7 +37,6 @@ pub(super) fn follow_up(
             .map(|message| message.uid)
             .unwrap_or(0),
     };
-    let resolved = sequence_set.resolve(maximum);
     let uids = snapshot
         .messages
         .iter()
@@ -47,7 +47,14 @@ pub(super) fn follow_up(
                 imap::Addressing::Sequence => sequence,
                 imap::Addressing::Uid => message.uid,
             };
-            resolved.contains(candidate).then_some(message.uid)
+            imap_fetch_completion::matches(
+                sequence_set,
+                candidate,
+                message.uid,
+                maximum,
+                saved_uids,
+            )
+            .then_some(message.uid)
         })
         .collect::<Vec<_>>();
     let request_id = *next_request;

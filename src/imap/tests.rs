@@ -254,29 +254,6 @@ fn search_uses_typed_key_and_addressing() {
     ));
 }
 
-/// STORE operation и системные flags не покидают parser строками.
-#[test]
-fn store_flags_are_typed() {
-    let Command::Store {
-        addressing,
-        sequence_set,
-        mutation,
-        silent,
-        flags,
-        keywords,
-    } = parse("a8 UID STORE 4:9 +FLAGS.SILENT (\\Seen \\Flagged)\r\n").command
-    else {
-        panic!("STORE was not parsed");
-    };
-    assert_eq!(addressing, Addressing::Uid);
-    assert_eq!(sequence_set, SequenceSet::parse("4:9").unwrap());
-    assert_eq!(mutation, crate::mail_flags::FlagMutation::Add);
-    assert!(silent);
-    assert!(flags.contains(crate::mail_flags::SystemFlag::Seen));
-    assert!(flags.contains(crate::mail_flags::SystemFlag::Flagged));
-    assert!(keywords.is_empty());
-}
-
 /// DONE разбирается как continuation, а не как tagged команда.
 #[test]
 fn idle_done_is_typed() {

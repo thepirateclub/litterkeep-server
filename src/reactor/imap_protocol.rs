@@ -222,25 +222,29 @@ pub(super) fn line(
             silent,
             flags,
             keywords,
-        } => imap_selected::queue_authenticated_read(
-            session,
-            parsed.tag,
-            |tag, mailbox| Pending::ReadForStore {
-                addressing,
-                sequence_set,
-                mutation,
-                flags,
-                keywords,
-                silent,
-                tag,
-                mailbox,
-            },
-            slot,
-            generation,
-            worker,
-            owners,
-            request_id,
-        )?,
+        } => {
+            let saved_uids = session.saved_search_uids.clone();
+            imap_selected::queue_authenticated_read(
+                session,
+                parsed.tag,
+                |tag, mailbox| Pending::ReadForStore {
+                    addressing,
+                    sequence_set,
+                    mutation,
+                    flags,
+                    keywords,
+                    silent,
+                    tag,
+                    mailbox,
+                    saved_uids,
+                },
+                slot,
+                generation,
+                worker,
+                owners,
+                request_id,
+            )?
+        }
         imap::Command::Search {
             charset: imap::search_charset::Charset::Unsupported,
             result,

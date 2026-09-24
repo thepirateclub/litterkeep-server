@@ -75,12 +75,36 @@ def main() -> None:
     if b"1 (UID 1" not in uid_wire:
         raise AssertionError(f"UID FETCH did not use saved UID result: {uid_wire!r}")
 
+    saved_search(client, third_marker)
+    require(client.store("$", "+FLAGS", "(\\Flagged)"), "STORE saved sequence result")
+    stored = require(client.uid("FETCH", "1:3", "(UID FLAGS)"), "UID FETCH after STORE")
+    stored_wire = response_bytes(stored)
+    if b"UID 3 FLAGS (\\Flagged" not in stored_wire:
+        raise AssertionError(f"STORE $ did not update mapped UID 3: {stored_wire!r}")
+    if b"UID 1 FLAGS (\\Flagged" in stored_wire:
+        raise AssertionError(f"STORE $ updated a message outside saved result: {stored_wire!r}")
+
+    saved_search(client, first_marker, uid=True)
+    require(
+        client.uid("STORE", "$", "+FLAGS", "(\\Answered)"),
+        "UID STORE saved UID result",
+    )
+    uid_stored = require(
+        client.uid("FETCH", "1:3", "(UID FLAGS)"), "UID FETCH after UID STORE"
+    )
+    uid_stored_wire = response_bytes(uid_stored)
+    if b"UID 1 FLAGS (\\Answered" not in uid_stored_wire:
+        raise AssertionError(f"UID STORE $ did not update UID 1: {uid_stored_wire!r}")
+    if b"UID 3 FLAGS (\\Answered" in uid_stored_wire:
+        raise AssertionError(f"UID STORE $ updated a UID outside saved result: {uid_stored_wire!r}")
+
     saved_search(client, f"{mailbox}-absent")
     empty_fetch = require(client.fetch("$", "(UID FLAGS)"), "FETCH empty saved result")
     if b" FETCH " in response_bytes(empty_fetch):
         raise AssertionError(f"empty saved result returned a FETCH item: {empty_fetch!r}")
+    require(client.store("$", "+FLAGS", "(\\Flagged)"), "STORE empty saved result")
     client.logout()
-    print("PASS imap-searchres-fetch: sequence mapping, UID mapping, and empty result")
+    print("PASS imap-searchres-fetch: FETCH/STORE sequence and UID mapping, empty result")
 
 
 if __name__ == "__main__":
