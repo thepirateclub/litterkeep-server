@@ -24,7 +24,7 @@ CAPABILITY не выдаёт за более широкое расширение
 | Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS, PERMANENTFLAGS, включая `\\*` для создания пользовательских keywords, Recent |
 | Message insertion | APPEND | PASS | Bounded literal, системные flags и keywords, INTERNALDATE, APPENDUID после fsync |
 | Reading | FETCH, UID FETCH | PARTIAL | Сгруппированные items, ALL/FAST/FULL, UID, RFC822 bytes, BODY HEADER/TEXT/HEADER.FIELDS, MIME parts и partial; BODY/PEEK Seen effects проверены; полная rev2 grammar остаётся |
-| Search | SEARCH, UID SEARCH | PARTIAL | Sequence/UID sets, system/session flags, KEYWORD/UNKEYWORD, address/header/body/text, size, internal/sent dates, AND/OR/NOT/groups; UTF-8 default, UTF-8/US-ASCII CHARSET, BADCHARSET, ESEARCH RETURN ALL/COUNT/MIN/MAX, decoded MIME text and UNKNOWN-CTE verified; MIME text supports US-ASCII, UTF-8, ISO-8859-1 and Windows-1251, rejects undefined CP1251 octet; RETURN SAVE and `$` SEARCH criterion work per session with SELECT/error reset and MIN/MAX selection; FETCH/UID FETCH and STORE/UID STORE `$` map saved UIDs to the active number space, COPY/UID COPY `$` resolve saved UIDs in their respective addressing modes, UID EXPUNGE `$` intersects saved UIDs with `\\Deleted`, and empty results are safe; pipelined SAVE dependencies and SEARCHRES advertisement remain unsupported; other MIME charsets and full key set remain |
+| Search | SEARCH, UID SEARCH | PARTIAL | Sequence/UID sets, system/session flags, KEYWORD/UNKEYWORD, address/header/body/text, size, internal/sent dates, AND/OR/NOT/groups; UTF-8 default, UTF-8/US-ASCII CHARSET, BADCHARSET, ESEARCH RETURN ALL/COUNT/MIN/MAX, decoded MIME text and UNKNOWN-CTE verified; MIME text supports US-ASCII, UTF-8, ISO-8859-1 and Windows-1251, rejects undefined CP1251 octet; RETURN SAVE and `$` SEARCH criterion work per session with SELECT/error reset and MIN/MAX selection; FETCH/UID FETCH and STORE/UID STORE `$` map saved UIDs to the active number space, COPY/UID COPY `$` resolve saved UIDs in their respective addressing modes, UID EXPUNGE `$` intersects saved UIDs with `\\Deleted`, empty sets are safe, and pipelined SEARCH SAVE followed by COPY is verified; ESEARCH and SEARCHRES are advertised; other MIME charsets and full key set remain |
 | Flag mutation | STORE, UID STORE | PASS | Системные flags и регистронезависимые keywords: Replace/add/remove, SILENT, один durable batch, read-only denial |
 | Copy and move | COPY, UID COPY, MOVE, UID MOVE | PASS | Atomic links/tombstones, COPYUID, multi-session projection |
 | Deletion | EXPUNGE, UID EXPUNGE, CLOSE | PASS | Durable tombstones, UIDPLUS, sequence-map notifications |
@@ -59,9 +59,10 @@ Windows tests, Linux Rust 1.97 strict Clippy/254 tests и STARTTLS IMAP black-bo
 с повторным открытием data directory. Остальной профиль G14 остаётся RUNNING.
 
 CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-USE`,
-`NAMESPACE`, `UNSELECT` и `ENABLE`. ENABLE игнорирует неизвестные и пока не
-поддерживаемые расширения по RFC и возвращает пустой `ENABLED`, поскольку сервер
-пока не включает ни одной дополнительной возможности. `IMAP4rev2` и
+`NAMESPACE`, `UNSELECT`, `ENABLE`, `ESEARCH` и `SEARCHRES`. ENABLE игнорирует
+неизвестные и пока не поддерживаемые расширения по RFC и возвращает пустой
+`ENABLED`, поскольку сервер пока не включает ни одной дополнительной
+возможности. `IMAP4rev2` и
 `UTF8=ACCEPT` не активируются и не рекламируются.
 `AUTH=PLAIN SASL-IR` доступен только внутри TLS. До STARTTLS сервер выдаёт
 `LOGINDISABLED`; plaintext listener без TLS также не рекламирует парольный

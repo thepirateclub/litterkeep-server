@@ -59,6 +59,24 @@ ManageSieve до заявленного набора современных фо
 - Временный контейнер `litterkeep-g14-searchres-copy` удалён;
   `litterkeep-g12-phone` сохранён. G14 остаётся RUNNING.
 
+### 2026-09-25: G14 SEARCHRES pipelining and capability checkpoint
+
+- Текущий reactor удерживает последующие строки одной IMAP session до
+  завершения ожидающего store operation, затем повторно разбирает буфер после
+  tagged response. Это уже обеспечивает требуемый порядок; сетевой тест теперь
+  отправляет SEARCH RETURN (SAVE) и COPY `$` подряд без чтения ответа и проверяет
+  копирование ровно одного найденного письма.
+- Поскольку SEARCH SAVE, ESEARCH result options, `$` consumers, empty-set
+  поведение и ordering проверены, защищённый и plaintext CAPABILITY теперь
+  объявляет `ESEARCH SEARCHRES`. Linux runtime acceptance проверяет capability.
+- PASS после изменения: Windows Rust 1.97.1 strict Clippy и 233 tests; Linux
+  Docker Rust 1.97 strict Clippy и 268 tests; независимый STARTTLS black-box,
+  включая pipelining. Данные: `./data/g14-searchres-pipeline`.
+- Заявление ограничено SEARCHRES, не означает завершение IMAP4rev1/rev2:
+  полный набор SEARCH keys, MIME charset и другие RFC пробелы остаются в матрице.
+- Этапный контейнер удалён; `litterkeep-g12-phone` оставлен. G14 остаётся
+  RUNNING.
+
 ### 2026-09-25: G14 SEARCHRES STORE checkpoint
 
 - `STORE $` и `UID STORE $` теперь используют тот же typed saved-result,

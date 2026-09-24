@@ -40,18 +40,19 @@ SEARCH завершается tagged `NO [UNKNOWN-CTE]` без частично�
 его не меняет. При одном SAVE ESEARCH response подавляется, а SAVE с MIN/MAX
 сохраняет соответствующий край. Независимый клиент проверяет сохранение,
 UID-проекцию, отсутствие результата в другой сессии и reset после SELECT/error.
-Расширение намеренно не объявляется как SEARCHRES: `$` для FETCH/STORE,
-COPY/UID COPY и UID EXPUNGE поддерживается, но упорядочивание конвейерных
-зависимостей SEARCH SAVE ещё не реализовано, так что capability остаётся
-скрытой.
+`$` поддерживается для FETCH/STORE, COPY/UID COPY и UID EXPUNGE; пустое
+сохранённое множество проверено как валидный непересекающийся набор. Reactor
+исполняет следующую команду после tagged completion текущей, поэтому зависимая
+команда видит SEARCH SAVE. Независимый STARTTLS клиент отправляет SEARCH SAVE и
+COPY `$` подряд, до чтения ответов, затем подтверждает ровно одно скопированное
+письмо. На этом основании CAPABILITY объявляет ESEARCH и SEARCHRES.
 Явный `SEARCH RETURN` выдаёт ESEARCH с correlator, UID-маркером и опциями
 ALL/COUNT/MIN/MAX. Пустой result set сохраняет запрошенные поля: ALL/MIN/MAX
 не выводятся, COUNT выводится как 0 только если запрошен, ESEARCH response
 при этом остаётся. Пустой `RETURN ()` эквивалентен ALL. Legacy SEARCH остаётся
 для текущего IMAP4rev1 профиля. MIME
-charset вне US-ASCII/UTF-8/ISO-8859-1, `$` в message-set командах и полный
-mandatory search-key set также не реализованы. SEARCHRES capability не
-объявляется, пока generic `$` profile не будет завершён. Это не означает полной
+charset вне проверенного набора, а также полный mandatory search-key set ещё
+не реализованы. Объявление SEARCHRES не означает полной
 совместимости IMAP4rev1 или IMAP4rev2: остаются SEARCH/ESEARCH расширения и
 другие несовпадения формальных грамматик; см. [матрицу IMAP](imap-profile.md).
 

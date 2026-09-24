@@ -38,6 +38,33 @@ def saved_search(client: imaplib.IMAP4, marker: str, uid: bool = False) -> None:
     require(result, "SEARCH SAVE")
 
 
+def pipeline_saved_search_copy(
+    client: imaplib.IMAP4, marker: str, destination: str
+) -> None:
+    """Отправляет SEARCH SAVE и зависимый COPY до чтения любого ответа."""
+    search_tag = client._new_tag()
+    copy_tag = client._new_tag()
+    search = (
+        search_tag
+        + b' SEARCH RETURN (SAVE) HEADER X-Litterkeep-Fixture "'
+        + marker.encode("ascii")
+        + b'"\r\n'
+    )
+    copy = copy_tag + b' COPY $ "' + destination.encode("ascii") + b'"\r\n'
+    client.send(search)
+    client.send(copy)
+    require(client._get_tagged_response(search_tag), "pipelined SEARCH SAVE")
+    require(client._get_tagged_response(copy_tag), "pipelined COPY saved result")
+
+
+def verify_searchres_capability(client: imaplib.IMAP4, phase: str) -> None:
+    """Проверяет обязательные capability ESEARCH и SEARCHRES для данного TLS-состояния."""
+    capabilities = require(client.capability(), f"CAPABILITY {phase}")
+    capability_atoms = b" ".join(capabilities).upper()
+    if b"ESEARCH" not in capability_atoms or b"SEARCHRES" not in capability_atoms:
+        raise AssertionError(f"SEARCHRES dependencies are not advertised: {capabilities!r}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("host", nargs="?", default="127.0.0.1")
@@ -46,8 +73,10 @@ def main() -> None:
     options = parser.parse_args()
     context = ssl.create_default_context(cafile=options.ca)
     client = imaplib.IMAP4(options.host, options.port, timeout=10)
+    verify_searchres_capability(client, "before STARTTLS")
     client.starttls(ssl_context=context)
     require(client.login("bob", os.environ["LITTERKEEP_BOB_PASSWORD"]), "LOGIN")
+    verify_searchres_capability(client, "after STARTTLS")
     mailbox = f"SearchRes-{uuid.uuid4().hex}"
     require(client.create(mailbox), "CREATE")
     markers = [f"{mailbox}-one", f"{mailbox}-two", f"{mailbox}-three"]
@@ -130,6 +159,19 @@ def main() -> None:
     copied_uid = require(client.uid("SEARCH", "ALL"), "SEARCH UID COPY result")
     if response_bytes(copied_uid).strip() != b"1":
         raise AssertionError(f"UID COPY $ did not copy exactly one saved message: {copied_uid!r}")
+
+    pipelined_copy = f"{mailbox}-pipelined-copy"
+    require(client.create(pipelined_copy), "CREATE pipelined COPY destination")
+    require(client.select(mailbox), "SELECT source before pipelined COPY")
+    pipeline_saved_search_copy(client, third_marker, pipelined_copy)
+    require(client.select(pipelined_copy), "SELECT pipelined COPY destination")
+    pipelined_result = require(
+        client.uid("SEARCH", "ALL"), "SEARCH pipelined COPY result"
+    )
+    if response_bytes(pipelined_result).strip() != b"1":
+        raise AssertionError(
+            f"pipelined COPY did not observe preceding saved result: {pipelined_result!r}"
+        )
 
     empty_uid_copy = f"{mailbox}-empty-uid-copy"
     require(client.create(empty_uid_copy), "CREATE empty UID COPY destination")
