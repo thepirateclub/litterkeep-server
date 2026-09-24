@@ -27,6 +27,7 @@ pub struct Transaction {
 impl Transaction {
     pub fn apply(&mut self, command: &Command) -> Result<bool, &'static str> {
         match command {
+            Command::Mail(_) if self.sender.is_some() => Err("mail transaction already open"),
             Command::Mail(mail) => {
                 self.sender = Some(mail.reverse_path.clone());
                 self.recipients.clear();
@@ -64,6 +65,11 @@ impl Transaction {
     /// Сообщает, начата ли envelope-транзакция командой MAIL.
     pub fn has_sender(&self) -> bool {
         self.sender.is_some()
+    }
+
+    /// Разрешает MAIL только после завершения или сброса прежнего конверта.
+    pub fn can_start_mail(&self) -> bool {
+        self.sender.is_none()
     }
 
     /// Добавляет проверенный policy слоем получатель в активный envelope.
@@ -112,6 +118,33 @@ mod tests {
             }
         );
         assert!(transaction.take_envelope().recipients.is_empty());
+    }
+
+    /// Повторный MAIL не заменяет отправителя и получателей открытой транзакции.
+    #[test]
+    fn second_mail_is_rejected_without_changing_open_transaction() {
+        let mut transaction = Transaction::default();
+        transaction
+            .apply(&parse("MAIL FROM:<alice@test>\r\n").expect("first MAIL"))
+            .expect("sender accepted");
+        transaction
+            .apply(&parse("RCPT TO:<bob@test>\r\n").expect("RCPT"))
+            .expect("recipient accepted");
+
+        assert!(
+            transaction
+                .apply(&parse("MAIL FROM:<mallory@test>\r\n").expect("second MAIL"))
+                .is_err()
+        );
+        assert!(!transaction.can_start_mail());
+        assert!(
+            transaction
+                .apply(&Command::Data)
+                .expect("original envelope remains")
+        );
+        let envelope = transaction.take_envelope();
+        assert_eq!(envelope.reverse_path, "alice@test");
+        assert_eq!(envelope.recipients, vec!["bob@test"]);
     }
 
     /// Store transaction ограничивает число получателей без роста после отказа.

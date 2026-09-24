@@ -70,6 +70,22 @@ def main():
         )
         expect_reply(client.noop(), 250, "session after EHLO reset")
 
+        preserved_subject = "MAIL transaction preserved " + uuid.uuid4().hex
+        expect_reply(client.mail("alice@test"), 250, "first MAIL transaction")
+        expect_reply(client.rcpt("bob@test"), 250, "first transaction recipient")
+        expect_reply(
+            client.mail("alice@test"),
+            503,
+            "second MAIL cannot replace an open transaction",
+        )
+        expect_reply(client.docmd("DATA"), 354, "DATA retains original envelope")
+        client.send(
+            b"From: alice@test\r\nTo: bob@test\r\nSubject: "
+            + preserved_subject.encode("ascii")
+            + b"\r\n\r\noriginal envelope\r\n.\r\n"
+        )
+        expect_reply(client.getreply(), 250, "delivery after rejected second MAIL")
+
         expect_reply(
             client.mail("alice@test", options=[f"SIZE={MAXIMUM + 1}"]),
             552,
@@ -156,6 +172,14 @@ def main():
         select_status, _ = mailbox.select("INBOX")
         if select_status != "OK":
             raise AssertionError(f"IMAP SELECT failed: {select_status}")
+        preserved_status, preserved_rows = mailbox.search(
+            None, "HEADER", "Subject", f'"{preserved_subject}"'
+        )
+        if preserved_status != "OK" or not next(iter(preserved_rows), None):
+            raise AssertionError(
+                f"rejected MAIL changed the original delivery envelope: "
+                f"{preserved_status} {preserved_rows!r}"
+            )
         status, rows = mailbox.search(None, "HEADER", "Subject", f'"{high_bit_subject}"')
         first_row = next(iter(rows), None)
         if status != "OK" or first_row is None:

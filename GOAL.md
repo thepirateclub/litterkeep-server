@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G15
 
+### 2026-09-25: G15 RFC 5321 repeated MAIL transaction checkpoint
+
+- Открытая SMTP transaction теперь отклоняет повторный MAIL ответом 503; FSM
+  сохраняет исходного sender и список RCPT. Отдельно проверены доменный FSM-тест
+  и live delivery, после отказа отправив DATA прежнему получателю.
+- PASS: Windows Rust 1.97.1: 249 тестов, строгий Clippy, fmt и diff checks.
+  Linux Docker Rust 1.97: release image, strict Clippy и 289 тестов.
+  Независимый Python black-box по TLS SMTP отправил повторный MAIL, проверил
+  доставку исходного конверта и нашёл уникальное сообщение Bob через IMAP.
+  Тем же прогоном проверен существующий SIZE/8BITMIME набор.
+- Данные `./data/g15-smtp-mail-repeat`, включая stage-local тестовый TLS key.
+  Временные контейнеры удалены; `litterkeep-g12-phone` оставлен.
+- G15 остаётся RUNNING: этот transaction-order checkpoint не закрывает весь
+  RFC 5321 и современные ESMTP расширения.
+
 ### 2026-09-25: G15 RFC 5321 greeting and transaction reset checkpoint
 
 - В SMTP session введены `NotEstablished`, `Basic` и `Extended` greeting mode.
@@ -15,7 +30,7 @@ Current subgoal: G15
   black-box. Клиент проверил MAIL до greeting, HELO extension gate, сброс
   envelope повторным HELO/EHLO и полный прежний SMTP SIZE/8BITMIME набор.
 - Данные `./data/g15-smtp-rfc-greeting`; временный контейнер удалён,
-  `litterkeep-g12-phone` оставлен. Коммит будет отдельным для checkpoint.
+  `litterkeep-g12-phone` оставлен. Коммит `9f64945`.
 - G15 остаётся RUNNING: это начальный RFC 5321 transaction state, не полная
   SMTP-командная и ESMTP-совместимость.
 

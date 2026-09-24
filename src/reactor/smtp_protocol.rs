@@ -206,6 +206,13 @@ fn apply_transaction(session: &mut Session, command: smtp::Command) -> io::Resul
 /// Применяет принятую typed MAIL-команду через обычную transaction FSM.
 fn apply_mail(session: &mut Session, mail: smtp::MailFrom) -> io::Result<()> {
     let body_mode = mail.body_mode;
+    match &session.smtp {
+        SmtpState::Command(transaction) if !transaction.can_start_mail() => {
+            return session.push(b"503 5.5.1 mail transaction already open\r\n");
+        }
+        SmtpState::Command(_) => {}
+        SmtpState::Data { .. } => return session.push(b"503 5.5.1 bad sequence\r\n"),
+    }
     match mail.declared_size {
         Some(size) if size > smtp::MAX_MESSAGE_SIZE as u128 => {
             session.push(b"552 5.3.4 message size exceeds fixed maximum\r\n")
