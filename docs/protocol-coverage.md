@@ -115,8 +115,9 @@ domain-literal: независимый STARTTLS acceptance подтвердил 
 `"a@b"` в mailbox-компоненте и `example.test` в hostname, а SEARCH нашёл этот
 адрес. Завершающий CFWS после `;` группы допускает комментарий и не включает
 его в ENVELOPE; тест также отвергает mailbox после уже закрытой группы.
-Obsolete address forms и остальные RFC 5322 несовпадения по-прежнему
-ограничивают parser.
+Obsolete source-route в угловом адресе игнорируется по RFC 5322 §4.4:
+ENVELOPE и SEARCH используют только route destination. Другие obsolete address
+forms и остальные RFC 5322 несовпадения по-прежнему ограничивают parser.
 `RETURN (SAVE)` сохраняет UIDs в состоянии одной сессии, а `$` SEARCH criterion
 сопоставляет их как для SEARCH, так и UID SEARCH. Успешный SELECT, SAVE-команда
 с ответом NO, EXPUNGE и MOVE сбрасывают/синхронизируют результат; обычный SEARCH

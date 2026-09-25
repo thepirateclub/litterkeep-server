@@ -497,6 +497,20 @@ ManageSieve до заявленного набора современных фо
   container was removed and `litterkeep-g12-phone` was preserved. The app was
   not tested. G14 remains RUNNING.
 
+### 2026-09-25: G14 obsolete source-route checkpoint
+
+- RFC 5322 obsolete route-list inside angle-addr is validated as nonempty and
+  ignored during interpretation; only the destination addr-spec contributes
+  to IMAP ENVELOPE and address SEARCH. Malformed route and empty destination
+  are rejected. This is the source-route subset only, not full obsolete
+  addressing support.
+- PASS: Windows Rust 1.97.1, 297 tests, strict Clippy and fmt; Linux Docker
+  Rust 1.97 strict Clippy and 337 tests; independent Linux STARTTLS IMAP
+  acceptance verifies destination projection and absence of route domains.
+  Data: `./data/g14-quoted-localpart-final`. Temporary container removed,
+  `litterkeep-g12-phone` preserved. Litterkeep app integration not tested.
+- G14 remains RUNNING.
+
 ### 2026-09-25: G14 RFC 5322 address groups checkpoint
 
 - ENVELOPE address parsing now preserves typed mailbox, group-start, and

@@ -127,3 +127,37 @@ fn rejects_multiple_addr_spec_separators() {
     let field = to_field("Alice <alice@example.test@other.test>");
     assert!(parse(vec![&field]).is_err());
 }
+
+/// RFC 5322 obsolete source-route игнорируется, целевой mailbox сохраняется.
+#[test]
+fn ignores_obsolete_source_route_in_envelope_projection() {
+    let field = to_field("Legacy <@old.example,@older.example:alice@example.test>");
+    let parsed = parse(vec![&field]).expect("obsolete source-routed mailbox");
+    assert_eq!(
+        encode_list(&parsed).expect("routed ENVELOPE"),
+        "((\"Legacy\" NIL \"alice\" \"example.test\"))"
+    );
+    let projection = search_text(&parsed).expect("routed address search projection");
+    assert!(projection.contains("alice@example.test"));
+    assert!(!projection.contains("old.example"));
+}
+
+/// Сохраняет допустимую пустую необязательную route-position после запятой.
+#[test]
+fn accepts_optional_empty_tail_in_obsolete_source_route() {
+    let field = to_field("Legacy <@old.example,:alice@example.test>");
+    let parsed = parse(vec![&field]).expect("obsolete source-route trailing comma");
+    assert_eq!(
+        encode_list(&parsed).expect("routed ENVELOPE"),
+        "((\"Legacy\" NIL \"alice\" \"example.test\"))"
+    );
+}
+
+/// Не принимает пустой маршрут или отсутствие адреса после route delimiter.
+#[test]
+fn rejects_malformed_obsolete_source_route() {
+    let empty_domain = to_field("Legacy <@,:alice@example.test>");
+    let empty_target = to_field("Legacy <@old.example:>");
+    assert!(parse(vec![&empty_domain]).is_err());
+    assert!(parse(vec![&empty_target]).is_err());
+}

@@ -1,7 +1,9 @@
 //! Разбор RFC 5322 address-list и проекция адресных групп в IMAP ENVELOPE.
 
 use super::encoded_word;
-use super::envelope_address_scan::{split_addr_spec, split_commas, split_optional, strip_comments};
+use super::envelope_address_scan::{
+    split_addr_spec, split_commas, split_optional, strip_comments, strip_source_route,
+};
 use super::header_block::HeaderField;
 
 /// Обычный mailbox после отделения его имени и домена.
@@ -142,7 +144,7 @@ fn parse_mailbox(value: &str) -> Result<Address, &'static str> {
             let address = value
                 .get(open.saturating_add(1)..close)
                 .ok_or("invalid angle address")?;
-            (decode_name(name)?, address)
+            (decode_name(name)?, strip_source_route(address)?)
         }
         (None, None) => (None, value.trim()),
         _ => return Err("unbalanced angle address"),
