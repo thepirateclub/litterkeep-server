@@ -64,6 +64,14 @@ fn distinguishes_invalid_size_from_unsupported_parameter() {
 }
 
 #[test]
+fn quoted_local_part_can_contain_path_terminator_and_at_sign() {
+    assert_eq!(
+        parse("RCPT TO:<\"a>b\\@c\"@test>\r\n"),
+        Ok(Command::Rcpt("\"a>b\\@c\"@test".into()))
+    );
+}
+
+#[test]
 fn accepts_empty_reverse_path_but_requires_recipient_path() {
     assert_eq!(
         parse("MAIL FROM:<>\r\n"),

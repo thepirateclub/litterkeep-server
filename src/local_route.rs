@@ -37,26 +37,25 @@ fn classify_recipient_mailbox(mailbox: &str) -> LocalRecipient<'_> {
 
 /// Отделяет local-part от домена только для разрешённого локального маршрута.
 pub fn local_mailbox(address: &str) -> Option<String> {
-    let (mailbox, domain) = address.split_once('@')?;
+    let (mailbox, domain) = crate::smtp::canonical_parts(address)?;
     match LocalRoute::parse(domain) {
-        LocalRoute::Accepted => Some(mailbox.to_owned()),
+        LocalRoute::Accepted => Some(mailbox),
         LocalRoute::Rejected => None,
     }
 }
 
 /// Нормализует RCPT путь в локальный mailbox, включая bare Postmaster.
 pub fn local_recipient(address: &str) -> Option<String> {
-    let (mailbox, domain) = match address.split_once('@') {
-        Some((mailbox, domain)) => match LocalRoute::parse(domain) {
-            LocalRoute::Accepted => (mailbox, Some(domain)),
-            LocalRoute::Rejected => return None,
+    match local_mailbox(address) {
+        Some(mailbox) => match classify_recipient_mailbox(&mailbox) {
+            LocalRecipient::Postmaster => Some("postmaster".to_owned()),
+            LocalRecipient::Account(name) => Some(name.to_owned()),
         },
-        None => (address, None),
-    };
-    match (classify_recipient_mailbox(mailbox), domain) {
-        (LocalRecipient::Postmaster, _) => Some("postmaster".to_owned()),
-        (LocalRecipient::Account(name), Some(_)) => Some(name.to_owned()),
-        (LocalRecipient::Account(_), None) => None,
+        None if !address.contains('@') => match classify_recipient_mailbox(address) {
+            LocalRecipient::Postmaster => Some("postmaster".to_owned()),
+            LocalRecipient::Account(_) => None,
+        },
+        None => None,
     }
 }
 
@@ -96,6 +95,10 @@ mod tests {
     #[test]
     fn accepted_domain_becomes_mailbox() {
         assert_eq!(local_mailbox("alice@litterkeep.test"), Some("alice".into()));
+        assert_eq!(
+            local_mailbox("\"alice\"@litterkeep.test"),
+            Some("alice".into())
+        );
     }
 
     #[test]
@@ -116,6 +119,13 @@ mod tests {
             assert_eq!(local_recipient(address), Some("postmaster".into()));
         }
         assert_eq!(local_recipient("postmaster@example.test"), None);
+    }
+
+    #[test]
+    fn quoted_mailbox_is_canonicalized_before_local_account_lookup() {
+        assert_eq!(local_recipient("\"bob\"@test"), Some("bob".into()));
+        assert_eq!(local_recipient("\"b\\@b\"@test"), Some("b@b".into()));
+        assert_eq!(local_recipient("\"bob\"@example.test"), None);
     }
 
     #[test]

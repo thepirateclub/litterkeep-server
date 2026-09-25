@@ -23,11 +23,15 @@ RFC 5321 проверено unit FSM-тестом и сквозной SMTP-to-IM
 отклоняет более длинный в MAIL FROM и RCPT TO. Сетевой тест отделяет syntax
 error от последующей проверки sender/recipient policy. Это ограничение длины,
 а не утверждение о полной проверке RFC mailbox grammar или SMTPUTF8.
-Обычный ASCII dot-atom дополнительно проверяется до policy слоя в обеих
-командах: пустые или неверно разделённые точки, пустые доменные labels,
-не-ASCII домены и DNS labels длиннее 63 октетов отклоняются как syntax error.
-Это ограниченная грамматика: quoted local-parts, domain literals, source routes
-и SMTPUTF8 не поддержаны и не объявляются совместимыми.
+ASCII dot-atom и RFC 5321 quoted-string local-part проверяются до policy слоя
+в обеих командах. Quoted-pair декодируется для сопоставления с локальным
+аккаунтом; завершающий `>` и `@` внутри quoted local-part не путаются с
+разделителями path. Независимый STARTTLS peer отправил письмо от
+`"alice"@litterkeep.test` к `"bob"@litterkeep.test`, после чего отдельный IMAP
+peer нашёл письмо в INBOX Bob. Пустые или неверно разделённые dot-atom точки,
+пустые доменные labels, не-ASCII домены и DNS labels длиннее 63 октетов
+отклоняются как syntax error. Address literals, source routes и SMTPUTF8
+по-прежнему не поддержаны и не объявляются совместимыми.
 RFC 5321 Postmaster принимается как bare `<Postmaster>` без домена и как
 `postmaster@domain` для локально обслуживаемых доменов; регистр reserved local
 name и домена не влияет на route. Независимый STARTTLS тест отправил DATA и

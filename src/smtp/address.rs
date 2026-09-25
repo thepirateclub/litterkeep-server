@@ -1,35 +1,107 @@
-//! Ограниченная грамматика обычного SMTP dot-atom mailbox.
+//! Грамматика ASCII SMTP mailbox для dot-atom и quoted local-part.
 
-/// Форма mailbox после ограниченного синтаксического разбора.
+/// Форма mailbox после синтаксической проверки SMTP адреса.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum MailboxForm {
     NullReversePath,
     DotAtom,
+    QuotedLocalPart,
     BarePostmaster,
     Invalid,
 }
 
-/// Классифицирует поддержанные SMTP mailbox формы.
-///
-/// Quoted local-part и address-literal намеренно не принимаются этим профилем.
+/// Классифицирует mailbox без попытки определить существование аккаунта.
 pub(super) fn classify_mailbox(mailbox: &str) -> MailboxForm {
     match mailbox {
         "" => MailboxForm::NullReversePath,
         _ if mailbox.eq_ignore_ascii_case("postmaster") => MailboxForm::BarePostmaster,
-        _ if is_dot_atom_mailbox(mailbox) => MailboxForm::DotAtom,
-        _ => MailboxForm::Invalid,
+        _ => mailbox_form(mailbox).unwrap_or(MailboxForm::Invalid),
     }
 }
 
-/// Проверяет ASCII mailbox и длины его local-part/domain по SMTP/DNS профилю.
-fn is_dot_atom_mailbox(mailbox: &str) -> bool {
-    let Some((local_part, domain)) = mailbox.split_once('@') else {
-        return false;
-    };
-    if domain.contains('@') || !valid_local_part(local_part) {
-        return false;
+/// Разделяет mailbox на эквивалентный local-part и проверенный домен.
+///
+/// RFC 5321 требует считать quoting эквивалентным при сопоставлении адреса.
+/// Поэтому вызывающий слой получает unescaped local-part, но не изменённый домен.
+pub(crate) fn canonical_parts(mailbox: &str) -> Option<(String, &str)> {
+    let separator = at_separator(mailbox)?;
+    let (local_part, suffix) = mailbox.split_at(separator);
+    let domain = suffix.strip_prefix('@')?;
+    let canonical_local = canonical_local_part(local_part)?;
+    match valid_domain(domain) {
+        true => Some((canonical_local, domain)),
+        false => None,
     }
-    valid_domain(domain)
+}
+
+/// Находит единственный `@` вне quoted-string с однопроходным автоматом.
+fn at_separator(mailbox: &str) -> Option<usize> {
+    let mut quoted = false;
+    let mut escaped = false;
+    let mut separator = None;
+    for (offset, character) in mailbox.char_indices() {
+        match (quoted, escaped, character) {
+            (true, true, _) => escaped = false,
+            (true, false, '\\') => escaped = true,
+            (true, false, '"') => quoted = false,
+            (false, _, '"') if separator.is_none() => quoted = true,
+            (false, _, '@') if separator.is_none() => separator = Some(offset),
+            (false, _, '@') => return None,
+            _ => {}
+        }
+    }
+    match (quoted, escaped, separator) {
+        (false, false, Some(offset)) => Some(offset),
+        _ => None,
+    }
+}
+
+/// Снимает quoted-string и quoted-pair после проверки RFC 5321 §4.1.2.
+pub(crate) fn canonical_local_part(local_part: &str) -> Option<String> {
+    if local_part.len() > super::MAX_LOCAL_PART_SIZE {
+        return None;
+    }
+    match local_part
+        .strip_prefix('"')
+        .and_then(|part| part.strip_suffix('"'))
+    {
+        Some(quoted) => decode_quoted_local_part(quoted),
+        None if valid_local_part(local_part) => Some(local_part.to_owned()),
+        None => None,
+    }
+}
+
+/// Проверяет qtextSMTP и quoted-pairSMTP и создаёт каноническую строку.
+fn decode_quoted_local_part(quoted: &str) -> Option<String> {
+    let mut characters = quoted.chars();
+    let mut decoded = String::with_capacity(quoted.len());
+    while let Some(character) = characters.next() {
+        match character {
+            '\\' => match characters.next() {
+                Some(escaped) if escaped.is_ascii() && (32..=126).contains(&(escaped as u8)) => {
+                    decoded.push(escaped)
+                }
+                _ => return None,
+            },
+            ' '..='!' | '#'..='[' | ']'..='~' => decoded.push(character),
+            _ => return None,
+        }
+    }
+    Some(decoded)
+}
+
+/// Валидирует mailbox и сохраняет типизированную форму local-part.
+fn mailbox_form(mailbox: &str) -> Option<MailboxForm> {
+    let separator = at_separator(mailbox)?;
+    let (local_part, suffix) = mailbox.split_at(separator);
+    let domain = suffix.strip_prefix('@')?;
+    if !valid_domain(domain) {
+        return None;
+    }
+    match local_part.strip_prefix('"') {
+        Some(_) => canonical_local_part(local_part).map(|_| MailboxForm::QuotedLocalPart),
+        None => valid_local_part(local_part).then_some(MailboxForm::DotAtom),
+    }
 }
 
 /// Проверяет atext и точки без пустых dot-atom компонентов.
@@ -51,12 +123,12 @@ fn valid_atext(octet: u8) -> bool {
         || matches!(octet, b'!' | b'#'..=b'\'' | b'*'..=b'+' | b'-' | b'/' | b'=' | b'?' | b'^'..=b'`' | b'{'..=b'~')
 }
 
-/// Проверяет DNS labels: длина 1..63, буквы/цифры по краям, дефис внутри.
+/// Проверяет DNS labels и общий предел длины ASCII domain.
 fn valid_domain(domain: &str) -> bool {
-    if domain.is_empty() || domain.len() > 255 || !domain.is_ascii() {
-        return false;
-    }
-    domain.split('.').all(valid_domain_label)
+    !domain.is_empty()
+        && domain.len() <= 255
+        && domain.is_ascii()
+        && domain.split('.').all(valid_domain_label)
 }
 
 /// Проверяет одну DNS-метку без Unicode или завершающей пустой метки.

@@ -98,3 +98,4 @@ T77	PASS	outbound	streaming DATA writer preserves exact dot-unstuffed octets for
 T78	PASS	outbound	RFC 1870 EHLO SIZE decimal above 20 digits is retained and exact message octets are declared on MAIL
 T79	PASS	smtp-pop3	SMTP DATA removes exactly one transparency dot; TOP 0/1/over-body retains exact headers and dot-leading body lines end to end
 T80	PASS	pop3	Independent STARTTLS peer verifies RFC 6856 LANG capability and behavior in AUTHORIZATION and TRANSACTION, including listing, case-insensitive selection, preferred language, failed selection, and session continuity
+T81	PASS	smtp-imap	RFC 5321 quoted local-parts and quoted-pair parse correctly, normalize for local routing, survive @ and > delimiters, and deliver quoted Alice-to-Bob message verified from Bob's INBOX over independent IMAP STARTTLS

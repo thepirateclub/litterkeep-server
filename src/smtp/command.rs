@@ -2,6 +2,7 @@
 
 #[path = "address.rs"]
 mod address;
+pub(crate) use address::canonical_parts;
 
 /// Команда SMTP после разбора wire-строки без потери ESMTP параметров.
 #[derive(Debug, Eq, PartialEq)]
@@ -163,7 +164,11 @@ fn parse_path<'a>(
     let Some(path) = value.strip_prefix('<') else {
         return Err(ParseError::Syntax);
     };
-    let Some((mailbox, suffix)) = path.split_once('>') else {
+    let Some(terminator) = closing_path_angle(path) else {
+        return Err(ParseError::Syntax);
+    };
+    let (mailbox, remainder) = path.split_at(terminator);
+    let Some(suffix) = remainder.strip_prefix('>') else {
         return Err(ParseError::Syntax);
     };
     if mailbox.len().saturating_add(2) > MAX_PATH_SIZE {
@@ -172,6 +177,7 @@ fn parse_path<'a>(
     match (kind, address::classify_mailbox(mailbox)) {
         (PathKind::Reverse, address::MailboxForm::NullReversePath)
         | (_, address::MailboxForm::DotAtom)
+        | (_, address::MailboxForm::QuotedLocalPart)
         | (PathKind::Forward, address::MailboxForm::BarePostmaster) => {}
         _ => return Err(ParseError::Syntax),
     }
@@ -182,6 +188,23 @@ fn parse_path<'a>(
         }
         false => Err(ParseError::Syntax),
     }
+}
+
+/// Находит завершающий `>` вне quoted local-part и его escaped символов.
+fn closing_path_angle(path: &str) -> Option<usize> {
+    let mut quoted = false;
+    let mut escaped = false;
+    for (offset, character) in path.char_indices() {
+        match (quoted, escaped, character) {
+            (true, true, _) => escaped = false,
+            (true, false, '\\') => escaped = true,
+            (true, false, '"') => quoted = false,
+            (false, _, '"') => quoted = true,
+            (false, _, '>') => return Some(offset),
+            _ => {}
+        }
+    }
+    None
 }
 
 /// Роль SMTP path задаёт допустимые специальные mailbox формы.

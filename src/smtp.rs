@@ -1,6 +1,7 @@
 //! SMTP submission transaction state.
 #[path = "smtp/command.rs"]
 mod command;
+pub(crate) use command::canonical_parts;
 pub use command::{
     BodyMode, Command, MAX_COMMAND_LINE_SIZE, MAX_LOCAL_PART_SIZE, MAX_MESSAGE_SIZE, MAX_PATH_SIZE,
     MailFrom, ParseError, parse,

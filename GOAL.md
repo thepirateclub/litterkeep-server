@@ -4,6 +4,25 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 SMTP RFC 5321 quoted local-part support
+
+- Исправлена ранее задокументированная несовместимость: MAIL FROM и RCPT TO
+  теперь принимают dot-atom и ASCII quoted-string local-part по RFC 5321
+  §4.1.2, включая quoted-pair и `@`/`>` внутри кавычек. Ограничение 64
+  октета считается по исходной wire-форме local-part.
+- Для локальной policy экранированный local-part канонизируется; wire reverse
+  path при этом сохраняется без изменения для Received/DSN. Независимый
+  STARTTLS SMTP peer отправил письмо с `"alice"@litterkeep.test` к
+  `"bob"@litterkeep.test`; отдельный IMAP STARTTLS peer нашёл письмо в INBOX Bob.
+- PASS: Windows Rust 1.97.1 полный suite (488 библиотечных + 1 бинарный тест),
+  strict Clippy, fmt, Python compile и diff check. Linux Docker Rust 1.97:
+  531 библиотечных + 1 бинарный тест, strict Clippy и doc-tests; quoted
+  SMTP-to-IMAP acceptance прошёл на Linux runtime.
+- Address literals, source routes и SMTPUTF8 остаются неподдержанными; это не
+  объявляется полной реализацией mailbox grammar. Litterkeep app не проверялось.
+  Временные container/image очищены; `litterkeep-g12-phone` сохранён. Fixture:
+  `./data/g17-smtp-quoted-localpart`; G17 остаётся активной.
+
 ### 2026-09-25: G17 POP3 RFC 6856 LANG state acceptance
 
 - PASS: независимый TLS peer подтвердил `LANG` capability в AUTHORIZATION и
@@ -1604,8 +1623,9 @@ Current subgoal: G17
 - Проверки: `tests/blackbox/smtp_mailbox_syntax.py` и прежний
   `tests/blackbox/smtp_recipient_limit.py`; данные `./data/g15-smtp-mailbox-syntax`.
   Временный контейнер удалён, `litterkeep-g12-phone` оставлен.
-- Ограниченный parser пока не принимает quoted local-parts, domain literals,
-  source routes и SMTPUTF8; G15 остаётся RUNNING, RFC 5321 профиль не закрыт.
+- На момент G15 quoted local-parts, domain literals, source routes и SMTPUTF8
+  не принимались; следующий G17 checkpoint закрыл только quoted local-parts.
+  Остальные ограничения сохраняются, поэтому RFC 5321 профиль не закрыт.
 
 ### 2026-09-25: G15 RFC 5321 recipient buffer limit checkpoint
 
