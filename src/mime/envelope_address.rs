@@ -190,10 +190,26 @@ fn decode_name(value: &str) -> Result<Option<String>, &'static str> {
         .strip_prefix('"')
         .and_then(|inner| inner.strip_suffix('"'))
     {
-        Some(inner) => inner.to_owned(),
+        Some(inner) => decode_quoted_phrase(inner)?,
         None => normalize_phrase(unquoted),
     };
     Ok(Some(encoded_word::decode(&decoded).unwrap_or(decoded)))
+}
+
+/// Удаляет quoting backslash из RFC 5322 quoted-pair внутри phrase.
+fn decode_quoted_phrase(value: &str) -> Result<String, &'static str> {
+    let mut characters = value.chars();
+    let mut decoded = String::with_capacity(value.len());
+    while let Some(character) = characters.next() {
+        match character {
+            '\\' => match characters.next() {
+                Some(quoted) => decoded.push(quoted),
+                None => return Err("dangling quoted-pair in display name"),
+            },
+            _ => decoded.push(character),
+        }
+    }
+    Ok(decoded)
 }
 
 /// Сворачивает CFWS между словами personal/group phrase в один пробел.

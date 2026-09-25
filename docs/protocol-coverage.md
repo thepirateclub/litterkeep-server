@@ -121,7 +121,9 @@ forms и остальные RFC 5322 несовпадения по-прежне�
 Там же поддержан CFWS вокруг точек в obsolete local-part/domain: wire
 ENVELOPE и SEARCH сворачивают `first (comment) . last @ example . test` к
 `first.last@example.test`. Quoted local-part и domain-literal из этой
-нормализации исключены и проверяются отдельным unit fixture.
+нормализации исключены и проверяются отдельными unit fixtures. Для quoted
+display-name отдельно проверено снятие quoted-pair: `\"` и `\\` в исходном
+header становятся буквальными `"` и `\` в ENVELOPE.
 `RETURN (SAVE)` сохраняет UIDs в состоянии одной сессии, а `$` SEARCH criterion
 сопоставляет их как для SEARCH, так и UID SEARCH. Успешный SELECT, SAVE-команда
 с ответом NO, EXPUNGE и MOVE сбрасывают/синхронизируют результат; обычный SEARCH

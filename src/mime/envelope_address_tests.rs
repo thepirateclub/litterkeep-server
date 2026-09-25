@@ -108,6 +108,17 @@ fn preserves_parentheses_inside_quoted_display_name() {
     );
 }
 
+/// Снимает quoted-pair из имени до сериализации ENVELOPE.
+#[test]
+fn decodes_quoted_pairs_in_display_name() {
+    let field = to_field(r#""Team \"North\" and \\ Group" <alice@example.test>"#);
+    let parsed = parse(vec![&field]).expect("quoted display name");
+    assert_eq!(
+        encode_list(&parsed).expect("quoted-pair ENVELOPE"),
+        r#"(("Team \"North\" and \\ Group" NIL "alice" "example.test"))"#
+    );
+}
+
 /// Разделяет addr-spec по внешнему @, не по символу внутри quoted local-part.
 #[test]
 fn preserves_at_sign_inside_quoted_local_part() {

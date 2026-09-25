@@ -60,7 +60,8 @@ def main() -> None:
     group = f"A-Group-{uuid.uuid4().hex}"
     require(client.create(mailbox), "CREATE")
     message = (
-        "From: Alice Sender (primary (nested)) <alice@example.test>\r\n"
+        r'From: "Alice \"Sender\"" (primary (nested)) <alice@example.test>'
+        "\r\n"
         f"To: {group} (list comment):Ed Jones (mentor (owner \\) note)) "
         "<c(comment)@a.test>,joe@where.test,John <jdoe@one.test>, "
         'Quoted Local <"a@b"@example.test>, '
@@ -77,6 +78,7 @@ def main() -> None:
     wire = response_bytes(envelope)
     expected = [
         f'(NIL NIL "{group}" NIL)'.encode("ascii"),
+        br'("Alice \"Sender\"" NIL "alice" "example.test")',
         b'("Ed Jones" NIL "c" "a.test")',
         b'(NIL NIL "joe" "where.test")',
         b'("John" NIL "jdoe" "one.test")',

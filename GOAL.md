@@ -525,6 +525,18 @@ ManageSieve до заявленного набора современных фо
   `litterkeep-g12-phone` preserved. Litterkeep app integration not tested.
 - G14 remains RUNNING.
 
+### 2026-09-25: G14 quoted display-name pair checkpoint
+
+- RFC 5322 quoted-string display-names now remove the quoting backslash from
+  quoted-pairs before ENVELOPE serialization and shared address SEARCH.
+  Independent STARTTLS IMAP acceptance checks the exact ENVELOPE octets for
+  an escaped DQUOTE in From. Existing quoted local-part handling is unchanged.
+- PASS: Windows Rust 1.97.1, 301 tests, strict Clippy and fmt; Linux Docker
+  Rust 1.97, strict Clippy and 341 tests; independent IMAP acceptance PASS.
+  Data: `./data/g14-quoted-localpart-final`. Temporary container removed,
+  `litterkeep-g12-phone` preserved. Litterkeep app integration not tested.
+- G14 remains RUNNING.
+
 ### 2026-09-25: G14 RFC 5322 address groups checkpoint
 
 - ENVELOPE address parsing now preserves typed mailbox, group-start, and
