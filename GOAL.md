@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G15
 
+### 2026-09-25: POP3 RFC 2449 RESP-CODES/IN-USE checkpoint
+
+- Объявленная `RESP-CODES` capability теперь подкреплена типизированным
+  `ResponseCode::InUse`: после успешной проверки пароля конфликт занятого
+  maildrop возвращает `-ERR [IN-USE] ...` через общий ограниченный wire encoder.
+- PASS: Windows Rust 1.97.1: 269 тестов, strict Clippy, fmt, diff и Python
+  syntax checks. Чистый Linux Docker Rust 1.97: strict Clippy и 309 тестов.
+  Независимый STLS acceptance проверил RESP-CODES до и после AUTH, успешную
+  первую maildrop lease и `[IN-USE]` при одновременном PASS второго клиента.
+- Сквозной тест также подтвердил POP3 line limits и точную 700-октетную RETR
+  строку после SMTP-доставки. Использованы `tests/blackbox/pop3_reply_lines.py`
+  и `./data/g15-pop3-resp-codes`; runtime контейнер удалён, постоянный
+  `litterkeep-g12-phone` сохранён.
+- Проверены только RESP-CODES/IN-USE и указанные wire-сценарии. Прочие коды,
+  расширения и POP3 состояния не объявляются полностью совместимыми; G15 RUNNING.
+
 ### 2026-09-25: POP3 RFC 1939/2449 response-line bound checkpoint
 
 - POP3 status-строки сериализуются с пределом 512 октетов вместе с CRLF;

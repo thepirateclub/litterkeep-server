@@ -27,6 +27,21 @@ def send(connection, stream, command, prefix, context):
     return line
 
 
+def read_capabilities(connection, stream, context):
+    connection.sendall(b"CAPA\r\n")
+    status = read_line(stream, f"{context} CAPA status")
+    if not status.startswith(b"+OK") or len(status) > 512:
+        raise AssertionError(f"invalid {context} CAPA status: {status!r}")
+    capabilities = []
+    while True:
+        line = read_line(stream, f"{context} CAPA line")
+        if len(line) > 512:
+            raise AssertionError(f"{context} CAPA line exceeds 512 octets")
+        if line == b".\r\n":
+            return capabilities
+        capabilities.append(line.rstrip(b"\r\n"))
+
+
 def deliver_long_line(tls_context):
     message = (
         b"From: alice@test\r\nTo: bob@test\r\nSubject: long POP3 line\r\n\r\n"
@@ -53,16 +68,9 @@ def pop3_round_trip(tls_context):
         connection = tls_context.wrap_socket(connection, server_hostname="localhost")
         stream = connection.makefile("rb")
 
-        connection.sendall(b"CAPA\r\n")
-        capa_status = read_line(stream, "CAPA status")
-        if not capa_status.startswith(b"+OK") or len(capa_status) > 512:
-            raise AssertionError(f"invalid CAPA status: {capa_status!r}")
-        while True:
-            line = read_line(stream, "CAPA line")
-            if len(line) > 512:
-                raise AssertionError(f"CAPA line exceeds 512 octets: {len(line)}")
-            if line == b".\r\n":
-                break
+        auth_capabilities = read_capabilities(connection, stream, "authorization")
+        if b"RESP-CODES" not in auth_capabilities:
+            raise AssertionError("RESP-CODES capability missing before authentication")
 
         send(connection, stream, b"USER bob\r\n", b"+OK", "USER")
         send(
@@ -97,7 +105,35 @@ def pop3_round_trip(tls_context):
             message_lines.append(line.removesuffix(b"\r\n"))
         if MESSAGE_LINE not in message_lines:
             raise AssertionError("RETR changed or rejected the 700-octet RFC message line")
+
+        transaction_capabilities = read_capabilities(connection, stream, "transaction")
+        if b"RESP-CODES" not in transaction_capabilities:
+            raise AssertionError("RESP-CODES capability missing after authentication")
+        verify_maildrop_in_use(tls_context)
         send(connection, stream, b"QUIT\r\n", b"+OK", "QUIT")
+    finally:
+        stream.close()
+        connection.close()
+
+
+def verify_maildrop_in_use(tls_context):
+    connection = socket.create_connection((HOST, POP3_PORT), timeout=15)
+    stream = connection.makefile("rb")
+    try:
+        read_line(stream, "second POP3 greeting")
+        send(connection, stream, b"STLS\r\n", b"+OK", "second STLS")
+        stream.close()
+        connection = tls_context.wrap_socket(connection, server_hostname="localhost")
+        stream = connection.makefile("rb")
+        read_capabilities(connection, stream, "second authorization")
+        send(connection, stream, b"USER bob\r\n", b"+OK", "second USER")
+        send(
+            connection,
+            stream,
+            f"PASS {os.environ['LITTERKEEP_BOB_PASSWORD']}\r\n".encode("ascii"),
+            b"-ERR [IN-USE] ",
+            "RFC 2449 locked maildrop response",
+        )
     finally:
         stream.close()
         connection.close()
@@ -109,7 +145,7 @@ def main():
     tls_context.verify_mode = ssl.CERT_NONE
     deliver_long_line(tls_context)
     pop3_round_trip(tls_context)
-    print("PASS pop3-reply-lines: status/list lines bounded at 512; 700-octet RETR body line preserved")
+    print("PASS POP3: bounded lines, 700-octet RETR, RESP-CODES and IN-USE")
 
 
 if __name__ == "__main__":

@@ -33,7 +33,10 @@ pub(super) fn write(
         (Pending::Pop3Authenticate { account }, Response::Authenticated { accepted: true, .. }) => {
             match maildrops.owns(&account, slot, generation) {
                 true => Ok(()),
-                false => session.push(b"-ERR maildrop is locked\r\n"),
+                false => pop3_protocol::write_reply(
+                    session,
+                    pop3::Reply::ErrorCode(pop3::ResponseCode::InUse, "maildrop is locked"),
+                ),
             }
         }
         (

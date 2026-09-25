@@ -13,11 +13,17 @@ enum Phase {
 pub enum Reply {
     Ok(String),
     Error(&'static str),
+    ErrorCode(ResponseCode, &'static str),
     Multiline(Vec<u8>),
     Message(Vec<u8>),
     Authenticate { username: String, password: String },
     CommitDeletes(Vec<u64>),
     StartTls,
+}
+
+/// Стандартизованный RFC 2449 код причины POP3-ошибки.
+pub enum ResponseCode {
+    InUse,
 }
 #[derive(Default)]
 pub struct Session {

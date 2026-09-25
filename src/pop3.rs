@@ -15,7 +15,7 @@ mod session;
 
 pub use command::{Command, MAX_COMMAND_LINE_SIZE, parse};
 pub use maildrop::Maildrop;
-pub use session::{Reply, Session};
+pub use session::{Reply, ResponseCode, Session};
 
 #[cfg(test)]
 #[path = "pop3/tests.rs"]

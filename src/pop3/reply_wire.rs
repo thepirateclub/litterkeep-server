@@ -1,6 +1,6 @@
 //! Сериализация ответов POP3 с проверкой границ строк RFC 1939 и RFC 2449.
 
-use super::Reply;
+use super::{Reply, ResponseCode};
 
 /// Максимум status/capability строки POP3 вместе с CRLF по RFC 2449.
 pub(crate) const MAX_REPLY_LINE_SIZE: usize = 512;
@@ -11,10 +11,19 @@ pub(crate) fn encode_reply(reply: Reply) -> Option<Vec<u8>> {
     match reply {
         Reply::Ok(text) => Some(single_line(b"+OK ", &text)),
         Reply::Error(text) => Some(single_line(b"-ERR ", text)),
+        Reply::ErrorCode(code, text) => Some(extended_error(code, text)),
         Reply::Multiline(bytes) => Some(bounded_multiline(bytes)),
         Reply::Message(bytes) => Some(message_multiline(bytes)),
         Reply::Authenticate { .. } | Reply::CommitDeletes(_) | Reply::StartTls => None,
     }
+}
+
+/// Формирует расширенный -ERR через типизированный код причины.
+fn extended_error(code: ResponseCode, text: &str) -> Vec<u8> {
+    let prefix = match code {
+        ResponseCode::InUse => b"-ERR [IN-USE] ".as_slice(),
+    };
+    single_line(prefix, text)
 }
 
 /// Ограничивает однострочный статус после формирования финальных UTF-8 bytes.

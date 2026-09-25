@@ -53,3 +53,12 @@ fn action_replies_are_not_serialized_as_wire_text() {
     };
     assert_eq!(encode_reply(action), None);
 }
+
+#[test]
+fn in_use_response_code_is_serialized_as_a_bounded_rfc_2449_error() {
+    let reply = Reply::ErrorCode(ResponseCode::InUse, "maildrop is locked");
+    assert_eq!(
+        encode_reply(reply),
+        Some(b"-ERR [IN-USE] maildrop is locked\r\n".to_vec())
+    );
+}
