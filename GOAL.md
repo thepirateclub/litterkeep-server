@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 5228 same-mailbox delivery checkpoint
+
+- Добавлен Store-level regression: два одинаковых `fileinto` не дают runtime
+  error, создают одну mailbox entry и переживают reopen. Независимый acceptance
+  исполняет два одинаковых `fileinto :copy`; IMAP reader требует ровно одно
+  сообщение в INBOX и `Invoices` и сравнивает полные RFC822 bytes.
+- PASS: Windows Rust 1.97, 336 тестов, strict Clippy, fmt, diff check и Python
+  compile. Linux Docker Rust 1.97, strict Clippy и 376 тестов. Независимый
+  ManageSieve -> SMTP -> IMAP acceptance в `./data/g17-sieve-same-mailbox`
+  исполнил повторный `fileinto :copy`, потребовал ровно одно сообщение в INBOX
+  и `Invoices` и подтвердил равенство полных RFC822 bytes. Временный контейнер
+  удалён, `litterkeep-g12-phone` сохранён. Litterkeep app integration не
+  проверялась. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 3894 Sieve copy checkpoint
 
 - Реализованы `fileinto :copy` и `redirect :copy` с typed actions, обязательным

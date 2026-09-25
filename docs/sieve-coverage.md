@@ -14,6 +14,12 @@ keep. Unit tests проверяют capability gating и взаимодейст�
 `redirect :copy` проверен только Sieve DeliveryPlan; внешний SMTP acceptance
 redirect остаётся непроверенным. Правило сверено с RFC 3894 §3.
 
+Повторный `fileinto` в одну папку не считается ошибкой и не создаёт второго
+экземпляра письма согласно RFC 5228 §2.10.3. Store-level regression проверяет
+сохранение единственной ссылки после restart; независимый ManageSieve -> SMTP
+-> IMAP acceptance исполняет два одинаковых `fileinto :copy`, читает обе
+папки и сверяет точные RFC822 bytes.
+
 ## RFC 5230 vacation: не реализовано
 
 `vacation` пока не входит в поддерживаемый профиль и не объявляется в

@@ -21,6 +21,25 @@ fn invoice_plan_delivers_to_invoices_and_default_goes_to_inbox() {
     close(root, store);
 }
 
+/// RFC 5228 §2.10.3: повторная цель fileinto не дублирует mailbox delivery.
+#[test]
+fn repeated_fileinto_to_the_same_mailbox_is_not_an_error_or_duplicate() {
+    let root = directory();
+    let mut store = Store::open(&root).expect("open");
+    activate(
+        &mut store,
+        "duplicate-folder",
+        "require \"fileinto\"; fileinto \"Invoices\"; fileinto \"Invoices\";",
+    );
+    deliver(&mut store, b"Subject: duplicate folder\r\n\r\nbody");
+    assert_eq!(folder_count(&mut store, "Invoices"), 1);
+    assert_eq!(folder_count(&mut store, "INBOX"), 0);
+    drop(store);
+    let mut store = Store::open(&root).expect("reopen");
+    assert_eq!(folder_count(&mut store, "Invoices"), 1);
+    close(root, store);
+}
+
 #[test]
 fn redirect_cancels_implicit_keep_and_preserves_envelope_sender() {
     let root = directory();

@@ -165,7 +165,7 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
                     'header :contains "subject" "café☃", '.encode("utf-8"),
                     b'header :matches "subject" "invoice\\\\**", ',
                     b'address :comparator "i;ascii-casemap" :detail :is "to" "invoices", envelope :is "to" "bob@litterkeep.test", size :over 1) ',
-                    b'{ fileinto :copy "Invoices"; stop; }',
+                    b'{ fileinto :copy "Invoices"; fileinto :copy "Invoices"; stop; }',
                 ]
             )
             source = first_chunk + second_chunk
