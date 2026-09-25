@@ -1,5 +1,6 @@
 //! Рекурсивное MIME-дерево с абсолютными диапазонами исходного RFC822.
 
+use super::content_metadata::ContentMetadata;
 use super::disposition::Disposition;
 use super::header_block::{self, HeaderField};
 use super::language_tag::LanguageTag;
@@ -41,6 +42,8 @@ pub struct Entity {
     pub parameter_languages: BTreeMap<String, LanguageTag>,
     /// Валидный Content-Disposition для расширенной IMAP BODYSTRUCTURE.
     pub disposition: Option<Disposition>,
+    /// Языковые метки и URI для IMAP extension-полей MIME body.
+    pub content_metadata: ContentMetadata,
     pub transfer_encoding: TransferEncoding,
     pub children: Vec<Entity>,
     pub preamble_range: Option<Range<usize>>,
@@ -78,6 +81,7 @@ fn parse_entity(
     let headers = header_block::parse(raw)?;
     let mut structured = content_type::parse(&headers.fields, default_media_type)?;
     let disposition = parse_disposition(&headers.fields);
+    let content_metadata = super::content_metadata::parse(&headers.fields);
     let transfer_encoding = transfer_policy::resolve(&headers.fields, &structured.media_type)?;
     // RFC 2045 §6.4 делает entity с неизвестным CTE непрозрачной для
     // MIME-интерпретации: фактический тип становится application/octet-stream.
@@ -144,6 +148,7 @@ fn parse_entity(
         parameters: structured.parameters,
         parameter_languages: structured.parameter_languages,
         disposition,
+        content_metadata,
         transfer_encoding,
         children,
         preamble_range,

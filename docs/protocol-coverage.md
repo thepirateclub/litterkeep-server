@@ -81,9 +81,15 @@ IDLE/DONE и durable Recent. UIDVALIDITY и UID переживают restart.
 `BODYSTRUCTURE` включает корректный RFC 2183 Content-Disposition extension
 после body-MD5 placeholder для scalar/message частей и после subtype для
 multipart. Параметры включая RFC 2231 filename декодируются общим MIME parser-ом;
-невалидное или повторное поле не экспортируется. Проверки unit-only; Content-
-Language, Content-Location и другие protocol extension fields остаются
-непокрытыми.
+невалидное или повторное поле не экспортируется. `Content-Language` сохраняет
+один или несколько структурно корректных BCP 47 tags; `Content-Location`
+сохраняется как непустой unfolded URI-текст без percent-decoding. URI grammar
+не валидируется. Поля сериализуются строго после disposition в RFC 9051 порядке.
+`BODY` использует отдельный basic encoder и не получает extension fields.
+Независимый STARTTLS `imaplib` acceptance сравнил wire-ответы `BODY` и
+`BODYSTRUCTURE`: первый не содержит extensions, второй содержит language,
+location и RFC 2231 attachment filename. Content-ID, Content-Description и
+прочие protocol fields остаются непокрытыми.
 `BODY` поддерживает полное сообщение, HEADER/TEXT, HEADER.FIELDS/NOT, числовые
 MIME paths, вложенный `message/rfc822` и partial ranges; durable `\\Seen`
 различает BODY/RFC822, PEEK и EXAMINE. `NAMESPACE`, `UNSELECT` и `ENABLE`

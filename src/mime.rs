@@ -8,6 +8,8 @@ pub use base64::{decode_base64, decode_mime_base64};
 pub mod bodystructure;
 #[path = "mime/charset.rs"]
 pub mod charset;
+#[path = "mime/content_metadata.rs"]
+pub mod content_metadata;
 #[path = "mime/disposition.rs"]
 pub mod disposition;
 #[path = "mime/encoded_word.rs"]

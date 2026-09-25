@@ -1,21 +1,56 @@
 //! Формирование базового IMAP BODYSTRUCTURE из собственного MIME-дерева.
 
+#[path = "bodystructure_extensions.rs"]
+mod extensions;
+#[cfg(test)]
+#[path = "bodystructure_profile_tests.rs"]
+mod profile_tests;
+
 use super::parameters::MediaType;
 use super::tree::Entity;
 use std::collections::BTreeMap;
 
 /// Кодирует структуру, используя размеры исходных encoded body в октетах.
 pub fn encode(entity: &Entity, message: &[u8]) -> Result<String, &'static str> {
+    encode_basic(entity, message)
+}
+
+/// Кодирует BODY без расширенных параметров IMAP.
+pub fn encode_basic(entity: &Entity, message: &[u8]) -> Result<String, &'static str> {
+    encode_in_profile(entity, message, Profile::Basic)
+}
+
+/// Кодирует BODYSTRUCTURE с RFC 9051 extension fields.
+pub fn encode_extended(entity: &Entity, message: &[u8]) -> Result<String, &'static str> {
+    encode_in_profile(entity, message, Profile::Extended)
+}
+
+/// Различает wire-форму BODY от BODYSTRUCTURE без флага-предиката.
+#[derive(Clone, Copy)]
+enum Profile {
+    Basic,
+    Extended,
+}
+
+fn encode_in_profile(
+    entity: &Entity,
+    message: &[u8],
+    profile: Profile,
+) -> Result<String, &'static str> {
     match &entity.media_type {
-        MediaType::MessageRfc822 => encode_message(entity, message),
+        MediaType::MessageRfc822 => encode_message(entity, message, profile),
         _ => match entity.children.is_empty() {
-            true => encode_leaf(entity, message),
-            false => encode_multipart(entity, message),
+            true => encode_leaf(entity, message, profile),
+            false => encode_multipart(entity, message, profile),
         },
     }
 }
 
-fn encode_message(entity: &Entity, message: &[u8]) -> Result<String, &'static str> {
+fn encode_message(
+    entity: &Entity,
+    message: &[u8],
+    profile: Profile,
+) -> Result<String, &'static str> {
     let body = message
         .get(entity.body_range.clone())
         .ok_or("message/rfc822 range is outside message")?;
@@ -24,18 +59,18 @@ fn encode_message(entity: &Entity, message: &[u8]) -> Result<String, &'static st
         .first()
         .ok_or("message/rfc822 child is absent")?;
     let envelope = super::envelope::encode(body)?;
-    let nested_structure = encode(nested, message)?;
+    let nested_structure = encode_in_profile(nested, message, profile)?;
     Ok(format!(
         "(\"MESSAGE\" \"RFC822\" {} NIL NIL \"{}\" {} {envelope} {nested_structure} {}{})",
         encode_parameters(&entity.parameters)?,
         escaped_atom(entity.transfer_encoding.wire_name())?,
         body.len(),
         line_count(body),
-        encode_disposition_extension(entity)?
+        encode_extensions(entity, extensions::Anchor::BodyMd5, profile)?
     ))
 }
 
-fn encode_leaf(entity: &Entity, message: &[u8]) -> Result<String, &'static str> {
+fn encode_leaf(entity: &Entity, message: &[u8], profile: Profile) -> Result<String, &'static str> {
     let body = message
         .get(entity.body_range.clone())
         .ok_or("BODYSTRUCTURE range is outside message")?;
@@ -52,34 +87,46 @@ fn encode_leaf(entity: &Entity, message: &[u8]) -> Result<String, &'static str> 
         MediaType::TextPlain | MediaType::TextHtml | MediaType::TextOther(_) => Ok(format!(
             "{base} {}{})",
             line_count(body),
-            encode_disposition_extension(entity)?
+            encode_extensions(entity, extensions::Anchor::BodyMd5, profile)?
         )),
-        _ => Ok(format!("{base}{})", encode_disposition_extension(entity)?)),
+        _ => Ok(format!(
+            "{base}{})",
+            encode_extensions(entity, extensions::Anchor::BodyMd5, profile)?
+        )),
     }
 }
 
-fn encode_multipart(entity: &Entity, message: &[u8]) -> Result<String, &'static str> {
+fn encode_multipart(
+    entity: &Entity,
+    message: &[u8],
+    profile: Profile,
+) -> Result<String, &'static str> {
     let mut output = String::from("(");
     for child in &entity.children {
-        output.push_str(&encode(child, message)?);
+        output.push_str(&encode_in_profile(child, message, profile)?);
     }
     let (_, subtype) = entity.media_type.type_and_subtype();
     output.push_str(&format!(
         " \"{}\"{})",
         escaped_atom(subtype)?,
-        encode_disposition_extension(entity)?
+        encode_extensions(entity, extensions::Anchor::MultipartParameters, profile)?
     ));
     Ok(output)
 }
 
-/// Размещает disposition после обязательного NIL body-MD5 extension slot.
-fn encode_disposition_extension(entity: &Entity) -> Result<String, &'static str> {
-    match &entity.disposition {
-        Some(value) => Ok(format!(
-            " NIL {}",
-            super::disposition::encode_bodystructure(value)?
-        )),
-        None => Ok(String::new()),
+/// Добавляет extension suffix только в BODYSTRUCTURE, не в BODY.
+fn encode_extensions(
+    entity: &Entity,
+    anchor: extensions::Anchor,
+    profile: Profile,
+) -> Result<String, &'static str> {
+    match profile {
+        Profile::Basic => Ok(String::new()),
+        Profile::Extended => extensions::encode(
+            anchor,
+            entity.disposition.as_ref(),
+            &entity.content_metadata,
+        ),
     }
 }
 
@@ -161,7 +208,7 @@ mod tests {
         let entity = super::super::tree::parse(raw).expect("multipart digest");
 
         assert_eq!(
-            encode(&entity, raw).expect("BODYSTRUCTURE"),
+            encode_extended(&entity, raw).expect("BODYSTRUCTURE"),
             "((\"MESSAGE\" \"RFC822\" NIL NIL NIL \"7BIT\" 31 (NIL \"nested\" NIL NIL NIL NIL NIL NIL NIL NIL) (\"TEXT\" \"PLAIN\" NIL NIL NIL \"7BIT\" 12 0) 2) \"DIGEST\")"
         );
     }
@@ -172,7 +219,7 @@ mod tests {
         let entity = super::super::tree::parse(raw).expect("opaque entity");
 
         assert_eq!(
-            encode(&entity, raw).expect("BODYSTRUCTURE"),
+            encode_extended(&entity, raw).expect("BODYSTRUCTURE"),
             "(\"APPLICATION\" \"OCTET-STREAM\" NIL NIL NIL \"x-private\" 6)"
         );
     }
@@ -183,7 +230,7 @@ mod tests {
         let entity = super::super::tree::parse(raw).expect("MIME entity");
 
         assert_eq!(
-            encode(&entity, raw).expect("BODYSTRUCTURE"),
+            encode_extended(&entity, raw).expect("BODYSTRUCTURE"),
             "(\"application\" \"pdf\" NIL NIL NIL \"7BIT\" 3 NIL (\"attachment\" (\"FILENAME\" \"report Q1.pdf\")))"
         );
     }
@@ -194,7 +241,7 @@ mod tests {
         let entity = super::super::tree::parse(raw).expect("multipart entity");
 
         assert_eq!(
-            encode(&entity, raw).expect("BODYSTRUCTURE"),
+            encode_extended(&entity, raw).expect("BODYSTRUCTURE"),
             "((\"TEXT\" \"PLAIN\" NIL NIL NIL \"7BIT\" 4 0) \"MIXED\" NIL (\"inline\" NIL))"
         );
     }
@@ -205,9 +252,44 @@ mod tests {
         let entity = super::super::tree::parse(raw).expect("message entity");
 
         assert!(
-            encode(&entity, raw)
+            encode_extended(&entity, raw)
                 .expect("BODYSTRUCTURE")
                 .ends_with(" 2 NIL (\"attachment\" (\"FILENAME\" \"forwarded.eml\")))")
+        );
+    }
+
+    #[test]
+    fn language_and_location_extensions_follow_disposition_in_rfc_order() {
+        let raw = b"Content-Type: application/pdf\r\nContent-Disposition: attachment\r\nContent-Language: en-US, fr\r\nContent-Location: ../files/report%20one.pdf\r\n\r\npdf";
+        let entity = super::super::tree::parse(raw).expect("MIME entity");
+
+        assert_eq!(
+            encode_extended(&entity, raw).expect("BODYSTRUCTURE"),
+            "(\"application\" \"pdf\" NIL NIL NIL \"7BIT\" 3 NIL (\"attachment\" NIL) (\"en-US\" \"fr\") \"../files/report%20one.pdf\")"
+        );
+    }
+
+    #[test]
+    fn location_only_fills_disposition_and_language_slots_with_nil() {
+        let raw =
+            b"Content-Type: application/octet-stream\r\nContent-Location: ./part.bin\r\n\r\nx";
+        let entity = super::super::tree::parse(raw).expect("MIME entity");
+
+        assert_eq!(
+            encode_extended(&entity, raw).expect("BODYSTRUCTURE"),
+            "(\"APPLICATION\" \"OCTET-STREAM\" NIL NIL NIL \"7BIT\" 1 NIL NIL NIL \"./part.bin\")"
+        );
+    }
+
+    #[test]
+    fn multipart_language_and_location_use_parameters_as_first_extension() {
+        let raw = b"Content-Type: multipart/mixed; boundary=x\r\nContent-Language: en\r\nContent-Location: https://example.test/mail/\r\n\r\n--x\r\n\r\nbody\r\n--x--\r\n";
+        let entity = super::super::tree::parse(raw).expect("multipart entity");
+
+        assert!(
+            encode_extended(&entity, raw)
+                .expect("BODYSTRUCTURE")
+                .ends_with(" \"MIXED\" NIL NIL \"en\" \"https://example.test/mail/\")")
         );
     }
 }

@@ -58,6 +58,7 @@ T56	PASS	server-protocol	Independent STARTTLS ManageSieve CHECKSCRIPT validates 
 T57	PASS	unit	RFC 2231 preserves syntax-validated BCP 47 language metadata in MIME tree; omitted charset accepts ASCII payload only; IANA registry validity is not claimed
 T58	PASS	unit	RFC 2231 section 5 encoded-word charset*language suffix is parsed into typed metadata; malformed language keeps the raw header token visible
 T59	PASS	unit	IMAP BODYSTRUCTURE serializes valid RFC 2183 Content-Disposition and decoded RFC 2231 parameters in leaf, message and multipart extension slots; malformed or duplicate headers are omitted
+T60	PASS	server-protocol	Independent Python imaplib STARTTLS fetch proves BODY excludes extensions while BODYSTRUCTURE returns RFC 2183 disposition, RFC 3282 language list, RFC 2557 locations and decoded RFC 2231 filename; URI grammar remains unvalidated
 R01	PASS	runtime	orchestrator transfer and registry ownership tests
 R02	PASS	runtime	exclusive resource double-acquire test
 R03	PASS	runtime	timeout keeps live lease occupied

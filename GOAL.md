@@ -4655,9 +4655,13 @@ ManageSieve до заявленного набора современных фо
 - MIME tree сохраняет единственное корректное Content-Disposition в typed
   модели. Расширение BODYSTRUCTURE выдаёт RFC 2183 disposition token и
   нормализованные параметры, включая RFC 2231 filename, в разных extension
-  slots leaf, multipart и message/rfc822. BODY projection не менялась.
+  slots leaf, multipart и message/rfc822. Network comparison BODY labels на
+  том этапе не выполнялся.
 - Некорректное или повторное optional поле не ломает доступность письма и не
   попадает в структуру; исходный заголовок остаётся в raw MIME headers.
+- Последующая проверка wiring выявила общий encoder для `BODY` и
+  `BODYSTRUCTURE`; добавленные extensions могли утечь в basic `BODY`. Профили
+  разведены и отдельно проверены следующим checkpoint ниже.
 - PASS: Rust 1.97.1 Windows `cargo test --all-targets --locked` (427 library
   tests + 1 binary test), strict Clippy, `cargo fmt --check`, `git diff --check`
   и аудит лимита в 300 строк. Linux Docker test target: 467 library tests,
@@ -4666,3 +4670,24 @@ ManageSieve до заявленного набора современных фо
   RFC 9051 fields.
 - G14 остаётся RUNNING: полный IMAP4rev2 grammar и расширенные BODYSTRUCTURE
   language/location поля ещё не подтверждены.
+
+### 2026-09-25: G14 BODYSTRUCTURE language and location checkpoint
+
+- MIME entity теперь сохраняет единственное Content-Language поле как список
+  структурно проверенных BCP 47 tags и единственное Content-Location как
+  непустой unfolded текст. URI grammar и registry membership не проверяются;
+  percent-encoded URI не преобразуется.
+- BODYSTRUCTURE сериализует Content-Disposition, language list и location в
+  RFC 9051 порядке с нужными NIL placeholders. Basic BODY и extended
+  BODYSTRUCTURE теперь выбирают разные typed profiles; regression подтверждает,
+  что MIME extensions не попадают в BODY.
+- PASS: Rust 1.97.1 Windows `cargo test --all-targets --locked` (436 library
+  tests + 1 binary test), strict Clippy, `cargo fmt --check` и `git diff --check`.
+  Linux Docker Rust 1.97 test target: 477 library tests, 1 binary test,
+  doc-tests, strict Clippy и release build. Независимый Python `imaplib`
+  STARTTLS-клиент подтвердил разные wire-проекции `BODY`/`BODYSTRUCTURE`,
+  language, location и RFC 2231 filename. Временный runtime/test контейнеры и
+  image tags удалены; `litterkeep-g12-phone` сохранён. Content-ID и
+  Content-Description basic fields и прочие RFC gaps остаются открытыми.
+- G14 остаётся RUNNING: этот unit-only checkpoint не закрывает полный IMAP4rev2
+  grammar или все MIME body fields.
