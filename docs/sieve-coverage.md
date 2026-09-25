@@ -107,8 +107,11 @@ CHECKSCRIPT для корректных 7bit, quoted-printable и Base64 entitie
 октетов; Base64/QP требуют CRLF, разрешённые encoded octets и строки максимум
 76 символов. QP также запрещает незакодированные завершающие пробелы и табы.
 Unit cases проверяют обе границы строк, NUL, bare LF и пробел перед soft break.
-Сетевой клиент также проверяет успешную передачу CRLF в Sieve MIME string; он
-не подтверждает все граничные длины строк, которые остаются unit-only.
+Независимый ManageSieve CHECKSCRIPT также принимает корректный soft break и
+отвергает malformed hex escape, незакодированные завершающие SP/HTAB и
+whitespace перед soft break. Эти cases проверяют end-to-end парсер Sieve,
+валидатор MIME и wire response, но не все граничные длины строк, которые
+остаются unit-only.
 
 RFC 2045 §6.4: encoded transfer forbidden for composite `multipart/*` and
 `message/*`. Validator разбирает `Content-Type` в typed media type, отвергает

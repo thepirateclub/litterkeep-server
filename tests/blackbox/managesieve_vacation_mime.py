@@ -6,6 +6,7 @@ import base64
 import os
 import socket
 import ssl
+from pathlib import Path
 
 
 def require(condition: bool, message: str) -> None:
@@ -70,7 +71,10 @@ def run(options: argparse.Namespace) -> None:
         require(command(raw, b"STARTTLS\r\n") == b'OK "begin TLS"\r\n', "STARTTLS отклонён")
         with context.wrap_socket(raw, server_hostname="localhost") as client:
             read_until(client, b'OK "ready"\r\n')
-            credentials = b"\x00" + options.username.encode() + b"\x00" + options.password.encode()
+            password = options.password
+            if options.credentials is not None:
+                password = password_for(options.credentials, options.username)
+            credentials = b"\x00" + options.username.encode() + b"\x00" + password.encode()
             encoded = base64.b64encode(credentials)
             authentication = b'AUTHENTICATE "PLAIN" "' + encoded + b'"\r\n'
             client.sendall(authentication)
@@ -88,6 +92,51 @@ def run(options: argparse.Namespace) -> None:
                     b"Content-Type: text/plain\r\n\r\nAway\r\n"
                 ),
                 True,
+            )
+            check_script(
+                client,
+                vacation_script(
+                    b"Content-Type: text/plain\r\n"
+                    b"Content-Transfer-Encoding: quoted-printable\r\n\r\n"
+                    b"soft=\r\nbreak\r\n"
+                ),
+                True,
+            )
+            check_script(
+                client,
+                vacation_script(
+                    b"Content-Type: text/plain\r\n"
+                    b"Content-Transfer-Encoding: quoted-printable\r\n\r\n"
+                    b"bad=QZ\r\n"
+                ),
+                False,
+            )
+            check_script(
+                client,
+                vacation_script(
+                    b"Content-Type: text/plain\r\n"
+                    b"Content-Transfer-Encoding: quoted-printable\r\n\r\n"
+                    b"trailing-space \r\n"
+                ),
+                False,
+            )
+            check_script(
+                client,
+                vacation_script(
+                    b"Content-Type: text/plain\r\n"
+                    b"Content-Transfer-Encoding: quoted-printable\r\n\r\n"
+                    b"trailing-tab\t\r\n"
+                ),
+                False,
+            )
+            check_script(
+                client,
+                vacation_script(
+                    b"Content-Type: text/plain\r\n"
+                    b"Content-Transfer-Encoding: quoted-printable\r\n\r\n"
+                    b"soft-break-space =\r\ncontinued\r\n"
+                ),
+                False,
             )
             check_script(
                 client,
@@ -120,6 +169,51 @@ def run(options: argparse.Namespace) -> None:
                     b"Content-Transfer-Encoding: quoted-printable\r\n\r\nOl=E1\r\n"
                 ),
                 True,
+            )
+            check_script(
+                client,
+                vacation_script(
+                    b"Content-Type: text/plain\r\n"
+                    b"Content-Transfer-Encoding: quoted-printable\r\n\r\n"
+                    b"soft=\r\nbreak\r\n"
+                ),
+                True,
+            )
+            check_script(
+                client,
+                vacation_script(
+                    b"Content-Type: text/plain\r\n"
+                    b"Content-Transfer-Encoding: quoted-printable\r\n\r\n"
+                    b"bad=QZ\r\n"
+                ),
+                False,
+            )
+            check_script(
+                client,
+                vacation_script(
+                    b"Content-Type: text/plain\r\n"
+                    b"Content-Transfer-Encoding: quoted-printable\r\n\r\n"
+                    b"trailing-space \r\n"
+                ),
+                False,
+            )
+            check_script(
+                client,
+                vacation_script(
+                    b"Content-Type: text/plain\r\n"
+                    b"Content-Transfer-Encoding: quoted-printable\r\n\r\n"
+                    b"trailing-tab\t\r\n"
+                ),
+                False,
+            )
+            check_script(
+                client,
+                vacation_script(
+                    b"Content-Type: text/plain\r\n"
+                    b"Content-Transfer-Encoding: quoted-printable\r\n\r\n"
+                    b"soft-break-space =\r\ncontinued\r\n"
+                ),
+                False,
             )
             check_script(
                 client,
@@ -165,7 +259,19 @@ def main() -> None:
     parser.add_argument("--ca", required=True)
     parser.add_argument("--username", default="bob")
     parser.add_argument("--password", default=os.environ.get("LITTERKEEP_BOB_PASSWORD", "bob-password"))
+    parser.add_argument("--credentials", type=Path)
     run(parser.parse_args())
+
+
+def password_for(path: Path, username: str) -> str:
+    """Читает пароль тестового аккаунта из локального bootstrap-файла."""
+    for line in path.read_text(encoding="utf-8").splitlines():
+        match line.split("\t", maxsplit=1):
+            case [account, password] if account == username:
+                return password
+            case _:
+                continue
+    raise AssertionError(f"missing test account: {username}")
 
 
 if __name__ == "__main__":

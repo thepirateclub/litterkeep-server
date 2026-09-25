@@ -261,9 +261,11 @@ DATA. Проверка существующего Litterkeep клиента и �
 §6.7 для robust decoder. Генераторский Sieve `:mime` validator использует
 отдельный strict путь и malformed escape отвергает. Независимый SMTP STARTTLS
 клиент передал `=G1` и неполный `=A`, а IMAP STARTTLS BINARY.PEEK подтвердил
-точные декодированные octets с сохранёнными escape. Отдельный сетевой отказ
-ManageSieve CHECKSCRIPT для malformed quoted-printable не проверялся; strict
-путь подтверждён unit-тестами.
+точные декодированные octets с сохранёнными escape. Независимый ManageSieve
+CHECKSCRIPT также принял корректный quoted-printable soft break и отверг
+malformed hex escape, незакодированные завершающие SP/HTAB и whitespace перед
+soft break. Полные RFC 2045 quoted-printable interoperability cases не
+покрыты.
 `7bit` и `8bit` CTE проверяют профиль RFC 2045 §§2.7-2.8: не более 998
 октетов между CRLF, отсутствие NUL и одиночных CR/LF; `7bit` дополнительно
 отвергает high-bit octets, `8bit` их сохраняет. `binary` остаётся прозрачным.

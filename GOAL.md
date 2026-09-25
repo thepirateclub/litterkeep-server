@@ -4,6 +4,18 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 Sieve vacation MIME quoted-printable network checks, PARTIAL
+
+- Расширен независимый ManageSieve CHECKSCRIPT acceptance: валидный QP soft
+  break принимается; malformed hex escape, незакодированные завершающие SP и
+  HTAB и whitespace перед soft break отвергаются на wire-протоколе.
+- PASS: Linux Rust 1.97 test-stage image использовал закэшированные успешные
+  release build, strict Clippy и 552 library + 1 binary tests; независимый
+  CHECKSCRIPT прошёл с credentials fixture `./data/g17-managesieve-capabilities`.
+  Image tag и созданный контейнер удалены, данные оставлены. Это проверяет
+  собственный сервер, не клиент Litterkeep и не полный MIME interoperability.
+  G17 остаётся ACTIVE.
+
 ### 2026-09-25: G17 ManageSieve RFC 5804 TLS capability transitions, PARTIAL
 
 - ManageSieve capabilities now reflect the security state: before STARTTLS
