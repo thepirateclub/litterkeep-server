@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 2047 encoded-text grammar checkpoint
+
+- Encoded-word decoder проверяет RFC 2047 `encoded-text` до B/Q decoding:
+  допускаются только непустые печатные ASCII octets, кроме SP и `?`. Пустой
+  B/Q payload, raw whitespace/control и raw non-ASCII отклоняются; encoded Q
+  octet вида `=01` остаётся валидным. Невалидное слово в header projection
+  остаётся видимым исходным текстом.
+- PASS: Windows Rust 1.97.1 `cargo fmt --check`, `cargo test --all-targets
+  --locked` (373 библиотечных теста, 1 тест бинаря), strict Clippy и
+  `git diff --check`. Docker Linux Rust 1.97.1 release build, strict Clippy,
+  414 библиотечных тестов, 1 тест бинаря и doc-tests.
+- Новые grammar проверки unit-only, без независимого сетевого клиента.
+  `docker ps -a` сохранил только `litterkeep-g12-phone`; сборочный test-stage
+  автоматически удаляет временный build container.
+- RFC 2047 phrase-context restrictions для Q punctuation пока не проверяются
+  общим decoder-ом, так как его API не получает синтаксический контекст.
+  G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 Windows-1252 MIME charset checkpoint
 
 - Добавлен отдельный типизированный профиль IANA `windows-1252`: декодируются

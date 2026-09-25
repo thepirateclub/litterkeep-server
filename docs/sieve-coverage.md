@@ -196,8 +196,12 @@ Sieve `header` декодирует RFC 2047 encoded-word общей MIME-дек
 сравнения в UTF-8 и игнорирует ведущие/завершающие SP и HTAB по RFC 5228 §5.7.
 Unit покрывает ISO-8859-1 и UTF-8 encoded-word и краевые пробелы; независимая
 ManageSieve -> SMTP -> IMAP acceptance отправляет encoded UTF-8 Subject и
-проверяет его Unicode-сопоставление при выборе папки. Общий header parser
-также игнорирует SP/HTAB между field-name и `:`, как требует §2.4.2.2;
+проверяет его Unicode-сопоставление при выборе папки. RFC 2047 decoder также
+требует непустой `encoded-text` из печатных ASCII octets без SP
+и `?`; Q-escape `=01` остаётся допустимым encoded octet. Unit tests покрывают
+raw whitespace/control/non-ASCII и сохранение повреждённого слова в header
+projection; новые grammar cases отдельно по сети не проверялись. Общий header
+parser также игнорирует SP/HTAB между field-name и `:`, как требует §2.4.2.2;
 сетевой тест подтверждает, что `Subject \t:` маршрутизируется по Sieve, а IMAP
 FETCH возвращает исходный байтовый заголовок без переписывания. Header matcher
 принимает пустой ключ и различает `:contains` (пустая подстрока содержится в

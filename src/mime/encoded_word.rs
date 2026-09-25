@@ -21,14 +21,30 @@ pub fn decode(word: &str) -> Result<String, &'static str> {
     let charset = Charset::parse(sections.next().ok_or("missing encoded-word charset")?)?;
     let encoding = parse_encoding(sections.next().ok_or("missing encoded-word encoding")?)?;
     let encoded = sections.next().ok_or("missing encoded-word text")?;
-    if encoded.contains('?') {
-        return Err("question mark inside encoded-word text");
-    }
+    validate_encoded_text(encoded)?;
     let bytes = match encoding {
         TransferEncoding::Base64 => decode_base64(encoded.as_bytes())?,
         TransferEncoding::Q => decode_q(encoded.as_bytes())?,
     };
     charset.decode(&bytes)
+}
+
+/// Проверяет RFC 2047 encoded-text до передачи данных B/Q decoder-у.
+///
+/// Грамматика требует хотя бы один печатный ASCII octet и запрещает пробел и
+/// вопросительный знак. В частности, пустое слово не становится валидным
+/// только потому, что transfer decoder может вернуть пустое тело.
+fn validate_encoded_text(value: &str) -> Result<(), &'static str> {
+    match value.is_empty() {
+        true => Err("empty encoded-word text"),
+        false => match value
+            .bytes()
+            .all(|byte| (33..=126).contains(&byte) && byte != b'?')
+        {
+            true => Ok(()),
+            false => Err("invalid RFC 2047 encoded-text octet"),
+        },
+    }
 }
 
 /// Декодирует encoded-word только в позиции отдельного слова RFC 2047 phrase.
@@ -168,6 +184,30 @@ mod tests {
             "Привет"
         );
         assert!(decode("=?UTF-8?Q?bad=ZZ?=").is_err());
+    }
+
+    #[test]
+    fn rejects_empty_and_non_printable_encoded_text() {
+        for word in [
+            "=?UTF-8?B??=",
+            "=?UTF-8?Q??=",
+            "=?UTF-8?Q?white space?=",
+            "=?UTF-8?Q?tab\tinside?=",
+            "=?UTF-8?Q?\u{0001}?=",
+            "=?UTF-8?Q?\u{00e9}?=",
+        ] {
+            assert!(decode(word).is_err(), "accepted invalid word {word:?}");
+        }
+        assert_eq!(
+            decode("=?UTF-8?Q?control=01?=").expect("encoded octet"),
+            "control\u{0001}"
+        );
+    }
+
+    #[test]
+    fn invalid_word_remains_visible_in_header_projection() {
+        let word = "=?UTF-8?Q?tab\tinside?=";
+        assert_eq!(decode_header(word).expect("ordinary header text"), word);
     }
 
     #[test]
