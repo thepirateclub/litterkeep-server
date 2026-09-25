@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 5228 octet glob checkpoint
+
+- `:matches` теперь токенизирует pattern по UTF-8 octets: базовые
+  `i;octet`/`i;ascii-casemap` считают `?` одним octet, а `\*`/`\?` после
+  Sieve lexical unescape становятся буквальными wildcard-символами. Добавлены
+  matcher tests для многобайтного UTF-8, обоих comparator-ов и literal `*`;
+  составной Sieve test включает header, escaped glob, subaddress и fileinto.
+- PASS: Windows Rust 1.97.1, fmt, 321 тест, strict Clippy, Python compile и
+  diff check. Linux Docker Rust 1.97: strict Clippy и 361 тест. Независимый
+  ManageSieve -> SMTP -> IMAP acceptance с Subject `invoice* [invoice] paid`
+  активировал reordered script и доставил письмо в `Invoices`. Первый прогон
+  выявил неверный acceptance pattern без завершающего wildcard; исправленный
+  шаблон и весь acceptance прошли на новом чистом stage
+  `./data/g17-sieve-glob-octets-verified`. Контейнер удалён,
+  `litterkeep-g12-phone` сохранён. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 5228 address-test semantics checkpoint
 
 - Sieve `address` теперь игнорирует неадресные поля, поддерживает обязательные

@@ -82,6 +82,24 @@ fn octet_comparator_keeps_case_significant() {
     assert!(plan.keep);
 }
 
+#[test]
+fn matches_uses_octet_width_and_sieve_escaped_wildcards() {
+    let one = parse("if header :matches :comparator \"i;octet\" \"subject\" \"?\" { discard; }")
+        .expect("parse one octet wildcard");
+    let plan = execute(&one, &[("Subject".into(), "é".into())], 10).expect("execute");
+    assert!(plan.keep);
+
+    let two = parse("if header :matches :comparator \"i;octet\" \"subject\" \"??\" { discard; }")
+        .expect("parse two octet wildcards");
+    let plan = execute(&two, &[("Subject".into(), "é".into())], 10).expect("execute");
+    assert!(plan.discard);
+
+    let escaped = parse(r#"if header :matches "subject" "invoice\\*" { discard; }"#)
+        .expect("parse escaped wildcard");
+    let plan = execute(&escaped, &[("Subject".into(), "invoice*".into())], 10).expect("execute");
+    assert!(plan.discard);
+}
+
 /// Address-проекция отделяет plus-detail и использует тот же typed matcher.
 #[test]
 fn address_test_selects_detail_without_matching_another_recipient() {
@@ -151,13 +169,13 @@ fn address_test_includes_resent_address_fields() {
 #[test]
 fn combined_header_address_and_size_rule_matches_network_fixture() {
     let script = parse(
-        "require [\"fileinto\", \"subaddress\"]; if allof (header :contains \"subject\" \"[invoice]\", address :detail :is \"to\" \"invoices\", size :over 1) { fileinto \"Invoices\"; stop; }",
+        r#"require ["fileinto", "subaddress"]; if allof (header :contains "subject" "[invoice]", header :matches "subject" "invoice\\**", address :detail :is "to" "invoices", size :over 1) { fileinto "Invoices"; stop; }"#,
     )
     .expect("parse");
     let plan = execute(
         &script,
         &[
-            ("Subject".into(), "[invoice] paid".into()),
+            ("Subject".into(), "invoice* [invoice] paid".into()),
             ("To".into(), "bob+invoices@litterkeep.test".into()),
         ],
         100,

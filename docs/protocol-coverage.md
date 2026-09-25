@@ -266,7 +266,11 @@ MATCH-TYPE перед позиционными списками принимаю
 предписывает RFC 5228 §2.6.2; повтор одного такого аргумента отвергается.
 Unit-тест проверяет также фактическую case-sensitive семантику `i;octet`, а
 ManageSieve CHECKSCRIPT и SMTP -> Sieve -> IMAP acceptance проверяют grammar и
-исполнение reordered script. `address` использует общий RFC 5322 parser,
+исполнение reordered script. `:matches` сравнивает UTF-8 byte stream с width
+wildcard `?` в один octet для обязательных comparator-ов `i;octet` и
+`i;ascii-casemap`; `\*`/`\?` в Sieve string после lexical unescape становятся
+literal wildcard. Unit и SMTP -> Sieve -> IMAP acceptance проверяют эти правила
+по RFC 5228 §2.7.1. `address` использует общий RFC 5322 parser,
 проверяет только известные address-list поля (включая обязательные RFC 5228
 From/To/Cc/Bcc/Sender/Resent-From/Resent-To) и сравнивает mailbox внутри групп,
 не имя группы. SMTP -> Sieve -> IMAP acceptance доставляет письмо с group-form

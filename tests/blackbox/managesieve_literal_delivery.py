@@ -132,6 +132,7 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
             first_chunk = b'require ["fileinto", "subaddress"]; '
             second_chunk = (
                 b'if allof (header :contains "subject" "[invoice]", '
+                b'header :matches "subject" "invoice\\\\**", '
                 b'address :comparator "i;ascii-casemap" :detail :is "to" "invoices", size :over 1) '
                 b'{ fileinto "Invoices"; stop; }'
             )
@@ -199,7 +200,7 @@ def deliver(options: argparse.Namespace, context: ssl.SSLContext) -> None:
     message = EmailMessage()
     message["From"] = "alice@litterkeep.test"
     message["To"] = "Invoices: bob+invoices@litterkeep.test;"
-    message["Subject"] = "[invoice] paid"
+    message["Subject"] = "invoice* [invoice] paid"
     message.set_content("invoice body")
     with smtplib.SMTP(options.host, options.smtp_port, timeout=10) as client:
         client.ehlo()
