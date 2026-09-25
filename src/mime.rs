@@ -17,12 +17,17 @@ mod envelope_address_scan;
 pub mod header_block;
 #[path = "mime/parameters.rs"]
 pub mod parameters;
+#[cfg(test)]
+#[path = "mime/parameters_tests.rs"]
+mod parameters_tests;
 #[path = "mime/quoted_printable.rs"]
 pub mod quoted_printable;
 #[path = "mime/quoted_printable_encode.rs"]
 pub(crate) mod quoted_printable_encode;
 #[path = "mime/search_text.rs"]
 pub mod search_text;
+#[path = "mime/structured_comments.rs"]
+pub(crate) mod structured_comments;
 #[path = "mime/transfer.rs"]
 pub mod transfer;
 #[path = "mime/tree.rs"]

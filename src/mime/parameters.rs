@@ -54,9 +54,10 @@ struct Segment {
 
 /// Разбирает Content-Type или Content-Disposition без потери неизвестного типа.
 pub fn parse(input: &str) -> Result<StructuredValue, &'static str> {
-    let sections = split_sections(input)?;
+    let normalized = super::structured_comments::remove(input)?;
+    let sections = split_sections(&normalized)?;
     let mut iterator = sections.into_iter();
-    let media_type = parse_media_type(iterator.next().ok_or("missing MIME value")?.trim());
+    let media_type = parse_media_type(iterator.next().ok_or("missing MIME value")?.trim())?;
     let mut grouped: HashMap<String, Vec<Segment>> = HashMap::new();
     for section in iterator {
         let (raw_name, raw_value) = section.split_once('=').ok_or("parameter without value")?;
@@ -238,51 +239,61 @@ fn hex(byte: u8) -> Option<u8> {
     }
 }
 
-fn parse_media_type(value: &str) -> MediaType {
+/// Разбирает пару `type/subtype` и классифицирует известные MIME-типы.
+///
+/// Неизвестная, но корректная пара сохраняется для последующих протокольных
+/// ответов; синтаксически повреждённая пара не маскируется как `Other`.
+fn parse_media_type(value: &str) -> Result<MediaType, &'static str> {
     let normalized = value.to_ascii_lowercase();
-    let Some((kind, subtype)) = normalized.split_once('/') else {
-        return MediaType::Other(normalized);
+    let mut sections = normalized.split('/');
+    let Some(kind) = sections.next().map(str::trim) else {
+        return Err("missing MIME type");
     };
-    let normalized = format!("{}/{}", kind.trim(), subtype.trim());
-    match normalized.as_str() {
-        "text/plain" => MediaType::TextPlain,
-        "text/html" => MediaType::TextHtml,
-        "multipart/mixed" => MediaType::MultipartMixed,
-        "multipart/alternative" => MediaType::MultipartAlternative,
-        "multipart/related" => MediaType::MultipartRelated,
-        "message/rfc822" => MediaType::MessageRfc822,
-        "application/octet-stream" => MediaType::ApplicationOctetStream,
-        _ => match normalized.split_once('/') {
-            Some(("text", subtype)) => MediaType::TextOther(subtype.to_owned()),
-            Some(("multipart", subtype)) => MediaType::MultipartOther(subtype.to_owned()),
-            Some(("message", subtype)) => MediaType::MessageOther(subtype.to_owned()),
-            _ => MediaType::Other(normalized),
-        },
+    let Some(subtype) = sections.next().map(str::trim) else {
+        return Err("missing MIME subtype");
+    };
+    if sections.next().is_some() || !media_token(kind) || !media_token(subtype) {
+        return Err("invalid MIME type or subtype token");
     }
+    Ok(match (kind, subtype) {
+        ("text", "plain") => MediaType::TextPlain,
+        ("text", "html") => MediaType::TextHtml,
+        ("multipart", "mixed") => MediaType::MultipartMixed,
+        ("multipart", "alternative") => MediaType::MultipartAlternative,
+        ("multipart", "related") => MediaType::MultipartRelated,
+        ("message", "rfc822") => MediaType::MessageRfc822,
+        ("application", "octet-stream") => MediaType::ApplicationOctetStream,
+        ("text", subtype) => MediaType::TextOther(subtype.to_owned()),
+        ("multipart", subtype) => MediaType::MultipartOther(subtype.to_owned()),
+        ("message", subtype) => MediaType::MessageOther(subtype.to_owned()),
+        _ => MediaType::Other(format!("{kind}/{subtype}")),
+    })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parses_quoted_boundary_and_filename_continuation() {
-        let value = "application/octet-stream; boundary=\"a;b\"; filename*0*=UTF-8''%D1%81%D1%87; filename*1*=%D1%91%D1%82.txt";
-        let parsed = parse(value).expect("structured MIME value");
-        assert_eq!(parsed.media_type, MediaType::ApplicationOctetStream);
-        assert_eq!(
-            parsed.parameters.get("boundary").map(String::as_str),
-            Some("a;b")
-        );
-        assert_eq!(
-            parsed.parameters.get("filename").map(String::as_str),
-            Some("счёт.txt")
-        );
-    }
-
-    #[test]
-    fn rejects_gapped_continuation_and_unknown_charset() {
-        assert!(parse("text/plain; name*1=x").is_err());
-        assert!(parse("text/plain; name*=koi8-r''text").is_err());
-    }
+/// Проверяет ASCII token без пробелов, управляющих октетов и MIME tspecials.
+///
+/// Длина измеряется в байтах, поскольку RFC определяет type/subtype как
+/// последовательности ASCII-октетов, а не Unicode-символов.
+fn media_token(value: &str) -> bool {
+    !value.is_empty()
+        && value.bytes().all(|byte| {
+            matches!(byte, 33..=126)
+                && !matches!(
+                    byte,
+                    b'(' | b')'
+                        | b'<'
+                        | b'>'
+                        | b'@'
+                        | b','
+                        | b';'
+                        | b':'
+                        | b'\\'
+                        | b'"'
+                        | b'/'
+                        | b'['
+                        | b']'
+                        | b'?'
+                        | b'='
+                )
+        })
 }

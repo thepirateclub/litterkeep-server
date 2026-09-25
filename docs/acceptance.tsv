@@ -31,6 +31,7 @@ T29	PASS	server-protocol	RFC 5230 vacation history compaction: committed/latest 
 T30	PASS	server-protocol	RFC 5230 :mime unit CHECKSCRIPT validation rejects duplicate CTE and malformed 7bit/base64/quoted-printable body encodings
 T31	PASS	server-protocol	Sieve vacation MIME unit validation enforces RFC 2045 7bit 998-octet and Base64/QP 76-character lines, CRLF and NUL rules
 T32	PASS	server-protocol	Sieve vacation MIME unit CHECKSCRIPT rejects encoded CTE for multipart/message composites including CFWS comments, rejects duplicate Content-Type and allows valid 7bit multipart
+T33	PASS	server-protocol	MIME structured values remove nested comments outside quoted strings and reject invalid type/subtype tokens; unit-only coverage
 R01	PASS	runtime	orchestrator transfer and registry ownership tests
 R02	PASS	runtime	exclusive resource double-acquire test
 R03	PASS	runtime	timeout keeps live lease occupied

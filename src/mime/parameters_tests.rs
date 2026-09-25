@@ -1,0 +1,72 @@
+//! Регрессионные проверки MIME structured value и параметров.
+
+use super::parameters::{self, MediaType};
+
+#[test]
+fn parses_quoted_boundary_and_filename_continuation() {
+    let value = "application/octet-stream; boundary=\"a;b\"; filename*0*=UTF-8''%D1%81%D1%87; filename*1*=%D1%91%D1%82.txt";
+    let parsed = parameters::parse(value).expect("structured MIME value");
+    assert_eq!(parsed.media_type, MediaType::ApplicationOctetStream);
+    assert_eq!(
+        parsed.parameters.get("boundary").map(String::as_str),
+        Some("a;b")
+    );
+    assert_eq!(
+        parsed.parameters.get("filename").map(String::as_str),
+        Some("счёт.txt")
+    );
+}
+
+#[test]
+fn rejects_gapped_continuation_and_unknown_charset() {
+    assert!(parameters::parse("text/plain; name*1=x").is_err());
+    assert!(parameters::parse("text/plain; name*=koi8-r''text").is_err());
+}
+
+#[test]
+fn parses_nested_comments_around_media_type_tokens() {
+    let parsed = parameters::parse("multipart (outer(inner))/related; boundary=\"x(y)\"")
+        .expect("comments around MIME tokens");
+
+    assert_eq!(parsed.media_type, MediaType::MultipartRelated);
+    assert_eq!(
+        parsed.parameters.get("boundary").map(String::as_str),
+        Some("x(y)")
+    );
+}
+
+#[test]
+fn rejects_invalid_media_type_tokens() {
+    for value in [
+        "text",
+        "/plain",
+        "text/",
+        "text/plain/extra",
+        "text/pl ain",
+        "text/pl?ain",
+    ] {
+        assert!(parameters::parse(value).is_err(), "accepted {value}");
+    }
+}
+
+#[test]
+fn retains_well_formed_unknown_media_type() {
+    let parsed = parameters::parse("image/vnd.example+json").expect("valid extension type");
+
+    assert_eq!(
+        parsed.media_type,
+        MediaType::Other("image/vnd.example+json".to_owned())
+    );
+}
+
+#[test]
+fn rejects_unterminated_comment_but_preserves_quoted_parentheses() {
+    assert!(parameters::parse("text/plain (unfinished").is_err());
+    let parsed = parameters::parse("application/octet-stream; name=\"x(y)\"")
+        .expect("parentheses inside quoted parameter");
+
+    assert_eq!(
+        parsed.parameters.get("name").map(String::as_str),
+        Some("x(y)")
+    );
+}

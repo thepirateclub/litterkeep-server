@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 MIME structured-value token checkpoint
+
+- Общий MIME parser теперь удаляет вложенные RFC comments вне quoted-string и
+  требует для Content-Type две непустые token-части `type/subtype`, разделённые
+  ровно одним slash. Неизвестные корректные пары сохраняются в typed `Other`,
+  malformed token-ы отвергаются. Sieve vacation использует тот же parser и
+  общий comment scanner без дублирования обработки.
+- Unit regressions проверяют comments вокруг slash, вложенные/незакрытые
+  comments, скобки в quoted parameter, ошибочные media-type token-ы и прежний
+  RFC 2231 filename continuation. Сетевой клиент для этих новых MIME случаев
+  не запускался.
+- PASS: Windows Rust 1.97.1 `cargo test --all-targets --locked` (364 теста
+  библиотеки, 1 тест бинаря), strict Clippy, fmt и diff check. Docker Linux
+  Rust 1.97 release build, strict Clippy, 405 тестов библиотеки и 1 тест бинаря.
+- Docker build завершился с `--rm`; `docker ps -a` содержит только
+  `litterkeep-g12-phone`. Временных контейнеров этапа не осталось. G17 остаётся
+  RUNNING.
+
 ### 2026-09-25: G17 Sieve composite MIME transfer checkpoint
 
 - RFC 2045 §6.4 запрещает base64 и quoted-printable для составных `multipart/*`

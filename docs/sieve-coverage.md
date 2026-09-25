@@ -98,6 +98,15 @@ base64/QP на этих составных сущностях и повторн�
 multipart и повторное поле. ManageSieve network acceptance этого правила не
 запускался.
 
+Общий MIME structured-value parser удаляет вложенные RFC comments вне
+quoted-string и проверяет `type/subtype` как две непустые RFC token-части,
+разделённые ровно одним slash. Неизвестные, но синтаксически корректные типы
+сохраняются как typed `Other`; пустые, содержащие whitespace/tspecials и
+лишний slash значения отвергаются. Unit tests покрывают comments вокруг
+разделителя и внутри quoted parameter, nested/unterminated comments и
+некорректные token-ы. Эти новые проверки пока unit-only, без независимого
+сетевого MIME клиента.
+
 Quoted и `text:` multiline strings принимают CRLF; multiline форма сохраняет
 terminating CRLF тела, снимает один dot-stuffing octet и ограничена 65 536
 байтами. Для `text:` допускаются SP/HTAB и hash-comment перед обязательным
