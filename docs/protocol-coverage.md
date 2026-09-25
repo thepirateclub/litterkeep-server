@@ -106,6 +106,9 @@ Windows-1251 или Windows-1252; UTF-16, UTF-16BE и UTF-16LE также реа
 декодируются в outer и
 MIME-part headers только как полные токены в начале field-body или после LWS.
 Embedded и слитные формы остаются raw text; это новое правило пока unit-only.
+RFC 2231 `charset*language` suffix encoded-word сохраняется отдельно в typed
+API, тогда как header/phrase projections возвращают decoded text. Новые
+language suffix grammar cases unit-only.
 RFC 2231 extended parameters сохраняют BCP 47 language metadata в MIME tree;
 проверяется синтаксис RFC 5646, но не актуальная registry validity. Проверки
 metadata и допустимого опущенного charset пока unit-only.

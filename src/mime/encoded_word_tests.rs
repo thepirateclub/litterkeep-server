@@ -1,6 +1,6 @@
 //! Регрессии RFC 2047 encoded-word и разрешённых header-контекстов.
 
-use super::{decode, decode_header, decode_phrase};
+use super::{decode, decode_header, decode_phrase, decode_with_metadata};
 
 #[test]
 fn decodes_base64_utf8_and_q_latin1() {
@@ -20,6 +20,30 @@ fn decodes_utf16be_encoded_word_without_external_codec() {
         decode("=?UTF-16BE?B?AEgAaQ==?=").expect("UTF-16BE encoded-word"),
         "Hi"
     );
+}
+
+#[test]
+fn decodes_rfc2231_encoded_word_language_metadata() {
+    let decoded =
+        decode_with_metadata("=?UTF-8*en-US?Q?caf=C3=A9?=").expect("RFC 2231 language extension");
+    assert_eq!(decoded.text, "café");
+    assert_eq!(
+        decoded.language.as_ref().map(|tag| tag.as_str()),
+        Some("en-US")
+    );
+    assert_eq!(decode("=?UTF-8?Q?caf=C3=A9?="), Ok("café".to_owned()));
+}
+
+#[test]
+fn rejects_malformed_rfc2231_encoded_word_language_tags() {
+    for word in [
+        "=?UTF-8*?Q?text?=",
+        "=?UTF-8*en--US?Q?text?=",
+        "=?UTF-8*en-a-aaa-a-bbb?Q?text?=",
+    ] {
+        assert!(decode_with_metadata(word).is_err(), "accepted {word}");
+        assert_eq!(decode_header(word), Ok(word.to_owned()));
+    }
 }
 
 #[test]

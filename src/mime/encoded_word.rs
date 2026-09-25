@@ -1,6 +1,6 @@
 //! Декодирование одного RFC 2047 encoded-word без переписывания raw header.
 
-use super::{charset::Charset, decode_base64};
+use super::{charset::Charset, decode_base64, language_tag::LanguageTag};
 
 #[cfg(test)]
 #[path = "encoded_word_tests.rs"]
@@ -19,13 +19,27 @@ enum WordContext {
     Phrase,
 }
 
+/// Декодированный RFC 2047 token вместе с optional RFC 2231 language tag.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DecodedWord {
+    /// Текст после decoding выбранного RFC 2047 charset и B/Q encoding.
+    pub text: String,
+    /// Optional language metadata из RFC 2231 encoded-word extension.
+    pub language: Option<LanguageTag>,
+}
+
 /// Декодирует полную форму `=?charset?B|Q?encoded-text?=`.
 pub fn decode(word: &str) -> Result<String, &'static str> {
+    Ok(decode_with_metadata(word)?.text)
+}
+
+/// Декодирует RFC 2047 слово и возвращает языковую подсказку RFC 2231.
+pub fn decode_with_metadata(word: &str) -> Result<DecodedWord, &'static str> {
     decode_in_context(word, WordContext::HeaderText)
 }
 
 /// Декодирует слово с учётом позиции, в которой RFC разрешает его синтаксис.
-fn decode_in_context(word: &str, context: WordContext) -> Result<String, &'static str> {
+fn decode_in_context(word: &str, context: WordContext) -> Result<DecodedWord, &'static str> {
     if word.len() > 75 {
         return Err("encoded-word exceeds 75 characters");
     }
@@ -34,7 +48,13 @@ fn decode_in_context(word: &str, context: WordContext) -> Result<String, &'stati
         .and_then(|value| value.strip_suffix("?="))
         .ok_or("invalid encoded-word envelope")?;
     let mut sections = inner.splitn(3, '?');
-    let charset = Charset::parse(sections.next().ok_or("missing encoded-word charset")?)?;
+    let charset_field = sections.next().ok_or("missing encoded-word charset")?;
+    let (charset_name, language_name) = match charset_field.split_once('*') {
+        Some((charset, language)) => (charset, Some(language)),
+        None => (charset_field, None),
+    };
+    let charset = Charset::parse(charset_name)?;
+    let language = language_name.map(LanguageTag::parse).transpose()?;
     let encoding = parse_encoding(sections.next().ok_or("missing encoded-word encoding")?)?;
     let encoded = sections.next().ok_or("missing encoded-word text")?;
     validate_encoded_text(encoded)?;
@@ -43,7 +63,10 @@ fn decode_in_context(word: &str, context: WordContext) -> Result<String, &'stati
         TransferEncoding::Base64 => decode_base64(encoded.as_bytes())?,
         TransferEncoding::Q => decode_q(encoded.as_bytes())?,
     };
-    charset.decode(&bytes)
+    Ok(DecodedWord {
+        text: charset.decode(&bytes)?,
+        language,
+    })
 }
 
 /// Применяет ограничения, которые зависят от поля и грамматической позиции.
@@ -106,7 +129,7 @@ pub fn decode_phrase(value: &str) -> String {
                 if !output.is_empty() && !previous_encoded {
                     output.push(' ');
                 }
-                output.push_str(&decoded);
+                output.push_str(&decoded.text);
                 previous_encoded = true;
             }
             Err(_) => {

@@ -213,6 +213,11 @@ raw whitespace/control/non-ASCII и сохранение повреждённо�
 projection; новые grammar cases отдельно по сети не проверялись. Общий header
 parser распознаёт целый encoded-word только в начале field-body или после
 SP/HTAB и оставляет embedded/слитный токен обычным текстом по RFC 2047 §6.1.
+RFC 2231 §5 encoded-word форма `charset*language` доступна через typed
+`decode_with_metadata`: BCP 47 language сохраняется отдельно от decoded text.
+Обычные `decode`, `decode_header` и `decode_phrase` возвращают только текст;
+raw message headers остаются исходным источником metadata. Новые language-tag
+границы покрыты unit-only, актуальная IANA registry validity не проверяется.
 Эта граница пока покрыта unit-only. Header parser также игнорирует SP/HTAB
 между field-name и `:`, как требует §2.4.2.2;
 сетевой тест подтверждает, что `Subject \t:` маршрутизируется по Sieve, а IMAP

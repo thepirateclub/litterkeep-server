@@ -4635,3 +4635,17 @@ ManageSieve до заявленного набора современных фо
   nested MIME entity. Network acceptance не запускался.
 - В работе; G17 остаётся RUNNING. RFC 2231 tag validity по актуальной IANA
   registry и прочие SMTP/IMAP/POP3/MIME/Sieve пробелы не закрыты.
+
+### 2026-09-25: G17 RFC 2231 encoded-word language checkpoint
+
+- RFC 2231 §5 `charset*language` расширение encoded-word теперь разбирается в
+  отдельный `DecodedWord`: charset декодирует текст, optional BCP 47 tag
+  сохраняется как typed metadata. Старые `decode`, `decode_header` и
+  `decode_phrase` сохраняют text-only contracts. Неверный suffix остаётся raw
+  в header projection, чтобы повреждённое слово не скрывало письмо.
+- PASS: Rust 1.97.1 Windows `cargo test --all-targets --locked` (419 library
+  tests + 1 binary test), strict Clippy, `cargo fmt --check` и `git diff --check`.
+  Linux Docker test target: 460 library tests, 1 binary test, doc-tests,
+  strict Clippy и release build. Сетевой acceptance не запускался, так как
+  language metadata не меняет существующие text projections.
+- G17 остаётся RUNNING: IANA registry validity и остальные RFC gaps не закрыты.
