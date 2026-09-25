@@ -13,7 +13,7 @@ pub fn parse(tokens: impl Iterator<Item = Token>) -> Command {
         return Command::Unsupported;
     };
     let stored_flags = match tokens.peek() {
-        Some(Token::ListStart) => match parse_flags(&mut tokens) {
+        Some(Token::ListStart) => match flags::parse_parenthesized_flag_list(&mut tokens) {
             Some(flags) => flags,
             None => return Command::Unsupported,
         },
@@ -45,26 +45,6 @@ pub fn parse(tokens: impl Iterator<Item = Token>) -> Command {
             internal_date,
         },
         _ => Command::Unsupported,
-    }
-}
-
-fn parse_flags(
-    tokens: &mut std::iter::Peekable<impl Iterator<Item = Token>>,
-) -> Option<StoredFlags> {
-    match tokens.next() {
-        Some(Token::ListStart) => {}
-        Some(Token::Text(_)) | Some(Token::Quoted(_)) | Some(Token::ListEnd) | None => {
-            return None;
-        }
-    }
-    let mut values = Vec::new();
-    loop {
-        match tokens.next()? {
-            Token::Text(value) => values.push(value),
-            Token::Quoted(value) => values.push(value),
-            Token::ListEnd => return flags::parse_stored_set(values),
-            Token::ListStart => return None,
-        }
     }
 }
 

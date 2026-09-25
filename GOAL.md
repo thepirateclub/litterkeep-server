@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G17 STORE and APPEND flag-list boundaries, PASS
+
+- STORE no longer discards parentheses while collecting flags; it validates the
+  exact parenthesized or unparenthesized form, requires atom flags, and rejects
+  unbalanced or nested lists. APPEND reuses the same strict parenthesized parser
+  and rejects quoted flag atoms.
+- PASS: Windows Rust 1.97.1 strict Clippy, 530 library + 1 binary tests, fmt,
+  Python syntax and diff checks. Linux Docker Rust 1.97 strict Clippy, 577
+  library + 1 binary tests and doc-tests; independent STARTTLS acceptance
+  received tagged BAD for malformed STORE forms and quoted APPEND flag before
+  literal continuation. Temporary image and container removed; existing
+  containers untouched and `./data/g17-imap-malformed-utf8` preserved. G17
+  remains ACTIVE.
+
 ### 2026-09-26: G17 LIST pattern production, PASS
 
 - Basic LIST validates reference as astring and pattern as RFC list-mailbox:

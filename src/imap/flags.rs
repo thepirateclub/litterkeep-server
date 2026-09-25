@@ -103,19 +103,21 @@ pub fn parse_store_set(
 
 /// Разбирает аргументы STORE после уже типизированного пространства адресации.
 pub fn parse_store(tokens: &mut impl Iterator<Item = Token>, addressing: Addressing) -> Command {
-    let Some(sequence_set) = next_text(tokens).and_then(|value| MessageSet::parse(&value).ok())
+    let Some(sequence_set) = tokens
+        .next()
+        .and_then(super::token_values::atom_value)
+        .and_then(|value| MessageSet::parse(&value).ok())
     else {
         return Command::Unsupported;
     };
-    let Some(mode) = next_text(tokens).and_then(|value| parse_mode(&value)) else {
+    let Some(mode) = tokens
+        .next()
+        .and_then(super::token_values::atom_value)
+        .and_then(|value| parse_mode(&value))
+    else {
         return Command::Unsupported;
     };
-    let values = tokens.filter_map(|token| match token {
-        Token::Text(value) => Some(value),
-        Token::Quoted(value) => Some(value),
-        Token::ListStart | Token::ListEnd => None,
-    });
-    match parse_store_set(values) {
+    match parse_store_flags(tokens) {
         Some((flags, keywords)) => Command::Store {
             addressing,
             sequence_set,
@@ -128,11 +130,63 @@ pub fn parse_store(tokens: &mut impl Iterator<Item = Token>, addressing: Address
     }
 }
 
-fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
-    tokens.find_map(|token| match token {
-        Token::Text(value) | Token::Quoted(value) => Some(value),
-        Token::ListStart | Token::ListEnd => None,
-    })
+/// Разбирает parenthesized либо unparenthesized STORE flags без потери границ.
+fn parse_store_flags(
+    tokens: &mut impl Iterator<Item = Token>,
+) -> Option<(MessageFlags, BTreeSet<KeywordFlag>)> {
+    match tokens.next()? {
+        Token::ListStart => {
+            let values = parse_parenthesized_flag_values(tokens)?;
+            match tokens.next() {
+                None => parse_store_set(values),
+                Some(_) => None,
+            }
+        }
+        token => {
+            let mut values = vec![flag_value(token)?];
+            for token in tokens {
+                values.push(flag_value(token)?);
+            }
+            parse_store_set(values)
+        }
+    }
+}
+
+/// APPEND flag-list и STORE flag-list требуют ровно одну закрытую скобочную пару.
+pub(super) fn parse_parenthesized_flag_list(
+    tokens: &mut impl Iterator<Item = Token>,
+) -> Option<StoredFlags> {
+    if !matches!(tokens.next(), Some(Token::ListStart)) {
+        return None;
+    }
+    parse_stored_set(parse_parenthesized_flag_values(tokens)?)
+}
+
+fn parse_parenthesized_flag_values(
+    tokens: &mut impl Iterator<Item = Token>,
+) -> Option<Vec<String>> {
+    let mut values = Vec::new();
+    loop {
+        match tokens.next()? {
+            Token::Text(value) => values.push(flag_value(Token::Text(value))?),
+            Token::ListEnd => return Some(values),
+            Token::Quoted(_) | Token::ListStart => return None,
+        }
+    }
+}
+
+fn flag_value(token: Token) -> Option<String> {
+    match token {
+        Token::Text(value) if supported_flag(&value) => Some(value),
+        Token::Text(_) | Token::Quoted(_) | Token::ListStart | Token::ListEnd => None,
+    }
+}
+
+fn supported_flag(value: &str) -> bool {
+    match system_flag(&value.to_ascii_uppercase()) {
+        Some(_) => true,
+        None => KeywordFlag::parse(value).is_some(),
+    }
 }
 
 /// Кодирует флаги в каноническом порядке без сохранения строк в store.

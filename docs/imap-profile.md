@@ -22,10 +22,10 @@ CAPABILITY не выдаёт за более широкое расширение
 | Mailbox mutation | CREATE, DELETE, RENAME | PASS | Durable journal, subtree rename, retired folder IDs |
 | Subscription | SUBSCRIBE, UNSUBSCRIBE | PASS | Durable subscription независимо от существования папки |
 | Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS, PERMANENTFLAGS, включая `\\*` для создания пользовательских keywords, Recent |
-| Message insertion | APPEND | PARTIAL | Bounded literal, системные flags и keywords, INTERNALDATE, APPENDUID после fsync; global 25 MiB limit is advertised through APPENDLIMIT and over-limit sizes are rejected with tagged TOOBIG before payload; MULTIAPPEND and non-synchronizing literal extensions are not advertised |
+| Message insertion | APPEND | PARTIAL | Bounded literal, strict parenthesized system flags/keywords, INTERNALDATE, APPENDUID после fsync; quoted flags and malformed flag lists are rejected before literal continuation; global 25 MiB limit is advertised through APPENDLIMIT and over-limit sizes are rejected with tagged TOOBIG before payload; MULTIAPPEND and non-synchronizing literal extensions are not advertised |
 | Reading | FETCH, UID FETCH | PARTIAL | Сгруппированные items, ALL/FAST/FULL с RFC-совместимым раскрытием FULL через BODY, BODY и BODYSTRUCTURE, UID, RFC822/RFC822.HEADER/RFC822.TEXT legacy items с правильными wire labels, BODY sections/partial и BINARY/BINARY.PEEK/BINARY.SIZE; decoded MIME leaf parts, Base64/QP, literal8 для NUL, decoded partial, UNKNOWN-CTE и Seen effects проверены. Полная rev2 grammar остаётся |
 | Search | SEARCH, UID SEARCH | PARTIAL | Все базовые SEARCH keys RFC 9051 распознаются и оцениваются; исчерпывающая проверка parser-а перечисляет каждый key. UTF-8 default, UTF-8/US-ASCII CHARSET, BADCHARSET, synchronizing string literals до 64 KiB, ESEARCH RETURN ALL/COUNT/MIN/MAX, decoded MIME text и исключение неизвестного CTE из текстового projection проверены; MIME text supports US-ASCII, UTF-8, ISO-8859-1, Windows-1251 and Windows-1252; RETURN SAVE and `$` SEARCH criterion work per session with SELECT/error reset and MIN/MAX selection; FETCH/UID FETCH and STORE/UID STORE `$` map saved UIDs to the active number space, COPY/UID COPY `$` resolve saved UIDs in their respective addressing modes, UID EXPUNGE `$` intersects saved UIDs with `\\Deleted`, empty sets are safe, and pipelined SEARCH SAVE followed by COPY is verified; ESEARCH and SEARCHRES are advertised; other MIME charsets and non-base extensions remain |
-| Flag mutation | STORE, UID STORE | PASS | Системные flags и регистронезависимые keywords: Replace/add/remove, SILENT, один durable batch, read-only denial |
+| Flag mutation | STORE, UID STORE | PASS | Системные flags и регистронезависимые keywords: Replace/add/remove, SILENT, один durable batch, read-only denial; parenthesized and unparenthesized forms are parsed without dropping delimiters; nested/unbalanced lists and quoted flags rejected |
 | Copy and move | COPY, UID COPY, MOVE, UID MOVE | PASS | Atomic links/tombstones, COPYUID, multi-session projection |
 | Deletion | EXPUNGE, UID EXPUNGE, CLOSE | PASS | Durable tombstones, UIDPLUS, sequence-map notifications |
 | Selection lifecycle | UNSELECT | PASS | Advertised and tested; returns to authenticated state without expunging `\\Deleted` |
@@ -104,6 +104,12 @@ astring and its pattern as `list-mailbox`; bare wildcards `%` and `*` and
 response-special `]` remain legal, while brace/backslash/quote require a quoted
 string. Parser tests and independent STARTTLS acceptance verified rejection of
 bare `{` and successful completion of a bare `*` pattern.
+
+G17 flag grammar checkpoint (2026-09-26): STORE accepts exactly one valid
+parenthesized flag-list or a non-empty unparenthesized sequence of flag atoms;
+nested, unbalanced, quoted, and trailing structural forms are rejected. APPEND
+uses the same strict flag production and rejects quoted flags before requesting
+literal bytes. Parser and independent STARTTLS acceptance cover these errors.
 
 CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-USE`,
 `NAMESPACE`, `UNSELECT`, `ENABLE`, `ESEARCH` и `SEARCHRES`. ENABLE игнорирует

@@ -16,6 +16,9 @@ mod fetch_section;
 #[cfg(test)]
 #[path = "imap/fetch_tests.rs"]
 mod fetch_tests;
+#[cfg(test)]
+#[path = "imap/flag_grammar_tests.rs"]
+mod flag_grammar_tests;
 pub mod flags;
 pub mod folder;
 pub mod idle;

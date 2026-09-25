@@ -50,6 +50,7 @@ def main() -> None:
     require_append_limit(client)
     require_bad(client, "IDLE")
     require(client.select("INBOX"), ImapStatus.OK)
+    require_bad_store_flag_lists(client)
     require_bad(client, "EXPUNGE")
     require(client.noop(), ImapStatus.OK)
     client.logout()
@@ -178,6 +179,24 @@ def require_list_mailbox_grammar(client: imaplib.IMAP4) -> None:
             case _:
                 raise AssertionError(f"valid bare LIST wildcard: {response!r}")
     raise AssertionError("LIST wildcard response did not complete")
+
+
+def require_bad_store_flag_lists(client: imaplib.IMAP4) -> None:
+    """Непарные и вложенные STORE flag delimiters получают tagged BAD."""
+    commands = (
+        (b"A24 STORE 1 FLAGS (\\Seen\r\n", b"A24 BAD "),
+        (b"A25 STORE 1 FLAGS \\Seen)\r\n", b"A25 BAD "),
+        (b"A26 STORE 1 FLAGS ((\\Seen))\r\n", b"A26 BAD "),
+    )
+    for command, expected in commands:
+        client.send(command)
+        response = client.readline()
+        if not response.startswith(expected):
+            raise AssertionError(f"malformed STORE flag list: {response!r}")
+    client.send(b'A27 APPEND INBOX ("\\\\Seen") {0}\r\n')
+    response = client.readline()
+    if not response.startswith(b"A27 BAD "):
+        raise AssertionError(f"quoted APPEND flag must be rejected: {response!r}")
 
 
 def require_bad(client: imaplib.IMAP4, verb: str) -> None:
