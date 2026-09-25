@@ -40,6 +40,9 @@ pub(super) fn read_session(
         return Ok(true);
     };
     let session = lease.get_mut();
+    if session.termination.is_some() {
+        return Ok(false);
+    }
     let mut bytes = [0_u8; READ_BUDGET];
     match session.stream.read(&mut bytes) {
         Ok(0) => return Ok(true),

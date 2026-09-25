@@ -92,7 +92,11 @@ pub(super) fn follow_up(
 pub(super) fn write_reply(session: &mut Session, reply: pop3::Reply) -> io::Result<()> {
     let bytes = pop3::reply_wire::encode_reply(reply)
         .ok_or_else(|| io::Error::other("POP3 reply requires reactor action"))?;
-    session.push(&bytes)
+    session.push(&bytes)?;
+    if session.pop3.is_update() {
+        session.termination = Some(session::SessionTermination::Pop3Quit);
+    }
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]

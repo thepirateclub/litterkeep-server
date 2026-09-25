@@ -3,6 +3,10 @@ use super::*;
 use std::collections::BTreeSet;
 use std::time::{Duration, Instant};
 
+#[path = "session_shutdown.rs"]
+mod shutdown;
+pub(in crate::reactor) use shutdown::SessionTermination;
+
 /// Максимальное время, на которое TLS-клиент может занять slot без handshake.
 const TLS_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -40,6 +44,8 @@ pub(super) struct Session {
     starttls_config: Option<Arc<ServerConfig>>,
     starttls_pending: bool,
     handshake_deadline: Option<Instant>,
+    /// Отмечает, что TLS close_notify уже передан rustls ровно один раз.
+    pub(super) close_notify_started: bool,
     greeting_sent: bool,
     pub(super) pending_submit: Option<(Request, Pending)>,
     pub(super) pending: Option<Pending>,
@@ -100,6 +106,7 @@ impl Session {
             starttls_config,
             starttls_pending: false,
             handshake_deadline,
+            close_notify_started: false,
             greeting_sent: false,
             pending_submit: None,
             pending: None,
@@ -181,13 +188,6 @@ impl Session {
         match (self.pending.is_some(), self.pending_submit.is_some()) {
             (true, _) | (_, true) => false,
             (false, false) => self.output.len() < MAX_OUTPUT,
-        }
-    }
-
-    pub(super) fn needs_read(&self) -> bool {
-        match self.tls.as_ref() {
-            Some(tls) if tls.wants_read() => true,
-            _ => self.accepts_input(),
         }
     }
 
@@ -281,15 +281,6 @@ impl Session {
         self.handshake_deadline = Some(Instant::now() + TLS_HANDSHAKE_TIMEOUT);
         Ok(())
     }
-}
-
-/// Типизированная причина локального закрытия клиентского владельца.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum SessionTermination {
-    /// Отстающий IDLE-подписчик превысил жёсткую границу выходной очереди.
-    NotificationOverflow,
-    /// Некорректный UTF-8 SEARCH literal нарушил синтаксис текущей команды.
-    InvalidSearchLiteral,
 }
 
 #[path = "session_termination.rs"]

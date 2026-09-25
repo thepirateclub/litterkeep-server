@@ -245,6 +245,10 @@ impl Session {
     fn phase_is_transaction(&self) -> bool {
         matches!(self.phase, Phase::Transaction)
     }
+    /// Сообщает reactor-у, что QUIT завершил POP3 UPDATE.
+    pub fn is_update(&self) -> bool {
+        matches!(self.phase, Phase::Update)
+    }
 }
 /// Формирует стабильный RFC 2449 набор и объявляет UTF8 в обоих состояниях.
 /// Аргумент `USER` не передаётся: POP3 account credentials остаются ASCII.

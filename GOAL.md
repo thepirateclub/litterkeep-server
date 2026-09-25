@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G16
 
+### 2026-09-25: G16 POP3 RFC 8314 QUIT shutdown checkpoint
+
+- После успешного POP3 QUIT reactor дожидается отправки `+OK`, инициирует
+  TLS `close_notify`, и освобождает session/maildrop lease только после flush
+  alert. QUIT в authorization и завершённый durable UPDATE проходят одним
+  выходным lifecycle; plaintext POP3 также дожидается ответа перед закрытием.
+- PASS: Windows Rust 1.97.1: 286 тестов и strict Clippy. Linux Docker Rust 1.97
+  strict Clippy и 326 тестов. Независимый implicit-TLS socket test проверил
+  greeting/authentication/QUIT и завершил TLS `unwrap()` без EOF/truncation;
+  значит сервер отправил close alert после `+OK`. Stage `./data/g16-pop3-rfc8314-close-final`;
+  тестовый контейнер удалён, `litterkeep-g12-phone` сохранён.
+- Peer-initiated close alert без QUIT и аварийные transport closures остаются
+  вне graceful-shutdown guarantee. G16 остаётся RUNNING.
+
 ### 2026-09-25: G16 POP3 MIME binary CTE checkpoint
 
 - MIME tree рекурсивно определяет `Content-Transfer-Encoding: binary` во всех

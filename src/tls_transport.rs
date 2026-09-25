@@ -101,6 +101,11 @@ impl ServerTls {
         Ok(encrypted)
     }
 
+    /// Начинает TLS shutdown после передачи всех application bytes.
+    pub fn send_close_notify(&mut self) {
+        self.connection.send_close_notify();
+    }
+
     /// Сообщает reactor-у, нужен ли writable interest для TLS handshake или ответа.
     pub fn wants_write(&self) -> bool {
         self.connection.wants_write()

@@ -138,6 +138,13 @@ SEARCHRES не означает полной
 Поддерживаются STLS и implicit TLS, USER/PASS, STAT, LIST, UIDL, RETR, DELE,
 RSET и QUIT. Maildrop lease исключает двух разрушающих владельцев; DELE
 фиксируется только успешным QUIT.
+Для RFC 8314 есть отдельный implicit-TLS listener `serve-pop3-tls`;
+`POP3_SSL` ранее подтвердил отсутствие plaintext greeting до TLS handshake.
+После успешного POP3 QUIT session cleanup дожидается отправки `+OK`, затем
+инициирует TLS `close_notify` и освобождает socket после flush alert согласно
+рекомендации RFC 8314 §3.4. Независимый TLS socket acceptance проверяет порядок
+ответа и успешный `unwrap()` клиентом. Peer-initiated close alert без POP3 QUIT
+и прочие причины закрытия пока не проходят отдельную graceful-shutdown проверку.
 AUTHORIZATION FSM требует `USER` перед `PASS`, отклоняет повторный `USER`
 после положительного ответа, а после отклонённого USER или failed PASS очищает
 имя и требует новую команду USER. Независимый STLS клиент проверил этот порядок с ошибочным и затем
