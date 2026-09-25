@@ -82,7 +82,7 @@ fn capability(tls: bool) -> Vec<u8> {
     if !tls {
         output.extend_from_slice(b"\"STARTTLS\"\r\n");
     }
-    output.extend_from_slice(b"\"SIEVE\" \"fileinto\"\r\nOK \"capability\"\r\n");
+    output.extend_from_slice(b"\"SIEVE\" \"fileinto subaddress\"\r\nOK \"capability\"\r\n");
     output
 }
 fn ok(message: &str) -> Reply {

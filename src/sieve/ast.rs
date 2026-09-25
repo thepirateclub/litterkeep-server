@@ -11,6 +11,7 @@ pub struct Script {
 #[derive(Debug, Eq, PartialEq)]
 pub enum Capability {
     FileInto,
+    Subaddress,
     Unsupported(String),
 }
 

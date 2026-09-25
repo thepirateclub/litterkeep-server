@@ -256,6 +256,12 @@ escape с удалением обратной косой черты и отве�
 элементами и не допускается на краях. Unit и ManageSieve CHECKSCRIPT acceptance
 проверяют эти границы по RFC 5228 §§2.4.2, 5.2-5.3 и 8.1-8.2. Это не означает
 полного покрытия grammar RFC 5228 и extensions.
+`:user` и `:detail` реализованы как RFC 5233 `subaddress`; оба требуют явного
+`require "subaddress"`, а ManageSieve greeting и CAPABILITY объявляют это
+расширение. Сервер использует первый `+` в local-part как separator: без него
+`:detail` не создаёт значение для сравнения, а `user+@domain` создаёт пустой
+detail. CHECKSCRIPT и адресные unit tests проверяют эти случаи. Другие политики
+разделителя subaddress пока не настраиваются.
 
 ## Outbound SMTP
 

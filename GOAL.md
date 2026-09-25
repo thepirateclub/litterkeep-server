@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 5233 subaddress checkpoint
+
+- `:user`/`:detail` теперь распознаются как `subaddress` extension и требуют
+  `require "subaddress"`; ManageSieve greeting и CAPABILITY сообщают
+  `fileinto subaddress`. Принятая политика выделяет detail по первому `+`:
+  адрес без separator не совпадает с `:detail`, а `user+@domain` совпадает с
+  пустой строкой. Ограничения отражены в protocol coverage.
+- PASS: Windows Rust 1.97.1, fmt, 314 тестов, strict Clippy, Python compile и
+  diff check. Linux Docker Rust 1.97: strict Clippy и 354 теста. Независимый
+  ManageSieve STARTTLS-клиент проверил greeting, CHECKSCRIPT до/после require,
+  literal upload и активацию; SMTP -> Sieve -> IMAP delivery в `Invoices`
+  прошла. Stage `./data/g17-sieve-subaddress`. Временный контейнер удалён,
+  `litterkeep-g12-phone` сохранён. Интеграция с приложением Litterkeep не
+  проверялась. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 Sieve RFC 5228 string-list grammar checkpoint
 
 - Квадратный `string-list` теперь требует одну или более строк; соседние

@@ -86,7 +86,7 @@ fn octet_comparator_keeps_case_significant() {
 #[test]
 fn address_test_selects_detail_without_matching_another_recipient() {
     let script = parse(
-        "if address :detail :is \"to\" \"sales\" { fileinto \"Invoices\"; } else { discard; }",
+        "require \"subaddress\"; if address :detail :is \"to\" \"sales\" { fileinto \"Invoices\"; } else { discard; }",
     )
     .expect("parse");
     let plan = execute(
@@ -105,7 +105,7 @@ fn address_test_selects_detail_without_matching_another_recipient() {
 #[test]
 fn combined_header_address_and_size_rule_matches_network_fixture() {
     let script = parse(
-        "require [\"fileinto\"]; if allof (header :contains \"subject\" \"[invoice]\", address :detail :is \"to\" \"invoices\", size :over 1) { fileinto \"Invoices\"; stop; }",
+        "require [\"fileinto\", \"subaddress\"]; if allof (header :contains \"subject\" \"[invoice]\", address :detail :is \"to\" \"invoices\", size :over 1) { fileinto \"Invoices\"; stop; }",
     )
     .expect("parse");
     let plan = execute(
@@ -136,6 +136,15 @@ fn invalid_script_does_not_become_a_delivery_plan() {
     assert!(parse("if exists [\"Subject\" \"From\"] { keep; }").is_err());
     assert!(parse("if exists [\"Subject\",] { keep; }").is_err());
     assert!(parse("if exists [,\"Subject\"] { keep; }").is_err());
+    assert!(parse("if address :detail :is \"to\" \"sales\" { keep; }").is_err());
+    assert!(parse("if address :user :is \"to\" \"alice\" { keep; }").is_err());
+}
+
+#[test]
+fn subaddress_projection_requires_and_accepts_its_capability() {
+    assert!(
+        parse("require \"subaddress\"; if address :user :is \"to\" \"alice\" { keep; }").is_ok()
+    );
 }
 
 /// RFC 5228 test-list использует круглые скобки, в отличие от string-list.

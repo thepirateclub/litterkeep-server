@@ -28,3 +28,16 @@ fn command_parser_retains_quoted_script_and_rejects_extra_argument() {
     );
     assert_eq!(parse("LISTSCRIPTS extra"), Command::Invalid);
 }
+
+#[test]
+fn capability_advertises_supported_sieve_extensions() {
+    let mut session = Session::default();
+    let Reply::Text(response) = session.apply(parse("CAPABILITY"), false) else {
+        panic!("CAPABILITY должен вернуть текстовый ответ");
+    };
+    assert!(
+        response
+            .windows(b"\"SIEVE\" \"fileinto subaddress\"".len())
+            .any(|part| part == b"\"SIEVE\" \"fileinto subaddress\"")
+    );
+}

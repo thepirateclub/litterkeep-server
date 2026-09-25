@@ -34,6 +34,7 @@ pub(super) fn parse(tokens: Vec<Token>) -> Result<Script, &'static str> {
 fn capability(value: String) -> Capability {
     match value.as_str() {
         "fileinto" => Capability::FileInto,
+        "subaddress" => Capability::Subaddress,
         _ => Capability::Unsupported(value),
     }
 }

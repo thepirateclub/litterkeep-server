@@ -1,6 +1,6 @@
 //! Статическая policy validation до атомарной публикации script версии.
 
-use super::ast::{Action, Capability, Command, Condition, Script};
+use super::ast::{Action, AddressPart, Capability, Command, Condition, Script};
 
 pub(super) fn script(script: &Script) -> Result<(), &'static str> {
     if script
@@ -11,10 +11,23 @@ pub(super) fn script(script: &Script) -> Result<(), &'static str> {
         return Err("unsupported sieve require");
     }
     let mut count = 0;
-    commands(&script.commands, 0, &mut count)
+    commands(
+        &script.commands,
+        0,
+        &mut count,
+        script
+            .requires
+            .iter()
+            .any(|value| matches!(value, Capability::Subaddress)),
+    )
 }
 
-fn commands(items: &[Command], depth: usize, count: &mut usize) -> Result<(), &'static str> {
+fn commands(
+    items: &[Command],
+    depth: usize,
+    count: &mut usize,
+    subaddress: bool,
+) -> Result<(), &'static str> {
     if depth > 16 {
         return Err("sieve nesting limit exceeded");
     }
@@ -30,9 +43,9 @@ fn commands(items: &[Command], depth: usize, count: &mut usize) -> Result<(), &'
                 then_commands,
                 else_commands,
             } => {
-                condition_valid(condition, depth)?;
-                commands(then_commands, depth.saturating_add(1), count)?;
-                commands(else_commands, depth.saturating_add(1), count)?;
+                condition_valid(condition, depth, subaddress)?;
+                commands(then_commands, depth.saturating_add(1), count, subaddress)?;
+                commands(else_commands, depth.saturating_add(1), count, subaddress)?;
             }
         }
     }
@@ -48,21 +61,29 @@ fn action_valid(action: &Action) -> Result<(), &'static str> {
     }
 }
 
-fn condition_valid(condition: &Condition, depth: usize) -> Result<(), &'static str> {
+fn condition_valid(
+    condition: &Condition,
+    depth: usize,
+    subaddress: bool,
+) -> Result<(), &'static str> {
     if depth > 16 {
         return Err("sieve nesting limit exceeded");
     }
     match condition {
         Condition::Header { names, matcher } => string_match_valid(names, matcher),
+        Condition::Address {
+            part: AddressPart::User | AddressPart::Detail,
+            ..
+        } if !subaddress => Err("subaddress extension must be required"),
         Condition::Address { names, matcher, .. } => string_match_valid(names, matcher),
         Condition::Exists { names } if names.is_empty() => Err("empty sieve exists list"),
-        Condition::Not(value) => condition_valid(value, depth.saturating_add(1)),
+        Condition::Not(value) => condition_valid(value, depth.saturating_add(1), subaddress),
         Condition::AllOf(values) | Condition::AnyOf(values) if values.is_empty() => {
             Err("empty sieve condition list")
         }
         Condition::AllOf(values) | Condition::AnyOf(values) => values
             .iter()
-            .try_for_each(|value| condition_valid(value, depth.saturating_add(1))),
+            .try_for_each(|value| condition_valid(value, depth.saturating_add(1), subaddress)),
         Condition::True | Condition::False | Condition::Exists { .. } | Condition::Size { .. } => {
             Ok(())
         }

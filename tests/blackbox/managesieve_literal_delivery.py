@@ -58,6 +58,7 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
     with socket.create_connection((options.host, options.managesieve_port), timeout=10) as plain:
         greeting = read_until(plain, b'OK "ready"\r\n')
         require(b'"STARTTLS"' in greeting, "ManageSieve не объявил STARTTLS")
+        require(b'"SIEVE" "fileinto subaddress"' in greeting, "ManageSieve не объявил subaddress")
         bob_password = os.environ.get("LITTERKEEP_BOB_PASSWORD", "bob-password")
         plaintext_credentials = base64.b64encode(
             b"\x00bob\x00" + bob_password.encode("utf-8")
@@ -75,6 +76,16 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
             require(
                 command(client, authentication) == b'OK "authenticated"\r\n',
                 "ManageSieve AUTHENTICATE не принят",
+            )
+            check_script(
+                client,
+                b'if address :detail :is "to" "sales" { keep; }',
+                b'NO "operation failed"\r\n',
+            )
+            check_script(
+                client,
+                b'require "subaddress"; if address :detail :is "to" "sales" { keep; }',
+                b'OK "completed"\r\n',
             )
             check_script(client, b"keep;", b'OK "completed"\r\n')
             check_script(
@@ -108,7 +119,7 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
                 b'if exists ["Subject", "From"] { keep; }',
                 b'OK "completed"\r\n',
             )
-            first_chunk = b'require ["fileinto"]; '
+            first_chunk = b'require ["fileinto", "subaddress"]; '
             second_chunk = (
                 b'if allof (header :contains "subject" "[invoice]", '
                 b'address :detail :is "to" "invoices", size :over 1) '

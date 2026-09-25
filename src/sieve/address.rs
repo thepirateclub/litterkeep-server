@@ -15,7 +15,9 @@ pub(super) fn values(header: &str, part: AddressPart) -> Vec<String> {
         let Some(address) = address(item) else {
             continue;
         };
-        result.push(project(address, part));
+        if let Some(value) = project(address, part) {
+            result.push(value);
+        }
     }
     result
 }
@@ -73,18 +75,19 @@ fn address(value: &str) -> Option<Mailbox<'_>> {
     }
 }
 
-fn project(mailbox: Mailbox<'_>, part: AddressPart) -> String {
+fn project(mailbox: Mailbox<'_>, part: AddressPart) -> Option<String> {
+    // Политика сервера использует первый `+` как разделитель RFC 5233.
     let (user, detail) = match mailbox.local.split_once('+') {
-        Some(values) => values,
-        None => (mailbox.local, ""),
+        Some((user, detail)) => (user, Some(detail)),
+        None => (mailbox.local, None),
     };
-    match part {
+    Some(match part {
         AddressPart::All => format!("{}@{}", mailbox.local, mailbox.domain),
         AddressPart::LocalPart => mailbox.local.to_owned(),
         AddressPart::Domain => mailbox.domain.to_owned(),
         AddressPart::User => user.to_owned(),
-        AddressPart::Detail => detail.to_owned(),
-    }
+        AddressPart::Detail => return detail.map(str::to_owned),
+    })
 }
 
 #[cfg(test)]
@@ -97,6 +100,12 @@ mod tests {
             "\"Alice, Example\" <alice+sales@example.test>, bob@example.test",
             AddressPart::Detail,
         );
-        assert_eq!(values, vec!["sales", ""]);
+        assert_eq!(values, vec!["sales"]);
+    }
+
+    #[test]
+    fn explicit_empty_detail_matches_but_missing_detail_does_not() {
+        assert_eq!(values("alice+@example.test", AddressPart::Detail), vec![""]);
+        assert!(values("alice@example.test", AddressPart::Detail).is_empty());
     }
 }
