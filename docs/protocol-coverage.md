@@ -132,7 +132,10 @@ RFC 2047 encoded-word распознаётся как слово только в
 phrase. Пробел между соседними encoded-word не выводится; испорченное слово
 остаётся видимым текстом и не блокирует сообщение; quoted display-name не
 декодируется. Независимый STARTTLS клиент подтвердил ENVELOPE и FROM SEARCH
-для encoded phrase, а также буквальное содержимое quoted-name.
+для encoded phrase, а также буквальное содержимое quoted-name. В phrase
+контексте Q encoding ограничен ASCII letters/digits и `!*+-/=_`; encoded
+punctuation допустим, а сырой запрещённый знак оставляет слово видимым.
+Границы allowlist проверены unit-only, не независимым клиентом.
 Для obsolete address-list проверены leading/repeated/trailing null members:
 они не формируют ENVELOPE addresses и не сдвигают порядок двух mailbox.
 `RETURN (SAVE)` сохраняет UIDs в состоянии одной сессии, а `$` SEARCH criterion

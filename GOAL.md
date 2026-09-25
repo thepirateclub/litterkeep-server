@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 2047 phrase-Q profile checkpoint
+
+- Phrase-context decoder применяет отдельный RFC 2047 §5 allowlist для Q:
+  ASCII letters/digits и `!*+-/=_`; `=` требует двух hex digits. Например,
+  raw точка принимается общим unstructured-header decoder-ом, но не phrase;
+  её encoded form `=2E` допустима. B encoding этим Q-ограничением не затронут.
+- PASS: Windows Rust 1.97.1 `cargo fmt --check`, `cargo test --all-targets
+  --locked` (374 библиотечных теста, 1 тест бинаря), strict Clippy и
+  `git diff --check`. Docker Linux Rust 1.97.1 release build, strict Clippy,
+  415 библиотечных тестов, 1 тест бинаря и doc-tests. RFC 2047 §5 сверена с
+  текстом RFC в IETF Datatracker.
+- Litterkeep network client acceptance для новых Q punctuation границ не
+  запускался. После Docker build временных контейнеров нет, сохранён только
+  `litterkeep-g12-phone`. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 2047 encoded-text grammar checkpoint
 
 - Encoded-word decoder проверяет RFC 2047 `encoded-text` до B/Q decoding:

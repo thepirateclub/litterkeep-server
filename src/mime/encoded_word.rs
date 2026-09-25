@@ -8,8 +8,20 @@ enum TransferEncoding {
     Q,
 }
 
+/// Контекст определяет дополнительные ограничения RFC 2047 для encoded-word.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum WordContext {
+    HeaderText,
+    Phrase,
+}
+
 /// Декодирует полную форму `=?charset?B|Q?encoded-text?=`.
 pub fn decode(word: &str) -> Result<String, &'static str> {
+    decode_in_context(word, WordContext::HeaderText)
+}
+
+/// Декодирует слово с учётом позиции, в которой RFC разрешает его синтаксис.
+fn decode_in_context(word: &str, context: WordContext) -> Result<String, &'static str> {
     if word.len() > 75 {
         return Err("encoded-word exceeds 75 characters");
     }
@@ -22,11 +34,40 @@ pub fn decode(word: &str) -> Result<String, &'static str> {
     let encoding = parse_encoding(sections.next().ok_or("missing encoded-word encoding")?)?;
     let encoded = sections.next().ok_or("missing encoded-word text")?;
     validate_encoded_text(encoded)?;
+    validate_context_text(context, encoding, encoded)?;
     let bytes = match encoding {
         TransferEncoding::Base64 => decode_base64(encoded.as_bytes())?,
         TransferEncoding::Q => decode_q(encoded.as_bytes())?,
     };
     charset.decode(&bytes)
+}
+
+/// Применяет ограничения, которые зависят от поля и грамматической позиции.
+fn validate_context_text(
+    context: WordContext,
+    encoding: TransferEncoding,
+    encoded: &str,
+) -> Result<(), &'static str> {
+    match (context, encoding) {
+        (WordContext::Phrase, TransferEncoding::Q) => validate_phrase_q_text(encoded),
+        _ => Ok(()),
+    }
+}
+
+/// Проверяет разрешённый RFC 2047 §5 алфавит Q-encoded-word внутри phrase.
+fn validate_phrase_q_text(value: &str) -> Result<(), &'static str> {
+    let mut bytes = value.bytes();
+    while let Some(byte) = bytes.next() {
+        match byte {
+            b'=' => match (bytes.next().and_then(hex), bytes.next().and_then(hex)) {
+                (Some(_), Some(_)) => {}
+                _ => return Err("invalid Q escape in phrase encoded-word"),
+            },
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'!' | b'*' | b'+' | b'-' | b'/' | b'_' => {}
+            _ => return Err("character is not allowed in phrase Q encoded-word"),
+        }
+    }
+    Ok(())
 }
 
 /// Проверяет RFC 2047 encoded-text до передачи данных B/Q decoder-у.
@@ -55,7 +96,7 @@ pub fn decode_phrase(value: &str) -> String {
     let mut output = String::with_capacity(value.len());
     let mut previous_encoded = false;
     for word in value.split_whitespace() {
-        let decoded = decode(word);
+        let decoded = decode_in_context(word, WordContext::Phrase);
         match decoded {
             Ok(decoded) => {
                 if !output.is_empty() && !previous_encoded {
@@ -208,6 +249,18 @@ mod tests {
     fn invalid_word_remains_visible_in_header_projection() {
         let word = "=?UTF-8?Q?tab\tinside?=";
         assert_eq!(decode_header(word).expect("ordinary header text"), word);
+    }
+
+    #[test]
+    fn phrase_q_encoding_uses_its_restricted_character_set() {
+        let invalid_phrase_word = "=?UTF-8?Q?Smith.Jones?=";
+        assert_eq!(decode(invalid_phrase_word), Ok("Smith.Jones".to_owned()));
+        assert_eq!(decode_phrase(invalid_phrase_word), invalid_phrase_word);
+        assert_eq!(
+            decode_phrase("=?UTF-8?Q?Smith=2EJones!_*+-/?="),
+            "Smith.Jones! *+-/"
+        );
+        assert_eq!(decode_phrase("=?UTF-8?B?U21pdGguSm9uZXM=?="), "Smith.Jones");
     }
 
     #[test]
