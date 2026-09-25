@@ -264,7 +264,7 @@ mod tests {
     fn list_status_return_items_are_typed_and_deduplicated() {
         assert_eq!(
             crate::imap::parse(
-                "a LIST () \"\" \"*\" RETURN (STATUS (MESSAGES UNSEEN MESSAGES SIZE))\r\n"
+                "a LIST () \"\" \"*\" RETURN (STATUS (MESSAGES UNSEEN MESSAGES SIZE APPENDLIMIT))\r\n"
             )
             .command,
             Command::List {
@@ -274,6 +274,7 @@ mod tests {
                         super::super::status::StatusAttribute::Messages,
                         super::super::status::StatusAttribute::Unseen,
                         super::super::status::StatusAttribute::Size,
+                        super::super::status::StatusAttribute::AppendLimit,
                     ],
                     ..ListReturnOptions::default()
                 },

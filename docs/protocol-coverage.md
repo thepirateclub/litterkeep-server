@@ -144,6 +144,13 @@ path сохраняет проверенный UTF-8 как значение т�
 acceptance проверил tagged BAD для UTF-8 quoted LOGIN, восстановление сессии и
 UTF-8 BODY literal; это не реализует RFC 9755 UTF8=ACCEPT.
 
+RFC 7889 APPENDLIMIT объявляет единый предел `26214400` octets, равный
+действующему `MAX_MESSAGE_SIZE`. STATUS и LIST RETURN STATUS возвращают
+APPENDLIMIT для mailbox; oversize APPEND получает tagged `NO [TOOBIG]` до
+continuation и приёма payload. Независимый STARTTLS клиент проверил capability,
+STATUS, LIST STATUS и отклонение размера `26214401`; полная загрузка сообщения
+ровно предельного размера отдельным wire-тестом не измерялась.
+
 `FETCH` принимает одиночные и сгруппированные data items, раскрывает ALL, FAST
 и FULL, включает UID в ответы UID FETCH и сохраняет literal как точные октеты.
 `BODY` и `BODYSTRUCTURE` поддерживаются как отдельные запросы; FULL раскрывается

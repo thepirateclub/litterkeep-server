@@ -32,6 +32,9 @@ fn status_value(
         imap::status::StatusAttribute::Unseen => Some(format!("UNSEEN {}", status.unseen)),
         imap::status::StatusAttribute::Deleted => Some(format!("DELETED {}", status.deleted)),
         imap::status::StatusAttribute::Size => status.size.map(|size| format!("SIZE {size}")),
+        imap::status::StatusAttribute::AppendLimit => {
+            Some(format!("APPENDLIMIT {}", crate::smtp::MAX_MESSAGE_SIZE))
+        }
         imap::status::StatusAttribute::Recent => None,
     }
 }

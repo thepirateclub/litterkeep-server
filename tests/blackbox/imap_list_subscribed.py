@@ -85,6 +85,10 @@ def main() -> None:
     grandchild_name = f"{child_name}/January"
     phantom_child = f"Phantom{suffix}/Nested"
     require(*client.create(present_name), "OK", "CREATE")
+    status, append_status = client.status(present_name, "(APPENDLIMIT)")
+    require(status, append_status, "OK", "STATUS APPENDLIMIT")
+    if not any(b"APPENDLIMIT 26214400" in row for row in append_status or []):
+        raise AssertionError(f"STATUS omitted APPENDLIMIT: {append_status!r}")
     require(*client.create(child_name), "OK", "CREATE nested")
     require(*client.create(grandchild_name), "OK", "CREATE grandchild")
     status_message = b"Subject: status fixture\r\n\r\nstatus body\r\n"
@@ -198,7 +202,7 @@ def main() -> None:
     )
     status_command = (
         b'LIST () "" "' + present_name.encode() + b'" RETURN '
-        b'(STATUS (MESSAGES UNSEEN DELETED SIZE UIDNEXT UIDVALIDITY))'
+        b'(STATUS (MESSAGES UNSEEN DELETED SIZE UIDNEXT UIDVALIDITY APPENDLIMIT))'
     )
     ordered = ordered_list_command(client, status_command)
     require_adjacent(
@@ -206,7 +210,7 @@ def main() -> None:
         f'* LIST () "/" "{present_name}"'.encode(),
         (
             f'* STATUS "{present_name}" (MESSAGES 1 UNSEEN 1 DELETED 1 '
-            f'SIZE {len(status_message)} UIDNEXT 2 UIDVALIDITY 1)'
+            f'SIZE {len(status_message)} UIDNEXT 2 UIDVALIDITY 1 APPENDLIMIT 26214400)'
         ).encode(),
         "STATUS for existing matching mailbox",
     )

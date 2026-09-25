@@ -28,6 +28,7 @@ def main() -> None:
     else:
         password = os.environ["LITTERKEEP_BOB_PASSWORD"]
     require(client.login("bob", password), "OK")
+    require_append_limit(client)
     require_bad(client, "IDLE")
     require(client.select("INBOX"), "OK")
     require_bad(client, "EXPUNGE")
@@ -61,6 +62,19 @@ def require_bad(client: imaplib.IMAP4, verb: str) -> None:
     response_text = b" ".join(item for item in (detail or []) if item is not None)
     if status != "BAD" or b"invalid command syntax" not in response_text:
         raise AssertionError(f"{verb} with extra atom: {status} {detail!r}")
+
+
+def require_append_limit(client: imaplib.IMAP4) -> None:
+    """Проверяет объявленный предел и отказ TOOBIG до приёма payload."""
+    capabilities = client.capability()[1]
+    capability_tokens = b" ".join(capabilities or []).split()
+    if b"APPENDLIMIT=26214400" not in capability_tokens:
+        raise AssertionError(f"APPENDLIMIT missing from CAPABILITY: {capabilities!r}")
+    tag = client._command("APPEND", b"INBOX {26214401}")
+    status, detail = client._get_tagged_response(tag)
+    response_text = b" ".join(item for item in (detail or []) if item is not None)
+    if status != "NO" or b"TOOBIG" not in response_text:
+        raise AssertionError(f"oversize APPEND missing TOOBIG: {status} {detail!r}")
 
 
 def require(result: tuple[str, object], expected: str) -> object:

@@ -20,7 +20,7 @@ pub(super) fn begin(
         return session.push(format!("{tag} NO authenticate first\r\n").as_bytes());
     };
     if literal_size > MAX_MESSAGE {
-        return session.push(format!("{tag} NO message exceeds limit\r\n").as_bytes());
+        return session.push(format!("{tag} NO [TOOBIG] message exceeds limit\r\n").as_bytes());
     }
     let name = match mailbox {
         imap::MailboxName::Inbox => "INBOX".to_owned(),

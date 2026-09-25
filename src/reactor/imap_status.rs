@@ -95,6 +95,9 @@ pub(super) fn completed(
                     .sum::<u64>();
                 format!("SIZE {size}")
             }
+            StatusAttribute::AppendLimit => {
+                format!("APPENDLIMIT {}", crate::smtp::MAX_MESSAGE_SIZE)
+            }
         };
         values.push(value);
     }

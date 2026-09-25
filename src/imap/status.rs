@@ -13,6 +13,7 @@ pub enum StatusAttribute {
     Recent,
     Deleted,
     Size,
+    AppendLimit,
 }
 
 pub(super) fn parse(mut tokens: impl Iterator<Item = Token>) -> Command {
@@ -55,6 +56,7 @@ pub(super) fn parse_attribute(value: &str) -> Option<StatusAttribute> {
         "RECENT" => Some(StatusAttribute::Recent),
         "DELETED" => Some(StatusAttribute::Deleted),
         "SIZE" => Some(StatusAttribute::Size),
+        "APPENDLIMIT" => Some(StatusAttribute::AppendLimit),
         _ => None,
     }
 }

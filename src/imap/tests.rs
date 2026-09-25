@@ -197,7 +197,7 @@ fn subscriptions_and_status_are_typed() {
         }
     );
     assert_eq!(
-        parse("a16 STATUS INBOX (MESSAGES UIDNEXT UIDVALIDITY UNSEEN)\r\n").command,
+        parse("a16 STATUS INBOX (MESSAGES UIDNEXT UIDVALIDITY UNSEEN APPENDLIMIT)\r\n").command,
         Command::Status {
             mailbox: MailboxName::Inbox,
             attributes: vec![
@@ -205,6 +205,7 @@ fn subscriptions_and_status_are_typed() {
                 crate::imap::status::StatusAttribute::UidNext,
                 crate::imap::status::StatusAttribute::UidValidity,
                 crate::imap::status::StatusAttribute::Unseen,
+                crate::imap::status::StatusAttribute::AppendLimit,
             ]
         }
     );

@@ -4,6 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 IMAP APPENDLIMIT checkpoint, PASS
+
+- IMAP CAPABILITY now publishes the server-wide upload maximum as
+  `APPENDLIMIT=26214400` octets. STATUS and LIST RETURN STATUS expose the same
+  fixed limit; APPEND above it receives tagged `NO [TOOBIG]` before body bytes
+  are accepted.
+- PASS: Windows Rust 1.97.1 full suite (510 library + 1 binary), strict Clippy
+  and formatting; Linux Rust 1.97 Docker target strict Clippy and 557 library +
+  1 binary tests plus doc-tests. Independent STARTTLS checks verified CAPABILITY,
+  over-limit APPEND rejection without uploading payload, STATUS APPENDLIMIT and
+  LIST STATUS APPENDLIMIT. Test image/container removed; fixture
+  `./data/g17-managesieve-capabilities` preserved. G17 remains ACTIVE.
+
 ### 2026-09-25: G17 IMAP quoted-pair syntax and tagged lexer errors, PARTIAL
 
 - IMAP quoted strings now unescape only `\"` and `\\` as permitted by RFC 3501;
