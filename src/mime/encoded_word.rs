@@ -31,6 +31,35 @@ pub fn decode(word: &str) -> Result<String, &'static str> {
     charset.decode(&bytes)
 }
 
+/// Декодирует encoded-word только в позиции отдельного слова RFC 2047 phrase.
+///
+/// Некорректное либо неподдерживаемое слово остаётся обычным текстом: RFC 2047
+/// запрещает из-за него отклонять или скрывать всё сообщение.
+pub fn decode_phrase(value: &str) -> String {
+    let mut output = String::with_capacity(value.len());
+    let mut previous_encoded = false;
+    for word in value.split_whitespace() {
+        let decoded = decode(word);
+        match decoded {
+            Ok(decoded) => {
+                if !output.is_empty() && !previous_encoded {
+                    output.push(' ');
+                }
+                output.push_str(&decoded);
+                previous_encoded = true;
+            }
+            Err(_) => {
+                if !output.is_empty() {
+                    output.push(' ');
+                }
+                output.push_str(word);
+                previous_encoded = false;
+            }
+        }
+    }
+    output
+}
+
 /// Декодирует все encoded-word в неструктурированном header field.
 pub fn decode_header(value: &str) -> Result<String, &'static str> {
     let mut output = String::with_capacity(value.len());

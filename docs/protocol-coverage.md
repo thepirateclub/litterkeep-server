@@ -124,6 +124,11 @@ ENVELOPE и SEARCH сворачивают `first (comment) . last @ example . te
 нормализации исключены и проверяются отдельными unit fixtures. Для quoted
 display-name отдельно проверено снятие quoted-pair: `\"` и `\\` в исходном
 header становятся буквальными `"` и `\` в ENVELOPE.
+RFC 2047 encoded-word распознаётся как слово только в unquoted display-name
+phrase. Пробел между соседними encoded-word не выводится; испорченное слово
+остаётся видимым текстом и не блокирует сообщение; quoted display-name не
+декодируется. Независимый STARTTLS клиент подтвердил ENVELOPE и FROM SEARCH
+для encoded phrase, а также буквальное содержимое quoted-name.
 Для obsolete address-list проверены leading/repeated/trailing null members:
 они не формируют ENVELOPE addresses и не сдвигают порядок двух mailbox.
 `RETURN (SAVE)` сохраняет UIDs в состоянии одной сессии, а `$` SEARCH criterion

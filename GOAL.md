@@ -4,6 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G14
 
+### 2026-09-25: G14 RFC 2047 address phrase checkpoint
+
+- RFC 2047 encoded-word теперь распознаётся в отдельных словах unquoted
+  display-name/group phrase; пробел между соседними encoded-word игнорируется.
+  Некорректное слово сохраняется как видимый текст, чтобы оно не мешало
+  обработке сообщения, а quoted display-name остаётся буквальным.
+- PASS: Windows Rust 1.97.1, 305 тестов, strict Clippy, fmt и diff check;
+  Linux Docker Rust 1.97, strict Clippy и 345 тестов. Независимый Linux
+  STARTTLS IMAP acceptance проверил ENVELOPE и FROM SEARCH на encoded phrase,
+  плюс Sender и quoted Reply-To. Stage `./data/g14-rfc2047-address-phrase`.
+  Временный контейнер удалён; `litterkeep-g12-phone` сохранён. Интеграция с
+  приложением Litterkeep не проверялась. G14 остаётся RUNNING.
+
 ### 2026-09-25: G16 POP3 RFC 1939 deleted-message visibility checkpoint
 
 - Исправлено правило UPDATE: после `DELE` отмеченное сообщение немедленно

@@ -191,9 +191,9 @@ fn decode_name(value: &str) -> Result<Option<String>, &'static str> {
         .and_then(|inner| inner.strip_suffix('"'))
     {
         Some(inner) => decode_quoted_phrase(inner)?,
-        None => normalize_phrase(unquoted),
+        None => encoded_word::decode_phrase(&normalize_phrase(unquoted)),
     };
-    Ok(Some(encoded_word::decode(&decoded).unwrap_or(decoded)))
+    Ok(Some(decoded))
 }
 
 /// Удаляет quoting backslash из RFC 5322 quoted-pair внутри phrase.

@@ -60,8 +60,10 @@ def main() -> None:
     group = f"A-Group-{uuid.uuid4().hex}"
     require(client.create(mailbox), "CREATE")
     message = (
-        r'From: "Alice \"Sender\"" (primary (nested)) <alice@example.test>'
-        "\r\n"
+        r'From: "Alice \"Sender\"" (primary (nested)) <alice@example.test>, '
+        "=?UTF-8?Q?From?= =?UTF-8?Q?_Phrase?= <from@example.test>\r\n"
+        "Sender: =?UTF-8?Q?Encoded?= =?UTF-8?Q?_Name?= <sender@example.test>\r\n"
+        'Reply-To: "=?UTF-8?Q?Literal?=" <reply@example.test>\r\n'
         f"To: , {group} (list comment):Ed Jones (mentor (owner \\) note)) "
         "<c(comment)@a.test>,,joe@where.test,John <jdoe@one.test>, "
         'Quoted Local <"a@b"@example.test>, '
@@ -79,6 +81,9 @@ def main() -> None:
     expected = [
         f'(NIL NIL "{group}" NIL)'.encode("ascii"),
         br'("Alice \"Sender\"" NIL "alice" "example.test")',
+        b'("From Phrase" NIL "from" "example.test")',
+        b'("Encoded Name" NIL "sender" "example.test")',
+        b'("=?UTF-8?Q?Literal?=" NIL "reply" "example.test")',
         b'("Ed Jones" NIL "c" "a.test")',
         b'(NIL NIL "joe" "where.test")',
         b'("John" NIL "jdoe" "one.test")',
@@ -106,6 +111,9 @@ def main() -> None:
         raise AssertionError(f"RFC 5322 comments leaked into ENVELOPE: {wire!r}")
     if search_address(client, "TO", group) != b"1":
         raise AssertionError("TO search did not match group phrase")
+    from_match = search_address(client, "FROM", "From Phrase")
+    if from_match != b"1":
+        raise AssertionError(f"FROM search did not use RFC 2047 phrase decoding: {from_match!r}")
     if search_address(client, "TO", "jdoe@one.test") != b"1":
         raise AssertionError("TO search did not match a mailbox inside the group")
     if search_address(client, "TO", "a@b") != b"1":

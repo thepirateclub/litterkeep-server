@@ -119,6 +119,39 @@ fn decodes_quoted_pairs_in_display_name() {
     );
 }
 
+/// Декодирует RFC 2047 слова только в unquoted phrase позиции имени.
+#[test]
+fn decodes_encoded_words_in_display_name_phrase() {
+    let field = to_field("=?UTF-8?Q?Alice?= =?UTF-8?Q?_North?= <alice@example.test>");
+    let parsed = parse(vec![&field]).expect("encoded display name");
+    assert_eq!(
+        encode_list(&parsed).expect("decoded ENVELOPE"),
+        "((\"Alice North\" NIL \"alice\" \"example.test\"))"
+    );
+}
+
+/// Некорректный encoded-word остаётся видимым текстом, не ломая письмо.
+#[test]
+fn preserves_malformed_encoded_word_in_display_name() {
+    let field = to_field("=?UTF-8?Q?bad=ZZ?= <alice@example.test>");
+    let parsed = parse(vec![&field]).expect("malformed encoded-word is ordinary text");
+    assert_eq!(
+        encode_list(&parsed).expect("visible malformed word"),
+        "((\"=?UTF-8?Q?bad=ZZ?=\" NIL \"alice\" \"example.test\"))"
+    );
+}
+
+/// Encoded-word внутри quoted-string не интерпретируется как RFC 2047.
+#[test]
+fn preserves_encoded_word_inside_quoted_display_name() {
+    let field = to_field("\"=?UTF-8?Q?Alice?=\" <alice@example.test>");
+    let parsed = parse(vec![&field]).expect("quoted display name");
+    assert_eq!(
+        encode_list(&parsed).expect("quoted word remains literal"),
+        "((\"=?UTF-8?Q?Alice?=\" NIL \"alice\" \"example.test\"))"
+    );
+}
+
 /// Разделяет addr-spec по внешнему @, не по символу внутри quoted local-part.
 #[test]
 fn preserves_at_sign_inside_quoted_local_part() {
