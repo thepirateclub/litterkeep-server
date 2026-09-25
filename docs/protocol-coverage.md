@@ -116,6 +116,11 @@ MIME tree отвергает Base64, quoted-printable и неизвестный 
 multipart/message composite entities согласно RFC 2045 §6.4; повторное поле
 CTE отклоняется как неоднозначное, поэтому позднее 8bit не маскирует ранее
 указанное кодирование. Эти проверки parser-а unit-only.
+Отсутствующий или синтаксически повреждённый `Content-Type` получает
+рекомендуемый RFC 2045 §5.2 fallback `text/plain`/US-ASCII; сырой MIME header
+не переписывается. Duplicate Content-Type отклоняется как неоднозначный ввод.
+Unit проверки и отдельный сценарий независимого клиента обновлены; black-box
+сценарий в этом checkpoint не запускался.
 RFC 5322 address groups разбираются в типизированные start/member/end элементы:
 FETCH ENVELOPE выдаёт group marker (`NIL NIL group NIL`), mailbox участников
 и end marker (`NIL NIL NIL NIL`), включая пустую группу. SEARCH FROM/TO/CC/BCC

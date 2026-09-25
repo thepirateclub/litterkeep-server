@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 malformed MIME Content-Type fallback checkpoint
+
+- MIME parser applies RFC 2045 §5.2 recommended `text/plain` default when
+  Content-Type is syntactically invalid; body SEARCH therefore treats the part
+  using the US-ASCII default. The original malformed header remains untouched.
+  Duplicate Content-Type fields are rejected instead of selecting the first.
+- Unit tests cover malformed parameter syntax, preservation of header/body
+  bytes, SEARCH fallback and duplicate rejection. Independent black-box script
+  now includes the invalid-header case, but was not run over a socket. Windows
+  Rust 1.97.1: 384 library + 1 binary tests, fmt and strict Clippy PASS. Docker
+  Linux Rust 1.97.1: release build, strict Clippy, 425 library + 1 binary and
+  doc-tests PASS. `docker build --rm` left only pre-existing
+  `litterkeep-g12-phone`; no temporary containers remain. RFC 2045 §5.2 was
+  checked against the IETF Datatracker. G17 remains RUNNING.
+
 ### 2026-09-25: G17 MIME composite transfer-encoding checkpoint
 
 - MIME tree parser сверяет CTE каждого multipart/message entity с RFC 2045 §6.4:

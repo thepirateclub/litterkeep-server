@@ -50,15 +50,7 @@ fn parse_entity(
         return Err("MIME part limit exceeded");
     }
     let headers = header_block::parse(raw)?;
-    let content_type = headers
-        .fields
-        .iter()
-        .find(|field| matches!(field.kind(), HeaderName::ContentType))
-        .map(|field| std::str::from_utf8(&field.value))
-        .transpose()
-        .map_err(|_| "Content-Type is not ASCII compatible")?
-        .unwrap_or("text/plain");
-    let mut structured = parameters::parse(content_type)?;
+    let mut structured = parse_content_type(&headers.fields)?;
     let transfer_encoding = transfer_policy::resolve(&headers.fields, &structured.media_type)?;
     // RFC 2045 §6.4 делает entity с неизвестным CTE непрозрачной для
     // MIME-интерпретации: фактический тип становится application/octet-stream.
@@ -118,6 +110,31 @@ fn parse_entity(
         preamble_range,
         epilogue_range,
     })
+}
+
+/// Применяет RFC 2045 §5.2 fallback для отсутствующего или некорректного поля.
+fn parse_content_type(fields: &[HeaderField]) -> Result<parameters::StructuredValue, &'static str> {
+    let mut values = fields
+        .iter()
+        .filter(|field| matches!(field.kind(), HeaderName::ContentType));
+    match values.next() {
+        None => parameters::parse("text/plain"),
+        Some(field) => match values.next() {
+            Some(_) => Err("duplicate Content-Type field"),
+            None => parse_single_content_type(&field.value),
+        },
+    }
+}
+
+/// Сохраняет MIME-заголовок как есть, но использует безопасный тип при ошибке.
+fn parse_single_content_type(value: &[u8]) -> Result<parameters::StructuredValue, &'static str> {
+    match std::str::from_utf8(value) {
+        Ok(value) => match parameters::parse(value) {
+            Ok(parsed) => Ok(parsed),
+            Err(_) => parameters::parse("text/plain"),
+        },
+        Err(_) => parameters::parse("text/plain"),
+    }
 }
 
 impl Entity {
@@ -227,6 +244,27 @@ mod tests {
     #[test]
     fn duplicate_cte_fields_are_rejected_instead_of_selecting_the_last() {
         let raw = b"Content-Type: text/plain\r\nContent-Transfer-Encoding: x-private\r\nContent-Transfer-Encoding: 8bit\r\n\r\nbody";
+
+        assert!(parse(raw).is_err());
+    }
+
+    #[test]
+    fn malformed_content_type_falls_back_to_plain_text_and_keeps_header() {
+        let raw = b"Content-Type: text/plain; charset=\"unterminated\r\n\r\nplain body";
+        let entity = parse(raw).expect("RFC 2045 default type");
+
+        assert_eq!(entity.media_type, MediaType::TextPlain);
+        assert!(entity.parameters.is_empty());
+        assert_eq!(raw.get(entity.body_range), Some(b"plain body".as_slice()));
+        assert_eq!(
+            entity.headers.first().map(|field| field.value.as_slice()),
+            Some(b"text/plain; charset=\"unterminated".as_slice())
+        );
+    }
+
+    #[test]
+    fn duplicate_content_type_fields_are_rejected_as_ambiguous() {
+        let raw = b"Content-Type: text/plain\r\nContent-Type: application/octet-stream\r\n\r\nbody";
 
         assert!(parse(raw).is_err());
     }

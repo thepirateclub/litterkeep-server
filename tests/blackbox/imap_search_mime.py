@@ -193,6 +193,15 @@ def main() -> None:
     assert saved_opaque == ("OK", []), saved_opaque
     cleared_search = require(raw_search(client, b"$"), "OK")
     assert cleared_search == [b""], cleared_search
+    malformed_content_type = (
+        b'Content-Type: text/plain; charset="unterminated\r\n\r\n'
+        b"rfc2045-fallback-token"
+    )
+    require(client.append(mailbox, None, None, malformed_content_type), "OK")
+    fallback_body = require(
+        raw_search(client, b"BODY", quoted("rfc2045-fallback-token")), "OK"
+    )
+    assert fallback_body == [b"5"], fallback_body
     require(
         raw_search(
             client,

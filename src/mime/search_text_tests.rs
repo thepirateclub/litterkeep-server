@@ -53,3 +53,11 @@ fn unknown_transfer_encoding_is_opaque_and_not_searched_as_declared_text() {
     let document = SearchDocument::parse(raw, true).expect("opaque entity");
     assert!(!document.body_contains("searchable"));
 }
+
+#[test]
+fn malformed_content_type_uses_ascii_plain_text_search_default() {
+    let raw = b"Content-Type: text/plain; charset=\"unterminated\r\n\r\nsearchable fallback";
+    let document = SearchDocument::parse(raw, true).expect("defaulted MIME entity");
+
+    assert!(document.body_contains("searchable fallback"));
+}
