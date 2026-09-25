@@ -32,6 +32,9 @@ pub mod outbound_service;
 #[path = "outbound_service_support.rs"]
 mod outbound_service_support;
 #[cfg(test)]
+#[path = "outbound_smtputf8_tests.rs"]
+mod outbound_smtputf8_tests;
+#[cfg(test)]
 #[path = "outbound_tests.rs"]
 mod outbound_tests;
 pub mod outbound_tls;

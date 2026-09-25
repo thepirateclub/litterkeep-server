@@ -43,7 +43,14 @@ parser-ом. Невалидный IP и незарегистрированный
 текущий IPv4/IPv6 синтаксис и не утверждает, что произвольные будущие tags
 поддержаны. Проверенный набор стандартизованных tags сверяется с
 [реестром IANA](https://www.iana.org/assignments/smtp/#smtp-address-literal-tags).
-SMTPUTF8 по-прежнему не поддержан.
+Полный inbound SMTPUTF8/EAI пока не поддержан и capability не рекламируется:
+mailbox grammar, IDNA U-label validation и Unicode account/storage keys
+остаются ASCII-only. Ограниченный DATA/transport checkpoint разбирает MAIL
+флаг SMTPUTF8 с обязательным `BODY=8BITMIME`, разрешает UTF-8 field values, но
+не ASCII field names, и требует обе peer capabilities на outbound перед MAIL.
+Независимый Linux SMTP peer подтвердил `BODY=8BITMIME SMTPUTF8` и сохранность
+UTF-8 header octets. Этот сценарий не подтверждает локальную EHLO capability,
+UTF-8 envelope адреса, inbound network delivery или совместимость Litterkeep.
 RFC 5321 Postmaster принимается как bare `<Postmaster>` без домена и как
 `postmaster@domain` для локально обслуживаемых доменов; регистр reserved local
 name и домена не влияет на route. Независимый STARTTLS тест отправил DATA и
@@ -427,13 +434,14 @@ TRANSACTION, обе выдачи CAPA, listing, `EN`, `*`, отказ `de` и в
 single-flight, применяет bounded retry/backoff и DSN. Pool повторно выдаёт только
 чистое соединение после success либо подтверждённого RSET.
 После EHLO клиент разбирает multiline reply и typed extension keywords. Для
-сообщения с high-bit octets только в MIME body отправляется `BODY=8BITMIME`,
-если peer рекламировал `8BITMIME`; без capability доставка завершается
-permanent failure до `MAIL`. High-bit header fields отклоняются отдельно,
-поскольку это требует SMTPUTF8, который outbound transport пока не реализует.
-Независимый SMTP peer подтвердил параметр `BODY=8BITMIME`, byte-preserving
-UTF-8 `8bit` MIME body и отказ без envelope при отсутствии extension.
-Litterkeep-клиент и outbound SMTPUTF8 не проверялись.
+сообщения с high-bit octets в MIME body отправляется `BODY=8BITMIME`, если peer
+рекламировал `8BITMIME`; без capability доставка завершается permanent failure
+до `MAIL`. Для валидных UTF-8 header values клиент дополнительно требует от peer
+`SMTPUTF8`, отправляет обе MAIL extensions и сохраняет исходные octets.
+Независимый Linux SMTP peer подтвердил negotiation, параметры и точные DATA
+bytes. Без любого из двух объявлений команда MAIL не начинается. Это не покрывает
+internationalized envelope addresses или входящий network сценарий; Litterkeep
+клиент не проверялся.
 Outbound SMTP ограничивает каждую строку greeting и reply, включая каждую
 строку multiline EHLO, значением RFC 5321 §4.5.3.1.5: не более 512 октетов с
 CRLF. Reader не накапливает сверх лимита и закрывает соединение при превышении

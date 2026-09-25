@@ -184,9 +184,11 @@ fn outbound_8bit_profile_distinguishes_mime_body_from_headers() {
     assert!(!outbound::has_8bit_body(b"Subject: plain\r\n\r\nbody"));
 
     let utf8_header = "Subject: Привет\r\n\r\nbody".as_bytes();
+    assert_eq!(outbound::validate_data(utf8_header), Ok(()));
+    assert!(outbound::has_utf8_headers(utf8_header));
     assert_eq!(
-        outbound::validate_data(utf8_header),
-        Err(outbound::DataValidationError::NonAsciiHeader)
+        outbound::validate_data("Заголовок: value\r\n\r\nbody".as_bytes()),
+        Err(outbound::DataValidationError::InvalidUtf8Headers)
     );
 }
 

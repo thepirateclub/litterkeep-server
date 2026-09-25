@@ -32,6 +32,7 @@ pub(super) fn data_line(
         bytes,
         oversized,
         body_mode,
+        smtp_utf8,
         ..
     } = &mut session.smtp
     else {
@@ -39,7 +40,7 @@ pub(super) fn data_line(
     };
     match *oversized {
         true => Ok(()),
-        false => append_data_line(bytes, oversized, *body_mode, &line),
+        false => append_data_line(bytes, oversized, *body_mode, *smtp_utf8, &line),
     }
 }
 
@@ -56,11 +57,13 @@ fn finish_data(
     if oversized {
         session.smtp = SmtpState::Command(smtp::Transaction::default());
         session.smtp_body_mode = smtp::BodyMode::SevenBit;
+        session.smtp_utf8 = false;
         return session.push(b"552 5.3.4 message too large\r\n");
     }
     let (bytes, reverse_path, recipients) = take_data(session);
     session.smtp = SmtpState::Command(smtp::Transaction::default());
     session.smtp_body_mode = smtp::BodyMode::SevenBit;
+    session.smtp_utf8 = false;
     let message = crate::smtp_trace::prepend(&bytes, &reverse_path, std::time::SystemTime::now())?;
     submit_delivery(
         session,
@@ -134,13 +137,15 @@ fn append_data_line(
     bytes: &mut Vec<u8>,
     oversized: &mut bool,
     mode: smtp::BodyMode,
+    smtp_utf8: bool,
     line: &[u8],
 ) -> io::Result<()> {
     let content = match line.strip_prefix(b".") {
         Some(unstuffed) => unstuffed,
         None => line,
     };
-    match data_line_accepts(mode, content) {
+    let headers = in_header_section(bytes);
+    match data_line_accepts(mode, smtp_utf8, headers, content) {
         Err(()) => *oversized = true,
         Ok(()) => match bytes.len().saturating_add(content.len()) > MAX_MESSAGE {
             true => *oversized = true,
@@ -150,17 +155,54 @@ fn append_data_line(
     Ok(())
 }
 
+/// Учитывает как обычный разделитель, так и сообщение с пустым заголовком.
+fn in_header_section(bytes: &[u8]) -> bool {
+    match bytes.starts_with(b"\r\n") {
+        true => false,
+        false => !bytes.windows(4).any(|window| window == b"\r\n\r\n"),
+    }
+}
+
 /// Соблюдает минимум RFC 5321 и 7BIT/8BITMIME octet mode.
-fn data_line_accepts(mode: smtp::BodyMode, content: &[u8]) -> Result<(), ()> {
+fn data_line_accepts(
+    mode: smtp::BodyMode,
+    smtp_utf8: bool,
+    headers: bool,
+    content: &[u8],
+) -> Result<(), ()> {
     let line_limit_exceeded = content.len() > 1000;
-    let non_ascii_without_extension = match mode {
-        smtp::BodyMode::SevenBit => content.iter().any(|octet| !octet.is_ascii()),
-        smtp::BodyMode::EightBitMime => false,
+    let non_ascii = content.iter().any(|octet| !octet.is_ascii());
+    let non_ascii_without_extension = match (headers, non_ascii, smtp_utf8, mode) {
+        (_, false, _, _) => false,
+        (true, true, true, _) => !valid_utf8_header_line(content),
+        (false, true, _, smtp::BodyMode::EightBitMime) => false,
+        _ => true,
     };
     match (line_limit_exceeded, non_ascii_without_extension) {
         (true, _) | (_, true) => Err(()),
         (false, false) => Ok(()),
     }
+}
+
+/// RFC 6532 допускает UTF-8 в поле заголовка, но не в имени поля.
+fn valid_utf8_header_line(content: &[u8]) -> bool {
+    if std::str::from_utf8(content).is_err() {
+        return false;
+    }
+    match content.first() {
+        Some(b' ' | b'\t') => true,
+        _ => match content.iter().position(|octet| *octet == b':') {
+            Some(separator) => content
+                .get(..separator)
+                .is_some_and(|name| !name.is_empty() && name.iter().all(valid_field_name_octet)),
+            None => false,
+        },
+    }
+}
+
+/// Проверяет ASCII ftext без materialized преобразования заголовочной строки.
+fn valid_field_name_octet(octet: &u8) -> bool {
+    matches!(*octet, b'!'..=b'9' | b';'..=b'~')
 }
 
 /// Выдаёт следующий ненулевой request id без дублирования арифметики.
@@ -171,55 +213,5 @@ fn next_request(request_id: &mut u64) -> u64 {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::append_data_line;
-    use crate::smtp::BodyMode;
-
-    /// Каждая DATA wire-строка удаляет один добавочный dot независимо от числа
-    /// точек в исходном содержимом, как требует SMTP transparency.
-    #[test]
-    fn data_removes_exactly_one_transparency_dot_from_every_dotted_line() {
-        let cases: [(&[u8], &[u8]); 3] = [
-            (b"..one\r\n", b".one\r\n"),
-            (b"...two\r\n", b"..two\r\n"),
-            (b"....three\r\n", b"...three\r\n"),
-        ];
-        for (wire, expected) in cases {
-            let mut bytes = Vec::new();
-            let mut oversized = false;
-            append_data_line(&mut bytes, &mut oversized, BodyMode::SevenBit, wire)
-                .expect("DATA line");
-            assert!(!oversized);
-            assert_eq!(bytes, expected);
-        }
-    }
-
-    /// Проверяет 1000 октетов вместе с CRLF, не включая только wire-dot, и
-    /// подтверждает, что следующая длина приводит к отказу всего сообщения.
-    #[test]
-    fn data_line_limit_counts_crlf_but_excludes_the_transparency_dot() {
-        let accepted = format!("..{}\r\n", "x".repeat(997));
-        let rejected = format!("{}\r\n", "x".repeat(999));
-        let mut bytes = Vec::new();
-        let mut oversized = false;
-        append_data_line(
-            &mut bytes,
-            &mut oversized,
-            BodyMode::SevenBit,
-            accepted.as_bytes(),
-        )
-        .expect("boundary DATA line");
-        assert!(!oversized);
-        assert_eq!(bytes.len(), 1000);
-
-        append_data_line(
-            &mut bytes,
-            &mut oversized,
-            BodyMode::SevenBit,
-            rejected.as_bytes(),
-        )
-        .expect("oversized DATA line");
-        assert!(oversized);
-        assert_eq!(bytes.len(), 1000);
-    }
-}
+#[path = "smtp_data_tests.rs"]
+mod tests;

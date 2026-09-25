@@ -8,22 +8,54 @@ pub(crate) enum DataValidationError {
     LineTooLong,
     BareCarriageReturn,
     BareLineFeed,
-    NonAsciiHeader,
+    InvalidUtf8Headers,
 }
 
-/// Проверяет CRLF framing, line limit и ASCII-профиль заголовков до envelope.
+/// Проверяет CRLF framing и UTF-8 заголовков до открытия SMTP envelope.
 pub(crate) fn validate_data(message: &[u8]) -> Result<(), DataValidationError> {
     validate_line_framing(message)?;
     match header_bytes(message) {
-        Some(headers) if headers.iter().any(|byte| !byte.is_ascii()) => {
-            Err(DataValidationError::NonAsciiHeader)
+        Some(headers) if !valid_utf8_headers(headers) => {
+            Err(DataValidationError::InvalidUtf8Headers)
         }
         Some(_) => Ok(()),
-        None if message.iter().any(|byte| !byte.is_ascii()) => {
-            Err(DataValidationError::NonAsciiHeader)
-        }
         None => Ok(()),
     }
+}
+
+/// Выявляет UTF-8 octets в заголовках, требующие SMTPUTF8 negotiation.
+pub(crate) fn has_utf8_headers(message: &[u8]) -> bool {
+    header_bytes(message).is_some_and(|headers| headers.iter().any(|byte| !byte.is_ascii()))
+}
+
+/// Проверяет ASCII имена полей для строк, в значениях которых есть UTF-8.
+fn valid_utf8_headers(headers: &[u8]) -> bool {
+    let Ok(text) = std::str::from_utf8(headers) else {
+        return false;
+    };
+    text.split("\r\n").all(|line| match line.is_ascii() {
+        true => true,
+        false => valid_utf8_header_line(line),
+    })
+}
+
+/// В RFC 6532 UTF-8 допустим в продолжении или после ASCII двоеточия.
+fn valid_utf8_header_line(line: &str) -> bool {
+    match line
+        .chars()
+        .next()
+        .is_some_and(|character| matches!(character, ' ' | '\t'))
+    {
+        true => true,
+        false => line
+            .split_once(':')
+            .is_some_and(|(name, _)| !name.is_empty() && name.bytes().all(valid_field_octet)),
+    }
+}
+
+/// Ограничивает имя заголовка ASCII `ftext` без индексных обращений.
+fn valid_field_octet(octet: u8) -> bool {
+    matches!(octet, b'!'..=b'9' | b';'..=b'~')
 }
 
 /// Выявляет high-bit octets только в content body, а не в header fields.

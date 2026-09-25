@@ -20,7 +20,7 @@ pub(super) fn smtp_line(
             session, line, slot, generation, worker, owners, request_id,
         );
     }
-    if line.len() > smtp::MAX_COMMAND_LINE_SIZE {
+    if line.len() > smtp::command_line_limit(&line) {
         return session.push(b"500 5.5.2 command line too long\r\n");
     }
     let command = match smtp::parse(std::str::from_utf8(&line).unwrap_or("")) {
@@ -201,6 +201,7 @@ fn apply_transaction(session: &mut Session, command: smtp::Command) -> io::Resul
                 reverse_path: envelope.reverse_path,
                 oversized: false,
                 body_mode: session.smtp_body_mode,
+                smtp_utf8: session.smtp_utf8,
             };
             session.push(b"354 end with <CRLF>.<CRLF>\r\n")
         }
@@ -233,6 +234,7 @@ fn apply_mail_transaction(
     mail: smtp::MailFrom,
     body_mode: smtp::BodyMode,
 ) -> io::Result<()> {
+    let smtp_utf8 = mail.smtp_utf8;
     let reply = apply_transaction(session, smtp::Command::Mail(mail));
     match reply {
         Ok(()) => {
@@ -240,6 +242,7 @@ fn apply_mail_transaction(
                 SmtpState::Command(_) => session.smtp_body_mode = body_mode,
                 SmtpState::Data { .. } => return session.push(b"503 bad sequence\r\n"),
             }
+            session.smtp_utf8 = smtp_utf8;
             Ok(())
         }
         Err(error) => Err(error),

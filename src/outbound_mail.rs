@@ -2,7 +2,7 @@
 
 use super::{
     EhloCapabilities, EhloExtension, SizeAdvertisement,
-    data::{has_8bit_body, transmitted_message_size},
+    data::{has_8bit_body, has_utf8_headers, transmitted_message_size},
 };
 
 /// Исход выбора outbound MAIL: отправить команду либо завершить job permanent.
@@ -29,13 +29,24 @@ pub(crate) fn build_mail_command(
             format!(" SIZE={declared_size}")
         }
     };
-    let body_parameter = match has_8bit_body(message) {
+    let utf8_headers = has_utf8_headers(message);
+    let body_requires_8bit = has_8bit_body(message) || utf8_headers;
+    let body_parameter = match body_requires_8bit {
         true if capabilities.supports(EhloExtension::EightBitMime) => " BODY=8BITMIME",
         true => return MailCommand::PermanentFailure,
         false => "",
     };
+    let utf8_header_parameter = match utf8_headers {
+        true if capabilities.supports(EhloExtension::SmtpUtf8)
+            && capabilities.supports(EhloExtension::EightBitMime) =>
+        {
+            " SMTPUTF8"
+        }
+        true => return MailCommand::PermanentFailure,
+        false => "",
+    };
     MailCommand::Ready(format!(
-        "MAIL FROM:<{sender}>{size_parameter}{body_parameter}\r\n"
+        "MAIL FROM:<{sender}>{size_parameter}{body_parameter}{utf8_header_parameter}\r\n"
     ))
 }
 

@@ -19,11 +19,11 @@ pub(super) fn requirement(
             Some(session.push(b"503 5.5.1 EHLO required for this extension\r\n"))
         }
         (smtp::GreetingMode::Basic, smtp::Command::Mail(mail)) => {
-            match (mail.declared_size.is_some(), mail.body_mode) {
-                (true, _) | (_, smtp::BodyMode::EightBitMime) => {
+            match (mail.declared_size.is_some(), mail.body_mode, mail.smtp_utf8) {
+                (true, _, _) | (_, smtp::BodyMode::EightBitMime, _) | (_, _, true) => {
                     Some(session.push(b"555 5.5.4 ESMTP parameter requires EHLO\r\n"))
                 }
-                (false, smtp::BodyMode::SevenBit) => None,
+                (false, smtp::BodyMode::SevenBit, false) => None,
             }
         }
         _ => None,
@@ -75,5 +75,6 @@ fn establish(session: &mut Session, mode: smtp::GreetingMode, response: &[u8]) -
     session.smtp = SmtpState::Command(smtp::Transaction::default());
     session.smtp_greeting = mode;
     session.smtp_body_mode = smtp::BodyMode::SevenBit;
+    session.smtp_utf8 = false;
     Ok(())
 }

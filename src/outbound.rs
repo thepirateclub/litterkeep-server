@@ -20,6 +20,8 @@ mod timeouts;
 pub(crate) use data::DataValidationError;
 #[cfg(test)]
 pub(crate) use data::has_8bit_body;
+#[cfg(test)]
+pub(crate) use data::has_utf8_headers;
 pub(crate) use data::{validate_data, write_data};
 pub(crate) use ehlo::negotiate_ehlo;
 #[cfg(test)]

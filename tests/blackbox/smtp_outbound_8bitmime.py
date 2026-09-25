@@ -42,6 +42,7 @@ def deliver_case(
     route: str,
     ehlo_reply: bytes,
     should_deliver: bool,
+    required_parameter: str | None = None,
 ) -> None:
     """Проверяет параметр MAIL и точные DATA bytes у независимого peer."""
     message_path.write_bytes(payload)
@@ -71,6 +72,8 @@ def deliver_case(
         case True:
             require(result.returncode == 0, f"delivery failed: {result.stderr}")
             require("BODY=8BITMIME" in peer.envelope_sender, "MAIL omitted BODY=8BITMIME")
+            if required_parameter is not None:
+                require(required_parameter in peer.envelope_sender, "MAIL omitted required parameter")
             require(
                 f"SIZE={len(payload)}" in peer.envelope_sender,
                 "MAIL omitted the exact advertised SIZE",
@@ -260,6 +263,16 @@ def main() -> None:
     deliver_case(
         options.image, data_root, message_path, payload, route, unsupported, False
     )
+    utf8_header = "Subject: Привет\r\n\r\nbody\r\n".encode("utf-8")
+    internationalized = (
+        b"250-peer.test\r\n250-SIZE 1048576\r\n"
+        b"250-8BITMIME\r\n250 SMTPUTF8\r\n"
+    )
+    deliver_case(
+        options.image, data_root, message_path, utf8_header, route,
+        internationalized, True, "SMTPUTF8",
+    )
+    print("PASS smtp-outbound-smtputf8: UTF-8 header requires 8BITMIME and SMTPUTF8")
     verify_reply_line_limits(options.image, data_root, stage, route)
     verify_size_declaration(options.image, data_root, stage, route)
     verify_phase_specific_reply_codes(options.image, data_root, stage, route)

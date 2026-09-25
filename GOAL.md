@@ -4,6 +4,25 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 SMTPUTF8 header octet transport checkpoint, PARTIAL
+
+- Parser распознаёт MAIL-параметр `SMTPUTF8` без значения, отвергает повтор и
+  значение, требует вместе с ним `BODY=8BITMIME` и разрешает предусмотренные
+  RFC 6531 дополнительные 10 октетов длины MAIL-команды. Входящий DATA разделяет
+  UTF-8 field values заголовков и 8-bit MIME body: первое разрешает только флаг
+  SMTPUTF8, второе только BODY=8BITMIME; UTF-8 field names остаются запрещены.
+- Исходящий SMTP обнаруживает валидные UTF-8 заголовки и перед MAIL требует от
+  peer обе capability, `8BITMIME` и `SMTPUTF8`; передаёт `BODY=8BITMIME`
+  и `SMTPUTF8`, сохраняя message octets. Независимый Linux SMTP peer подтвердил
+  команду MAIL и точные DATA bytes; Linux Rust 1.97 test image: strict Clippy,
+  541 library + 1 binary test и doc-tests. Windows Rust 1.97.1: 497 library
+  + 1 binary test, strict Clippy, fmt и diff check.
+- Локальный EHLO намеренно не рекламирует SMTPUTF8: Unicode envelope local-part,
+  IDNA U-label validation и безопасные Unicode account/storage keys ещё не
+  реализованы. Входящий wire сценарий полного SMTP listener не проверялся;
+  Litterkeep app не тестировалось. Это ограниченный transport checkpoint, не
+  реализация EAI/SMTPUTF8 целиком. Fixture: `./data/g17-smtputf8`.
+
 ### 2026-09-25: G17 SMTP RFC 5321 address-literal syntax
 
 - SMTP mailbox grammar now accepts IPv4 address-literals and registered tagged

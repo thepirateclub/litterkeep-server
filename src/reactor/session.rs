@@ -19,6 +19,7 @@ pub(super) enum SmtpState {
         reverse_path: String,
         oversized: bool,
         body_mode: crate::smtp::BodyMode,
+        smtp_utf8: bool,
     },
 }
 
@@ -70,6 +71,8 @@ pub(super) struct Session {
     pub(super) smtp: SmtpState,
     pub(super) smtp_greeting: smtp::GreetingMode,
     pub(super) smtp_body_mode: crate::smtp::BodyMode,
+    /// Маркер SMTPUTF8 действует только для envelope текущей транзакции.
+    pub(super) smtp_utf8: bool,
     /// POP3 хранит snapshot только до QUIT и не получает Store во владение.
     pub(super) pop3: pop3::Session,
     /// Внутренний ключ INBOX нужен для durable применения POP3 DELE на QUIT.
@@ -123,6 +126,7 @@ impl Session {
             smtp: SmtpState::Command(smtp::Transaction::default()),
             smtp_greeting: smtp::GreetingMode::NotEstablished,
             smtp_body_mode: crate::smtp::BodyMode::SevenBit,
+            smtp_utf8: false,
             pop3: pop3::Session::default(),
             pop3_mailbox: None,
             managesieve: managesieve::Session::default(),
@@ -248,6 +252,7 @@ impl Session {
         self.smtp = SmtpState::Command(smtp::Transaction::default());
         self.smtp_greeting = smtp::GreetingMode::NotEstablished;
         self.smtp_body_mode = crate::smtp::BodyMode::SevenBit;
+        self.smtp_utf8 = false;
         self.authenticated_account = None;
         self.selected_mailbox = None;
         self.selected_exists = 0;

@@ -34,6 +34,8 @@ pub struct MailFrom {
     pub reverse_path: String,
     pub declared_size: Option<u128>,
     pub body_mode: BodyMode,
+    /// Клиент объявил UTF-8 в envelope или заголовках сообщения.
+    pub smtp_utf8: bool,
 }
 
 /// RFC 6152 body declaration; default traffic remains strict seven-bit SMTP.
@@ -55,6 +57,8 @@ pub enum ParseError {
 pub const MAX_MESSAGE_SIZE: u64 = 25 * 1024 * 1024;
 /// Базовый предел SMTP-командной строки, включая завершающие CRLF октеты.
 pub const MAX_COMMAND_LINE_SIZE: usize = 512;
+/// RFC 6531 добавляет десять октетов для ESMTP MAIL с SMTPUTF8.
+pub const MAX_SMTPUTF8_MAIL_LINE_SIZE: usize = MAX_COMMAND_LINE_SIZE + 10;
 /// Максимальный SMTP reverse-path/forward-path вместе с угловыми скобками.
 pub const MAX_PATH_SIZE: usize = 256;
 /// Максимальный размер SMTP local-part в октетах согласно RFC 5321.
@@ -79,6 +83,21 @@ pub fn parse(line: &str) -> Result<Command, ParseError> {
         "RSET" if argument.is_empty() => Ok(Command::Rset),
         "QUIT" if argument.is_empty() => Ok(Command::Quit),
         _ => Err(ParseError::Syntax),
+    }
+}
+
+/// Выбирает RFC 5321 либо расширенный RFC 6531 предел до разбора команды.
+pub fn command_line_limit(line: &[u8]) -> usize {
+    let is_extended_mail = line
+        .get(..5)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(b"MAIL "))
+        && std::str::from_utf8(line).is_ok_and(|text| {
+            text.split_ascii_whitespace()
+                .any(|parameter| parameter.eq_ignore_ascii_case("SMTPUTF8"))
+        });
+    match is_extended_mail {
+        true => MAX_SMTPUTF8_MAIL_LINE_SIZE,
+        _ => MAX_COMMAND_LINE_SIZE,
     }
 }
 
@@ -120,8 +139,10 @@ fn parse_mail_from(argument: &str) -> Result<MailFrom, ParseError> {
         .collect::<Result<Vec<_>, _>>()?;
     let mut declared_size = None;
     let mut body_mode = BodyMode::SevenBit;
+    let mut smtp_utf8 = false;
     let mut size_seen = false;
     let mut body_seen = false;
+    let mut smtp_utf8_seen = false;
     for parameter in parsed_parameters {
         match parameter {
             MailParameter::Size(size) if !size_seen => {
@@ -132,13 +153,23 @@ fn parse_mail_from(argument: &str) -> Result<MailFrom, ParseError> {
                 body_mode = mode;
                 body_seen = true;
             }
-            MailParameter::Size(_) | MailParameter::Body(_) => return Err(ParseError::Syntax),
+            MailParameter::SmtpUtf8 if !smtp_utf8_seen => {
+                smtp_utf8 = true;
+                smtp_utf8_seen = true;
+            }
+            MailParameter::Size(_) | MailParameter::Body(_) | MailParameter::SmtpUtf8 => {
+                return Err(ParseError::Syntax);
+            }
         }
+    }
+    if let (true, BodyMode::SevenBit) = (smtp_utf8, body_mode) {
+        return Err(ParseError::Syntax);
     }
     Ok(MailFrom {
         reverse_path,
         declared_size,
         body_mode,
+        smtp_utf8,
     })
 }
 
@@ -220,10 +251,15 @@ enum PathKind {
 
 /// Преобразует ESMTP parameter keyword в явно поддерживаемый enum.
 fn parse_mail_parameter(parameter: &str) -> Result<MailParameter, ParseError> {
-    let (name, value) = parameter.split_once('=').ok_or(ParseError::Syntax)?;
-    match name.to_ascii_uppercase().as_str() {
-        "SIZE" => parse_size(value).map(MailParameter::Size),
-        "BODY" => parse_body_mode(value).map(MailParameter::Body),
+    let (name, value) = match parameter.split_once('=') {
+        Some((name, value)) => (name, Some(value)),
+        None => (parameter, None),
+    };
+    match (name.to_ascii_uppercase().as_str(), value) {
+        ("SIZE", Some(value)) => parse_size(value).map(MailParameter::Size),
+        ("BODY", Some(value)) => parse_body_mode(value).map(MailParameter::Body),
+        ("SMTPUTF8", None) => Ok(MailParameter::SmtpUtf8),
+        ("SIZE" | "BODY" | "SMTPUTF8", _) => Err(ParseError::Syntax),
         _ => Err(ParseError::UnsupportedParameter),
     }
 }
@@ -241,6 +277,7 @@ fn parse_body_mode(value: &str) -> Result<BodyMode, ParseError> {
 enum MailParameter {
     Size(u128),
     Body(BodyMode),
+    SmtpUtf8,
 }
 
 /// Ограничивает SIZE value диапазоном RFC 1870: от 1 до 20 цифр.

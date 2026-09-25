@@ -9,6 +9,7 @@ fn parses_size_parameter_as_typed_mail_metadata() {
             reverse_path: "alice@test".into(),
             declared_size: Some(37),
             body_mode: BodyMode::SevenBit,
+            smtp_utf8: false,
         }))
     );
 }
@@ -22,6 +23,7 @@ fn parses_8bitmime_body_mode_and_parameter_order() {
             reverse_path: "alice@test".into(),
             declared_size: Some(23),
             body_mode: BodyMode::EightBitMime,
+            smtp_utf8: false,
         }))
     );
     assert_eq!(
@@ -30,12 +32,41 @@ fn parses_8bitmime_body_mode_and_parameter_order() {
             reverse_path: "alice@test".into(),
             declared_size: None,
             body_mode: BodyMode::SevenBit,
+            smtp_utf8: false,
         }))
     );
     assert_eq!(
         parse("MAIL FROM:<alice@test> BODY=8BITMIME BODY=7BIT\r\n"),
         Err(ParseError::Syntax)
     );
+}
+
+/// RFC 6531 SMTPUTF8 является флагом MAIL, а не параметром со значением.
+#[test]
+fn parses_smtputf8_flag_and_rejects_values_or_duplicates() {
+    assert_eq!(
+        parse("MAIL FROM:<alice@test> SMTPUTF8 BODY=8BITMIME\r\n"),
+        Ok(Command::Mail(MailFrom {
+            reverse_path: "alice@test".into(),
+            declared_size: None,
+            body_mode: BodyMode::EightBitMime,
+            smtp_utf8: true,
+        }))
+    );
+    for wire in [
+        "MAIL FROM:<alice@test> SMTPUTF8=YES\r\n",
+        "MAIL FROM:<alice@test> SMTPUTF8 SMTPUTF8\r\n",
+        "MAIL FROM:<alice@test> SMTPUTF8\r\n",
+    ] {
+        assert_eq!(parse(wire), Err(ParseError::Syntax));
+    }
+}
+
+#[test]
+fn smtp_utf8_mail_line_has_rfc6531_ten_octet_extension() {
+    assert_eq!(MAX_SMTPUTF8_MAIL_LINE_SIZE, 522);
+    assert_eq!(command_line_limit(b"MAIL FROM:<a@test> SMTPUTF8\r\n"), 522);
+    assert_eq!(command_line_limit(b"NOOP\r\n"), 512);
 }
 
 /// Отклоняет некорректные значения, повторы и не рекламируемые параметры.
@@ -79,6 +110,7 @@ fn source_route_is_accepted_and_ignored_for_both_path_kinds() {
             reverse_path: "\"alice\"@test".into(),
             declared_size: None,
             body_mode: BodyMode::SevenBit,
+            smtp_utf8: false,
         }))
     );
     assert_eq!(
@@ -99,6 +131,7 @@ fn parses_address_literals_in_both_mailbox_path_kinds() {
             reverse_path: "alice@[192.0.2.1]".into(),
             declared_size: None,
             body_mode: BodyMode::SevenBit,
+            smtp_utf8: false,
         }))
     );
     assert_eq!(
@@ -119,6 +152,7 @@ fn accepts_empty_reverse_path_but_requires_recipient_path() {
             reverse_path: String::new(),
             declared_size: None,
             body_mode: BodyMode::SevenBit,
+            smtp_utf8: false,
         }))
     );
     assert_eq!(
