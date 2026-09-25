@@ -1,6 +1,6 @@
 //! POP3 AUTHORIZATION, TRANSACTION и UPDATE без доступа к Store.
 
-use super::{Command, Maildrop, SaslMechanism};
+use super::{Command, LanguageRequest, Maildrop, SaslMechanism};
 use crate::store::Message;
 
 #[path = "session_sasl.rs"]
@@ -81,6 +81,10 @@ impl Session {
                 self.utf8_active = true;
                 Reply::Ok("UTF-8 mode enabled".into())
             }
+            (
+                Phase::Authorization | Phase::UserAccepted | Phase::Transaction,
+                Command::Lang(language),
+            ) => lang_reply(language),
             (Phase::Authorization | Phase::UserAccepted, Command::Noop) => Reply::Ok("noop".into()),
             (Phase::Transaction, Command::Stat) => self.stat(),
             (Phase::Transaction, Command::List(number)) => self.list(number),
@@ -228,7 +232,7 @@ impl Session {
 /// Аргумент `USER` не передаётся: POP3 account credentials остаются ASCII.
 fn capa_reply(tls_active: bool) -> Reply {
     let mut response =
-        b"+OK Capability list\r\nUSER\r\nUIDL\r\nTOP\r\nRESP-CODES\r\nUTF8\r\n".to_vec();
+        b"+OK Capability list\r\nUSER\r\nUIDL\r\nTOP\r\nRESP-CODES\r\nUTF8\r\nLANG\r\n".to_vec();
     if tls_active {
         response.extend_from_slice(b"SASL PLAIN\r\n");
     } else {
@@ -236,6 +240,18 @@ fn capa_reply(tls_active: bool) -> Reply {
     }
     response.extend_from_slice(b".\r\n");
     Reply::Multiline(response)
+}
+/// Возвращает поддерживаемую локаль либо RFC 6856 language listing.
+fn lang_reply(language: LanguageRequest) -> Reply {
+    match language {
+        LanguageRequest::Listing => {
+            Reply::Multiline(b"+OK Language listing follows\r\nen English\r\n.\r\n".to_vec())
+        }
+        LanguageRequest::Preferred | LanguageRequest::English => {
+            Reply::Ok("en Language selected".into())
+        }
+        LanguageRequest::Unsupported => Reply::Error("language not supported"),
+    }
 }
 fn list_reply(entries: Vec<(u32, usize)>) -> Reply {
     let mut output = b"+OK scan listing follows\r\n".to_vec();

@@ -46,11 +46,30 @@ Current subgoal: G16
   прежние POP3 SASL/RESP-CODES/line-limit regressions и UTF8 content acceptance
   с окончательным кэшем maildrop. Все временные
   контейнеры удалены, `litterkeep-g12-phone` сохранён.
-- Это частичный RFC 6856 профиль: conversion из legacy charset не реализован,
-  UTF-8 credentials и LANG не поддержаны; соответствие MIME binary CTE не
-  проверялось. Детектор блокирует корректные
+- Это частичный RFC 6856 профиль: conversion из legacy charset и UTF-8
+  credentials не реализованы; соответствие MIME binary CTE не проверялось.
+  Детектор блокирует корректные
   non-ASCII UTF-8 последовательности, не классифицируя произвольные невалидные
   octets как UTF-8. G16 остаётся RUNNING.
+
+### 2026-09-25: G16 POP3 LANG checkpoint
+
+- Добавлена RFC 6856 capability `LANG`: сервер перечисляет `en English`,
+  принимает регистронезависимый диапазон `en` и серверный выбор `*`, а
+  синтаксически корректные неподдерживаемые диапазоны отклоняет без смены языка.
+  Проверка command parser использует типизированный результат запроса.
+- PASS: Windows Rust 1.97.1: 282 теста, strict Clippy, `cargo fmt --check`,
+  Python syntax check и `git diff --check`. Linux Docker Rust 1.97: strict
+  Clippy и 322 теста. Независимый socket acceptance на Linux runtime проверил
+  CAPA и LANG listing/selection в AUTHORIZATION, CAPA и `LANG EN` после входа,
+  выбор `*`, отказ `de`, UTF8/STLS семантику и байты UTF-8 письма. Отдельный
+  чистый `./data/g16-pop3-lang-regression` прошёл прежние SASL, line-limit,
+  длинный RETR и RESP-CODES regressions. Использован UTF8 stage
+  `./data/g16-pop3-lang`; временные контейнеры удалены, постоянный
+  `litterkeep-g12-phone` сохранён.
+- Доступна только английская локаль, поэтому успешный выбор не меняет тексты;
+  многоязычная локализация, conversion из legacy charset, UTF-8 credentials и
+  соответствие MIME binary CTE не реализованы/не проверены. G16 остаётся RUNNING.
 
 ### 2026-09-25: POP3 RFC 1939 USER/PASS sequencing checkpoint
 

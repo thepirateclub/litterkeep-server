@@ -212,6 +212,29 @@ fn pop3_utf8_capability_guards_messages_until_mode_is_enabled() {
 }
 
 #[test]
+fn pop3_lang_lists_selects_and_rejects_unsupported_ranges() {
+    let mut session = Session::default();
+    let capabilities = session.apply(parse("CAPA\r\n"));
+    assert!(
+        matches!(capabilities, Reply::Multiline(bytes) if bytes.windows(6).any(|part| part == b"LANG\r\n"))
+    );
+    assert!(matches!(
+        session.apply(parse("LANG\r\n")),
+        Reply::Multiline(bytes) if bytes == b"+OK Language listing follows\r\nen English\r\n.\r\n"
+    ));
+    assert!(
+        matches!(session.apply(parse("LANG EN\r\n")), Reply::Ok(text) if text.starts_with("en "))
+    );
+    assert!(
+        matches!(session.apply(parse("LANG *\r\n")), Reply::Ok(text) if text.starts_with("en "))
+    );
+    assert!(matches!(
+        session.apply(parse("LANG de\r\n")),
+        Reply::Error(_)
+    ));
+}
+
+#[test]
 fn maildrop_detects_valid_utf8_after_malformed_octets_without_indexing() {
     let ascii = Maildrop::new(vec![message(1, b"Subject: plain\r\n\r\nbody")]);
     let unicode = Maildrop::new(vec![message(2, b"Subject: caf\xc3\xa9\r\n\r\nbody")]);

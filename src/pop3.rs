@@ -5,6 +5,8 @@
 
 #[path = "pop3/command.rs"]
 mod command;
+#[path = "pop3/language.rs"]
+mod language;
 #[path = "pop3/maildrop.rs"]
 mod maildrop;
 #[cfg(any(target_os = "linux", test))]
@@ -14,6 +16,7 @@ pub(crate) mod reply_wire;
 mod session;
 
 pub use command::{Command, MAX_COMMAND_LINE_SIZE, SaslMechanism, parse};
+pub use language::LanguageRequest;
 pub use maildrop::Maildrop;
 pub use session::{Reply, ResponseCode, Session};
 

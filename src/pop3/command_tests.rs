@@ -1,5 +1,6 @@
 //! Проверяет POP3 command grammar, printable ASCII и RFC 2449 длины.
 use super::*;
+use crate::pop3::LanguageRequest;
 
 #[test]
 fn accepts_command_at_rfc2449_octet_limit() {
@@ -44,6 +45,20 @@ fn preserves_normal_command_arity() {
     );
     assert_eq!(parse("UTF8\r\n"), Command::Utf8);
     assert_eq!(parse("UTF8 extra\r\n"), Command::Invalid);
+    assert_eq!(parse("LANG\r\n"), Command::Lang(LanguageRequest::Listing));
+    assert_eq!(
+        parse("LANG EN\r\n"),
+        Command::Lang(LanguageRequest::English)
+    );
+    assert_eq!(
+        parse("LANG *\r\n"),
+        Command::Lang(LanguageRequest::Preferred)
+    );
+    assert_eq!(
+        parse("LANG de\r\n"),
+        Command::Lang(LanguageRequest::Unsupported)
+    );
+    assert_eq!(parse("LANG en--US\r\n"), Command::Invalid);
     assert_eq!(parse("NOOP extra\r\n"), Command::Invalid);
 }
 

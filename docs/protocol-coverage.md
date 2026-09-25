@@ -178,10 +178,14 @@ RFC 6856: `UTF8` capability объявляется в обоих состоян�
 8BITMIME UTF-8 письмо, получил `[UTF8]` от LIST/TOP/RETR в ASCII mode, затем
 включил UTF8 до USER и сравнил точные байты RETR. Он также проверил CAPA до/после
 TLS и отказ STLS после UTF8; unit-тесты проверяют guarded retrieval. Это не полный
-RFC 6856: legacy charset conversion, UTF-8 credentials/SASLprep и LANG не
-поддержаны; ограничения RFC 2045 для `Content-Transfer-Encoding: binary` этим
-этапом не проверялись. Повреждённые raw octets сами по себе не считаются UTF-8
-строками.
+RFC 6856: legacy charset conversion, UTF-8 credentials/SASLprep не поддержаны;
+ограничения RFC 2045 для `Content-Transfer-Encoding: binary` этим этапом не
+проверялись. Повреждённые raw octets сами по себе не считаются UTF-8
+строками. `LANG` объявляется и реализует listing единственной локали `en`, выбор
+`en` и серверной локали через `*`; корректный, но неподдерживаемый basic language
+range получает `-ERR`. Так как поддержана только английская локаль, выбор языка
+не меняет тексты ответов. Многоязычная локализация, остальные RFC 6856 сценарии
+и интеграция с реальным клиентом не проверялись.
 
 ## Sieve и ManageSieve
 

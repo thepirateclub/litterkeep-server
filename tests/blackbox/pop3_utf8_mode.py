@@ -43,8 +43,16 @@ def check_plaintext_upgrade_order():
     try:
         read_line(stream, "plaintext greeting")
         values = capabilities(connection, stream, "plaintext")
-        if b"UTF8" not in values or b"UTF8 USER" in values:
+        if b"UTF8" not in values or b"UTF8 USER" in values or b"LANG" not in values:
             raise AssertionError(f"unexpected plaintext UTF8 capability: {values!r}")
+        send(connection, stream, b"LANG\r\n", b"+OK", "LANG listing")
+        listing = read_line(stream, "LANG listing language")
+        terminator = read_line(stream, "LANG listing terminator")
+        if listing != b"en English\r\n" or terminator != b".\r\n":
+            raise AssertionError(f"unexpected LANG listing: {listing!r} {terminator!r}")
+        send(connection, stream, b"LANG EN\r\n", b"+OK en ", "LANG English")
+        send(connection, stream, b"LANG *\r\n", b"+OK en ", "LANG preferred")
+        send(connection, stream, b"LANG de\r\n", b"-ERR", "unsupported LANG")
         send(connection, stream, b"UTF8\r\n", b"+OK", "enable UTF8 mode")
         send(connection, stream, b"STLS\r\n", b"-ERR", "STLS after UTF8")
         send(connection, stream, b"QUIT\r\n", b"+OK", "plaintext QUIT")
@@ -66,7 +74,7 @@ def check_tls_utf8_mode():
         connection = context.wrap_socket(connection, server_hostname="localhost")
         stream = connection.makefile("rb")
         values = capabilities(connection, stream, "TLS authorization")
-        if b"UTF8" not in values or b"UTF8 USER" in values:
+        if b"UTF8" not in values or b"UTF8 USER" in values or b"LANG" not in values:
             raise AssertionError(f"unexpected TLS UTF8 capability: {values!r}")
         send(connection, stream, b"UTF8\r\n", b"+OK", "TLS UTF8 command")
         send(connection, stream, b"QUIT\r\n", b"+OK", "TLS QUIT")
@@ -111,6 +119,10 @@ def check_message_download_requires_utf8_mode():
             b"+OK",
             "message PASS",
         )
+        transaction_capabilities = capabilities(connection, stream, "transaction")
+        if b"LANG" not in transaction_capabilities:
+            raise AssertionError("LANG capability disappeared in TRANSACTION state")
+        send(connection, stream, b"LANG EN\r\n", b"+OK en ", "transaction LANG")
         status = send(connection, stream, b"STAT\r\n", b"+OK", "message STAT")
         _status, count, _octets = status.split()
         number = str(int(count))

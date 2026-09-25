@@ -21,6 +21,8 @@ pub enum Command {
     Stls,
     /// Включает режим UTF-8 сообщений по RFC 6856 без изменения credentials.
     Utf8,
+    /// Согласует язык протокольных ответов по RFC 6856.
+    Lang(super::LanguageRequest),
     Auth {
         mechanism: SaslMechanism,
         initial_response: Option<String>,
@@ -66,6 +68,8 @@ pub fn parse(line: &str) -> Command {
         "CAPA" => empty(words.next(), Command::Capa),
         "STLS" => empty(words.next(), Command::Stls),
         "UTF8" => empty(words.next(), Command::Utf8),
+        "LANG" => super::language::parse(words.next(), words.next())
+            .map_or(Command::Invalid, Command::Lang),
         "AUTH" => auth(words.next(), words.next(), words.next()),
         _ => Command::Invalid,
     }
