@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 multipart preamble boundary CRLF checkpoint
+
+- Исправлен диапазон MIME preamble: CRLF непосредственно перед первым boundary
+  delimiter больше не включается в preamble, поскольку RFC 2046 §5.1.1
+  относит его к delimiter; собственный завершающий CRLF preamble сохраняется.
+  Тест также подтверждает transport-padding на opening/closing delimiters и
+  сохранение строки `--boundary-suffix` внутри part.
+- Windows Rust 1.97.1: 402 library + 1 binary tests, fmt и strict Clippy PASS.
+  Docker Linux Rust 1.97.1: release build, strict Clippy, 443 library + 1
+  binary + doc-tests PASS. Проверено unit-тестом; socket acceptance не
+  запускался. Временный verification image удалён; остался только ранее
+  существовавший `litterkeep-g12-phone`. RFC 2046 §5.1.1 сверена с IETF.
+  G17 RUNNING.
+
 ### 2026-09-25: G17 multipart/digest BODYSTRUCTURE checkpoint
 
 - IMAP BODYSTRUCTURE regression фиксирует сериализацию headerless

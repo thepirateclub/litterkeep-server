@@ -142,7 +142,11 @@ unit-тестами; socket acceptance не запускался.
 не запускался.
 Параметр `multipart` boundary проверяется по RFC 2046 §5.1.1: 1..70 ASCII
 октетов из `bchars`, без завершающего пробела; покрыты длины и запрещённые
-символы. Boundary проверки unit-only.
+символы. Parser принимает transport-padding у opening/closing delimiter и
+исключает CRLF, непосредственно предшествующий первому delimiter, из preamble;
+собственный CRLF preamble сохраняется. Похожие строки с boundary-префиксом,
+но дополнительным suffix остаются содержимым part. Эти range-проверки
+unit-only, socket acceptance не запускался.
 Вложенная MIME-часть без Content-Type в `multipart/digest` получает default
 `message/rfc822` по RFC 2046 §5.1.5; само вложенное сообщение использует
 `text/plain` default для своего body. В остальных multipart подтипах отсутствие

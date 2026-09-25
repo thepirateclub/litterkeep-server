@@ -139,7 +139,10 @@ fn assemble_ranges(
     if first.closing {
         return Err("multipart closes before its first part");
     }
-    let preamble = 0..first.start;
+    // CRLF перед первым delimiter принадлежит boundary и не является частью
+    // preamble, так же как перед последующими delimiter не принадлежит part.
+    let preamble_end = strip_encapsulation_crlf(body, first.start);
+    let preamble = 0..preamble_end;
     let mut parts = Vec::new();
     let mut current = None;
     let mut epilogue_start = None;
@@ -194,5 +197,29 @@ mod tests {
         assert!(validate_boundary(b"ends-with-space ").is_err());
         assert!(validate_boundary(b"forbidden@").is_err());
         assert!(validate_boundary("не-ascii".as_bytes()).is_err());
+    }
+
+    #[test]
+    fn transport_padding_and_boundary_prefix_text_preserve_exact_ranges() {
+        let body = b"note\r\n--x \t\r\npart\r\n--x-more\r\nstill\r\n--x-- \t\r\nepilogue";
+        let ranges = multipart_ranges(body, b"x", 4).expect("multipart ranges");
+
+        assert_eq!(body.get(ranges.preamble), Some(b"note".as_slice()));
+        assert_eq!(
+            ranges
+                .parts
+                .first()
+                .and_then(|range| body.get(range.clone())),
+            Some(b"part\r\n--x-more\r\nstill".as_slice())
+        );
+        assert_eq!(body.get(ranges.epilogue), Some(b"epilogue".as_slice()));
+    }
+
+    #[test]
+    fn preamble_keeps_its_own_line_break_before_boundary_break() {
+        let body = b"note\r\n\r\n--x\r\npart\r\n--x--\r\n";
+        let ranges = multipart_ranges(body, b"x", 2).expect("multipart ranges");
+
+        assert_eq!(body.get(ranges.preamble), Some(b"note\r\n".as_slice()));
     }
 }
