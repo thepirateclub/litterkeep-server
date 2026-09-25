@@ -64,6 +64,22 @@ fn append_attribute(
             append_literal(response, first, "RFC822", &message.bytes);
             Ok(())
         }
+        imap::FetchAttribute::Rfc822Header => append_legacy_section(
+            response,
+            first,
+            message,
+            "RFC822.HEADER",
+            imap::BodySection::Headers { path: Vec::new() },
+            true,
+        ),
+        imap::FetchAttribute::Rfc822Text => append_legacy_section(
+            response,
+            first,
+            message,
+            "RFC822.TEXT",
+            imap::BodySection::Text { path: Vec::new() },
+            false,
+        ),
         imap::FetchAttribute::Rfc822Size => {
             append_item(
                 response,
@@ -132,6 +148,26 @@ fn append_attribute(
             Ok(())
         }
     }
+}
+
+/// Сохраняет legacy wire label, переиспользуя собственный section selector.
+fn append_legacy_section(
+    response: &mut Vec<u8>,
+    first: &mut bool,
+    message: &crate::store::Message,
+    label: &str,
+    section: imap::BodySection,
+    peek: bool,
+) -> Result<(), crate::imap_fetch::FetchError> {
+    let attribute = imap::FetchAttribute::Body {
+        peek,
+        section,
+        partial: None,
+    };
+    let data = crate::imap_fetch::select(&message.bytes, &attribute)
+        .map_err(|_| crate::imap_fetch::FetchError::InvalidSection)?;
+    append_literal(response, first, label, data.bytes.as_ref());
+    Ok(())
 }
 
 fn append_item(response: &mut Vec<u8>, first: &mut bool, label: &str, value: &[u8]) {

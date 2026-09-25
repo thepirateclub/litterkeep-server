@@ -8,6 +8,10 @@ use super::{Addressing, Command, fetch_section};
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FetchAttribute {
     Rfc822,
+    /// Legacy IMAP4rev1 header item, эквивалент BODY.PEEK[HEADER].
+    Rfc822Header,
+    /// Legacy IMAP4rev1 text item, эквивалент BODY[TEXT].
+    Rfc822Text,
     Rfc822Size,
     /// Нерасширяемая MIME-структура, стандартный FETCH item BODY.
     BodyStructureBasic,

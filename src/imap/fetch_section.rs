@@ -11,7 +11,9 @@ pub(super) fn parse(
     let token = value.trim_matches(['(', ')']);
     match token.to_ascii_uppercase().as_str() {
         "RFC822" => Some(FetchAttribute::Rfc822),
+        "RFC822.HEADER" => Some(FetchAttribute::Rfc822Header),
         "RFC822.SIZE" => Some(FetchAttribute::Rfc822Size),
+        "RFC822.TEXT" => Some(FetchAttribute::Rfc822Text),
         "BODY" => Some(FetchAttribute::BodyStructureBasic),
         "BODYSTRUCTURE" => Some(FetchAttribute::BodyStructure),
         "ENVELOPE" => Some(FetchAttribute::Envelope),

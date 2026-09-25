@@ -61,7 +61,7 @@ pub(super) fn follow_up(
 
 fn sets_seen(attributes: &[imap::FetchAttribute]) -> bool {
     attributes.iter().any(|attribute| match attribute {
-        imap::FetchAttribute::Rfc822 => true,
+        imap::FetchAttribute::Rfc822 | imap::FetchAttribute::Rfc822Text => true,
         imap::FetchAttribute::Body { peek, .. } => !peek,
         imap::FetchAttribute::Binary { peek, .. } => !peek,
         _ => false,

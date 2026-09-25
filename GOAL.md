@@ -4,6 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G14
 
+### 2026-09-25: G14 RFC 3501 legacy RFC822 section FETCH checkpoint
+
+- Реализованы обязательные для рекламируемого IMAP4rev1 data items
+  `RFC822.HEADER` и `RFC822.TEXT`. Ответы сохраняют legacy labels, используют
+  общий BODY section selector и возвращают точные байты. Header не меняет
+  `\\Seen`; чтение TEXT сначала durable фиксирует `\\Seen`.
+- PASS: Windows Rust 1.97.1, 306 тестов, strict Clippy, fmt и diff check;
+  Linux Docker Rust 1.97, strict Clippy и 346 тестов. Независимый SMTP-to-IMAP
+  acceptance проверил исходные header/body octets, response labels и Seen
+  до/после обоих items. Stage `./data/g14-rfc822-fetch`. Тестовый контейнер
+  удалён, `litterkeep-g12-phone` сохранён. Интеграция с приложением Litterkeep
+  не проверялась. G14 остаётся RUNNING.
+
 ### 2026-09-25: G14 RFC 2047 address phrase checkpoint
 
 - RFC 2047 encoded-word теперь распознаётся в отдельных словах unquoted

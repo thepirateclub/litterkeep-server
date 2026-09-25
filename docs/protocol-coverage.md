@@ -92,6 +92,10 @@ partial slicing; BINARY применяет literal8 при NUL, нормализ
 STARTTLS acceptance отправил вложение через SMTP и сравнил все байты BINARY;
 также проверены SIZE, decoded partial, Seen/PEEK и UNKNOWN-CTE. Это не проверка
 клиента Litterkeep. Остальные требования IMAP4rev2 остаются непокрытыми.
+Для IMAP4rev1 совместимости `RFC822.HEADER` возвращает заголовки под legacy
+data-item label и не меняет `\\Seen`; `RFC822.TEXT` возвращает точные body
+octets под своим label и durable устанавливает `\\Seen`. Независимый
+SMTP-to-IMAP acceptance проверяет labels, bytes и Seen-переходы.
 SEARCH использует UTF-8 по умолчанию и поддерживает явные UTF-8/US-ASCII;
 неподдерживаемая кодировка возвращает `NO [BADCHARSET ...]`, а Unicode-criteria
 при US-ASCII отвергаются ответом NO. `BODY`/`TEXT` декодируют Base64 и

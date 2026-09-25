@@ -16,6 +16,20 @@ fn fetch_attribute_is_typed() {
     );
 }
 
+/// RFC822.HEADER и RFC822.TEXT остаются различимыми legacy FETCH items.
+#[test]
+fn legacy_rfc822_sections_are_typed() {
+    let Command::Fetch { attributes, .. } =
+        parse("a FETCH 1 (RFC822.HEADER RFC822.TEXT)\r\n").command
+    else {
+        panic!("legacy RFC822 sections were not parsed");
+    };
+    assert_eq!(
+        attributes,
+        vec![FetchAttribute::Rfc822Header, FetchAttribute::Rfc822Text]
+    );
+}
+
 /// BODY и BODYSTRUCTURE остаются отдельными fetch item names.
 #[test]
 fn body_and_bodystructure_items_are_typed_separately() {

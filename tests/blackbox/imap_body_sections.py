@@ -113,6 +113,30 @@ with imaplib.IMAP4(OPTIONS.host, OPTIONS.imap_port, timeout=10) as imap:
     header = literal_payload(raw_header)
     assert header.endswith(b"\r\n\r\n"), header
 
+    status, _ = imap.store(message_number, "-FLAGS.SILENT", "(\\Seen)")
+    assert status == "OK", status
+    status, legacy_header = imap.fetch(message_number, "(RFC822.HEADER)")
+    assert status == "OK", (status, legacy_header)
+    legacy_header_bytes = literal_payload(legacy_header)
+    expected_header = RAW_MESSAGE.partition(b"\r\n\r\n")[0] + b"\r\n\r\n"
+    assert legacy_header_bytes.endswith(expected_header), legacy_header_bytes
+    assert "RFC822.HEADER" in metadata(legacy_header), metadata(legacy_header)
+    status, flags = imap.fetch(message_number, "(FLAGS)")
+    assert status == "OK", (status, flags)
+    assert "\\Seen" not in metadata(flags), metadata(flags)
+
+    status, legacy_text = imap.fetch(message_number, "(RFC822.TEXT)")
+    assert status == "OK", (status, legacy_text)
+    legacy_text_bytes = literal_payload(legacy_text)
+    expected_text = RAW_MESSAGE.partition(b"\r\n\r\n")[2]
+    assert legacy_text_bytes == expected_text, legacy_text_bytes
+    assert "RFC822.TEXT" in metadata(legacy_text), metadata(legacy_text)
+    status, flags = imap.fetch(message_number, "(FLAGS)")
+    assert status == "OK", (status, flags)
+    assert "\\Seen" in metadata(flags), metadata(flags)
+    status, _ = imap.store(message_number, "-FLAGS.SILENT", "(\\Seen)")
+    assert status == "OK", status
+
     status, body_text = imap.fetch(message_number, "(BODY.PEEK[TEXT])")
     assert status == "OK", (status, body_text)
     parsed = email.message_from_bytes(RAW_MESSAGE)
