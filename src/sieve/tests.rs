@@ -132,6 +132,10 @@ fn invalid_script_does_not_become_a_delivery_plan() {
     assert!(parse("if allof () { keep; }").is_err());
     assert!(parse("if allof (true false) { keep; }").is_err());
     assert!(parse("if anyof (true,) { keep; }").is_err());
+    assert!(parse("if exists [] { keep; }").is_err());
+    assert!(parse("if exists [\"Subject\" \"From\"] { keep; }").is_err());
+    assert!(parse("if exists [\"Subject\",] { keep; }").is_err());
+    assert!(parse("if exists [,\"Subject\"] { keep; }").is_err());
 }
 
 /// RFC 5228 test-list использует круглые скобки, в отличие от string-list.
@@ -140,6 +144,13 @@ fn allof_and_anyof_parse_parenthesized_comma_separated_tests() {
     let script = parse("if anyof (false, allof (true, true)) { keep; }").expect("parse");
     let plan = execute(&script, &[], 0).expect("execute");
     assert!(plan.keep);
+}
+
+/// String-list требует непустые строки с одним comma между соседями.
+#[test]
+fn string_list_requires_nonempty_comma_separated_values() {
+    let script = parse("if exists [\"Subject\", \"From\"] { keep; }").expect("parse");
+    assert!(execute(&script, &[("Subject".into(), "x".into())], 0).is_ok());
 }
 
 /// Несколько require допустимы подряд, но после команды расширения запрещены.

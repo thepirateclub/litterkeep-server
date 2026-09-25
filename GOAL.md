@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 Sieve RFC 5228 string-list grammar checkpoint
+
+- Квадратный `string-list` теперь требует одну или более строк; соседние
+  элементы разделяются ровно одной запятой. Пустые списки, пропуск разделителя,
+  ведущая/завершающая и повторная запятые отклоняются во всех командах и тестах,
+  использующих общий parser.
+- PASS: Windows Rust 1.97.1, fmt, 311 тестов, strict Clippy и diff check;
+  Linux Docker Rust 1.97, strict Clippy и 351 тест. Независимый ManageSieve
+  STARTTLS acceptance отверг список без запятой и принял корректный список;
+  полный SMTP -> Sieve -> IMAP сценарий прошёл. Stage
+  `./data/g17-sieve-string-list`; тестовый контейнер удалён,
+  `litterkeep-g12-phone` оставлен. Интеграция с приложением Litterkeep не
+  проверялась. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 Sieve RFC 5228 test-list grammar checkpoint
 
 - `allof`/`anyof` теперь требуют `test-list` в круглых скобках, разделённый

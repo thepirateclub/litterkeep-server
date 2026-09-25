@@ -98,6 +98,16 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
                 b"if allof [true, false] { keep; }",
                 b'NO "operation failed"\r\n',
             )
+            check_script(
+                client,
+                b'if exists ["Subject" "From"] { keep; }',
+                b'NO "operation failed"\r\n',
+            )
+            check_script(
+                client,
+                b'if exists ["Subject", "From"] { keep; }',
+                b'OK "completed"\r\n',
+            )
             first_chunk = b'require ["fileinto"]; '
             second_chunk = (
                 b'if allof (header :contains "subject" "[invoice]", '

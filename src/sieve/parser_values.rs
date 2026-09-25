@@ -18,13 +18,18 @@ pub(super) fn string_list(input: &mut VecDeque<Token>) -> Result<Vec<String>, &'
     match input.front() {
         Some(Token::OpenList) => {
             let _ = input.pop_front();
-            let mut values = Vec::new();
+            let mut values = vec![one_string(input)?];
             loop {
-                match input.pop_front() {
-                    Some(Token::String(value)) => values.push(value),
-                    Some(Token::Comma) => {}
-                    Some(Token::CloseList) => return Ok(values),
-                    _ => return Err("invalid sieve string list"),
+                match input.front() {
+                    Some(Token::Comma) => {
+                        let _ = input.pop_front();
+                        values.push(one_string(input)?);
+                    }
+                    Some(Token::CloseList) => {
+                        let _ = input.pop_front();
+                        return Ok(values);
+                    }
+                    _ => return Err("invalid sieve string list separator"),
                 }
             }
         }
