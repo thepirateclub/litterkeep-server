@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 IMAP quoted-pair syntax and tagged lexer errors, PARTIAL
+
+- IMAP quoted strings now unescape only `\"` and `\\` as permitted by RFC 3501;
+  other escaped characters are syntax errors. On tokenizer failure the parser
+  preserves the command tag so BAD remains correlated rather than becoming
+  `* BAD`.
+- Independent STARTTLS `imaplib` acceptance sent an invalid quoted-pair in
+  LOGIN, received tagged BAD, then completed NOOP and valid LOGIN on the same
+  connection. Fixture: `./data/g17-managesieve-capabilities`. UTF8=ACCEPT and
+  IMAP4rev2 remain unsupported and are not advertised.
+- PASS: Windows Rust 1.97.1 full suite (509 library + 1 binary), strict Clippy,
+  fmt, Python syntax and diff checks. Linux Rust 1.97 Docker test target passed
+  strict Clippy, 554 library + 1 binary tests and doc-tests; independent wire
+  acceptance passed. Test container and image tag removed, fixture preserved.
+  G17 remains ACTIVE.
+
 ### 2026-09-25: G17 Sieve vacation MIME quoted-printable network checks, PARTIAL
 
 - Расширен независимый ManageSieve CHECKSCRIPT acceptance: валидный QP soft

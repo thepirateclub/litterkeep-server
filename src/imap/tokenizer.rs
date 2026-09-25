@@ -74,10 +74,11 @@ where
     let mut escaped = false;
     for character in chars.by_ref() {
         match (escaped, character) {
-            (true, escaped_character) => {
+            (true, escaped_character @ ('"' | '\\')) => {
                 value.push(escaped_character);
                 escaped = false;
             }
+            (true, _) => return Err("invalid quoted-pair in IMAP quoted string"),
             (false, '\\') => escaped = true,
             (false, '"') => return Ok(value),
             (false, ordinary) => value.push(ordinary),
@@ -132,5 +133,12 @@ mod tests {
                 Token::Quoted("Y-TEST".into()),
             ])
         );
+    }
+
+    /// RFC 3501 разрешает quoted-pair только для кавычки и обратной косой черты.
+    #[test]
+    fn quoted_pair_rejects_other_escaped_characters() {
+        assert!(tokenize("a LOGIN \"bob\\q\" \"pass\"\r\n").is_err());
+        assert!(tokenize("a LOGIN \"bob\\ \" \"pass\"\r\n").is_err());
     }
 }

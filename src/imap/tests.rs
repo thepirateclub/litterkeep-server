@@ -15,6 +15,18 @@ fn login_has_credentials() {
     );
 }
 
+/// Лексическая ошибка сохраняет tag и не превращается в некоррелированный ответ.
+#[test]
+fn malformed_quoted_pair_keeps_the_command_tag() {
+    assert_eq!(
+        parse("client-42 LOGIN \"bob\\q\" \"password\"\r\n"),
+        TaggedCommand {
+            tag: "client-42".into(),
+            command: Command::Unsupported,
+        }
+    );
+}
+
 /// STARTTLS преобразуется в enum до входа в session FSM.
 #[test]
 fn starttls_is_typed() {

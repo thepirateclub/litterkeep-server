@@ -171,7 +171,10 @@ pub enum Transfer {
 pub fn parse(line: &str) -> TaggedCommand {
     let mut tokens = match tokenizer::tokenize(line) {
         Ok(tokens) => tokens.into_iter(),
-        Err(_) => return unsupported("*"),
+        Err(_) => {
+            let tag = line.split_ascii_whitespace().next().unwrap_or("*");
+            return unsupported(tag);
+        }
     };
     let tag = next_text(&mut tokens).unwrap_or_else(|| "*".into());
     let command = match next_text(&mut tokens).as_deref().map(parse_verb) {
