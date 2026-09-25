@@ -17,6 +17,7 @@ use std::{
 pub struct Connection {
     stream: BufReader<StreamOwned<ClientConnection, TcpStream>>,
     capabilities: outbound::EhloCapabilities,
+    close_after_response: bool,
 }
 
 impl Connection {
@@ -30,6 +31,7 @@ impl Connection {
         let mut result = Self {
             stream: BufReader::new(StreamOwned::new(connection, stream)),
             capabilities: outbound::EhloCapabilities::default(),
+            close_after_response: false,
         };
         expect_success(&mut result.stream, outbound::ReplyExpectation::Greeting)?;
         result.command("EHLO litterkeep.test\r\n")?;
@@ -74,27 +76,23 @@ impl Connection {
             }
         };
         self.command(&mail_command)?;
-        if let Some(outcome) = outbound::expect(&mut self.stream, outbound::ReplyExpectation::Mail)?
-        {
+        if let Some(outcome) = self.expect_command(outbound::ReplyExpectation::Mail)? {
             return Ok(outcome);
         }
         for recipient in recipients {
             self.command(&format!("RCPT TO:<{recipient}>\r\n"))?;
-            if let Some(outcome) =
-                outbound::expect(&mut self.stream, outbound::ReplyExpectation::Recipient)?
-            {
+            if let Some(outcome) = self.expect_command(outbound::ReplyExpectation::Recipient)? {
                 return Ok(outcome);
             }
         }
         self.command("DATA\r\n")?;
-        if let Some(outcome) = outbound::expect(&mut self.stream, outbound::ReplyExpectation::Data)?
-        {
+        if let Some(outcome) = self.expect_command(outbound::ReplyExpectation::Data)? {
             return Ok(outcome);
         }
         let stream = self.stream.get_mut();
         outbound::write_data(stream, message)?;
         stream.flush()?;
-        match outbound::expect(&mut self.stream, outbound::ReplyExpectation::Message)? {
+        match self.expect_command(outbound::ReplyExpectation::Message)? {
             None => Ok(DeliveryOutcome::Delivered),
             Some(outcome) => Ok(outcome),
         }
@@ -104,17 +102,47 @@ impl Connection {
     pub fn authenticate(&mut self, account: &str, password: &[u8]) -> io::Result<()> {
         let response = crate::sasl::encode_plain(account, password);
         self.command(&format!("AUTH PLAIN {response}\r\n"))?;
-        expect_success(&mut self.stream, outbound::ReplyExpectation::Authentication)
+        self.expect_success(outbound::ReplyExpectation::Authentication)
     }
 
     /// Доказывает возврат TLS connection в чистое SMTP состояние.
     pub fn reset(&mut self) -> io::Result<()> {
         self.command("RSET\r\n")?;
-        expect_success(&mut self.stream, outbound::ReplyExpectation::Reset)
+        self.expect_success(outbound::ReplyExpectation::Reset)
     }
 
     fn command(&mut self, wire: &str) -> io::Result<()> {
         command(&mut self.stream, wire)
+    }
+
+    /// Даёт TLS pool знать, что peer потребовал закрыть канал после reply.
+    pub(crate) fn should_close(&self) -> bool {
+        self.close_after_response
+    }
+
+    fn expect_command(
+        &mut self,
+        expectation: outbound::ReplyExpectation,
+    ) -> io::Result<Option<DeliveryOutcome>> {
+        match outbound::expect(&mut self.stream, expectation)? {
+            outbound::ReplyResult::Accepted => Ok(None),
+            outbound::ReplyResult::Rejected(outcome) => Ok(Some(outcome)),
+            outbound::ReplyResult::Closing => {
+                self.close_after_response = true;
+                Ok(Some(DeliveryOutcome::Deferred))
+            }
+        }
+    }
+
+    fn expect_success(&mut self, expectation: outbound::ReplyExpectation) -> io::Result<()> {
+        match self.expect_command(expectation)? {
+            None => Ok(()),
+            Some(DeliveryOutcome::Deferred) => Err(io::Error::other("TLS SMTP peer deferred")),
+            Some(DeliveryOutcome::PermanentFailure) => {
+                Err(io::Error::other("TLS SMTP peer rejected"))
+            }
+            Some(DeliveryOutcome::Delivered) => Err(io::Error::other("unexpected SMTP outcome")),
+        }
     }
 }
 
@@ -156,9 +184,19 @@ fn expect_success(
     expectation: outbound::ReplyExpectation,
 ) -> io::Result<()> {
     match outbound::expect(reader, expectation)? {
-        None => Ok(()),
-        Some(DeliveryOutcome::Deferred) => Err(io::Error::other("TLS SMTP peer deferred")),
-        Some(DeliveryOutcome::PermanentFailure) => Err(io::Error::other("TLS SMTP peer rejected")),
-        Some(DeliveryOutcome::Delivered) => Err(io::Error::other("unexpected SMTP outcome")),
+        outbound::ReplyResult::Accepted => Ok(()),
+        outbound::ReplyResult::Rejected(DeliveryOutcome::Deferred) => {
+            Err(io::Error::other("TLS SMTP peer deferred"))
+        }
+        outbound::ReplyResult::Rejected(DeliveryOutcome::PermanentFailure) => {
+            Err(io::Error::other("TLS SMTP peer rejected"))
+        }
+        outbound::ReplyResult::Rejected(DeliveryOutcome::Delivered) => {
+            Err(io::Error::other("unexpected SMTP outcome"))
+        }
+        outbound::ReplyResult::Closing => Err(io::Error::new(
+            io::ErrorKind::ConnectionAborted,
+            "TLS SMTP peer sent 421 and is closing the channel",
+        )),
     }
 }

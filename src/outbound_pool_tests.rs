@@ -112,6 +112,52 @@ fn failed_reset_drops_connection_before_next_recipient() {
     peer.join().expect("peer");
 }
 
+#[test]
+fn closing_421_drops_connection_without_reset_before_the_next_delivery() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+    let address = listener.local_addr().expect("address");
+    let peer = thread::spawn(move || {
+        let (mut closing, _) = listener.accept().expect("first accept");
+        greeting_and_ehlo(&mut closing);
+        let mut closing_reader = BufReader::new(closing.try_clone().expect("first clone"));
+        read_line(&mut closing_reader, "MAIL FROM:");
+        closing.write_all(b"250 sender\r\n").expect("sender reply");
+        read_line(&mut closing_reader, "RCPT TO:");
+        closing
+            .write_all(b"421 peer shutting down\r\n")
+            .expect("closing reply");
+        let mut unexpected_command = String::new();
+        assert_eq!(
+            closing_reader
+                .read_line(&mut unexpected_command)
+                .expect("client closes after 421"),
+            0,
+            "client must not send RSET after 421"
+        );
+
+        let (mut clean, _) = listener.accept().expect("new connection after 421");
+        greeting_and_ehlo(&mut clean);
+        let mut clean_reader = BufReader::new(clean.try_clone().expect("second clone"));
+        transaction(&mut clean, &mut clean_reader);
+    });
+    let mut pool = ConnectionPool::new(address.to_string(), 1).expect("pool");
+    assert_eq!(
+        pool.deliver("alice@test", "first@test", b"first")
+            .expect("deferred result"),
+        DeliveryOutcome::Deferred
+    );
+    assert_eq!(pool.open_count(), 0);
+    assert_eq!(pool.idle_count(), 0);
+    assert_eq!(
+        pool.deliver("alice@test", "second@test", b"second")
+            .expect("delivery after reconnect"),
+        DeliveryOutcome::Delivered
+    );
+    assert_eq!(pool.open_count(), 1);
+    assert_eq!(pool.idle_count(), 1);
+    peer.join().expect("peer");
+}
+
 fn greeting_and_ehlo(stream: &mut std::net::TcpStream) {
     stream.write_all(b"220 peer ready\r\n").expect("greeting");
     let mut reader = BufReader::new(stream.try_clone().expect("clone"));

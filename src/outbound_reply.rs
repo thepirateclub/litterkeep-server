@@ -1,5 +1,6 @@
 //! Ограниченное чтение строк ответов удалённого SMTP-сервера.
 
+use super::DeliveryOutcome;
 use std::io::{self, BufRead, ErrorKind};
 
 /// SMTP command phase, для которой проверяется ожидаемый positive reply.
@@ -15,6 +16,23 @@ pub(crate) enum ReplyExpectation {
     Authentication,
 }
 
+/// Результат SMTP reply сохраняет отдельно смысл 421 о закрытии канала.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ReplyResult {
+    Accepted,
+    Rejected(DeliveryOutcome),
+    Closing,
+}
+
+/// Класс SMTP-кода отделяет успешный ответ от временного и постоянного отказа.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ReplyClass {
+    Positive,
+    Transient,
+    Permanent,
+    Unexpected,
+}
+
 impl ReplyExpectation {
     /// Проверяет ожидаемую фазу, сохраняя совместимость с новыми 2yz кодами.
     pub(crate) fn accepts(self, code: u16) -> bool {
@@ -27,6 +45,98 @@ impl ReplyExpectation {
                 code / 100 == 2 && !matches!(code, 220 | 221 | 235)
             }
         }
+    }
+}
+
+/// Читает complete SMTP reply, включая multiline continuation.
+pub(crate) fn expect<R: BufRead>(
+    reader: &mut R,
+    expectation: ReplyExpectation,
+) -> io::Result<ReplyResult> {
+    let mut reply_code = None;
+    loop {
+        let line = read_reply_line(reader)?;
+        let (code, continuation) = parse_reply(&line)?;
+        match reply_code {
+            Some(initial_code) if initial_code != code => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "SMTP multiline reply changed its status code",
+                ));
+            }
+            Some(_) | None => {}
+        }
+        if !continuation {
+            if code == 421 {
+                return Ok(ReplyResult::Closing);
+            }
+            return match expectation.accepts(code) {
+                true => Ok(ReplyResult::Accepted),
+                false => match classify(code) {
+                    ReplyClass::Transient => Ok(ReplyResult::Rejected(DeliveryOutcome::Deferred)),
+                    ReplyClass::Permanent => {
+                        Ok(ReplyResult::Rejected(DeliveryOutcome::PermanentFailure))
+                    }
+                    ReplyClass::Positive | ReplyClass::Unexpected => Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "SMTP peer returned an unexpected positive reply code",
+                    )),
+                },
+            };
+        }
+        reply_code = Some(code);
+    }
+}
+
+/// Превращает ответ фазы в ошибку standalone SMTP операции.
+pub(crate) fn expect_success<R: BufRead>(
+    reader: &mut R,
+    expectation: ReplyExpectation,
+) -> io::Result<()> {
+    match expect(reader, expectation)? {
+        ReplyResult::Accepted => Ok(()),
+        ReplyResult::Rejected(DeliveryOutcome::Deferred) => {
+            Err(io::Error::other("SMTP peer deferred command"))
+        }
+        ReplyResult::Rejected(DeliveryOutcome::PermanentFailure) => {
+            Err(io::Error::other("SMTP peer rejected command"))
+        }
+        ReplyResult::Closing => Err(io::Error::new(
+            io::ErrorKind::ConnectionAborted,
+            "SMTP peer sent 421 and is closing the channel",
+        )),
+        ReplyResult::Rejected(DeliveryOutcome::Delivered) => {
+            Err(io::Error::other("unexpected SMTP outcome"))
+        }
+    }
+}
+
+/// Разбирает числовой SMTP code и continuation marker на protocol boundary.
+pub(crate) fn parse_reply(line: &str) -> io::Result<(u16, bool)> {
+    let code = line
+        .get(..3)
+        .ok_or_else(|| io::Error::other("short SMTP reply"))?;
+    let marker = line
+        .as_bytes()
+        .get(3)
+        .copied()
+        .ok_or_else(|| io::Error::other("short SMTP reply"))?;
+    let number = code
+        .parse()
+        .map_err(|_| io::Error::other("invalid SMTP reply"))?;
+    match marker {
+        b' ' => Ok((number, false)),
+        b'-' => Ok((number, true)),
+        _ => Err(io::Error::other("invalid SMTP separator")),
+    }
+}
+
+fn classify(code: u16) -> ReplyClass {
+    match code / 100 {
+        2 => ReplyClass::Positive,
+        4 => ReplyClass::Transient,
+        5 => ReplyClass::Permanent,
+        _ => ReplyClass::Unexpected,
     }
 }
 

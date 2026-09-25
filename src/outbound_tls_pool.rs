@@ -51,9 +51,12 @@ impl ConnectionPool {
                 Ok(DeliveryOutcome::Delivered)
             }
             Ok(outcome) => {
-                match connection.reset() {
-                    Ok(()) => self.idle.push(connection),
-                    Err(_) => self.discard(connection),
+                match connection.should_close() {
+                    true => self.discard(connection),
+                    false => match connection.reset() {
+                        Ok(()) => self.idle.push(connection),
+                        Err(_) => self.discard(connection),
+                    },
                 }
                 Ok(outcome)
             }

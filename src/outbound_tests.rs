@@ -120,21 +120,30 @@ fn smtp_positive_reply_codes_are_specific_to_the_command_phase() {
             outbound::ReplyExpectation::Recipient
         )
         .expect("forwarded recipient"),
-        None
+        outbound::ReplyResult::Accepted
     );
 
     let mut data_continuation = Cursor::new(b"354 send data\r\n");
     assert_eq!(
         outbound::expect(&mut data_continuation, outbound::ReplyExpectation::Data)
             .expect("DATA continuation"),
-        None
+        outbound::ReplyResult::Accepted
     );
 
     let mut future_positive_code = Cursor::new(b"299 extension success\r\n");
     assert_eq!(
         outbound::expect(&mut future_positive_code, outbound::ReplyExpectation::Mail)
             .expect("unknown 2yz is a positive completion"),
-        None
+        outbound::ReplyResult::Accepted
+    );
+}
+
+#[test]
+fn smtp_421_reply_marks_the_connection_as_closing_and_deferred() {
+    let mut reply = Cursor::new(b"421 peer shutting down\r\n");
+    assert_eq!(
+        outbound::expect(&mut reply, outbound::ReplyExpectation::Recipient).expect("421 reply"),
+        outbound::ReplyResult::Closing
     );
 }
 

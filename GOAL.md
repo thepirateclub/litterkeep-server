@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 outbound SMTP 421 channel closure
+
+- RFC 5321 §4.2.2 `421` теперь сохраняет результат `Deferred`, но отдельно
+  помечает соединение как закрываемое. Обычный и implicit-TLS pool не посылают
+  `RSET` в закрывающийся канал и не возвращают его в idle pool; следующая задача
+  устанавливает новое соединение. Общее чтение SMTP reply и классификация кодов
+  выделены в отдельный профильный модуль, чтобы исходный файл оставался в лимите
+  300 строк.
+- PASS: Windows Rust 1.97.1: 473 библиотечных + 1 бинарный тест, strict Clippy,
+  fmt и diff check. Linux Docker Rust 1.97: 514 библиотечных + 1 бинарный тест,
+  strict Clippy и doc-tests. Независимые plaintext/TLS SMTP test peers выдали
+  421 и подтвердили отсутствие RSET и повторное подключение. Временный образ
+  удалён; `litterkeep-g12-phone` оставлен. Данные этапа: `./data/g17-smtp-421-channel-close`.
+  Litterkeep-клиент не проверялся; G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 outbound SMTP reply phase semantics
 
 - Reply success now follows SMTP command phase instead of treating every 2yz

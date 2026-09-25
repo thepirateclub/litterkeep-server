@@ -1,6 +1,6 @@
 //! Собственный минимальный SMTP client transport для delivery worker-а.
 use std::{
-    io::{self, BufRead, BufReader, Write},
+    io::{self, BufReader, Write},
     net::{SocketAddr, TcpStream},
     time::Duration,
 };
@@ -21,7 +21,8 @@ pub(crate) use data::has_8bit_body;
 pub(crate) use data::{validate_data, write_data};
 pub(crate) use ehlo::{EhloCapabilities, EhloExtension, SizeAdvertisement, read_ehlo};
 pub(crate) use mail::{MailCommand, build_mail_command};
-pub(crate) use reply::{ReplyExpectation, read_reply_line};
+pub(crate) use reply::{ReplyExpectation, ReplyResult, expect, expect_success};
+pub(crate) use reply::{parse_reply, read_reply_line};
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const IO_TIMEOUT: Duration = Duration::from_secs(10);
@@ -49,14 +50,6 @@ impl Default for TransportLimits {
 }
 
 /// Категория SMTP-ответа, не зависящая от строковых префиксов.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum ReplyClass {
-    Positive,
-    Transient,
-    Permanent,
-    Unexpected,
-}
-
 /// Результат SMTP transaction, который очередь переводит в durable state.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DeliveryOutcome {
@@ -74,6 +67,7 @@ pub struct Connection {
     reader: BufReader<TcpStream>,
     writer: TcpStream,
     capabilities: EhloCapabilities,
+    close_after_response: bool,
 }
 
 impl Connection {
@@ -97,6 +91,7 @@ impl Connection {
             reader: BufReader::new(stream.try_clone()?),
             writer: stream,
             capabilities: EhloCapabilities::default(),
+            close_after_response: false,
         };
         expect_success(&mut result.reader, ReplyExpectation::Greeting)?;
         result.command("EHLO litterkeep.test\r\n")?;
@@ -119,20 +114,20 @@ impl Connection {
             MailCommand::PermanentFailure => return Ok(DeliveryOutcome::PermanentFailure),
         };
         self.command(&mail_command)?;
-        if let Some(outcome) = expect(&mut self.reader, ReplyExpectation::Mail)? {
+        if let Some(outcome) = self.expect_command(ReplyExpectation::Mail)? {
             return Ok(outcome);
         }
         self.command(&format!("RCPT TO:<{recipient}>\r\n"))?;
-        if let Some(outcome) = expect(&mut self.reader, ReplyExpectation::Recipient)? {
+        if let Some(outcome) = self.expect_command(ReplyExpectation::Recipient)? {
             return Ok(outcome);
         }
         self.command("DATA\r\n")?;
-        if let Some(outcome) = expect(&mut self.reader, ReplyExpectation::Data)? {
+        if let Some(outcome) = self.expect_command(ReplyExpectation::Data)? {
             return Ok(outcome);
         }
         write_data(&mut self.writer, message)?;
         self.writer.flush()?;
-        match expect(&mut self.reader, ReplyExpectation::Message)? {
+        match self.expect_command(ReplyExpectation::Message)? {
             Some(outcome) => Ok(outcome),
             None => Ok(DeliveryOutcome::Delivered),
         }
@@ -141,7 +136,7 @@ impl Connection {
     /// Завершает standalone-соединение. Ошибка QUIT не отменяет уже принятый DATA.
     pub fn quit(&mut self) -> io::Result<()> {
         self.command("QUIT\r\n")?;
-        expect_success(&mut self.reader, ReplyExpectation::Quit)
+        self.expect_success(ReplyExpectation::Quit)
     }
 
     /// Возвращает peer в известное idle-состояние после SMTP отказа.
@@ -151,11 +146,41 @@ impl Connection {
     /// состояние неизвестным, поэтому caller обязан уничтожить connection.
     pub fn reset(&mut self) -> io::Result<()> {
         self.command("RSET\r\n")?;
-        expect_success(&mut self.reader, ReplyExpectation::Reset)
+        self.expect_success(ReplyExpectation::Reset)
     }
 
     fn command(&mut self, wire: &str) -> io::Result<()> {
         command(&mut self.writer, wire)
+    }
+
+    /// Даёт pool-у знать, что peer потребовал завершить именно этот socket.
+    pub(crate) fn should_close(&self) -> bool {
+        self.close_after_response
+    }
+
+    fn expect_command(
+        &mut self,
+        expectation: ReplyExpectation,
+    ) -> io::Result<Option<DeliveryOutcome>> {
+        match expect(&mut self.reader, expectation)? {
+            ReplyResult::Accepted => Ok(None),
+            ReplyResult::Rejected(outcome) => Ok(Some(outcome)),
+            ReplyResult::Closing => {
+                self.close_after_response = true;
+                Ok(Some(DeliveryOutcome::Deferred))
+            }
+        }
+    }
+
+    fn expect_success(&mut self, expectation: ReplyExpectation) -> io::Result<()> {
+        match self.expect_command(expectation)? {
+            None => Ok(()),
+            Some(DeliveryOutcome::Deferred) => Err(io::Error::other("SMTP peer deferred command")),
+            Some(DeliveryOutcome::PermanentFailure) => {
+                Err(io::Error::other("SMTP peer rejected command"))
+            }
+            Some(DeliveryOutcome::Delivered) => Err(io::Error::other("unexpected SMTP outcome")),
+        }
     }
 }
 
@@ -205,81 +230,4 @@ pub fn deliver(
 fn command(writer: &mut TcpStream, command: &str) -> io::Result<()> {
     writer.write_all(command.as_bytes())?;
     writer.flush()
-}
-
-/// Читает complete SMTP reply, включая multiline continuation.
-pub(crate) fn expect<R: BufRead>(
-    reader: &mut R,
-    expectation: ReplyExpectation,
-) -> io::Result<Option<DeliveryOutcome>> {
-    let mut line = String::new();
-    let mut reply_code = None;
-    loop {
-        line.clear();
-        line = read_reply_line(reader)?;
-        let (code, continuation) = parse_reply(&line)?;
-        match reply_code {
-            Some(initial_code) if initial_code != code => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "SMTP multiline reply changed its status code",
-                ));
-            }
-            Some(_) | None => {}
-        }
-        if !continuation {
-            return match expectation.accepts(code) {
-                true => Ok(None),
-                false => match classify(code) {
-                    ReplyClass::Transient => Ok(Some(DeliveryOutcome::Deferred)),
-                    ReplyClass::Permanent => Ok(Some(DeliveryOutcome::PermanentFailure)),
-                    ReplyClass::Positive | ReplyClass::Unexpected => Err(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "SMTP peer returned an unexpected positive reply code",
-                    )),
-                },
-            };
-        }
-        reply_code = Some(code);
-    }
-}
-
-fn expect_success<R: BufRead>(reader: &mut R, expectation: ReplyExpectation) -> io::Result<()> {
-    match expect(reader, expectation)? {
-        None => Ok(()),
-        Some(DeliveryOutcome::Deferred) => Err(io::Error::other("SMTP peer deferred command")),
-        Some(DeliveryOutcome::PermanentFailure) => {
-            Err(io::Error::other("SMTP peer rejected command"))
-        }
-        Some(DeliveryOutcome::Delivered) => Err(io::Error::other("unexpected SMTP outcome")),
-    }
-}
-
-/// Разбирает числовой SMTP code и continuation marker на protocol boundary.
-pub(crate) fn parse_reply(line: &str) -> io::Result<(u16, bool)> {
-    let code = line
-        .get(..3)
-        .ok_or_else(|| io::Error::other("short SMTP reply"))?;
-    let marker = line
-        .as_bytes()
-        .get(3)
-        .copied()
-        .ok_or_else(|| io::Error::other("short SMTP reply"))?;
-    let number = code
-        .parse()
-        .map_err(|_| io::Error::other("invalid SMTP reply"))?;
-    match marker {
-        b' ' => Ok((number, false)),
-        b'-' => Ok((number, true)),
-        _ => Err(io::Error::other("invalid SMTP separator")),
-    }
-}
-
-pub(crate) fn classify(code: u16) -> ReplyClass {
-    match code / 100 {
-        2 => ReplyClass::Positive,
-        4 => ReplyClass::Transient,
-        5 => ReplyClass::Permanent,
-        _ => ReplyClass::Unexpected,
-    }
 }
