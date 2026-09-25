@@ -2,6 +2,8 @@
 
 use super::*;
 
+#[path = "imap_protocol_auth_continuation.rs"]
+pub(super) mod auth_continuation;
 #[path = "imap_enable.rs"]
 mod imap_enable;
 #[path = "imap_list_dispatch.rs"]
@@ -10,6 +12,8 @@ mod imap_list_dispatch;
 pub(super) mod imap_search_error;
 #[path = "imap_search_response.rs"]
 pub(super) mod imap_search_response;
+#[path = "imap_protocol_invalid_utf8.rs"]
+mod invalid_utf8;
 
 #[path = "imap_authenticate.rs"]
 pub(super) mod authenticate;
@@ -21,14 +25,16 @@ pub(super) fn line(
     literals: Option<Vec<String>>,
     context: super::imap_line_context::LineContext<'_>,
 ) -> io::Result<()> {
-    let super::imap_line_context::LineContext {
+    let super::imap_line_context::LineContextParts {
         slot,
         generation,
         worker,
         owners,
         request_id,
-    } = context;
-    let command = std::str::from_utf8(&line).unwrap_or("");
+    } = context.into_parts();
+    let Ok(command) = std::str::from_utf8(&line) else {
+        return invalid_utf8::respond(session, &line);
+    };
     let parsed = match literals {
         Some(values) => imap::parse_search_literals(command, values),
         None => imap::parse(command),
@@ -284,17 +290,4 @@ pub(super) fn line(
         }
     }
     Ok(())
-}
-
-/// Продолжает SASL exchange, уже отделённый от обычной командной grammar.
-pub(super) fn authenticate_continuation(
-    session: &mut Session,
-    line: Vec<u8>,
-    slot: usize,
-    generation: u64,
-    worker: &mut WakingStorageWorker,
-    owners: &mut HashMap<u64, (usize, u64, Pending)>,
-    request_id: &mut u64,
-) -> io::Result<()> {
-    authenticate::continuation(session, &line, slot, generation, worker, owners, request_id)
 }

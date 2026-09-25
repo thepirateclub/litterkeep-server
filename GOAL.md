@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 IMAP malformed UTF-8 tagged error checkpoint, PASS
+
+- IMAP сохраняет безопасный ASCII command tag, если строка содержит
+  некорректную UTF-8 последовательность; invalid tag сам не отражается в ответе
+  и использует звездочный untagged fallback. Независимый STARTTLS клиент
+  отправил malformed UTF-8 в quoted LOGIN, получил tagged BAD и выполнил NOOP
+  в той же сессии.
+- PASS: Windows Rust 1.97.1 cargo test --all-targets --locked (512 library +
+  1 binary), strict Clippy, fmt, Python compile и diff check. Linux Docker Rust
+  1.97 test target: strict Clippy, 559 library + 1 binary tests и doc-tests;
+  независимый Linux runtime black-box прошёл. Созданные контейнер и оба image
+  tags удалены, fixture ./data/g17-imap-malformed-utf8 сохранена. G17 остаётся
+  ACTIVE; UTF8=ACCEPT и IMAP4rev2 не объявлены.
+
 ### 2026-09-25: G17 SMTP PIPELINING RFC 2920 checkpoint, PASS
 
 - EHLO теперь рекламирует PIPELINING в plaintext, STARTTLS и TLS профилях.

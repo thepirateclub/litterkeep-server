@@ -111,3 +111,8 @@ synchronizing literals в одном SEARCH HEADER, включая два contin
 проверены; хвостовая pipelined команда сохраняется. Unit и wire acceptance
 подтвердили tagged BAD и выполнение NOOP после ошибки. UTF8=ACCEPT и IMAP4rev2
 не реализованы и не заявляются.
+Если строка команды не декодируется как UTF-8, reactor сохраняет безопасный
+ASCII tag перед ответом BAD; повреждённый UTF-8 внутри самого tag использует
+untagged fallback, не отражая недоверенные bytes. Независимый STARTTLS
+black-box проверил tagged BAD на malformed UTF-8 quoted LOGIN и успешный NOOP
+после ошибки.

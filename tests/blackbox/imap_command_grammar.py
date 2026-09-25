@@ -1,10 +1,19 @@
 """Проверяет сетевые ответы BAD на лишние аргументы безаргументных команд."""
 
 import argparse
+from enum import Enum
 import imaplib
 import os
 import ssl
 from pathlib import Path
+
+
+class ImapStatus(Enum):
+    """Статусы, используемые независимым IMAP acceptance-клиентом."""
+
+    OK = "OK"
+    NO = "NO"
+    BAD = "BAD"
 
 
 def main() -> None:
@@ -22,17 +31,18 @@ def main() -> None:
     client.starttls(ssl_context=context)
     require_bad_quoted_pair(client)
     require_bad_utf8_quoted_string(client)
-    require(client.noop(), "OK")
+    require_bad_malformed_utf8(client)
+    require(client.noop(), ImapStatus.OK)
     if options.credentials is not None:
         password = password_for(options.credentials, "bob")
     else:
         password = os.environ["LITTERKEEP_BOB_PASSWORD"]
-    require(client.login("bob", password), "OK")
+    require(client.login("bob", password), ImapStatus.OK)
     require_append_limit(client)
     require_bad(client, "IDLE")
-    require(client.select("INBOX"), "OK")
+    require(client.select("INBOX"), ImapStatus.OK)
     require_bad(client, "EXPUNGE")
-    require(client.noop(), "OK")
+    require(client.noop(), ImapStatus.OK)
     client.logout()
     print("PASS imap-command-grammar")
 
@@ -42,7 +52,9 @@ def require_bad_quoted_pair(client: imaplib.IMAP4) -> None:
     tag = client._command("LOGIN", b'"bob\\q" "unused"')
     status, detail = client._get_tagged_response(tag)
     response_text = b" ".join(item for item in (detail or []) if item is not None)
-    if status != "BAD" or b"invalid command syntax" not in response_text:
+    if ImapStatus(status) is not ImapStatus.BAD:
+        raise AssertionError(f"invalid quoted-pair status: {status} {detail!r}")
+    if b"invalid command syntax" not in response_text:
         raise AssertionError(f"invalid quoted-pair: {status} {detail!r}")
 
 
@@ -51,8 +63,21 @@ def require_bad_utf8_quoted_string(client: imaplib.IMAP4) -> None:
     tag = client._command("LOGIN", b'"b\xc3\xb8b" "unused"')
     status, detail = client._get_tagged_response(tag)
     response_text = b" ".join(item for item in (detail or []) if item is not None)
-    if status != "BAD" or b"invalid command syntax" not in response_text:
+    if ImapStatus(status) is not ImapStatus.BAD:
+        raise AssertionError(f"unnegotiated UTF-8 quote status: {status} {detail!r}")
+    if b"invalid command syntax" not in response_text:
         raise AssertionError(f"unnegotiated UTF-8 quote: {status} {detail!r}")
+
+
+def require_bad_malformed_utf8(client: imaplib.IMAP4) -> None:
+    """Сохраняет исходный tag при некорректной UTF-8 последовательности."""
+    tag = client._command("LOGIN", b'"b\xffb" "unused"')
+    status, detail = client._get_tagged_response(tag)
+    response_text = b" ".join(item for item in (detail or []) if item is not None)
+    if ImapStatus(status) is not ImapStatus.BAD:
+        raise AssertionError(f"malformed UTF-8 quote status: {status} {detail!r}")
+    if b"invalid command syntax" not in response_text:
+        raise AssertionError(f"malformed UTF-8 quote: {status} {detail!r}")
 
 
 def require_bad(client: imaplib.IMAP4, verb: str) -> None:
@@ -60,27 +85,31 @@ def require_bad(client: imaplib.IMAP4, verb: str) -> None:
     tag = client._command(verb, b"EXTRA")
     status, detail = client._get_tagged_response(tag)
     response_text = b" ".join(item for item in (detail or []) if item is not None)
-    if status != "BAD" or b"invalid command syntax" not in response_text:
+    if ImapStatus(status) is not ImapStatus.BAD:
+        raise AssertionError(f"{verb} with extra atom status: {status} {detail!r}")
+    if b"invalid command syntax" not in response_text:
         raise AssertionError(f"{verb} with extra atom: {status} {detail!r}")
 
 
 def require_append_limit(client: imaplib.IMAP4) -> None:
     """Проверяет объявленный предел и отказ TOOBIG до приёма payload."""
-    capabilities = client.capability()[1]
+    _, capabilities = client.capability()
     capability_tokens = b" ".join(capabilities or []).split()
     if b"APPENDLIMIT=26214400" not in capability_tokens:
         raise AssertionError(f"APPENDLIMIT missing from CAPABILITY: {capabilities!r}")
     tag = client._command("APPEND", b"INBOX {26214401}")
     status, detail = client._get_tagged_response(tag)
     response_text = b" ".join(item for item in (detail or []) if item is not None)
-    if status != "NO" or b"TOOBIG" not in response_text:
+    if ImapStatus(status) is not ImapStatus.NO:
+        raise AssertionError(f"oversize APPEND status: {status} {detail!r}")
+    if b"TOOBIG" not in response_text:
         raise AssertionError(f"oversize APPEND missing TOOBIG: {status} {detail!r}")
 
 
-def require(result: tuple[str, object], expected: str) -> object:
+def require(result: tuple[str, object], expected: ImapStatus) -> object:
     """Не позволяет последующему тесту продолжиться после неожиданного статуса."""
     status, detail = result
-    if status != expected:
+    if ImapStatus(status) is not expected:
         raise AssertionError(f"expected {expected}, got {status}: {detail!r}")
     return detail
 

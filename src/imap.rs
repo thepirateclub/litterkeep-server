@@ -16,6 +16,9 @@ mod fetch_tests;
 pub mod flags;
 pub mod folder;
 pub mod idle;
+#[cfg(any(target_os = "linux", test))]
+#[path = "imap/invalid_utf8_tag.rs"]
+pub(crate) mod invalid_utf8_tag;
 pub mod list;
 #[path = "imap/list_reference.rs"]
 mod list_reference;

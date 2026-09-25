@@ -70,7 +70,7 @@ pub(super) fn process_input(
             break;
         };
         if session.imap_authenticate.is_some() {
-            super::imap_protocol::authenticate_continuation(
+            super::imap_protocol::auth_continuation::handle(
                 session, line, slot, generation, worker, owners, request_id,
             )?;
             continue;
