@@ -4,6 +4,27 @@
 keep/discard, header/address/size tests и diagnostics. ManageSieve поддерживает
 STARTTLS, SASL PLAIN, literals, CHECKSCRIPT, PUTSCRIPT, LISTSCRIPTS, GETSCRIPT,
 SETACTIVE, DELETESCRIPT и RENAMESCRIPT.
+
+## RFC 5230 vacation: не реализовано
+
+`vacation` пока не входит в поддерживаемый профиль и не объявляется в
+ManageSieve capability. Одного parser action недостаточно: RFC 5230 требует
+deduplication ответов по адресу отправителя и идентичности vacation-ответа,
+период `:days`, максимум не менее 1000 записей истории, ограничения
+автоответов для daemon/list сообщений, один vacation action на script и
+сохранение implicit keep. Генерируемый ответ использует пустой SMTP
+reverse-path и заголовки/связи ответа, определённые стандартом.
+
+Текущая outbound queue хранит ссылку на неизменяемый blob входящего письма.
+Повторное использование этой ссылки для vacation ответа отправило бы исходное
+сообщение вместо нового ответа. Поэтому extension нельзя принимать или
+объявлять до появления отдельного durable outbound payload и durable
+suppression history. Acceptance для будущей реализации должен доказать первое
+ответное письмо, отсутствие повторного ответа тому же отправителю в интервале,
+повтор после срока, запрет ответов на автоматические/списочные письма,
+корректные RFC 5322/MIME поля, пустой MAIL FROM и сохранение исходной локальной
+доставки. Требования сверены с RFC 5230 §§4.1-4.7 и 5.1-5.8.
+
 Quoted и `text:` multiline strings принимают CRLF; multiline форма сохраняет
 terminating CRLF тела, снимает один dot-stuffing octet и ограничена 65 536
 байтами. Для `text:` допускаются SP/HTAB и hash-comment перед обязательным

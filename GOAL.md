@@ -4,6 +4,18 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 5230 vacation gap inventory
+
+- Сверен RFC 5230 §§4-5 с Sieve executor и durable outbound queue. `vacation`
+  отсутствует и не объявляется. Его нельзя безопасно реализовать одной
+  parser-командой: response payload должен быть отдельным от исходного blob,
+  а история подавления должна быть durable и привязана к sender и ответу.
+  Дополнительные требования и future acceptance перечислены в
+  `docs/sieve-coverage.md`.
+- Это inventory checkpoint, не реализация vacation и не PASS реализации.
+  Следующий шаг G17: отдельный durable response payload и suppression journal;
+  capability остаётся скрыта до завершения семантики и сетевой проверки.
+
 ### 2026-09-25: G17 RFC 5228 envelope-test checkpoint
 
 - Добавлен базовый Sieve `envelope` с typed `from`/`to`, ADDRESS-PART,
