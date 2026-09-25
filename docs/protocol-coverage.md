@@ -115,7 +115,9 @@ RFC 9051.
 MIME tree отвергает Base64, quoted-printable и неизвестный CTE на всех
 multipart/message composite entities согласно RFC 2045 §6.4; повторное поле
 CTE отклоняется как неоднозначное, поэтому позднее 8bit не маскирует ранее
-указанное кодирование. Эти проверки parser-а unit-only.
+указанное кодирование. Multipart delimiter collection ограничен остатком
+глобального MIME part budget до накопления диапазонов, а не только последующей
+проверкой дерева. Эти проверки parser-а unit-only.
 Параметр `multipart` boundary проверяется по RFC 2046 §5.1.1: 1..70 ASCII
 октетов из `bchars`, без завершающего пробела; покрыты длины и запрещённые
 символы. Boundary проверки unit-only.

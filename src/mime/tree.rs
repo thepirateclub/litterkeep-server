@@ -69,7 +69,8 @@ fn parse_entity(
     match &structured.media_type {
         media_type if is_multipart(media_type) => {
             let boundary = boundary.ok_or("multipart boundary is absent")?;
-            let ranges = multipart_ranges(body, boundary.as_bytes())?;
+            let remaining_parts = MAX_PARTS.saturating_sub(*count);
+            let ranges = multipart_ranges(body, boundary.as_bytes(), remaining_parts)?;
             preamble_range = Some(absolute(&ranges.preamble, base + headers.body_offset));
             epilogue_range = Some(absolute(&ranges.epilogue, base + headers.body_offset));
             for range in ranges.parts {
@@ -275,6 +276,17 @@ mod tests {
         let raw = format!(
             "Content-Type: multipart/mixed; boundary={boundary}\r\n\r\n--{boundary}\r\n\r\nbody\r\n--{boundary}--\r\n"
         );
+
+        assert!(parse(raw.as_bytes()).is_err());
+    }
+
+    #[test]
+    fn multipart_stops_at_the_remaining_global_part_budget() {
+        let mut raw = String::from("Content-Type: multipart/mixed; boundary=x\r\n\r\n");
+        for _ in 0..256 {
+            raw.push_str("--x\r\n\r\npart\r\n");
+        }
+        raw.push_str("--x--\r\n");
 
         assert!(parse(raw.as_bytes()).is_err());
     }

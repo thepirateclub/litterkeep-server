@@ -42,6 +42,7 @@ T40	PASS	server-protocol	Unknown MIME CTE becomes effective application/octet-st
 T41	PASS	server-protocol	Duplicate Content-Transfer-Encoding fields are rejected as ambiguous rather than selecting the last value; absent and single values verified; unit-only
 T42	PASS	server-protocol	Missing or syntactically malformed Content-Type falls back to text/plain with US-ASCII semantics; source header retained and duplicate fields rejected; unit-only (black-box updated, not run)
 T43	PASS	server-protocol	RFC 2046 multipart boundary enforces 1..70 ASCII bchars octets and rejects terminal space or forbidden octets; unit-only
+T44	PASS	server-protocol	Multipart delimiter collection stops at remaining global MIME part budget before retaining excess ranges; 256-part overflow rejected; unit-only
 R01	PASS	runtime	orchestrator transfer and registry ownership tests
 R02	PASS	runtime	exclusive resource double-acquire test
 R03	PASS	runtime	timeout keeps live lease occupied

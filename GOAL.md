@@ -4,6 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 bounded multipart delimiter collection checkpoint
+
+- MIME tree передаёт multipart parser-у остаток общего `MAX_PARTS` бюджета.
+  Линейный проход прекращает накопление delimiter range при превышении числа
+  допустимых дочерних частей, вместо построения неограниченного `Vec` до
+  проверки рекурсивного дерева. Предел включает закрывающий delimiter.
+- Unit тест строит entity с 256 дочерними частями при глобальном бюджете 256 и
+  проверяет отказ на этапе bounded collection. Windows Rust 1.97.1: 387 library
+  + 1 binary tests, fmt и strict Clippy PASS. Docker Linux Rust 1.97.1: release
+  build, strict Clippy, 428 library + 1 binary + doc-tests PASS. Это unit-only,
+  сетевой parser acceptance не запускался. `docker build --rm` оставил только
+  `litterkeep-g12-phone`; временных контейнеров нет. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 multipart boundary grammar checkpoint
 
 - Парсер RFC 2046 multipart delimiter теперь валидирует boundary по §5.1.1:

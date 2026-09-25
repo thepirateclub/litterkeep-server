@@ -31,9 +31,11 @@ pub(super) fn is_multipart(media_type: &MediaType) -> bool {
 pub(super) fn multipart_ranges(
     body: &[u8],
     boundary: &[u8],
+    part_limit: usize,
 ) -> Result<MultipartRanges, &'static str> {
     validate_boundary(boundary)?;
     let mut delimiters = Vec::new();
+    let delimiter_limit = part_limit.saturating_add(1);
     let mut cursor = 0_usize;
     loop {
         let remaining = body.get(cursor..).ok_or("invalid multipart cursor")?;
@@ -45,6 +47,9 @@ pub(super) fn multipart_ranges(
         let after = cursor.saturating_add(line_length);
         let line = body.get(cursor..after).ok_or("invalid multipart line")?;
         if let Some(closing) = delimiter_kind(line, boundary) {
+            if delimiters.len() >= delimiter_limit {
+                return Err("multipart part limit exceeded");
+            }
             delimiters.push(Delimiter {
                 start: cursor,
                 after,
