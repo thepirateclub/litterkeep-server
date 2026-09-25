@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 tolerant quoted-printable recovery checkpoint
+
+- Входящий MIME quoted-printable decoder по рекомендации RFC 2045 §6.7
+  сохраняет повреждённую `=` escape-последовательность буквально вместо потери
+  или отказа от всего body. Строгий decoder оставлен отдельной функцией для
+  Sieve vacation `:mime`, который не должен сохранять некорректный исходящий
+  entity.
+- Unit tests покрывают truncated/invalid escape recovery и сохранение strict
+  rejection в Sieve. Windows Rust 1.97.1: 396 library + 1 binary tests, fmt и
+  strict Clippy PASS. Docker Linux Rust 1.97.1: release build, strict Clippy,
+  437 library + 1 binary + doc-tests PASS. Socket acceptance не запускался.
+  `docker build --rm` использован; после теста сверяется inventory. RFC 2045
+  §6.7 сверена с IETF Datatracker. G17 RUNNING.
+
 ### 2026-09-25: G17 MIME 7bit and 8bit line profile checkpoint
 
 - MIME `7bit` и `8bit` transfer decoders теперь проверяют 998-октетную ширину

@@ -48,6 +48,7 @@ T46	PASS	server-protocol	RFC 2045 section 6.7 quoted-printable decoder removes l
 T47	PASS	server-protocol	RFC 2045 section 3 Content-Transfer-Encoding accepts nested RFC 822 comments surrounding the token; unit-only
 T48	PASS	server-protocol	RFC 2045 section 6.7 quoted-printable strips literal SP/TAB before soft line break while preserving encoded =20; unit-only
 T49	PASS	server-protocol	RFC 2045 sections 2.7-2.8 7bit/8bit CTE validate 998-octet lines, CRLF framing, NUL prohibition and high-bit profile; unit-only
+T50	PASS	server-protocol	RFC 2045 section 6.7 tolerant incoming quoted-printable preserves malformed escape octets; Sieve :mime strict validation still rejects them; unit-only
 R01	PASS	runtime	orchestrator transfer and registry ownership tests
 R02	PASS	runtime	exclusive resource double-acquire test
 R03	PASS	runtime	timeout keeps live lease occupied

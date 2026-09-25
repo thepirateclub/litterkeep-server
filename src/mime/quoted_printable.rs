@@ -2,12 +2,29 @@
 
 /// Декодирует байты за O(n), не выделяя память по заявленным размерам.
 pub fn decode(input: &[u8]) -> Result<Vec<u8>, &'static str> {
+    decode_with_policy(input, InvalidEscapePolicy::Preserve)
+}
+
+/// Декодирует только полностью корректный quoted-printable объект.
+pub(crate) fn decode_strict(input: &[u8]) -> Result<Vec<u8>, &'static str> {
+    decode_with_policy(input, InvalidEscapePolicy::Reject)
+}
+
+/// Поведение при некорректной `=` escape-последовательности.
+#[derive(Clone, Copy)]
+enum InvalidEscapePolicy {
+    Preserve,
+    Reject,
+}
+
+/// Выполняет проход с явно выбранной политикой повреждённых escape-последовательностей.
+fn decode_with_policy(input: &[u8], policy: InvalidEscapePolicy) -> Result<Vec<u8>, &'static str> {
     let mut output = Vec::with_capacity(input.len());
     let mut cursor = 0_usize;
     while let Some(byte) = input.get(cursor).copied() {
         match byte {
             b'=' => {
-                cursor = decode_escape(input, cursor, &mut output)?;
+                cursor = decode_escape(input, cursor, &mut output, policy)?;
             }
             b'\r' => {
                 let Some(b'\n') = input.get(cursor.saturating_add(1)).copied() else {
@@ -45,23 +62,56 @@ fn is_transport_padding(input: &[u8], cursor: usize) -> bool {
     }
 }
 
-fn decode_escape(input: &[u8], cursor: usize, output: &mut Vec<u8>) -> Result<usize, &'static str> {
-    let first = input
-        .get(cursor.saturating_add(1))
-        .copied()
-        .ok_or("truncated quoted-printable escape")?;
-    let second = input
-        .get(cursor.saturating_add(2))
-        .copied()
-        .ok_or("truncated quoted-printable escape")?;
-    match (first, second) {
-        (b'\r', b'\n') => Ok(cursor.saturating_add(3)),
-        _ => {
-            let high = hex(first).ok_or("invalid quoted-printable hex")?;
-            let low = hex(second).ok_or("invalid quoted-printable hex")?;
+fn decode_escape(
+    input: &[u8],
+    cursor: usize,
+    output: &mut Vec<u8>,
+    policy: InvalidEscapePolicy,
+) -> Result<usize, &'static str> {
+    let first = input.get(cursor.saturating_add(1)).copied();
+    match first {
+        None => recover_escape_tail(b"=", output, cursor, 1, policy),
+        Some(b'\r') => match input.get(cursor.saturating_add(2)) {
+            Some(b'\n') => Ok(cursor.saturating_add(3)),
+            _ => Err("bare CR in quoted-printable escape"),
+        },
+        Some(b'\n') => Err("bare LF in quoted-printable escape"),
+        Some(first) => decode_hex_or_preserve(input, cursor, first, output, policy),
+    }
+}
+
+/// Декодирует полный hex-octet либо применяет выбранное восстановление.
+fn decode_hex_or_preserve(
+    input: &[u8],
+    cursor: usize,
+    first: u8,
+    output: &mut Vec<u8>,
+    policy: InvalidEscapePolicy,
+) -> Result<usize, &'static str> {
+    let second = input.get(cursor.saturating_add(2)).copied();
+    match (hex(first), second.and_then(hex)) {
+        (Some(high), Some(low)) => {
             output.push((high << 4) | low);
             Ok(cursor.saturating_add(3))
         }
+        _ => recover_escape_tail(&[b'=', first], output, cursor, 2, policy),
+    }
+}
+
+/// Сохраняет повреждённую пару по RFC либо возвращает ошибку строгому вызывающему.
+fn recover_escape_tail(
+    literal: &[u8],
+    output: &mut Vec<u8>,
+    cursor: usize,
+    consumed: usize,
+    policy: InvalidEscapePolicy,
+) -> Result<usize, &'static str> {
+    match policy {
+        InvalidEscapePolicy::Preserve => {
+            output.extend_from_slice(literal);
+            Ok(cursor.saturating_add(consumed))
+        }
+        InvalidEscapePolicy::Reject => Err("invalid quoted-printable escape"),
     }
 }
 
@@ -87,9 +137,13 @@ mod tests {
     }
 
     #[test]
-    fn rejects_truncated_escape_and_bare_newline() {
-        assert!(decode(b"bad=").is_err());
+    fn recovers_invalid_escape_without_changing_its_octets() {
+        assert_eq!(decode(b"bad=").unwrap(), b"bad=");
+        assert_eq!(decode(b"bad=G1").unwrap(), b"bad=G1");
+        assert_eq!(decode(b"bad=A").unwrap(), b"bad=A");
+        assert!(decode_strict(b"bad=G1").is_err());
         assert!(decode(b"bad\nline").is_err());
+        assert!(decode(b"bad=\rline").is_err());
     }
 
     #[test]

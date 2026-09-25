@@ -85,10 +85,13 @@ fn validate_body(
         ) => return Err("unsupported MIME transfer encoding"),
     };
     validate_lines(body, maximum_line, rule)?;
-    encoding
-        .decode(body)
-        .map(drop)
-        .map_err(|_| "invalid encoded MIME body")
+    match encoding {
+        TransferEncoding::QuotedPrintable => {
+            crate::mime::quoted_printable::decode_strict(body).map(drop)
+        }
+        _ => encoding.decode(body).map(drop),
+    }
+    .map_err(|_| "invalid encoded MIME body")
 }
 
 fn composite(media_type: Option<&MediaType>) -> bool {

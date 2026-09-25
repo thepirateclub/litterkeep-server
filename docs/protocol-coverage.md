@@ -130,6 +130,11 @@ TAB как hex-octets, чтобы перенос строки не менял с
 SP/TAB перед soft break `=CRLF` считаются транспортным padding и удаляются;
 encoded `=20` перед soft break сохраняется. Эти случаи проверены unit-тестами,
 отдельный socket acceptance не запускался.
+При повреждённом quoted-printable `=` escape входящий decoder сохраняет
+буквальный `=` и следующий символ без преобразования, как рекомендует RFC 2045
+§6.7 для robust decoder. Генераторский Sieve `:mime` validator использует
+отдельный strict путь и malformed escape отвергает. Оба поведения проверены
+unit-тестами; socket acceptance не запускался.
 `7bit` и `8bit` CTE проверяют профиль RFC 2045 §§2.7-2.8: не более 998
 октетов между CRLF, отсутствие NUL и одиночных CR/LF; `7bit` дополнительно
 отвергает high-bit octets, `8bit` их сохраняет. `binary` остаётся прозрачным.
