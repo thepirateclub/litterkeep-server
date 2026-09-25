@@ -93,10 +93,18 @@ fn parse_owned(line: &str) -> io::Result<Option<OwnedDelivery>> {
         transaction_id,
         attempts,
         next_attempt_epoch,
-        sender: sender.into(),
+        sender: decode_sender(sender).into(),
         recipient: recipient.into(),
         state,
     }))
+}
+
+/// Восстанавливает пустой SMTP reverse-path из его queue wire token-а.
+fn decode_sender(value: &str) -> &str {
+    match value {
+        "<>" => "",
+        address => address,
+    }
 }
 
 fn parse_versioned<'a>(

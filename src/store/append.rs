@@ -8,6 +8,20 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 
 impl Store {
+    /// Фиксирует отдельный generated payload и outbound job без mailbox link.
+    ///
+    /// Эта граница позволяет автоответчику публиковать собственные RFC822
+    /// bytes, не подменяя их blob-ом принятого входящего сообщения.
+    pub fn enqueue_outbound_payload(
+        &mut self,
+        sender: &str,
+        recipient: &str,
+        raw: &[u8],
+    ) -> io::Result<u64> {
+        let outbound = [(sender.to_owned(), recipient.to_owned())];
+        self.append_many_with_sieve(&[], raw, &outbound, &[])
+    }
+
     pub fn append(&mut self, mailbox: &str, raw: &[u8]) -> io::Result<u64> {
         self.append_many(&[mailbox.to_owned()], raw)
     }

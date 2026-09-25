@@ -44,3 +44,61 @@ fn due_outbound_limit_bounds_scheduler_handoff() {
     drop(store);
     let _ = fs::remove_dir_all(path);
 }
+
+/// Проверяет независимость сгенерированного outbound payload от входящей почты.
+#[test]
+fn generated_outbound_payload_is_committed_without_mailbox_link() {
+    let path = directory();
+    let reply = b"From: bob@litterkeep.test\r\nTo: alice@peer.test\r\n\r\nAway.\r\n";
+    let mut store = Store::open(&path).expect("store");
+    let transaction_id = store
+        .enqueue_outbound_payload("", "alice@peer.test", reply)
+        .expect("generated response");
+    let delivery = store
+        .pending_outbound()
+        .expect("pending jobs")
+        .into_iter()
+        .next()
+        .expect("one generated response");
+    assert_eq!(delivery.transaction_id, transaction_id);
+    assert_eq!(delivery.sender, "");
+    assert_eq!(store.outbound_blob(&delivery).expect("payload"), reply);
+    store
+        .transition_outbound(&delivery, crate::queue::State::Deferred)
+        .expect("defer generated response");
+    assert!(
+        store
+            .snapshot_folder("bob", "INBOX")
+            .expect("inbox snapshot")
+            .snapshot
+            .messages
+            .is_empty()
+    );
+    drop(store);
+
+    let mut reopened = Store::open(&path).expect("reopen");
+    let recovered = reopened
+        .pending_outbound()
+        .expect("recovered job")
+        .into_iter()
+        .next()
+        .expect("one recovered response");
+    assert_eq!(recovered.sender, "");
+    assert_eq!(recovered.state, crate::queue::State::Deferred);
+    assert_eq!(
+        reopened
+            .outbound_blob(&recovered)
+            .expect("recovered payload"),
+        reply
+    );
+    assert!(
+        reopened
+            .snapshot_folder("bob", "INBOX")
+            .expect("reopened inbox")
+            .snapshot
+            .messages
+            .is_empty()
+    );
+    drop(reopened);
+    let _ = fs::remove_dir_all(path);
+}

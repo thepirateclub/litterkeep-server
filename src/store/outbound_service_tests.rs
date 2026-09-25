@@ -30,6 +30,62 @@ fn service_drain_commits_delivery_after_transport_completion() {
     fs::remove_dir_all(path).expect("cleanup");
 }
 
+/// Доказывает SMTP handoff отдельного ответа с RFC-рекомендованным null sender.
+#[test]
+fn service_delivers_generated_payload_with_null_reverse_path() {
+    let path = std::env::temp_dir().join("litterkeep-generated-outbound-test");
+    let _ = fs::remove_dir_all(&path);
+    let mut store = Store::open(&path).expect("store");
+    store
+        .enqueue_outbound_payload(
+            "",
+            "alice@peer.test",
+            b"From: bob@litterkeep.test\r\nTo: alice@peer.test\r\n\r\nAway.",
+        )
+        .expect("generated response");
+    drop(store);
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+    let address = listener.local_addr().expect("address");
+    let peer = thread::spawn(move || serve_generated(listener));
+    let report = crate::outbound_service::drain(&path, &address.to_string(), 1).expect("drain");
+    assert_eq!(report.delivered, 1);
+    peer.join().expect("peer");
+
+    let reopened = Store::open(&path).expect("reopen");
+    assert!(reopened.pending_outbound().expect("pending").is_empty());
+    drop(reopened);
+    fs::remove_dir_all(path).expect("cleanup");
+}
+
+/// Независимый peer требует null MAIL FROM и проверяет текст generated reply.
+fn serve_generated(listener: TcpListener) {
+    let (mut stream, _) = listener.accept().expect("accept");
+    stream.write_all(b"220 peer\r\n").expect("greeting");
+    let mut reader = BufReader::new(stream.try_clone().expect("clone"));
+    command(&mut reader, "EHLO");
+    stream.write_all(b"250 peer\r\n").expect("ehlo");
+    let mut sender = String::new();
+    reader.read_line(&mut sender).expect("MAIL FROM");
+    assert_eq!(sender, "MAIL FROM:<>\r\n");
+    stream.write_all(b"250 sender\r\n").expect("sender");
+    command(&mut reader, "RCPT TO:<alice@peer.test>");
+    stream.write_all(b"250 recipient\r\n").expect("recipient");
+    command(&mut reader, "DATA");
+    stream.write_all(b"354 body\r\n").expect("data");
+    let mut body = Vec::new();
+    loop {
+        let mut line = Vec::new();
+        reader.read_until(b'\n', &mut line).expect("body line");
+        if line == b".\r\n" {
+            break;
+        }
+        body.extend(line);
+    }
+    assert!(body.ends_with(b"Away.\r\n"));
+    stream.write_all(b"250 accepted\r\n").expect("accepted");
+}
+
 fn serve_one(listener: TcpListener) {
     let (mut stream, _) = listener.accept().expect("accept");
     stream.write_all(b"220 peer\r\n").expect("greeting");

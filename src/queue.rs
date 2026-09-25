@@ -83,13 +83,14 @@ impl Queue {
     ) -> io::Result<()> {
         validate_token(sender)?;
         validate_token(recipient)?;
+        let sender_token = encode_sender(sender);
         let mut file = OpenOptions::new()
             .create(true)
             .append(true)
             .open(&self.path)?;
         writeln!(
             file,
-            "{} {transaction_id} 0 0 {sender} {recipient}",
+            "{} {transaction_id} 0 0 {sender_token} {recipient}",
             State::Pending.wire()
         )?;
         file.sync_all()
@@ -98,6 +99,7 @@ impl Queue {
     pub fn transition_owned(&self, delivery: &OwnedDelivery, state: State) -> io::Result<()> {
         validate_token(&delivery.sender)?;
         validate_token(&delivery.recipient)?;
+        let sender_token = encode_sender(&delivery.sender);
         let mut file = OpenOptions::new()
             .create(true)
             .append(true)
@@ -109,7 +111,7 @@ impl Queue {
             delivery.transaction_id,
             delivery.attempts,
             delivery.next_attempt_epoch,
-            delivery.sender,
+            sender_token,
             delivery.recipient
         )?;
         file.sync_all()
@@ -174,6 +176,14 @@ impl Queue {
             Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(Vec::new()),
             Err(e) => Err(e),
         }
+    }
+}
+
+/// Представляет null reverse-path отдельным токеном whitespace-журнала.
+fn encode_sender(value: &str) -> &str {
+    match value.is_empty() {
+        true => "<>",
+        false => value,
     }
 }
 

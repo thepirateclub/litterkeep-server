@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 generated Sieve-response payload foundation
+
+- Store получил отдельную границу `enqueue_outbound_payload`: она фиксирует
+  собственный immutable RFC822 blob и outbound job общей transaction commit
+  точкой, но не создаёт mailbox link. Queue journal кодирует null reverse-path
+  как токен `<>`, чтобы whitespace replay не терял пустое `MAIL FROM`.
+- Regression проверяет байт-в-байт payload и null sender до/после Store reopen
+  и queue transition. Linux-only end-to-end Store->outbound service test
+  передал generated body независимому SMTP peer, который потребовал ровно
+  `MAIL FROM:<>`; доставка завершилась успешно.
+- PASS: Windows Rust 1.97 `cargo test --all-targets --locked` (338 tests),
+  strict Clippy, format и `git diff --check`. Docker Linux Rust 1.97 test target
+  (379 tests), strict Clippy и release build. Временных контейнеров не было;
+  `litterkeep-g12-phone` сохранён.
+- Это только payload/transport foundation. `vacation` всё ещё не реализован и
+  не рекламируется; durable response suppression, RFC 5230 limits/loop guards,
+  response generation и ManageSieve acceptance остаются следующими задачами.
+
 ### 2026-09-25: G17 RFC 5228 same-mailbox delivery checkpoint
 
 - Добавлен Store-level regression: два одинаковых `fileinto` не дают runtime
@@ -42,8 +60,9 @@ Current subgoal: G17
   Дополнительные требования и future acceptance перечислены в
   `docs/sieve-coverage.md`.
 - Это inventory checkpoint, не реализация vacation и не PASS реализации.
-  Следующий шаг G17: отдельный durable response payload и suppression journal;
-  capability остаётся скрыта до завершения семантики и сетевой проверки.
+  Отдельный durable response payload добавлен в более позднем checkpoint
+  сверху; suppression journal, semantic guards и сетевой acceptance остаются
+  обязательными до включения capability.
 
 ### 2026-09-25: G17 RFC 5228 envelope-test checkpoint
 
