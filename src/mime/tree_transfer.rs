@@ -2,6 +2,7 @@
 
 use super::super::header_block::{HeaderField, HeaderName};
 use super::super::parameters::MediaType;
+use super::super::structured_comments;
 use super::super::transfer::TransferEncoding;
 
 /// Разбирает единственное CTE, отвергая неоднозначные повторные поля.
@@ -16,11 +17,18 @@ pub(super) fn resolve(
             if selected.is_some() {
                 return Err("duplicate Content-Transfer-Encoding field");
             }
-            let parsed = TransferEncoding::parse(&field.value)?;
+            let parsed = parse_transfer_encoding(&field.value)?;
             validate_composite_transfer(media_type, &parsed)?;
             Ok(Some(parsed))
         })
         .map(|selected| selected.unwrap_or(TransferEncoding::SevenBit))
+}
+
+/// Удаляет RFC 822 comments до разбора MIME CTE token.
+fn parse_transfer_encoding(value: &[u8]) -> Result<TransferEncoding, &'static str> {
+    let value = std::str::from_utf8(value).map_err(|_| "transfer encoding is not ASCII")?;
+    let uncommented = structured_comments::remove(value)?;
+    TransferEncoding::parse(uncommented.as_bytes())
 }
 
 /// Проверяет RFC 2045 §6.4 для entity с вложенной MIME-структурой.
@@ -72,6 +80,19 @@ mod tests {
         assert_eq!(
             resolve(&[], &MediaType::TextPlain),
             Ok(TransferEncoding::SevenBit)
+        );
+    }
+
+    #[test]
+    fn ignores_comments_around_transfer_encoding_token() {
+        let headers = super::super::header_block::parse(
+            b"Content-Transfer-Encoding: (created by client) base64 (RFC 2045)\r\n\r\nbody",
+        )
+        .expect("headers");
+
+        assert_eq!(
+            resolve(&headers.fields, &MediaType::TextPlain),
+            Ok(TransferEncoding::Base64)
         );
     }
 }

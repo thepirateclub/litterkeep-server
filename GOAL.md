@@ -4,6 +4,18 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 MIME Content-Transfer-Encoding comments checkpoint
+
+- `Content-Transfer-Encoding` теперь пропускает RFC 822 comments до
+  типизированного разбора transfer-encoding token; вложенные комментарии и
+  quoted-string обрабатываются общим MIME comment scanner. Тест покрывает
+  comments перед `base64` и после него.
+- Windows Rust 1.97.1: 394 library + 1 binary tests, fmt и strict Clippy PASS.
+  Docker Linux Rust 1.97.1: release build, strict Clippy, 435 library + 1 binary
+  + doc-tests PASS. Проверка unit-only, socket acceptance не запускался.
+  `docker build --rm` тестировал Linux stage; cleanup inventory проверен после
+  сборки. RFC 2045 §3 и §4 сверены с IETF Datatracker. G17 RUNNING.
+
 ### 2026-09-25: G17 quoted-printable trailing transport padding checkpoint
 
 - MIME quoted-printable decoder удаляет буквальные SP/TAB в конце hard line

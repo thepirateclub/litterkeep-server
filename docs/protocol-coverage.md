@@ -121,6 +121,9 @@ CTE отклоняется как неоднозначное, поэтому п�
 MIME Base64 CTE по RFC 2045 §6.8 игнорирует октеты вне Base64-алфавита,
 сохраняя строгую проверку синтаксиса RFC 2047 encoded-word. Unit-проверки
 покрывают оба профиля; независимый black-box fixture обновлён, но не запускался.
+RFC 2045 MIME-поля (кроме Content-Disposition) допускают RFC 822 comments;
+Content-Transfer-Encoding удаляет вложенные comments вне quoted-string перед
+разбором token. Проверены comments до и после значения unit-тестом.
 Quoted-printable decoder удаляет буквальные SP/TAB на концах hard lines и
 объекта, не удаляя закодированные `=20`/`=09`; encoder сериализует пробелы и
 TAB как hex-octets, чтобы перенос строки не менял содержимое. Этот участок
