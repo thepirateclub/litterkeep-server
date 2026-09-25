@@ -4,6 +4,7 @@ import argparse
 from email.message import EmailMessage
 from email.parser import BytesParser
 from email.policy import default
+import os
 import poplib
 import smtplib
 import ssl
@@ -15,8 +16,9 @@ ATTACHMENT = b"\x00litterkeep-pop3-attachment\xff\x10"
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--phase", choices=("smtp", "pop3", "empty", "lease", "implicit", "rset", "disconnect"), required=True)
+    parser.add_argument("--phase", choices=("smtp", "pop3", "empty", "lease", "implicit", "rset", "disconnect", "deleted-visibility"), required=True)
     parser.add_argument("--port", type=int, required=True)
+    parser.add_argument("--smtp-port", type=int, default=2525)
     parser.add_argument("--ca", required=True)
     parser.add_argument("--account", default="bob")
     parser.add_argument("--password", default="bob-password")
@@ -41,7 +43,7 @@ def smtp(port: int, tls: ssl.SSLContext, account: str) -> None:
     )
     with smtplib.SMTP("127.0.0.1", port) as client:
         client.starttls(context=tls)
-        client.login("alice", "alice-password")
+        client.login("alice", os.environ.get("LITTERKEEP_ALICE_PASSWORD", "alice-password"))
         client.send_message(message)
     print("SMTP delivery passed")
 
@@ -115,6 +117,14 @@ def authenticated(port: int, tls: ssl.SSLContext, account: str, password: str) -
     return client
 
 
+def listed_uid(line: bytes) -> bytes:
+    """Извлекает только стабильный UID из одной строки UIDL-ответа."""
+    _, separator, uid = line.partition(b" ")
+    if separator != b" ":
+        raise AssertionError(f"malformed UIDL listing: {line!r}")
+    return uid
+
+
 def rset(port: int, tls: ssl.SSLContext, account: str, password: str) -> None:
     client = authenticated(port, tls, account, password)
     client.dele(1)
@@ -141,6 +151,52 @@ def disconnect(port: int, tls: ssl.SSLContext, account: str, password: str) -> N
     print("POP3 disconnect passed: DELE marker was not committed")
 
 
+def deleted_visibility(
+    port: int,
+    smtp_port: int,
+    tls: ssl.SSLContext,
+    account: str,
+    password: str,
+) -> None:
+    """Сверяет POP3-видимость DELE до RSET и после durable QUIT."""
+    smtp(smtp_port, tls, account)
+    smtp(smtp_port, tls, account)
+    client = authenticated(port, tls, account, password)
+    initial_count, _ = client.stat()
+    if initial_count != 2:
+        raise AssertionError(f"expected two messages, got {initial_count}")
+    _, initial_list, _ = client.list()
+    _, initial_uidl, _ = client.uidl()
+    _, second_listing = initial_list
+    _, second_uidl = initial_uidl
+    client.dele(1)
+    count, _ = client.stat()
+    _, remaining_list, _ = client.list()
+    _, remaining_uidl, _ = client.uidl()
+    if (count, remaining_list, remaining_uidl) != (
+        1,
+        [second_listing],
+        [second_uidl],
+    ):
+        raise AssertionError("DELE did not hide the same message from STAT/LIST/UIDL")
+    client.rset()
+    _, reset_list, _ = client.list()
+    _, reset_uidl, _ = client.uidl()
+    if (reset_list, reset_uidl) != (initial_list, initial_uidl):
+        raise AssertionError("RSET did not restore deleted message visibility")
+    client.dele(1)
+    client.quit()
+    replay = authenticated(port, tls, account, password)
+    count, _ = replay.stat()
+    _, replay_uidl, _ = replay.uidl()
+    replay.quit()
+    remaining_ids = [listed_uid(line) for line in replay_uidl]
+    expected_uid = listed_uid(second_uidl)
+    if (count, remaining_ids) != (1, [expected_uid]):
+        raise AssertionError("QUIT did not durably delete only the marked message")
+    print("POP3 DELE visibility passed: STAT/LIST/UIDL hide markers until RSET or QUIT")
+
+
 def main() -> None:
     options = arguments()
     tls = context(options.ca)
@@ -159,6 +215,14 @@ def main() -> None:
             rset(options.port, tls, options.account, options.password)
         case "disconnect":
             disconnect(options.port, tls, options.account, options.password)
+        case "deleted-visibility":
+            deleted_visibility(
+                options.port,
+                options.smtp_port,
+                tls,
+                options.account,
+                options.password,
+            )
 
 
 if __name__ == "__main__":

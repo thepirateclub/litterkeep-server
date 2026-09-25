@@ -35,3 +35,43 @@ fn list_size_counts_crlf_without_dot_stuffing() {
         Ok(b"Subject: x\r\n\r\n..leading\r\n.\r\n".to_vec())
     );
 }
+
+#[test]
+fn deleted_messages_are_hidden_from_stat_list_and_uidl_until_rset() {
+    let mut session = Session::default();
+    let _ = session.apply(parse("USER bob\r\n"));
+    let _ = session.authenticated(vec![
+        message(9, b"Subject: first\r\n\r\nbody"),
+        message(10, b"Subject: second\r\n\r\nbody"),
+    ]);
+    assert!(matches!(session.apply(parse("DELE 1\r\n")), Reply::Ok(_)));
+    assert!(
+        matches!(session.apply(parse("STAT\r\n")), Reply::Ok(value) if value.starts_with("1 "))
+    );
+    let listing = match session.apply(parse("LIST\r\n")) {
+        Reply::Multiline(value) => value,
+        _ => panic!("LIST without a number must be multiline"),
+    };
+    assert!(
+        listing.windows(6).any(|line| line == b"2 25\r\n")
+            && !listing.windows(6).any(|line| line == b"1 22\r\n"),
+        "deleted listing was not filtered: {listing:?}"
+    );
+    assert!(
+        matches!(session.apply(parse("UIDL\r\n")), Reply::Multiline(value)
+        if value.windows(23).any(|line| line == b"2 lk-000000000000000a\r\n")
+            && !value.windows(23).any(|line| line == b"1 lk-0000000000000009\r\n"))
+    );
+    assert!(matches!(
+        session.apply(parse("LIST 1\r\n")),
+        Reply::Error(_)
+    ));
+    assert!(matches!(
+        session.apply(parse("UIDL 1\r\n")),
+        Reply::Error(_)
+    ));
+    assert!(matches!(session.apply(parse("RSET\r\n")), Reply::Ok(_)));
+    assert!(
+        matches!(session.apply(parse("STAT\r\n")), Reply::Ok(value) if value.starts_with("2 "))
+    );
+}

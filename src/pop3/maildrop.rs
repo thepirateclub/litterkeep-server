@@ -114,8 +114,13 @@ impl Maildrop {
             .iter()
             .enumerate()
             .filter_map(|(offset, message)| {
+                // Номер задаётся при открытии maildrop и остаётся стабильным,
+                // даже когда DELE временно скрывает запись из ответов.
                 let number = u32::try_from(offset.saturating_add(1)).ok()?;
-                (!self.deleted.contains(&number)).then_some((number, message))
+                match self.deleted.contains(&number) {
+                    true => None,
+                    false => Some((number, message)),
+                }
             })
     }
     fn message(&self, number: u32) -> Result<&Message, &'static str> {

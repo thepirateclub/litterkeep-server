@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G16
 
+### 2026-09-25: G16 POP3 RFC 1939 deleted-message visibility checkpoint
+
+- Исправлено правило UPDATE: после `DELE` отмеченное сообщение немедленно
+  исключается из `STAT`, многострочных `LIST`/`UIDL` и отклоняется для одиночных
+  `LIST n`/`UIDL n`; номера остальных сообщений сохраняются в snapshot.
+  `RSET` восстанавливает отображение, а успешный `QUIT` durable удаляет только
+  отмеченный UID. Это соответствует RFC 1939 §§5-6.
+- PASS: Windows Rust 1.97.1, 287 тестов и strict Clippy; Linux Docker Rust
+  1.97, strict Clippy и 327 тестов. Независимый Linux runtime acceptance
+  доставил два сообщения через SMTP и проверил POP3 STAT/LIST/UIDL после DELE,
+  восстановление через RSET и окончательное удаление ровно одного UID по QUIT.
+  Stage `./data/g16-pop3-deleted-visibility-final2`; тестовый контейнер удалён,
+  `litterkeep-g12-phone` сохранён.
+- G16 остаётся RUNNING.
+
 ### 2026-09-25: G16 POP3 RFC 8314 QUIT shutdown checkpoint
 
 - После успешного POP3 QUIT reactor дожидается отправки `+OK`, инициирует
