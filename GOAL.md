@@ -4,6 +4,18 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 UTF-16 byte-order evidence checkpoint
+
+- Generic `UTF-16` now rejects input shorter than the two initial octets needed
+  to inspect a BOM, instead of silently assuming big-endian without checking.
+  Explicit `UTF-16BE` and `UTF-16LE` retain their known order and accept empty
+  payloads. Regression tests cover both policies. This follows RFC 2781 §4.3.
+- Windows Rust 1.97.1: `cargo test --locked` (412 library + 1 binary), strict
+  Clippy, `cargo fmt --check` и `git diff --check` прошли. Linux Docker test
+  stage: release build, strict Clippy, 453 library + 1 binary tests и
+  doc-tests прошли. Socket acceptance и stage data не создавались. Временный
+  image удалён, `litterkeep-g12-phone` сохранён. G17 RUNNING.
+
 ### 2026-09-25: G17 UTF-16 MIME charset checkpoint
 
 - Добавлено декодирование `UTF-16`, `UTF-16BE` и `UTF-16LE` в общем MIME

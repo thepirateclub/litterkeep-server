@@ -71,6 +71,9 @@ enum Utf16ByteOrder {
 /// Декодирует UTF-16 с проверкой длины, surrogate pairs и невозможного U+FFFE.
 fn decode_utf16(bytes: &[u8], requested_order: Utf16ByteOrder) -> Result<String, &'static str> {
     let (order, payload) = match (requested_order, bytes.get(..2)) {
+        (Utf16ByteOrder::DetectBom, None) => {
+            return Err("UTF-16 requires two octets to determine byte order");
+        }
         (Utf16ByteOrder::DetectBom, Some([0xfe, 0xff])) => (
             Utf16ByteOrder::BigEndian,
             bytes.get(2..).ok_or("invalid UTF-16 BOM")?,

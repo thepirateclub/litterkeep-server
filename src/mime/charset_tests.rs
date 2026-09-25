@@ -57,10 +57,15 @@ fn utf16_handles_registered_byte_orders_bom_and_supplementary_characters() {
 
 #[test]
 fn utf16_rejects_odd_octets_invalid_surrogates_and_opposite_bom() {
+    let generic = Charset::parse("utf-16").expect("generic UTF-16");
     let big_endian = Charset::parse("utf-16be").expect("UTF-16BE");
     let little_endian = Charset::parse("utf-16le").expect("UTF-16LE");
 
+    assert!(generic.decode(b"").is_err());
+    assert!(generic.decode(b"\x00").is_err());
     assert!(big_endian.decode(b"\x00").is_err());
+    assert_eq!(big_endian.decode(b""), Ok(String::new()));
+    assert_eq!(little_endian.decode(b""), Ok(String::new()));
     assert!(big_endian.decode(b"\xd8\x00").is_err());
     assert!(big_endian.decode(b"\xff\xfe").is_err());
     assert!(little_endian.decode(b"\xfe\xff").is_err());

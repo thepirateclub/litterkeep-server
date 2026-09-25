@@ -106,7 +106,8 @@ Embedded и слитные формы остаются raw text; это ново
 RFC 2047 encoded-word и RFC 2231 extended parameter также декодируют UTF-16,
 UTF-16BE и UTF-16LE с проверкой byte order, нечётной длины и surrogate pairs.
 Начальный BOM у UTF-16 выбирает порядок и удаляется как signature; без BOM
-используется big-endian. RFC 2781 регистрирует семейство UTF-16 как
+используется big-endian после проверки первых двух октетов; generic UTF-16 с
+меньшим числом исходных октетов отклоняется. RFC 2781 регистрирует семейство UTF-16 как
 неподходящее для MIME `text/*`, поэтому SEARCH не декодирует такие body parts.
 Профиль проверен unit-тестами; отдельный socket acceptance не запускался.
 Независимый STARTTLS
