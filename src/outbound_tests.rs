@@ -89,6 +89,20 @@ fn outbound_data_enforces_line_octet_limit_and_crlf_framing() {
     );
 }
 
+#[test]
+fn outbound_8bit_profile_distinguishes_mime_body_from_headers() {
+    let body = "Subject: encoded header\r\n\r\nПривет".as_bytes();
+    assert_eq!(outbound::validate_data(body), Ok(()));
+    assert!(outbound::has_8bit_body(body));
+    assert!(!outbound::has_8bit_body(b"Subject: plain\r\n\r\nbody"));
+
+    let utf8_header = "Subject: Привет\r\n\r\nbody".as_bytes();
+    assert_eq!(
+        outbound::validate_data(utf8_header),
+        Err(outbound::DataValidationError::NonAsciiHeader)
+    );
+}
+
 fn run_rejecting_peer(reply: &str) -> DeliveryOutcome {
     let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
     let address = listener.local_addr().expect("address");

@@ -4,6 +4,26 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 outbound SMTP 8BITMIME negotiation
+
+- Outbound transport now reads the complete multiline EHLO response into typed
+  extension capabilities. A message with high-bit MIME body octets uses
+  `MAIL ... BODY=8BITMIME` only when the peer advertised the extension; otherwise
+  delivery is a permanent failure before MAIL. High-bit headers are rejected
+  because they require SMTPUTF8, which remains unsupported.
+- Common ordinary and implicit-TLS paths share this profile. Added unit checks
+  for case-insensitive multiline EHLO parsing and body/header octet distinction.
+  Independent `tests/blackbox/smtp_outbound_8bitmime.py` verifies exact UTF-8
+  MIME 8bit payload bytes and refusal without an advertised extension.
+- PASS: Windows Rust 1.97.1 suite, 458 library + 1 binary test, strict Clippy,
+  fmt and diff check. Linux Docker Rust 1.97 test target: strict Clippy, 499
+  library + 1 binary test and doc-tests. Independent 8BITMIME, DATA line-limit
+  and dot-transparency peer acceptance passed. Python compile and line-count
+  audit passed. Temporary images removed; only pre-existing
+  `litterkeep-g12-phone` remains. Stage fixtures are in
+  `./data/g17-smtp-8bitmime-outbound`. Litterkeep client not tested; G17 remains
+  RUNNING.
+
 ### 2026-09-25: G17 outbound SMTP line profile checkpoint
 
 - RFC 5321 §4.5.3.1.6 requires message text lines at most 1000 octets including

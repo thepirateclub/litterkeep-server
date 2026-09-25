@@ -5,6 +5,16 @@ use std::{
     time::Duration,
 };
 
+#[path = "outbound_data.rs"]
+mod data;
+#[path = "outbound_ehlo.rs"]
+mod ehlo;
+
+#[cfg(test)]
+pub(crate) use data::DataValidationError;
+pub(crate) use data::{has_8bit_body, validate_data, write_data};
+pub(crate) use ehlo::{EhloCapabilities, EhloExtension, read_ehlo};
+
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const IO_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -46,14 +56,6 @@ pub enum DeliveryOutcome {
     PermanentFailure,
 }
 
-/// Причина, по которой RFC 5321 DATA нельзя передать без изменения octets.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum DataValidationError {
-    LineTooLong,
-    BareCarriageReturn,
-    BareLineFeed,
-}
-
 /// Одно чистое SMTP-соединение, которым в текущий момент владеет один caller.
 ///
 /// После I/O ошибки объект должен быть уничтожен: peer мог оставить
@@ -62,6 +64,7 @@ pub(crate) enum DataValidationError {
 pub struct Connection {
     reader: BufReader<TcpStream>,
     writer: TcpStream,
+    capabilities: EhloCapabilities,
 }
 
 impl Connection {
@@ -84,10 +87,11 @@ impl Connection {
         let mut result = Self {
             reader: BufReader::new(stream.try_clone()?),
             writer: stream,
+            capabilities: EhloCapabilities::default(),
         };
         result.expect_positive()?;
         result.command("EHLO litterkeep.test\r\n")?;
-        result.expect_positive()?;
+        result.capabilities = read_ehlo(&mut result.reader)?;
         Ok(result)
     }
 
@@ -101,7 +105,14 @@ impl Connection {
         if validate_data(message).is_err() {
             return Ok(DeliveryOutcome::PermanentFailure);
         }
-        self.command(&format!("MAIL FROM:<{sender}>\r\n"))?;
+        let mail_command = match has_8bit_body(message) {
+            true if self.capabilities.supports(EhloExtension::EightBitMime) => {
+                format!("MAIL FROM:<{sender}> BODY=8BITMIME\r\n")
+            }
+            true => return Ok(DeliveryOutcome::PermanentFailure),
+            false => format!("MAIL FROM:<{sender}>\r\n"),
+        };
+        self.command(&mail_command)?;
         if let Some(outcome) = expect(&mut self.reader)? {
             return Ok(outcome);
         }
@@ -147,61 +158,6 @@ impl Connection {
             Some(_) => Err(io::Error::other("SMTP peer rejected connection")),
         }
     }
-}
-
-/// Проверяет CRLF framing и RFC 5321 предел строки до начала envelope.
-pub(crate) fn validate_data(message: &[u8]) -> Result<(), DataValidationError> {
-    let mut line_length = 0_usize;
-    let mut pending_cr = false;
-    for byte in message.iter().copied() {
-        match (pending_cr, byte) {
-            (true, b'\n') => {
-                line_length = line_length.saturating_add(1);
-                if line_length > 1000 {
-                    return Err(DataValidationError::LineTooLong);
-                }
-                line_length = 0;
-                pending_cr = false;
-            }
-            (true, _) => return Err(DataValidationError::BareCarriageReturn),
-            (false, b'\r') => {
-                line_length = line_length.saturating_add(1);
-                pending_cr = true;
-            }
-            (false, b'\n') => return Err(DataValidationError::BareLineFeed),
-            (false, _) => line_length = line_length.saturating_add(1),
-        }
-        if line_length > 1000 {
-            return Err(DataValidationError::LineTooLong);
-        }
-    }
-    if pending_cr {
-        return Err(DataValidationError::BareCarriageReturn);
-    }
-    match line_length.saturating_add(2) > 1000 {
-        true => Err(DataValidationError::LineTooLong),
-        false => Ok(()),
-    }
-}
-
-/// Передаёт DATA с ровно одним завершающим CRLF перед SMTP terminator.
-pub(crate) fn write_data(writer: &mut impl Write, message: &[u8]) -> io::Result<()> {
-    let mut stuffed = Vec::with_capacity(message.len().saturating_add(16));
-    let mut line_start = true;
-    let mut previous_was_cr = false;
-    for byte in message.iter().copied() {
-        if line_start && byte == b'.' {
-            stuffed.push(b'.');
-        }
-        stuffed.push(byte);
-        line_start = previous_was_cr && byte == b'\n';
-        previous_was_cr = byte == b'\r';
-    }
-    if !stuffed.ends_with(b"\r\n") {
-        stuffed.extend_from_slice(b"\r\n");
-    }
-    writer.write_all(&stuffed)?;
-    writer.write_all(b".\r\n")
 }
 
 /// Создаёт только числовой TCP route с конечными connect/read/write deadline.

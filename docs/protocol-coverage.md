@@ -398,3 +398,11 @@ range получает `-ERR`. Так как поддержана только �
 Маршрут задаётся явно как IP:port и typed TLS policy. Scheduler durable,
 single-flight, применяет bounded retry/backoff и DSN. Pool повторно выдаёт только
 чистое соединение после success либо подтверждённого RSET.
+После EHLO клиент разбирает multiline reply и typed extension keywords. Для
+сообщения с high-bit octets только в MIME body отправляется `BODY=8BITMIME`,
+если peer рекламировал `8BITMIME`; без capability доставка завершается
+permanent failure до `MAIL`. High-bit header fields отклоняются отдельно,
+поскольку это требует SMTPUTF8, который outbound transport пока не реализует.
+Независимый SMTP peer подтвердил параметр `BODY=8BITMIME`, byte-preserving
+UTF-8 `8bit` MIME body и отказ без envelope при отсутствии extension.
+Litterkeep-клиент и outbound SMTPUTF8 не проверялись.

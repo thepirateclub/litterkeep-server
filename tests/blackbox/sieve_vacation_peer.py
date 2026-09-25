@@ -21,11 +21,16 @@ class CaptureServer(socketserver.ThreadingTCPServer):
     allow_reuse_address = True
     daemon_threads = True
 
-    def __init__(self, address: tuple[str, int]):
+    def __init__(
+        self,
+        address: tuple[str, int],
+        ehlo_reply: bytes = b"250 peer.test\r\n",
+    ):
         super().__init__(address, CaptureHandler)
         self.envelope_sender = ""
         self.recipient = ""
         self.payload = b""
+        self.ehlo_reply = ehlo_reply
 
 
 class CaptureHandler(socketserver.StreamRequestHandler):
@@ -37,7 +42,7 @@ class CaptureHandler(socketserver.StreamRequestHandler):
             command = classify(line.decode("ascii", "replace"))
             match command:
                 case Command.EHLO:
-                    self.wfile.write(b"250 peer.test\r\n")
+                    self.wfile.write(server.ehlo_reply)
                 case Command.MAIL:
                     server.envelope_sender = line.decode("ascii", "replace").strip()
                     self.wfile.write(b"250 sender accepted\r\n")
@@ -75,7 +80,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-dir", required=True)
     options = parser.parse_args()
-    repository = Path(__file__).resolve().parents[2]
+    repository = Path(__file__).resolve().parent.parent.parent
     data_root = (repository / "data").resolve()
     data_path = Path(options.data_dir).resolve()
     data_relative = data_path.relative_to(data_root).as_posix()
