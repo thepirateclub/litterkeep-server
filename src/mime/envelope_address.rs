@@ -1,7 +1,7 @@
 //! Разбор RFC 5322 address-list и проекция адресных групп в IMAP ENVELOPE.
 
 use super::encoded_word;
-use super::envelope_address_scan::{split_commas, split_optional};
+use super::envelope_address_scan::{split_commas, split_optional, strip_comments};
 use super::header_block::HeaderField;
 
 /// Обычный mailbox после отделения его имени и домена.
@@ -135,6 +135,7 @@ fn append_mailbox(value: &str, entries: &mut Vec<AddressEntry>) -> Result<(), &'
 }
 
 fn parse_mailbox(value: &str) -> Result<Address, &'static str> {
+    let value = strip_comments(value)?;
     let (name, addr_spec) = match (value.find('<'), value.rfind('>')) {
         (Some(open), Some(close)) => {
             let name = value.get(..open).ok_or("invalid display name")?.trim();
@@ -146,7 +147,10 @@ fn parse_mailbox(value: &str) -> Result<Address, &'static str> {
         (None, None) => (None, value.trim()),
         _ => return Err("unbalanced angle address"),
     };
+    let addr_spec = strip_comments(addr_spec)?;
     let (mailbox, host) = addr_spec.split_once('@').ok_or("address has no domain")?;
+    let mailbox = mailbox.trim();
+    let host = host.trim();
     if mailbox.is_empty() {
         return Err("address mailbox is empty");
     }
@@ -174,13 +178,39 @@ fn address_terms(address: &Address) -> Vec<String> {
 }
 
 fn decode_name(value: &str) -> Result<Option<String>, &'static str> {
-    let unquoted = value.trim_matches('"').trim();
+    let value = strip_comments(value)?;
+    let unquoted = value.trim();
     if unquoted.is_empty() {
         return Ok(None);
     }
-    Ok(Some(
-        encoded_word::decode(unquoted).unwrap_or_else(|_| unquoted.to_owned()),
-    ))
+    let decoded = match unquoted
+        .strip_prefix('"')
+        .and_then(|inner| inner.strip_suffix('"'))
+    {
+        Some(inner) => inner.to_owned(),
+        None => normalize_phrase(unquoted),
+    };
+    Ok(Some(encoded_word::decode(&decoded).unwrap_or(decoded)))
+}
+
+/// Сворачивает CFWS между словами personal/group phrase в один пробел.
+fn normalize_phrase(value: &str) -> String {
+    let mut phrase = String::with_capacity(value.len());
+    let mut pending_space = false;
+    for character in value.chars() {
+        match character.is_whitespace() {
+            true if !phrase.is_empty() => pending_space = true,
+            true => {}
+            false => {
+                if pending_space {
+                    phrase.push(' ');
+                }
+                phrase.push(character);
+                pending_space = false;
+            }
+        }
+    }
+    phrase
 }
 
 fn nstring(value: Option<String>) -> Result<String, &'static str> {

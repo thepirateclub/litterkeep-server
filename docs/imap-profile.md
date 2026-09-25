@@ -46,15 +46,16 @@ MIME decoding проверены отдельно. При этом синтак�
 | BEFORE/ON/SINCE, SENTBEFORE/SENTON/SENTSINCE, LARGER/SMALLER | Parser/evaluator реализованы; даты сравниваются по календарному дню согласно профилю |
 | NOT, OR, скобочная группа и неявный AND | Parser/evaluator реализованы |
 | HEADER, BODY, TEXT | Parser/evaluator и ограниченный MIME charset/transfer decoding реализованы; body charset: US-ASCII, UTF-8, ISO-8859-1, Windows-1251; см. SEARCH строку основной таблицы |
-| SUBJECT, FROM, TO, CC, BCC | Parser/evaluator используют ту же decoded ENVELOPE projection, что и FETCH ENVELOPE; адрес сравнивается по имени, mailbox, host и `mailbox@host`, без RFC 5322 wire delimiters. RFC 5322 группы, включая пустую группу, сериализуются start/member/end адресными структурами и проверены сетевым клиентом; сложные комментарии, obsolete forms и malformed syntax остаются ограничениями общего parser-а |
-| Address groups | FETCH ENVELOPE, SEARCH address keys | PARTIAL | RFC 5322 group start/member/end encoding and empty-group markers plus group/member SEARCH matching verified; comments and obsolete address syntax remain limited |
+| SUBJECT, FROM, TO, CC, BCC | Parser/evaluator используют ту же decoded ENVELOPE projection, что и FETCH ENVELOPE; адрес сравнивается по имени, mailbox, host и `mailbox@host`, без RFC 5322 wire delimiters. RFC 5322 группы, включая пустую группу, сериализуются start/member/end адресными структурами; вложенные comments и quoted-pairs удаляются до ENVELOPE/SEARCH. Obsolete forms и malformed syntax остаются ограничениями общего parser-а |
+| Address groups | FETCH ENVELOPE, SEARCH address keys | PARTIAL | RFC 5322 group start/member/end encoding, empty groups, nested comments and quoted-pairs are covered by ENVELOPE and shared SEARCH projection; obsolete address syntax and other grammar mismatches remain limited |
 | KEYWORD, UNKEYWORD | Реализованы typed parser/evaluator и сетевые проверки; keywords входят в APPEND v4 и versioned flags journal v2. Старые append v1-v3 и flags v1 читаются как раньше; FETCH FLAGS, STORE и COPY/MOVE сохраняют keywords. STORE обновляет оба класса flags одним checksum/commit frame |
 
 Базовый набор SEARCH keys RFC 9051 закрыт parser/evaluator acceptance; это не
 означает полного SEARCH wire grammar. Quoted strings и synchronizing literals
 до 64 KiB проверены, но non-synchronizing LITERAL+ не объявляется. Адресные
-SEARCH criteria и FETCH ENVELOPE используют одну projection; сложные comments,
-obsolete forms и malformed RFC 5322 syntax остаются ограничениями address parser-а.
+SEARCH criteria и FETCH ENVELOPE используют одну projection; вложенные comments
+и quoted-pairs удаляются из семантических полей. Obsolete forms и malformed
+RFC 5322 syntax остаются ограничениями address parser-а.
 
 G14 keyword checkpoint (2026-09-24): custom flags и KEYWORD/UNKEYWORD прошли
 Windows tests, Linux Rust 1.97 strict Clippy/254 tests и STARTTLS IMAP black-box

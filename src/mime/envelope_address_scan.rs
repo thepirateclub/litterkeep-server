@@ -39,6 +39,52 @@ pub(super) fn split_optional(
     }
 }
 
+/// Удаляет семантически невидимые RFC 5322 comments, сохраняя quoted strings.
+pub(super) fn strip_comments(value: &str) -> Result<String, &'static str> {
+    let mut output = String::with_capacity(value.len());
+    let mut quoted = false;
+    let mut escaped = false;
+    let mut depth = 0_usize;
+    for character in value.chars() {
+        if escaped {
+            if depth == 0 {
+                output.push(character);
+            }
+            escaped = false;
+            continue;
+        }
+        match (character, quoted, depth) {
+            ('\\', true, _) | ('\\', false, 1..) => {
+                if depth == 0 {
+                    output.push(character);
+                }
+                escaped = true;
+            }
+            ('"', false, 0) => {
+                quoted = true;
+                output.push(character);
+            }
+            ('"', true, 0) => {
+                quoted = false;
+                output.push(character);
+            }
+            ('(', false, 0) => {
+                depth = 1;
+                output.push(' ');
+            }
+            ('(', _, 1..) => depth = depth.saturating_add(1),
+            (')', _, 1) => depth = 0,
+            (')', _, 2..) => depth = depth.saturating_sub(1),
+            (_, _, 1..) => {}
+            (_, _, 0) => output.push(character),
+        }
+    }
+    match (quoted, escaped, depth) {
+        (true, _, _) | (_, true, _) | (_, _, 1..) => Err("unterminated address comment or quote"),
+        (false, false, 0) => Ok(output),
+    }
+}
+
 fn split_at(
     value: &str,
     position: usize,
@@ -107,7 +153,7 @@ fn advance(mut state: ScanState, character: char) -> Result<ScanState, &'static 
         ('(', _, 1.., _) => state.comments = state.comments.saturating_add(1),
         (')', _, 1, _) => state.comments = 0,
         (')', _, 2.., _) => state.comments = state.comments.saturating_sub(1),
-        (')', _, 0, _) => return Err("unmatched address comment"),
+        (')', false, 0, _) => return Err("unmatched address comment"),
         ('<', false, 0, false) => state.angle = true,
         ('<', false, 0, true) => return Err("nested angle address"),
         ('>', false, 0, true) => state.angle = false,

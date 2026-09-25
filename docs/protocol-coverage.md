@@ -107,7 +107,11 @@ FETCH ENVELOPE выдаёт group marker (`NIL NIL group NIL`), mailbox учас
 и end marker (`NIL NIL NIL NIL`), включая пустую группу. SEARCH FROM/TO/CC/BCC
 использует эту же проекцию и находит имя группы и адрес участника. Независимый
 STARTTLS black-box проверил группу с тремя mailbox, пустую Cc-группу и Bcc
-member. RFC-комментарии и obsolete address forms ещё не поддержаны полностью.
+member. В address projection вложенные comments удаляются с учётом quoted-pair,
+скобки внутри quoted display name сохраняются; ENVELOPE и SEARCH не видят текст
+комментариев. Независимый STARTTLS acceptance проверил From/To comments и
+групповую адресацию. Obsolete address forms и остальные RFC 5322 несовпадения
+по-прежнему ограничивают parser.
 `RETURN (SAVE)` сохраняет UIDs в состоянии одной сессии, а `$` SEARCH criterion
 сопоставляет их как для SEARCH, так и UID SEARCH. Успешный SELECT, SAVE-команда
 с ответом NO, EXPUNGE и MOVE сбрасывают/синхронизируют результат; обычный SEARCH

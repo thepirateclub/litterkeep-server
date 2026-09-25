@@ -36,6 +36,16 @@ def search_address(client: imaplib.IMAP4, field: str, value: str) -> bytes:
             raise AssertionError(f"SEARCH {field} {value!r}: {result!r}")
 
 
+def require_no_search_match(client: imaplib.IMAP4, field: str, value: str) -> None:
+    """Подтверждает, что комментарии не становятся содержимым адреса для SEARCH."""
+    result = require(client.search("UTF-8", field, f'"{value}"'), f"SEARCH {field}")
+    match result:
+        case [b""]:
+            return
+        case _:
+            raise AssertionError(f"SEARCH {field} unexpectedly matched {value!r}: {result!r}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("host", nargs="?", default="127.0.0.1")
@@ -50,8 +60,9 @@ def main() -> None:
     group = f"A-Group-{uuid.uuid4().hex}"
     require(client.create(mailbox), "CREATE")
     message = (
-        "From: Alice Sender <alice@example.test>\r\n"
-        f"To: {group}:Ed Jones <c@a.test>,joe@where.test,John <jdoe@one.test>;\r\n"
+        "From: Alice Sender (primary (nested)) <alice@example.test>\r\n"
+        f"To: {group} (list comment):Ed Jones (mentor (owner \\) note)) "
+        "<c(comment)@a.test>,joe@where.test,John <jdoe@one.test>;\r\n"
         "Cc: Undisclosed recipients:;\r\n"
         "Bcc: Hidden Team:hidden@example.test;\r\n"
         "Subject: address group fixture\r\n\r\nbody\r\n"
@@ -72,6 +83,8 @@ def main() -> None:
     for marker in expected:
         if marker not in wire:
             raise AssertionError(f"ENVELOPE group marker missing {marker!r}: {wire!r}")
+    if b"mentor" in wire or b"list comment" in wire or b"owner" in wire:
+        raise AssertionError(f"RFC 5322 comments leaked into ENVELOPE: {wire!r}")
     if search_address(client, "TO", group) != b"1":
         raise AssertionError("TO search did not match group phrase")
     if search_address(client, "TO", "jdoe@one.test") != b"1":
@@ -80,8 +93,10 @@ def main() -> None:
         raise AssertionError("CC search did not match the empty group name")
     if search_address(client, "BCC", "hidden@example.test") != b"1":
         raise AssertionError("BCC search did not match a mailbox inside the group")
+    require_no_search_match(client, "TO", "mentor")
+    require_no_search_match(client, "TO", "list comment")
     client.logout()
-    print("PASS imap-envelope-groups: group markers, empty group, address SEARCH")
+    print("PASS imap-envelope-groups: comments, group markers, empty group, address SEARCH")
 
 
 if __name__ == "__main__":

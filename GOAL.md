@@ -2,7 +2,7 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
-Current subgoal: G16
+Current subgoal: G14
 
 ### 2026-09-25: G16 POP3 RFC 1939 deleted-message visibility checkpoint
 
@@ -456,6 +456,21 @@ ManageSieve до заявленного набора современных фо
 | G17 | G12 | MIME RFC 5322/2045-2049 updates and Sieve RFC 5228/ManageSieve RFC 5804 profile | NOT RUN |
 | G18 | G14,G15,G16,G17 | Cross-protocol Linux acceptance, truthful capabilities and final coverage matrix | NOT RUN |
 
+### 2026-09-25: G14 RFC 5322 address comments checkpoint
+
+- Address projection removes nested RFC 5322 comments and honors quoted-pairs
+  outside quoted strings before ENVELOPE serialization and address SEARCH.
+  Parentheses inside quoted display names remain literal data. Invalid unclosed
+  comments fail instead of leaking partial address data. This closes only the
+  comments portion of RFC 5322 §3.2.2, not the obsolete-address grammar.
+- PASS: Windows Rust 1.97.1, 290 tests and strict Clippy; Linux Docker Rust
+  1.97, strict Clippy and 330 tests. Updated independent STARTTLS IMAP acceptance
+  verified nested and escaped comments in From/To, ENVELOPE values without
+  comment text, group markers, and shared SEARCH projection. Stage
+  `./data/g14-envelope-comments-final2`; temporary container removed,
+  `litterkeep-g12-phone` preserved. Litterkeep app integration was not tested.
+- G14 remains RUNNING.
+
 ### 2026-09-25: G14 RFC 5322 address groups checkpoint
 
 - ENVELOPE address parsing now preserves typed mailbox, group-start, and
@@ -469,9 +484,9 @@ ManageSieve до заявленного набора современных фо
 - PASS: Windows Rust 1.97.1 strict Clippy и 237 tests; Linux Docker Rust 1.97
   strict Clippy и 272 tests; runtime image build и сетевой black-box PASS.
   Данные: `./data/g14-envelope-groups`.
-- RFC-комментарии/obsolete forms и прочие формальные несовпадения адресного
-  parser-а остаются ограничениями. Контейнер этапа удалён, `litterkeep-g12-phone`
-  сохранён. G14 остаётся RUNNING.
+- Obsolete address forms and remaining RFC 5322 grammar mismatches are still
+  limitations. Контейнер этапа удалён, `litterkeep-g12-phone` сохранён. G14
+  остаётся RUNNING.
 
 ### 2026-09-25: G14 базовый SEARCH key inventory checkpoint
 
@@ -482,8 +497,8 @@ ManageSieve до заявленного набора современных фо
 - В матрицах устранено устаревшее заявление, что полный базовый набор ключей
   отсутствует. SEARCH остаётся PARTIAL по другим причинам: ограниченный charset,
   не поддержанные SEARCH string literals и не базовые расширения. RFC 5322
-  address groups больше не перечисляются как незакрытый пробел; ограничения
-  parser-а на comments, obsolete forms и malformed syntax сохранены.
+  address groups больше не перечисляются как незакрытый пробел; на дату этого
+  checkpoint comments и obsolete forms оставались ограничениями parser-а.
 - PASS: Windows Rust 1.97.1 strict Clippy и 238 tests; Linux Docker Rust 1.97
   release build, strict Clippy и 273 tests. Сетевой MIME/SEARCH и UID SEARCH
   acceptance остаются отдельными ранее проверенными сценариями; приложение

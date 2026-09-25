@@ -54,3 +54,38 @@ fn rejects_unbalanced_group_boundaries() {
     assert!(parse(vec![&open_group]).is_err());
     assert!(parse(vec![&close_group]).is_err());
 }
+
+/// Удаляет вложенные comments и quoted-pair, не включая их в ENVELOPE/SEARCH.
+#[test]
+fn strips_nested_comments_from_name_and_addr_spec() {
+    let field =
+        to_field(r"John (friendly (nested \) note)) Doe <alice(comment)@(domain)example.test>");
+    let parsed = parse(vec![&field]).expect("commented mailbox");
+    assert_eq!(
+        encode_list(&parsed).expect("ENVELOPE mailbox"),
+        "((\"John Doe\" NIL \"alice\" \"example.test\"))"
+    );
+    let projected = search_text(&parsed).expect("address search projection");
+    assert!(projected.contains("John Doe"));
+    assert!(projected.contains("alice@example.test"));
+    assert!(!projected.contains("friendly"));
+    assert!(!projected.contains("domain"));
+}
+
+/// Отклоняет незакрытый comment вместо выдачи частичного ENVELOPE.
+#[test]
+fn rejects_unterminated_address_comment() {
+    let field = to_field("Alice (unfinished <alice@example.test>");
+    assert!(parse(vec![&field]).is_err());
+}
+
+/// Скобки внутри quoted display name остаются данными, а не comments.
+#[test]
+fn preserves_parentheses_inside_quoted_display_name() {
+    let field = to_field("\"(Team) Lead\" <alice@example.test>");
+    let parsed = parse(vec![&field]).expect("quoted display name");
+    assert_eq!(
+        encode_list(&parsed).expect("quoted ENVELOPE"),
+        "((\"(Team) Lead\" NIL \"alice\" \"example.test\"))"
+    );
+}
