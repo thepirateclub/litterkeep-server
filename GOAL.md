@@ -4,6 +4,18 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 multipart boundary grammar checkpoint
+
+- Парсер RFC 2046 multipart delimiter теперь валидирует boundary по §5.1.1:
+  от 1 до 70 ASCII-октетов, только `bchars`, конечный пробел запрещён.
+  Проверки покрывают разрешённый punctuation-набор, пустое значение, 70/71
+  октет, forbidden octet, non-ASCII и путь разбора multipart entity.
+- Windows Rust 1.97.1: 386 library + 1 binary tests, fmt и strict Clippy PASS.
+  Docker Linux Rust 1.97.1: release build, strict Clippy, 427 library + 1
+  binary + doc-tests PASS. Unit-only, socket black-box не запускался.
+  `docker build --rm` оставил только `litterkeep-g12-phone`; временных
+  контейнеров нет. RFC 2046 §5.1.1 сверена с IETF Datatracker. G17 RUNNING.
+
 ### 2026-09-25: G17 malformed MIME Content-Type fallback checkpoint
 
 - MIME parser applies RFC 2045 §5.2 recommended `text/plain` default when

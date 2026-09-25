@@ -116,6 +116,9 @@ MIME tree отвергает Base64, quoted-printable и неизвестный 
 multipart/message composite entities согласно RFC 2045 §6.4; повторное поле
 CTE отклоняется как неоднозначное, поэтому позднее 8bit не маскирует ранее
 указанное кодирование. Эти проверки parser-а unit-only.
+Параметр `multipart` boundary проверяется по RFC 2046 §5.1.1: 1..70 ASCII
+октетов из `bchars`, без завершающего пробела; покрыты длины и запрещённые
+символы. Boundary проверки unit-only.
 Отсутствующий или синтаксически повреждённый `Content-Type` получает
 рекомендуемый RFC 2045 §5.2 fallback `text/plain`/US-ASCII; сырой MIME header
 не переписывается. Duplicate Content-Type отклоняется как неоднозначный ввод.

@@ -268,4 +268,14 @@ mod tests {
 
         assert!(parse(raw).is_err());
     }
+
+    #[test]
+    fn multipart_rejects_a_boundary_longer_than_seventy_octets() {
+        let boundary = "a".repeat(71);
+        let raw = format!(
+            "Content-Type: multipart/mixed; boundary={boundary}\r\n\r\n--{boundary}\r\n\r\nbody\r\n--{boundary}--\r\n"
+        );
+
+        assert!(parse(raw.as_bytes()).is_err());
+    }
 }

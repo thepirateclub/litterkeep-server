@@ -32,6 +32,7 @@ pub(super) fn multipart_ranges(
     body: &[u8],
     boundary: &[u8],
 ) -> Result<MultipartRanges, &'static str> {
+    validate_boundary(boundary)?;
     let mut delimiters = Vec::new();
     let mut cursor = 0_usize;
     loop {
@@ -56,6 +57,45 @@ pub(super) fn multipart_ranges(
         cursor = after;
     }
     assemble_ranges(body, delimiters)
+}
+
+/// Проверяет длину и алфавит boundary по RFC 2046 §5.1.1.
+fn validate_boundary(boundary: &[u8]) -> Result<(), &'static str> {
+    match (boundary.is_empty(), boundary.len() > 70) {
+        (true, _) => return Err("multipart boundary is empty"),
+        (_, true) => return Err("multipart boundary exceeds 70 octets"),
+        _ => {}
+    }
+    if boundary.last() == Some(&b' ') {
+        return Err("multipart boundary ends with space");
+    }
+    match boundary.iter().all(is_boundary_octet) {
+        true => Ok(()),
+        false => Err("multipart boundary contains a forbidden octet"),
+    }
+}
+
+/// Проверяет один ASCII-октет множества `bchars` из RFC 2046.
+fn is_boundary_octet(byte: &u8) -> bool {
+    matches!(
+        byte,
+        b'0'..=b'9'
+            | b'A'..=b'Z'
+            | b'a'..=b'z'
+            | b' '
+            | b'\''
+            | b'('
+            | b')'
+            | b'+'
+            | b'_'
+            | b','
+            | b'-'
+            | b'.'
+            | b'/'
+            | b':'
+            | b'='
+            | b'?'
+    )
 }
 
 fn delimiter_kind(line: &[u8], boundary: &[u8]) -> Option<bool> {
@@ -130,4 +170,23 @@ fn strip_encapsulation_crlf(body: &[u8], end: usize) -> usize {
 /// Переводит range относительно multipart body в координаты всего сообщения.
 pub(super) fn absolute(range: &Range<usize>, base: usize) -> Range<usize> {
     base + range.start..base + range.end
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn boundary_enforces_rfc2046_octet_grammar_and_limits() {
+        let maximum = vec![b'a'; 70];
+        let too_long = vec![b'a'; 71];
+
+        assert!(validate_boundary(b"a'()+_,-./:=? z").is_ok());
+        assert!(validate_boundary(&maximum).is_ok());
+        assert!(validate_boundary(b"").is_err());
+        assert!(validate_boundary(&too_long).is_err());
+        assert!(validate_boundary(b"ends-with-space ").is_err());
+        assert!(validate_boundary(b"forbidden@").is_err());
+        assert!(validate_boundary("не-ascii".as_bytes()).is_err());
+    }
 }
