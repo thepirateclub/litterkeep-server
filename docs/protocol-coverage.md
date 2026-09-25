@@ -169,7 +169,9 @@ multipart и message/rfc822. Для верхнего multipart без closing de
 сохраняется отказ. Проверки parser-а unit-only.
 MIME Base64 CTE по RFC 2045 §6.8 игнорирует октеты вне Base64-алфавита,
 сохраняя строгую проверку синтаксиса RFC 2047 encoded-word. Unit-проверки
-покрывают оба профиля; независимый black-box fixture обновлён, но не запускался.
+покрывают оба профиля. Независимый SMTP STARTTLS -> IMAP STARTTLS клиент
+доставляет multipart с `!#` внутри Base64 body и сверяет точные исходные octets
+через `BINARY.PEEK`; encoded-word decoder этим сценарием не затрагивается.
 RFC 2045 MIME-поля (кроме Content-Disposition) допускают RFC 822 comments;
 Content-Transfer-Encoding удаляет вложенные comments вне quoted-string перед
 разбором token. Проверены comments до и после значения unit-тестом.

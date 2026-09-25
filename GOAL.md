@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 RFC 2045 Base64 wire-compatibility checkpoint
+
+- Независимый `imap_binary_fetch.py` расширен SMTP-доставкой multipart fixture,
+  где `!#` встроены внутрь Base64 encoded attachment. Проверка сравнит точные
+  decoded octets через IMAP `BINARY.PEEK[2]`; strict RFC 2047 decoder остаётся
+  отдельным и не меняется.
+- PASS: Windows Rust 1.97.1 suite 450 library + 1 binary, strict Clippy,
+  format/diff и Python compile. Актуальный Linux runtime image собран; полный
+  независимый `imap_binary_fetch.py` прошёл, включая SMTP -> IMAP Base64-noise
+  round-trip и существующие BINARY acceptance checks. Rust source в этом
+  checkpoint не менялся, поэтому новый Linux test-stage не заявляется.
+  Временный контейнер и image tag удалены; `docker ps -a` оставил только
+  `litterkeep-g12-phone`. Stage data сохранена в `./data/g17-mime-base64-wire`.
+  G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 strict MIME-Version comment handling
 
 - Повторная RFC-сверка выявила, что предыдущий MIME-Version parser удалял все

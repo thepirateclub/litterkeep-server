@@ -40,6 +40,34 @@ def message_fixture(subject):
     return message.as_bytes(policy=SMTP), attachment
 
 
+def noisy_base64_fixture(subject):
+    """Строит RFC 2045 CTE body с ASCII-символами вне Base64-алфавита."""
+    boundary = "g17-base64-" + uuid.uuid4().hex
+    payload = b"MIME Base64 ignores non-alphabet octets"
+    encoded = base64.b64encode(payload)
+    raw = (
+        b"From: Alice <alice@test>\r\n"
+        b"To: Bob <bob@test>\r\n"
+        b"Subject: "
+        + subject.encode("ascii")
+        + b"\r\nContent-Type: multipart/mixed; boundary=\""
+        + boundary.encode("ascii")
+        + b"\"\r\n\r\n--"
+        + boundary.encode("ascii")
+        + b"\r\nContent-Type: text/plain\r\n\r\nfixture\r\n--"
+        + boundary.encode("ascii")
+        + b"\r\nContent-Type: application/octet-stream\r\n"
+        + b"Content-Transfer-Encoding: base64\r\n\r\n"
+        + encoded[:12]
+        + b"!#"
+        + encoded[12:]
+        + b"\r\n--"
+        + boundary.encode("ascii")
+        + b"--\r\n"
+    )
+    return raw, payload
+
+
 class ImapWire:
     """Минимальный независимый reader для literal8, которого нет в imaplib."""
 
@@ -153,6 +181,32 @@ def main():
         if b"\\Seen" not in flags:
             raise AssertionError("BINARY did not set durable \\Seen")
 
+        noisy_subject = "MIME base64 noise " + uuid.uuid4().hex
+        noisy_message, noisy_expected = noisy_base64_fixture(noisy_subject)
+        with smtplib.SMTP(selected.host, selected.smtp_port, timeout=10) as smtp:
+            smtp.starttls(context=smtp_context)
+            smtp.login("alice", os.environ["LITTERKEEP_ALICE_PASSWORD"])
+            smtp.sendmail("alice@test", ["bob@test"], noisy_message)
+        search = client.command(
+            b'SEARCH HEADER Subject "' + noisy_subject.encode("ascii") + b'"'
+        )
+        require_ok(search, "MIME Base64 noise message search")
+        search_line = next(
+            line for line in search.splitlines() if line.startswith(b"* SEARCH ")
+        )
+        noisy_sequence = next(iter(search_line.split()[2:]), None)
+        if noisy_sequence is None:
+            raise AssertionError(f"MIME Base64 noise fixture not found: {search!r}")
+        noisy_fetch = client.command(
+            b"FETCH " + noisy_sequence + b" (BINARY.PEEK[2])"
+        )
+        require_ok(noisy_fetch, "MIME Base64 non-alphabet decoding")
+        noisy_marker = b"{" + str(len(noisy_expected)).encode("ascii") + b"}\r\n"
+        if noisy_marker not in noisy_fetch or noisy_expected not in noisy_fetch:
+            raise AssertionError(
+                f"MIME Base64 non-alphabet octets changed the decoded body: {noisy_fetch!r}"
+            )
+
         unsupported_subject = "unknown cte " + uuid.uuid4().hex
         unsupported = (
             b"From: Alice <alice@test>\r\n"
@@ -189,7 +243,10 @@ def main():
     )
     if decoded != expected:
         raise AssertionError("fixture MIME parser disagrees about attachment bytes")
-    print("PASS imap-binary-fetch: size, literal8, partial, Seen, UNKNOWN-CTE")
+    print(
+        "PASS imap-binary-fetch: size, literal8, partial, Seen, UNKNOWN-CTE, "
+        "RFC 2045 Base64 noise"
+    )
 
 
 if __name__ == "__main__":
