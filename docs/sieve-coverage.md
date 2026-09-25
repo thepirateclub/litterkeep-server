@@ -38,6 +38,13 @@ ManageSieve capability. Store теперь может независимо фи�
 очередной журнал кодирует пустой SMTP reverse-path токеном `<>` и сохраняет его
 через deferred/reopen. Store test доказывает точное восстановление payload, а
 Linux SMTP peer подтверждает реальную передачу отдельного ответа с `MAIL FROM:<>`.
+Дополнительно Store принимает typed vacation request и атомарно фиксирует claim
+подавления по account, envelope sender и response identity в
+`journal/vacation-history.log` вместе с payload/queue transaction. Claims
+восстанавливаются только для committed transaction ID; regressions покрывают
+reopen, expiration и отказ до commit. Это storage foundation: Sieve parser и
+executor её пока не вызывают, response identity normalization и RFC guards
+ещё не реализованы.
 Это инфраструктурная основа, не реализация `vacation`. RFC 5230 также требует:
 deduplication ответов по адресу отправителя и идентичности vacation-ответа,
 период `:days`, максимум не менее 1000 записей истории, ограничения

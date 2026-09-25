@@ -4,6 +4,26 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 durable vacation suppression foundation
+
+- Store теперь имеет typed запрос generated vacation-ответа и append-only
+  `journal/vacation-history.log`. Claim с account, envelope sender и response
+  identity записывается до общей Store commit-точки, виден только для
+  committed transaction ID и восстанавливается после reopen. Generated
+  RFC822 blob и outbound job с `MAIL FROM:<>` используют ту же транзакцию.
+- Regression покрывает подавление в пределах срока до и после reopen,
+  повтор после истечения, другой response identity и сбой после записи claim,
+  но до commit: после recovery job отсутствует, повтор разрешён.
+- PASS: Windows Rust 1.97 `cargo test --all-targets --locked` (341 tests),
+  strict Clippy, format и diff check. Linux Docker Rust 1.97 test target
+  (382 tests), strict Clippy и release build. Новых runtime-контейнеров не
+  создавалось; `docker ps -a` содержит только сохранённый
+  `litterkeep-g12-phone`.
+- Это storage foundation, не RFC 5230 vacation implementation: Sieve parser и
+  executor пока не создают такой запрос; normalization response identity,
+  days policy bounds, loop/list/daemon guards, MIME generation и сетевой
+  ManageSieve -> SMTP -> IMAP acceptance остаются обязательными.
+
 ### 2026-09-25: G17 generated Sieve-response payload foundation
 
 - Store получил отдельную границу `enqueue_outbound_payload`: она фиксирует

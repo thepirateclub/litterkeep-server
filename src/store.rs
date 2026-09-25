@@ -53,6 +53,8 @@ mod model;
 mod move_messages;
 #[path = "store/open.rs"]
 mod open;
+#[path = "store/outbound_access.rs"]
+mod outbound_access;
 #[cfg(all(test, target_os = "linux"))]
 #[path = "store/outbound_service_tests.rs"]
 mod outbound_service_tests;
@@ -91,6 +93,13 @@ mod subscriptions;
 #[cfg(test)]
 #[path = "store/tests.rs"]
 mod tests;
+#[path = "store/vacation_access.rs"]
+mod vacation_access;
+#[path = "store/vacation_suppression.rs"]
+mod vacation_suppression;
+#[cfg(test)]
+#[path = "store/vacation_tests.rs"]
+mod vacation_tests;
 use crate::mail_flags::StoredFlags;
 pub use crate::mail_flags::{FlagMutation, MessageFlags, SystemFlag};
 use crate::queue::Queue;
@@ -106,6 +115,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
 pub use subscriptions::{SubscribedFolder, SubscriptionSnapshot};
+pub use vacation_access::{VacationResponseRequest, VacationResponseResult};
 pub(super) const DEFAULT_BLOB_QUOTA: u64 = 25 * 1024 * 1024;
 #[derive(Debug)]
 pub struct Store {
@@ -119,6 +129,8 @@ pub struct Store {
     folders: folders::FolderCatalog,
     subscriptions: subscriptions::SubscriptionCatalog,
     sieve_scripts: sieve_scripts::SieveCatalog,
+    /// История committed автоответов, принадлежащая единственному Store writer.
+    vacation_history: HashMap<vacation_suppression::VacationKey, u64>,
     /// Queue принадлежит тому же единственному writer-у, что и mailbox journal.
     queue: Queue,
     /// Единственный источник видимости queue jobs после recovery или commit.
@@ -145,6 +157,7 @@ enum AppendStage {
     BlobPublished,
     QueueWritten,
     DiagnosticsWritten,
+    VacationWritten,
     FirstMailboxFrame,
     MailboxDirectorySynced,
     RecentWritten,

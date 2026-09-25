@@ -27,6 +27,8 @@ impl Store {
         recovery::recover(&root)?;
         let committed = commit_log::committed(&root.join("journal/transactions.log"))?;
         sieve_diagnostics::recover(&root)?;
+        vacation_suppression::recover(&root)?;
+        let vacation_history = vacation_suppression::load(&root, &committed.ids)?;
         let queue = crate::queue::Queue::open(root.join("queue"))?;
         let outbound_transactions = queue.owned_transaction_ids()?;
         let recovered = mailbox_state::load(&root, &committed, &outbound_transactions)?;
@@ -52,6 +54,7 @@ impl Store {
             folders,
             subscriptions,
             sieve_scripts,
+            vacation_history,
             queue,
             committed_transactions: committed.ids,
             next_transaction_id,

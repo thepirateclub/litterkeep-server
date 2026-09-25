@@ -3,7 +3,7 @@ use super::{
     AppendMetadata, AppendStage, Store, WriteState, blobs, commit_log, durability, journal, model,
     recent, sieve_diagnostics, validated_unique_mailboxes,
 };
-use std::fs::{self, OpenOptions};
+use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
@@ -22,6 +22,22 @@ impl Store {
         self.append_many_with_sieve(&[], raw, &outbound, &[])
     }
 
+    pub(super) fn append_vacation_transaction(
+        &mut self,
+        raw: &[u8],
+        outbound: &[(String, String)],
+        claim: &super::vacation_suppression::PendingClaim,
+    ) -> io::Result<u64> {
+        self.append_many_with_metadata(
+            &[],
+            raw,
+            AppendMetadata::default(),
+            outbound,
+            &[],
+            Some(claim),
+        )
+    }
+
     pub fn append(&mut self, mailbox: &str, raw: &[u8]) -> io::Result<u64> {
         self.append_many(&[mailbox.to_owned()], raw)
     }
@@ -31,10 +47,10 @@ impl Store {
         raw: &[u8],
         metadata: AppendMetadata,
     ) -> io::Result<u64> {
-        self.append_many_with_metadata(&[mailbox.to_owned()], raw, metadata, &[], &[])
+        self.append_many_with_metadata(&[mailbox.to_owned()], raw, metadata, &[], &[], None)
     }
     pub fn append_many(&mut self, mailboxes: &[String], raw: &[u8]) -> io::Result<u64> {
-        self.append_many_with_metadata(mailboxes, raw, AppendMetadata::default(), &[], &[])
+        self.append_many_with_metadata(mailboxes, raw, AppendMetadata::default(), &[], &[], None)
     }
     #[cfg(test)]
     pub(crate) fn append_many_with_outbound(
@@ -43,7 +59,14 @@ impl Store {
         raw: &[u8],
         outbound: &[(String, String)],
     ) -> io::Result<u64> {
-        self.append_many_with_metadata(mailboxes, raw, AppendMetadata::default(), outbound, &[])
+        self.append_many_with_metadata(
+            mailboxes,
+            raw,
+            AppendMetadata::default(),
+            outbound,
+            &[],
+            None,
+        )
     }
     pub(super) fn append_many_with_sieve(
         &mut self,
@@ -58,6 +81,7 @@ impl Store {
             AppendMetadata::default(),
             outbound,
             diagnostics,
+            None,
         )
     }
     fn append_many_with_metadata(
@@ -67,6 +91,7 @@ impl Store {
         metadata: AppendMetadata,
         outbound: &[(String, String)],
         diagnostics: &[sieve_diagnostics::PendingDiagnostic],
+        vacation_claim: Option<&super::vacation_suppression::PendingClaim>,
     ) -> io::Result<u64> {
         self.ensure_writable()?;
         let mailboxes = validated_delivery_mailboxes(mailboxes, outbound)?;
@@ -87,10 +112,17 @@ impl Store {
             return Err(error);
         }
         self.check_and_poison(AppendStage::DiagnosticsWritten)?;
+        if let Err(error) =
+            super::vacation_suppression::append(&self.root, transaction_id, vacation_claim)
+        {
+            self.write_state = WriteState::Poisoned;
+            return Err(error);
+        }
+        self.check_and_poison(AppendStage::VacationWritten)?;
         match self.commit_links(transaction_id, &links) {
             Ok(()) => {
                 self.check_and_poison(AppendStage::BeforeMemoryPublish)?;
-                self.publish_links(transaction_id, links)
+                self.publish_links(transaction_id, links, vacation_claim.cloned())
             }
             Err(error) => {
                 self.write_state = WriteState::Poisoned;
@@ -182,6 +214,7 @@ impl Store {
         &mut self,
         transaction_id: u64,
         links: Vec<(String, model::Record)>,
+        vacation_claim: Option<super::vacation_suppression::PendingClaim>,
     ) -> io::Result<u64> {
         let first_uid = match links.first() {
             Some((_, record)) => record.uid,
@@ -203,69 +236,10 @@ impl Store {
             .checked_add(1)
             .ok_or_else(|| io::Error::other("transaction id exhausted"))?;
         self.committed_transactions.insert(transaction_id);
+        if let Some(claim) = vacation_claim {
+            self.vacation_history.insert(claim.key, claim.expires_at);
+        }
         Ok(first_uid)
-    }
-
-    /// Возвращает только jobs, пережившие global Store commit и recovery.
-    pub fn pending_outbound(&self) -> io::Result<Vec<crate::queue::OwnedDelivery>> {
-        self.queue.pending_owned(&self.committed_transactions)
-    }
-
-    /// Возвращает только committed jobs, чей durable retry deadline уже наступил.
-    ///
-    /// Transport не интерпретирует queue journal самостоятельно и не получает
-    /// доступ к Store path: решение о видимости job остаётся у владельца Store.
-    pub fn due_outbound(&self, now_epoch: u64) -> io::Result<Vec<crate::queue::OwnedDelivery>> {
-        self.queue
-            .due_owned(&self.committed_transactions, now_epoch)
-    }
-
-    /// Выдаёт не более `limit` due jobs, сохраняя bounded handoff к scheduler-у.
-    pub fn due_outbound_limited(
-        &self,
-        now_epoch: u64,
-        limit: usize,
-    ) -> io::Result<Vec<crate::queue::OwnedDelivery>> {
-        let mut due = self.due_outbound(now_epoch)?;
-        due.truncate(limit);
-        Ok(due)
-    }
-
-    /// Читает payload только job, опубликованный общим transaction commit.
-    pub fn outbound_blob(&self, delivery: &crate::queue::OwnedDelivery) -> io::Result<Vec<u8>> {
-        match self
-            .committed_transactions
-            .contains(&delivery.transaction_id)
-        {
-            true => fs::read(
-                self.root
-                    .join("blobs")
-                    .join(model::blob_name(delivery.transaction_id)),
-            ),
-            false => Err(io::Error::new(
-                io::ErrorKind::NotFound,
-                "outbound job is not committed",
-            )),
-        }
-    }
-
-    /// Сохраняет terminal либо retry state только через владельца Store.
-    pub fn transition_outbound(
-        &mut self,
-        delivery: &crate::queue::OwnedDelivery,
-        state: crate::queue::State,
-    ) -> io::Result<()> {
-        self.ensure_writable()?;
-        match self
-            .committed_transactions
-            .contains(&delivery.transaction_id)
-        {
-            true => self.queue.transition_owned(delivery, state),
-            false => Err(io::Error::new(
-                io::ErrorKind::NotFound,
-                "outbound job is not committed",
-            )),
-        }
     }
 }
 
