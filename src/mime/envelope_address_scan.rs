@@ -62,6 +62,72 @@ pub(super) fn split_addr_spec(value: &str) -> Result<(&str, &str), &'static str>
     }
 }
 
+/// Убирает CFWS вокруг точек в obsolete dot-separated local-part/domain.
+pub(super) fn normalize_dot_cfws(value: &str) -> String {
+    let mut characters = value.chars().peekable();
+    let mut normalized = String::with_capacity(value.len());
+    let mut quoted = false;
+    let mut escaped = false;
+    let mut domain_literal = false;
+    let mut previous_dot = false;
+    while let Some(character) = characters.next() {
+        match (quoted, escaped, domain_literal, character) {
+            (true, true, _, value) => {
+                normalized.push(value);
+                escaped = false;
+            }
+            (true, false, _, '\\') => {
+                normalized.push(character);
+                escaped = true;
+            }
+            (true, false, _, '"') => {
+                normalized.push(character);
+                quoted = false;
+            }
+            (true, false, _, _) => normalized.push(character),
+            (false, _, true, ']') => {
+                normalized.push(character);
+                domain_literal = false;
+            }
+            (false, _, true, _) => normalized.push(character),
+            (false, _, false, '"') => {
+                normalized.push(character);
+                quoted = true;
+                previous_dot = false;
+            }
+            (false, _, false, '[') => {
+                normalized.push(character);
+                domain_literal = true;
+                previous_dot = false;
+            }
+            (false, _, false, ' ' | '\t') => {
+                while let Some(next) = characters.peek().copied() {
+                    match next {
+                        ' ' | '\t' => {
+                            characters.next();
+                        }
+                        _ => break,
+                    }
+                }
+                let before_dot = matches!(characters.peek(), Some('.'));
+                match (previous_dot, before_dot) {
+                    (true, _) | (_, true) => {}
+                    (false, false) => normalized.push(' '),
+                }
+            }
+            (false, _, false, '.') => {
+                normalized.push(character);
+                previous_dot = true;
+            }
+            (false, _, false, _) => {
+                normalized.push(character);
+                previous_dot = false;
+            }
+        }
+    }
+    normalized
+}
+
 /// Удаляет obsolete source-route из angle-addr, сохраняя конечный addr-spec.
 pub(super) fn strip_source_route(value: &str) -> Result<&str, &'static str> {
     match value.trim_start().starts_with('@') {

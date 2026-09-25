@@ -161,3 +161,38 @@ fn rejects_malformed_obsolete_source_route() {
     assert!(parse(vec![&empty_domain]).is_err());
     assert!(parse(vec![&empty_target]).is_err());
 }
+
+/// Удаляет obsolete CFWS вокруг dot separators local-part и domain.
+#[test]
+fn normalizes_obsolete_cfws_around_addr_spec_dots() {
+    let field = to_field("Legacy <first (local) . (separator) last @ example . test>");
+    let parsed = parse(vec![&field]).expect("obsolete dotted address");
+    assert_eq!(
+        encode_list(&parsed).expect("obsolete address ENVELOPE"),
+        "((\"Legacy\" NIL \"first.last\" \"example.test\"))"
+    );
+    let projection = search_text(&parsed).expect("obsolete address SEARCH");
+    assert!(projection.contains("first.last@example.test"));
+}
+
+/// Пробелы и точки внутри quoted local-part не схлопываются как CFWS.
+#[test]
+fn preserves_quoted_local_part_content_during_dot_normalization() {
+    let field = to_field(r#"Quoted <"a . b"@example.test>"#);
+    let parsed = parse(vec![&field]).expect("quoted local-part");
+    assert_eq!(
+        encode_list(&parsed).expect("quoted local-part ENVELOPE"),
+        "((\"Quoted\" NIL \"\\\"a . b\\\"\" \"example.test\"))"
+    );
+}
+
+/// Не нормализует точки внутри bracketed domain-literal.
+#[test]
+fn preserves_domain_literal_during_dot_normalization() {
+    let field = to_field("Literal <host@[127.0.0.1]>");
+    let parsed = parse(vec![&field]).expect("domain-literal address");
+    assert_eq!(
+        encode_list(&parsed).expect("domain-literal ENVELOPE"),
+        "((\"Literal\" NIL \"host\" \"[127.0.0.1]\"))"
+    );
+}

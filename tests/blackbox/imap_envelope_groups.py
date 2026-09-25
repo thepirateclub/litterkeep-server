@@ -64,7 +64,8 @@ def main() -> None:
         f"To: {group} (list comment):Ed Jones (mentor (owner \\) note)) "
         "<c(comment)@a.test>,joe@where.test,John <jdoe@one.test>, "
         'Quoted Local <"a@b"@example.test>, '
-        "Legacy <@old.example,@older.example,:route-target@example.test>; "
+        "Legacy <@old.example,@older.example,:route-target@example.test>, "
+        "Old Dots <first (local) . (separator) last @ example . test>; "
         "(group closed)\r\n"
         "Cc: Undisclosed recipients:;\r\n"
         "Bcc: Hidden Team:hidden@example.test;\r\n"
@@ -81,6 +82,7 @@ def main() -> None:
         b'("John" NIL "jdoe" "one.test")',
         b'("Quoted Local" NIL "\\"a@b\\"" "example.test")',
         b'("Legacy" NIL "route-target" "example.test")',
+        b'("Old Dots" NIL "first.last" "example.test")',
         b'(NIL NIL NIL NIL)',
         b'(NIL NIL "Undisclosed recipients" NIL)',
         b'(NIL NIL "Hidden Team" NIL)',
@@ -95,6 +97,8 @@ def main() -> None:
         b"group closed",
         b"old.example",
         b"older.example",
+        b"local",
+        b"separator",
     )
     if any(term in wire for term in comment_terms):
         raise AssertionError(f"RFC 5322 comments leaked into ENVELOPE: {wire!r}")
@@ -106,6 +110,8 @@ def main() -> None:
         raise AssertionError("TO search did not preserve @ inside a quoted local-part")
     if search_address(client, "TO", "route-target@example.test") != b"1":
         raise AssertionError("TO search did not preserve the source-route destination")
+    if search_address(client, "TO", "first.last@example.test") != b"1":
+        raise AssertionError("TO search did not normalize obsolete CFWS around dots")
     if search_address(client, "CC", "Undisclosed recipients") != b"1":
         raise AssertionError("CC search did not match the empty group name")
     if search_address(client, "BCC", "hidden@example.test") != b"1":

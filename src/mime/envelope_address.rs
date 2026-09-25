@@ -2,7 +2,8 @@
 
 use super::encoded_word;
 use super::envelope_address_scan::{
-    split_addr_spec, split_commas, split_optional, strip_comments, strip_source_route,
+    normalize_dot_cfws, split_addr_spec, split_commas, split_optional, strip_comments,
+    strip_source_route,
 };
 use super::header_block::HeaderField;
 
@@ -151,8 +152,8 @@ fn parse_mailbox(value: &str) -> Result<Address, &'static str> {
     };
     let addr_spec = strip_comments(addr_spec)?;
     let (mailbox, host) = split_addr_spec(&addr_spec)?;
-    let mailbox = mailbox.trim();
-    let host = host.trim();
+    let mailbox = normalize_dot_cfws(mailbox.trim());
+    let host = normalize_dot_cfws(host.trim());
     if mailbox.is_empty() {
         return Err("address mailbox is empty");
     }
@@ -161,8 +162,8 @@ fn parse_mailbox(value: &str) -> Result<Address, &'static str> {
     }
     Ok(Address {
         name,
-        mailbox: mailbox.to_owned(),
-        host: host.to_owned(),
+        mailbox,
+        host,
     })
 }
 

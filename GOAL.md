@@ -511,6 +511,20 @@ ManageSieve до заявленного набора современных фо
   `litterkeep-g12-phone` preserved. Litterkeep app integration not tested.
 - G14 remains RUNNING.
 
+### 2026-09-25: G14 obsolete dotted CFWS checkpoint
+
+- RFC 5322 obsolete local-part/domain may contain CFWS around period-separated
+  words. The ENVELOPE parser now removes only that separator-adjacent CFWS;
+  whitespace and punctuation inside quoted local-parts and domain-literals
+  remain unchanged. Both normalized ENVELOPE fields and address SEARCH are
+  tested, including comments on each side of a dot.
+- PASS: Windows Rust 1.97.1, 300 tests, strict Clippy and fmt; Linux Docker
+  Rust 1.97, strict Clippy and 340 tests; independent STARTTLS IMAP acceptance
+  verified the parsed mailbox/hostname and SEARCH. Data:
+  `./data/g14-quoted-localpart-final`. Temporary container removed,
+  `litterkeep-g12-phone` preserved. Litterkeep app integration not tested.
+- G14 remains RUNNING.
+
 ### 2026-09-25: G14 RFC 5322 address groups checkpoint
 
 - ENVELOPE address parsing now preserves typed mailbox, group-start, and

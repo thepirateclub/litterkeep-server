@@ -118,6 +118,10 @@ domain-literal: независимый STARTTLS acceptance подтвердил 
 Obsolete source-route в угловом адресе игнорируется по RFC 5322 §4.4:
 ENVELOPE и SEARCH используют только route destination. Другие obsolete address
 forms и остальные RFC 5322 несовпадения по-прежнему ограничивают parser.
+Там же поддержан CFWS вокруг точек в obsolete local-part/domain: wire
+ENVELOPE и SEARCH сворачивают `first (comment) . last @ example . test` к
+`first.last@example.test`. Quoted local-part и domain-literal из этой
+нормализации исключены и проверяются отдельным unit fixture.
 `RETURN (SAVE)` сохраняет UIDs в состоянии одной сессии, а `$` SEARCH criterion
 сопоставляет их как для SEARCH, так и UID SEARCH. Успешный SELECT, SAVE-команда
 с ответом NO, EXPUNGE и MOVE сбрасывают/синхронизируют результат; обычный SEARCH
