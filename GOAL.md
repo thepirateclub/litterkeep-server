@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 outbound SMTP reply-line bounds
+
+- Outbound SMTP reads greeting, command replies and multiline EHLO lines through
+  one bounded reader. It accepts at most 512 octets including CRLF and rejects
+  incomplete CRLF or oversized lines without growing its line buffer beyond the
+  RFC limit.
+- Unit tests cover exact 512, 513 and malformed LF. The independent SMTP peer
+  acceptance covers 512-octet EHLO acceptance and pre-MAIL rejection of
+  oversized greeting and EHLO responses. Existing 8BITMIME cases reran too.
+- PASS: Windows Rust 1.97.1, 461 library + 1 binary test, strict Clippy, fmt,
+  Python compile and diff check. Linux Docker Rust 1.97 test target: strict
+  Clippy, 502 library + 1 binary test and doc-tests. Independent SMTP acceptance
+  passed. Files remain under 300 lines; no numeric direct-index matches in the
+  changed protocol/test files. Temporary images and test containers removed;
+  only pre-existing `litterkeep-g12-phone` remains. Fixtures are in
+  `./data/g17-smtp-reply-limit`. Litterkeep client not tested; G17 remains
+  RUNNING.
+
 ### 2026-09-25: G17 outbound SMTP 8BITMIME negotiation
 
 - Outbound transport now reads the complete multiline EHLO response into typed

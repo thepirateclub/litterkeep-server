@@ -25,19 +25,21 @@ class CaptureServer(socketserver.ThreadingTCPServer):
         self,
         address: tuple[str, int],
         ehlo_reply: bytes = b"250 peer.test\r\n",
+        greeting_reply: bytes = b"220 peer.test ready\r\n",
     ):
         super().__init__(address, CaptureHandler)
         self.envelope_sender = ""
         self.recipient = ""
         self.payload = b""
         self.ehlo_reply = ehlo_reply
+        self.greeting_reply = greeting_reply
 
 
 class CaptureHandler(socketserver.StreamRequestHandler):
     def handle(self) -> None:
         server = self.server
         assert isinstance(server, CaptureServer)
-        self.wfile.write(b"220 peer.test ready\r\n")
+        self.wfile.write(server.greeting_reply)
         while line := self.rfile.readline():
             command = classify(line.decode("ascii", "replace"))
             match command:

@@ -406,3 +406,8 @@ permanent failure до `MAIL`. High-bit header fields отклоняются о�
 Независимый SMTP peer подтвердил параметр `BODY=8BITMIME`, byte-preserving
 UTF-8 `8bit` MIME body и отказ без envelope при отсутствии extension.
 Litterkeep-клиент и outbound SMTPUTF8 не проверялись.
+Outbound SMTP ограничивает каждую строку greeting и reply, включая каждую
+строку multiline EHLO, значением RFC 5321 §4.5.3.1.5: не более 512 октетов с
+CRLF. Reader не накапливает сверх лимита и закрывает соединение при превышении
+или неверном окончании строки. Независимый peer подтвердил приём точной
+границы 512 и отказ для 513 октетов в greeting и EHLO до `MAIL`.

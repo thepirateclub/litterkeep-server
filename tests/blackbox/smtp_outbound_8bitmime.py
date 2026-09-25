@@ -81,6 +81,57 @@ def deliver_case(
             require(not peer.payload, "unsupported 8-bit DATA reached DATA")
 
 
+def verify_reply_line_limits(
+    image: str, data_root: Path, stage: Path, route: str
+) -> None:
+    """Проверяет лимит 512 октетов на greeting и EHLO reply lines."""
+    message_path = stage / "outbound-reply-limit.eml"
+    payload = b"Subject: bounded reply\r\n\r\nbody\r\n"
+    message_path.write_bytes(payload)
+    relative_path = message_path.resolve().relative_to(data_root).as_posix()
+    mount = f"type=bind,source={data_root},target=/data"
+    capability = b"250-8BITMIME "
+    boundary_line = capability.ljust(510, b"x") + b"\r\n"
+    oversized_line = b"250 " + b"x" * 507 + b"\r\n"
+    oversized_greeting = b"220 " + b"x" * 507 + b"\r\n"
+    cases = (
+        (b"220 peer.test ready\r\n", boundary_line + b"250 peer.test\r\n", True),
+        (b"220 peer.test ready\r\n", oversized_line, False),
+        (oversized_greeting, b"250 peer.test\r\n", False),
+    )
+    for greeting, ehlo_reply, should_connect in cases:
+        with CaptureServer(
+            ("0.0.0.0", 0), ehlo_reply, greeting_reply=greeting
+        ) as peer:
+            _, port = peer.server_address
+            worker = threading.Thread(target=peer.serve_forever, daemon=True)
+            worker.start()
+            try:
+                result = subprocess.run(
+                    [
+                        "docker", "run", "--rm", "--add-host",
+                        "host.docker.internal:host-gateway", "--mount", mount,
+                        image, "deliver", f"{route}:{port}",
+                        "sender@source.test", "recipient@peer.test",
+                        f"/data/{relative_path}",
+                    ],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+            finally:
+                peer.shutdown()
+                worker.join(timeout=5)
+        match should_connect:
+            case True:
+                require(result.returncode == 0, "512-octet SMTP reply was rejected")
+                require(bool(peer.envelope_sender), "valid reply did not reach MAIL")
+            case False:
+                require(result.returncode != 0, "oversized SMTP reply was accepted")
+                require(not peer.envelope_sender, "oversized reply reached MAIL")
+
+
 def main() -> None:
     """Проверяет high-bit body только при рекламированном extension."""
     parser = argparse.ArgumentParser()
@@ -108,7 +159,9 @@ def main() -> None:
     deliver_case(
         options.image, data_root, message_path, payload, route, unsupported, False
     )
+    verify_reply_line_limits(options.image, data_root, stage, route)
     print("PASS smtp-outbound-8bitmime: BODY negotiation and pre-envelope refusal")
+    print("PASS smtp-outbound-reply-limit: 512-octet boundary and oversized rejection")
 
 
 if __name__ == "__main__":

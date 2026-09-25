@@ -9,11 +9,14 @@ use std::{
 mod data;
 #[path = "outbound_ehlo.rs"]
 mod ehlo;
+#[path = "outbound_reply.rs"]
+mod reply;
 
 #[cfg(test)]
 pub(crate) use data::DataValidationError;
 pub(crate) use data::{has_8bit_body, validate_data, write_data};
 pub(crate) use ehlo::{EhloCapabilities, EhloExtension, read_ehlo};
+pub(crate) use reply::read_reply_line;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const IO_TIMEOUT: Duration = Duration::from_secs(10);
@@ -213,12 +216,7 @@ pub(crate) fn expect<R: BufRead>(reader: &mut R) -> io::Result<Option<DeliveryOu
     let mut line = String::new();
     loop {
         line.clear();
-        if reader.read_line(&mut line)? == 0 {
-            return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                "SMTP peer closed",
-            ));
-        }
+        line = read_reply_line(reader)?;
         let (code, continuation) = parse_reply(&line)?;
         if !continuation {
             return match classify(code) {

@@ -33,12 +33,7 @@ pub(crate) fn read_ehlo(reader: &mut impl BufRead) -> io::Result<EhloCapabilitie
     let mut line = String::new();
     loop {
         line.clear();
-        if reader.read_line(&mut line)? == 0 {
-            return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                "SMTP peer closed during EHLO response",
-            ));
-        }
+        line = super::read_reply_line(reader)?;
         let (code, continuation) = super::parse_reply(&line)?;
         if code != 250 {
             return Err(io::Error::other("SMTP EHLO was not accepted"));
