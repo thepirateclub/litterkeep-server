@@ -246,6 +246,9 @@ range получает `-ERR`. Так как поддержана только �
 keep/discard, header/address/size tests и diagnostics. ManageSieve поддерживает
 STARTTLS, SASL PLAIN, literals, CHECKSCRIPT, PUTSCRIPT, LISTSCRIPTS, GETSCRIPT,
 SETACTIVE, DELETESCRIPT и RENAMESCRIPT.
+В базовом Sieve `require` разрешён только до первой команды, но несколько
+объявлений `require` подряд допустимы; unit regression проверяет оба правила
+по RFC 5228 §3.2. Это не означает полного покрытия grammar RFC 5228 и extensions.
 
 ## Outbound SMTP
 

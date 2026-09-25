@@ -8,6 +8,7 @@
 import argparse
 import base64
 import imaplib
+import os
 import smtplib
 import socket
 import ssl
@@ -43,7 +44,10 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
     with socket.create_connection((options.host, options.managesieve_port), timeout=10) as plain:
         greeting = read_until(plain, b'OK "ready"\r\n')
         require(b'"STARTTLS"' in greeting, "ManageSieve не объявил STARTTLS")
-        plaintext_credentials = base64.b64encode(b"\x00bob\x00bob-password")
+        bob_password = os.environ.get("LITTERKEEP_BOB_PASSWORD", "bob-password")
+        plaintext_credentials = base64.b64encode(
+            b"\x00bob\x00" + bob_password.encode("utf-8")
+        )
         plaintext_auth = b'AUTHENTICATE "PLAIN" "' + plaintext_credentials + b'"\r\n'
         require(
             command(plain, plaintext_auth) == b'NO "encryption required"\r\n',
@@ -52,7 +56,7 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
         starttls = command(plain, b"STARTTLS\r\n")
         require(starttls == b'OK "begin TLS"\r\n', "STARTTLS ManageSieve отклонён")
         with context.wrap_socket(plain, server_hostname="litterkeep.test") as client:
-            credentials = base64.b64encode(b"\x00bob\x00bob-password")
+            credentials = base64.b64encode(b"\x00bob\x00" + bob_password.encode("utf-8"))
             authentication = b'AUTHENTICATE "PLAIN" "' + credentials + b'"\r\n'
             require(
                 command(client, authentication) == b'OK "authenticated"\r\n',
@@ -97,13 +101,13 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
                 command(client, b'SETACTIVE "invoices"\r\n') == b'OK "completed"\r\n',
                 "SETACTIVE не сохранён",
             )
-            invalid_source = b"if true { unsupported; }"
+            invalid_source = b'keep; require "fileinto";'
             invalid_marker = f'PUTSCRIPT "broken" {{{len(invalid_source)}+}}\r\n'.encode()
             client.sendall(invalid_marker)
             client.sendall(invalid_source)
             require(
                 read_until(client, b"\r\n") == b'NO "operation failed"\r\n',
-                "некорректный PUTSCRIPT был ошибочно сохранён",
+                "PUTSCRIPT сохранил require после обычной команды",
             )
             listed = command_until(client, b"LISTSCRIPTS\r\n", b'OK "list completed"\r\n')
             require(b'"invoices" ACTIVE\r\n' in listed, "LISTSCRIPTS не вернул active script")
@@ -144,7 +148,8 @@ def deliver(options: argparse.Namespace, context: ssl.SSLContext) -> None:
         client.ehlo()
         client.starttls(context=context)
         client.ehlo()
-        client.login("alice", "alice-password")
+        alice_password = os.environ.get("LITTERKEEP_ALICE_PASSWORD", "alice-password")
+        client.login("alice", alice_password)
         client.sendmail(
             "alice@litterkeep.test",
             ["bob@litterkeep.test"],
@@ -156,7 +161,8 @@ def verify_mailbox(options: argparse.Namespace, context: ssl.SSLContext) -> None
     with imaplib.IMAP4(options.host, options.imap_port, timeout=10) as client:
         tls_status, _ = client.starttls(ssl_context=context)
         require(tls_status == "OK", "IMAP TLS")
-        require(client.login("bob", "bob-password")[0] == "OK", "IMAP LOGIN")
+        bob_password = os.environ.get("LITTERKEEP_BOB_PASSWORD", "bob-password")
+        require(client.login("bob", bob_password)[0] == "OK", "IMAP LOGIN")
         status, data = client.select("Invoices")
         require(status == "OK", "Sieve folder не выбран по IMAP")
         require(data != [b"0"], "Sieve не доставил письмо в Invoices")

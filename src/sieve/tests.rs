@@ -129,3 +129,11 @@ fn invalid_script_does_not_become_a_delivery_plan() {
     );
     assert!(parse("if size :over 1T { keep; }").is_err());
 }
+
+/// Несколько require допустимы подряд, но после команды расширения запрещены.
+#[test]
+fn require_declarations_must_precede_every_command() {
+    assert!(parse("require \"fileinto\"; require [\"fileinto\"]; keep;").is_ok());
+    assert!(parse("keep; require \"fileinto\";").is_err());
+    assert!(parse("if true { keep; } require \"fileinto\";").is_err());
+}

@@ -2,7 +2,20 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
-Current subgoal: G14
+Current subgoal: G17
+
+### 2026-09-25: G17 Sieve RFC 5228 require-order checkpoint
+
+- Parser отклоняет `require`, если до него встретилась любая обычная команда;
+  несколько `require` до первой команды остаются допустимыми. Проверка
+  закреплена unit regression и независимой ManageSieve сетевой загрузкой.
+- PASS: Windows Rust 1.97.1, fmt, 307 тестов, strict Clippy и diff check;
+  Linux Docker Rust 1.97, strict Clippy и 347 тестов. Независимый ManageSieve
+  клиент проверил отказ позднего `require`, сохранил и активировал корректный
+  script, после чего SMTP доставил письмо в `Invoices` и IMAP его прочёл.
+  Stage `./data/g08-sieve-require-order`; временный контейнер удалён,
+  `litterkeep-g12-phone` сохранён. Проверка приложения Litterkeep не заявляется.
+  G17 остаётся RUNNING.
 
 ### 2026-09-25: G16 POP3 RFC 1939 repeated DELE checkpoint
 
@@ -493,7 +506,7 @@ ManageSieve до заявленного набора современных фо
 | G14 | G13 | IMAP4rev2 RFC 9051 baseline plus tested IMAP4rev1 client compatibility | RUNNING |
 | G15 | G12 | SMTP RFC 5321/6409/8314 baseline, including SMTPUTF8 RFC 6531 | NOT RUN |
 | G16 | G12 | POP3 RFC 1939 extensions RFC 2449/5034/6856 and secure TLS profile | RUNNING |
-| G17 | G12 | MIME RFC 5322/2045-2049 updates and Sieve RFC 5228/ManageSieve RFC 5804 profile | NOT RUN |
+| G17 | G12 | MIME RFC 5322/2045-2049 updates and Sieve RFC 5228/ManageSieve RFC 5804 profile | RUNNING |
 | G18 | G14,G15,G16,G17 | Cross-protocol Linux acceptance, truthful capabilities and final coverage matrix | NOT RUN |
 
 ### 2026-09-25: G14 RFC 5322 address comments checkpoint

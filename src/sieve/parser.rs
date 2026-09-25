@@ -18,6 +18,10 @@ pub(super) fn parse(tokens: Vec<Token>) -> Result<Script, &'static str> {
         };
         match word.as_str() {
             "require" => {
+                // RFC 5228 разрешает require только до первого действия или if.
+                if !commands.is_empty() {
+                    return Err("sieve require must precede commands");
+                }
                 requires.extend(terminated_strings(&mut input)?.into_iter().map(capability))
             }
             "if" => commands.push(if_command(&mut input)?),
