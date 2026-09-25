@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G15
 
+### 2026-09-25: POP3 RFC 1939/2449 response-line bound checkpoint
+
+- POP3 status-строки сериализуются с пределом 512 октетов вместе с CRLF;
+  CAPA/LIST/UIDL multiline frames проверяют каждую строку и dot terminator.
+  RETR/TOP типизированы отдельно: их status ограничен, но RFC822 message lines
+  не обрезаются протокольным лимитом.
+- PASS: Windows Rust 1.97.1: 268 тестов, strict Clippy, fmt, diff и Python
+  syntax checks. Чистый Linux Docker Rust 1.97: strict Clippy и 308 тестов.
+  Независимый STLS клиент получил корректные ограниченные greeting/CAPA/LIST/
+  UIDL ответы, доставил Alice->Bob сообщение и прочёл в RETR точную 700-октетную
+  строку тела.
+- Тест: `tests/blackbox/pop3_reply_lines.py`; отдельные stage data/TLS:
+  `./data/g15-pop3-reply-lines`. Временный контейнер удалён;
+  `litterkeep-g12-phone` оставлен.
+- Проверены только перечисленные response-line и long-message сценарии.
+  Остальные состояния POP3, extension semantics и совместимость клиентов не
+  сертифицированы; G15 остаётся RUNNING.
+
 ### 2026-09-25: POP3 RFC 2449 command-line bound checkpoint
 
 - POP3 parser принимает только завершённые CRLF команды из printable ASCII,

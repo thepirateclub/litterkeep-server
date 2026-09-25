@@ -65,14 +65,9 @@ pub(super) fn follow_up(
 
 /// Кодирует все POP3 replies в одном месте, включая already-multiline frames.
 pub(super) fn write_reply(session: &mut Session, reply: pop3::Reply) -> io::Result<()> {
-    match reply {
-        pop3::Reply::Ok(text) => session.push(format!("+OK {text}\r\n").as_bytes()),
-        pop3::Reply::Error(text) => session.push(format!("-ERR {text}\r\n").as_bytes()),
-        pop3::Reply::Multiline(bytes) => session.push(&bytes),
-        pop3::Reply::Authenticate { .. }
-        | pop3::Reply::CommitDeletes(_)
-        | pop3::Reply::StartTls => Err(io::Error::other("POP3 reply requires reactor action")),
-    }
+    let bytes = pop3::reply_wire::encode_reply(reply)
+        .ok_or_else(|| io::Error::other("POP3 reply requires reactor action"))?;
+    session.push(&bytes)
 }
 
 #[allow(clippy::too_many_arguments)]

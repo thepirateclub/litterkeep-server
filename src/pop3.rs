@@ -7,6 +7,9 @@
 mod command;
 #[path = "pop3/maildrop.rs"]
 mod maildrop;
+#[cfg(any(target_os = "linux", test))]
+#[path = "pop3/reply_wire.rs"]
+pub(crate) mod reply_wire;
 #[path = "pop3/session.rs"]
 mod session;
 

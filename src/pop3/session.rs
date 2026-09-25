@@ -14,6 +14,7 @@ pub enum Reply {
     Ok(String),
     Error(&'static str),
     Multiline(Vec<u8>),
+    Message(Vec<u8>),
     Authenticate { username: String, password: String },
     CommitDeletes(Vec<u64>),
     StartTls,
@@ -180,5 +181,5 @@ fn uidl_reply(entries: Vec<(u32, String)>) -> Reply {
 fn message_reply(description: &str, bytes: Vec<u8>) -> Reply {
     let mut output = format!("+OK {description}\r\n").into_bytes();
     output.extend_from_slice(&bytes);
-    Reply::Multiline(output)
+    Reply::Message(output)
 }

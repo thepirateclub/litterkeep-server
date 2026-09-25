@@ -50,7 +50,7 @@ fn retrieve_uidl_reset_and_quit_keep_delete_semantics_explicit() {
         matches!(session.apply(parse("UIDL 1\r\n")), Reply::Multiline(value) if value.windows(4).any(|part| part == b"0009"))
     );
     assert!(
-        matches!(session.apply(parse("RETR 1\r\n")), Reply::Multiline(value) if value.windows(8).any(|part| part == b"..first\r"))
+        matches!(session.apply(parse("RETR 1\r\n")), Reply::Message(value) if value.windows(8).any(|part| part == b"..first\r"))
     );
     assert!(matches!(session.apply(parse("DELE 1\r\n")), Reply::Ok(_)));
     assert!(matches!(session.apply(parse("RSET\r\n")), Reply::Ok(_)));
