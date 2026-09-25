@@ -3,6 +3,7 @@
 
 import argparse
 import base64
+import os
 import socket
 import ssl
 
@@ -107,6 +108,14 @@ def run(options: argparse.Namespace) -> None:
             check_script(
                 client,
                 vacation_script(
+                    b"MIME-Version: 1 . 0\r\n"
+                    b"Content-Type: text/plain\r\n\r\nAway\r\n"
+                ),
+                False,
+            )
+            check_script(
+                client,
+                vacation_script(
                     b"Content-Type: text/plain\r\n"
                     b"Content-Transfer-Encoding: quoted-printable\r\n\r\nOl=E1\r\n"
                 ),
@@ -155,7 +164,7 @@ def main() -> None:
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--ca", required=True)
     parser.add_argument("--username", default="bob")
-    parser.add_argument("--password", default="bob-password")
+    parser.add_argument("--password", default=os.environ.get("LITTERKEEP_BOB_PASSWORD", "bob-password"))
     run(parser.parse_args())
 
 

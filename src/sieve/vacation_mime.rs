@@ -63,12 +63,9 @@ fn validate_mime_version(
         return Err("duplicate MIME-Version field");
     }
     let value = std::str::from_utf8(&field.value).map_err(|_| "invalid MIME-Version")?;
-    let uncommented = crate::mime::structured_comments::remove(value)?;
-    let compact: Vec<u8> = uncommented
-        .bytes()
-        .filter(|byte| !byte.is_ascii_whitespace())
-        .collect();
-    match MimeVersion::parse(&compact) {
+    let uncommented = crate::mime::structured_comments::remove_preserving_adjacency(value)?;
+    let version = uncommented.trim_matches([' ', '\t']);
+    match MimeVersion::parse(version.as_bytes()) {
         Some(MimeVersion::OnePointZero) => Ok(()),
         None => Err("unsupported MIME-Version"),
     }

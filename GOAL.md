@@ -4,6 +4,25 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 strict MIME-Version comment handling
+
+- Повторная RFC-сверка выявила, что предыдущий MIME-Version parser удалял все
+  whitespace и мог ошибочно принять `1 . 0` как `1.0`. Обработка comments
+  разделена: MIME-Version удаляет RFC 822 comments, сохраняя исходные
+  пробельные символы; разрешён `1.(comment)0`, но не вставленный whitespace.
+- Добавлены прямые тесты обоих comment-removal режимов и отрицательные
+  MIME-Version cases. Независимый ManageSieve STARTTLS CHECKSCRIPT принимает
+  `1.0`, `1.(comment)0` и комментарии вокруг версии; отвергает `1 . 0`, `2.0`
+  и повторные поля.
+- PASS: Windows Rust 1.97.1 `cargo test --all-targets --locked` (450 library
+  + 1 binary), strict Clippy, `cargo fmt --all -- --check`, `git diff --check`
+  и Python compile. Linux Docker Rust 1.97 `test` target: 491 library + 1
+  binary, doc-tests, strict Clippy и release build. Независимый
+  `tests/blackbox/managesieve_vacation_mime.py` прошёл на свежем release image.
+  Временный runtime container и оба image tags удалены; `docker ps -a` оставил
+  только `litterkeep-g12-phone`. Stage data сохранена в
+  `./data/g17-vacation-mime-version-comments`. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 Sieve vacation MIME-Version checkpoint
 
 - `vacation :mime` теперь допускает отсутствующий MIME-Version (сервер

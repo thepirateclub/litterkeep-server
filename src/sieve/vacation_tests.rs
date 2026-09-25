@@ -144,6 +144,8 @@ fn mime_vacation_requires_one_supported_mime_version() {
         "MIME-Version: 2.0\r\nContent-Type: text/plain\r\n\r\nbody",
         "MIME-Version: 1.0\r\nMIME-Version: 1.0\r\n\r\nbody",
         "MIME-Version: one\r\n\r\nbody",
+        "MIME-Version: 1 . 0\r\n\r\nbody",
+        "MIME-Version: 1. 0\r\n\r\nbody",
     ] {
         assert!(
             super::vacation_mime::validate_reason(entity.as_bytes()).is_err(),
