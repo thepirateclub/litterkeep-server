@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 RFC 2045 Content-Transfer-Encoding comments over wire
+
+- Добавлен независимый `tests/blackbox/mime_cte_comments.py`. SMTP STARTTLS
+  доставляет Base64 MIME part с вложенным RFC 822 comment перед CTE, escaped
+  right parenthesis и trailing comment. IMAP STARTTLS подтверждает
+  BODYSTRUCTURE `BASE64`, точные decoded bytes через `BINARY.PEEK[1]` и
+  сохранение исходного RFC822 сообщения.
+- PASS: Python compile и Linux Docker acceptance на release binary test image
+  с bind mount `./data/g17-mime-cte-comments-wire`. Rust source не менялся,
+  Docker Cargo layers переиспользованы из cache, Windows suite не
+  перезапускался. Проверен независимый клиент, не Litterkeep. Временные
+  container/image удалены; остался ранее существовавший
+  `litterkeep-g12-phone`. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 2045 7bit/8bit line-data wire profile
 
 - Добавлен независимый `tests/blackbox/mime_line_data_profile.py`. Через

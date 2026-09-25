@@ -176,7 +176,10 @@ MIME Base64 CTE по RFC 2045 §6.8 игнорирует октеты вне Bas
 через `BINARY.PEEK`; encoded-word decoder этим сценарием не затрагивается.
 RFC 2045 MIME-поля (кроме Content-Disposition) допускают RFC 822 comments;
 Content-Transfer-Encoding удаляет вложенные comments вне quoted-string перед
-разбором token. Проверены comments до и после значения unit-тестом.
+разбором token. Unit-тест и независимый SMTP STARTTLS -> IMAP STARTTLS
+acceptance проверили вложенный comment перед Base64, escaped right parenthesis,
+comment после token, BODYSTRUCTURE encoding и точные декодированные octets.
+Исходные RFC822 bytes при доставке сохранены без нормализации.
 Quoted-printable decoder удаляет буквальные SP/TAB на концах hard lines и
 объекта, не удаляя закодированные `=20`/`=09`; encoder сериализует пробелы и
 TAB как hex-octets, чтобы перенос строки не менял содержимое. Независимый SMTP
