@@ -76,6 +76,8 @@ mod recent_tests;
 mod recovery;
 #[path = "store/sieve_access.rs"]
 mod sieve_access;
+#[path = "store/sieve_delivery.rs"]
+mod sieve_delivery;
 #[path = "store/sieve_diagnostics.rs"]
 mod sieve_diagnostics;
 #[cfg(test)]

@@ -4601,3 +4601,22 @@ ManageSieve до заявленного набора современных фо
   `litterkeep-g17-sieve-cli` удалён; `litterkeep-g12-phone` сохранён.
 - G17 остаётся RUNNING: RFC 5230 vacation и другие неподдержанные Sieve/MIME
   extension scenarios остаются вне текущего подтверждённого покрытия.
+
+### 2026-09-25: G17 RFC 5230 :mime ManageSieve checkpoint
+
+- Добавлен независимый клиент `tests/blackbox/managesieve_vacation_mime.py`.
+  Он проходит STARTTLS/SASL PLAIN и передаёт MIME entity literal-ом в
+  CHECKSCRIPT. Корректные 7bit, quoted-printable и Base64 приняты; malformed
+  Base64, duplicate Content-Transfer-Encoding и Base64 для multipart/mixed
+  отвергнуты. Это проверка собственного ManageSieve сервера, не Litterkeep.
+- PASS: Python compile, Rust 1.97.1 Windows `cargo test --all-targets --locked`
+  (412 library + 1 binary), strict Clippy, format и diff check. После разнесения
+  Sieve Store-кода Docker Linux test target заново собран: 453 library tests,
+  1 binary test, doc-tests, strict Clippy и release build. Независимый клиент
+  прошёл к актуальному Linux release binary с bind mount
+  `./data/g17-sieve-vacation-mime-checkscript`. Так как корневого Dockerfile
+  нет, обе стадии собраны с `-f docker/Dockerfile.linux-test`. Временные
+  контейнеры и теги образа удалены; `docker ps -a` оставил только ранее
+  существовавший `litterkeep-g12-phone`.
+- G17 остаётся RUNNING: полный RFC 5228 grammar, все Sieve extensions,
+  сторонний MTA и оставшиеся MIME network cases всё ещё требуют покрытия.

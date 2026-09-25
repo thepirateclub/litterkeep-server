@@ -80,23 +80,27 @@ RFC 5230 `:mime` CHECKSCRIPT теперь отвергает повторяющ�
 7bit/base64/quoted-printable. Используется общий типизированный MIME decoder;
 его base64 проверяет финальность padding и нулевые pad bits. Unit regression
 покрывает неверные символы, данные после padding, некорректный QP escape,
-не-ASCII 7bit и duplicate CTE. Сетевая ManageSieve-проверка этих новых отказов
-пока не выполнялась.
+не-ASCII 7bit и duplicate CTE. Независимый
+`tests/blackbox/managesieve_vacation_mime.py` по TLS ManageSieve подтвердил
+CHECKSCRIPT для корректных 7bit, quoted-printable и Base64 entities, а также
+отказ для повреждённого Base64, duplicate CTE и encoded multipart.
 
 Отдельный `vacation_mime` validator применяет ограничения RFC 2045 §§2.7, 6.7
 и 6.8: 7bit body не может содержать NUL, bare CR/LF и строки длиннее 998
 октетов; Base64/QP требуют CRLF, разрешённые encoded octets и строки максимум
 76 символов. QP также запрещает незакодированные завершающие пробелы и табы.
 Unit cases проверяют обе границы строк, NUL, bare LF и пробел перед soft break.
-Независимый ManageSieve acceptance ещё не запускался.
+Сетевой клиент также проверяет успешную передачу CRLF в Sieve MIME string; он
+не подтверждает все граничные длины строк, которые остаются unit-only.
 
 RFC 2045 §6.4: encoded transfer forbidden for composite `multipart/*` and
 `message/*`. Validator разбирает `Content-Type` в typed media type, отвергает
 base64/QP на этих составных сущностях и повторный Content-Type. Unit cases
 проверяют `multipart/mixed`, `multipart/related`, `message/partial`, comment
 между type и slash, quoted boundary с круглыми скобками, допустимый 7bit
-multipart и повторное поле. ManageSieve network acceptance этого правила не
-запускался.
+multipart и повторное поле. Независимый ManageSieve acceptance дополнительно
+подтвердил отказ на encoded `multipart/mixed`; остальные перечисленные
+structured-value границы остаются unit-only.
 
 Общий MIME structured-value parser удаляет вложенные RFC comments вне
 quoted-string и проверяет `type/subtype` как две непустые RFC token-части,

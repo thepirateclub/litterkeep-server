@@ -54,6 +54,7 @@ T52	PASS	unit	RFC 2046 multipart parsing stops at the first closing delimiter; b
 T53	PASS	unit	RFC 2046 section 5.1.2 outer boundary terminates multiply nested truncated multipart; top-level missing close remains rejected
 T54	PASS	unit	RFC 2781 UTF-16/BE/LE decoding for RFC 2047 and RFC 2231 validates BOM byte order and surrogate pairs; unsupported MIME text subtype profile remains excluded from SEARCH
 T55	PASS	unit	RFC 2781 generic UTF-16 requires two initial octets before choosing byte order; explicitly labelled UTF-16BE/LE retain empty-value behavior
+T56	PASS	server-protocol	Independent STARTTLS ManageSieve CHECKSCRIPT validates RFC 5230 :mime 7bit, quoted-printable and Base64 entities; rejects malformed Base64, duplicate CTE and encoded multipart
 R01	PASS	runtime	orchestrator transfer and registry ownership tests
 R02	PASS	runtime	exclusive resource double-acquire test
 R03	PASS	runtime	timeout keeps live lease occupied
