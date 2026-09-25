@@ -50,6 +50,7 @@ T48	PASS	server-protocol	RFC 2045 section 6.7 quoted-printable strips literal SP
 T49	PASS	server-protocol	RFC 2045 sections 2.7-2.8 7bit/8bit CTE validate 998-octet lines, CRLF framing, NUL prohibition and high-bit profile; unit-only
 T50	PASS	server-protocol	RFC 2045 section 6.7 tolerant incoming quoted-printable preserves malformed escape octets; Sieve :mime strict validation still rejects them; unit-only
 T51	PASS	server-protocol	Independent Python imaplib STARTTLS APPEND with padded MIME boundaries; BODYSTRUCTURE, exact first-part bytes and Base64 attachment via BINARY.PEEK verified
+T52	PASS	unit	RFC 2046 multipart parsing stops at the first closing delimiter; boundary-like epilogue lines remain epilogue and do not consume the part limit
 R01	PASS	runtime	orchestrator transfer and registry ownership tests
 R02	PASS	runtime	exclusive resource double-acquire test
 R03	PASS	runtime	timeout keeps live lease occupied

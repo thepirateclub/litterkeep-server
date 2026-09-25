@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 multipart closing delimiter bounds epilogue checkpoint
+
+- MIME scanning now stops at the first closing delimiter. Boundary-shaped lines
+  in the following epilogue remain epilogue text and cannot consume the
+  multipart part budget or cause a valid message to be rejected. Regression
+  uses a one-part budget and two delimiter-shaped epilogue lines. Behavior was
+  checked against RFC 2046 §5.1.1 grammar (`[CRLF epilogue]` after the close).
+- Windows Rust 1.97.1: `cargo test --locked` (404 library + 1 binary),
+  `cargo clippy --all-targets --locked -- -D warnings`, `cargo fmt --check` и
+  `git diff --check` прошли. Linux Docker test stage: release build, strict
+  Clippy, 445 library + 1 binary tests и doc-tests прошли. Временный image
+  удалён, в контейнерах остался только `litterkeep-g12-phone`; stage data не
+  создавались. Проверка unit-only, SMTP/IMAP и клиентская интеграция не
+  запускались. G17 RUNNING.
+
 ### 2026-09-25: G17 multipart boundary IMAP socket acceptance
 
 - Независимый Python `imaplib` клиент через STARTTLS сделал IMAP APPEND MIME

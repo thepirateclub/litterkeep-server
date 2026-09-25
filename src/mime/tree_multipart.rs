@@ -56,6 +56,9 @@ pub(super) fn multipart_ranges(
                 after,
                 closing,
             });
+            if closing {
+                break;
+            }
         }
         if after >= body.len() {
             break;
@@ -221,5 +224,17 @@ mod tests {
         let ranges = multipart_ranges(body, b"x", 2).expect("multipart ranges");
 
         assert_eq!(body.get(ranges.preamble), Some(b"note\r\n".as_slice()));
+    }
+
+    #[test]
+    fn delimiter_like_lines_after_close_remain_epilogue() {
+        let body = b"--x\r\npart\r\n--x--\r\n--x\r\n--x\r\n";
+        let ranges = multipart_ranges(body, b"x", 1).expect("single multipart part");
+
+        assert_eq!(ranges.parts.len(), 1);
+        assert_eq!(
+            body.get(ranges.epilogue),
+            Some(b"--x\r\n--x\r\n".as_slice())
+        );
     }
 }

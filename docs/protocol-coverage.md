@@ -145,7 +145,10 @@ unit-тестами; socket acceptance не запускался.
 символы unit-тестами. Parser принимает transport-padding у opening/closing
 delimiter и исключает CRLF, непосредственно предшествующий первому delimiter,
 из preamble; собственный CRLF preamble сохраняется. Точные ranges preamble
-проверены unit-only. Независимый Python `imaplib` STARTTLS-клиент выполнил
+проверены unit-only. Сканирование завершается на первом close-delimiter, так
+что совпадающие с boundary строки в epilogue остаются discarded text и не
+участвуют в лимите частей; это unit-only. Независимый Python `imaplib`
+STARTTLS-клиент выполнил
 APPEND с padded delimiters, сравнил BODYSTRUCTURE, точные octets первой части
 и Base64-вложение через BINARY.PEEK. Это проверка IMAP APPEND/FETCH, не SMTP
 доставки и не клиента Litterkeep.
