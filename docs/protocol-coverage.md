@@ -110,8 +110,11 @@ STARTTLS black-box проверил группу с тремя mailbox, пуст
 member. В address projection вложенные comments удаляются с учётом quoted-pair,
 скобки внутри quoted display name сохраняются; ENVELOPE и SEARCH не видят текст
 комментариев. Независимый STARTTLS acceptance проверил From/To comments и
-групповую адресацию. Obsolete address forms и остальные RFC 5322 несовпадения
-по-прежнему ограничивают parser.
+групповую адресацию. Разделитель addr-spec выбирается вне quoted local-part и
+domain-literal: независимый STARTTLS acceptance подтвердил ENVELOPE с
+`"a@b"` в mailbox-компоненте и `example.test` в hostname, а SEARCH нашёл этот
+адрес. Obsolete address forms и остальные RFC 5322 несовпадения по-прежнему
+ограничивают parser.
 `RETURN (SAVE)` сохраняет UIDs в состоянии одной сессии, а `$` SEARCH criterion
 сопоставляет их как для SEARCH, так и UID SEARCH. Успешный SELECT, SAVE-команда
 с ответом NO, EXPUNGE и MOVE сбрасывают/синхронизируют результат; обычный SEARCH

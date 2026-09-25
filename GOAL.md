@@ -471,6 +471,20 @@ ManageSieve до заявленного набора современных фо
   `litterkeep-g12-phone` preserved. Litterkeep app integration was not tested.
 - G14 remains RUNNING.
 
+### 2026-09-25: G14 quoted addr-spec separator checkpoint
+
+- Address parsing now selects the RFC 5322 addr-spec `@` separator outside
+  quoted local-parts and domain literals. A quoted local-part containing `@`
+  is retained as one ENVELOPE mailbox component; malformed multiple external
+  separators are rejected. SEARCH uses the resulting shared projection.
+- PASS: Windows Rust 1.97.1, 292 tests, strict Clippy and fmt check; Linux
+  Docker Rust 1.97, strict Clippy and 332 tests. Independent Linux STARTTLS
+  IMAP acceptance verified exact ENVELOPE mailbox/hostname components and
+  address SEARCH for `"a@b"@example.test`. Litterkeep app integration was not
+  tested. Data: `./data/g14-quoted-localpart-final`.
+- Temporary container `litterkeep-g14-quoted-localpart-debug` was removed;
+  persistent `litterkeep-g12-phone` was preserved. G14 remains RUNNING.
+
 ### 2026-09-25: G14 RFC 5322 address groups checkpoint
 
 - ENVELOPE address parsing now preserves typed mailbox, group-start, and

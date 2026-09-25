@@ -39,6 +39,29 @@ pub(super) fn split_optional(
     }
 }
 
+/// Находит разделитель addr-spec вне quoted local-part и domain-literal.
+pub(super) fn split_addr_spec(value: &str) -> Result<(&str, &str), &'static str> {
+    let mut separator = None;
+    scan(value, |position, character, state| {
+        match (character == '@', state.top_level(), separator) {
+            (true, true, None) => separator = Some(position),
+            (true, true, Some(_)) => return Err("repeated addr-spec separator"),
+            _ => {}
+        }
+        Ok(())
+    })?;
+    match separator {
+        Some(position) => {
+            let local = value.get(..position).ok_or("invalid local-part boundary")?;
+            let domain = value
+                .get(position.saturating_add(1)..)
+                .ok_or("invalid domain boundary")?;
+            Ok((local, domain))
+        }
+        None => Err("address has no domain separator"),
+    }
+}
+
 /// Удаляет семантически невидимые RFC 5322 comments, сохраняя quoted strings.
 pub(super) fn strip_comments(value: &str) -> Result<String, &'static str> {
     let mut output = String::with_capacity(value.len());

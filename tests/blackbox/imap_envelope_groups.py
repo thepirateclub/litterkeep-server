@@ -62,7 +62,8 @@ def main() -> None:
     message = (
         "From: Alice Sender (primary (nested)) <alice@example.test>\r\n"
         f"To: {group} (list comment):Ed Jones (mentor (owner \\) note)) "
-        "<c(comment)@a.test>,joe@where.test,John <jdoe@one.test>;\r\n"
+        "<c(comment)@a.test>,joe@where.test,John <jdoe@one.test>, "
+        'Quoted Local <"a@b"@example.test>;\r\n'
         "Cc: Undisclosed recipients:;\r\n"
         "Bcc: Hidden Team:hidden@example.test;\r\n"
         "Subject: address group fixture\r\n\r\nbody\r\n"
@@ -76,6 +77,7 @@ def main() -> None:
         b'("Ed Jones" NIL "c" "a.test")',
         b'(NIL NIL "joe" "where.test")',
         b'("John" NIL "jdoe" "one.test")',
+        b'("Quoted Local" NIL "\\"a@b\\"" "example.test")',
         b'(NIL NIL NIL NIL)',
         b'(NIL NIL "Undisclosed recipients" NIL)',
         b'(NIL NIL "Hidden Team" NIL)',
@@ -89,6 +91,8 @@ def main() -> None:
         raise AssertionError("TO search did not match group phrase")
     if search_address(client, "TO", "jdoe@one.test") != b"1":
         raise AssertionError("TO search did not match a mailbox inside the group")
+    if search_address(client, "TO", "a@b") != b"1":
+        raise AssertionError("TO search did not preserve @ inside a quoted local-part")
     if search_address(client, "CC", "Undisclosed recipients") != b"1":
         raise AssertionError("CC search did not match the empty group name")
     if search_address(client, "BCC", "hidden@example.test") != b"1":
@@ -96,7 +100,9 @@ def main() -> None:
     require_no_search_match(client, "TO", "mentor")
     require_no_search_match(client, "TO", "list comment")
     client.logout()
-    print("PASS imap-envelope-groups: comments, group markers, empty group, address SEARCH")
+    print(
+        "PASS imap-envelope-groups: comments, groups, quoted local-part, address SEARCH"
+    )
 
 
 if __name__ == "__main__":

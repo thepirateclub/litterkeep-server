@@ -89,3 +89,23 @@ fn preserves_parentheses_inside_quoted_display_name() {
         "((\"(Team) Lead\" NIL \"alice\" \"example.test\"))"
     );
 }
+
+/// Разделяет addr-spec по внешнему @, не по символу внутри quoted local-part.
+#[test]
+fn preserves_at_sign_inside_quoted_local_part() {
+    let field = to_field(r#"Quoted <"a@b"@example.test>"#);
+    let parsed = parse(vec![&field]).expect("quoted local-part");
+    assert_eq!(
+        encode_list(&parsed).expect("ENVELOPE quoted local-part"),
+        "((\"Quoted\" NIL \"\\\"a@b\\\"\" \"example.test\"))"
+    );
+    let projected = search_text(&parsed).expect("SEARCH quoted local-part");
+    assert!(projected.contains("\"a@b\"@example.test"));
+}
+
+/// Отклоняет несколько внешних разделителей вместо неверной сегментации.
+#[test]
+fn rejects_multiple_addr_spec_separators() {
+    let field = to_field("Alice <alice@example.test@other.test>");
+    assert!(parse(vec![&field]).is_err());
+}
