@@ -36,6 +36,7 @@ T34	PASS	server-protocol	MIME parameters enforce RFC 2045 token/quoted-string an
 T35	PASS	server-protocol	RFC 2231 extended payload accepts only attribute-char or uppercase percent escapes; charset and mixed continuation tests, unit-only
 T36	PASS	server-protocol	Registered windows-1252 MIME charset decodes all C1-range octets, RFC 2231 filename payload and IMAP SEARCH projection; unit-only
 T37	PASS	server-protocol	RFC 2047 encoded-text requires nonempty printable ASCII excluding SPACE and question mark; encoded Q octets remain legal; unit-only
+T38	PASS	server-protocol	RFC 2047 unstructured header recognizes complete encoded-word tokens only at field start or after LWS; unit-only
 R01	PASS	runtime	orchestrator transfer and registry ownership tests
 R02	PASS	runtime	exclusive resource double-acquire test
 R03	PASS	runtime	timeout keeps live lease occupied

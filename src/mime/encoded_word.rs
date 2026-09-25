@@ -134,11 +134,16 @@ pub fn decode_header(value: &str) -> Result<String, &'static str> {
         };
         let end = search_start.saturating_add(relative_end).saturating_add(2);
         let candidate = value.get(start..end).ok_or("invalid encoded-word range")?;
-        match decode(candidate) {
-            Ok(decoded) => {
+        let suffix = value.get(end..).ok_or("invalid encoded-word suffix")?;
+        match (
+            starts_after_linear_whitespace(prefix, start == 0),
+            ends_before_linear_whitespace(suffix),
+            decode(candidate),
+        ) {
+            (true, true, Ok(decoded)) => {
                 match (
                     previous_was_encoded,
-                    prefix.chars().all(char::is_whitespace),
+                    prefix.chars().all(is_linear_whitespace),
                 ) {
                     (true, true) => {}
                     _ => output.push_str(prefix),
@@ -147,7 +152,7 @@ pub fn decode_header(value: &str) -> Result<String, &'static str> {
                 previous_was_encoded = true;
                 cursor = end;
             }
-            Err(_) => {
+            _ => {
                 output.push_str(
                     value
                         .get(cursor..search_start)
@@ -160,6 +165,27 @@ pub fn decode_header(value: &str) -> Result<String, &'static str> {
     }
     output.push_str(value.get(cursor..).ok_or("invalid final header range")?);
     Ok(output)
+}
+
+/// Возвращает true, если токен начинается в начале поля или после LWS.
+fn starts_after_linear_whitespace(prefix: &str, at_field_start: bool) -> bool {
+    match (at_field_start, prefix.chars().next_back()) {
+        (true, _) | (false, Some(' ' | '\t')) => true,
+        (false, _) => false,
+    }
+}
+
+/// Возвращает true, если за encoded-word следует конец поля либо LWS.
+fn ends_before_linear_whitespace(suffix: &str) -> bool {
+    match suffix.chars().next() {
+        None | Some(' ' | '\t') => true,
+        Some(_) => false,
+    }
+}
+
+/// Проверяет один октет RFC 5322 linear whitespace после unfolding.
+fn is_linear_whitespace(character: char) -> bool {
+    matches!(character, ' ' | '\t')
 }
 
 fn parse_encoding(value: &str) -> Result<TransferEncoding, &'static str> {
@@ -267,5 +293,22 @@ mod tests {
     fn decodes_adjacent_words_and_preserves_plain_prefix() {
         let value = "Re: =?UTF-8?B?0J/RgNC40LLQtdGC?= =?ISO-8859-1?Q?_caf=E9?=";
         assert_eq!(decode_header(value).expect("header"), "Re: Привет café");
+    }
+
+    #[test]
+    fn header_recognizes_only_complete_lws_delimited_words() {
+        let word = "=?UTF-8?Q?caf=C3=A9?=";
+        let embedded = format!("subject{word}tail");
+        let suffix = format!("{word}tail");
+        let bounded = format!("subject \t{word} next");
+        let nested = format!("=?{word}");
+
+        assert_eq!(decode_header(&embedded), Ok(embedded));
+        assert_eq!(decode_header(&suffix), Ok(suffix));
+        assert_eq!(
+            decode_header(&bounded),
+            Ok("subject \tcafé next".to_owned())
+        );
+        assert_eq!(decode_header(&nested), Ok(nested));
     }
 }

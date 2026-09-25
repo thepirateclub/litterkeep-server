@@ -99,8 +99,11 @@ SMTP-to-IMAP acceptance проверяет labels, bytes и Seen-переход�
 SEARCH использует UTF-8 по умолчанию и поддерживает явные UTF-8/US-ASCII;
 неподдерживаемая кодировка возвращает `NO [BADCHARSET ...]`, а Unicode-criteria
 при US-ASCII отвергаются ответом NO. `BODY`/`TEXT` декодируют Base64 и
-quoted-printable текстовые MIME parts с US-ASCII, UTF-8 или ISO-8859-1; RFC 2047
-encoded words декодируются в outer и MIME-part headers. Независимый STARTTLS
+quoted-printable текстовые MIME parts с US-ASCII, UTF-8, ISO-8859-1,
+Windows-1251 или Windows-1252; RFC 2047 encoded words декодируются в outer и
+MIME-part headers только как полные токены в начале field-body или после LWS.
+Embedded и слитные формы остаются raw text; это новое правило пока unit-only.
+Независимый STARTTLS
 тест подтвердил, что BODY не ищет outer Subject и бинарное
 application/octet-stream вложение, а TEXT включает decoded outer headers.
 Неизвестная charset и невалидная transfer encoding не сравниваются как raw

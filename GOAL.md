@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 2047 header-token recognition checkpoint
+
+- Unstructured-header projection распознаёт encoded-word только в начале
+  field-body или после ASCII SP/HTAB и только как целый токен до конца значения
+  либо LWS. Слитные формы `subject=?...?=` и `=?...?=suffix` остаются исходным
+  текстом; соседние валидные encoded-word продолжают декодироваться, а
+  разделяющий их LWS опускается.
+- Новые границы покрыты unit tests. PASS: Windows Rust 1.97.1 полный suite
+  (375 библиотечных тестов, 1 тест бинаря), strict Clippy, fmt и diff check;
+  Docker Linux Rust 1.97.1 release build, strict Clippy, 416 библиотечных
+  тестов, 1 тест бинаря и doc-tests.
+- Независимый сетевой acceptance новых unstructured-header границ не выполнялся.
+  RFC 2047 §6.1 сверена с IETF Datatracker. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 2047 phrase-Q profile checkpoint
 
 - Phrase-context decoder применяет отдельный RFC 2047 §5 allowlist для Q:

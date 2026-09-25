@@ -201,7 +201,10 @@ ManageSieve -> SMTP -> IMAP acceptance отправляет encoded UTF-8 Subjec
 и `?`; Q-escape `=01` остаётся допустимым encoded octet. Unit tests покрывают
 raw whitespace/control/non-ASCII и сохранение повреждённого слова в header
 projection; новые grammar cases отдельно по сети не проверялись. Общий header
-parser также игнорирует SP/HTAB между field-name и `:`, как требует §2.4.2.2;
+parser распознаёт целый encoded-word только в начале field-body или после
+SP/HTAB и оставляет embedded/слитный токен обычным текстом по RFC 2047 §6.1.
+Эта граница пока покрыта unit-only. Header parser также игнорирует SP/HTAB
+между field-name и `:`, как требует §2.4.2.2;
 сетевой тест подтверждает, что `Subject \t:` маршрутизируется по Sieve, а IMAP
 FETCH возвращает исходный байтовый заголовок без переписывания. Header matcher
 принимает пустой ключ и различает `:contains` (пустая подстрока содержится в
