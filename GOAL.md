@@ -31,6 +31,27 @@ Current subgoal: G16
 - G16 по-прежнему покрывает только SASL PLAIN. SCRAM и прочие механизмы,
   полная RFC 5034 совместимость и взаимодействие с litterkeep не проверены.
 
+### 2026-09-25: G16 POP3 UTF8 mode checkpoint
+
+- CAPA сообщает `UTF8` без аргумента `USER`, так как имена/пароли учётных
+  записей остаются ASCII. Команда `UTF8` переключает сессию в UTF-8 mode;
+  до переключения `LIST`, `TOP` и `RETR` отвечают типизированным `-ERR [UTF8]`,
+  если письмо содержит корректные UTF-8 символы вне ASCII. `STLS` после UTF8
+  отклоняется согласно разрешённому RFC 6856 поведению.
+- PASS: Windows Rust 1.97.1, 281 тест и strict Clippy; чистый Linux Docker
+  Rust 1.97, 321 тест и strict Clippy. Независимый socket клиент проверил
+  SMTP 8BITMIME-доставку UTF-8 письма, `-ERR [UTF8]` на LIST/TOP/RETR до
+  переключения, сохранение точных байтов после UTF8 command, capability
+  до/после TLS и порядок STLS. На свежем `./data/g16-pop3-utf8-cache` прошли
+  прежние POP3 SASL/RESP-CODES/line-limit regressions и UTF8 content acceptance
+  с окончательным кэшем maildrop. Все временные
+  контейнеры удалены, `litterkeep-g12-phone` сохранён.
+- Это частичный RFC 6856 профиль: conversion из legacy charset не реализован,
+  UTF-8 credentials и LANG не поддержаны; соответствие MIME binary CTE не
+  проверялось. Детектор блокирует корректные
+  non-ASCII UTF-8 последовательности, не классифицируя произвольные невалидные
+  octets как UTF-8. G16 остаётся RUNNING.
+
 ### 2026-09-25: POP3 RFC 1939 USER/PASS sequencing checkpoint
 
 - AUTHORIZATION FSM различает состояние после успешного `USER`: повторный

@@ -23,6 +23,7 @@ pub(crate) fn encode_reply(reply: Reply) -> Option<Vec<u8>> {
 fn extended_error(code: ResponseCode, text: &str) -> Vec<u8> {
     let prefix = match code {
         ResponseCode::InUse => b"-ERR [IN-USE] ".as_slice(),
+        ResponseCode::Utf8 => b"-ERR [UTF8] ".as_slice(),
     };
     single_line(prefix, text)
 }

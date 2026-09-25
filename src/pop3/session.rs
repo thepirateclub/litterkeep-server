@@ -34,9 +34,10 @@ pub enum Reply {
     StartTls,
 }
 
-/// Стандартизованный RFC 2449 код причины POP3-ошибки.
+/// Стандартизованные RFC 2449 и RFC 6856 коды причины POP3-ошибки.
 pub enum ResponseCode {
     InUse,
+    Utf8,
 }
 #[derive(Default)]
 pub struct Session {
@@ -45,6 +46,8 @@ pub struct Session {
     sasl_previous_authorization: Option<PriorAuthorization>,
     maildrop: Option<Maildrop>,
     tls_active: bool,
+    /// Отмечает разрешение передавать UTF-8 строки после команды UTF8.
+    utf8_active: bool,
 }
 impl Session {
     pub fn apply(&mut self, command: Command) -> Reply {
@@ -70,7 +73,14 @@ impl Session {
             (Phase::Authorization | Phase::UserAccepted | Phase::Transaction, Command::Capa) => {
                 capa_reply(self.tls_active)
             }
-            (Phase::Authorization | Phase::UserAccepted, Command::Stls) => Reply::StartTls,
+            (Phase::Authorization | Phase::UserAccepted, Command::Stls) => match self.utf8_active {
+                true => Reply::Error("STLS must precede UTF8"),
+                false => Reply::StartTls,
+            },
+            (Phase::Authorization | Phase::UserAccepted, Command::Utf8) => {
+                self.utf8_active = true;
+                Reply::Ok("UTF-8 mode enabled".into())
+            }
             (Phase::Authorization | Phase::UserAccepted, Command::Noop) => Reply::Ok("noop".into()),
             (Phase::Transaction, Command::Stat) => self.stat(),
             (Phase::Transaction, Command::List(number)) => self.list(number),
@@ -132,9 +142,12 @@ impl Session {
             })
     }
     fn list(&self, number: Option<u32>) -> Reply {
-        match self.drop() {
-            Some(drop) => drop.list(number).map_or_else(Reply::Error, list_reply),
-            None => Reply::Error("maildrop unavailable"),
+        match self.utf8_policy(number) {
+            Ok(()) => match self.drop() {
+                Some(drop) => drop.list(number).map_or_else(Reply::Error, list_reply),
+                None => Reply::Error("maildrop unavailable"),
+            },
+            Err(reply) => reply,
         }
     }
     fn uidl(&self, number: Option<u32>) -> Reply {
@@ -144,19 +157,38 @@ impl Session {
         }
     }
     fn retrieve(&self, number: u32) -> Reply {
-        match self.drop() {
-            Some(drop) => drop.retrieve(number).map_or_else(Reply::Error, |bytes| {
-                message_reply("message follows", bytes)
-            }),
-            None => Reply::Error("maildrop unavailable"),
+        match self.utf8_policy(Some(number)) {
+            Ok(()) => match self.drop() {
+                Some(drop) => drop.retrieve(number).map_or_else(Reply::Error, |bytes| {
+                    message_reply("message follows", bytes)
+                }),
+                None => Reply::Error("maildrop unavailable"),
+            },
+            Err(reply) => reply,
         }
     }
     fn top(&self, number: u32, lines: u32) -> Reply {
+        match self.utf8_policy(Some(number)) {
+            Ok(()) => match self.drop() {
+                Some(drop) => drop.top(number, lines).map_or_else(Reply::Error, |bytes| {
+                    message_reply("top of message follows", bytes)
+                }),
+                None => Reply::Error("maildrop unavailable"),
+            },
+            Err(reply) => reply,
+        }
+    }
+    fn utf8_policy(&self, number: Option<u32>) -> Result<(), Reply> {
         match self.drop() {
-            Some(drop) => drop.top(number, lines).map_or_else(Reply::Error, |bytes| {
-                message_reply("top of message follows", bytes)
-            }),
-            None => Reply::Error("maildrop unavailable"),
+            Some(drop) => match drop.requires_utf8(number) {
+                Ok(true) if !self.utf8_active => Err(Reply::ErrorCode(
+                    ResponseCode::Utf8,
+                    "message contains UTF-8; issue UTF8 first",
+                )),
+                Ok(_) => Ok(()),
+                Err(error) => Err(Reply::Error(error)),
+            },
+            None => Err(Reply::Error("maildrop unavailable")),
         }
     }
     fn delete(&mut self, number: u32) -> Reply {
@@ -192,8 +224,11 @@ impl Session {
         matches!(self.phase, Phase::Transaction)
     }
 }
+/// Формирует стабильный RFC 2449 набор и объявляет UTF8 в обоих состояниях.
+/// Аргумент `USER` не передаётся: POP3 account credentials остаются ASCII.
 fn capa_reply(tls_active: bool) -> Reply {
-    let mut response = b"+OK Capability list\r\nUSER\r\nUIDL\r\nTOP\r\nRESP-CODES\r\n".to_vec();
+    let mut response =
+        b"+OK Capability list\r\nUSER\r\nUIDL\r\nTOP\r\nRESP-CODES\r\nUTF8\r\n".to_vec();
     if tls_active {
         response.extend_from_slice(b"SASL PLAIN\r\n");
     } else {

@@ -172,6 +172,56 @@ fn failed_sasl_backend_auth_allows_new_auth_exchange() {
 }
 
 #[test]
+fn pop3_utf8_capability_guards_messages_until_mode_is_enabled() {
+    let mut session = Session::default();
+    let capabilities = session.apply(parse("CAPA\r\n"));
+    assert!(
+        matches!(capabilities, Reply::Multiline(bytes) if bytes.windows(6).any(|part| part == b"UTF8\r\n"))
+    );
+    let _ = session.apply(parse("USER bob\r\n"));
+    let _ = session.authenticated(vec![message(
+        21,
+        b"Subject: caf\xc3\xa9\r\n\r\ncaf\xc3\xa9",
+    )]);
+    for command in ["LIST 1\r\n", "TOP 1 1\r\n", "RETR 1\r\n"] {
+        assert!(matches!(
+            session.apply(parse(command)),
+            Reply::ErrorCode(ResponseCode::Utf8, _)
+        ));
+    }
+
+    let mut utf8_session = Session::default();
+    utf8_session.tls_established();
+    assert!(matches!(
+        utf8_session.apply(parse("UTF8\r\n")),
+        Reply::Ok(_)
+    ));
+    assert!(matches!(
+        utf8_session.apply(parse("STLS\r\n")),
+        Reply::Error(_)
+    ));
+    let _ = utf8_session.apply(parse("USER bob\r\n"));
+    let _ = utf8_session.authenticated(vec![message(
+        22,
+        b"Subject: caf\xc3\xa9\r\n\r\ncaf\xc3\xa9",
+    )]);
+    assert!(matches!(
+        utf8_session.apply(parse("RETR 1\r\n")),
+        Reply::Message(bytes) if bytes.windows(5).any(|part| part == b"caf\xc3\xa9")
+    ));
+}
+
+#[test]
+fn maildrop_detects_valid_utf8_after_malformed_octets_without_indexing() {
+    let ascii = Maildrop::new(vec![message(1, b"Subject: plain\r\n\r\nbody")]);
+    let unicode = Maildrop::new(vec![message(2, b"Subject: caf\xc3\xa9\r\n\r\nbody")]);
+    let malformed = Maildrop::new(vec![message(3, b"binary\xff then caf\xc3\xa9")]);
+    assert_eq!(ascii.requires_utf8(None), Ok(false));
+    assert_eq!(unicode.requires_utf8(Some(1)), Ok(true));
+    assert_eq!(malformed.requires_utf8(Some(1)), Ok(true));
+}
+
+#[test]
 fn retrieve_uidl_reset_and_quit_keep_delete_semantics_explicit() {
     let mut session = Session::default();
     let _ = session.apply(parse("USER pop\r\n"));

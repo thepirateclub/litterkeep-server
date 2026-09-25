@@ -67,3 +67,12 @@ fn in_use_response_code_is_serialized_as_a_bounded_rfc_2449_error() {
         Some(b"-ERR [IN-USE] maildrop is locked\r\n".to_vec())
     );
 }
+
+#[test]
+fn utf8_response_code_is_serialized_for_message_mode_errors() {
+    let reply = Reply::ErrorCode(ResponseCode::Utf8, "issue UTF8 before RETR");
+    assert_eq!(
+        encode_reply(reply),
+        Some(b"-ERR [UTF8] issue UTF8 before RETR\r\n".to_vec())
+    );
+}

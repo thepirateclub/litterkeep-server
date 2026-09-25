@@ -42,6 +42,8 @@ fn preserves_normal_command_arity() {
             lines: 3
         }
     );
+    assert_eq!(parse("UTF8\r\n"), Command::Utf8);
+    assert_eq!(parse("UTF8 extra\r\n"), Command::Invalid);
     assert_eq!(parse("NOOP extra\r\n"), Command::Invalid);
 }
 

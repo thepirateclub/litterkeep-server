@@ -7,13 +7,23 @@ use std::collections::BTreeSet;
 pub struct Maildrop {
     messages: Vec<Message>,
     deleted: BTreeSet<u32>,
+    /// Кэш UID позволяет не сканировать байты повторно на каждом LIST/RETR.
+    utf8_message_uids: BTreeSet<u64>,
 }
 
 impl Maildrop {
     pub fn new(messages: Vec<Message>) -> Self {
+        let utf8_message_uids = messages
+            .iter()
+            .filter_map(|message| match contains_non_ascii_utf8(&message.bytes) {
+                true => Some(message.uid),
+                false => None,
+            })
+            .collect();
         Self {
             messages,
             deleted: BTreeSet::new(),
+            utf8_message_uids,
         }
     }
     pub fn stat(&self) -> (usize, usize) {
@@ -44,6 +54,18 @@ impl Maildrop {
                 .visible()
                 .map(|(number, message)| (number, uidl(message.uid)))
                 .collect()),
+        }
+    }
+    /// Проверяет, содержит ли выбранное письмо корректные UTF-8 символы вне ASCII.
+    /// Полный snapshot сканируется один раз при создании, затем lookup идёт по UID.
+    pub fn requires_utf8(&self, number: Option<u32>) -> Result<bool, &'static str> {
+        match number {
+            Some(number) => self
+                .message(number)
+                .map(|message| self.utf8_message_uids.contains(&message.uid)),
+            None => Ok(self
+                .visible()
+                .any(|(_, message)| self.utf8_message_uids.contains(&message.uid))),
         }
     }
     pub fn retrieve(&self, number: u32) -> Result<Vec<u8>, &'static str> {
@@ -87,6 +109,28 @@ impl Maildrop {
         usize::try_from(number.checked_sub(1)?)
             .ok()
             .and_then(|offset| self.messages.get(offset))
+    }
+}
+
+/// Находит UTF-8 scalar вне ASCII, пропуская ошибочные октеты без panic.
+fn contains_non_ascii_utf8(bytes: &[u8]) -> bool {
+    let mut remaining = bytes;
+    loop {
+        match std::str::from_utf8(remaining) {
+            Ok(text) => return !text.is_ascii(),
+            Err(error) => {
+                let valid_length = error.valid_up_to();
+                let prefix = remaining.get(..valid_length).unwrap_or_default();
+                if !prefix.is_ascii() {
+                    return true;
+                }
+                let invalid_length = error
+                    .error_len()
+                    .unwrap_or_else(|| remaining.len().saturating_sub(valid_length));
+                let next = valid_length.saturating_add(invalid_length);
+                remaining = remaining.get(next..).unwrap_or_default();
+            }
+        }
     }
 }
 

@@ -170,6 +170,19 @@ CAPA и запрет повторного AUTH после входа. Это о�
 повторный AUTH после backend-отказа. Покрытие остальных ветвей отказа и
 полного RFC профиля продолжает расширяться.
 
+RFC 6856: `UTF8` capability объявляется в обоих состояниях без `USER`-параметра;
+сама команда действует только до входа, включает raw UTF-8 message mode и
+запрещает последующий STLS. До переключения `LIST`, `TOP` и `RETR` возвращают
+`-ERR [UTF8]`, если выбранное письмо содержит корректные non-ASCII UTF-8
+последовательности. Независимый Linux SMTP->POP3 socket acceptance отправил
+8BITMIME UTF-8 письмо, получил `[UTF8]` от LIST/TOP/RETR в ASCII mode, затем
+включил UTF8 до USER и сравнил точные байты RETR. Он также проверил CAPA до/после
+TLS и отказ STLS после UTF8; unit-тесты проверяют guarded retrieval. Это не полный
+RFC 6856: legacy charset conversion, UTF-8 credentials/SASLprep и LANG не
+поддержаны; ограничения RFC 2045 для `Content-Transfer-Encoding: binary` этим
+этапом не проверялись. Повреждённые raw octets сами по себе не считаются UTF-8
+строками.
+
 ## Sieve и ManageSieve
 
 Есть bounded parser/executor для обязательного профиля, fileinto, redirect,
