@@ -1,7 +1,17 @@
 # Итоговая приёмка
 
 Машиночитаемая матрица находится в `docs/acceptance.tsv`. Статус G12 не
-завышается: 44 проверки имеют PASS, T23 имеет NOT RUN, T25 имеет BLOCKED.
+завышается: 44 G12 checks имеют PASS, T23 имеет NOT RUN, T25 имеет BLOCKED.
+Отдельный G17 T28 добавлен в ту же матрицу и не меняет оценку G12.
+
+G17 vacation acceptance использовал отдельный Linux Store `data/g17-sieve-vacation-rfc45`.
+Независимый клиент установил active vacation script через ManageSieve, передал
+три исходных сообщения SMTP и проверил после restart через IMAP, что все три
+остались в Bob INBOX. Linux `queue-drain` передал ровно один автоответ
+независимому SMTP peer: второй отвечаемый адрес был подавлен по истории, а
+письмо с чужим To не вызвало ответ. Peer проверил `MAIL FROM:<>`, RCPT и
+Auto-Submitted/To/Subject. Это серверный протокольный acceptance, не проверка
+Litterkeep app и не third-party MTA interoperability.
 
 ## Чистый G12 прогон
 

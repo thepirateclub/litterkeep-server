@@ -11,6 +11,17 @@ enum SuppressionHeader {
     Other,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum RecipientHeader {
+    To,
+    Cc,
+    Bcc,
+    ResentTo,
+    ResentCc,
+    ResentBcc,
+    Other,
+}
+
 /// Применяет локальную days policy: min > 0, max > 7 и bounded storage.
 pub(crate) fn effective_days(requested: Option<u64>) -> u64 {
     requested.unwrap_or(DEFAULT_DAYS).clamp(MIN_DAYS, MAX_DAYS)
@@ -18,7 +29,10 @@ pub(crate) fn effective_days(requested: Option<u64>) -> u64 {
 
 /// Подавляет ответы на пустой/системный envelope sender и list/auto mail.
 pub(crate) fn may_respond(sender: &str, headers: &[(String, String)]) -> bool {
-    if sender.is_empty() || automated_sender(sender) {
+    if sender.is_empty() {
+        return false;
+    }
+    if automated_sender(sender) {
         return false;
     }
     !headers
@@ -30,31 +44,73 @@ pub(crate) fn may_respond(sender: &str, headers: &[(String, String)]) -> bool {
         })
 }
 
-/// Ограничивает ответы mailbox-адресами из `:addresses`, если список задан.
-pub(crate) fn recipient_allowed(addresses: &[String], recipient: &str) -> bool {
-    if addresses.is_empty() {
-        return true;
+/// Проверяет RFC 5230 §4.5 по реальному SMTP RCPT и адресным заголовкам письма.
+///
+/// Final recipient уже маршрутизирован в mailbox владельца. Дополнительные
+/// `:addresses` расширяют множество его адресов, но не сужают его. В исходном
+/// сообщении хотя бы один такой адрес обязан присутствовать в To/Cc/Bcc либо
+/// Resent-To/Resent-Cc/Resent-Bcc; произвольные address-like headers не подходят.
+pub(crate) fn personal_message(
+    envelope_recipient: &str,
+    extra_addresses: &[String],
+    headers: &[(String, String)],
+) -> bool {
+    let Ok(envelope_addresses) = crate::mime::envelope_address::parse_value(envelope_recipient)
+    else {
+        return false;
+    };
+    let Some(envelope_address) = envelope_addresses.first() else {
+        return false;
+    };
+    let supplemental = extra_addresses
+        .iter()
+        .filter_map(|configured| crate::mime::envelope_address::parse_value(configured).ok())
+        .flatten()
+        .collect::<Vec<_>>();
+    headers
+        .iter()
+        .any(|(name, value)| match recipient_header(name) {
+            RecipientHeader::Other => false,
+            _ => match crate::mime::envelope_address::parse_value(value) {
+                Ok(addresses) => addresses.iter().any(|address| {
+                    let matches_envelope = same_mailbox(address, envelope_address);
+                    let matches_supplemental = supplemental
+                        .iter()
+                        .any(|configured| same_mailbox(address, configured));
+                    matches!(
+                        (matches_envelope, matches_supplemental),
+                        (true, _) | (_, true)
+                    )
+                }),
+                Err(_) => false,
+            },
+        })
+}
+
+/// Сопоставляет mailbox по local-part и domain без display-name и CFWS.
+fn same_mailbox(
+    left: &crate::mime::envelope_address::MailboxParts,
+    right: &crate::mime::envelope_address::MailboxParts,
+) -> bool {
+    matches!(
+        (
+            left.local.eq_ignore_ascii_case(&right.local),
+            left.domain.eq_ignore_ascii_case(&right.domain),
+        ),
+        (true, true)
+    )
+}
+
+fn recipient_header(name: &str) -> RecipientHeader {
+    match name.to_ascii_lowercase().as_str() {
+        "to" => RecipientHeader::To,
+        "cc" => RecipientHeader::Cc,
+        "bcc" => RecipientHeader::Bcc,
+        "resent-to" => RecipientHeader::ResentTo,
+        "resent-cc" => RecipientHeader::ResentCc,
+        "resent-bcc" => RecipientHeader::ResentBcc,
+        _ => RecipientHeader::Other,
     }
-    let Ok(targets) = crate::mime::envelope_address::parse_value(recipient) else {
-        return false;
-    };
-    let Some(target) = targets.first() else {
-        return false;
-    };
-    addresses.iter().any(|configured| {
-        match crate::mime::envelope_address::parse_value(configured) {
-            Ok(values) => values.first().is_some_and(|address| {
-                matches!(
-                    (
-                        address.local.eq_ignore_ascii_case(&target.local),
-                        address.domain.eq_ignore_ascii_case(&target.domain),
-                    ),
-                    (true, true)
-                )
-            }),
-            Err(_) => false,
-        }
-    })
 }
 
 fn suppression_header(name: &str) -> SuppressionHeader {

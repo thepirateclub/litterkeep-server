@@ -26,6 +26,7 @@ T24	PASS	server-protocol	init hashes stable; seed 35/0 then 0/35 before and afte
 T25	BLOCKED	client-integration	Alice connected and sent plain mail in litterkeep; current compose UI exposed no attachment selector; Bob setup hit TLS connection error
 T26	PASS	runtime	32-session IDLE plateau, churn and resource registry tests
 T27	PASS	maintenance	backup reopened with same UID/bytes; clean G12 backup checked
+T28	PASS	server-protocol	G17 vacation ManageSieve -> SMTP -> Linux queue-drain -> independent SMTP peer -> IMAP restart acceptance
 R01	PASS	runtime	orchestrator transfer and registry ownership tests
 R02	PASS	runtime	exclusive resource double-acquire test
 R03	PASS	runtime	timeout keeps live lease occupied
@@ -45,4 +46,3 @@ R16	PASS	outbound	failed RSET, EOF, timeout and TLS error drop pool entry
 R17	PASS	outbound	TLS pool identity key and bounded scheduler handoff tests
 R18	PASS	runtime	worker cleanup, durable retry and single Store writer tests
 R19	PASS	runtime	cooperative cancel joins outbound work and preserves queue state
-

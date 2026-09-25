@@ -146,14 +146,30 @@ fn response_policy_suppresses_null_daemon_list_and_automated_messages() {
 }
 
 #[test]
-fn vacation_addresses_restrict_the_final_recipient() {
-    let configured = vec!["bob@litterkeep.test".to_owned()];
-    assert!(super::recipient_allowed(&configured, "BOB@LITTERKEEP.TEST"));
-    assert!(!super::recipient_allowed(
-        &configured,
-        "alice@litterkeep.test"
+fn vacation_requires_a_personal_header_and_addresses_are_additional() {
+    let extra = vec!["alternate@litterkeep.test".to_owned()];
+    let final_recipient = "bob@litterkeep.test";
+    assert!(super::personal_message(
+        final_recipient,
+        &extra,
+        &[("to".into(), "bob@litterkeep.test".into())],
     ));
-    assert!(super::recipient_allowed(&[], "anyone@litterkeep.test"));
+    assert!(super::personal_message(
+        final_recipient,
+        &extra,
+        &[("cc".into(), "alternate@litterkeep.test".into())],
+    ));
+    assert!(!super::personal_message(
+        final_recipient,
+        &extra,
+        &[("x-recipient".into(), "bob@litterkeep.test".into())],
+    ));
+    assert!(!super::personal_message(
+        final_recipient,
+        &extra,
+        &[("to".into(), "alice@litterkeep.test".into())],
+    ));
+    assert!(!super::personal_message(final_recipient, &extra, &[]));
 }
 
 fn action_of(command: &super::ast::Command) -> Option<&Action> {

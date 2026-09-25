@@ -57,4 +57,4 @@ pub fn parse(source: &str) -> Result<Script, &'static str> {
 
 pub(crate) use vacation_identity::response_identity;
 pub(crate) use vacation_message::build_response as build_vacation_response;
-pub(crate) use vacation_policy::{effective_days, may_respond, recipient_allowed};
+pub(crate) use vacation_policy::{effective_days, may_respond, personal_message};

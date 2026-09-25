@@ -30,17 +30,26 @@ redirect остаётся непроверенным. Правило свере�
 -> IMAP acceptance исполняет два одинаковых `fileinto :copy`, читает обе
 папки и сверяет точные RFC822 bytes.
 
-## RFC 5230 vacation: базовая реализация, acceptance не завершён
+## RFC 5230 vacation: базовый профиль, оставшиеся RFC-пробелы
 
 Parser/executor поддерживают единственный `vacation` action и его RFC-параметры;
 ManageSieve объявляет capability. Store создаёт отдельный RFC 5322 response с
 `MAIL FROM:<>`, durable suppression claim, loop/list/automated-message guards,
 default `:days 7` с диапазоном 1..365, RFC 2047 Subject и quoted-printable UTF-8
-body. `:mime` валидируется с учётом текущего 7BIT-only SMTP transport. Локальные
-parser/validator/message и Store tests прошли. Полный сетевой acceptance от
-активного ManageSieve script через SMTP/IMAP с независимым SMTP peer и
-долгосрочная compaction history ещё не проверены; поэтому extension нельзя
-считать полностью acceptance-проверенным.
+body. `:mime` валидируется с учётом текущего 7BIT-only SMTP transport. Unit и
+Store tests проверяют generation, safety и durable suppression. Независимый
+Linux acceptance в `./data/g17-sieve-vacation-rfc45` активировал script через
+ManageSieve, доставил три письма через SMTP, передал ровно один из двух
+допустимых vacation replies независимому SMTP peer и прочитал все три исходных
+RFC822 через IMAP после restart. Peer проверил null reverse-path, адрес и поля
+ответа. Тест подтверждает Sieve/Store/SMTP/IMAP интеграцию, но не интеграцию с
+Litterkeep app или произвольным сторонним MTA.
+
+По RFC 5230 §4.5 ответ допускается только когда адрес владельца указан в To,
+Cc, Bcc, Resent-To, Resent-Cc или Resent-Bcc. Конечный RCPT является известным
+адресом владельца, а `:addresses` добавляет дополнительные адреса и не
+ограничивает ответ только ими. Unit и сетевой acceptance проверяют
+дополнительный alias, duplicate suppression и отказ на чужом To.
 
 История suppression переживает reopen, фиксируется только для committed
 transaction ID и имеет тест на ёмкость минимум 1000 response identities. Queue
@@ -59,9 +68,8 @@ reverse-path и заголовки/связи ответа, определённ
 
 Обычный Sieve redirect по-прежнему ссылается на blob входящего письма, тогда как
 `Store::enqueue_outbound_payload` создаёт отдельную transaction/blob для
-сгенерированного сообщения. Acceptance активного script с outbound peer через
-SMTP и проверкой исходного письма через IMAP ещё не выполнен. Требования сверены
-с RFC 5230 §§4.1-4.7 и 5.1-5.8.
+сгенерированного сообщения. Не проверены долгосрочная компактизация истории и
+интеграция стороннего MTA. Требования сверены с RFC 5230 §§4.1-4.7 и 5.1-5.8.
 
 Quoted и `text:` multiline strings принимают CRLF; multiline форма сохраняет
 terminating CRLF тела, снимает один dot-stuffing octet и ограничена 65 536

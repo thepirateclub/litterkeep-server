@@ -14,7 +14,7 @@ fn vacation_delivers_original_and_suppresses_duplicate_response_after_reopen() {
             &["bob".into()],
             "alice@peer.test",
             &["bob@litterkeep.test".into()],
-            b"Subject: Original\r\nMessage-ID: <first@peer.test>\r\n\r\nmessage",
+            b"To: bob@litterkeep.test\r\nSubject: Original\r\nMessage-ID: <first@peer.test>\r\n\r\nmessage",
         )
         .expect("first incoming message");
     assert_eq!(folder_count(&mut store), 1);
@@ -36,7 +36,7 @@ fn vacation_delivers_original_and_suppresses_duplicate_response_after_reopen() {
             &["bob".into()],
             "alice@peer.test",
             &["bob@litterkeep.test".into()],
-            b"Subject: Another message\r\nMessage-ID: <second@peer.test>\r\n\r\nmessage",
+            b"To: bob@litterkeep.test\r\nSubject: Another message\r\nMessage-ID: <second@peer.test>\r\n\r\nmessage",
         )
         .expect("second incoming message");
     assert_eq!(folder_count(&mut reopened), 2);
@@ -54,7 +54,7 @@ fn vacation_safety_policy_suppresses_list_and_auto_submitted_messages() {
         b"List-Id: <news.peer.test>\r\n".as_slice(),
         b"Auto-Submitted: auto-generated\r\n".as_slice(),
     ] {
-        let mut message = b"Subject: Automated\r\n".to_vec();
+        let mut message = b"To: bob@litterkeep.test\r\nSubject: Automated\r\n".to_vec();
         message.extend_from_slice(header);
         message.extend_from_slice(b"\r\nbody");
         store

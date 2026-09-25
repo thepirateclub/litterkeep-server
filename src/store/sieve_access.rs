@@ -208,7 +208,7 @@ fn prepare_vacation(
     if !sieve::may_respond(envelope_sender, headers) {
         return Ok(None);
     }
-    if !sieve::recipient_allowed(&action.addresses, envelope_recipient) {
+    if !sieve::personal_message(envelope_recipient, &action.addresses, headers) {
         return Ok(None);
     }
     let recipient = match crate::redirect_policy::Recipient::parse(envelope_sender) {

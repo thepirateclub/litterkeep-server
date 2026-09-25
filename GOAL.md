@@ -11,7 +11,7 @@ Current subgoal: G17
   safety suppression и Store enqueue с durable history. Исходная доставка
   сохраняет implicit keep; ошибка enqueue после её commit не запрашивает у SMTP
   повтор исходного письма и журналируется в stderr.
-- Локальные regressions: 8 parser/validator/message tests и 2 Store tests
+- Локальные regressions: 9 parser/validator/message tests и 2 Store tests
   подтверждают MIME guards, UTF-8 response, автоматические/списочные guards,
   исходную доставку и suppression после reopen. Полный test suite выявил и
   исправил три regression: тест длины QP учитывал CR из CRLF, а старые тесты
@@ -20,9 +20,17 @@ Current subgoal: G17
   проходит (355 тестов), strict Clippy и fmt проходят. Docker Rust 1.97 Linux
   test-target проходит 396 тестов и release build. В `docker ps -a` остался
   только `litterkeep-g12-phone`; transient containers не создавались.
-- `:addresses` ограничивает auto-reply фактическим конечным RCPT mailbox и
-  покрыт regression. Независимый сетевой acceptance активного ManageSieve
-  script с SMTP peer/IMAP reader всё ещё не выполнен; G17 остаётся RUNNING.
+- RFC 5230 §4.5 проверен по первичному тексту: auto-reply требует адрес
+  владельца в To/Cc/Bcc/Resent-*; конечный RCPT и `:addresses` являются
+  дополнительными способами распознать адрес владельца, а `:addresses` не
+  сужает список. Unit и сетевой regressions покрывают это правило.
+- Linux black-box acceptance в `./data/g17-sieve-vacation-rfc45`: активный
+  ManageSieve script получил три письма, два на supplemental `:addresses` alias
+  и одно на не принадлежащий владельцу адрес; Linux queue-drain передал ровно
+  один generated response независимому SMTP peer с `MAIL FROM:<>`. После
+  перезапуска IMAP подтвердил все три оригинала у Bob. Python-клиенты независимы
+  от реализации. Оба временных Docker контейнера удалены; оставлен только
+  `litterkeep-g12-phone`. G17 остаётся RUNNING.
 
 ### 2026-09-25: G17 vacation history capacity checkpoint
 
