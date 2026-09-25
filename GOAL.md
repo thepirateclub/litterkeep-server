@@ -4,6 +4,17 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G17 LIST pattern production, PASS
+
+- Basic LIST validates reference as astring and pattern as RFC list-mailbox:
+  bare `%`, `*`, and `]` remain valid; other atom-specials need quoted form.
+- PASS: Windows Rust 1.97.1 strict Clippy, 527 library + 1 binary tests, fmt,
+  Python syntax and diff checks. Linux Docker Rust 1.97 strict Clippy, 574
+  library + 1 binary tests and doc-tests; independent STARTTLS acceptance
+  rejected bare `{` and accepted a bare `*` pattern with normal completion.
+  Temporary container and image removed; existing containers untouched, and
+  `./data/g17-imap-malformed-utf8` preserved. G17 remains ACTIVE.
+
 ### 2026-09-26: G17 LOGIN and mailbox astring validation, PASS
 
 - LOGIN username/password and SELECT/EXAMINE mailbox require either a valid

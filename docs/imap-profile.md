@@ -99,6 +99,12 @@ except the permitted `]` response-special. LOGIN rejects excess arguments.
 Parser cases and independent STARTTLS acceptance verify `%` rejection in LOGIN;
 this does not yet imply every command argument production is covered.
 
+G17 LIST checkpoint (2026-09-26): basic LIST validates its reference as an
+astring and its pattern as `list-mailbox`; bare wildcards `%` and `*` and
+response-special `]` remain legal, while brace/backslash/quote require a quoted
+string. Parser tests and independent STARTTLS acceptance verified rejection of
+bare `{` and successful completion of a bare `*` pattern.
+
 CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-USE`,
 `NAMESPACE`, `UNSELECT`, `ENABLE`, `ESEARCH` и `SEARCHRES`. ENABLE игнорирует
 неизвестные и пока не поддерживаемые расширения по RFC и возвращает пустой

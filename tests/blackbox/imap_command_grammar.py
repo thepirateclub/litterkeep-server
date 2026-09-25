@@ -46,6 +46,7 @@ def main() -> None:
     else:
         password = os.environ["LITTERKEEP_BOB_PASSWORD"]
     require(client.login("bob", password), ImapStatus.OK)
+    require_list_mailbox_grammar(client)
     require_append_limit(client)
     require_bad(client, "IDLE")
     require(client.select("INBOX"), ImapStatus.OK)
@@ -158,6 +159,25 @@ def require_bad_login_astring_atom(client: imaplib.IMAP4) -> None:
     response = client.readline()
     if not response.startswith(b"A21 BAD "):
         raise AssertionError(f"invalid LOGIN astring atom: {response!r}")
+
+
+def require_list_mailbox_grammar(client: imaplib.IMAP4) -> None:
+    """Разделяет bare LIST pattern grammar и quoted mailbox string."""
+    client.send(b'A22 LIST "" folder{invalid\r\n')
+    response = client.readline()
+    if not response.startswith(b"A22 BAD "):
+        raise AssertionError(f"invalid bare LIST pattern: {response!r}")
+    client.send(b'A23 LIST "" *\r\n')
+    for _ in range(32):
+        response = client.readline()
+        match response.split(maxsplit=2):
+            case [b"*", b"LIST", _]:
+                continue
+            case [b"A23", b"OK", *_]:
+                return
+            case _:
+                raise AssertionError(f"valid bare LIST wildcard: {response!r}")
+    raise AssertionError("LIST wildcard response did not complete")
 
 
 def require_bad(client: imaplib.IMAP4, verb: str) -> None:

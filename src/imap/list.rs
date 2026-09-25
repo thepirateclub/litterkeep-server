@@ -111,8 +111,8 @@ fn parse_pattern_tail(
     tokens: &mut impl Iterator<Item = Token>,
     allow_root: bool,
 ) -> Option<(ListPattern, ListReturnOptions)> {
-    let reference = next_text(tokens)?;
-    let pattern = next_text(tokens)?;
+    let reference = next_astring(tokens)?;
+    let pattern = next_pattern(tokens)?;
     match tokens.next() {
         None => {
             let resolved = super::list_reference::resolve(&reference, &pattern)?;
@@ -182,11 +182,14 @@ pub fn parse_lsub(mut tokens: impl Iterator<Item = Token>) -> Command {
     }
 }
 
-fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
-    match tokens.next()? {
-        Token::Text(value) | Token::Quoted(value) => Some(value),
-        Token::ListStart | Token::ListEnd => None,
-    }
+fn next_astring(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
+    tokens.next().and_then(super::token_values::astring_value)
+}
+
+fn next_pattern(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
+    tokens
+        .next()
+        .and_then(super::token_values::list_mailbox_value)
 }
 
 #[cfg(test)]

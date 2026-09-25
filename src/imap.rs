@@ -23,6 +23,9 @@ pub mod idle;
 #[path = "imap/invalid_utf8_tag.rs"]
 pub(crate) mod invalid_utf8_tag;
 pub mod list;
+#[cfg(test)]
+#[path = "imap/list_mailbox_tests.rs"]
+mod list_mailbox_tests;
 #[path = "imap/list_reference.rs"]
 mod list_reference;
 pub mod modified_utf7;

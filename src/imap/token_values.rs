@@ -19,6 +19,15 @@ pub(crate) fn astring_value(token: Token) -> Option<String> {
     }
 }
 
+/// Извлекает list-mailbox: atom-char, wildcard и resp-special либо quoted string.
+pub(crate) fn list_mailbox_value(token: Token) -> Option<String> {
+    match token {
+        Token::Text(value) if valid_list_mailbox(&value) => Some(value),
+        Token::Quoted(value) => Some(value),
+        Token::Text(_) | Token::ListStart | Token::ListEnd => None,
+    }
+}
+
 /// Извлекает только корректный IMAP atom из лексического токена.
 pub(crate) fn atom_value(token: Token) -> Option<String> {
     match token {
@@ -56,6 +65,23 @@ fn valid_astring_atom(value: &str) -> bool {
 fn valid_astring_byte(value: u8) -> bool {
     match (value.is_ascii_graphic(), value) {
         (true, b'(' | b')' | b'{' | b'}' | b'%' | b'*' | b'"' | b'\\') => false,
+        (true, _) => true,
+        (false, _) => false,
+    }
+}
+
+/// Проверяет wire форму RFC `list-char = ATOM-CHAR / list-wildcards / resp-specials`.
+fn valid_list_mailbox(value: &str) -> bool {
+    match value.is_empty() {
+        true => false,
+        false => value.bytes().all(valid_list_mailbox_byte),
+    }
+}
+
+/// LIST расширяет ATOM-CHAR только символами `%`, `*` и закрывающей скобкой.
+fn valid_list_mailbox_byte(value: u8) -> bool {
+    match (value.is_ascii_graphic(), value) {
+        (true, b'(' | b')' | b'{' | b'}' | b'"' | b'\\') => false,
         (true, _) => true,
         (false, _) => false,
     }
