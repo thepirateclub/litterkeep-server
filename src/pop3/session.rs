@@ -1,7 +1,7 @@
 //! POP3 AUTHORIZATION, TRANSACTION и UPDATE без доступа к Store.
 
 use super::listing_reply::{list_reply, uidl_reply};
-use super::{Command, LanguageRequest, Maildrop, SaslInitialResponse, SaslMechanism};
+use super::{Command, DeleteError, LanguageRequest, Maildrop, SaslInitialResponse, SaslMechanism};
 use crate::store::Message;
 
 #[path = "session_sasl.rs"]
@@ -215,9 +215,11 @@ impl Session {
     }
     fn delete(&mut self, number: u32) -> Reply {
         match self.drop_mut() {
-            Some(drop) => drop
-                .delete(number)
-                .map_or_else(Reply::Error, |_| Reply::Ok("marked".into())),
+            Some(drop) => match drop.delete(number) {
+                Ok(()) => Reply::Ok("marked".into()),
+                Err(DeleteError::AlreadyDeleted) => Reply::Error("message already deleted"),
+                Err(DeleteError::NoSuchMessage) => Reply::Error("no such message"),
+            },
             None => Reply::Error("maildrop unavailable"),
         }
     }

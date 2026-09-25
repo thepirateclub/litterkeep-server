@@ -259,28 +259,11 @@ fn maildrop_detects_valid_utf8_after_malformed_octets_without_indexing() {
     assert_eq!(malformed.requires_utf8(Some(1)), Ok(true));
 }
 
-#[test]
-fn retrieve_uidl_reset_and_quit_keep_delete_semantics_explicit() {
-    let mut session = Session::default();
-    let _ = session.apply(parse("USER pop\r\n"));
-    let _ = session.authenticated(vec![message(9, b"Subject: one\r\n\r\n.first\r\nbody")]);
-    assert!(
-        matches!(session.apply(parse("UIDL 1\r\n")), Reply::Ok(value) if value == "1 lk-0000000000000009")
-    );
-    assert!(
-        matches!(session.apply(parse("RETR 1\r\n")), Reply::Message(value) if value.windows(8).any(|part| part == b"..first\r"))
-    );
-    assert!(matches!(session.apply(parse("DELE 1\r\n")), Reply::Ok(_)));
-    assert!(matches!(session.apply(parse("RSET\r\n")), Reply::Ok(_)));
-    assert!(matches!(session.apply(parse("DELE 1\r\n")), Reply::Ok(_)));
-    assert!(
-        matches!(session.apply(parse("QUIT\r\n")), Reply::CommitDeletes(values) if values == vec![9])
-    );
-    assert!(matches!(session.commit_deletes(true), Reply::Ok(_)));
-}
-
 #[path = "listing_tests.rs"]
 mod listing_tests;
+
+#[path = "delete_tests.rs"]
+mod delete_tests;
 
 #[path = "mime_policy_tests.rs"]
 mod mime_policy_tests;

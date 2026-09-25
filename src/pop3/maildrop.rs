@@ -19,6 +19,15 @@ pub struct Maildrop {
     message_profiles: BTreeMap<u64, MessageProfile>,
 }
 
+/// Типизированные причины отказа DELE, соответствующие номеру maildrop.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DeleteError {
+    /// Сообщение с таким номером отсутствует в snapshot.
+    NoSuchMessage,
+    /// RFC 1939 запрещает повторно ссылаться на уже удалённое сообщение.
+    AlreadyDeleted,
+}
+
 impl Maildrop {
     pub fn new(messages: Vec<Message>) -> Self {
         let message_profiles = messages
@@ -95,10 +104,14 @@ impl Maildrop {
         let message = self.message(number)?;
         Ok(dot_stuff(&top_bytes(&message.bytes, body_lines)))
     }
-    pub fn delete(&mut self, number: u32) -> Result<(), &'static str> {
-        self.message(number)?;
-        self.deleted.insert(number);
-        Ok(())
+    pub fn delete(&mut self, number: u32) -> Result<(), DeleteError> {
+        match self.entry(number) {
+            None => Err(DeleteError::NoSuchMessage),
+            Some(_) => match self.deleted.insert(number) {
+                true => Ok(()),
+                false => Err(DeleteError::AlreadyDeleted),
+            },
+        }
     }
     pub fn reset(&mut self) {
         self.deleted.clear();

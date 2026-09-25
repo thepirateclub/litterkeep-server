@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G14
 
+### 2026-09-25: G16 POP3 RFC 1939 repeated DELE checkpoint
+
+- `DELE n` теперь возвращает `-ERR`, если `n` уже отмечен до `RSET`; решение
+  кодируется типизированным `DeleteError`, а не проверкой текста. Это правило
+  RFC 1939 §5, в котором номер удалённого сообщения недопустим для повторной
+  команды DELE.
+- PASS: Windows Rust 1.97.1, 306 тестов, strict Clippy, fmt, Python compile и
+  diff check. Linux Docker test target: strict Clippy и 346 тестов. Независимый
+  Python POP3-клиент отправил два письма по SMTP и проверил отказ повторного
+  DELE, видимость STAT/LIST/UIDL, RSET и durable QUIT. Stage
+  `./data/g16-pop3-dele-repeat-final2`; временный контейнер удалён,
+  `litterkeep-g12-phone` сохранён. Интеграция с приложением Litterkeep не
+  проверялась. G16 остаётся RUNNING.
+
 ### 2026-09-25: G14 RFC 3501 legacy RFC822 section FETCH checkpoint
 
 - Реализованы обязательные для рекламируемого IMAP4rev1 data items

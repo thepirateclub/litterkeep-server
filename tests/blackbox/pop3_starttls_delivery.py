@@ -170,6 +170,14 @@ def deleted_visibility(
     _, second_listing = initial_list
     _, second_uidl = initial_uidl
     client.dele(1)
+    try:
+        client.dele(1)
+    except poplib.error_proto as error:
+        response = next(iter(error.args), b"")
+        if not isinstance(response, bytes) or not response.startswith(b"-ERR"):
+            raise AssertionError(f"duplicate DELE returned an invalid error: {error!r}") from error
+    else:
+        raise AssertionError("duplicate DELE unexpectedly succeeded")
     count, _ = client.stat()
     _, remaining_list, _ = client.list()
     _, remaining_uidl, _ = client.uidl()
