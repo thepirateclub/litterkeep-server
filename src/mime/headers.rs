@@ -100,6 +100,14 @@ pub struct HeaderBlock {
 
 /// Разбирает CRLF header block, объединяя continuation lines одним SP.
 pub fn parse(raw: &[u8]) -> Result<HeaderBlock, &'static str> {
+    // Пустая область заголовков завершается первой CRLF; последующие октеты
+    // сразу принадлежат телу и не требуют второго CRLF.
+    if raw.starts_with(b"\r\n") {
+        return Ok(HeaderBlock {
+            fields: Vec::new(),
+            body_offset: 2,
+        });
+    }
     let separator = raw
         .windows(4)
         .position(|window| window == b"\r\n\r\n")
@@ -222,6 +230,18 @@ mod tests {
         assert_eq!(
             block.fields.first().map(|field| field.value.as_slice()),
             Some(b"invoice".as_slice())
+        );
+    }
+
+    #[test]
+    fn accepts_empty_header_area_and_keeps_body_offset_exact() {
+        let block = parse(b"\r\nbody\r\n").expect("empty header area");
+
+        assert!(block.fields.is_empty());
+        assert_eq!(block.body_offset, 2);
+        assert_eq!(
+            b"\r\nbody\r\n".get(block.body_offset..),
+            Some(b"body\r\n".as_slice())
         );
     }
 }

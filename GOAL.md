@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 empty MIME header area checkpoint
+
+- MIME header parser принимает пустую header area, ограниченную начальной CRLF;
+  body начинается сразу после неё. Это позволяет multipart body-part без
+  заголовков получить контекстный default Content-Type, включая
+  `message/rfc822` в `multipart/digest`; обычный `multipart/mixed` сохраняет
+  default `text/plain`.
+- Тесты проверяют точный raw body offset, untyped digest message и untyped
+  mixed text. Windows Rust 1.97.1: 399 library + 1 binary tests, fmt и strict
+  Clippy PASS. Docker Linux Rust 1.97.1: release build, strict Clippy, 440
+  library + 1 binary + doc-tests PASS. Unit-only, socket acceptance не
+  запускался. Verification image удалён; в Docker оставлен только ранее
+  существовавший `litterkeep-g12-phone`. RFC 2046 §5.1 и §5.1.5 сверены с IETF.
+  G17 RUNNING.
+
 ### 2026-09-25: G17 multipart/digest default media type checkpoint
 
 - RFC 2046 §5.1.5 default для дочерней части `multipart/digest` теперь

@@ -147,9 +147,10 @@ unit-тестами; socket acceptance не запускался.
 `message/rfc822` по RFC 2046 §5.1.5; само вложенное сообщение использует
 `text/plain` default для своего body. В остальных multipart подтипах отсутствие
 Content-Type по-прежнему даёт `text/plain`. Типизация и вложенные ranges
-проверены unit-тестами; socket acceptance не запускался. MIME body part без
-разделителя заголовков пока не принимается, поэтому этот сценарий не включён в
-покрытие.
+проверены unit-тестами. MIME body-part с пустой областью заголовков теперь
+принимается: первая CRLF завершает header area, а последующие октеты точно
+сохраняются как body. Проверено unit-тестом и MIME tree ranges; socket
+acceptance не запускался.
 Отсутствующий или синтаксически повреждённый `Content-Type` получает
 рекомендуемый RFC 2045 §5.2 fallback `text/plain`/US-ASCII; сырой MIME header
 не переписывается. Duplicate Content-Type отклоняется как неоднозначный ввод.

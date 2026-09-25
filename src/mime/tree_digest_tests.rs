@@ -4,7 +4,7 @@ use super::{MediaType, parse};
 
 #[test]
 fn multipart_digest_defaults_untyped_children_to_message_rfc822() {
-    let raw = b"Content-Type: multipart/digest; boundary=x\r\n\r\n--x\r\nContent-Transfer-Encoding: 7bit\r\n\r\nSubject: nested\r\n\r\nmessage body\r\n--x--\r\n";
+    let raw = b"Content-Type: multipart/digest; boundary=x\r\n\r\n--x\r\n\r\nSubject: nested\r\n\r\nmessage body\r\n--x--\r\n";
     let tree = parse(raw).expect("multipart digest");
     let child = tree.children.first().expect("digest child");
 
@@ -18,7 +18,8 @@ fn multipart_digest_defaults_untyped_children_to_message_rfc822() {
 
 #[test]
 fn untyped_multipart_mixed_child_stays_plain_text() {
-    let raw = b"Content-Type: multipart/mixed; boundary=x\r\n\r\n--x\r\nContent-Transfer-Encoding: 7bit\r\n\r\nplain body\r\n--x--\r\n";
+    let raw =
+        b"Content-Type: multipart/mixed; boundary=x\r\n\r\n--x\r\n\r\nplain body\r\n--x--\r\n";
     let tree = parse(raw).expect("multipart mixed");
     let child = tree.children.first().expect("mixed child");
 
