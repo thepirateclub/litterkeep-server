@@ -4,6 +4,25 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 RFC 5321 outbound SMTP transparency checkpoint
+
+- RFC 5321 §4.5.2 требует удваивать точку в начале каждой строки SMTP DATA,
+  чтобы содержимое не могло завершить транзакцию раньше времени. Общий
+  `outbound::write_data` теперь применяет transparency и передаёт DATA
+  terminator отдельно; обычный и TLS transport используют этот путь.
+- Добавлены unit regression и независимый
+  `tests/blackbox/smtp_outbound_dot_transparency.py`: Linux CLI отправляет
+  message fixture на отдельный SMTP peer со строками `.`, `..two` и `.end`;
+  peer снимает dot-stuffing и подтверждает точное совпадение octets плюс
+  корректный завершающий CRLF.
+- PASS: Windows targeted unit test, `cargo fmt --check`, Python compile и diff
+  check. Linux Docker Rust 1.97 test target пересобран: strict Clippy, 493
+  library + 1 binary test и doc-tests; независимый SMTP peer acceptance PASS.
+  Litterkeep-клиент не проверялся. Временные Docker images удалены, контейнеров
+  этапа не создавалось; `litterkeep-g12-phone` сохранён. Fixture находится в
+  `./data/g17-sieve-vacation-qp-encoder-final`.
+- G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 outbound quoted-printable vacation wire checkpoint
 
 - Добавлен независимый `tests/blackbox/sieve_vacation_qp_encoder.py`. Через

@@ -60,6 +60,13 @@ fn smtp_data_terminator_does_not_add_an_empty_body_line() {
     assert_eq!(wire, b"body\r\n.\r\n");
 }
 
+#[test]
+fn smtp_data_stuffs_only_lines_that_begin_with_a_dot() {
+    let mut wire = Vec::new();
+    outbound::write_data(&mut wire, b"header\r\n\r\n.\r\n..text\r\n").expect("DATA write");
+    assert_eq!(wire, b"header\r\n\r\n..\r\n...text\r\n.\r\n");
+}
+
 fn run_rejecting_peer(reply: &str) -> DeliveryOutcome {
     let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
     let address = listener.local_addr().expect("address");

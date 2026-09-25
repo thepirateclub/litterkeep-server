@@ -140,10 +140,21 @@ impl Connection {
 
 /// Передаёт DATA с ровно одним завершающим CRLF перед SMTP terminator.
 pub(crate) fn write_data(writer: &mut impl Write, message: &[u8]) -> io::Result<()> {
-    writer.write_all(message)?;
-    if !message.ends_with(b"\r\n") {
-        writer.write_all(b"\r\n")?;
+    let mut stuffed = Vec::with_capacity(message.len().saturating_add(16));
+    let mut line_start = true;
+    let mut previous_was_cr = false;
+    for byte in message.iter().copied() {
+        if line_start && byte == b'.' {
+            stuffed.push(b'.');
+        }
+        stuffed.push(byte);
+        line_start = previous_was_cr && byte == b'\n';
+        previous_was_cr = byte == b'\r';
     }
+    if !stuffed.ends_with(b"\r\n") {
+        stuffed.extend_from_slice(b"\r\n");
+    }
+    writer.write_all(&stuffed)?;
     writer.write_all(b".\r\n")
 }
 
