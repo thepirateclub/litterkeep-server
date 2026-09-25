@@ -102,11 +102,40 @@ def main():
             250,
             "source-routed durable delivery",
         )
+        for mailbox in (
+            "alice@[192.0.2.1]",
+            '"alice"@[IPv6:2001:db8::1]',
+            '"alice"@[ipv6:::ffff:192.0.2.1]',
+            "alice@[IPv6:::ffff:192.000.2.1]",
+        ):
+            expect_reply(
+                client.mail(mailbox),
+                553,
+                f"syntactically valid non-local sender {mailbox!r}",
+            )
+        for mailbox in ("bob@[192.0.2.1]", '"bob"@[IPv6:2001:db8::1]'):
+            expect_reply(client.mail("alice@litterkeep.test"), 250, "local sender")
+            expect_reply(
+                client.rcpt(mailbox),
+                550,
+                f"syntactically valid non-local recipient {mailbox!r}",
+            )
+            expect_reply(client.rset(), 250, "RSET after non-local literal recipient")
+        expect_reply(
+            send_path_command(client, "MAIL FROM:", "alice@[256.0.0.1]"),
+            501,
+            "malformed IPv4 address literal",
+        )
+        expect_reply(
+            send_path_command(client, "MAIL FROM:", "alice@[IPv6:2001:db8:::1]"),
+            501,
+            "malformed IPv6 address literal",
+        )
     verify_mailbox_delivery()
 
     print(
         "PASS smtp-mailbox-syntax: malformed paths rejected; quoted addresses "
-        "and ignored source routes delivered"
+        "and ignored source routes delivered; IPv4/IPv6 literals reached policy"
     )
 
 

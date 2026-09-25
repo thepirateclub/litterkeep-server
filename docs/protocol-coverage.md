@@ -34,8 +34,16 @@ peer нашёл письмо в INBOX Bob. Устаревший SMTP source-rout
 что конечный mailbox получает письмо, а route не включает forwarding.
 Пустые или неверно разделённые dot-atom точки, пустые доменные labels,
 не-ASCII домены и DNS labels длиннее 63 октетов отклоняются как syntax error.
-Address literals и SMTPUTF8 по-прежнему не поддержаны и не объявляются
-совместимыми.
+IPv4 address-literals и зарегистрированный `IPv6:` tag проверяются отдельно от
+DNS-domain грамматики: десятичные IPv4 octets ограничены диапазоном 0..255,
+IPv6 включая сжатую и IPv4-embedded форму проверяется стандартным Rust IP
+parser-ом. Невалидный IP и незарегистрированный tag получают syntax error.
+Корректные literals доходят до политики: они не совпадают с локальными доменами,
+поэтому sender получает 553, recipient 550, без relay. Это покрывает только
+текущий IPv4/IPv6 синтаксис и не утверждает, что произвольные будущие tags
+поддержаны. Проверенный набор стандартизованных tags сверяется с
+[реестром IANA](https://www.iana.org/assignments/smtp/#smtp-address-literal-tags).
+SMTPUTF8 по-прежнему не поддержан.
 RFC 5321 Postmaster принимается как bare `<Postmaster>` без домена и как
 `postmaster@domain` для локально обслуживаемых доменов; регистр reserved local
 name и домена не влияет на route. Независимый STARTTLS тест отправил DATA и

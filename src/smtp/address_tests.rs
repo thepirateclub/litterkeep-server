@@ -73,6 +73,29 @@ fn accepts_and_canonicalizes_rfc_quoted_local_parts() {
 }
 
 #[test]
+fn accepts_rfc_ipv4_and_tagged_ipv6_address_literals() {
+    for mailbox in [
+        "alice@[192.0.2.1]",
+        "alice@[001.002.003.004]",
+        "\"alice\"@[255.255.255.255]",
+        "alice@[IPv6:2001:db8::1]",
+        "\"alice\"@[ipv6:::ffff:192.0.2.1]",
+        "alice@[IPv6:::ffff:192.000.2.1]",
+        "alice@[IPv6:::ffff:192.000.2.1]",
+    ] {
+        assert_eq!(
+            classify_mailbox(mailbox),
+            MailboxForm::AddressLiteral,
+            "{mailbox}"
+        );
+    }
+    assert_eq!(
+        canonical_parts("\"alice\"@[IPv6:2001:db8::1]"),
+        Some(("alice".to_owned(), "[IPv6:2001:db8::1]"))
+    );
+}
+
+#[test]
 fn rejects_malformed_or_oversized_quoted_local_parts() {
     for mailbox in [
         "\"unterminated@test",

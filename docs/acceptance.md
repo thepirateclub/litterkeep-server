@@ -20,6 +20,14 @@ T82 проверяет устаревшую форму SMTP source-route из RF
 внешняя пересылка по source-route не выполняется. Это не проверка
 взаимодействия с Litterkeep app.
 
+T83 проверяет IPv4 и зарегистрированную tagged IPv6 форму в MAIL FROM и
+RCPT TO. Независимый STARTTLS клиент различает malformed literal (`501`) и
+синтаксически корректный, но не локальный адрес (`553` для sender и `550` для
+recipient); это подтверждает прохождение parser-а без ослабления локальной
+маршрутизации или включения relay. В тех же запусках source-routed доставка и
+чтение обычного письма Bob через IMAP STARTTLS остаются рабочими. Сценарий:
+`tests/blackbox/smtp_mailbox_syntax.py`.
+
 ## Чистый G12 прогон
 
 На новом container-local `/data` bootstrap создал четыре аккаунта. Повтор не

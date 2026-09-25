@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 SMTP RFC 5321 address-literal syntax
+
+- SMTP mailbox grammar now accepts IPv4 address-literals and registered tagged
+  IPv6 address-literals (including compressed and IPv4-embedded IPv6). IPv4
+  octets are decimal 0..255 with 1..3 digits; malformed literals and unregistered
+  tags are syntax errors. Correct literals retain their domain form through
+  parsing but do not match a configured local domain or enable relay.
+- PASS: Windows Rust 1.97.1 `cargo test --locked` (494 library + 1 binary),
+  strict Clippy, fmt, Python compile and diff check. Linux Docker Rust 1.97:
+  release, strict Clippy, 537 library + 1 binary tests and doc-tests. Independent
+  STARTTLS SMTP/IMAP test confirms valid IPv4/IPv6 paths reach sender/recipient
+  policy (553/550), malformed IPv4 gets 501, and quoted/source-routed messages
+  still reach Bob's INBOX.
+- Temporary runtime container and test image were removed; `litterkeep-g12-phone`
+  remains. Fixture: `./data/g17-smtp-address-literals`. Litterkeep app was not
+  tested; SMTPUTF8 and general unregistered literal tags remain unsupported.
+  G17 remains active; the full SMTP profile is not complete.
+
 ### 2026-09-25: G17 SMTP RFC 5321 source-route compatibility
 
 - SMTP MAIL FROM и RCPT TO распознают устаревший `@domain,@domain:mailbox`

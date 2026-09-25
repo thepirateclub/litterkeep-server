@@ -1,4 +1,4 @@
-//! Грамматика ASCII SMTP mailbox для dot-atom и quoted local-part.
+//! Грамматика ASCII SMTP mailbox и локальных частей SMTP пути.
 
 /// Форма mailbox после синтаксической проверки SMTP адреса.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -6,7 +6,16 @@ pub(super) enum MailboxForm {
     NullReversePath,
     DotAtom,
     QuotedLocalPart,
+    AddressLiteral,
     BarePostmaster,
+    Invalid,
+}
+
+/// Типизированный результат проверки доменной части SMTP mailbox.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum DomainForm {
+    DnsName,
+    AddressLiteral,
     Invalid,
 }
 
@@ -28,9 +37,9 @@ pub(crate) fn canonical_parts(mailbox: &str) -> Option<(String, &str)> {
     let (local_part, suffix) = mailbox.split_at(separator);
     let domain = suffix.strip_prefix('@')?;
     let canonical_local = canonical_local_part(local_part)?;
-    match valid_domain(domain) {
-        true => Some((canonical_local, domain)),
-        false => None,
+    match domain_form(domain) {
+        DomainForm::DnsName | DomainForm::AddressLiteral => Some((canonical_local, domain)),
+        DomainForm::Invalid => None,
     }
 }
 
@@ -129,12 +138,25 @@ fn mailbox_form(mailbox: &str) -> Option<MailboxForm> {
     let separator = at_separator(mailbox)?;
     let (local_part, suffix) = mailbox.split_at(separator);
     let domain = suffix.strip_prefix('@')?;
-    if !valid_domain(domain) {
-        return None;
-    }
-    match local_part.strip_prefix('"') {
+    let local_form = match local_part.strip_prefix('"') {
         Some(_) => canonical_local_part(local_part).map(|_| MailboxForm::QuotedLocalPart),
         None => valid_local_part(local_part).then_some(MailboxForm::DotAtom),
+    }?;
+    match domain_form(domain) {
+        DomainForm::DnsName => Some(local_form),
+        DomainForm::AddressLiteral => Some(MailboxForm::AddressLiteral),
+        DomainForm::Invalid => None,
+    }
+}
+
+/// Разбирает имя или address-literal и возвращает typed protocol form.
+fn domain_form(domain: &str) -> DomainForm {
+    match valid_domain(domain) {
+        true => DomainForm::DnsName,
+        false => match super::address_literal::parse_domain(domain) {
+            super::address_literal::LiteralForm::Valid => DomainForm::AddressLiteral,
+            super::address_literal::LiteralForm::Invalid => DomainForm::Invalid,
+        },
     }
 }
 

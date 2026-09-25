@@ -2,6 +2,8 @@
 
 #[path = "address.rs"]
 mod address;
+#[path = "address_literal.rs"]
+mod address_literal;
 pub(crate) use address::canonical_parts;
 
 /// Команда SMTP после разбора wire-строки без потери ESMTP параметров.
@@ -179,6 +181,7 @@ fn parse_path<'a>(
         (PathKind::Reverse, address::MailboxForm::NullReversePath)
         | (_, address::MailboxForm::DotAtom)
         | (_, address::MailboxForm::QuotedLocalPart)
+        | (_, address::MailboxForm::AddressLiteral)
         | (PathKind::Forward, address::MailboxForm::BarePostmaster) => {}
         _ => return Err(ParseError::Syntax),
     }

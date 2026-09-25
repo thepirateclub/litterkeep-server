@@ -92,6 +92,26 @@ fn source_route_is_accepted_and_ignored_for_both_path_kinds() {
 }
 
 #[test]
+fn parses_address_literals_in_both_mailbox_path_kinds() {
+    assert_eq!(
+        parse("MAIL FROM:<alice@[192.0.2.1]>\r\n"),
+        Ok(Command::Mail(MailFrom {
+            reverse_path: "alice@[192.0.2.1]".into(),
+            declared_size: None,
+            body_mode: BodyMode::SevenBit,
+        }))
+    );
+    assert_eq!(
+        parse("RCPT TO:<\"bob\"@[IPv6:2001:db8::1]>\r\n"),
+        Ok(Command::Rcpt("\"bob\"@[IPv6:2001:db8::1]".into()))
+    );
+    assert_eq!(
+        parse("RCPT TO:<bob@[256.0.0.1]>\r\n"),
+        Err(ParseError::Syntax)
+    );
+}
+
+#[test]
 fn accepts_empty_reverse_path_but_requires_recipient_path() {
     assert_eq!(
         parse("MAIL FROM:<>\r\n"),
