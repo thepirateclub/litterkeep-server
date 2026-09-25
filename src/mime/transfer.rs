@@ -43,16 +43,62 @@ impl TransferEncoding {
     pub fn decode(&self, body: &[u8]) -> Result<Vec<u8>, &'static str> {
         match self {
             Self::SevenBit => {
-                if !body.is_ascii() {
-                    return Err("non-ASCII octet in 7bit MIME body");
-                }
+                validate_line_data(body, LineDataProfile::SevenBit)?;
                 Ok(body.to_vec())
             }
-            Self::EightBit | Self::Binary => Ok(body.to_vec()),
+            Self::EightBit => {
+                validate_line_data(body, LineDataProfile::EightBit)?;
+                Ok(body.to_vec())
+            }
+            Self::Binary => Ok(body.to_vec()),
             Self::Base64 => decode_mime_base64(body),
             Self::QuotedPrintable => quoted_printable::decode(body),
             Self::Unsupported(_) => Err("unsupported Content-Transfer-Encoding"),
         }
+    }
+}
+
+/// Ограничения RFC 2045 для 7bit и 8bit MIME-данных.
+#[derive(Clone, Copy)]
+enum LineDataProfile {
+    SevenBit,
+    EightBit,
+}
+
+/// Проверяет CRLF, NUL, ширину строки и допустимый диапазон октетов за O(n).
+fn validate_line_data(body: &[u8], profile: LineDataProfile) -> Result<(), &'static str> {
+    let mut cursor = 0_usize;
+    let mut line_octets = 0_usize;
+    while let Some(byte) = body.get(cursor).copied() {
+        match byte {
+            0 => return Err("NUL in MIME line data"),
+            b'\r' => {
+                let Some(b'\n') = body.get(cursor.saturating_add(1)).copied() else {
+                    return Err("bare CR in MIME line data");
+                };
+                cursor = cursor.saturating_add(2);
+                line_octets = 0;
+            }
+            b'\n' => return Err("bare LF in MIME line data"),
+            0x80..=u8::MAX => match profile {
+                LineDataProfile::SevenBit => return Err("non-ASCII octet in 7bit MIME body"),
+                LineDataProfile::EightBit => advance_line(&mut cursor, &mut line_octets)?,
+            },
+            _ => advance_line(&mut cursor, &mut line_octets)?,
+        }
+    }
+    Ok(())
+}
+
+/// Добавляет один data octet к текущей MIME line, не превышая RFC предел.
+fn advance_line(cursor: &mut usize, line_octets: &mut usize) -> Result<(), &'static str> {
+    match line_octets.saturating_add(1) {
+        0..=998 => {
+            *line_octets = line_octets.saturating_add(1);
+            *cursor = cursor.saturating_add(1);
+            Ok(())
+        }
+        _ => Err("MIME line exceeds 998 octets"),
     }
 }
 
@@ -75,5 +121,25 @@ mod tests {
             "café".as_bytes()
         );
         assert!(TransferEncoding::SevenBit.decode(b"\xff").is_err());
+    }
+
+    #[test]
+    fn seven_bit_and_eight_bit_enforce_rfc_line_data_rules() {
+        let legal_seven_bit = vec![b'a'; 998];
+        assert_eq!(
+            TransferEncoding::SevenBit.decode(&legal_seven_bit),
+            Ok(legal_seven_bit)
+        );
+        assert!(TransferEncoding::SevenBit.decode(&vec![b'a'; 999]).is_err());
+        assert!(TransferEncoding::SevenBit.decode(b"a\0b").is_err());
+        assert!(TransferEncoding::SevenBit.decode(b"a\rb").is_err());
+        assert!(TransferEncoding::SevenBit.decode(b"a\nb").is_err());
+
+        assert_eq!(
+            TransferEncoding::EightBit.decode(b"\xff\r\ntext"),
+            Ok(b"\xff\r\ntext".to_vec())
+        );
+        assert!(TransferEncoding::EightBit.decode(b"\xff\0").is_err());
+        assert!(TransferEncoding::EightBit.decode(&vec![b'x'; 999]).is_err());
     }
 }

@@ -4,6 +4,18 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 MIME 7bit and 8bit line profile checkpoint
+
+- MIME `7bit` и `8bit` transfer decoders теперь проверяют 998-октетную ширину
+  строк, CRLF framing и запрет NUL. Только `8bit` разрешает high-bit octets;
+  `binary` сохраняет любой поток без преобразования. Проверка линейная и не
+  копирует данные до успешной валидации.
+- Windows Rust 1.97.1: 396 library + 1 binary tests, fmt и strict Clippy PASS.
+  Docker Linux Rust 1.97.1: release build, strict Clippy, 437 library + 1 binary
+  + doc-tests PASS. Socket acceptance не запускался. `docker build --rm` stage
+  завершён; inventory будет отражён после проверки. RFC 2045 §§2.7-2.8 сверены
+  с IETF Datatracker. G17 RUNNING.
+
 ### 2026-09-25: G17 quoted-printable soft-break padding checkpoint
 
 - Quoted-printable decoder распознаёт буквальные SP/TAB перед `=CRLF` как
