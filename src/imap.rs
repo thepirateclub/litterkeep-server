@@ -2,6 +2,9 @@
 
 pub mod append;
 pub mod authenticate;
+#[cfg(test)]
+#[path = "imap/command_structure_tests.rs"]
+mod command_structure_tests;
 mod command_verb;
 pub mod copy;
 #[cfg(test)]
@@ -198,7 +201,7 @@ fn parse_tokens(line: &str, result: Result<Vec<Token>, &'static str>) -> TaggedC
         Some(Token::Text(tag)) if tokenizer::valid_tag(&tag) => tag,
         _ => return unsupported("*"),
     };
-    let command = match next_text(&mut tokens).as_deref().map(parse_verb) {
+    let command = match next_atom(&mut tokens).as_deref().map(parse_verb) {
         Some(Verb::Capability) => parse_empty(tokens, Command::Capability),
         Some(Verb::Namespace) => parse_empty(tokens, Command::Namespace),
         Some(Verb::Enable) => enable::parse(tokens),
@@ -231,7 +234,7 @@ fn parse_tokens(line: &str, result: Result<Vec<Token>, &'static str>) -> TaggedC
         Some(Verb::Fetch) => fetch::parse(&mut tokens, Addressing::Sequence),
         Some(Verb::Store) => flags::parse_store(&mut tokens, Addressing::Sequence),
         Some(Verb::Search) => search::parse(tokens, Addressing::Sequence),
-        Some(Verb::Uid) => match next_text(&mut tokens).as_deref().map(parse_verb) {
+        Some(Verb::Uid) => match next_atom(&mut tokens).as_deref().map(parse_verb) {
             Some(Verb::Fetch) => fetch::parse(&mut tokens, Addressing::Uid),
             Some(Verb::Store) => flags::parse_store(&mut tokens, Addressing::Uid),
             Some(Verb::Search) => search::parse(tokens, Addressing::Uid),
@@ -246,7 +249,7 @@ fn parse_tokens(line: &str, result: Result<Vec<Token>, &'static str>) -> TaggedC
 }
 
 fn parse_uid_expunge(mut tokens: impl Iterator<Item = Token>) -> Command {
-    match (next_text(&mut tokens), tokens.next()) {
+    match (next_atom(&mut tokens), tokens.next()) {
         (Some(value), None) => sequence_set::MessageSet::parse(&value)
             .map(|sequence_set| Command::UidExpunge { sequence_set })
             .unwrap_or(Command::Unsupported),
@@ -272,10 +275,17 @@ fn parse_empty(mut tokens: impl Iterator<Item = Token>, command: Command) -> Com
 }
 
 pub(super) fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
-    tokens.find_map(|token| match token {
+    match tokens.next()? {
         Token::Text(value) | Token::Quoted(value) => Some(value),
         Token::ListStart | Token::ListEnd => None,
-    })
+    }
+}
+
+fn next_atom(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
+    match tokens.next()? {
+        Token::Text(value) => Some(value),
+        Token::Quoted(_) | Token::ListStart | Token::ListEnd => None,
+    }
 }
 
 fn unsupported(tag: &str) -> TaggedCommand {

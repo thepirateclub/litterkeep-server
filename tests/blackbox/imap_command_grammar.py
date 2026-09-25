@@ -38,6 +38,7 @@ def main() -> None:
     require_untagged_bad_plus_tag(client)
     require_bad_tab_separator(client)
     require_bad_quote_inside_atom(client)
+    require_bad_structural_command_verbs(client)
     require(client.noop(), ImapStatus.OK)
     if options.credentials is not None:
         password = password_for(options.credentials, "bob")
@@ -136,6 +137,18 @@ def require_bad_quote_inside_atom(client: imaplib.IMAP4) -> None:
     response = client.readline()
     if not response.startswith(b"A18 BAD "):
         raise AssertionError(f'quote inside atom response: {response!r}')
+
+
+def require_bad_structural_command_verbs(client: imaplib.IMAP4) -> None:
+    """Проверяет обязательный atom verb без пропуска скобок и quoted-string."""
+    for command, expected in (
+        (b"A19 (NOOP)\r\n", b"A19 BAD "),
+        (b'A20 "NOOP"\r\n', b"A20 BAD "),
+    ):
+        client.send(command)
+        response = client.readline()
+        if not response.startswith(expected):
+            raise AssertionError(f"invalid command verb form: {response!r}")
 
 
 def require_bad(client: imaplib.IMAP4, verb: str) -> None:

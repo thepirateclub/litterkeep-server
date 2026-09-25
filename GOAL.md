@@ -4,6 +4,18 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G17 command verb token boundaries, PASS
+
+- Top-level IMAP argument extraction no longer skips list delimiters; command
+  verbs and UID subcommands require atom tokens instead of quoted strings.
+  Added parser regressions and independent wire cases for both invalid forms.
+- PASS: Windows Rust 1.97.1 strict Clippy, 523 library + 1 binary tests, fmt,
+  Python syntax and diff checks. Linux Docker Rust 1.97 strict Clippy, 570
+  library + 1 binary tests and doc-tests; independent STARTTLS acceptance
+  rejected parenthesized and quoted NOOP verbs with tagged BAD and continued
+  the session successfully. Temporary image and container removed; fixture
+  `./data/g17-imap-malformed-utf8` preserved. G17 remains ACTIVE.
+
 ### 2026-09-26: G17 корректная грамматика command tag, PASS
 
 - Предыдущее исключение `]` из command tag было ошибочным: RFC 9051 tag

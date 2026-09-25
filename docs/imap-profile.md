@@ -87,6 +87,12 @@ RFC 9051 `tag` production, not generic `atom`: `]` is accepted as a response
 special and `+` is excluded. Unit and STARTTLS wire acceptance cover valid tag,
 error correlation, and safe fallback for the excluded character.
 
+G17 command boundary checkpoint (2026-09-26): argument extraction no longer
+skips list delimiter tokens. Command verbs and UID subcommands require atom
+tokens, so parenthesized or quoted `NOOP` cannot be accepted as a command.
+Parser tests and independent STARTTLS acceptance verify tagged BAD and session
+recovery. This does not yet make the generic lexer enforce every atom-special.
+
 CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-USE`,
 `NAMESPACE`, `UNSELECT`, `ENABLE`, `ESEARCH` и `SEARCHRES`. ENABLE игнорирует
 неизвестные и пока не поддерживаемые расширения по RFC и возвращает пустой
