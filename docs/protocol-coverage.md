@@ -100,7 +100,10 @@ SEARCH использует UTF-8 по умолчанию и поддержив�
 неподдерживаемая кодировка возвращает `NO [BADCHARSET ...]`, а Unicode-criteria
 при US-ASCII отвергаются ответом NO. `BODY`/`TEXT` декодируют Base64 и
 quoted-printable текстовые MIME parts с US-ASCII, UTF-8, ISO-8859-1,
-Windows-1251 или Windows-1252; RFC 2047 encoded words декодируются в outer и
+Windows-1251 или Windows-1252; UTF-16, UTF-16BE и UTF-16LE также реализованы
+для RFC 2047 encoded words и RFC 2231 extended parameters, но не используются
+для поиска в `text/*` body parts согласно RFC 2781. RFC 2047 encoded words
+декодируются в outer и
 MIME-part headers только как полные токены в начале field-body или после LWS.
 Embedded и слитные формы остаются raw text; это новое правило пока unit-only.
 RFC 2047 encoded-word и RFC 2231 extended parameter также декодируют UTF-16,

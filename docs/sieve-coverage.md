@@ -118,8 +118,10 @@ filename continuation. Сетевой MIME acceptance этих новых гра
 RFC 2231 extended payload decoder принимает только attribute-char или
 percent-encoded octets с uppercase hex digits; проверяются mixed encoded и
 unencoded continuation segments. Charset декодируется явным allowlist из
-пяти профилей (US-ASCII, UTF-8, ISO-8859-1, Windows-1251 и Windows-1252).
-Language tag сейчас разделяется, но не сохраняется и не
+восьми профилей: US-ASCII, UTF-8, ISO-8859-1, Windows-1251, Windows-1252,
+UTF-16, UTF-16BE и UTF-16LE. Три UTF-16 профиля используются в RFC 2047 и
+RFC 2231, но исключены из декодирования MIME `text/*` при поиске согласно
+RFC 2781. Language tag сейчас разделяется, но не сохраняется и не
 валидируется; пустой/неподдерживаемый charset невозможно представить через
 Unicode API и он отвергается. Новые RFC 2231 regressions unit-only.
 
