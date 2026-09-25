@@ -65,11 +65,15 @@ fn parse_entity(
         .map(|field| TransferEncoding::parse(&field.value))
         .try_fold(
             TransferEncoding::SevenBit,
-            |selected: TransferEncoding, parsed| match (selected, parsed?) {
-                (TransferEncoding::Binary, _) | (_, TransferEncoding::Binary) => {
-                    Ok(TransferEncoding::Binary)
+            |selected: TransferEncoding, parsed| {
+                let parsed = parsed?;
+                validate_composite_transfer(&structured.media_type, &parsed)?;
+                match (selected, parsed) {
+                    (TransferEncoding::Binary, _) | (_, TransferEncoding::Binary) => {
+                        Ok(TransferEncoding::Binary)
+                    }
+                    (_, other) => Ok(other),
                 }
-                (_, other) => Ok(other),
             },
         )?;
     let boundary = structured.parameters.get("boundary").cloned();
@@ -123,6 +127,37 @@ fn parse_entity(
         preamble_range,
         epilogue_range,
     })
+}
+
+/// Проверяет запрет RFC 2045 §6.4 на преобразующий CTE у composite entity.
+fn validate_composite_transfer(
+    media_type: &MediaType,
+    transfer_encoding: &TransferEncoding,
+) -> Result<(), &'static str> {
+    match is_composite(media_type) {
+        false => Ok(()),
+        true => match transfer_encoding {
+            TransferEncoding::SevenBit | TransferEncoding::EightBit | TransferEncoding::Binary => {
+                Ok(())
+            }
+            TransferEncoding::Base64
+            | TransferEncoding::QuotedPrintable
+            | TransferEncoding::Unsupported(_) => Err("encoded composite MIME entity is forbidden"),
+        },
+    }
+}
+
+/// Классифицирует все multipart и message типы через разобранный enum.
+fn is_composite(media_type: &MediaType) -> bool {
+    matches!(
+        media_type,
+        MediaType::MultipartMixed
+            | MediaType::MultipartAlternative
+            | MediaType::MultipartRelated
+            | MediaType::MultipartOther(_)
+            | MediaType::MessageRfc822
+            | MediaType::MessageOther(_)
+    )
 }
 
 impl Entity {
@@ -188,5 +223,30 @@ mod tests {
         let entity = parse(raw).expect("message entity");
         let nested = entity.children.first().expect("nested entity");
         assert_eq!(raw.get(nested.body_range.clone()), Some(b"body".as_slice()));
+    }
+
+    #[test]
+    fn rejects_transforming_and_unknown_cte_on_composite_entities() {
+        for content_type in ["multipart/mixed; boundary=x", "message/partial"] {
+            for transfer_encoding in ["base64", "quoted-printable", "x-private"] {
+                let raw = format!(
+                    "Content-Type: {content_type}\r\nContent-Transfer-Encoding: {transfer_encoding}\r\n\r\nbody"
+                );
+                assert!(
+                    parse(raw.as_bytes()).is_err(),
+                    "accepted {content_type} with {transfer_encoding}"
+                );
+            }
+        }
+
+        let duplicate = b"Content-Type: multipart/mixed; boundary=x\r\nContent-Transfer-Encoding: base64\r\nContent-Transfer-Encoding: 8bit\r\n\r\nbody";
+        assert!(parse(duplicate).is_err());
+    }
+
+    #[test]
+    fn permits_identity_cte_on_multipart_entity() {
+        let raw = b"Content-Type: multipart/mixed; boundary=x\r\nContent-Transfer-Encoding: 8bit\r\n\r\n--x\r\nContent-Type: text/plain\r\n\r\nbody\r\n--x--\r\n";
+
+        assert!(parse(raw).is_ok());
     }
 }

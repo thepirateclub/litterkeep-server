@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 MIME composite transfer-encoding checkpoint
+
+- MIME tree parser сверяет CTE каждого multipart/message entity с RFC 2045 §6.4:
+  разрешены только 7bit/8bit/binary. Base64, quoted-printable и unknown CTE
+  отклоняются до разборки вложенных byte ranges; повторный недопустимый CTE
+  нельзя скрыть последующим допустимым полем. Валидный multipart/8bit остаётся
+  читаемым.
+- Unit tests покрывают multipart и message/partial с запрещёнными значениями,
+  duplicate-CTE bypass и допустимый 8bit. Новые проверки unit-only; независимый
+  сетевой MIME/FETCH клиент для этой ошибки не запускался. PASS: Windows Rust
+  1.97.1 full suite (377 библиотечных тестов, 1 тест бинаря), strict Clippy,
+  fmt и diff-check; Docker Linux Rust 1.97.1 release build, strict Clippy,
+  418 библиотечных тестов, 1 тест бинаря и doc-tests. После проверки Docker
+  оставлен только контейнер `litterkeep-g12-phone`; временных контейнеров нет.
+- RFC 2045 §6.4 сверена с IETF Datatracker. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 2047 header-token recognition checkpoint
 
 - Unstructured-header projection распознаёт encoded-word только в начале

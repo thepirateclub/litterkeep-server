@@ -109,6 +109,10 @@ application/octet-stream вложение, а TEXT включает decoded oute
 Неизвестная charset и невалидная transfer encoding не сравниваются как raw
 octets. Если у текстовой MIME-части неизвестный Content-Transfer-Encoding,
 SEARCH завершается tagged `NO [UNKNOWN-CTE]` без частичного результата.
+MIME tree отвергает Base64, quoted-printable и неизвестный CTE на всех
+multipart/message composite entities согласно RFC 2045 §6.4; каждое повторное
+поле CTE проверяется отдельно, чтобы позднее 8bit не маскировало нарушение.
+Новые проверки parser-а unit-only.
 RFC 5322 address groups разбираются в типизированные start/member/end элементы:
 FETCH ENVELOPE выдаёт group marker (`NIL NIL group NIL`), mailbox участников
 и end marker (`NIL NIL NIL NIL`), включая пустую группу. SEARCH FROM/TO/CC/BCC
