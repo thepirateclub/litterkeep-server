@@ -21,7 +21,7 @@ pub(crate) use data::has_8bit_body;
 pub(crate) use data::{validate_data, write_data};
 pub(crate) use ehlo::{EhloCapabilities, EhloExtension, SizeAdvertisement, read_ehlo};
 pub(crate) use mail::{MailCommand, build_mail_command};
-pub(crate) use reply::read_reply_line;
+pub(crate) use reply::{ReplyExpectation, read_reply_line};
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const IO_TIMEOUT: Duration = Duration::from_secs(10);
@@ -54,6 +54,7 @@ pub(crate) enum ReplyClass {
     Positive,
     Transient,
     Permanent,
+    Unexpected,
 }
 
 /// Результат SMTP transaction, который очередь переводит в durable state.
@@ -97,7 +98,7 @@ impl Connection {
             writer: stream,
             capabilities: EhloCapabilities::default(),
         };
-        result.expect_positive()?;
+        expect_success(&mut result.reader, ReplyExpectation::Greeting)?;
         result.command("EHLO litterkeep.test\r\n")?;
         result.capabilities = read_ehlo(&mut result.reader)?;
         Ok(result)
@@ -118,20 +119,20 @@ impl Connection {
             MailCommand::PermanentFailure => return Ok(DeliveryOutcome::PermanentFailure),
         };
         self.command(&mail_command)?;
-        if let Some(outcome) = expect(&mut self.reader)? {
+        if let Some(outcome) = expect(&mut self.reader, ReplyExpectation::Mail)? {
             return Ok(outcome);
         }
         self.command(&format!("RCPT TO:<{recipient}>\r\n"))?;
-        if let Some(outcome) = expect(&mut self.reader)? {
+        if let Some(outcome) = expect(&mut self.reader, ReplyExpectation::Recipient)? {
             return Ok(outcome);
         }
         self.command("DATA\r\n")?;
-        if let Some(outcome) = expect(&mut self.reader)? {
+        if let Some(outcome) = expect(&mut self.reader, ReplyExpectation::Data)? {
             return Ok(outcome);
         }
         write_data(&mut self.writer, message)?;
         self.writer.flush()?;
-        match expect(&mut self.reader)? {
+        match expect(&mut self.reader, ReplyExpectation::Message)? {
             Some(outcome) => Ok(outcome),
             None => Ok(DeliveryOutcome::Delivered),
         }
@@ -140,7 +141,7 @@ impl Connection {
     /// Завершает standalone-соединение. Ошибка QUIT не отменяет уже принятый DATA.
     pub fn quit(&mut self) -> io::Result<()> {
         self.command("QUIT\r\n")?;
-        self.expect_positive()
+        expect_success(&mut self.reader, ReplyExpectation::Quit)
     }
 
     /// Возвращает peer в известное idle-состояние после SMTP отказа.
@@ -150,18 +151,11 @@ impl Connection {
     /// состояние неизвестным, поэтому caller обязан уничтожить connection.
     pub fn reset(&mut self) -> io::Result<()> {
         self.command("RSET\r\n")?;
-        self.expect_positive()
+        expect_success(&mut self.reader, ReplyExpectation::Reset)
     }
 
     fn command(&mut self, wire: &str) -> io::Result<()> {
         command(&mut self.writer, wire)
-    }
-
-    fn expect_positive(&mut self) -> io::Result<()> {
-        match expect(&mut self.reader)? {
-            None => Ok(()),
-            Some(_) => Err(io::Error::other("SMTP peer rejected connection")),
-        }
     }
 }
 
@@ -214,19 +208,50 @@ fn command(writer: &mut TcpStream, command: &str) -> io::Result<()> {
 }
 
 /// Читает complete SMTP reply, включая multiline continuation.
-pub(crate) fn expect<R: BufRead>(reader: &mut R) -> io::Result<Option<DeliveryOutcome>> {
+pub(crate) fn expect<R: BufRead>(
+    reader: &mut R,
+    expectation: ReplyExpectation,
+) -> io::Result<Option<DeliveryOutcome>> {
     let mut line = String::new();
+    let mut reply_code = None;
     loop {
         line.clear();
         line = read_reply_line(reader)?;
         let (code, continuation) = parse_reply(&line)?;
+        match reply_code {
+            Some(initial_code) if initial_code != code => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "SMTP multiline reply changed its status code",
+                ));
+            }
+            Some(_) | None => {}
+        }
         if !continuation {
-            return match classify(code) {
-                ReplyClass::Positive => Ok(None),
-                ReplyClass::Transient => Ok(Some(DeliveryOutcome::Deferred)),
-                ReplyClass::Permanent => Ok(Some(DeliveryOutcome::PermanentFailure)),
+            return match expectation.accepts(code) {
+                true => Ok(None),
+                false => match classify(code) {
+                    ReplyClass::Transient => Ok(Some(DeliveryOutcome::Deferred)),
+                    ReplyClass::Permanent => Ok(Some(DeliveryOutcome::PermanentFailure)),
+                    ReplyClass::Positive | ReplyClass::Unexpected => Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "SMTP peer returned an unexpected positive reply code",
+                    )),
+                },
             };
         }
+        reply_code = Some(code);
+    }
+}
+
+fn expect_success<R: BufRead>(reader: &mut R, expectation: ReplyExpectation) -> io::Result<()> {
+    match expect(reader, expectation)? {
+        None => Ok(()),
+        Some(DeliveryOutcome::Deferred) => Err(io::Error::other("SMTP peer deferred command")),
+        Some(DeliveryOutcome::PermanentFailure) => {
+            Err(io::Error::other("SMTP peer rejected command"))
+        }
+        Some(DeliveryOutcome::Delivered) => Err(io::Error::other("unexpected SMTP outcome")),
     }
 }
 
@@ -252,8 +277,9 @@ pub(crate) fn parse_reply(line: &str) -> io::Result<(u16, bool)> {
 
 pub(crate) fn classify(code: u16) -> ReplyClass {
     match code / 100 {
-        2 | 3 => ReplyClass::Positive,
+        2 => ReplyClass::Positive,
         4 => ReplyClass::Transient,
-        _ => ReplyClass::Permanent,
+        5 => ReplyClass::Permanent,
+        _ => ReplyClass::Unexpected,
     }
 }

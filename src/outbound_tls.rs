@@ -31,7 +31,7 @@ impl Connection {
             stream: BufReader::new(StreamOwned::new(connection, stream)),
             capabilities: outbound::EhloCapabilities::default(),
         };
-        result.expect_positive()?;
+        expect_success(&mut result.stream, outbound::ReplyExpectation::Greeting)?;
         result.command("EHLO litterkeep.test\r\n")?;
         result.capabilities = outbound::read_ehlo(&mut result.stream)?;
         Ok(result)
@@ -74,23 +74,27 @@ impl Connection {
             }
         };
         self.command(&mail_command)?;
-        if let Some(outcome) = outbound::expect(&mut self.stream)? {
+        if let Some(outcome) = outbound::expect(&mut self.stream, outbound::ReplyExpectation::Mail)?
+        {
             return Ok(outcome);
         }
         for recipient in recipients {
             self.command(&format!("RCPT TO:<{recipient}>\r\n"))?;
-            if let Some(outcome) = outbound::expect(&mut self.stream)? {
+            if let Some(outcome) =
+                outbound::expect(&mut self.stream, outbound::ReplyExpectation::Recipient)?
+            {
                 return Ok(outcome);
             }
         }
         self.command("DATA\r\n")?;
-        if let Some(outcome) = outbound::expect(&mut self.stream)? {
+        if let Some(outcome) = outbound::expect(&mut self.stream, outbound::ReplyExpectation::Data)?
+        {
             return Ok(outcome);
         }
         let stream = self.stream.get_mut();
         outbound::write_data(stream, message)?;
         stream.flush()?;
-        match outbound::expect(&mut self.stream)? {
+        match outbound::expect(&mut self.stream, outbound::ReplyExpectation::Message)? {
             None => Ok(DeliveryOutcome::Delivered),
             Some(outcome) => Ok(outcome),
         }
@@ -100,21 +104,17 @@ impl Connection {
     pub fn authenticate(&mut self, account: &str, password: &[u8]) -> io::Result<()> {
         let response = crate::sasl::encode_plain(account, password);
         self.command(&format!("AUTH PLAIN {response}\r\n"))?;
-        self.expect_positive()
+        expect_success(&mut self.stream, outbound::ReplyExpectation::Authentication)
     }
 
     /// Доказывает возврат TLS connection в чистое SMTP состояние.
     pub fn reset(&mut self) -> io::Result<()> {
         self.command("RSET\r\n")?;
-        self.expect_positive()
+        expect_success(&mut self.stream, outbound::ReplyExpectation::Reset)
     }
 
     fn command(&mut self, wire: &str) -> io::Result<()> {
         command(&mut self.stream, wire)
-    }
-
-    fn expect_positive(&mut self) -> io::Result<()> {
-        expect_positive(&mut self.stream)
     }
 }
 
@@ -151,10 +151,11 @@ fn command(
     stream.flush()
 }
 
-fn expect_positive(
+fn expect_success(
     reader: &mut BufReader<StreamOwned<ClientConnection, TcpStream>>,
+    expectation: outbound::ReplyExpectation,
 ) -> io::Result<()> {
-    match outbound::expect(reader)? {
+    match outbound::expect(reader, expectation)? {
         None => Ok(()),
         Some(DeliveryOutcome::Deferred) => Err(io::Error::other("TLS SMTP peer deferred")),
         Some(DeliveryOutcome::PermanentFailure) => Err(io::Error::other("TLS SMTP peer rejected")),

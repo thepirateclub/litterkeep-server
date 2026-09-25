@@ -1,7 +1,7 @@
 //! Wire-проверки собственного outbound SMTP transport против отдельного peer.
 use crate::outbound::{self, Connection, DeliveryOutcome, TransportLimits};
 use std::{
-    io::{self, BufRead, BufReader, Read, Write},
+    io::{self, BufRead, BufReader, Cursor, Read, Write},
     net::TcpListener,
     thread,
     time::Duration,
@@ -100,6 +100,52 @@ fn outbound_8bit_profile_distinguishes_mime_body_from_headers() {
     assert_eq!(
         outbound::validate_data(utf8_header),
         Err(outbound::DataValidationError::NonAsciiHeader)
+    );
+}
+
+#[test]
+fn smtp_positive_reply_codes_are_specific_to_the_command_phase() {
+    let mut mail_continuation = Cursor::new(b"354 send data\r\n");
+    assert_eq!(
+        outbound::expect(&mut mail_continuation, outbound::ReplyExpectation::Mail)
+            .expect_err("MAIL cannot accept DATA continuation")
+            .kind(),
+        io::ErrorKind::InvalidData
+    );
+
+    let mut recipient_forwarded = Cursor::new(b"251 user not local\r\n");
+    assert_eq!(
+        outbound::expect(
+            &mut recipient_forwarded,
+            outbound::ReplyExpectation::Recipient
+        )
+        .expect("forwarded recipient"),
+        None
+    );
+
+    let mut data_continuation = Cursor::new(b"354 send data\r\n");
+    assert_eq!(
+        outbound::expect(&mut data_continuation, outbound::ReplyExpectation::Data)
+            .expect("DATA continuation"),
+        None
+    );
+
+    let mut future_positive_code = Cursor::new(b"299 extension success\r\n");
+    assert_eq!(
+        outbound::expect(&mut future_positive_code, outbound::ReplyExpectation::Mail)
+            .expect("unknown 2yz is a positive completion"),
+        None
+    );
+}
+
+#[test]
+fn smtp_multiline_reply_requires_one_status_code_on_every_line() {
+    let mut reply = Cursor::new(b"250-first line\r\n550 final line\r\n");
+    assert_eq!(
+        outbound::expect(&mut reply, outbound::ReplyExpectation::Mail)
+            .expect_err("mixed multiline status")
+            .kind(),
+        io::ErrorKind::InvalidData
     );
 }
 

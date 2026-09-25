@@ -2,6 +2,34 @@
 
 use std::io::{self, BufRead, ErrorKind};
 
+/// SMTP command phase, для которой проверяется ожидаемый positive reply.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ReplyExpectation {
+    Greeting,
+    Mail,
+    Recipient,
+    Data,
+    Message,
+    Quit,
+    Reset,
+    Authentication,
+}
+
+impl ReplyExpectation {
+    /// Проверяет ожидаемую фазу, сохраняя совместимость с новыми 2yz кодами.
+    pub(crate) fn accepts(self, code: u16) -> bool {
+        match self {
+            Self::Greeting => code == 220,
+            Self::Data => code == 354,
+            Self::Quit => code == 221,
+            Self::Authentication => code == 235,
+            Self::Mail | Self::Recipient | Self::Message | Self::Reset => {
+                code / 100 == 2 && !matches!(code, 220 | 221 | 235)
+            }
+        }
+    }
+}
+
 /// Максимальная длина строки ответа вместе с кодом и CRLF по RFC 5321.
 const MAX_REPLY_LINE_OCTETS: usize = 512;
 

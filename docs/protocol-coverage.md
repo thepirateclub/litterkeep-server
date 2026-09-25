@@ -418,3 +418,11 @@ terminator и dot-stuffing; без объявления параметр не о
 выше фиксированного maximum отвергается до `MAIL`. Независимый peer проверяет
 wire command и все три исхода. Implicit-TLS unit peer проверяет совместное
 использование `SIZE` и `BODY=8BITMIME`.
+Outbound reply handling теперь привязано к фазе SMTP: только greeting 220,
+`DATA` continuation 354, `QUIT` 221 и AUTH success 235 принимаются в этих
+контекстах; команда `MAIL`, `RCPT`, финальная DATA completion и reset требуют
+positive completion 2yz, при этом 4yz остаётся deferred, а 5yz permanent.
+Неожиданный 3yz не продвигает состояние команды. Код каждой строки multiline
+reply обязан совпадать с первой. Независимый peer подтвердил, что 354 и 221 в
+ответ на MAIL не приводят к отправке RCPT; unit tests проверяют известные
+фазовые ответы, будущий 2yz код и смешанные коды multiline.

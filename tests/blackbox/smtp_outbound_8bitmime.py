@@ -6,7 +6,7 @@ import socket
 import subprocess
 import threading
 
-from sieve_vacation_peer import CaptureServer
+from sieve_vacation_peer import CaptureServer, Command
 
 
 def require(condition: bool, message: str) -> None:
@@ -190,6 +190,45 @@ def verify_size_declaration(
                 raise AssertionError("invalid SIZE acceptance case")
 
 
+def verify_phase_specific_reply_codes(
+    image: str, data_root: Path, stage: Path, route: str
+) -> None:
+    """Проверяет, что MAIL не принимает DATA continuation или QUIT code."""
+    message_path = stage / "outbound-reply-phase.eml"
+    message_path.write_bytes(b"Subject: reply phase\r\n\r\nbody\r\n")
+    relative_path = message_path.resolve().relative_to(data_root).as_posix()
+    mount = f"type=bind,source={data_root},target=/data"
+    for mail_reply in (b"354 send data\r\n", b"221 bye\r\n"):
+        with CaptureServer(
+            ("0.0.0.0", 0), mail_reply=mail_reply
+        ) as peer:
+            _, port = peer.server_address
+            worker = threading.Thread(target=peer.serve_forever, daemon=True)
+            worker.start()
+            try:
+                result = subprocess.run(
+                    [
+                        "docker", "run", "--rm", "--add-host",
+                        "host.docker.internal:host-gateway", "--mount", mount,
+                        image, "deliver", f"{route}:{port}",
+                        "sender@source.test", "recipient@peer.test",
+                        f"/data/{relative_path}",
+                    ],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+            finally:
+                peer.shutdown()
+                worker.join(timeout=5)
+        require(result.returncode != 0, "MAIL accepted an unrelated positive reply")
+        require(
+            Command.RECIPIENT not in peer.commands,
+            "client continued to RCPT after an unexpected MAIL reply",
+        )
+
+
 def main() -> None:
     """Проверяет high-bit body только при рекламированном extension."""
     parser = argparse.ArgumentParser()
@@ -222,9 +261,11 @@ def main() -> None:
     )
     verify_reply_line_limits(options.image, data_root, stage, route)
     verify_size_declaration(options.image, data_root, stage, route)
+    verify_phase_specific_reply_codes(options.image, data_root, stage, route)
     print("PASS smtp-outbound-8bitmime: BODY negotiation and pre-envelope refusal")
     print("PASS smtp-outbound-reply-limit: 512-octet boundary and oversized rejection")
     print("PASS smtp-outbound-size: exact SIZE declaration and advertised maximum")
+    print("PASS smtp-outbound-replies: unexpected positive replies stop the transaction")
 
 
 if __name__ == "__main__":

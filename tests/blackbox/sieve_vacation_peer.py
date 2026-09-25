@@ -26,6 +26,7 @@ class CaptureServer(socketserver.ThreadingTCPServer):
         address: tuple[str, int],
         ehlo_reply: bytes = b"250 peer.test\r\n",
         greeting_reply: bytes = b"220 peer.test ready\r\n",
+        mail_reply: bytes = b"250 sender accepted\r\n",
     ):
         super().__init__(address, CaptureHandler)
         self.envelope_sender = ""
@@ -33,6 +34,8 @@ class CaptureServer(socketserver.ThreadingTCPServer):
         self.payload = b""
         self.ehlo_reply = ehlo_reply
         self.greeting_reply = greeting_reply
+        self.mail_reply = mail_reply
+        self.commands: list[Command] = []
 
 
 class CaptureHandler(socketserver.StreamRequestHandler):
@@ -42,12 +45,14 @@ class CaptureHandler(socketserver.StreamRequestHandler):
         self.wfile.write(server.greeting_reply)
         while line := self.rfile.readline():
             command = classify(line.decode("ascii", "replace"))
+            if command is not None:
+                server.commands.append(command)
             match command:
                 case Command.EHLO:
                     self.wfile.write(server.ehlo_reply)
                 case Command.MAIL:
                     server.envelope_sender = line.decode("ascii", "replace").strip()
-                    self.wfile.write(b"250 sender accepted\r\n")
+                    self.wfile.write(server.mail_reply)
                 case Command.RECIPIENT:
                     server.recipient = line.decode("ascii", "replace").strip()
                     self.wfile.write(b"250 recipient accepted\r\n")

@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 outbound SMTP reply phase semantics
+
+- Reply success now follows SMTP command phase instead of treating every 2yz
+  and 3yz as generic success. `354` is accepted only for DATA; greeting, QUIT
+  and AUTH use their phase-specific success replies. MAIL/RCPT/final DATA/RSET
+  accept positive completion codes while unexpected 3yz fails closed. Existing
+  4yz deferred and 5yz permanent mapping remains. Multiline reply status codes
+  must remain identical across all lines.
+- PASS: Windows Rust 1.97.1 suite, 470 library + 1 binary test, strict Clippy,
+  fmt, Python compile and diff check. Linux Docker Rust 1.97 test target, strict
+  Clippy, 511 library + 1 binary test and doc-tests. Independent runtime peer
+  returned 354 and 221 to MAIL and confirmed no RCPT followed; prior outbound
+  SIZE, 8BITMIME and reply-boundary cases passed in the same run. Fixtures:
+  `./data/g17-smtp-reply-semantics`. Temporary images removed; only pre-existing
+  `litterkeep-g12-phone` remains. Litterkeep client not tested; G17 remains
+  RUNNING.
+
 ### 2026-09-25: G17 outbound SMTP SIZE declaration
 
 - Outbound ESMTP now parses the RFC 1870 `SIZE` keyword, optional numeric
