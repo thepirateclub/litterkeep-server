@@ -90,7 +90,7 @@ fn append_mime_entity(output: &mut Vec<u8>, entity: &[u8]) -> io::Result<()> {
     match parsed
         .fields
         .iter()
-        .any(|field| field.name == "mime-version")
+        .any(|field| field.kind() == crate::mime::header_block::HeaderName::MimeVersion)
     {
         true => {}
         false => output.extend_from_slice(b"MIME-Version: 1.0\r\n"),

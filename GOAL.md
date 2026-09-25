@@ -4,6 +4,25 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 Sieve vacation MIME-Version checkpoint
+
+- `vacation :mime` теперь допускает отсутствующий MIME-Version (сервер
+  добавляет `1.0`) или единственное значение версии `1.0`. RFC 822 comments и
+  whitespace в значении нормализуются; дубликаты, повреждённые и неизвестные
+  версии отвергаются до сохранения script. Имя поля разбирается через
+  `HeaderName::MimeVersion`, сгенерированный ответ не может объявить версию
+  MIME, которую сервер не поддерживает.
+- Unit проверки прошли (23 vacation-related); независимый ManageSieve CHECKSCRIPT,
+  принял один MIME-Version 1.0 с вложенными comments, отверг 2.0 и duplicate.
+- PASS: Windows Rust 1.97.1 `cargo test --all-targets --locked` (446 library
+  + 1 binary), strict Clippy, `cargo fmt --all -- --check`, `git diff --check`
+  и Python compile. Linux Docker Rust 1.97 `test` target: 487 library + 1
+  binary, doc-tests, strict Clippy и release build. Независимый
+  `tests/blackbox/managesieve_vacation_mime.py` прошёл через STARTTLS.
+  Временный runtime container и test/runtime image tags удалены;
+  `docker ps -a` оставил только `litterkeep-g12-phone`. Stage data сохранена в
+  `./data/g17-vacation-mime-version`. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 2557 Content-Location URI-reference checkpoint
 
 - `Content-Location` теперь проецируется только при единственном непустом

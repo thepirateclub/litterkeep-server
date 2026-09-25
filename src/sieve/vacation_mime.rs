@@ -22,6 +22,7 @@ pub(super) fn validate_reason(entity: &[u8]) -> Result<(), &'static str> {
             return Err("non-MIME entity header");
         }
     }
+    validate_mime_version(&parsed.fields)?;
     let media_type = parse_content_type(&parsed.fields)?;
     let fields = parsed
         .fields
@@ -45,6 +46,47 @@ pub(super) fn validate_reason(entity: &[u8]) -> Result<(), &'static str> {
         .get(parsed.body_offset..)
         .ok_or("invalid MIME body")?;
     validate_body(&encoding, body, media_type.as_ref())
+}
+
+/// Проверяет, что готовое Sieve-сообщение не объявит несовместимую MIME-версию.
+fn validate_mime_version(
+    fields: &[crate::mime::header_block::HeaderField],
+) -> Result<(), &'static str> {
+    let mut versions = fields
+        .iter()
+        .filter(|field| field.kind() == crate::mime::header_block::HeaderName::MimeVersion);
+    let field = match versions.next() {
+        Some(field) => field,
+        None => return Ok(()),
+    };
+    if versions.next().is_some() {
+        return Err("duplicate MIME-Version field");
+    }
+    let value = std::str::from_utf8(&field.value).map_err(|_| "invalid MIME-Version")?;
+    let uncommented = crate::mime::structured_comments::remove(value)?;
+    let compact: Vec<u8> = uncommented
+        .bytes()
+        .filter(|byte| !byte.is_ascii_whitespace())
+        .collect();
+    match MimeVersion::parse(&compact) {
+        Some(MimeVersion::OnePointZero) => Ok(()),
+        None => Err("unsupported MIME-Version"),
+    }
+}
+
+/// Поддерживаемая MIME-Version declaration, преобразованная из wire value.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum MimeVersion {
+    OnePointZero,
+}
+
+impl MimeVersion {
+    fn parse(value: &[u8]) -> Option<Self> {
+        match value {
+            b"1.0" => Some(Self::OnePointZero),
+            _ => None,
+        }
+    }
 }
 
 fn parse_content_type(

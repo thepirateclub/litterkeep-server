@@ -84,6 +84,11 @@ RFC 5230 `:mime` CHECKSCRIPT теперь отвергает повторяющ�
 `tests/blackbox/managesieve_vacation_mime.py` по TLS ManageSieve подтвердил
 CHECKSCRIPT для корректных 7bit, quoted-printable и Base64 entities, а также
 отказ для повреждённого Base64, duplicate CTE и encoded multipart.
+Перед сохранением :mime-скрипта также проверяется `MIME-Version`: допускается
+не более одного значения версии 1.0, RFC 822 comments внутри значения
+игнорируются; неизвестная версия и повторные поля отвергаются, иначе сервер
+мог бы выдать MIME-ответ с неподдерживаемой декларацией версии. Эти границы
+проверяются unit-тестом и независимым ManageSieve CHECKSCRIPT acceptance.
 
 Отдельный `vacation_mime` validator применяет ограничения RFC 2045 §§2.7, 6.7
 и 6.8: 7bit body не может содержать NUL, bare CR/LF и строки длиннее 998

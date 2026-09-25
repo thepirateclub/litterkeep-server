@@ -83,6 +83,30 @@ def run(options: argparse.Namespace) -> None:
             check_script(
                 client,
                 vacation_script(
+                    b"MIME-Version: (before) 1.(inside)0 (after)\r\n"
+                    b"Content-Type: text/plain\r\n\r\nAway\r\n"
+                ),
+                True,
+            )
+            check_script(
+                client,
+                vacation_script(
+                    b"MIME-Version: 2.0\r\n"
+                    b"Content-Type: text/plain\r\n\r\nAway\r\n"
+                ),
+                False,
+            )
+            check_script(
+                client,
+                vacation_script(
+                    b"MIME-Version: 1.0\r\nMIME-Version: 1.0\r\n"
+                    b"Content-Type: text/plain\r\n\r\nAway\r\n"
+                ),
+                False,
+            )
+            check_script(
+                client,
+                vacation_script(
                     b"Content-Type: text/plain\r\n"
                     b"Content-Transfer-Encoding: quoted-printable\r\n\r\nOl=E1\r\n"
                 ),
@@ -121,6 +145,7 @@ def run(options: argparse.Namespace) -> None:
                 ),
                 False,
             )
+            print("PASS managesieve-vacation-mime: MIME-Version and CTE validation")
 
 
 def main() -> None:

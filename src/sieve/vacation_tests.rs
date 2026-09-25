@@ -139,6 +139,23 @@ fn mime_vacation_rejects_malformed_transfer_encoding_and_duplicate_fields() {
 }
 
 #[test]
+fn mime_vacation_requires_one_supported_mime_version() {
+    for entity in [
+        "MIME-Version: 2.0\r\nContent-Type: text/plain\r\n\r\nbody",
+        "MIME-Version: 1.0\r\nMIME-Version: 1.0\r\n\r\nbody",
+        "MIME-Version: one\r\n\r\nbody",
+    ] {
+        assert!(
+            super::vacation_mime::validate_reason(entity.as_bytes()).is_err(),
+            "accepted unsupported version declaration: {entity}"
+        );
+    }
+    let commented =
+        b"MIME-Version: (before) 1.(inside)0 (after)\r\nContent-Type: text/plain\r\n\r\nbody";
+    assert!(super::vacation_mime::validate_reason(commented).is_ok());
+}
+
+#[test]
 fn mime_vacation_enforces_wire_line_lengths_and_7bit_octets() {
     let maximum_7bit = format!("Content-Type: text/plain\r\n\r\n{}", "a".repeat(998));
     assert!(super::vacation_mime::validate_reason(maximum_7bit.as_bytes()).is_ok());

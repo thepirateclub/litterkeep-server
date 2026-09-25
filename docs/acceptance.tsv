@@ -62,6 +62,7 @@ T60	PASS	server-protocol	Independent Python imaplib STARTTLS fetch proves BODY e
 T61	PASS	server-protocol	Independent Python imaplib STARTTLS fetch verifies Content-ID (quoted id-left and IPv6 domain-literal) and Content-Description basic fields in BODY and BODYSTRUCTURE; unit coverage includes RFC 2047 and UTF-8 identifiers
 T62	PASS	server-protocol	Independent Python imaplib STARTTLS fetch verifies a validated Content-MD5 value appears in BODYSTRUCTURE scalar extensions but not in basic BODY; digest bytes are syntax/length checked, not recomputed
 T63	PASS	server-protocol	Independent Python imaplib STARTTLS fetch verifies RFC 3986 URI-reference locations are retained and malformed percent-encoding is omitted from BODYSTRUCTURE
+T64	PASS	server-protocol	Independent ManageSieve CHECKSCRIPT accepts one MIME-Version 1.0 with RFC comments and rejects unsupported or duplicate MIME-Version declarations in vacation :mime
 R01	PASS	runtime	orchestrator transfer and registry ownership tests
 R02	PASS	runtime	exclusive resource double-acquire test
 R03	PASS	runtime	timeout keeps live lease occupied
