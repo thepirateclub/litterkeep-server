@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 outbound SMTP EHLO-to-HELO fallback
+
+- Outbound plaintext and implicit-TLS transports now fall back to `HELO` when
+  `EHLO` receives the RFC-defined single-line `500 command not recognized`.
+  The fallback session has no ESMTP capability state and therefore sends no
+  `SIZE` or `BODY=8BITMIME` MAIL parameters. Other negative EHLO replies, such
+  as policy rejection `550`, remain errors and do not trigger downgrade.
+- PASS: Windows Rust 1.97.1: 477 library + 1 binary test, strict Clippy, fmt,
+  diff check. Linux Docker Rust 1.97: 518 library + 1 binary test, strict
+  Clippy and doc-tests. Independent plaintext and implicit-TLS peers verified
+  EHLO -> 500 -> HELO -> 250 -> MAIL and full delivery. Temporary image removed;
+  only `litterkeep-g12-phone` remains. Fixture directory:
+  `./data/g17-smtp-helo-fallback`. Litterkeep client not tested; G17 remains
+  RUNNING.
+
 ### 2026-09-25: G17 outbound SMTP 421 channel closure
 
 - RFC 5321 §4.2.2 `421` теперь сохраняет результат `Deferred`, но отдельно

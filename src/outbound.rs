@@ -19,7 +19,10 @@ pub(crate) use data::DataValidationError;
 #[cfg(test)]
 pub(crate) use data::has_8bit_body;
 pub(crate) use data::{validate_data, write_data};
-pub(crate) use ehlo::{EhloCapabilities, EhloExtension, SizeAdvertisement, read_ehlo};
+pub(crate) use ehlo::negotiate_ehlo;
+#[cfg(test)]
+pub(crate) use ehlo::read_ehlo;
+pub(crate) use ehlo::{EhloCapabilities, EhloExtension, EhloNegotiation, SizeAdvertisement};
 pub(crate) use mail::{MailCommand, build_mail_command};
 pub(crate) use reply::{ReplyExpectation, ReplyResult, expect, expect_success};
 pub(crate) use reply::{parse_reply, read_reply_line};
@@ -71,7 +74,7 @@ pub struct Connection {
 }
 
 impl Connection {
-    /// Открывает TCP, проверяет greeting и устанавливает SMTP session через EHLO.
+    /// Открывает TCP и устанавливает расширенную либо базовую SMTP session.
     pub fn connect(address: &str) -> io::Result<Self> {
         Self::connect_addr(parse_route(address)?)
     }
@@ -95,7 +98,13 @@ impl Connection {
         };
         expect_success(&mut result.reader, ReplyExpectation::Greeting)?;
         result.command("EHLO litterkeep.test\r\n")?;
-        result.capabilities = read_ehlo(&mut result.reader)?;
+        match negotiate_ehlo(&mut result.reader)? {
+            EhloNegotiation::Extended(capabilities) => result.capabilities = capabilities,
+            EhloNegotiation::Basic => {
+                result.command("HELO litterkeep.test\r\n")?;
+                expect_success(&mut result.reader, ReplyExpectation::Helo)?;
+            }
+        }
         Ok(result)
     }
 

@@ -7,6 +7,7 @@ use std::io::{self, BufRead, ErrorKind};
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum ReplyExpectation {
     Greeting,
+    Helo,
     Mail,
     Recipient,
     Data,
@@ -38,6 +39,7 @@ impl ReplyExpectation {
     pub(crate) fn accepts(self, code: u16) -> bool {
         match self {
             Self::Greeting => code == 220,
+            Self::Helo => code == 250,
             Self::Data => code == 354,
             Self::Quit => code == 221,
             Self::Authentication => code == 235,

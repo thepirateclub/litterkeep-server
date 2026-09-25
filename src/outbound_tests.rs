@@ -24,6 +24,42 @@ fn peer_550_becomes_permanent_failure() {
 }
 
 #[test]
+fn outbound_falls_back_to_helo_only_when_ehlo_is_unrecognized() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+    let address = listener.local_addr().expect("address");
+    let peer = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept");
+        stream.write_all(b"220 peer ready\r\n").expect("greeting");
+        let mut reader = BufReader::new(stream.try_clone().expect("clone"));
+        read_command(&mut reader, "EHLO");
+        stream
+            .write_all(b"500 command not recognized\r\n")
+            .expect("EHLO reply");
+        read_command_exact(&mut reader, "HELO litterkeep.test\r\n");
+        stream.write_all(b"250 hello\r\n").expect("HELO reply");
+        read_command_exact(&mut reader, "MAIL FROM:<alice@test>\r\n");
+        stream.write_all(b"250 sender\r\n").expect("MAIL reply");
+        read_command(&mut reader, "RCPT TO:");
+        stream.write_all(b"250 recipient\r\n").expect("RCPT reply");
+        read_command_exact(&mut reader, "DATA\r\n");
+        stream.write_all(b"354 data\r\n").expect("DATA reply");
+        read_command_exact(&mut reader, "body\r\n");
+        read_command_exact(&mut reader, ".\r\n");
+        stream
+            .write_all(b"250 delivered\r\n")
+            .expect("delivery reply");
+        read_command_exact(&mut reader, "QUIT\r\n");
+        stream.write_all(b"221 bye\r\n").expect("QUIT reply");
+    });
+    assert_eq!(
+        outbound::deliver(&address.to_string(), "alice@test", "bob@test", b"body")
+            .expect("delivery after HELO fallback"),
+        DeliveryOutcome::Delivered
+    );
+    peer.join().expect("peer");
+}
+
+#[test]
 fn stalled_greeting_hits_io_deadline_and_drops_the_socket() {
     let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
     let address = listener.local_addr().expect("address");
@@ -183,4 +219,10 @@ fn read_command(reader: &mut BufReader<std::net::TcpStream>, prefix: &str) {
     let mut line = String::new();
     reader.read_line(&mut line).expect("command");
     assert!(line.starts_with(prefix), "unexpected command: {line}");
+}
+
+fn read_command_exact(reader: &mut BufReader<std::net::TcpStream>, expected: &str) {
+    let mut line = String::new();
+    reader.read_line(&mut line).expect("command");
+    assert_eq!(line, expected);
 }

@@ -35,7 +35,13 @@ impl Connection {
         };
         expect_success(&mut result.stream, outbound::ReplyExpectation::Greeting)?;
         result.command("EHLO litterkeep.test\r\n")?;
-        result.capabilities = outbound::read_ehlo(&mut result.stream)?;
+        match outbound::negotiate_ehlo(&mut result.stream)? {
+            outbound::EhloNegotiation::Extended(capabilities) => result.capabilities = capabilities,
+            outbound::EhloNegotiation::Basic => {
+                result.command("HELO litterkeep.test\r\n")?;
+                expect_success(&mut result.stream, outbound::ReplyExpectation::Helo)?;
+            }
+        }
         Ok(result)
     }
 

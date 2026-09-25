@@ -26,6 +26,13 @@ pub(crate) struct EhloCapabilities {
     extensions: Vec<EhloExtension>,
 }
 
+/// Итог EHLO: extension mode либо совместимый базовый HELO без capability.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum EhloNegotiation {
+    Extended(EhloCapabilities),
+    Basic,
+}
+
 impl EhloCapabilities {
     /// Проверяет capability через типизированный keyword, не через сырую строку.
     pub(crate) fn supports(&self, extension: EhloExtension) -> bool {
@@ -60,12 +67,22 @@ impl EhloCapabilities {
 }
 
 /// Читает все continuation строки успешного EHLO ответа и сохраняет keywords.
+#[cfg(test)]
 pub(crate) fn read_ehlo(reader: &mut impl BufRead) -> io::Result<EhloCapabilities> {
+    read_ehlo_from(reader, None)
+}
+
+fn read_ehlo_from(
+    reader: &mut impl BufRead,
+    initial_line: Option<String>,
+) -> io::Result<EhloCapabilities> {
     let mut capabilities = EhloCapabilities::default();
-    let mut line = String::new();
+    let mut pending_line = initial_line;
     loop {
-        line.clear();
-        line = super::read_reply_line(reader)?;
+        let line = match pending_line.take() {
+            Some(initial) => initial,
+            None => super::read_reply_line(reader)?,
+        };
         let (code, continuation) = super::parse_reply(&line)?;
         if code != 250 {
             return Err(io::Error::other("SMTP EHLO was not accepted"));
@@ -76,6 +93,17 @@ pub(crate) fn read_ehlo(reader: &mut impl BufRead) -> io::Result<EhloCapabilitie
         if !continuation {
             return Ok(capabilities);
         }
+    }
+}
+
+/// Читает EHLO и отличает ответ «команда неизвестна» для RFC fallback.
+pub(crate) fn negotiate_ehlo(reader: &mut impl BufRead) -> io::Result<EhloNegotiation> {
+    let first_line = super::read_reply_line(reader)?;
+    let (code, continuation) = super::parse_reply(&first_line)?;
+    match (code, continuation) {
+        (500, false) => Ok(EhloNegotiation::Basic),
+        (250, _) => read_ehlo_from(reader, Some(first_line)).map(EhloNegotiation::Extended),
+        _ => Err(io::Error::other("SMTP EHLO was not accepted")),
     }
 }
 
@@ -116,7 +144,7 @@ fn parse_size_advertisement<'a>(
 
 #[cfg(test)]
 mod tests {
-    use super::{EhloExtension, SizeAdvertisement, read_ehlo};
+    use super::{EhloExtension, EhloNegotiation, SizeAdvertisement, negotiate_ehlo, read_ehlo};
     use std::io::Cursor;
 
     #[test]
@@ -142,6 +170,21 @@ mod tests {
     fn failed_ehlo_status_is_not_treated_as_a_capability_reply() {
         let mut reply = Cursor::new(b"550 unavailable\r\n");
         assert!(read_ehlo(&mut reply).is_err());
+    }
+
+    #[test]
+    fn unrecognized_ehlo_is_a_basic_mode_not_an_extension_reply() {
+        let mut reply = Cursor::new(b"500 command not recognized\r\n");
+        assert!(matches!(
+            negotiate_ehlo(&mut reply),
+            Ok(EhloNegotiation::Basic)
+        ));
+    }
+
+    #[test]
+    fn rejected_ehlo_policy_does_not_silently_downgrade_to_helo() {
+        let mut reply = Cursor::new(b"550 client not allowed\r\n");
+        assert!(negotiate_ehlo(&mut reply).is_err());
     }
 
     #[test]

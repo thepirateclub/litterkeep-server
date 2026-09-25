@@ -37,6 +37,27 @@ fn trusted_tls_peer_receives_smtp_message() {
 }
 
 #[test]
+fn implicit_tls_falls_back_to_helo_without_using_unadvertised_extensions() {
+    let (ca, certificate, key) = certificate_chain();
+    let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+    let address = listener.local_addr().expect("address");
+    let peer = thread::spawn(move || serve_helo_fallback_peer(listener, certificate, key));
+    assert_eq!(
+        outbound_tls::deliver(
+            &address.to_string(),
+            "peer.test",
+            &ca,
+            "alice@test",
+            "bob@test",
+            b"body",
+        )
+        .expect("TLS delivery after HELO fallback"),
+        DeliveryOutcome::Delivered
+    );
+    peer.join().expect("peer");
+}
+
+#[test]
 fn malformed_ca_is_rejected_before_connect() {
     assert!(outbound_tls::client_config(b"not a DER certificate").is_err());
 }
@@ -177,6 +198,19 @@ fn serve_421_peer(listener: TcpListener, certificate: Vec<u8>, key: Vec<u8>) {
     serve_transaction(&mut replacement);
 }
 
+fn serve_helo_fallback_peer(listener: TcpListener, certificate: Vec<u8>, key: Vec<u8>) {
+    let config = server_config(certificate, key);
+    let mut reader = accept_tls_peer(&listener, &config);
+    write_line(&mut reader, b"220 peer ready\r\n");
+    read_line(&mut reader, "EHLO");
+    write_line(&mut reader, b"500 command not recognized\r\n");
+    read_line_exact(&mut reader, "HELO litterkeep.test\r\n");
+    write_line(&mut reader, b"250 hello\r\n");
+    read_line_exact(&mut reader, "MAIL FROM:<alice@test>\r\n");
+    write_line(&mut reader, b"250 sender\r\n");
+    serve_transaction(&mut reader);
+}
+
 fn server_config(certificate: Vec<u8>, key: Vec<u8>) -> Arc<ServerConfig> {
     Arc::new(
         ServerConfig::builder()
@@ -216,6 +250,15 @@ fn read_line(reader: &mut BufReader<StreamOwned<ServerConnection, TcpStream>>, p
     let mut line = String::new();
     reader.read_line(&mut line).expect("read");
     assert!(line.starts_with(prefix), "unexpected command: {line}");
+}
+
+fn read_line_exact(
+    reader: &mut BufReader<StreamOwned<ServerConnection, TcpStream>>,
+    expected: &str,
+) {
+    let mut line = String::new();
+    reader.read_line(&mut line).expect("command");
+    assert_eq!(line, expected);
 }
 
 fn assert_channel_closes_without_reset(
