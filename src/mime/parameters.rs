@@ -1,6 +1,5 @@
 //! Разбор MIME media type и параметров, включая RFC 2231 continuations.
 
-use super::charset::Charset;
 use std::collections::{BTreeMap, HashMap};
 
 /// Известный media type либо сохранённое неизвестное значение.
@@ -144,10 +143,7 @@ fn parameter_name(name: &str) -> Result<(String, Option<usize>, bool), &'static 
 /// Звёздочка, апостроф и процент зарезервированы расширенной грамматикой;
 /// остальные ограничения token наследуются из RFC 2045.
 fn attribute_token(value: &str) -> bool {
-    media_token(value)
-        && value
-            .bytes()
-            .all(|byte| !matches!(byte, b'*' | b'\'' | b'%'))
+    !value.is_empty() && value.bytes().all(attribute_octet)
 }
 
 /// Проверяет MIME token либо снимает кавычки и quoted-pair у значения.
@@ -204,18 +200,20 @@ fn join_continuations(mut segments: Vec<Segment>) -> Result<String, &'static str
         if segment.index != Some(expected) {
             return Err("non-contiguous MIME continuation");
         }
-        let (selected, payload) = match (expected, segment.encoded) {
-            (0, true) => extended_parts(&segment.value)?,
-            (_, true) => (None, segment.value.as_str()),
-            (_, false) => (None, segment.value.as_str()),
+        let (selected, decoded) = match (expected, segment.encoded) {
+            (0, true) => super::parameter_extended::initial(&segment.value)?,
+            (_, true) => (
+                None,
+                super::parameter_extended::continuation(&segment.value)?,
+            ),
+            (_, false) => (None, segment.value.into_bytes()),
         };
-        if selected.is_some() {
-            charset = selected;
+        match (expected, segment.encoded, selected) {
+            (0, true, None) => return Err("missing extended charset"),
+            (_, _, Some(selected)) => charset = Some(selected),
+            _ => {}
         }
-        match segment.encoded {
-            true => bytes.extend(percent_decode(payload)?),
-            false => bytes.extend_from_slice(payload.as_bytes()),
-        }
+        bytes.extend(decoded);
     }
     match charset {
         Some(charset) => charset.decode(&bytes),
@@ -224,53 +222,8 @@ fn join_continuations(mut segments: Vec<Segment>) -> Result<String, &'static str
 }
 
 fn decode_extended(value: &str) -> Result<String, &'static str> {
-    let (charset, payload) = extended_parts(value)?;
-    charset
-        .ok_or("missing extended charset")?
-        .decode(&percent_decode(payload)?)
-}
-
-fn extended_parts(value: &str) -> Result<(Option<Charset>, &str), &'static str> {
-    let (charset, rest) = value
-        .split_once('\'')
-        .ok_or("missing extended charset separator")?;
-    let (_, payload) = rest
-        .split_once('\'')
-        .ok_or("missing extended language separator")?;
-    Ok((Some(Charset::parse(charset)?), payload))
-}
-
-fn percent_decode(value: &str) -> Result<Vec<u8>, &'static str> {
-    let mut output = Vec::with_capacity(value.len());
-    let mut cursor = 0_usize;
-    let bytes = value.as_bytes();
-    while let Some(byte) = bytes.get(cursor).copied() {
-        match byte {
-            b'%' => {
-                let high = bytes.get(cursor.saturating_add(1)).copied().and_then(hex);
-                let low = bytes.get(cursor.saturating_add(2)).copied().and_then(hex);
-                let (Some(high), Some(low)) = (high, low) else {
-                    return Err("invalid percent escape");
-                };
-                output.push((high << 4) | low);
-                cursor = cursor.saturating_add(3);
-            }
-            _ => {
-                output.push(byte);
-                cursor = cursor.saturating_add(1);
-            }
-        }
-    }
-    Ok(output)
-}
-
-fn hex(byte: u8) -> Option<u8> {
-    match byte {
-        b'0'..=b'9' => Some(byte - b'0'),
-        b'A'..=b'F' => Some(byte - b'A' + 10),
-        b'a'..=b'f' => Some(byte - b'a' + 10),
-        _ => None,
-    }
+    let (charset, bytes) = super::parameter_extended::initial(value)?;
+    charset.ok_or("missing extended charset")?.decode(&bytes)
 }
 
 /// Разбирает пару `type/subtype` и классифицирует известные MIME-типы.
@@ -308,9 +261,16 @@ fn parse_media_type(value: &str) -> Result<MediaType, &'static str> {
 ///
 /// Длина измеряется в байтах, поскольку RFC определяет type/subtype как
 /// последовательности ASCII-октетов, а не Unicode-символов.
-fn media_token(value: &str) -> bool {
-    !value.is_empty()
-        && value
-            .bytes()
-            .all(|byte| matches!(byte, 33..=126) && !b"()<>@,;:\\\"/[]?=".contains(&byte))
+pub(super) fn media_token(value: &str) -> bool {
+    !value.is_empty() && value.bytes().all(media_token_octet)
+}
+
+/// Проверяет один RFC 2045 token-октет, не обращаясь к позиции массива.
+pub(super) fn media_token_octet(byte: u8) -> bool {
+    matches!(byte, 33..=126) && !b"()<>@,;:\\\"/[]?=".contains(&byte)
+}
+
+/// Проверяет RFC 2231 attribute-char на основе общих MIME tspecials.
+pub(super) fn attribute_octet(byte: u8) -> bool {
+    media_token_octet(byte) && !matches!(byte, b'*' | b'\'' | b'%')
 }

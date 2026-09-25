@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 2231 extended payload checkpoint
+
+- Extended parameter payload теперь принимает только RFC 2231 attribute-char
+  либо percent-encoded octet; hex digits в escape соответствуют ABNF RFC
+  (заглавные A-F). Raw tspecials, апострофы payload, повреждённые escapes и
+  строчные hex digits отвергаются отдельным decoder-ом.
+- Regressions сохраняют valid UTF-8 filename и смешанные quoted/unquoted
+  continuation segments, а также проверяют language-delimited initial value.
+  Новые проверки unit-only, независимый сетевой сценарий не выполнялся.
+- PASS: Windows Rust 1.97.1 cargo test --all-targets --locked (368 тестов
+  библиотеки, 1 тест бинаря), strict Clippy, fmt и diff check. Docker Linux
+  Rust 1.97.1 release build, strict Clippy, 409 тестов библиотеки и 1 тест
+  бинаря.
+- Ограничения: MIME API не сохраняет и не валидирует language tag; charset
+  декодируется только поддерживаемым явным allowlist, пустой charset поэтому
+  не может быть представлен как Unicode. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 MIME parameter grammar checkpoint
 
 - MIME structured parser теперь проверяет attribute/value grammar RFC 2045 §5.1:

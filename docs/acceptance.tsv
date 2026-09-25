@@ -33,6 +33,7 @@ T31	PASS	server-protocol	Sieve vacation MIME unit validation enforces RFC 2045 7
 T32	PASS	server-protocol	Sieve vacation MIME unit CHECKSCRIPT rejects encoded CTE for multipart/message composites including CFWS comments, rejects duplicate Content-Type and allows valid 7bit multipart
 T33	PASS	server-protocol	MIME structured values remove nested comments outside quoted strings and reject invalid type/subtype tokens; unit-only coverage
 T34	PASS	server-protocol	MIME parameters enforce RFC 2045 token/quoted-string and RFC 2231 attribute/continuation syntax; unit-only coverage
+T35	PASS	server-protocol	RFC 2231 extended payload accepts only attribute-char or uppercase percent escapes; charset and mixed continuation tests, unit-only
 R01	PASS	runtime	orchestrator transfer and registry ownership tests
 R02	PASS	runtime	exclusive resource double-acquire test
 R03	PASS	runtime	timeout keeps live lease occupied

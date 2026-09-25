@@ -115,6 +115,13 @@ attribute=value, token/quoted-string и список tspecials. RFC 2231 attribu
 неэкранированную кавычку, корректный escaped DQUOTE, пустой quoted value и
 filename continuation. Сетевой MIME acceptance этих новых границ не выполнялся.
 
+RFC 2231 extended payload decoder принимает только attribute-char или
+percent-encoded octets с uppercase hex digits; проверяются mixed encoded и
+unencoded continuation segments. Charset декодируется явным allowlist из
+четырёх профилей. Language tag сейчас разделяется, но не сохраняется и не
+валидируется; пустой/неподдерживаемый charset невозможно представить через
+Unicode API и он отвергается. Новые RFC 2231 regressions unit-only.
+
 Quoted и `text:` multiline strings принимают CRLF; multiline форма сохраняет
 terminating CRLF тела, снимает один dot-stuffing octet и ограничена 65 536
 байтами. Для `text:` допускаются SP/HTAB и hash-comment перед обязательным

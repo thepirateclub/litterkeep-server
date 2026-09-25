@@ -89,6 +89,36 @@ fn accepts_empty_and_escaped_quoted_parameter_values() {
 }
 
 #[test]
+fn accepts_mixed_rfc2231_continuations_and_encoded_language_value() {
+    let parsed = parameters::parse(
+        r#"application/octet-stream; url*0="ftp://"; url*1="example.test/a"; filename*=UTF-8'en'na%C3%AFve.txt"#,
+    )
+    .expect("mixed continuation forms");
+
+    assert_eq!(
+        parsed.parameters.get("url").map(String::as_str),
+        Some("ftp://example.test/a")
+    );
+    assert_eq!(
+        parsed.parameters.get("filename").map(String::as_str),
+        Some("naïve.txt")
+    );
+}
+
+#[test]
+fn rejects_noncanonical_rfc2231_extended_payload_octets() {
+    for value in [
+        "text/plain; name*=UTF-8''bad?value",
+        "text/plain; name*=UTF-8''bad'quote",
+        "text/plain; name*=UTF-8''bad*value",
+        "text/plain; name*=UTF-8''bad%2avalue",
+        "text/plain; name*=UTF-8''bad%G0value",
+    ] {
+        assert!(parameters::parse(value).is_err(), "accepted {value}");
+    }
+}
+
+#[test]
 fn rejects_unterminated_comment_but_preserves_quoted_parentheses() {
     assert!(parameters::parse("text/plain (unfinished").is_err());
     let parsed = parameters::parse("application/octet-stream; name=\"x(y)\"")

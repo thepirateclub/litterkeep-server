@@ -15,6 +15,8 @@ pub(crate) mod envelope_address;
 mod envelope_address_scan;
 #[path = "mime/headers.rs"]
 pub mod header_block;
+#[path = "mime/parameter_extended.rs"]
+pub(crate) mod parameter_extended;
 #[path = "mime/parameters.rs"]
 pub mod parameters;
 #[cfg(test)]
