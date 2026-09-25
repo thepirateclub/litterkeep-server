@@ -132,7 +132,8 @@ fn parse_field(line: &[u8], start: usize, end: usize) -> Result<HeaderField, &'s
         .iter()
         .position(|byte| *byte == b':')
         .ok_or("malformed header")?;
-    let name = line.get(..colon).ok_or("invalid header name")?;
+    let raw_name = line.get(..colon).ok_or("invalid header name")?;
+    let name = trim_field_name_whitespace(raw_name);
     if name.is_empty() {
         return Err("invalid header name");
     }
@@ -150,6 +151,14 @@ fn parse_field(line: &[u8], start: usize, end: usize) -> Result<HeaderField, &'s
         value: trim_ascii(value).to_vec(),
         raw_range: start..end,
     })
+}
+
+/// Игнорирует WSP перед `:`, как требует профиль header-теста RFC 5228.
+fn trim_field_name_whitespace(mut name: &[u8]) -> &[u8] {
+    while let Some(rest) = name.strip_suffix(b" ").or_else(|| name.strip_suffix(b"\t")) {
+        name = rest;
+    }
+    name
 }
 
 fn unfold(
@@ -201,5 +210,18 @@ mod tests {
     fn rejects_bare_lf_and_orphan_continuation() {
         assert!(parse(b"Subject: bad\n\nbody").is_err());
         assert!(parse(b" continuation\r\n\r\nbody").is_err());
+    }
+
+    #[test]
+    fn ignores_whitespace_between_field_name_and_colon() {
+        let block = parse(b"Subject \t: invoice\r\n\r\nbody").expect("header");
+        assert_eq!(
+            block.fields.first().map(|field| field.name.as_str()),
+            Some("subject")
+        );
+        assert_eq!(
+            block.fields.first().map(|field| field.value.as_slice()),
+            Some(b"invoice".as_slice())
+        );
     }
 }

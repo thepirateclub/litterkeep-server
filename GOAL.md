@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 5228 header-name whitespace checkpoint
+
+- Общий MIME header parser нормализует SP/HTAB перед `:` в имя поля вместо
+  отказа на ранее допустимой для Sieve форме. Исходный raw header не меняется.
+  Unit test закрепляет normalized name/value; независимый клиент отправляет
+  `Subject \t:`, проверяет Sieve fileinto delivery через IMAP и подтверждает
+  через FETCH, что wire bytes сохранены.
+- PASS: Windows Rust 1.97.1, fmt, 324 теста, strict Clippy, Python compile и
+  diff check. Linux Docker Rust 1.97: strict Clippy и 364 теста. Независимый
+  ManageSieve -> SMTP -> IMAP acceptance прошёл в
+  `./data/g17-sieve-header-colon-wsp-verified`. Временный контейнер удалён,
+  `litterkeep-g12-phone` сохранён. Litterkeep app integration не проверялась.
+  G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 5228 fileinto capability checkpoint
 
 - Static validation теперь требует `require "fileinto"` для каждого

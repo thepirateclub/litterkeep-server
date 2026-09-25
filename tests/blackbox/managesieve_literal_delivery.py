@@ -216,10 +216,13 @@ def deliver(options: argparse.Namespace, context: ssl.SSLContext) -> None:
         client.ehlo()
         alice_password = os.environ.get("LITTERKEEP_ALICE_PASSWORD", "alice-password")
         client.login("alice", alice_password)
+        serialized = message.as_bytes(policy=SMTP).replace(
+            b"Subject:", b"Subject \t:", 1
+        )
         client.sendmail(
             "alice@litterkeep.test",
             ["bob@litterkeep.test"],
-            message.as_bytes(policy=SMTP),
+            serialized,
         )
 
 
@@ -241,6 +244,7 @@ def verify_mailbox(options: argparse.Namespace, context: ssl.SSLContext) -> None
         require(status == "OK", "IMAP UID FETCH")
         payload = b"".join(fetch_bytes(item) for item in fetched)
         require(b"[invoice] paid" in payload, "прочитано не то письмо")
+        require(b"Subject \t:" in payload, "исходные байты Subject были изменены")
 
 
 def fetch_bytes(item: object) -> bytes:
