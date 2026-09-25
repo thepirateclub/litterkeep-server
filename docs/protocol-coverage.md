@@ -155,8 +155,10 @@ application/octet-stream вложение, а TEXT включает decoded oute
 octets. Часть с неизвестным Content-Transfer-Encoding рассматривается как
 непрозрачный `application/octet-stream` согласно RFC 2045 §6.4: её тело не
 попадает в текстовый SEARCH projection, а исходные MIME-заголовки сохраняются.
-IMAP BINARY для такой части отдельно завершается `NO [UNKNOWN-CTE]` согласно
-RFC 9051.
+Независимая SMTP STARTTLS -> IMAP проверка подтвердила fallback type в
+BODYSTRUCTURE, сохранение исходных заголовков и отсутствие совпадения SEARCH
+BODY. IMAP BINARY для такой части завершается `NO [UNKNOWN-CTE]` согласно
+RFC 9051; тот же клиент проверяет response code.
 MIME tree отвергает Base64, quoted-printable и неизвестный CTE на всех
 multipart/message composite entities согласно RFC 2045 §6.4; повторное поле
 CTE отклоняется как неоднозначное, поэтому позднее 8bit не маскирует ранее

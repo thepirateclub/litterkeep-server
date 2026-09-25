@@ -208,13 +208,16 @@ def main():
             )
 
         unsupported_subject = "unknown cte " + uuid.uuid4().hex
+        unsupported_search_token = "opaque-body-" + uuid.uuid4().hex
         unsupported = (
             b"From: Alice <alice@test>\r\n"
             b"To: Bob <bob@test>\r\n"
             + b"Subject: "
             + unsupported_subject.encode("ascii")
-            + b"\r\nContent-Type: application/octet-stream\r\n"
-            b"Content-Transfer-Encoding: x-unknown\r\n\r\nencoded bytes\r\n"
+            + b"\r\nContent-Type: text/plain\r\n"
+            b"Content-Transfer-Encoding: x-unknown\r\n\r\n"
+            + unsupported_search_token.encode("ascii")
+            + b"\r\n"
         )
         with smtplib.SMTP(selected.host, selected.smtp_port, timeout=10) as smtp:
             smtp.starttls(context=smtp_context)
@@ -230,6 +233,32 @@ def main():
         unsupported_sequence = next(iter(search_line.split()[2:]), None)
         if unsupported_sequence is None:
             raise AssertionError(f"unknown CTE fixture not found: {search!r}")
+        structure = client.command(
+            b"FETCH " + unsupported_sequence + b" (BODYSTRUCTURE)"
+        )
+        require_ok(structure, "unknown CTE BODYSTRUCTURE")
+        if b'"APPLICATION" "OCTET-STREAM"' not in structure:
+            raise AssertionError(
+                f"unknown CTE did not project as opaque octets: {structure!r}"
+            )
+        source_headers = client.command(
+            b"FETCH " + unsupported_sequence + b" (BODY.PEEK[HEADER])"
+        )
+        require_ok(source_headers, "unknown CTE raw MIME headers")
+        if (
+            b"Content-Type: text/plain\r\n" not in source_headers
+            or b"Content-Transfer-Encoding: x-unknown\r\n" not in source_headers
+        ):
+            raise AssertionError(f"unknown CTE headers were rewritten: {source_headers!r}")
+        body_search = client.command(
+            b'SEARCH BODY "' + unsupported_search_token.encode("ascii") + b'"'
+        )
+        require_ok(body_search, "opaque unknown CTE body search")
+        body_search_line = next(
+            line for line in body_search.splitlines() if line.startswith(b"* SEARCH ")
+        )
+        if len(body_search_line.split()) > 2:
+            raise AssertionError(f"opaque unknown CTE body leaked into SEARCH: {body_search!r}")
         failure = client.command(b"FETCH " + unsupported_sequence + b" (BINARY[1])")
         if b"NO [UNKNOWN-CTE]" not in failure:
             raise AssertionError(f"unknown CTE did not produce response code: {failure!r}")
@@ -244,7 +273,8 @@ def main():
     if decoded != expected:
         raise AssertionError("fixture MIME parser disagrees about attachment bytes")
     print(
-        "PASS imap-binary-fetch: size, literal8, partial, Seen, UNKNOWN-CTE, "
+        "PASS imap-binary-fetch: size, literal8, partial, Seen, unknown-CTE "
+        "BODYSTRUCTURE/SEARCH/headers, "
         "RFC 2045 Base64 noise"
     )
 

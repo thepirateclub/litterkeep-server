@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 unknown MIME CTE wire behavior
+
+- Независимый SMTP STARTTLS -> IMAP STARTTLS сценарий теперь посылает часть с
+  исходным `Content-Type: text/plain` и неизвестным CTE. На wire проверены
+  effective `APPLICATION/OCTET-STREAM` в BODYSTRUCTURE, сохранение обоих raw
+  MIME-заголовков, исключение уникального body token из `SEARCH BODY` и
+  `NO [UNKNOWN-CTE]` для BINARY.
+- PASS: `imap_binary_fetch.py` прошёл целиком вместе с существующими BINARY,
+  Base64-noise, Seen и partial checks. Python compile, Windows Cargo suite
+  (450 library + 1 binary), strict Clippy, fmt и diff checks прошли. Linux
+  runtime image собран для независимой acceptance проверки; Rust source не
+  менялся, поэтому Linux test-stage отдельно не заявляется. Stage data:
+  `./data/g17-mime-unknown-cte-wire`. Временные контейнер/image удалены;
+  `docker ps -a` оставил только `litterkeep-g12-phone`. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 2045 Base64 wire-compatibility checkpoint
 
 - Независимый `imap_binary_fetch.py` расширен SMTP-доставкой multipart fixture,

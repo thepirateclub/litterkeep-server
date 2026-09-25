@@ -38,7 +38,7 @@ T36	PASS	server-protocol	Registered windows-1252 MIME charset decodes all C1-ran
 T37	PASS	server-protocol	RFC 2047 encoded-text requires nonempty printable ASCII excluding SPACE and question mark; encoded Q octets remain legal; unit-only
 T38	PASS	server-protocol	RFC 2047 unstructured header recognizes complete encoded-word tokens only at field start or after LWS; unit-only
 T39	PASS	server-protocol	RFC 2045 composite MIME tree permits only 7bit/8bit/binary CTE for multipart and message entities; duplicate invalid CTE cannot be hidden; unit-only
-T40	PASS	server-protocol	Unknown MIME CTE becomes effective application/octet-stream for BODYSTRUCTURE and is excluded from text SEARCH; source bytes preserved; unit-only (black-box updated, not run)
+T40	PASS	server-protocol	Unknown MIME CTE becomes effective application/octet-stream for BODYSTRUCTURE, is excluded from text SEARCH, preserves source headers and returns UNKNOWN-CTE for BINARY; verified by unit and independent SMTP/IMAP acceptance
 T41	PASS	server-protocol	Duplicate Content-Transfer-Encoding fields are rejected as ambiguous rather than selecting the last value; absent and single values verified; unit-only
 T42	PASS	server-protocol	Missing or syntactically malformed Content-Type falls back to text/plain with US-ASCII semantics; source header retained and duplicate fields rejected; unit-only (black-box updated, not run)
 T43	PASS	server-protocol	RFC 2046 multipart boundary enforces 1..70 ASCII bchars octets and rejects terminal space or forbidden octets; unit-only
@@ -64,6 +64,7 @@ T62	PASS	server-protocol	Independent Python imaplib STARTTLS fetch verifies a va
 T63	PASS	server-protocol	Independent Python imaplib STARTTLS fetch verifies RFC 3986 URI-reference locations are retained and malformed percent-encoding is omitted from BODYSTRUCTURE
 T64	PASS	server-protocol	Independent ManageSieve CHECKSCRIPT accepts one MIME-Version 1.0 with RFC comments and rejects unsupported, duplicate, or whitespace-corrupted declarations in vacation :mime
 T65	PASS	server-protocol	Independent SMTP STARTTLS delivery and IMAP BINARY.PEEK confirm RFC 2045 MIME Base64 decoder ignores non-alphabet ASCII octets inside an attachment without weakening encoded-word decoding
+T66	PASS	server-protocol	Independent SMTP STARTTLS delivery and IMAP fetch verify unknown CTE projects as application/octet-stream, retains raw MIME headers, is omitted from BODY SEARCH and returns UNKNOWN-CTE for BINARY
 R01	PASS	runtime	orchestrator transfer and registry ownership tests
 R02	PASS	runtime	exclusive resource double-acquire test
 R03	PASS	runtime	timeout keeps live lease occupied
