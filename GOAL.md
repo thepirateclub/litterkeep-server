@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 RFC 2045 quoted-printable padding over wire
+
+- Добавлен независимый `tests/blackbox/mime_quoted_printable_padding.py`.
+  SMTP STARTTLS отправляет QP text с буквальными пробелами и TAB на концах
+  hard/soft lines, encoded `=20` перед padding и soft break. IMAP STARTTLS
+  `BINARY.PEEK[1]` сравнивает все decoded octets с ожидаемым результатом.
+  В сетевом тесте подтверждены RFC 2045 §§6.7 padding и soft-break правила;
+  encoder whitespace и encoded `=09` остаются unit-only.
+- PASS: Python compile и независимый acceptance на Linux release binary из
+  Docker test image с bind mount `./data/g17-mime-qp-padding-wire`. Rust
+  исходники не менялись, поэтому Rust suite не перезапускался; его последний
+  результат относится к неизменённому source. Проверен независимый клиент,
+  не Litterkeep. Временный контейнер и image tag удалены;
+  `docker ps -a` оставил только ранее существовавший
+  `litterkeep-g12-phone`. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 2045 malformed quoted-printable wire recovery
 
 - Добавлен независимый `tests/blackbox/mime_quoted_printable_recovery.py`.

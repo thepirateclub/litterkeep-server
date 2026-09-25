@@ -179,10 +179,12 @@ Content-Transfer-Encoding удаляет вложенные comments вне quot
 разбором token. Проверены comments до и после значения unit-тестом.
 Quoted-printable decoder удаляет буквальные SP/TAB на концах hard lines и
 объекта, не удаляя закодированные `=20`/`=09`; encoder сериализует пробелы и
-TAB как hex-octets, чтобы перенос строки не менял содержимое. Также буквальные
-SP/TAB перед soft break `=CRLF` считаются транспортным padding и удаляются;
-encoded `=20` перед soft break сохраняется. Эти случаи проверены unit-тестами,
-отдельный socket acceptance не запускался.
+TAB как hex-octets, чтобы перенос строки не менял содержимое. Независимый SMTP
+STARTTLS -> IMAP STARTTLS BINARY.PEEK подтвердил удаление SP/TAB в hard-line
+padding и сохранение decoded `=20`. Перед soft break `=CRLF` буквальные
+SP/TAB также удаляются, а encoded `=20` сохраняется; эти случаи независимо
+проверены тем же wire acceptance. Encoder сериализации whitespace остаётся
+unit-only.
 При повреждённом quoted-printable `=` escape входящий decoder сохраняет
 буквальный `=` и следующий символ без преобразования, как рекомендует RFC 2045
 §6.7 для robust decoder. Генераторский Sieve `:mime` validator использует
