@@ -4,6 +4,26 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 5230 vacation implementation checkpoint
+
+- Реализованы typed parser/validator/executor для единственного `vacation`
+  action, ManageSieve capability, RFC response generation, MIME/UTF-8 encoding,
+  safety suppression и Store enqueue с durable history. Исходная доставка
+  сохраняет implicit keep; ошибка enqueue после её commit не запрашивает у SMTP
+  повтор исходного письма и журналируется в stderr.
+- Локальные regressions: 8 parser/validator/message tests и 2 Store tests
+  подтверждают MIME guards, UTF-8 response, автоматические/списочные guards,
+  исходную доставку и suppression после reopen. Полный test suite выявил и
+  исправил три regression: тест длины QP учитывал CR из CRLF, а старые тесты
+  считали `require "vacation"` неизвестной capability.
+- После исправлений Windows Rust 1.97.1 `cargo test --all-targets --locked`
+  проходит (355 тестов), strict Clippy и fmt проходят. Docker Rust 1.97 Linux
+  test-target проходит 396 тестов и release build. В `docker ps -a` остался
+  только `litterkeep-g12-phone`; transient containers не создавались.
+- `:addresses` ограничивает auto-reply фактическим конечным RCPT mailbox и
+  покрыт regression. Независимый сетевой acceptance активного ManageSieve
+  script с SMTP peer/IMAP reader всё ещё не выполнен; G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 vacation history capacity checkpoint
 
 - Уточнён RFC 5230 §4.2 capacity gate: отдельный recovery regression создаёт

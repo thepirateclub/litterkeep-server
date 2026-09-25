@@ -19,6 +19,8 @@ pub mod header_block;
 pub mod parameters;
 #[path = "mime/quoted_printable.rs"]
 pub mod quoted_printable;
+#[path = "mime/quoted_printable_encode.rs"]
+pub(crate) mod quoted_printable_encode;
 #[path = "mime/search_text.rs"]
 pub mod search_text;
 #[path = "mime/transfer.rs"]

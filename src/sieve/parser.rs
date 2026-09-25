@@ -40,6 +40,7 @@ fn capability(value: String) -> Capability {
         "copy" => Capability::Copy,
         "subaddress" => Capability::Subaddress,
         "envelope" => Capability::Envelope,
+        "vacation" => Capability::Vacation,
         _ => Capability::Unsupported(value),
     }
 }
@@ -96,6 +97,7 @@ fn action(
         "stop" => Action::Stop,
         "fileinto" => actions::fileinto(input)?,
         "redirect" => actions::redirect(input)?,
+        "vacation" => actions::vacation(input)?,
         "if" => {
             output.push(if_command(input)?);
             return Ok(());

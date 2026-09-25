@@ -14,6 +14,7 @@ pub enum Capability {
     Copy,
     Subaddress,
     Envelope,
+    Vacation,
     Unsupported(String),
 }
 
@@ -44,7 +45,20 @@ pub enum Action {
     FileIntoCopy(String),
     Redirect(String),
     RedirectCopy(String),
+    Vacation(VacationAction),
     Stop,
+}
+
+/// Параметры RFC 5230, сохранённые без потери исходных Sieve strings.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VacationAction {
+    pub days: Option<u64>,
+    pub subject: Option<String>,
+    pub from: Option<String>,
+    pub addresses: Vec<String>,
+    pub mime: bool,
+    pub handle: Option<String>,
+    pub reason: String,
 }
 
 /// Предикат, вычисляемый исключительно на MIME headers.

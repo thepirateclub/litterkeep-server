@@ -238,7 +238,7 @@ fn combined_header_address_and_size_rule_matches_network_fixture() {
 
 #[test]
 fn invalid_script_does_not_become_a_delivery_plan() {
-    assert!(parse("require [\"vacation\"]; keep;").is_err());
+    assert!(parse("require [\"unknown-extension\"]; keep;").is_err());
     assert!(parse("fileinto \"Invoices\";").is_err());
     assert!(parse("fileinto \"../Invoices\";").is_err());
     assert!(

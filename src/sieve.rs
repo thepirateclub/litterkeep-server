@@ -29,12 +29,21 @@ mod parser_values;
 #[cfg(test)]
 #[path = "sieve/tests.rs"]
 mod tests;
+#[path = "sieve/vacation_identity.rs"]
+mod vacation_identity;
+#[path = "sieve/vacation_message.rs"]
+mod vacation_message;
+#[path = "sieve/vacation_policy.rs"]
+mod vacation_policy;
+#[cfg(test)]
+#[path = "sieve/vacation_tests.rs"]
+mod vacation_tests;
 #[path = "sieve/validate.rs"]
 mod validate;
 
 pub use ast::{
     Action, AddressPart, Comparator, Condition, EnvelopePart, MatchType, Script, SizeRelation,
-    StringMatch,
+    StringMatch, VacationAction,
 };
 pub use execution::{DeliveryPlan, ExecutionError, execute, execute_with_envelope};
 
@@ -45,3 +54,7 @@ pub fn parse(source: &str) -> Result<Script, &'static str> {
     validate::script(&script)?;
     Ok(script)
 }
+
+pub(crate) use vacation_identity::response_identity;
+pub(crate) use vacation_message::build_response as build_vacation_response;
+pub(crate) use vacation_policy::{effective_days, may_respond, recipient_allowed};

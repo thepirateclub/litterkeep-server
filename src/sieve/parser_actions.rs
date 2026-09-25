@@ -5,6 +5,9 @@ use super::super::lexer::Token;
 use super::super::parser_values::one_string;
 use std::collections::VecDeque;
 
+#[path = "parser_vacation.rs"]
+mod vacation_action;
+
 /// Разбирает optional RFC 3894 `:copy` перед обязательным mailbox string.
 pub(super) fn fileinto(input: &mut VecDeque<Token>) -> Result<Action, &'static str> {
     match input.front() {
@@ -25,4 +28,9 @@ pub(super) fn redirect(input: &mut VecDeque<Token>) -> Result<Action, &'static s
         }
         _ => Ok(Action::Redirect(one_string(input)?)),
     }
+}
+
+/// Делегирует разбор RFC 5230 опций отдельной grammar-функции.
+pub(super) fn vacation(input: &mut VecDeque<Token>) -> Result<Action, &'static str> {
+    vacation_action::parse(input)
 }

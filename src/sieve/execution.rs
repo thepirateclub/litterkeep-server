@@ -1,7 +1,7 @@
 //! Bounded исполнение AST в DeliveryPlan без доступа к сети и файловой системе.
 
 use super::address;
-use super::ast::{Action, Command, Condition, EnvelopePart, Script};
+use super::ast::{Action, Command, Condition, EnvelopePart, Script, VacationAction};
 use super::matching;
 use std::fmt;
 
@@ -12,6 +12,8 @@ pub struct DeliveryPlan {
     pub discard: bool,
     pub folders: Vec<String>,
     pub redirects: Vec<String>,
+    /// Generated-response intents, сохраняющие независимость executor-а от Store.
+    pub vacations: Vec<VacationAction>,
 }
 
 /// Типизированная причина отказа bounded executor-а после успешной валидации.
@@ -96,6 +98,7 @@ pub fn execute_with_envelope(
         discard: false,
         folders: Vec::new(),
         redirects: Vec::new(),
+        vacations: Vec::new(),
     };
     let mut stopped = false;
     let mut remaining = 128;
@@ -184,6 +187,7 @@ fn apply(
             }
             plan.redirects.push(address.clone());
         }
+        Action::Vacation(action) => plan.vacations.push(action.clone()),
         Action::Stop => *stopped = true,
     }
     Ok(())

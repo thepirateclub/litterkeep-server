@@ -24,7 +24,7 @@ pub fn prepend(message: &[u8], reverse_path: &str, received_at: SystemTime) -> i
 }
 
 /// Преобразует Unix time в фиксированный RFC 5322 UTC date-time за O(1).
-fn rfc5322_utc(seconds: u64) -> String {
+pub(crate) fn rfc5322_utc(seconds: u64) -> String {
     let days = seconds / 86_400;
     let day_seconds = seconds % 86_400;
     let hour = day_seconds / 3_600;

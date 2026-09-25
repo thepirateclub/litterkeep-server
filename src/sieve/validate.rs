@@ -1,6 +1,8 @@
 //! Статическая policy validation до атомарной публикации script версии.
 
 use super::ast::{Action, AddressPart, Capability, Command, Condition, Script};
+#[path = "vacation_validation.rs"]
+mod vacation_validation;
 
 pub(super) fn script(script: &Script) -> Result<(), &'static str> {
     if script
@@ -27,6 +29,10 @@ pub(super) fn script(script: &Script) -> Result<(), &'static str> {
         .requires
         .iter()
         .any(|value| matches!(value, Capability::Envelope));
+    let vacation = script
+        .requires
+        .iter()
+        .any(|value| matches!(value, Capability::Vacation));
     commands(
         &script.commands,
         0,
@@ -35,7 +41,8 @@ pub(super) fn script(script: &Script) -> Result<(), &'static str> {
         copy,
         subaddress,
         envelope,
-    )
+    )?;
+    vacation_validation::actions(&script.commands, vacation)
 }
 
 fn commands(
@@ -106,10 +113,11 @@ fn action_valid(action: &Action, fileinto: bool, copy: bool) -> Result<(), &'sta
         | Action::FileIntoCopy(_)
         | Action::Redirect(_)
         | Action::RedirectCopy(_) => Err("unsafe sieve action target"),
-        Action::Keep | Action::Discard | Action::Stop => Ok(()),
+        Action::Keep | Action::Discard | Action::Stop | Action::Vacation(_) => Ok(()),
     }
 }
 
+/// Проверяет capability, единственность script-wide и адресные параметры.
 /// Применяет RFC 5322 mailbox parser и запрещает sieve-address route/group формы.
 fn valid_redirect_address(value: &str) -> bool {
     if has_route_or_group_syntax(value) {

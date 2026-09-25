@@ -30,7 +30,11 @@ fn active_script_survives_restart_and_invalid_update_keeps_old_version() {
         .expect("active");
     assert!(
         store
-            .put_sieve_script("bob", "invoices", "require [\"vacation\"]; keep;".into())
+            .put_sieve_script(
+                "bob",
+                "invoices",
+                "require [\"unknown-extension\"]; keep;".into()
+            )
             .is_err()
     );
     assert_eq!(

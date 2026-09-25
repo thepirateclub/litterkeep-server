@@ -86,6 +86,9 @@ mod sieve_scripts;
 #[cfg(test)]
 #[path = "store/sieve_tests.rs"]
 mod sieve_tests;
+#[cfg(test)]
+#[path = "store/sieve_vacation_tests.rs"]
+mod sieve_vacation_tests;
 #[path = "store/subscription_access.rs"]
 mod subscription_access;
 #[path = "store/subscriptions.rs"]

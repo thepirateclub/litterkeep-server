@@ -4,6 +4,17 @@ use super::{ScriptInfo, SieveDiagnostic, Store, sieve_diagnostics};
 use crate::sieve;
 use std::collections::HashSet;
 use std::io;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+struct GeneratedVacation {
+    account: String,
+    sender: String,
+    identity: String,
+    recipient: String,
+    payload: Vec<u8>,
+    now_epoch: u64,
+    days: u64,
+}
 
 impl Store {
     /// Валидирует и атомарно публикует новую версию named script.
@@ -95,6 +106,7 @@ impl Store {
         let mut mailboxes = Vec::new();
         let mut outbound = Vec::new();
         let mut diagnostics = Vec::new();
+        let mut vacation_responses = Vec::new();
         let mut evaluated = HashSet::with_capacity(accounts.len());
         for (account, envelope_to) in accounts.iter().zip(envelope_recipients) {
             if !evaluated.insert(account.as_str()) {
@@ -108,6 +120,13 @@ impl Store {
             for recipient in plan.redirects {
                 outbound.push((envelope_sender.to_owned(), recipient));
             }
+            for action in plan.vacations {
+                if let Some(response) =
+                    prepare_vacation(account, envelope_sender, envelope_to, &headers, &action)?
+                {
+                    vacation_responses.push(response);
+                }
+            }
             if plan.keep {
                 mailboxes.push(self.resolve_folder(account, "INBOX")?);
             }
@@ -115,10 +134,37 @@ impl Store {
                 mailboxes.push(self.resolve_folder(account, &folder)?);
             }
         }
-        if let (true, true) = (mailboxes.is_empty(), outbound.is_empty()) {
-            return Ok(0);
+        let mut transaction_id = match (mailboxes.is_empty(), outbound.is_empty()) {
+            (true, true) => None,
+            _ => Some(self.append_many_with_sieve(&mailboxes, raw, &outbound, &diagnostics)?),
+        };
+        for response in vacation_responses {
+            let result = self.enqueue_vacation_response(super::VacationResponseRequest {
+                account: &response.account,
+                sender: &response.sender,
+                response_identity: &response.identity,
+                recipient: &response.recipient,
+                raw: &response.payload,
+                now_epoch: response.now_epoch,
+                days: response.days,
+            });
+            let result = match result {
+                Ok(result) => result,
+                Err(error) => {
+                    // Исходное письмо уже committed: ошибка автоответа не должна
+                    // заставлять SMTP-клиента повторять доставку исходного письма.
+                    eprintln!("Sieve vacation response was not queued: {error}");
+                    continue;
+                }
+            };
+            if let super::VacationResponseResult::Queued {
+                transaction_id: queued,
+            } = result
+            {
+                transaction_id.get_or_insert(queued);
+            }
         }
-        self.append_many_with_sieve(&mailboxes, raw, &outbound, &diagnostics)
+        Ok(transaction_id.unwrap_or_default())
     }
 
     fn delivery_plan(
@@ -150,6 +196,41 @@ impl Store {
             Err(error) => Ok(failed_plan(account, version, error)),
         }
     }
+}
+
+fn prepare_vacation(
+    account: &str,
+    envelope_sender: &str,
+    envelope_recipient: &str,
+    headers: &[(String, String)],
+    action: &sieve::VacationAction,
+) -> io::Result<Option<GeneratedVacation>> {
+    if !sieve::may_respond(envelope_sender, headers) {
+        return Ok(None);
+    }
+    if !sieve::recipient_allowed(&action.addresses, envelope_recipient) {
+        return Ok(None);
+    }
+    let recipient = match crate::redirect_policy::Recipient::parse(envelope_sender) {
+        Ok(address) => address.canonical(),
+        Err(_) => return Ok(None),
+    };
+    let now_epoch = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(io::Error::other)?
+        .as_secs();
+    let identity = sieve::response_identity(action)?;
+    let payload =
+        sieve::build_vacation_response(action, envelope_recipient, &recipient, headers, now_epoch)?;
+    Ok(Some(GeneratedVacation {
+        account: account.to_owned(),
+        sender: recipient,
+        identity,
+        recipient: envelope_sender.to_owned(),
+        payload,
+        now_epoch,
+        days: sieve::effective_days(action.days),
+    }))
 }
 
 fn failed_plan(
@@ -199,6 +280,7 @@ fn implicit_keep() -> sieve::DeliveryPlan {
         discard: false,
         folders: Vec::new(),
         redirects: Vec::new(),
+        vacations: Vec::new(),
     }
 }
 
