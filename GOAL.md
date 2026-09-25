@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 vacation history capacity checkpoint
+
+- Уточнён RFC 5230 §4.2 capacity gate: отдельный recovery regression создаёт
+  1000 committed response identities при максимальных разрешённых размерах
+  account, sender и identity, затем читает все 1000 обратно. Ещё один regression
+  добавляет оборванный tail и проверяет его удаление при сохранении claim.
+- PASS: Windows Rust 1.97 `cargo test --all-targets --locked` (343 tests),
+  strict Clippy, format и diff check. Linux Docker Rust 1.97 test target
+  (384 tests), strict Clippy и release build. Runtime-контейнеры не создавались;
+  в Docker остался только `litterkeep-g12-phone`.
+- Это подтверждает только ёмкость и recovery журнала. Полная vacation action,
+  удаление старых записей по сроку/лимиту, response generation и сетевой
+  acceptance не реализованы.
+
 ### 2026-09-25: G17 durable vacation suppression foundation
 
 - Store теперь имеет typed запрос generated vacation-ответа и append-only

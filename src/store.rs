@@ -98,6 +98,9 @@ mod vacation_access;
 #[path = "store/vacation_suppression.rs"]
 mod vacation_suppression;
 #[cfg(test)]
+#[path = "store/vacation_suppression_tests.rs"]
+mod vacation_suppression_tests;
+#[cfg(test)]
 #[path = "store/vacation_tests.rs"]
 mod vacation_tests;
 use crate::mail_flags::StoredFlags;
