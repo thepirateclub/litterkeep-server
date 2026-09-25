@@ -4,6 +4,12 @@
 keep/discard, header/address/size tests и diagnostics. ManageSieve поддерживает
 STARTTLS, SASL PLAIN, literals, CHECKSCRIPT, PUTSCRIPT, LISTSCRIPTS, GETSCRIPT,
 SETACTIVE, DELETESCRIPT и RENAMESCRIPT.
+Quoted и `text:` multiline strings принимают CRLF; multiline форма сохраняет
+terminating CRLF тела, снимает один dot-stuffing octet и ограничена 65 536
+байтами. Для `text:` допускаются SP/HTAB и hash-comment перед обязательным
+CRLF, но не bracket-comment. Lexer unit tests и независимый ManageSieve
+CHECKSCRIPT проверяют соответственно payload/dot-stuffing/пустое тело и
+принятие корректного скрипта с отказом на отсутствующий terminator.
 В базовом Sieve `require` разрешён только до первой команды, но несколько
 объявлений `require` подряд допустимы; unit regression проверяет оба правила
 по RFC 5228 §3.2. Quoted-string сохраняет CRLF, допускает `quoted-other`

@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 5228 multiline-string checkpoint
+
+- Sieve lexer теперь распознаёт `text:` как многострочную строку, сохраняет
+  CRLF, снимает ровно один dot-stuffing octet, поддерживает разрешённый
+  hash-comment перед телом и ограничивает размер результата. Bracket-comment в
+  заголовке literal, неверный separator и отсутствующий terminator отклоняются.
+- PASS: Windows Rust 1.97.1, 329 тестов, strict Clippy, fmt, diff check и Python
+  compile. Linux Docker Rust 1.97: strict Clippy и 369 тестов. Независимый TLS /
+  SASL ManageSieve CHECKSCRIPT принял многострочную строку и отклонил literal
+  без terminator в `./data/g17-sieve-multiline`. Временный контейнер удалён,
+  `litterkeep-g12-phone` сохранён. SMTP -> Sieve -> IMAP проверка семантики
+  matcher-а с фактическим входящим письмом ещё не выполнялась. G17 остаётся
+  RUNNING.
+
 ### 2026-09-25: G17 RFC 5228 redirect address checkpoint
 
 - Sieve `redirect` static validation теперь принимает только один корректный

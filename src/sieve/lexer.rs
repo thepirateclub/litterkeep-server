@@ -37,7 +37,13 @@ pub(super) fn tokenize(source: &str) -> Result<Vec<Token>, &'static str> {
             '}' => tokens.push(Token::CloseBlock),
             ';' => tokens.push(Token::Semicolon),
             ',' => tokens.push(Token::Comma),
-            value => tokens.push(Token::Atom(atom(value, &mut characters))),
+            value => {
+                let word = atom(value, &mut characters);
+                match word.eq_ignore_ascii_case("text:") {
+                    true => tokens.push(Token::String(multiline(&mut characters)?)),
+                    false => tokens.push(Token::Atom(word)),
+                }
+            }
         }
         if tokens.len() > 512 {
             return Err("sieve token limit exceeded");
@@ -102,6 +108,62 @@ fn string(characters: &mut Peekable<Chars<'_>>) -> Result<String, &'static str> 
         }
     }
     Err("unterminated sieve string")
+}
+
+/// Читает RFC 5228 `text:` строку с CRLF-разделителями и dot-unstuffing.
+fn multiline(characters: &mut Peekable<Chars<'_>>) -> Result<String, &'static str> {
+    while matches!(characters.peek(), Some(' ' | '\t')) {
+        let _ = characters.next();
+    }
+    match characters.peek().copied() {
+        Some('#') => {
+            let _ = characters.next();
+            line_comment(characters)?;
+        }
+        Some('\r') => match (characters.next(), characters.next()) {
+            (Some('\r'), Some('\n')) => {}
+            _ => return Err("invalid sieve multiline header"),
+        },
+        _ => return Err("invalid sieve multiline header"),
+    }
+    multiline_body(characters)
+}
+
+/// Снимает ровно один dot-stuffing octet и сохраняет CRLF перед terminator.
+fn multiline_body(characters: &mut Peekable<Chars<'_>>) -> Result<String, &'static str> {
+    let mut result = String::new();
+    loop {
+        let line = multiline_line(characters)?;
+        match line.as_str() {
+            "." => return Ok(result),
+            _ => {
+                let unstuffed = match line.strip_prefix("..") {
+                    Some(_) => line.strip_prefix('.').unwrap_or(line.as_str()),
+                    None => line.as_str(),
+                };
+                result.push_str(unstuffed);
+                result.push_str("\r\n");
+                if result.len() > 65_536 {
+                    return Err("sieve multiline string limit exceeded");
+                }
+            }
+        }
+    }
+}
+
+/// Читает одну CRLF-завершённую строку тела, не включая её перевод строки.
+fn multiline_line(characters: &mut Peekable<Chars<'_>>) -> Result<String, &'static str> {
+    let mut line = String::new();
+    loop {
+        match characters.next() {
+            Some('\r') => {
+                let _ = characters.next();
+                return Ok(line);
+            }
+            Some(character) => line.push(character),
+            None => return Err("unterminated sieve multiline string"),
+        }
+    }
 }
 
 fn atom(first: char, characters: &mut Peekable<Chars<'_>>) -> String {
