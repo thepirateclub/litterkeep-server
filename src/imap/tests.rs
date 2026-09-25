@@ -27,6 +27,13 @@ fn malformed_quoted_pair_keeps_the_command_tag() {
     );
 }
 
+/// Command tag следует production ASTRING-CHAR, а не atom.
+#[test]
+fn command_tag_allows_resp_special_but_rejects_plus() {
+    assert_eq!(parse("A]7 NOOP\r\n").tag, "A]7");
+    assert_eq!(parse("A+7 NOOP\r\n"), super::unsupported("*"));
+}
+
 /// STARTTLS преобразуется в enum до входа в session FSM.
 #[test]
 fn starttls_is_typed() {

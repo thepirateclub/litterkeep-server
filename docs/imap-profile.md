@@ -82,6 +82,11 @@ wire acceptance received tagged BAD and then issued NOOP successfully to verify
 session recovery. This closes only the quoted-special delimiter case, not the
 remaining atom-special context rules or IMAP4rev2 profile.
 
+G17 tag checkpoint (2026-09-26): parser and malformed-UTF-8 recovery use the
+RFC 9051 `tag` production, not generic `atom`: `]` is accepted as a response
+special and `+` is excluded. Unit and STARTTLS wire acceptance cover valid tag,
+error correlation, and safe fallback for the excluded character.
+
 CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-USE`,
 `NAMESPACE`, `UNSELECT`, `ENABLE`, `ESEARCH` и `SEARCHRES`. ENABLE игнорирует
 неизвестные и пока не поддерживаемые расширения по RFC и возвращает пустой
@@ -129,6 +134,7 @@ ASCII tag перед ответом BAD; повреждённый UTF-8 внут
 untagged fallback, не отражая недоверенные bytes. Независимый STARTTLS
 black-box проверил tagged BAD на malformed UTF-8 quoted LOGIN, untagged BAD
 для повреждённого tag без отражения octets и успешный NOOP после ошибок.
-При восстановлении tag также исключается `]`, поскольку RFC 9051 относит его к
-`resp-specials`, запрещённым в atom. Само это исправление не реализует
-UTF8=ACCEPT и не меняет рекламируемый профиль.
+При восстановлении tag применяется именно грамматика `tag = 1*<ASTRING-CHAR
+except "+">`: закрывающая скобка допустима как `resp-special`, тогда как plus
+запрещён. Это не совпадает с грамматикой atom и проверяется отдельными cases.
+Само исправление не реализует UTF8=ACCEPT и не меняет рекламируемый профиль.

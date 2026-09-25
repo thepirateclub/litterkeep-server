@@ -4,6 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G17 корректная грамматика command tag, PASS
+
+- Предыдущее исключение `]` из command tag было ошибочным: RFC 9051 tag
+  использует `ASTRING-CHAR`, где `]` разрешён, и исключает `+`. Parser и
+  malformed-UTF-8 sanitizer теперь используют ту же production.
+- PASS: Windows Rust 1.97.1 strict Clippy, 520 library + 1 binary tests,
+  fmt, Python syntax и diff checks. Linux Docker Rust 1.97 strict Clippy, 567
+  library + 1 binary tests и doc-tests; independent STARTTLS wire acceptance
+  прошёл valid `A]8` NOOP, tagged malformed-UTF8 error для `A]7`, и untagged
+  BAD для запрещённого `A+8`. Временный image и контейнер удалены, остальные
+  контейнеры не затронуты, fixture `./data/g17-imap-malformed-utf8` сохранена.
+  G17 остаётся ACTIVE.
+
 ### 2026-09-26: G17 embedded quote in atom, PASS
 
 - Tokenizer rejects a double quote embedded in an unquoted atom. Quoted strings
@@ -45,12 +58,11 @@ Current subgoal: G17
   PASS. Этапные образы и контейнер удалены; `./data/g17-imap-malformed-utf8`
   сохранена. UTF8=ACCEPT и IMAP4rev2 всё ещё не заявлены.
 
-### 2026-09-25: G17 IMAP resp-special tag sanitization, PASS
+### 2026-09-25: G17 IMAP resp-special tag sanitization, SUPERSEDED
 
-- Уточнён IMAP atom sanitizer для повреждённых UTF-8 команд: `]` является
-  RFC 9051 `resp-specials`, поэтому небезопасен в command tag наряду с
-  управляющими и структурными octets. Unit и независимый STARTTLS wire test
-  подтвердили untagged BAD без отражения тега `A]7`; сессия сохраняется.
+- Исторический тест проверял неверное утверждение, будто `]` запрещён в tag.
+  Последующая RFC-сверка показала отличие `tag` от `atom`; production исправлена
+  отдельным checkpoint-ом от 2026-09-26 выше.
 - PASS: Windows Rust 1.97.1 strict Clippy, 513 library + 1 binary tests,
   fmt, Python compile и diff check. Linux Docker Rust 1.97 strict Clippy,
   560 library + 1 binary tests и doc-tests; независимый runtime black-box

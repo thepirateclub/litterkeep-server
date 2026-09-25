@@ -7,25 +7,8 @@ pub(crate) fn extract(line: &[u8]) -> String {
         .next()
         .unwrap_or_default();
     match std::str::from_utf8(tag) {
-        Ok(value) if valid(value) => value.to_owned(),
+        Ok(value) if super::tokenizer::valid_tag(value) => value.to_owned(),
         Ok(_) | Err(_) => "*".to_owned(),
-    }
-}
-
-/// Не отражает управляющие и структурные octets обратно в tagged response.
-fn valid(tag: &str) -> bool {
-    match tag.is_empty() {
-        true => false,
-        false => tag.bytes().all(valid_byte),
-    }
-}
-
-/// Проверяет один octet тега по безопасному подмножеству IMAP atom.
-fn valid_byte(value: u8) -> bool {
-    let structural = matches!(value, b'(' | b')' | b'{' | b'%' | b'*' | b']' | b'"' | 92);
-    match (value, structural) {
-        (0x21..=0x7e, false) => true,
-        (_, _) => false,
     }
 }
 
@@ -47,10 +30,17 @@ mod tests {
         assert_eq!(extract(wire), "*");
     }
 
-    /// Resp-special `]` также запрещён в atom и не отражается как tag.
+    /// Command tag использует ASTRING-CHAR, поэтому resp-special `]` допустим.
     #[test]
-    fn response_special_inside_tag_uses_untagged_fallback() {
+    fn response_special_inside_tag_is_preserved() {
         let wire = b"A]7 LOGIN \"user\xff\" \"password\"\r\n";
+        assert_eq!(extract(wire), "A]7");
+    }
+
+    /// Формальная грамматика tag исключает plus даже при безопасном ASCII.
+    #[test]
+    fn plus_inside_tag_uses_untagged_fallback() {
+        let wire = b"A+7 LOGIN \"user\xff\" \"password\"\r\n";
         assert_eq!(extract(wire), "*");
     }
 }

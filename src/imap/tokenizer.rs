@@ -17,6 +17,23 @@ pub enum Token {
     ListEnd,
 }
 
+/// Проверяет command tag по `ASTRING-CHAR` с исключением RFC для plus.
+pub(crate) fn valid_tag(tag: &str) -> bool {
+    match tag.is_empty() {
+        true => false,
+        false => tag.bytes().all(valid_tag_byte),
+    }
+}
+
+/// Проверяет один ASCII octet production `tag` из RFC 9051.
+fn valid_tag_byte(value: u8) -> bool {
+    match (value.is_ascii_graphic(), value) {
+        (true, b'(' | b')' | b'{' | b'}' | b'%' | b'*' | b'+' | b'"' | b'\\') => false,
+        (true, _) => true,
+        (false, _) => false,
+    }
+}
+
 /// Разбирает одну CRLF-строку за `O(n)` времени с ограничением числа токенов.
 pub fn tokenize(line: &str) -> Result<Vec<Token>, &'static str> {
     tokenize_internal(line, Vec::new().into())
@@ -178,6 +195,14 @@ mod tests {
             tokenize("a LOGIN bo\"b password\r\n"),
             Err("quote inside IMAP atom")
         );
+    }
+
+    /// Tag допускает resp-special `]`, но исключает plus по отдельной production.
+    #[test]
+    fn tag_uses_astring_char_except_plus() {
+        assert!(valid_tag("A]7"));
+        assert!(!valid_tag("A+7"));
+        assert!(!valid_tag("A]7\t"));
     }
 
     /// Quoted string допускает HTAB, но не NUL, CR или LF.

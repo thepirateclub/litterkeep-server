@@ -34,7 +34,8 @@ def main() -> None:
     require_bad_utf8_atom(client)
     require_bad_malformed_utf8(client)
     require_untagged_bad_malformed_tag(client)
-    require_untagged_bad_response_special_tag(client)
+    require_tagged_bad_response_special_tag(client)
+    require_untagged_bad_plus_tag(client)
     require_bad_tab_separator(client)
     require_bad_quote_inside_atom(client)
     require(client.noop(), ImapStatus.OK)
@@ -101,12 +102,24 @@ def require_untagged_bad_malformed_tag(client: imaplib.IMAP4) -> None:
         raise AssertionError(f"malformed command tag response: {response!r}")
 
 
-def require_untagged_bad_response_special_tag(client: imaplib.IMAP4) -> None:
-    """Treats IMAP resp-special as invalid in an atom tag."""
+def require_tagged_bad_response_special_tag(client: imaplib.IMAP4) -> None:
+    """RFC 9051 tag использует ASTRING-CHAR и допускает закрывающую скобку."""
     client.send(b'A]7 LOGIN "b\xffb" "unused"\r\n')
     response = client.readline()
-    if not response.startswith(b"* BAD "):
+    if not response.startswith(b"A]7 BAD "):
         raise AssertionError(f"response-special command tag: {response!r}")
+    client.send(b"A]8 NOOP\r\n")
+    response = client.readline()
+    if not response.startswith(b"A]8 OK "):
+        raise AssertionError(f"valid response-special command tag: {response!r}")
+
+
+def require_untagged_bad_plus_tag(client: imaplib.IMAP4) -> None:
+    """Tag исключает плюс и не отражает его в error response."""
+    client.send(b'A+8 LOGIN "b\xffb" "unused"\r\n')
+    response = client.readline()
+    if not response.startswith(b"* BAD "):
+        raise AssertionError(f"invalid plus command tag: {response!r}")
 
 
 def require_bad_tab_separator(client: imaplib.IMAP4) -> None:
