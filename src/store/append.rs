@@ -5,7 +5,6 @@ use super::{
 };
 use std::fs::OpenOptions;
 use std::io::{self, Write};
-use std::path::PathBuf;
 
 impl Store {
     /// Фиксирует отдельный generated payload и outbound job без mailbox link.
@@ -142,11 +141,6 @@ impl Store {
             }
         }
     }
-    pub(super) fn index(&self, mailbox: &str) -> PathBuf {
-        self.root
-            .join("mailboxes")
-            .join(format!("{mailbox}.journal"))
-    }
     pub(super) fn ensure_writable(&self) -> io::Result<()> {
         match self.write_state {
             WriteState::Writable => Ok(()),
@@ -188,15 +182,20 @@ impl Store {
     ) -> io::Result<()> {
         let mut written = 0;
         for (mailbox, record) in links {
-            let mut file = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(self.index(mailbox))?;
+            let index = super::file_key::prepare(
+                &self.root.join("mailboxes"),
+                mailbox,
+                super::file_key::FileKind::Journal,
+            )?;
+            let mut file = OpenOptions::new().create(true).append(true).open(&index)?;
             file.write_all(&journal::frame(record))?;
             file.sync_all()?;
             written += 1;
             if written == 1 {
                 self.check_failpoint(AppendStage::FirstMailboxFrame)?;
+            }
+            if let Some(parent) = index.parent() {
+                durability::sync_directory(parent)?;
             }
         }
         durability::sync_directory(&self.root.join("mailboxes"))?;

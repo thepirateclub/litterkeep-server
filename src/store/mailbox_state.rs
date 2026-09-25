@@ -27,12 +27,9 @@ pub(super) fn load(
     let mut maximum_transaction_id = committed.maximum;
     let mut seen_transactions = HashSet::new();
     let mut checked_blobs = HashSet::new();
-    for entry in fs::read_dir(root.join("mailboxes"))? {
-        let path = entry?.path();
-        if path.extension().and_then(|value| value.to_str()) != Some("journal") {
-            continue;
-        }
-        let mailbox = mailbox_name(&path)?;
+    let mailbox_files =
+        super::file_key::entries(&root.join("mailboxes"), super::file_key::FileKind::Journal)?;
+    for (mailbox, path) in mailbox_files {
         let records = journal::records(&mailbox, &path)?;
         let next_uid = match records.last() {
             Some(record) => record
@@ -70,15 +67,6 @@ pub(super) fn load(
         entries,
         maximum_transaction_id,
     })
-}
-
-fn mailbox_name(path: &Path) -> io::Result<String> {
-    let mailbox = path
-        .file_stem()
-        .and_then(|value| value.to_str())
-        .ok_or_else(|| invalid("non-utf8 journal"))?;
-    model::validate_mailbox(mailbox)?;
-    Ok(mailbox.to_owned())
 }
 
 fn validate_blobs(

@@ -53,15 +53,17 @@ impl Default for AppendMetadata {
     }
 }
 pub fn validate_mailbox(mailbox: &str) -> io::Result<()> {
-    let characters_are_safe = mailbox
-        .bytes()
-        .all(|byte| matches!(byte, b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'_' | b'-'));
-    match (mailbox.is_empty(), characters_are_safe) {
-        (true, _) | (false, false) => Err(io::Error::new(
+    let characters_are_safe = mailbox.chars().all(|character| !character.is_control());
+    match (
+        mailbox.is_empty(),
+        mailbox.len() <= 256,
+        characters_are_safe,
+    ) {
+        (true, _, _) | (_, false, _) | (_, _, false) => Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "unsafe mailbox",
         )),
-        (false, true) => Ok(()),
+        (false, true, true) => Ok(()),
     }
 }
 pub fn blob_name(transaction_id: u64) -> String {

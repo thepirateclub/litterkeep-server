@@ -13,8 +13,15 @@ pub(super) fn load(
     entries: &HashMap<String, Vec<Record>>,
 ) -> io::Result<HashMap<String, HashMap<u64, StoredFlags>>> {
     let mut result = HashMap::new();
-    for (mailbox, records) in entries {
-        let path = root.join("mailboxes").join(format!("{mailbox}.flags"));
+    for (mailbox, path) in
+        super::file_key::entries(&root.join("mailboxes"), super::file_key::FileKind::Flags)?
+    {
+        let Some(records) = entries.get(&mailbox) else {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "flags without mailbox",
+            ));
+        };
         let bytes = match fs::read(&path) {
             Ok(bytes) => bytes,
             Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
@@ -26,7 +33,7 @@ pub(super) fn load(
             file.set_len(valid_length as u64)?;
             file.sync_all()?;
         }
-        result.insert(mailbox.clone(), flags);
+        result.insert(mailbox, flags);
     }
     Ok(result)
 }
@@ -117,13 +124,22 @@ impl Store {
             return Ok(());
         }
         let frame = super::flag_journal::encode(&updates)?;
-        let path = self.root.join("mailboxes").join(format!("{mailbox}.flags"));
+        let mailbox_root = self.root.join("mailboxes");
+        let path =
+            super::file_key::prepare(&mailbox_root, mailbox, super::file_key::FileKind::Flags)?;
         let durable = OpenOptions::new()
             .create(true)
             .append(true)
-            .open(path)
+            .open(&path)
             .and_then(|mut file| file.write_all(&frame).and_then(|()| file.sync_all()))
-            .and_then(|()| durability::sync_directory(&self.root.join("mailboxes")));
+            .and_then(|()| {
+                let directory = path.parent().unwrap_or(&mailbox_root);
+                durability::sync_directory(directory)?;
+                if directory != mailbox_root {
+                    durability::sync_directory(&mailbox_root)?;
+                }
+                Ok(())
+            });
         if let Err(error) = durable {
             self.write_state = super::WriteState::Poisoned;
             return Err(error);

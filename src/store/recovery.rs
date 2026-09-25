@@ -1,22 +1,15 @@
-use super::{commit_log, journal, model};
+use super::{commit_log, journal};
 use std::fs;
 use std::io;
 use std::path::Path;
 pub fn recover(root: &Path) -> io::Result<()> {
     clean_temps(&root.join("blobs"))?;
     commit_log::recover(&root.join("journal/transactions.log"))?;
-    for entry in fs::read_dir(root.join("mailboxes"))? {
-        let path = entry?.path();
-        if path.extension().and_then(|v| v.to_str()) != Some("journal") {
-            continue;
-        }
-        let mailbox = path
-            .file_stem()
-            .and_then(|v| v.to_str())
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "non-utf8 journal"))?;
-        model::validate_mailbox(mailbox)?;
-        journal::recover(mailbox, &path)?;
-        journal::records(mailbox, &path)?;
+    let mailbox_files =
+        super::file_key::entries(&root.join("mailboxes"), super::file_key::FileKind::Journal)?;
+    for (mailbox, path) in mailbox_files {
+        journal::recover(&mailbox, &path)?;
+        journal::records(&mailbox, &path)?;
     }
     Ok(())
 }

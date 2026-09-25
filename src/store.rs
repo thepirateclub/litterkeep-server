@@ -11,6 +11,8 @@ mod commit_log;
 mod copy;
 #[path = "store/durability.rs"]
 mod durability;
+#[path = "store/expunge_codec.rs"]
+mod expunge_codec;
 #[cfg(test)]
 #[path = "store/expunge_tests.rs"]
 mod expunge_tests;
@@ -19,6 +21,8 @@ mod expunges;
 #[cfg(test)]
 #[path = "store/failure_matrix_tests.rs"]
 mod failure_matrix_tests;
+#[path = "store/file_key.rs"]
+mod file_key;
 #[path = "store/flag_journal.rs"]
 mod flag_journal;
 #[path = "store/flags.rs"]

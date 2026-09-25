@@ -4,6 +4,27 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 Unicode-safe mailbox storage key groundwork, PARTIAL
+
+- Store mailbox keys that are valid UTF-8 and contain no controls can now be
+  persisted without using protocol text as a path component. Existing ASCII
+  keys retain their legacy filenames; other values use a reversible lowercase
+  UTF-8 hex namespace under `mailboxes/utf8/`, split into bounded path
+  components. Recovery, flags, expunge and MOVE use the same mapping and sync
+  encoded directories at durable boundaries.
+- Independent Store regressions verify an adversarial `用户/../почта` logical
+  key, append/flags/expunge/reopen, Unicode MOVE, and unchanged legacy paths.
+  This is storage groundwork only: SMTP local-part parsing, account credential
+  keys, folder/subscription/Sieve journals, and inbound SMTPUTF8 network delivery
+  remain incomplete. The server does not advertise SMTPUTF8.
+- PASS: Windows Rust 1.97.1 `cargo test --all-targets --locked` (502 library
+  + 1 binary), strict Clippy, fmt and diff checks. Linux Docker Rust 1.97 test
+  target: 547 library + 1 binary test, doc-tests and strict Clippy. Linux runtime
+  image built and `version` command ran successfully. No SMTP network acceptance
+  was claimed because SMTPUTF8 envelope parsing and account-key wiring remain
+  incomplete. Temporary image tags were removed; `docker ps -a` shows only the
+  pre-existing `litterkeep-g12-phone`. G17 remains ACTIVE.
+
 ### 2026-09-25: G17 SMTPUTF8 header octet transport checkpoint, PARTIAL
 
 - Parser распознаёт MAIL-параметр `SMTPUTF8` без значения, отвергает повтор и

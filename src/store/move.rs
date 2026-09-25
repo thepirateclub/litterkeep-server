@@ -56,13 +56,21 @@ impl Store {
         uids: &[u64],
         links: &[(String, model::Record)],
     ) -> io::Result<()> {
+        let mailbox_root = self.root.join("mailboxes");
         for (mailbox, record) in links {
-            let mut file = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(self.index(mailbox))?;
+            let index = super::file_key::prepare(
+                &mailbox_root,
+                mailbox,
+                super::file_key::FileKind::Journal,
+            )?;
+            let mut file = OpenOptions::new().create(true).append(true).open(&index)?;
             file.write_all(&super::journal::frame(record))?;
             file.sync_all()?;
+            if let Some(parent) = index.parent()
+                && parent != mailbox_root
+            {
+                durability::sync_directory(parent)?;
+            }
         }
         expunges::write_transaction(&self.root, source, transaction_id, uids)?;
         durability::sync_directory(&self.root.join("mailboxes"))?;
