@@ -109,6 +109,15 @@ fn header_test_decodes_rfc2047_charsets_before_comparison() {
     assert!(plan.discard);
 }
 
+#[test]
+fn header_test_ignores_leading_and_trailing_space_and_tab() {
+    let script = parse("if header :is \"subject\" \"invoice\" { discard; }")
+        .expect("parse whitespace matcher");
+    let plan =
+        execute(&script, &[("Subject".into(), " \tinvoice\t ".into())], 10).expect("execute");
+    assert!(plan.discard);
+}
+
 /// Address-проекция отделяет plus-detail и использует тот же typed matcher.
 #[test]
 fn address_test_selects_detail_without_matching_another_recipient() {

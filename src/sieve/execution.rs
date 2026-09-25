@@ -243,7 +243,8 @@ fn header_matches(
     {
         return false;
     }
-    match crate::mime::search_text::decode_header_value(value.as_bytes()) {
+    let normalized = value.trim_matches([' ', '\t']);
+    match crate::mime::search_text::decode_header_value(normalized.as_bytes()) {
         Some(decoded) => matching::matches(&decoded, matcher),
         None => false,
     }

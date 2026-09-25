@@ -278,7 +278,8 @@ From/To/Cc/Bcc/Sender/Resent-From/Resent-To) и сравнивает mailbox в�
 подтверждает.
 
 Sieve `header` декодирует RFC 2047 encoded-word общей MIME-декодировкой до
-сравнения в UTF-8. Unit покрывает ISO-8859-1 и UTF-8 encoded-word, а независимая
+сравнения в UTF-8 и игнорирует ведущие/завершающие SP и HTAB по RFC 5228 §5.7.
+Unit покрывает ISO-8859-1 и UTF-8 encoded-word и краевые пробелы; независимая
 ManageSieve -> SMTP -> IMAP acceptance отправляет encoded UTF-8 Subject и
 проверяет его Unicode-сопоставление при выборе папки.
 

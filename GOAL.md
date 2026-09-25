@@ -4,6 +4,18 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 5228 header whitespace checkpoint
+
+- Sieve `header` теперь обрезает ведущие и завершающие SP/HTAB перед MIME
+  декодированием и сравнением. Regression проверяет `:is` со значением,
+  обрамлённым обоими видами whitespace; профиль обновлён со ссылкой на RFC
+  5228 §5.7.
+- PASS: Windows Rust 1.97.1, fmt, 323 теста, strict Clippy и diff check.
+  Linux Docker Rust 1.97: strict Clippy и 363 теста. Stage использует
+  `./data/g17-sieve-rfc2047`; контейнер test target завершился, иных временных
+  контейнеров не создавалось. Прямое подключение Litterkeep не проверялось.
+  G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 5228 header charset comparison checkpoint
 
 - Sieve `header` сравнивает RFC 2047 header text после общей MIME-декодировки
