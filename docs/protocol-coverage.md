@@ -117,7 +117,11 @@ multipart/message composite entities согласно RFC 2045 §6.4; повто
 CTE отклоняется как неоднозначное, поэтому позднее 8bit не маскирует ранее
 указанное кодирование. Multipart delimiter collection ограничен остатком
 глобального MIME part budget до накопления диапазонов, а не только последующей
-проверкой дерева. Эти проверки parser-а unit-only.
+проверкой дерева. При разборе вложенной MIME-части внешний multipart delimiter
+завершает текущую внутреннюю multipart entity даже при отсутствии её close
+delimiter; политика распространяется на любую глубину вложения через
+multipart и message/rfc822. Для верхнего multipart без closing delimiter
+сохраняется отказ. Проверки parser-а unit-only.
 MIME Base64 CTE по RFC 2045 §6.8 игнорирует октеты вне Base64-алфавита,
 сохраняя строгую проверку синтаксиса RFC 2047 encoded-word. Unit-проверки
 покрывают оба профиля; независимый black-box fixture обновлён, но не запускался.

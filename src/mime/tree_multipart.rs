@@ -16,6 +16,13 @@ pub(super) struct MultipartRanges {
     pub(super) epilogue: Range<usize>,
 }
 
+/// Определяет, может ли внешний multipart завершить текущую MIME-часть.
+#[derive(Clone, Copy)]
+pub(super) enum CloseDelimiterPolicy {
+    Required,
+    MayEndAtParentBoundary,
+}
+
 /// Проверяет семейство multipart через закрытый тип медиакатегории.
 pub(super) fn is_multipart(media_type: &MediaType) -> bool {
     matches!(
@@ -33,6 +40,7 @@ pub(super) fn multipart_ranges(
     body: &[u8],
     boundary: &[u8],
     part_limit: usize,
+    close_policy: CloseDelimiterPolicy,
 ) -> Result<MultipartRanges, &'static str> {
     validate_boundary(boundary)?;
     let mut delimiters = Vec::new();
@@ -65,7 +73,7 @@ pub(super) fn multipart_ranges(
         }
         cursor = after;
     }
-    assemble_ranges(body, delimiters)
+    assemble_ranges(body, delimiters, close_policy)
 }
 
 /// Проверяет длину и алфавит boundary по RFC 2046 §5.1.1.
@@ -135,6 +143,7 @@ fn trim_transport_padding(mut bytes: &[u8]) -> &[u8] {
 fn assemble_ranges(
     body: &[u8],
     delimiters: Vec<Delimiter>,
+    close_policy: CloseDelimiterPolicy,
 ) -> Result<MultipartRanges, &'static str> {
     let first = delimiters
         .first()
@@ -161,7 +170,20 @@ fn assemble_ranges(
             false => current = Some(delimiter.after),
         }
     }
-    let epilogue_start = epilogue_start.ok_or("multipart closing delimiter is absent")?;
+    let epilogue_start = match epilogue_start {
+        Some(start) => start,
+        None => match close_policy {
+            CloseDelimiterPolicy::Required => {
+                return Err("multipart closing delimiter is absent");
+            }
+            CloseDelimiterPolicy::MayEndAtParentBoundary => {
+                if let Some(start) = current {
+                    parts.push(start..body.len());
+                }
+                body.len()
+            }
+        },
+    };
     Ok(MultipartRanges {
         parts,
         preamble,
@@ -205,7 +227,8 @@ mod tests {
     #[test]
     fn transport_padding_and_boundary_prefix_text_preserve_exact_ranges() {
         let body = b"note\r\n--x \t\r\npart\r\n--x-more\r\nstill\r\n--x-- \t\r\nepilogue";
-        let ranges = multipart_ranges(body, b"x", 4).expect("multipart ranges");
+        let ranges = multipart_ranges(body, b"x", 4, CloseDelimiterPolicy::Required)
+            .expect("multipart ranges");
 
         assert_eq!(body.get(ranges.preamble), Some(b"note".as_slice()));
         assert_eq!(
@@ -221,7 +244,8 @@ mod tests {
     #[test]
     fn preamble_keeps_its_own_line_break_before_boundary_break() {
         let body = b"note\r\n\r\n--x\r\npart\r\n--x--\r\n";
-        let ranges = multipart_ranges(body, b"x", 2).expect("multipart ranges");
+        let ranges = multipart_ranges(body, b"x", 2, CloseDelimiterPolicy::Required)
+            .expect("multipart ranges");
 
         assert_eq!(body.get(ranges.preamble), Some(b"note\r\n".as_slice()));
     }
@@ -229,7 +253,8 @@ mod tests {
     #[test]
     fn delimiter_like_lines_after_close_remain_epilogue() {
         let body = b"--x\r\npart\r\n--x--\r\n--x\r\n--x\r\n";
-        let ranges = multipart_ranges(body, b"x", 1).expect("single multipart part");
+        let ranges = multipart_ranges(body, b"x", 1, CloseDelimiterPolicy::Required)
+            .expect("single multipart part");
 
         assert_eq!(ranges.parts.len(), 1);
         assert_eq!(

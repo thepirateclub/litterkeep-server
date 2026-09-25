@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 RFC 2046 nested outer-boundary recovery checkpoint
+
+- MIME parser propagates typed multipart close policy through nested entities.
+  Within a parent multipart, its already-detected outer delimiter may terminate
+  a truncated nested multipart at any depth, including through
+  `message/rfc822`; the nested final body keeps exact source octets. The root
+  multipart still rejects a missing close delimiter. Regression includes two
+  unclosed nested levels and a following sibling part. Behavior checked against
+  the explicit receiver requirement in RFC 2046 §5.1.2.
+- Windows Rust 1.97.1: `cargo test --locked` (406 library + 1 binary), strict
+  Clippy, `cargo fmt --check` и `git diff --check` прошли. Linux Docker test
+  stage: release build, strict Clippy, 447 library + 1 binary tests и
+  doc-tests прошли. Тесты unit-only; SMTP/IMAP sockets и Litterkeep client не
+  проверялись. Временный image удалён, оставлен только `litterkeep-g12-phone`;
+  отдельная stage data не создавалась. G17 RUNNING.
+
 ### 2026-09-25: G17 multipart closing delimiter bounds epilogue checkpoint
 
 - MIME scanning now stops at the first closing delimiter. Boundary-shaped lines
