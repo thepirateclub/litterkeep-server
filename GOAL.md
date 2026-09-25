@@ -4,6 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G17 IMAP4rev1 high-bit atom rejection, PASS
+
+- IMAP4rev1 lexer теперь отвергает UTF-8 high-bit characters внутри atom;
+  прежнее принятие незакавыченного username противоречило заявленному профилю.
+  UTF-8 synchronizing SEARCH literals остаются отдельной разрешённой формой.
+  Unit и независимый STARTTLS acceptance подтвердили tagged BAD и сохранение
+  последующей сессии.
+- PASS: Windows Rust 1.97.1 strict Clippy, 514 library + 1 binary tests,
+  fmt, Python compile и diff check. Linux Docker Rust 1.97 strict Clippy,
+  561 library + 1 binary tests и doc-tests; independent runtime black-box
+  PASS. Этапные образы и контейнер удалены; `./data/g17-imap-malformed-utf8`
+  сохранена. UTF8=ACCEPT и IMAP4rev2 всё ещё не заявлены.
+
 ### 2026-09-25: G17 IMAP resp-special tag sanitization, PASS
 
 - Уточнён IMAP atom sanitizer для повреждённых UTF-8 команд: `]` является

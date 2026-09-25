@@ -105,8 +105,10 @@ Quoted-pair в quoted-string текущего IMAP4rev1 профиля допу�
 и `\\`; произвольный `\x` теперь лексически отвергается, а исходный tag
 сохраняется в tagged BAD. Также legacy quoted-string отвергает raw high-bit
 characters, пока UTF8=ACCEPT не реализован и не согласован. Синхронизирующий
-SEARCH literal обрабатывается отдельно от quoted-string: UTF-8 BODY/UID literals
-и пустой literal проверены независимым STARTTLS клиентом. Последовательные
+SEARCH literal обрабатывается отдельно от legacy atom/quoted-string: UTF-8
+BODY/UID literals и пустой literal проверены независимым STARTTLS клиентом.
+High-bit characters внутри atom отвергаются tagged BAD, пока UTF8=ACCEPT не
+реализован; это проверено unit и независимым STARTTLS acceptance. Последовательные
 synchronizing literals в одном SEARCH HEADER, включая два continuation, также
 проверены; хвостовая pipelined команда сохраняется. Unit и wire acceptance
 подтвердили tagged BAD и выполнение NOOP после ошибки. UTF8=ACCEPT и IMAP4rev2

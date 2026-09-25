@@ -31,6 +31,7 @@ def main() -> None:
     client.starttls(ssl_context=context)
     require_bad_quoted_pair(client)
     require_bad_utf8_quoted_string(client)
+    require_bad_utf8_atom(client)
     require_bad_malformed_utf8(client)
     require_untagged_bad_malformed_tag(client)
     require_untagged_bad_response_special_tag(client)
@@ -69,6 +70,14 @@ def require_bad_utf8_quoted_string(client: imaplib.IMAP4) -> None:
         raise AssertionError(f"unnegotiated UTF-8 quote status: {status} {detail!r}")
     if b"invalid command syntax" not in response_text:
         raise AssertionError(f"unnegotiated UTF-8 quote: {status} {detail!r}")
+
+
+def require_bad_utf8_atom(client: imaplib.IMAP4) -> None:
+    """До UTF8=ACCEPT отвергает high-bit octets внутри wire atom."""
+    tag = client._command("LOGIN", b"b\xc3\xb8b unused")
+    status, detail = client._get_tagged_response(tag)
+    if ImapStatus(status) is not ImapStatus.BAD:
+        raise AssertionError(f"unnegotiated UTF-8 atom status: {status} {detail!r}")
 
 
 def require_bad_malformed_utf8(client: imaplib.IMAP4) -> None:

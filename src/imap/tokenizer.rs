@@ -53,7 +53,7 @@ fn tokenize_internal(
                 push(&mut tokens, Token::Quoted(value), MAX_TOKENS)?;
             }
             first => {
-                let value = atom(first, &mut chars);
+                let value = atom(first, &mut chars)?;
                 push(&mut tokens, Token::Text(value), MAX_TOKENS)?;
             }
         }
@@ -73,22 +73,28 @@ fn push(tokens: &mut Vec<Token>, token: Token, limit: usize) -> Result<(), &'sta
     Ok(())
 }
 
-fn atom<I>(first: char, chars: &mut std::iter::Peekable<I>) -> String
+fn atom<I>(first: char, chars: &mut std::iter::Peekable<I>) -> Result<String, &'static str>
 where
     I: Iterator<Item = char>,
 {
+    if !first.is_ascii() {
+        return Err("non-ASCII character in IMAP4rev1 atom");
+    }
     let mut value = String::from(first);
     while let Some(next) = chars.peek().copied() {
         match next {
             value if value.is_ascii_whitespace() => break,
             '(' | ')' => break,
+            character if !character.is_ascii() => {
+                return Err("non-ASCII character in IMAP4rev1 atom");
+            }
             character => {
                 value.push(character);
                 chars.next();
             }
         }
     }
-    value
+    Ok(value)
 }
 
 fn quoted<I>(chars: &mut I) -> Result<String, &'static str>
@@ -128,6 +134,15 @@ mod tests {
                 Token::Quoted("bob smith".into()),
                 Token::Quoted("p\"ass".into()),
             ])
+        );
+    }
+
+    /// UTF-8 atom запрещён до перехода с IMAP4rev1 на расширенный профиль.
+    #[test]
+    fn rejects_high_bit_characters_in_atoms() {
+        assert_eq!(
+            tokenize("a LOGIN böb password\r\n"),
+            Err("non-ASCII character in IMAP4rev1 atom")
         );
     }
 
