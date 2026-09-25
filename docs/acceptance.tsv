@@ -47,7 +47,7 @@ T45	PASS	unit	RFC 2045 section 6.8 MIME Base64 CTE ignores non-alphabet octets; 
 T46	PASS	server-protocol	Independent SMTP STARTTLS -> IMAP BINARY.PEEK verifies hard-line literal SP/TAB removal and decoded =20 preservation; encoder escaping and =09 remain unit-only
 T47	PASS	server-protocol	RFC 2045 section 3 Content-Transfer-Encoding accepts nested RFC 822 comments surrounding the token; unit-only
 T48	PASS	server-protocol	Independent SMTP STARTTLS -> IMAP BINARY.PEEK verifies literal SP/TAB removal and encoded =20 preservation before soft line break
-T49	PASS	server-protocol	RFC 2045 sections 2.7-2.8 7bit/8bit CTE validate 998-octet lines, CRLF framing, NUL prohibition and high-bit profile; unit-only
+T49	PASS	server-protocol	Independent IMAP STARTTLS APPEND -> BINARY.PEEK verifies 7bit 998/999 boundary, 8bit high-bit acceptance, 7bit high-bit rejection, NUL rejection for both, and bare CR/LF rejection via exact raw literals; not SMTP DATA acceptance
 T50	PASS	server-protocol	Independent SMTP STARTTLS and IMAP STARTTLS BINARY.PEEK verify malformed quoted-printable =G1 and incomplete =A escapes remain literal in decoded octets; Sieve :mime strict rejection remains unit-only
 T51	PASS	server-protocol	Independent Python imaplib STARTTLS APPEND with padded MIME boundaries; BODYSTRUCTURE, exact first-part bytes and Base64 attachment via BINARY.PEEK verified
 T52	PASS	unit	RFC 2046 multipart parsing stops at the first closing delimiter; boundary-like epilogue lines remain epilogue and do not consume the part limit

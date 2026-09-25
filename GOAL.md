@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 RFC 2045 7bit/8bit line-data wire profile
+
+- Добавлен независимый `tests/blackbox/mime_line_data_profile.py`. Через
+  IMAP STARTTLS APPEND и BINARY.PEEK проверены 998 против 999 октетов,
+  высокие октеты в 8bit и отказ для 7bit, NUL в обоих профилях, bare CR и
+  bare LF. Для двух malformed line-ending cases использован raw synchronizing
+  literal: выяснилось, что стандартная Python `imaplib.append()` заранее
+  канонизирует CR/LF и непригодна для таких fixtures.
+- PASS: Python compile и независимый Linux acceptance на release binary из
+  Docker test image с bind mount `./data/g17-mime-line-profile-wire`.
+  Docker build переиспользовал cached Rust build/test layers; Rust source не
+  менялся, Windows Cargo suite не перезапускался. Это IMAP storage/decode
+  acceptance, не проверка SMTP DATA для malformed MIME. Временный контейнер и
+  image tag удалены; `docker ps -a` оставил только ранее существовавший
+  `litterkeep-g12-phone`. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 2045 quoted-printable padding over wire
 
 - Добавлен независимый `tests/blackbox/mime_quoted_printable_padding.py`.

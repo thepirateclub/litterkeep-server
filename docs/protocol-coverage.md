@@ -196,8 +196,12 @@ ManageSieve CHECKSCRIPT для malformed quoted-printable не проверял�
 `7bit` и `8bit` CTE проверяют профиль RFC 2045 §§2.7-2.8: не более 998
 октетов между CRLF, отсутствие NUL и одиночных CR/LF; `7bit` дополнительно
 отвергает high-bit octets, `8bit` их сохраняет. `binary` остаётся прозрачным.
-Проверены граничные длины и запрещённые октеты unit-тестом; socket acceptance
-не запускался.
+Независимый IMAP STARTTLS APPEND -> BINARY.PEEK принял 998-октетную строку
+7bit и отверг 999-октетную, сохранил high-bit octets для 8bit и отверг их для
+7bit. Проверены NUL для обоих профилей и bare CR/LF. Для последних использован
+прямой IMAP literal: стандартный `imaplib.append()` нормализует line endings
+до отправки и не подходит для этих malformed fixtures. Это проверка IMAP
+хранения и MIME decode, не SMTP DATA acceptance.
 Параметр `multipart` boundary проверяется по RFC 2046 §5.1.1: 1..70 ASCII
 октетов из `bchars`, без завершающего пробела; покрыты длины и запрещённые
 символы unit-тестами. Parser принимает transport-padding у opening/closing
