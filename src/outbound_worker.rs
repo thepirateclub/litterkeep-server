@@ -76,6 +76,7 @@ impl OutboundWorker {
     where
         F: FnMut() + Send + 'static,
     {
+        let _timeouts = crate::outbound::SmtpTimeouts::from_environment()?;
         let pool = outbound_route::Pool::new(route, pool_capacity)?;
         let (jobs, incoming) = mpsc::sync_channel(queue_capacity);
         let (outgoing, completions) = mpsc::channel();

@@ -24,16 +24,17 @@ pub struct Connection {
 impl Connection {
     /// Устанавливает TCP/TLS канал и проверяет SMTP greeting с EHLO.
     pub fn connect(address: &str, server_name: &str, ca_der: &[u8]) -> io::Result<Self> {
+        let timeouts = outbound::SmtpTimeouts::from_environment()?;
         let config = client_config(ca_der)?;
         let name = ServerName::try_from(server_name.to_owned())
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid TLS server name"))?;
-        let stream = outbound::connect_bounded(address)?;
+        let stream = outbound::connect_bounded_with_timeouts(address, timeouts)?;
         let connection = ClientConnection::new(config, name).map_err(io::Error::other)?;
         let mut result = Self {
             stream: BufReader::new(StreamOwned::new(connection, stream)),
             capabilities: outbound::EhloCapabilities::default(),
             close_after_response: false,
-            timeouts: outbound::SmtpTimeouts::default(),
+            timeouts,
         };
         expect_success(&mut result.stream, outbound::ReplyExpectation::Greeting)?;
         result.command("EHLO litterkeep.test\r\n")?;

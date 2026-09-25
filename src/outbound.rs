@@ -31,6 +31,7 @@ pub(crate) use reply::{parse_reply, read_reply_line};
 pub(crate) use timeouts::SmtpTimeouts;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+const GENERIC_IO_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Copy)]
 pub(crate) struct TransportLimits {
@@ -39,20 +40,18 @@ pub(crate) struct TransportLimits {
 }
 
 impl TransportLimits {
+    fn configured() -> io::Result<Self> {
+        Ok(Self {
+            connect: CONNECT_TIMEOUT,
+            timeouts: SmtpTimeouts::from_environment()?,
+        })
+    }
+
     #[cfg(test)]
     pub(crate) fn testing(connect: Duration, io: Duration) -> Self {
         Self {
             connect,
             timeouts: SmtpTimeouts::uniform(io),
-        }
-    }
-}
-
-impl Default for TransportLimits {
-    fn default() -> Self {
-        Self {
-            connect: CONNECT_TIMEOUT,
-            timeouts: SmtpTimeouts::default(),
         }
     }
 }
@@ -86,7 +85,7 @@ impl Connection {
     }
 
     pub(crate) fn connect_addr(address: SocketAddr) -> io::Result<Self> {
-        Self::connect_addr_with_limits(address, TransportLimits::default())
+        Self::connect_addr_with_limits(address, TransportLimits::configured()?)
     }
 
     #[cfg(test)]
@@ -209,7 +208,23 @@ impl Connection {
 
 /// Создаёт только числовой TCP route с конечными connect/read/write deadline.
 pub(crate) fn connect_bounded(address: &str) -> io::Result<TcpStream> {
-    connect_bounded_addr(parse_route(address)?, TransportLimits::default())
+    let stream = TcpStream::connect_timeout(&parse_route(address)?, CONNECT_TIMEOUT)?;
+    stream.set_read_timeout(Some(GENERIC_IO_TIMEOUT))?;
+    stream.set_write_timeout(Some(GENERIC_IO_TIMEOUT))?;
+    Ok(stream)
+}
+
+pub(crate) fn connect_bounded_with_timeouts(
+    address: &str,
+    timeouts: SmtpTimeouts,
+) -> io::Result<TcpStream> {
+    connect_bounded_addr(
+        parse_route(address)?,
+        TransportLimits {
+            connect: CONNECT_TIMEOUT,
+            timeouts,
+        },
+    )
 }
 
 pub(crate) fn parse_route(address: &str) -> io::Result<SocketAddr> {

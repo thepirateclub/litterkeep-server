@@ -62,9 +62,24 @@ litterkeep-server serve-all-mail-outbound-starttls \
 
 Outbound route принимает только явный числовой `IP:port`. Это исключает
 скрытый blocking DNS из transport worker-а. TCP connect ограничен пятью
-секундами, а каждая операция чтения и записи SMTP/TLS ограничена десятью
-секундами. I/O timeout уничтожает грязное соединение, durable job переводится
-в retry policy и такой channel никогда не возвращается в pool.
+секундами. Outbound SMTP/TLS использует RFC 5321 phase timeouts: 300 секунд
+на greeting, обычную команду, MAIL и RCPT; 120 секунд на ответ DATA; 180 секунд
+на каждую системную запись блока DATA; 600 секунд на финальный ответ после
+terminator. Они настраиваются положительными целыми секундами при старте
+процесса следующими переменными:
+
+```sh
+LITTERKEEP_SMTP_GREETING_TIMEOUT_SECONDS=300
+LITTERKEEP_SMTP_COMMAND_TIMEOUT_SECONDS=300
+LITTERKEEP_SMTP_DATA_START_TIMEOUT_SECONDS=120
+LITTERKEEP_SMTP_DATA_BLOCK_TIMEOUT_SECONDS=180
+LITTERKEEP_SMTP_DATA_FINAL_TIMEOUT_SECONDS=600
+```
+
+Не заданные значения используют RFC defaults; некорректный или нулевой timeout
+отклоняется при старте outbound worker-а. I/O timeout уничтожает грязное
+соединение, durable job переводится в retry policy и channel не возвращается
+в pool.
 
 Первый фиксированный route-профиль разрешает Sieve redirect только в typed
 домен `peer.test`. Адрес проверяется при построении DeliveryPlan и повторно в
@@ -142,9 +157,11 @@ locator remains inside the temporary directory before connecting.
 `cancel` переводит task в cooperative cancellation. Для клиентской сессии
 reactor закрывает фактически принадлежащий ей socket lease через единый путь
 cleanup. Outbound scheduler в idle завершается сразу, а при активной доставке
-сначала фиксирует её terminal state, затем закрывает канал worker-а, выполняет
-`join` и удаляет lifecycle metadata. Команда не освобождает чужой или ещё
-используемый ресурс авансом.
+сохраняет владение до завершения текущей SMTP операции и её durable transition,
+затем закрывает канал worker-а, выполняет `join` и удаляет lifecycle metadata.
+Активный SMTP socket сейчас не прерывается командой cancel: ожидание ограничено
+таймаутом текущей фазы, который может составлять до 600 секунд. Команда не
+освобождает чужой или ещё используемый ресурс авансом.
 
 ## Linux G01 reactor command
 

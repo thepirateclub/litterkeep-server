@@ -18,6 +18,23 @@ Current subgoal: G17
   `./data/g17-smtp-phase-timeouts`. Runtime timeout reconfiguration and slow
   peer behavior for each phase remain unverified; G17 stays RUNNING.
 
+### 2026-09-25: G17 configurable outbound SMTP phase timeouts
+
+- Added five positive-seconds environment overrides for greeting, ordinary
+  command, DATA acceptance, DATA writes and final DATA completion. Missing values
+  retain the RFC defaults; invalid values fail outbound-worker configuration.
+  Plaintext and implicit-TLS transports share the same phase policy. README now
+  documents the actual defaults and explicitly notes that cancelling active
+  socket work waits for its current phase timeout, up to 600 seconds.
+- PASS: Windows Rust 1.97.1 `cargo test --locked` (480 library + 1 binary
+  test), strict Clippy, format and diff check. Linux Docker Rust 1.97 test target
+  passed strict Clippy, 521 library + 1 binary test and doc-tests. Unit tests
+  cover defaults, partial overrides and zero rejection. Slow-peer behavior for
+  every phase and interruption of active socket I/O on cancel remain unverified.
+  Temporary Docker image removed; only `litterkeep-g12-phone` remains. Fixture:
+  `./data/g17-smtp-timeout-env`. Litterkeep client was not tested; G17 remains
+  RUNNING.
+
 ### 2026-09-25: G17 outbound SMTP EHLO-to-HELO fallback
 
 - Outbound plaintext and implicit-TLS transports now fall back to `HELO` when
