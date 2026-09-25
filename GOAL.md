@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G15
 
+### 2026-09-25: POP3 RFC 1939 USER/PASS sequencing checkpoint
+
+- AUTHORIZATION FSM различает состояние после успешного `USER`: повторный
+  `USER` отклоняется и сбрасывает прежний выбор; неудачный пароль также очищает
+  имя и требует новый `USER` перед следующей попыткой `PASS`. Пароль без `USER` отвечает
+  `-ERR USER required`. STLS и отказ `IN-USE` также очищают незавершённый выбор.
+- PASS: Windows Rust 1.97.1: 270 тестов, strict Clippy, fmt, diff и Python
+  syntax checks. Чистый Linux Docker Rust 1.97: strict Clippy и 310 тестов.
+  Независимый STLS socket acceptance подтвердил повторный USER rejection,
+  failed PASS, запрет PASS retry без USER и затем `[IN-USE]` после нового USER.
+- Сценарий использовал `tests/blackbox/pop3_reply_lines.py` и изолированный
+  `./data/g15-pop3-auth-state`; SMTP delivery, CAPA response limits и длинная
+  RETR строка остались зелёными. Runtime-контейнер удалён;
+  `litterkeep-g12-phone` сохранён.
+- Это проверка USER/PASS переходов, а не полной RFC 1939 auth grammar или POP3
+  совместимости. Другие протоколы и G15 остаются в работе.
+
 ### 2026-09-25: POP3 RFC 2449 RESP-CODES/IN-USE checkpoint
 
 - Объявленная `RESP-CODES` capability теперь подкреплена типизированным

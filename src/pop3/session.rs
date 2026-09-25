@@ -7,6 +7,7 @@ use crate::store::Message;
 enum Phase {
     #[default]
     Authorization,
+    UserAccepted,
     Transaction,
     Update,
 }
@@ -36,20 +37,18 @@ impl Session {
         match (&self.phase, command) {
             (Phase::Authorization, Command::User(name)) => {
                 self.username = Some(name);
+                self.phase = Phase::UserAccepted;
                 Reply::Ok("user accepted".into())
             }
-            (Phase::Authorization, Command::Pass(password)) => {
-                self.request_authentication(password)
+            (Phase::UserAccepted, Command::User(_)) => {
+                self.reset_authorization();
+                Reply::Error("invalid command for state")
             }
-            (Phase::Authorization, Command::Capa) => Reply::Multiline(
-                b"+OK Capability list\r\nUSER\r\nUIDL\r\nTOP\r\nRESP-CODES\r\nSTLS\r\n.\r\n"
-                    .to_vec(),
-            ),
-            (Phase::Authorization, Command::Stls) => Reply::StartTls,
-            (Phase::Authorization, Command::Quit) => {
-                self.phase = Phase::Update;
-                Reply::Ok("bye".into())
-            }
+            (Phase::UserAccepted, Command::Pass(password)) => self.request_authentication(password),
+            (Phase::Authorization, Command::Pass(_)) => Reply::Error("USER required"),
+            (Phase::Authorization | Phase::UserAccepted, Command::Capa) => capa_reply(),
+            (Phase::Authorization | Phase::UserAccepted, Command::Stls) => Reply::StartTls,
+            (Phase::Authorization | Phase::UserAccepted, Command::Noop) => Reply::Ok("noop".into()),
             (Phase::Transaction, Command::Stat) => self.stat(),
             (Phase::Transaction, Command::List(number)) => self.list(number),
             (Phase::Transaction, Command::Uidl(number)) => self.uidl(number),
@@ -58,9 +57,7 @@ impl Session {
             (Phase::Transaction, Command::Dele(number)) => self.delete(number),
             (Phase::Transaction, Command::Noop) => Reply::Ok("noop".into()),
             (Phase::Transaction, Command::Rset) => self.reset(),
-            (Phase::Transaction, Command::Capa) => Reply::Multiline(
-                b"+OK Capability list\r\nUSER\r\nUIDL\r\nTOP\r\nRESP-CODES\r\n.\r\n".to_vec(),
-            ),
+            (Phase::Transaction, Command::Capa) => capa_reply(),
             (Phase::Transaction, Command::Quit) => self.request_commit(),
             (_, Command::Quit) => {
                 self.phase = Phase::Update;
@@ -70,14 +67,29 @@ impl Session {
         }
     }
     pub fn authenticated(&mut self, messages: Vec<Message>) -> Reply {
-        match self.username.as_ref() {
-            Some(_) => {
+        match (&self.phase, self.username.as_ref()) {
+            (Phase::UserAccepted, Some(_)) => {
                 self.maildrop = Some(Maildrop::new(messages));
                 self.phase = Phase::Transaction;
                 Reply::Ok("authenticated".into())
             }
-            None => Reply::Error("USER required"),
+            _ => Reply::Error("USER required"),
         }
+    }
+    /// Сбрасывает незавершённую пару USER/PASS после отказа входа или STLS.
+    pub fn reset_authorization(&mut self) {
+        self.username = None;
+        self.phase = Phase::Authorization;
+    }
+    /// Сбрасывает USER после неуспешной проверки пароля.
+    pub fn authentication_rejected(&mut self) -> Reply {
+        self.reset_authorization();
+        Reply::Error("authentication failed")
+    }
+    /// Возвращает typed POP3 error после успешной проверки пароля и занятой maildrop.
+    pub fn maildrop_in_use(&mut self) -> Reply {
+        self.reset_authorization();
+        Reply::ErrorCode(ResponseCode::InUse, "maildrop is locked")
     }
     pub fn commit_deletes(&mut self, accepted: bool) -> Reply {
         match (self.phase_is_transaction(), accepted) {
@@ -165,6 +177,11 @@ impl Session {
     fn phase_is_transaction(&self) -> bool {
         matches!(self.phase, Phase::Transaction)
     }
+}
+fn capa_reply() -> Reply {
+    Reply::Multiline(
+        b"+OK Capability list\r\nUSER\r\nUIDL\r\nTOP\r\nRESP-CODES\r\nSTLS\r\n.\r\n".to_vec(),
+    )
 }
 fn list_reply(entries: Vec<(u32, usize)>) -> Reply {
     let mut output = b"+OK scan listing follows\r\n".to_vec();

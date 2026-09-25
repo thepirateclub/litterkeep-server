@@ -34,6 +34,38 @@ fn authentication_and_stat_require_worker_completion() {
 }
 
 #[test]
+fn user_pass_exchange_rejects_repeated_user_and_resets_after_failure() {
+    let mut session = Session::default();
+    assert!(matches!(session.apply(parse("USER pop\r\n")), Reply::Ok(_)));
+    assert!(matches!(
+        session.apply(parse("USER alice\r\n")),
+        Reply::Error(_)
+    ));
+    assert!(matches!(
+        session.apply(parse("PASS wrong\r\n")),
+        Reply::Error(_)
+    ));
+    assert!(matches!(session.apply(parse("USER pop\r\n")), Reply::Ok(_)));
+    assert!(matches!(
+        session.apply(parse("PASS wrong\r\n")),
+        Reply::Authenticate { username, .. } if username == "pop"
+    ));
+    assert!(matches!(session.authentication_rejected(), Reply::Error(_)));
+    assert!(matches!(
+        session.apply(parse("PASS retry\r\n")),
+        Reply::Error(_)
+    ));
+    assert!(matches!(
+        session.apply(parse("USER alice\r\n")),
+        Reply::Ok(_)
+    ));
+    assert!(matches!(
+        session.apply(parse("PASS correct\r\n")),
+        Reply::Authenticate { username, .. } if username == "alice"
+    ));
+}
+
+#[test]
 fn capa_advertises_stls_before_password_exchange() {
     let mut session = Session::default();
     assert!(

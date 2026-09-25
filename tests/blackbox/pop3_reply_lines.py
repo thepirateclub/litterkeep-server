@@ -130,6 +130,36 @@ def verify_maildrop_in_use(tls_context):
         send(
             connection,
             stream,
+            b"USER alice\r\n",
+            b"-ERR invalid command for state",
+            "repeated USER before PASS",
+        )
+        send(
+            connection,
+            stream,
+            b"PASS without-user\r\n",
+            b"-ERR USER required",
+            "rejected USER clears the previous selection",
+        )
+        send(connection, stream, b"USER bob\r\n", b"+OK", "USER retry after rejection")
+        send(
+            connection,
+            stream,
+            b"PASS wrong-password\r\n",
+            b"-ERR authentication failed",
+            "failed PASS",
+        )
+        send(
+            connection,
+            stream,
+            b"PASS retry-without-user\r\n",
+            b"-ERR USER required",
+            "PASS requires a new USER after failure",
+        )
+        send(connection, stream, b"USER bob\r\n", b"+OK", "USER after failed PASS")
+        send(
+            connection,
+            stream,
             f"PASS {os.environ['LITTERKEEP_BOB_PASSWORD']}\r\n".encode("ascii"),
             b"-ERR [IN-USE] ",
             "RFC 2449 locked maildrop response",

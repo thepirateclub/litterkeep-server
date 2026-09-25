@@ -83,7 +83,10 @@ fn authenticate(
 ) -> io::Result<()> {
     let username = match crate::local_route::local_login(&username) {
         Some(account) => account,
-        None => return session.push(b"-ERR authentication failed\r\n"),
+        None => {
+            let reply = session.pop3.authentication_rejected();
+            return write_reply(session, reply);
+        }
     };
     let id = next_id(request_id);
     protocol::submit(
@@ -138,6 +141,7 @@ fn begin_tls(session: &mut Session) -> io::Result<()> {
         return session.push(b"-ERR STLS unavailable\r\n");
     }
     session.push(b"+OK Begin TLS negotiation\r\n")?;
+    session.pop3.reset_authorization();
     session.request_starttls();
     Ok(())
 }

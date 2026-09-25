@@ -29,14 +29,17 @@ pub(super) fn write(
             Response::Authenticated {
                 accepted: false, ..
             },
-        ) => session.push(b"-ERR authentication failed\r\n"),
+        ) => {
+            let reply = session.pop3.authentication_rejected();
+            pop3_protocol::write_reply(session, reply)
+        }
         (Pending::Pop3Authenticate { account }, Response::Authenticated { accepted: true, .. }) => {
             match maildrops.owns(&account, slot, generation) {
                 true => Ok(()),
-                false => pop3_protocol::write_reply(
-                    session,
-                    pop3::Reply::ErrorCode(pop3::ResponseCode::InUse, "maildrop is locked"),
-                ),
+                false => {
+                    let reply = session.pop3.maildrop_in_use();
+                    pop3_protocol::write_reply(session, reply)
+                }
             }
         }
         (
