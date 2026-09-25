@@ -118,9 +118,17 @@ filename continuation. Сетевой MIME acceptance этих новых гра
 RFC 2231 extended payload decoder принимает только attribute-char или
 percent-encoded octets с uppercase hex digits; проверяются mixed encoded и
 unencoded continuation segments. Charset декодируется явным allowlist из
-четырёх профилей. Language tag сейчас разделяется, но не сохраняется и не
+пяти профилей (US-ASCII, UTF-8, ISO-8859-1, Windows-1251 и Windows-1252).
+Language tag сейчас разделяется, но не сохраняется и не
 валидируется; пустой/неподдерживаемый charset невозможно представить через
 Unicode API и он отвергается. Новые RFC 2231 regressions unit-only.
+
+Зарегистрированный IANA charset windows-1252 теперь декодируется как отдельный
+профиль, не смешивая его с ISO-8859-1. Проверены все 32 octets диапазона
+0x80..0x9F, RFC 2231 filename с encoded Euro/en dash и MIME body decoding в
+IMAP SEARCH projection. Поддерживается только
+каноническое MIME-имя windows-1252; WHATWG aliases вроде cp1252 не принимаются
+как IANA MIME labels. Новые проверки unit-only.
 
 Quoted и `text:` multiline strings принимают CRLF; multiline форма сохраняет
 terminating CRLF тела, снимает один dot-stuffing octet и ограничена 65 536

@@ -38,6 +38,15 @@ fn windows_1251_body_is_decoded_before_search() {
     assert!(!document.body_contains("hello"));
 }
 
+/// Типографские октеты Windows-1252 декодируются до IMAP SEARCH.
+#[test]
+fn windows_1252_body_is_decoded_before_search() {
+    let raw = b"Content-Type: text/plain; charset=windows-1252\r\nContent-Transfer-Encoding: 8bit\r\n\r\n\x80\x96";
+    let document = SearchDocument::parse(raw, true).expect("search document");
+
+    assert!(document.body_contains("€–"));
+}
+
 #[test]
 fn unknown_transfer_encoding_aborts_body_projection_with_typed_error() {
     let raw = b"Content-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: x-private\r\n\r\nsearchable";

@@ -106,6 +106,17 @@ fn accepts_mixed_rfc2231_continuations_and_encoded_language_value() {
 }
 
 #[test]
+fn decodes_windows_1252_rfc2231_filename() {
+    let parsed = parameters::parse("application/octet-stream; filename*=windows-1252''%80%96")
+        .expect("registered Windows-1252 filename");
+
+    assert_eq!(
+        parsed.parameters.get("filename").map(String::as_str),
+        Some("€–")
+    );
+}
+
+#[test]
 fn rejects_noncanonical_rfc2231_extended_payload_octets() {
     for value in [
         "text/plain; name*=UTF-8''bad?value",

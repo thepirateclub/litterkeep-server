@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 Windows-1252 MIME charset checkpoint
+
+- Добавлен отдельный типизированный профиль IANA `windows-1252`: декодируются
+  все значения октета, включая таблицу C1; RFC 2231 filename и MIME body
+  поиска IMAP SEARCH проверены на байтах `80 96` -> `€–`. Принимается только
+  каноническое имя `windows-1252`, браузерный псевдоним `cp1252` намеренно не
+  считается зарегистрированной MIME-меткой.
+- PASS: Windows Rust 1.97.1: `cargo fmt --check`, `cargo test --all-targets
+  --locked` (371 библиотечных тестов, 1 тест бинаря), strict Clippy и
+  `git diff --check`. Docker Linux Rust 1.97.1: 412 библиотечных тестов,
+  1 тест бинаря и doc-tests; образ `litterkeep-linux-test:latest` собран.
+- Новые charset, RFC 2231 и SEARCH проверки unit-only; независимое сетевое
+  подключение и интеграция клиента Litterkeep для этого профиля не проверялись.
+  `docker ps -a` оставил только сохранённый `litterkeep-g12-phone`; временный
+  тестовый контейнер запущен с `--rm`. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 2231 extended payload checkpoint
 
 - Extended parameter payload теперь принимает только RFC 2231 attribute-char
