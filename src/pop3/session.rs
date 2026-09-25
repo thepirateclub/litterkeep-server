@@ -166,7 +166,7 @@ impl Session {
         }
     }
     fn retrieve(&self, number: u32) -> Reply {
-        match self.utf8_policy(Some(number)) {
+        match self.retrieval_policy(number) {
             Ok(()) => match self.drop() {
                 Some(drop) => drop.retrieve(number).map_or_else(Reply::Error, |bytes| {
                     message_reply("message follows", bytes)
@@ -177,7 +177,7 @@ impl Session {
         }
     }
     fn top(&self, number: u32, lines: u32) -> Reply {
-        match self.utf8_policy(Some(number)) {
+        match self.retrieval_policy(number) {
             Ok(()) => match self.drop() {
                 Some(drop) => drop.top(number, lines).map_or_else(Reply::Error, |bytes| {
                     message_reply("top of message follows", bytes)
@@ -195,6 +195,19 @@ impl Session {
                     "message contains UTF-8; issue UTF8 first",
                 )),
                 Ok(_) => Ok(()),
+                Err(error) => Err(Reply::Error(error)),
+            },
+            None => Err(Reply::Error("maildrop unavailable")),
+        }
+    }
+    /// Проверяет ограничения POP3 transfer encoding до чтения сообщения.
+    fn retrieval_policy(&self, number: u32) -> Result<(), Reply> {
+        match self.drop() {
+            Some(drop) => match drop.contains_binary_transfer_encoding(number) {
+                Ok(true) => Err(Reply::Error(
+                    "MIME binary transfer encoding is not permitted",
+                )),
+                Ok(false) => self.utf8_policy(Some(number)),
                 Err(error) => Err(Reply::Error(error)),
             },
             None => Err(Reply::Error("maildrop unavailable")),

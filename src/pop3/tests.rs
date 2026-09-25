@@ -282,6 +282,9 @@ fn retrieve_uidl_reset_and_quit_keep_delete_semantics_explicit() {
 #[path = "listing_tests.rs"]
 mod listing_tests;
 
+#[path = "mime_policy_tests.rs"]
+mod mime_policy_tests;
+
 #[test]
 fn rset_and_empty_quit_require_an_explicit_update_completion() {
     let mut session = Session::default();

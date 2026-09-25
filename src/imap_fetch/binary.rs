@@ -67,9 +67,9 @@ fn resolve<'a>(root: &'a Entity, path: &[usize]) -> Result<&'a Entity, FetchErro
 
 fn ensure_leaf(entity: &Entity) -> Result<(), FetchError> {
     match (&entity.media_type, entity.children.is_empty()) {
-        (MediaType::MultipartMixed, _) | (MediaType::MultipartAlternative, _) => {
-            Err(FetchError::InvalidSection)
-        }
+        (MediaType::MultipartMixed, _)
+        | (MediaType::MultipartAlternative, _)
+        | (MediaType::MultipartOther(_), _) => Err(FetchError::InvalidSection),
         (MediaType::MultipartRelated, _) | (_, false) => Err(FetchError::InvalidSection),
         (MediaType::MessageRfc822, _) => Err(FetchError::InvalidSection),
         _ => Ok(()),
@@ -114,7 +114,10 @@ fn binary_label(path: &[usize], partial: Option<Partial>) -> String {
 fn is_multipart(media_type: &MediaType) -> bool {
     matches!(
         media_type,
-        MediaType::MultipartMixed | MediaType::MultipartAlternative | MediaType::MultipartRelated
+        MediaType::MultipartMixed
+            | MediaType::MultipartAlternative
+            | MediaType::MultipartRelated
+            | MediaType::MultipartOther(_)
     )
 }
 

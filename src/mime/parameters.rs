@@ -12,6 +12,7 @@ pub enum MediaType {
     MultipartMixed,
     MultipartAlternative,
     MultipartRelated,
+    MultipartOther(String),
     MessageRfc822,
     ApplicationOctetStream,
     Other(String),
@@ -27,6 +28,7 @@ impl MediaType {
             Self::MultipartMixed => ("MULTIPART", "MIXED"),
             Self::MultipartAlternative => ("MULTIPART", "ALTERNATIVE"),
             Self::MultipartRelated => ("MULTIPART", "RELATED"),
+            Self::MultipartOther(subtype) => ("MULTIPART", subtype),
             Self::MessageRfc822 => ("MESSAGE", "RFC822"),
             Self::ApplicationOctetStream => ("APPLICATION", "OCTET-STREAM"),
             Self::Other(value) => value.split_once('/').unwrap_or((value, "UNKNOWN")),
@@ -246,6 +248,7 @@ fn parse_media_type(value: &str) -> MediaType {
         "application/octet-stream" => MediaType::ApplicationOctetStream,
         _ => match normalized.split_once('/') {
             Some(("text", subtype)) => MediaType::TextOther(subtype.to_owned()),
+            Some(("multipart", subtype)) => MediaType::MultipartOther(subtype.to_owned()),
             _ => MediaType::Other(normalized),
         },
     }

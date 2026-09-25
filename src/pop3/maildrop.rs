@@ -8,6 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 struct MessageProfile {
     utf8: bool,
     octets: usize,
+    binary_transfer_encoding: bool,
 }
 
 /// Snapshot общего INBOX принадлежит одной POP3 transaction-сессии.
@@ -28,6 +29,7 @@ impl Maildrop {
                     MessageProfile {
                         utf8: contains_non_ascii_utf8(&message.bytes),
                         octets: reported_message_size(&message.bytes),
+                        binary_transfer_encoding: contains_binary_transfer_encoding(&message.bytes),
                     },
                 )
             })
@@ -80,6 +82,11 @@ impl Maildrop {
                 .any(|(_, message)| self.profile(message).utf8)),
         }
     }
+    /// Запрещает TOP/RETR для MIME binary CTE по RFC 6856 даже в UTF8 mode.
+    pub fn contains_binary_transfer_encoding(&self, number: u32) -> Result<bool, &'static str> {
+        self.message(number)
+            .map(|message| self.profile(message).binary_transfer_encoding)
+    }
     pub fn retrieve(&self, number: u32) -> Result<Vec<u8>, &'static str> {
         self.message(number)
             .map(|message| dot_stuff(&message.bytes))
@@ -131,7 +138,16 @@ impl Maildrop {
             .unwrap_or_else(|| MessageProfile {
                 utf8: contains_non_ascii_utf8(&message.bytes),
                 octets: reported_message_size(&message.bytes),
+                binary_transfer_encoding: contains_binary_transfer_encoding(&message.bytes),
             })
+    }
+}
+
+/// Проверяет binary CTE в bounded MIME tree, если структура разбирается.
+fn contains_binary_transfer_encoding(bytes: &[u8]) -> bool {
+    match crate::mime::tree::parse(bytes) {
+        Ok(entity) => entity.contains_binary_transfer_encoding(),
+        Err(_) => false,
     }
 }
 

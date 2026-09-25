@@ -66,13 +66,21 @@ fn parse_entity(
         .map_err(|_| "Content-Type is not ASCII compatible")?
         .unwrap_or("text/plain");
     let structured = parameters::parse(content_type)?;
+    // При повторных CTE сохраняем бинарный маркер, если встретился любой.
     let transfer_encoding = headers
         .fields
         .iter()
-        .find(|field| matches!(field.kind(), HeaderName::ContentTransferEncoding))
+        .filter(|field| matches!(field.kind(), HeaderName::ContentTransferEncoding))
         .map(|field| TransferEncoding::parse(&field.value))
-        .transpose()?
-        .unwrap_or(TransferEncoding::SevenBit);
+        .try_fold(
+            TransferEncoding::SevenBit,
+            |selected: TransferEncoding, parsed| match (selected, parsed?) {
+                (TransferEncoding::Binary, _) | (_, TransferEncoding::Binary) => {
+                    Ok(TransferEncoding::Binary)
+                }
+                (_, other) => Ok(other),
+            },
+        )?;
     let boundary = structured.parameters.get("boundary").cloned();
     let body = raw
         .get(headers.body_offset..)
@@ -127,6 +135,19 @@ fn parse_entity(
 }
 
 impl Entity {
+    /// Проверяет CTE binary во всём bounded MIME поддереве, включая вложенные parts.
+    pub fn contains_binary_transfer_encoding(&self) -> bool {
+        match (
+            matches!(self.transfer_encoding, TransferEncoding::Binary),
+            self.children
+                .iter()
+                .any(Entity::contains_binary_transfer_encoding),
+        ) {
+            (true, _) | (_, true) => true,
+            (false, false) => false,
+        }
+    }
+
     /// Декодирует только тело leaf entity по сохранённому абсолютному range.
     pub fn decoded_body(&self, message: &[u8]) -> Result<Vec<u8>, &'static str> {
         if !self.children.is_empty() {
@@ -142,7 +163,10 @@ impl Entity {
 fn is_multipart(media_type: &MediaType) -> bool {
     matches!(
         media_type,
-        MediaType::MultipartMixed | MediaType::MultipartAlternative | MediaType::MultipartRelated
+        MediaType::MultipartMixed
+            | MediaType::MultipartAlternative
+            | MediaType::MultipartRelated
+            | MediaType::MultipartOther(_)
     )
 }
 

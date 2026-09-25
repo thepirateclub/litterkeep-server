@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G16
 
+### 2026-09-25: G16 POP3 MIME binary CTE checkpoint
+
+- MIME tree рекурсивно определяет `Content-Transfer-Encoding: binary` во всех
+  распознаваемых сущностях, в том числе в `multipart/*` подтипах, ранее
+  трактовавшихся как непрозрачные листья. POP3 `TOP` и `RETR` отклоняют такое
+  сообщение и в UTF8 mode, как требует RFC 6856 §2.1.
+- PASS: Windows Rust 1.97.1: 286 тестов и strict Clippy. Linux Docker Rust
+  1.97: strict Clippy и 326 тестов. Независимый Linux runtime acceptance
+  сделал IMAP STARTTLS/APPEND multipart письма с `binary` CTE и NUL в теле,
+  затем подтвердил отказ POP3 TOP/RETR даже после UTF8. Повторно прошли SMTP
+  UTF8 delivery, POP3 LANG/UTF8/STLS сценарии. Данные находятся в
+  `./data/g16-pop3-binary-cte-nested`; тестовый контейнер удалён, постоянный
+  `litterkeep-g12-phone` сохранён.
+- Ограничение: если MIME parser не строит дерево, наличие вложенного binary CTE
+  не устанавливается и не считается проверенным. RFC 6856 в целом, conversion
+  legacy charset и UTF-8 credentials остаются непокрытыми. G16 остаётся RUNNING.
+
 ### 2026-09-25: G16 POP3 SASL PLAIN over TLS checkpoint
 
 - Реализован POP3 `AUTH PLAIN` с initial response и continuation, отменой `*`,

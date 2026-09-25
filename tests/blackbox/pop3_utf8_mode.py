@@ -1,5 +1,6 @@
 """Независимо проверяет RFC 6856 UTF8 command и порядок STLS."""
 
+import imaplib
 import os
 import smtplib
 import socket
@@ -9,6 +10,7 @@ import ssl
 HOST = os.environ.get("LITTERKEEP_HOST", "127.0.0.1")
 PORT = int(os.environ.get("LITTERKEEP_POP3_PORT", "1110"))
 SMTP_PORT = int(os.environ.get("LITTERKEEP_SMTP_PORT", "2525"))
+IMAP_PORT = int(os.environ.get("LITTERKEEP_IMAP_PORT", "143"))
 UTF8_MARKER = "UTF8-MARKER: привет".encode("utf-8")
 
 
@@ -147,46 +149,66 @@ def check_message_download_requires_utf8_mode():
         stream.close()
         connection.close()
 
+
+def check_binary_cte_rejected():
+    raw_message = (
+        b"From: alice@test\r\nTo: bob@test\r\nSubject: binary CTE policy\r\n"
+        b"MIME-Version: 1.0\r\nContent-Type: multipart/report; boundary=policy\r\n\r\n"
+        b"--policy\r\nContent-Type: text/plain\r\n\r\nnotice\r\n"
+        b"--policy\r\nContent-Type: application/octet-stream\r\n"
+        b"Content-Transfer-Encoding: binary\r\n\r\n"
+        b"opaque\x00octets\r\n--policy--\r\n"
+    )
+    context = ssl.create_default_context()
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    mailbox = imaplib.IMAP4(HOST, IMAP_PORT)
+    try:
+        mailbox.starttls(ssl_context=context)
+        status, _ = mailbox.login("bob", os.environ["LITTERKEEP_BOB_PASSWORD"])
+        if status != "OK":
+            raise AssertionError("IMAP login failed before MIME fixture APPEND")
+        status, _ = mailbox.append("INBOX", None, None, raw_message)
+        if status != "OK":
+            raise AssertionError("IMAP APPEND rejected the MIME binary CTE fixture")
+    finally:
+        mailbox.logout()
+
     connection = socket.create_connection((HOST, PORT), timeout=10)
     stream = connection.makefile("rb")
     try:
-        read_line(stream, "enabled UTF8 greeting")
-        send(connection, stream, b"STLS\r\n", b"+OK", "enabled UTF8 STLS")
+        read_line(stream, "binary CTE POP3 greeting")
+        send(connection, stream, b"STLS\r\n", b"+OK", "binary CTE STLS")
         stream.close()
         connection = context.wrap_socket(connection, server_hostname="localhost")
         stream = connection.makefile("rb")
-        send(connection, stream, b"UTF8\r\n", b"+OK", "enable message UTF8")
-        send(connection, stream, b"USER bob\r\n", b"+OK", "enabled USER")
+        send(connection, stream, b"UTF8\r\n", b"+OK", "binary CTE UTF8")
+        send(connection, stream, b"USER bob\r\n", b"+OK", "binary CTE USER")
         send(
             connection,
             stream,
             f"PASS {os.environ['LITTERKEEP_BOB_PASSWORD']}\r\n".encode("ascii"),
             b"+OK",
-            "enabled PASS",
+            "binary CTE PASS",
         )
-        status = send(connection, stream, b"STAT\r\n", b"+OK", "enabled STAT")
-        _status, count, _octets = status.split()
-        number = str(int(count))
-        command = f"RETR {number}\r\n".encode("ascii")
-        send(connection, stream, command, b"+OK", "RETR after UTF8")
-        lines = []
-        while True:
-            line = read_line(stream, "UTF8 message body")
-            if line == b".\r\n":
-                break
-            lines.append(line.removesuffix(b"\r\n"))
-        if UTF8_MARKER not in b"\r\n".join(lines):
-            raise AssertionError("UTF8 mode did not preserve message octets")
-        send(connection, stream, b"QUIT\r\n", b"+OK", "message QUIT")
+        status = send(connection, stream, b"STAT\r\n", b"+OK", "binary CTE STAT")
+        _ok, count, _octets = status.split()
+        message_number = count.decode("ascii")
+        command = f"RETR {message_number}\r\n".encode("ascii")
+        rejection = b"-ERR MIME binary transfer encoding is not permitted"
+        send(connection, stream, command, rejection, "binary CTE RETR")
+        top_command = f"TOP {message_number} 2\r\n".encode("ascii")
+        send(connection, stream, top_command, rejection, "binary CTE TOP")
+        send(connection, stream, b"QUIT\r\n", b"+OK", "binary CTE QUIT")
     finally:
         stream.close()
         connection.close()
-
 
 def main():
     check_plaintext_upgrade_order()
     check_tls_utf8_mode()
     check_message_download_requires_utf8_mode()
+    check_binary_cte_rejected()
     print("PASS POP3: RFC 6856 UTF8 mode, content guard and STLS ordering")
 
 

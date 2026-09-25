@@ -186,10 +186,14 @@ RFC 6856: `UTF8` capability объявляется в обоих состоян�
 последовательности. Независимый Linux SMTP->POP3 socket acceptance отправил
 8BITMIME UTF-8 письмо, получил `[UTF8]` от LIST/TOP/RETR в ASCII mode, затем
 включил UTF8 до USER и сравнил точные байты RETR. Он также проверил CAPA до/после
-TLS и отказ STLS после UTF8; unit-тесты проверяют guarded retrieval. Это не полный
-RFC 6856: legacy charset conversion, UTF-8 credentials/SASLprep не поддержаны;
-ограничения RFC 2045 для `Content-Transfer-Encoding: binary` этим этапом не
-проверялись. Повреждённые raw octets сами по себе не считаются UTF-8
+TLS и отказ STLS после UTF8; unit-тесты проверяют guarded retrieval. MIME-дерево
+рекурсивно обнаруживает `Content-Transfer-Encoding: binary`, включая вложенные
+части всех `multipart/*`; POP3 `TOP` и `RETR` отклоняют такое сообщение даже в
+UTF8 mode. Независимый Linux acceptance сохранил fixture через IMAP APPEND и
+подтвердил отказ обеих команд. Это не полный RFC 6856: legacy charset conversion
+и UTF-8 credentials/SASLprep не поддержаны. Если ограниченный MIME parser не
+может разобрать структуру, бинарный CTE не классифицируется, поэтому такой случай
+не считается проверенным. Повреждённые raw octets сами по себе не считаются UTF-8
 строками. `LANG` объявляется и реализует listing единственной локали `en`, выбор
 `en` и серверной локали через `*`; корректный, но неподдерживаемый basic language
 range получает `-ERR`. Так как поддержана только английская локаль, выбор языка
