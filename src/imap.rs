@@ -169,7 +169,18 @@ pub enum Transfer {
 }
 /// Разбирает одну CRLF-строку и не оставляет строковые команды в reactor.
 pub fn parse(line: &str) -> TaggedCommand {
-    let mut tokens = match tokenizer::tokenize(line) {
+    parse_tokens(line, tokenizer::tokenize(line))
+}
+
+/// Разбирает команду после внутренней сборки synchronizing SEARCH literal.
+#[cfg(target_os = "linux")]
+pub(crate) fn parse_search_literal(line: &str, literal: &str) -> TaggedCommand {
+    parse_tokens(line, tokenizer::tokenize_search_literal(line, literal))
+}
+
+/// Преобразует lexer result в команду, сохраняя tag даже при синтаксическом отказе.
+fn parse_tokens(line: &str, result: Result<Vec<Token>, &'static str>) -> TaggedCommand {
+    let mut tokens = match result {
         Ok(tokens) => tokens.into_iter(),
         Err(_) => {
             let tag = line.split_ascii_whitespace().next().unwrap_or("*");

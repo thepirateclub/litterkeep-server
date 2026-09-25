@@ -21,6 +21,7 @@ def main() -> None:
     context = ssl.create_default_context(cafile=options.ca)
     client.starttls(ssl_context=context)
     require_bad_quoted_pair(client)
+    require_bad_utf8_quoted_string(client)
     require(client.noop(), "OK")
     if options.credentials is not None:
         password = password_for(options.credentials, "bob")
@@ -42,6 +43,15 @@ def require_bad_quoted_pair(client: imaplib.IMAP4) -> None:
     response_text = b" ".join(item for item in (detail or []) if item is not None)
     if status != "BAD" or b"invalid command syntax" not in response_text:
         raise AssertionError(f"invalid quoted-pair: {status} {detail!r}")
+
+
+def require_bad_utf8_quoted_string(client: imaplib.IMAP4) -> None:
+    """Отвергает UTF-8 в кавычках до согласования UTF8=ACCEPT."""
+    tag = client._command("LOGIN", b'"b\xc3\xb8b" "unused"')
+    status, detail = client._get_tagged_response(tag)
+    response_text = b" ".join(item for item in (detail or []) if item is not None)
+    if status != "BAD" or b"invalid command syntax" not in response_text:
+        raise AssertionError(f"unnegotiated UTF-8 quote: {status} {detail!r}")
 
 
 def require_bad(client: imaplib.IMAP4, verb: str) -> None:

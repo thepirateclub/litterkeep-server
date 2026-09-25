@@ -81,7 +81,7 @@ pub(super) struct Receiver {
 /// Инкрементальный результат одного неблокирующего шага.
 pub(super) enum Progress {
     Waiting,
-    Complete,
+    Complete(String),
     InvalidString,
 }
 
@@ -94,32 +94,18 @@ impl Receiver {
         if self.bytes.len() < self.expected {
             return Progress::Waiting;
         }
-        let Ok(value) = std::str::from_utf8(&self.bytes) else {
+        let Ok(value) = String::from_utf8(std::mem::take(&mut self.bytes)) else {
             return Progress::InvalidString;
         };
         if value.bytes().any(|byte| matches!(byte, b'\r' | b'\n')) {
             return Progress::InvalidString;
         }
         let mut rebuilt = self.prefix.clone();
-        rebuilt.extend(quoted(value));
+        rebuilt.push(0);
         rebuilt.extend(std::mem::take(input));
         *input = rebuilt;
-        Progress::Complete
+        Progress::Complete(value)
     }
-}
-
-fn quoted(value: &str) -> Vec<u8> {
-    let mut encoded = Vec::with_capacity(value.len().saturating_add(2));
-    encoded.push(b'"');
-    for byte in value.bytes() {
-        match byte {
-            b'\\' | b'"' => encoded.push(b'\\'),
-            _ => {}
-        }
-        encoded.push(byte);
-    }
-    encoded.push(b'"');
-    encoded
 }
 
 #[cfg(test)]

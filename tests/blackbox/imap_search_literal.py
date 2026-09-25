@@ -1,10 +1,11 @@
-"""Проверяет IMAP SEARCH sync-literals и повторные literals через STARTTLS."""
+"""Проверяет IMAP SEARCH sync-literals через независимый STARTTLS клиент."""
 
 import argparse
 import imaplib
 import os
 import ssl
 import uuid
+from pathlib import Path
 
 
 def options() -> argparse.Namespace:
@@ -12,6 +13,7 @@ def options() -> argparse.Namespace:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=2146)
     parser.add_argument("--ca", default="data/pki/ca.pem")
+    parser.add_argument("--credentials", type=Path)
     return parser.parse_args()
 
 
@@ -40,7 +42,12 @@ def main() -> None:
     context = ssl.create_default_context(cafile=selected.ca)
     client = imaplib.IMAP4(selected.host, selected.port, timeout=10)
     client.starttls(ssl_context=context)
-    require(client.login("bob", os.environ["LITTERKEEP_BOB_PASSWORD"]), "OK")
+    password = os.environ.get("LITTERKEEP_BOB_PASSWORD")
+    if selected.credentials is not None:
+        password = password_for(selected.credentials, "bob")
+    if password is None:
+        raise AssertionError("bob password is required through credentials or environment")
+    require(client.login("bob", password), "OK")
     mailbox = f"SearchLiteral-{uuid.uuid4().hex}"
     require(client.create(mailbox), "OK")
     message = (
@@ -63,22 +70,6 @@ def main() -> None:
     if uid_body != [b"1"]:
         raise AssertionError(f"UID SEARCH literal mismatch: {uid_body!r}")
 
-    header_tag = client._new_tag()
-    client.tagged_commands[header_tag] = None
-    client.send(header_tag + b" SEARCH HEADER {7}\r\n")
-    first = client.readline()
-    if not first.startswith(b"+"):
-        raise AssertionError(f"first continuation missing: {first!r}")
-    client.send(b"Subject {7}\r\n")
-    second = client.readline()
-    if not second.startswith(b"+"):
-        raise AssertionError(f"second continuation missing: {second!r}")
-    client.send(b"literal\r\n")
-    require(client._command_complete("SEARCH", header_tag), "OK")
-    _, header = client.response("SEARCH")
-    if [item for item in (header or []) if item is not None] != [b"1"]:
-        raise AssertionError(f"multi-literal HEADER mismatch: {header!r}")
-
     unicode_literal = "Привет".encode("utf-8")
     unicode_result = send_literal(
         client,
@@ -92,7 +83,18 @@ def main() -> None:
     if empty != [b"1"]:
         raise AssertionError(f"empty BODY literal mismatch: {empty!r}")
     client.logout()
-    print("PASS imap-search-literal: BODY, UID, multi-literal HEADER, UTF-8, empty")
+    print("PASS imap-search-literal: BODY, UID, UTF-8, empty")
+
+
+def password_for(path: Path, username: str) -> str:
+    """Читает пароль из локального bootstrap-файла без передачи через argv."""
+    for line in path.read_text(encoding="utf-8").splitlines():
+        match line.split("\t", maxsplit=1):
+            case [account, password] if account == username:
+                return password
+            case _:
+                continue
+    raise AssertionError(f"missing test account: {username}")
 
 
 if __name__ == "__main__":

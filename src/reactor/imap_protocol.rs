@@ -18,13 +18,21 @@ pub(super) mod authenticate;
 pub(super) fn line(
     session: &mut Session,
     line: Vec<u8>,
-    slot: usize,
-    generation: u64,
-    worker: &mut WakingStorageWorker,
-    owners: &mut HashMap<u64, (usize, u64, Pending)>,
-    request_id: &mut u64,
+    literal: Option<String>,
+    context: super::imap_line_context::LineContext<'_>,
 ) -> io::Result<()> {
-    let parsed = imap::parse(std::str::from_utf8(&line).unwrap_or(""));
+    let super::imap_line_context::LineContext {
+        slot,
+        generation,
+        worker,
+        owners,
+        request_id,
+    } = context;
+    let command = std::str::from_utf8(&line).unwrap_or("");
+    let parsed = match literal {
+        Some(value) => imap::parse_search_literal(command, &value),
+        None => imap::parse(command),
+    };
     match parsed.command {
         imap::Command::Capability => imap_capability::write(session, &parsed.tag)?,
         imap::Command::Namespace => imap_namespace::write(session, &parsed.tag)?,

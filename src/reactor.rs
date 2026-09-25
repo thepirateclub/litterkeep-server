@@ -41,6 +41,8 @@ mod imap_fetch_seen;
 mod imap_folders;
 #[path = "reactor/imap_idle.rs"]
 mod imap_idle;
+#[path = "reactor/imap_line_context.rs"]
+mod imap_line_context;
 #[path = "reactor/imap_list.rs"]
 mod imap_list;
 mod imap_list_selection;

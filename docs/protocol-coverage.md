@@ -138,9 +138,11 @@ capability до/после TLS и отказ plaintext authentication. Друг�
 IMAP quoted-pair принимает только escaped `"` и `\\` по RFC 3501; иной
 символ после обратной косой черты возвращает tagged BAD, сохраняя командный
 тег. Независимый STARTTLS `imaplib` тест подтвердил BAD и успешный NOOP после
-лексической ошибки. UTF8=ACCEPT и IMAP4rev2 не рекламируются; tokenizer ещё не
-ограничивает high-bit UTF-8 в quoted-string negotiated UTF8 mode, поэтому этот
-сценарий остаётся открытым grammar defect, а не заявленной поддержкой RFC 9755.
+лексической ошибки. UTF8=ACCEPT и IMAP4rev2 не рекламируются; legacy quoted-string
+отклоняет high-bit UTF-8 без negotiation. Отдельный synchronizing SEARCH-literal
+path сохраняет проверенный UTF-8 как значение токена. Независимый STARTTLS
+acceptance проверил tagged BAD для UTF-8 quoted LOGIN, восстановление сессии и
+UTF-8 BODY literal; это не реализует RFC 9755 UTF8=ACCEPT.
 
 `FETCH` принимает одиночные и сгруппированные data items, раскрывает ALL, FAST
 и FULL, включает UID в ответы UID FETCH и сохраняет literal как точные октеты.
@@ -360,8 +362,9 @@ ALL/COUNT/MIN/MAX. Пустой result set сохраняет запрошенн
 при этом остаётся. Пустой `RETURN ()` эквивалентен ALL. Legacy SEARCH остаётся
 для текущего IMAP4rev1 профиля. MIME
 charset вне проверенного набора остаются непроверенными. SEARCH поддерживает
-quoted strings и synchronizing literals до 64 KiB, включая несколько literals
-в одной команде. Parser acceptance перечисляет все базовые SEARCH keys RFC 9051,
+ASCII quoted strings и synchronizing literals до 64 KiB; независимый STARTTLS
+тест проверил BODY, UID, UTF-8 и пустой literal. Несколько literals в одной
+команде остаются непроверенными. Parser acceptance перечисляет все базовые SEARCH keys RFC 9051,
 evaluator покрыт соответствующими unit и сетевыми сценариями. Объявление
 SEARCHRES не означает полной
 совместимости IMAP4rev1 или IMAP4rev2: остаются SEARCH/ESEARCH расширения и

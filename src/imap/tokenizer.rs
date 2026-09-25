@@ -19,12 +19,30 @@ pub enum Token {
 
 /// Разбирает одну CRLF-строку за `O(n)` времени с ограничением числа токенов.
 pub fn tokenize(line: &str) -> Result<Vec<Token>, &'static str> {
+    tokenize_internal(line, None)
+}
+
+/// Разбирает команду, в которой NUL-placeholder обозначает принятый SEARCH literal.
+#[cfg(any(target_os = "linux", test))]
+pub(super) fn tokenize_search_literal(
+    line: &str,
+    literal: &str,
+) -> Result<Vec<Token>, &'static str> {
+    tokenize_internal(line, Some(literal))
+}
+
+/// Объединяет обычную wire-грамматику с одним внутренним, уже проверенным literal.
+fn tokenize_internal(line: &str, mut literal: Option<&str>) -> Result<Vec<Token>, &'static str> {
     const MAX_TOKENS: usize = 64;
     let mut chars = line.trim_end_matches(['\r', '\n']).chars().peekable();
     let mut tokens = Vec::new();
     while let Some(character) = chars.next() {
         match character {
             value if value.is_ascii_whitespace() => {}
+            '\0' => match literal.take() {
+                Some(value) => push(&mut tokens, Token::Quoted(value.to_owned()), MAX_TOKENS)?,
+                None => return Err("unexpected NUL in IMAP command"),
+            },
             '(' => push(&mut tokens, Token::ListStart, MAX_TOKENS)?,
             ')' => push(&mut tokens, Token::ListEnd, MAX_TOKENS)?,
             '"' => {
@@ -36,6 +54,9 @@ pub fn tokenize(line: &str) -> Result<Vec<Token>, &'static str> {
                 push(&mut tokens, Token::Text(value), MAX_TOKENS)?;
             }
         }
+    }
+    if literal.is_some() {
+        return Err("SEARCH literal placeholder is missing");
     }
     Ok(tokens)
 }
@@ -81,7 +102,8 @@ where
             (true, _) => return Err("invalid quoted-pair in IMAP quoted string"),
             (false, '\\') => escaped = true,
             (false, '"') => return Ok(value),
-            (false, ordinary) => value.push(ordinary),
+            (false, ordinary) if ordinary.is_ascii() => value.push(ordinary),
+            (false, _) => return Err("non-ASCII character in IMAP4rev1 quoted string"),
         }
     }
     Err("unterminated IMAP quoted string")
@@ -140,5 +162,20 @@ mod tests {
     fn quoted_pair_rejects_other_escaped_characters() {
         assert!(tokenize("a LOGIN \"bob\\q\" \"pass\"\r\n").is_err());
         assert!(tokenize("a LOGIN \"bob\\ \" \"pass\"\r\n").is_err());
+    }
+
+    /// IMAP4rev1 quoted-string не допускает UTF-8 без отдельного согласования.
+    #[test]
+    fn wire_quoted_string_rejects_high_bit_but_literal_token_keeps_utf8() {
+        assert!(tokenize("a LOGIN \"bøb\" \"pass\"\r\n").is_err());
+        assert_eq!(
+            tokenize_search_literal("a SEARCH SUBJECT \0\r\n", "bøb"),
+            Ok(vec![
+                Token::Text("a".into()),
+                Token::Text("SEARCH".into()),
+                Token::Text("SUBJECT".into()),
+                Token::Quoted("bøb".into()),
+            ])
+        );
     }
 }

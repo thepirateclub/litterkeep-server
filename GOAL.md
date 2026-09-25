@@ -14,14 +14,17 @@ Current subgoal: G17
   LOGIN, received tagged BAD, then completed NOOP and valid LOGIN on the same
   connection. Fixture: `./data/g17-managesieve-capabilities`. UTF8=ACCEPT and
   IMAP4rev2 remain unsupported and are not advertised.
-- Audit also confirmed that raw UTF-8 inside quoted-string is still accepted
-  without negotiated UTF8=ACCEPT. This is recorded as an open conformance defect,
-  not as supported RFC 9755 behavior.
-- PASS: Windows Rust 1.97.1 full suite (509 library + 1 binary), strict Clippy,
-  fmt, Python syntax and diff checks. Linux Rust 1.97 Docker test target passed
-  strict Clippy, 554 library + 1 binary tests and doc-tests; independent wire
-  acceptance passed. Test container and image tag removed, fixture preserved.
-  G17 remains ACTIVE.
+- Follow-up closes that tokenizer defect: legacy IMAP4rev1 quoted strings reject
+  raw high-bit characters, while a separately received UTF-8 SEARCH literal is
+  injected as a typed value and does not pass through the quoted-string grammar.
+  UTF8=ACCEPT and IMAP4rev2 remain unsupported and are not advertised.
+- PASS: Windows Rust 1.97 full suite (510 library + 1 binary), strict Clippy and
+  fmt. Linux Rust 1.97 Docker target passed strict Clippy and 556 library + 1
+  binary tests plus doc-tests. Independent STARTTLS tests verified tagged BAD
+  and session recovery for raw UTF-8 quoted LOGIN, ASCII BODY/UID literals,
+  UTF-8 BODY literal and empty literal. Multi-literal HEADER is not supported
+  by this acceptance path and remains unverified. Created container and image
+  removed; `./data/g17-managesieve-capabilities` preserved. G17 remains ACTIVE.
 
 ### 2026-09-25: G17 Sieve vacation MIME quoted-printable network checks, PARTIAL
 

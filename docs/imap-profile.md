@@ -101,8 +101,9 @@ resp-text допустим в RFC 9051, но стандартный Python imapl
 разбор ответа с пустым BAD, поэтому проверяется и межклиентская совместимость.
 Quoted-pair в quoted-string текущего IMAP4rev1 профиля допускает только `\"`
 и `\\`; произвольный `\x` теперь лексически отвергается, а исходный tag
-сохраняется в tagged BAD. Unit и независимый STARTTLS `imaplib` acceptance
-проверили отказ и продолжение той же сессии командой NOOP. UTF8=ACCEPT не
-объявляется и negotiation не реализован, но tokenizer пока пропускает high-bit
-UTF-8 внутри quoted-string без negotiation. Поэтому UTF-8 quoting не считается
-поддержанной функцией; это отдельный открытый IMAP4rev1 conformance defect.
+сохраняется в tagged BAD. Также legacy quoted-string отвергает raw high-bit
+characters, пока UTF8=ACCEPT не реализован и не согласован. Синхронизирующий
+SEARCH literal обрабатывается отдельно от quoted-string: UTF-8 BODY/UID literals
+и пустой literal проверены независимым STARTTLS клиентом. Unit и wire acceptance
+подтвердили tagged BAD и выполнение NOOP после ошибки. UTF8=ACCEPT, IMAP4rev2 и
+несколько literals в одной SEARCH-команде не реализованы и не заявляются.

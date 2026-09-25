@@ -37,8 +37,9 @@ pub(super) fn process_input(
                 .consume(&mut session.input);
             match progress {
                 imap_search_literal::Progress::Waiting => break,
-                imap_search_literal::Progress::Complete => {
+                imap_search_literal::Progress::Complete(value) => {
                     session.imap_search_literal = None;
+                    session.imap_search_literal_value = Some(value);
                     continue;
                 }
                 imap_search_literal::Progress::InvalidString => {
@@ -73,17 +74,40 @@ pub(super) fn process_input(
             Kind::Smtp => super::smtp_protocol::smtp_line(
                 session, line, slot, generation, worker, owners, request_id,
             )?,
-            Kind::Imap => match imap_search_literal::start(&line) {
-                imap_search_literal::Start::NotSearchLiteral => super::imap_protocol::line(
-                    session, line, slot, generation, worker, owners, request_id,
+            Kind::Imap => match session.imap_search_literal_value.take() {
+                Some(value) => super::imap_protocol::line(
+                    session,
+                    line,
+                    Some(value),
+                    super::imap_line_context::LineContext {
+                        slot,
+                        generation,
+                        worker,
+                        owners,
+                        request_id,
+                    },
                 )?,
-                imap_search_literal::Start::Begin(receiver) => {
-                    session.imap_search_literal = Some(receiver);
-                    session.push(b"+ Ready for SEARCH literal\r\n")?;
-                }
-                imap_search_literal::Start::Reject { tag, reason } => {
-                    session.push(format!("{tag} BAD {reason}\r\n").as_bytes())?;
-                }
+                None => match imap_search_literal::start(&line) {
+                    imap_search_literal::Start::NotSearchLiteral => super::imap_protocol::line(
+                        session,
+                        line,
+                        None,
+                        super::imap_line_context::LineContext {
+                            slot,
+                            generation,
+                            worker,
+                            owners,
+                            request_id,
+                        },
+                    )?,
+                    imap_search_literal::Start::Begin(receiver) => {
+                        session.imap_search_literal = Some(receiver);
+                        session.push(b"+ Ready for SEARCH literal\r\n")?;
+                    }
+                    imap_search_literal::Start::Reject { tag, reason } => {
+                        session.push(format!("{tag} BAD {reason}\r\n").as_bytes())?;
+                    }
+                },
             },
             Kind::Pop3 => super::pop3_protocol::line(
                 session, line, slot, generation, worker, owners, request_id,

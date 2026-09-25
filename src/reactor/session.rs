@@ -66,8 +66,10 @@ pub(super) struct Session {
     pub(super) imap_authenticate: Option<imap_protocol::authenticate::State>,
     /// Ограниченный literal остаётся собственностью этой IMAP-сессии.
     pub(super) imap_literal: Option<LiteralReceiver>,
-    /// SEARCH literal временно заменяется quoted UTF-8 строкой после приёма.
+    /// SEARCH literal ожидает завершения неблокирующего приёма octets.
     pub(super) imap_search_literal: Option<super::imap_search_literal::Receiver>,
+    /// Единственное значение literal для следующей внутренне собранной SEARCH-команды.
+    pub(super) imap_search_literal_value: Option<String>,
     pub(super) smtp: SmtpState,
     pub(super) smtp_greeting: smtp::GreetingMode,
     pub(super) smtp_body_mode: crate::smtp::BodyMode,
@@ -123,6 +125,7 @@ impl Session {
             imap_authenticate: None,
             imap_literal: None,
             imap_search_literal: None,
+            imap_search_literal_value: None,
             smtp: SmtpState::Command(smtp::Transaction::default()),
             smtp_greeting: smtp::GreetingMode::NotEstablished,
             smtp_body_mode: crate::smtp::BodyMode::SevenBit,
