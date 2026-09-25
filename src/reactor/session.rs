@@ -69,7 +69,7 @@ pub(super) struct Session {
     /// SEARCH literal ожидает завершения неблокирующего приёма octets.
     pub(super) imap_search_literal: Option<super::imap_search_literal::Receiver>,
     /// Единственное значение literal для следующей внутренне собранной SEARCH-команды.
-    pub(super) imap_search_literal_value: Option<String>,
+    pub(super) imap_search_literal_value: Option<Vec<String>>,
     pub(super) smtp: SmtpState,
     pub(super) smtp_greeting: smtp::GreetingMode,
     pub(super) smtp_body_mode: crate::smtp::BodyMode,

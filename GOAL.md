@@ -19,12 +19,13 @@ Current subgoal: G17
   injected as a typed value and does not pass through the quoted-string grammar.
   UTF8=ACCEPT and IMAP4rev2 remain unsupported and are not advertised.
 - PASS: Windows Rust 1.97 full suite (510 library + 1 binary), strict Clippy and
-  fmt. Linux Rust 1.97 Docker target passed strict Clippy and 556 library + 1
+  fmt. Linux Rust 1.97 Docker target passed strict Clippy and 557 library + 1
   binary tests plus doc-tests. Independent STARTTLS tests verified tagged BAD
   and session recovery for raw UTF-8 quoted LOGIN, ASCII BODY/UID literals,
-  UTF-8 BODY literal and empty literal. Multi-literal HEADER is not supported
-  by this acceptance path and remains unverified. Created container and image
-  removed; `./data/g17-managesieve-capabilities` preserved. G17 remains ACTIVE.
+  UTF-8 BODY literal and empty literal. Follow-up also parses multiple literals
+  in one SEARCH command and preserves the subsequent pipelined command. Created
+  container and image are removed after acceptance; fixture
+  `./data/g17-managesieve-capabilities` is preserved. G17 remains ACTIVE.
 
 ### 2026-09-25: G17 Sieve vacation MIME quoted-printable network checks, PARTIAL
 

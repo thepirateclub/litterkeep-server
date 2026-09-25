@@ -37,12 +37,21 @@ pub(super) fn process_input(
                 .consume(&mut session.input);
             match progress {
                 imap_search_literal::Progress::Waiting => break,
+                imap_search_literal::Progress::Continue => {
+                    session.push(b"+ Ready for SEARCH literal\r\n")?;
+                    break;
+                }
                 imap_search_literal::Progress::Complete(value) => {
                     session.imap_search_literal = None;
                     session.imap_search_literal_value = Some(value);
                     continue;
                 }
                 imap_search_literal::Progress::InvalidString => {
+                    session.imap_search_literal = None;
+                    session.termination = Some(session::SessionTermination::InvalidSearchLiteral);
+                    break;
+                }
+                imap_search_literal::Progress::InvalidSyntax => {
                     session.imap_search_literal = None;
                     session.termination = Some(session::SessionTermination::InvalidSearchLiteral);
                     break;
@@ -75,10 +84,10 @@ pub(super) fn process_input(
                 session, line, slot, generation, worker, owners, request_id,
             )?,
             Kind::Imap => match session.imap_search_literal_value.take() {
-                Some(value) => super::imap_protocol::line(
+                Some(values) => super::imap_protocol::line(
                     session,
                     line,
-                    Some(value),
+                    Some(values),
                     super::imap_line_context::LineContext {
                         slot,
                         generation,

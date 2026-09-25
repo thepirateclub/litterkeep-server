@@ -18,7 +18,7 @@ pub(super) mod authenticate;
 pub(super) fn line(
     session: &mut Session,
     line: Vec<u8>,
-    literal: Option<String>,
+    literals: Option<Vec<String>>,
     context: super::imap_line_context::LineContext<'_>,
 ) -> io::Result<()> {
     let super::imap_line_context::LineContext {
@@ -29,8 +29,8 @@ pub(super) fn line(
         request_id,
     } = context;
     let command = std::str::from_utf8(&line).unwrap_or("");
-    let parsed = match literal {
-        Some(value) => imap::parse_search_literal(command, &value),
+    let parsed = match literals {
+        Some(values) => imap::parse_search_literals(command, values),
         None => imap::parse(command),
     };
     match parsed.command {

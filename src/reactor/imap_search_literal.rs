@@ -1,13 +1,13 @@
 //! Ограниченный RFC synchronizing literal framing для SEARCH строк.
 
-const MAX_SEARCH_LITERAL: usize = 64 * 1024;
-
 /// Решение до выдачи continuation клиенту.
 pub(super) enum Start {
     NotSearchLiteral,
     Begin(Receiver),
     Reject { tag: String, reason: &'static str },
 }
+
+const MAX_SEARCH_LITERAL: usize = 64 * 1024;
 
 /// Ищет sync-literal только в SEARCH/UID SEARCH и сохраняет его префикс.
 pub(super) fn start(line: &[u8]) -> Start {
@@ -17,35 +17,31 @@ pub(super) fn start(line: &[u8]) -> Start {
     let Some(command) = command.strip_suffix("\r\n") else {
         return Start::NotSearchLiteral;
     };
-    let Some(boundary) = command.rfind(|character: char| character.is_ascii_whitespace()) else {
-        return Start::NotSearchLiteral;
-    };
-    let Some(prefix_end) = boundary.checked_add(1) else {
-        return Start::NotSearchLiteral;
-    };
-    let Some(prefix) = command.get(..prefix_end) else {
-        return Start::NotSearchLiteral;
-    };
-    let Some(marker) = command.get(boundary..).map(str::trim) else {
-        return Start::NotSearchLiteral;
-    };
-    let Some(tag) = search_tag(prefix) else {
-        return Start::NotSearchLiteral;
-    };
-    let Some(size) = literal_size(marker) else {
+    let Some((prefix, tag, size)) = initial_marker(command) else {
         return Start::NotSearchLiteral;
     };
     match size <= MAX_SEARCH_LITERAL {
-        true => Start::Begin(Receiver {
-            prefix: prefix.as_bytes().to_vec(),
-            expected: size,
-            bytes: Vec::with_capacity(size),
-        }),
+        true => match Receiver::new(prefix.as_bytes().to_vec(), size) {
+            Some(receiver) => Start::Begin(receiver),
+            None => Start::Reject {
+                tag: tag.to_owned(),
+                reason: "SEARCH command exceeds limit",
+            },
+        },
         false => Start::Reject {
             tag: tag.to_owned(),
             reason: "SEARCH literal exceeds limit",
         },
     }
+}
+
+fn initial_marker(command: &str) -> Option<(&str, &str, usize)> {
+    let boundary = command.rfind(|character: char| character.is_ascii_whitespace())?;
+    let prefix_end = boundary.checked_add(1)?;
+    let prefix = command.get(..prefix_end)?;
+    let marker = command.get(boundary..)?.trim();
+    let tag = search_tag(prefix)?;
+    Some((prefix, tag, literal_size(marker)?))
 }
 
 fn search_tag(prefix: &str) -> Option<&str> {
@@ -71,41 +67,184 @@ fn literal_size(marker: &str) -> Option<usize> {
     }
 }
 
-/// Владеет одной literal до полной сборки команды, не удерживая worker.
+/// Фаза приёма SEARCH literal или остатка команды после его octets.
+enum Phase {
+    Literal,
+    CommandRemainder,
+}
+
+/// Итог накопления командного хвоста до CRLF.
+enum RemainderProgress {
+    Waiting,
+    Complete,
+    LimitExceeded,
+}
+
+/// Владеет всей SEARCH-командой с несколькими literals, не удерживая worker.
 pub(super) struct Receiver {
     prefix: Vec<u8>,
     expected: usize,
     bytes: Vec<u8>,
+    literals: Vec<String>,
+    remainder: Vec<u8>,
+    phase: Phase,
+    total_octets: usize,
 }
 
 /// Инкрементальный результат одного неблокирующего шага.
 pub(super) enum Progress {
     Waiting,
-    Complete(String),
+    Continue,
+    Complete(Vec<String>),
     InvalidString,
+    InvalidSyntax,
 }
 
 impl Receiver {
-    /// Поглощает ровно объявленное число октетов и восстанавливает parser input.
+    /// Принимает literal октетами, затем разбирает продолжение команды или следующий marker.
     pub(super) fn consume(&mut self, input: &mut Vec<u8>) -> Progress {
+        match self.phase {
+            Phase::Literal => match self.receive_literal(input) {
+                Some(progress) => return progress,
+                None => self.phase = Phase::CommandRemainder,
+            },
+            Phase::CommandRemainder => {}
+        }
+        self.receive_remainder(input)
+    }
+
+    /// Создаёт ограниченное состояние для первого sync-literal команды.
+    fn new(prefix: Vec<u8>, expected: usize) -> Option<Self> {
+        if prefix.len().checked_add(expected)? > super::MAX_INPUT {
+            return None;
+        }
+        Some(Self {
+            prefix,
+            expected,
+            bytes: Vec::with_capacity(expected),
+            literals: Vec::new(),
+            remainder: Vec::new(),
+            phase: Phase::Literal,
+            total_octets: expected,
+        })
+    }
+
+    /// Поглощает ровно объявленные octets и хранит их как строковое значение.
+    fn receive_literal(&mut self, input: &mut Vec<u8>) -> Option<Progress> {
         let remaining = self.expected.saturating_sub(self.bytes.len());
         let consumed = remaining.min(input.len());
         self.bytes.extend(input.drain(..consumed));
         if self.bytes.len() < self.expected {
-            return Progress::Waiting;
+            return Some(Progress::Waiting);
         }
         let Ok(value) = String::from_utf8(std::mem::take(&mut self.bytes)) else {
-            return Progress::InvalidString;
+            return Some(Progress::InvalidString);
         };
         if value.bytes().any(|byte| matches!(byte, b'\r' | b'\n')) {
-            return Progress::InvalidString;
+            return Some(Progress::InvalidString);
         }
-        let mut rebuilt = self.prefix.clone();
-        rebuilt.push(0);
+        self.prefix.push(0);
+        self.literals.push(value);
+        None
+    }
+
+    /// Определяет конец команды либо admission следующего sync-literal.
+    fn receive_remainder(&mut self, input: &mut Vec<u8>) -> Progress {
+        match self.collect_remainder(input) {
+            RemainderProgress::Complete => {}
+            RemainderProgress::Waiting => return Progress::Waiting,
+            RemainderProgress::LimitExceeded => return Progress::InvalidSyntax,
+        }
+        let Some(line) = std::str::from_utf8(&self.remainder).ok() else {
+            return Progress::InvalidSyntax;
+        };
+        let Some(content) = line.strip_suffix("\r\n") else {
+            return Progress::InvalidSyntax;
+        };
+        match trailing_marker(content) {
+            Some((prefix_size, size)) => {
+                let Some(prefix) = self.remainder.get(..prefix_size).map(<[u8]>::to_vec) else {
+                    return Progress::InvalidSyntax;
+                };
+                self.next_literal(&prefix, size)
+            }
+            None => self.finish_command(input),
+        }
+    }
+
+    /// Собирает одну ограниченную остаточную строку, не поглощая pipelined command.
+    fn collect_remainder(&mut self, input: &mut Vec<u8>) -> RemainderProgress {
+        let old_end = self.remainder.windows(2).position(|pair| pair == b"\r\n");
+        if old_end.is_some() {
+            return RemainderProgress::Complete;
+        }
+        let new_end = input.windows(2).position(|pair| pair == b"\r\n");
+        let available = match new_end {
+            Some(end) => match end.checked_add(2) {
+                Some(size) => size,
+                None => return RemainderProgress::LimitExceeded,
+            },
+            None => input.len(),
+        };
+        let Some(next_size) = self
+            .prefix
+            .len()
+            .checked_add(self.remainder.len())
+            .and_then(|size| size.checked_add(available))
+        else {
+            return RemainderProgress::LimitExceeded;
+        };
+        if next_size > super::MAX_INPUT {
+            return RemainderProgress::LimitExceeded;
+        }
+        self.remainder.extend(input.drain(..available));
+        match self.remainder.windows(2).any(|pair| pair == b"\r\n") {
+            true => RemainderProgress::Complete,
+            false => RemainderProgress::Waiting,
+        }
+    }
+
+    /// Продолжает протокольную команду после обнаружения очередного sync marker.
+    fn next_literal(&mut self, before_marker: &[u8], expected: usize) -> Progress {
+        let Some(total) = self.total_octets.checked_add(expected) else {
+            return Progress::InvalidSyntax;
+        };
+        let Some(command_size) = self
+            .prefix
+            .len()
+            .checked_add(before_marker.len())
+            .and_then(|size| size.checked_add(total))
+        else {
+            return Progress::InvalidSyntax;
+        };
+        if expected > MAX_SEARCH_LITERAL || command_size > super::MAX_INPUT {
+            return Progress::InvalidSyntax;
+        }
+        self.prefix.extend_from_slice(before_marker);
+        self.remainder.clear();
+        self.expected = expected;
+        self.total_octets = total;
+        self.bytes = Vec::with_capacity(expected);
+        self.phase = Phase::Literal;
+        Progress::Continue
+    }
+
+    /// Завершает сборку, оставляя любые следующие команды во входном буфере.
+    fn finish_command(&mut self, input: &mut Vec<u8>) -> Progress {
+        self.prefix.extend_from_slice(&self.remainder);
+        self.remainder.clear();
+        let mut rebuilt = std::mem::take(&mut self.prefix);
         rebuilt.extend(std::mem::take(input));
         *input = rebuilt;
-        Progress::Complete(value)
+        Progress::Complete(std::mem::take(&mut self.literals))
     }
+}
+
+fn trailing_marker(content: &str) -> Option<(usize, usize)> {
+    let boundary = content.rfind(char::is_whitespace)?;
+    let prefix_size = boundary.checked_add(1)?;
+    let marker = content.get(boundary..)?.trim();
+    Some((prefix_size, literal_size(marker)?))
 }
 
 #[cfg(test)]

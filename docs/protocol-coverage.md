@@ -363,8 +363,9 @@ ALL/COUNT/MIN/MAX. Пустой result set сохраняет запрошенн
 для текущего IMAP4rev1 профиля. MIME
 charset вне проверенного набора остаются непроверенными. SEARCH поддерживает
 ASCII quoted strings и synchronizing literals до 64 KiB; независимый STARTTLS
-тест проверил BODY, UID, UTF-8 и пустой literal. Несколько literals в одной
-команде остаются непроверенными. Parser acceptance перечисляет все базовые SEARCH keys RFC 9051,
+тест проверил BODY, UID, UTF-8, пустой literal и два последовательных literals
+в HEADER с отдельным continuation для каждого; pipelined command после literal
+сохраняется. Parser acceptance перечисляет все базовые SEARCH keys RFC 9051,
 evaluator покрыт соответствующими unit и сетевыми сценариями. Объявление
 SEARCHRES не означает полной
 совместимости IMAP4rev1 или IMAP4rev2: остаются SEARCH/ESEARCH расширения и

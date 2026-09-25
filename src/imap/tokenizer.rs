@@ -19,28 +19,31 @@ pub enum Token {
 
 /// Разбирает одну CRLF-строку за `O(n)` времени с ограничением числа токенов.
 pub fn tokenize(line: &str) -> Result<Vec<Token>, &'static str> {
-    tokenize_internal(line, None)
+    tokenize_internal(line, Vec::new().into())
 }
 
-/// Разбирает команду, в которой NUL-placeholder обозначает принятый SEARCH literal.
+/// Разбирает команду, где NUL-placeholders обозначают принятые SEARCH literals.
 #[cfg(any(target_os = "linux", test))]
-pub(super) fn tokenize_search_literal(
+pub(super) fn tokenize_search_literals(
     line: &str,
-    literal: &str,
+    literals: Vec<String>,
 ) -> Result<Vec<Token>, &'static str> {
-    tokenize_internal(line, Some(literal))
+    tokenize_internal(line, literals.into())
 }
 
-/// Объединяет обычную wire-грамматику с одним внутренним, уже проверенным literal.
-fn tokenize_internal(line: &str, mut literal: Option<&str>) -> Result<Vec<Token>, &'static str> {
+/// Объединяет wire-грамматику с упорядоченными, отдельно проверенными literals.
+fn tokenize_internal(
+    line: &str,
+    mut literals: std::collections::VecDeque<String>,
+) -> Result<Vec<Token>, &'static str> {
     const MAX_TOKENS: usize = 64;
     let mut chars = line.trim_end_matches(['\r', '\n']).chars().peekable();
     let mut tokens = Vec::new();
     while let Some(character) = chars.next() {
         match character {
             value if value.is_ascii_whitespace() => {}
-            '\0' => match literal.take() {
-                Some(value) => push(&mut tokens, Token::Quoted(value.to_owned()), MAX_TOKENS)?,
+            '\0' => match literals.pop_front() {
+                Some(value) => push(&mut tokens, Token::Quoted(value), MAX_TOKENS)?,
                 None => return Err("unexpected NUL in IMAP command"),
             },
             '(' => push(&mut tokens, Token::ListStart, MAX_TOKENS)?,
@@ -55,10 +58,11 @@ fn tokenize_internal(line: &str, mut literal: Option<&str>) -> Result<Vec<Token>
             }
         }
     }
-    if literal.is_some() {
-        return Err("SEARCH literal placeholder is missing");
+    if literals.is_empty() {
+        Ok(tokens)
+    } else {
+        Err("SEARCH literal placeholder is missing")
     }
-    Ok(tokens)
 }
 
 fn push(tokens: &mut Vec<Token>, token: Token, limit: usize) -> Result<(), &'static str> {
@@ -169,7 +173,7 @@ mod tests {
     fn wire_quoted_string_rejects_high_bit_but_literal_token_keeps_utf8() {
         assert!(tokenize("a LOGIN \"bøb\" \"pass\"\r\n").is_err());
         assert_eq!(
-            tokenize_search_literal("a SEARCH SUBJECT \0\r\n", "bøb"),
+            tokenize_search_literals("a SEARCH SUBJECT \0\r\n", vec!["bøb".into()]),
             Ok(vec![
                 Token::Text("a".into()),
                 Token::Text("SEARCH".into()),

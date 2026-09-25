@@ -70,6 +70,22 @@ def main() -> None:
     if uid_body != [b"1"]:
         raise AssertionError(f"UID SEARCH literal mismatch: {uid_body!r}")
 
+    header_tag = client._new_tag()
+    client.tagged_commands[header_tag] = None
+    client.send(header_tag + b" SEARCH HEADER {7}\r\n")
+    first = client.readline()
+    if not first.startswith(b"+"):
+        raise AssertionError(f"first continuation missing: {first!r}")
+    client.send(b"Subject {7}\r\n")
+    second = client.readline()
+    if not second.startswith(b"+"):
+        raise AssertionError(f"second continuation missing: {second!r}")
+    client.send(b"literal\r\n")
+    require(client._command_complete("SEARCH", header_tag), "OK")
+    _, header = client.response("SEARCH")
+    if [item for item in (header or []) if item is not None] != [b"1"]:
+        raise AssertionError(f"multi-literal HEADER mismatch: {header!r}")
+
     unicode_literal = "Привет".encode("utf-8")
     unicode_result = send_literal(
         client,
@@ -83,7 +99,7 @@ def main() -> None:
     if empty != [b"1"]:
         raise AssertionError(f"empty BODY literal mismatch: {empty!r}")
     client.logout()
-    print("PASS imap-search-literal: BODY, UID, UTF-8, empty")
+    print("PASS imap-search-literal: BODY, UID, multi-literal HEADER, UTF-8, empty")
 
 
 def password_for(path: Path, username: str) -> str:

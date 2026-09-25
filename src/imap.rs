@@ -174,8 +174,8 @@ pub fn parse(line: &str) -> TaggedCommand {
 
 /// Разбирает команду после внутренней сборки synchronizing SEARCH literal.
 #[cfg(target_os = "linux")]
-pub(crate) fn parse_search_literal(line: &str, literal: &str) -> TaggedCommand {
-    parse_tokens(line, tokenizer::tokenize_search_literal(line, literal))
+pub(crate) fn parse_search_literals(line: &str, literals: Vec<String>) -> TaggedCommand {
+    parse_tokens(line, tokenizer::tokenize_search_literals(line, literals))
 }
 
 /// Преобразует lexer result в команду, сохраняя tag даже при синтаксическом отказе.
