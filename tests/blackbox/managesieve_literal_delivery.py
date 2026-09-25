@@ -93,10 +93,15 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
                 b'if header :is "subject" "a\x00b" { keep; }',
                 b'NO "operation failed"\r\n',
             )
+            check_script(
+                client,
+                b"if allof [true, false] { keep; }",
+                b'NO "operation failed"\r\n',
+            )
             first_chunk = b'require ["fileinto"]; '
             second_chunk = (
-                b'if allof [header :contains "subject" "[invoice]", '
-                b'address :detail :is "to" "invoices", size :over 1] '
+                b'if allof (header :contains "subject" "[invoice]", '
+                b'address :detail :is "to" "invoices", size :over 1) '
                 b'{ fileinto "Invoices"; stop; }'
             )
             source = first_chunk + second_chunk

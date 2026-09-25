@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 Sieve RFC 5228 test-list grammar checkpoint
+
+- `allof`/`anyof` теперь требуют `test-list` в круглых скобках, разделённый
+  запятыми и содержащий минимум один тест. Квадратная форма string-list
+  больше не принимается на этом месте; проверки покрывают пустой список,
+  пропущенную/висячую запятую и вложенные тесты.
+- PASS: Windows Rust 1.97.1, fmt, 310 тестов, strict Clippy и diff check;
+  Linux Docker Rust 1.97, strict Clippy и 350 тестов. Независимый ManageSieve
+  STARTTLS-клиент отверг квадратный `allof`, принял nested parenthesized
+  `allof`/`anyof`, сохранил и активировал script. Сквозная SMTP -> Sieve ->
+  IMAP доставка в `Invoices` прошла. Stage `./data/g17-sieve-test-list`;
+  временный контейнер удалён, `litterkeep-g12-phone` сохранён. Интеграция с
+  приложением Litterkeep не проверялась. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 Sieve RFC 5228 quoted-string checkpoint
 
 - Quoted-string лексер сохраняет CRLF, принимает quoted-other escape как

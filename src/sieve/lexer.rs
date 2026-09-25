@@ -9,6 +9,8 @@ pub(super) enum Token {
     String(String),
     OpenList,
     CloseList,
+    OpenTestList,
+    CloseTestList,
     OpenBlock,
     CloseBlock,
     Semicolon,
@@ -28,6 +30,8 @@ pub(super) fn tokenize(source: &str) -> Result<Vec<Token>, &'static str> {
             '"' => tokens.push(Token::String(string(&mut characters)?)),
             '[' => tokens.push(Token::OpenList),
             ']' => tokens.push(Token::CloseList),
+            '(' => tokens.push(Token::OpenTestList),
+            ')' => tokens.push(Token::CloseTestList),
             '{' => tokens.push(Token::OpenBlock),
             '}' => tokens.push(Token::CloseBlock),
             ';' => tokens.push(Token::Semicolon),
@@ -100,7 +104,7 @@ fn boundary(character: char) -> bool {
         true => true,
         false => matches!(
             character,
-            '#' | '/' | '"' | '[' | ']' | '{' | '}' | ';' | ','
+            '#' | '/' | '"' | '[' | ']' | '(' | ')' | '{' | '}' | ';' | ','
         ),
     }
 }

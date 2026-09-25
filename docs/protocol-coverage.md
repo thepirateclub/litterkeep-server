@@ -250,9 +250,11 @@ SETACTIVE, DELETESCRIPT и RENAMESCRIPT.
 объявлений `require` подряд допустимы; unit regression проверяет оба правила
 по RFC 5228 §3.2. Quoted-string сохраняет CRLF, допускает `quoted-other`
 escape с удалением обратной косой черты и отвергает NUL; из пробельных
-разделителей вне строк принимаются только SP/HTAB/CRLF. Unit и ManageSieve
-CHECKSCRIPT acceptance проверяют эти границы по RFC 5228 §§2.4.2 и 8.1. Это не
-означает полного покрытия grammar RFC 5228 и extensions.
+разделителей вне строк принимаются только SP/HTAB/CRLF. `allof`/`anyof`
+принимают непустой comma-separated `test-list` в круглых скобках; квадратные
+скобки остаются формой `string-list`. Unit и ManageSieve CHECKSCRIPT
+acceptance проверяют эти границы по RFC 5228 §§2.4.2, 5.2-5.3 и 8.1-8.2.
+Это не означает полного покрытия grammar RFC 5228 и extensions.
 
 ## Outbound SMTP
 

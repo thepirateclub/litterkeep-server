@@ -63,7 +63,7 @@ fn elsif_is_an_exclusive_bounded_branch() {
 #[test]
 fn header_matchers_and_size_select_the_expected_branch() {
     let script = parse(
-        "if allof [header :matches :comparator \"i;ascii-casemap\" [\"subject\", \"x-topic\"] [\"invoice-*\"], not exists \"x-cancel\", size :over 1K] { fileinto \"Invoices\"; } else { discard; }",
+        "if allof (header :matches :comparator \"i;ascii-casemap\" [\"subject\", \"x-topic\"] [\"invoice-*\"], not exists \"x-cancel\", size :over 1K) { fileinto \"Invoices\"; } else { discard; }",
     )
     .expect("parse");
     let plan =
@@ -105,7 +105,7 @@ fn address_test_selects_detail_without_matching_another_recipient() {
 #[test]
 fn combined_header_address_and_size_rule_matches_network_fixture() {
     let script = parse(
-        "require [\"fileinto\"]; if allof [header :contains \"subject\" \"[invoice]\", address :detail :is \"to\" \"invoices\", size :over 1] { fileinto \"Invoices\"; stop; }",
+        "require [\"fileinto\"]; if allof (header :contains \"subject\" \"[invoice]\", address :detail :is \"to\" \"invoices\", size :over 1) { fileinto \"Invoices\"; stop; }",
     )
     .expect("parse");
     let plan = execute(
@@ -128,6 +128,18 @@ fn invalid_script_does_not_become_a_delivery_plan() {
         parse("if header :comparator \"i;unicode-casemap\" \"subject\" \"x\" { keep; }").is_err()
     );
     assert!(parse("if size :over 1T { keep; }").is_err());
+    assert!(parse("if allof [true, false] { keep; }").is_err());
+    assert!(parse("if allof () { keep; }").is_err());
+    assert!(parse("if allof (true false) { keep; }").is_err());
+    assert!(parse("if anyof (true,) { keep; }").is_err());
+}
+
+/// RFC 5228 test-list использует круглые скобки, в отличие от string-list.
+#[test]
+fn allof_and_anyof_parse_parenthesized_comma_separated_tests() {
+    let script = parse("if anyof (false, allof (true, true)) { keep; }").expect("parse");
+    let plan = execute(&script, &[], 0).expect("execute");
+    assert!(plan.keep);
 }
 
 /// Несколько require допустимы подряд, но после команды расширения запрещены.

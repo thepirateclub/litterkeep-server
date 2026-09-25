@@ -242,19 +242,20 @@ fn conditions(
     input: &mut VecDeque<Token>,
     make: fn(Vec<Condition>) -> Condition,
 ) -> Result<Condition, &'static str> {
-    expect(input, Token::OpenList)?;
+    expect(input, Token::OpenTestList)?;
     let mut values = Vec::new();
+    values.push(condition(input)?);
     loop {
         match input.front() {
-            Some(Token::CloseList) => {
+            Some(Token::CloseTestList) => {
                 let _ = input.pop_front();
                 return Ok(make(values));
             }
             Some(Token::Comma) => {
                 let _ = input.pop_front();
+                values.push(condition(input)?);
             }
-            Some(_) => values.push(condition(input)?),
-            None => return Err("unterminated sieve condition list"),
+            _ => return Err("invalid sieve test-list separator"),
         }
     }
 }
