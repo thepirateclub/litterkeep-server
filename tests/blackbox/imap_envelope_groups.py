@@ -62,12 +62,12 @@ def main() -> None:
     message = (
         r'From: "Alice \"Sender\"" (primary (nested)) <alice@example.test>'
         "\r\n"
-        f"To: {group} (list comment):Ed Jones (mentor (owner \\) note)) "
-        "<c(comment)@a.test>,joe@where.test,John <jdoe@one.test>, "
+        f"To: , {group} (list comment):Ed Jones (mentor (owner \\) note)) "
+        "<c(comment)@a.test>,,joe@where.test,John <jdoe@one.test>, "
         'Quoted Local <"a@b"@example.test>, '
         "Legacy <@old.example,@older.example,:route-target@example.test>, "
         "Old Dots <first (local) . (separator) last @ example . test>; "
-        "(group closed)\r\n"
+        "(group closed),\r\n"
         "Cc: Undisclosed recipients:;\r\n"
         "Bcc: Hidden Team:hidden@example.test;\r\n"
         "Subject: address group fixture\r\n\r\nbody\r\n"

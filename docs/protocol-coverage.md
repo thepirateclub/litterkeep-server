@@ -124,6 +124,8 @@ ENVELOPE и SEARCH сворачивают `first (comment) . last @ example . te
 нормализации исключены и проверяются отдельными unit fixtures. Для quoted
 display-name отдельно проверено снятие quoted-pair: `\"` и `\\` в исходном
 header становятся буквальными `"` и `\` в ENVELOPE.
+Для obsolete address-list проверены leading/repeated/trailing null members:
+они не формируют ENVELOPE addresses и не сдвигают порядок двух mailbox.
 `RETURN (SAVE)` сохраняет UIDs в состоянии одной сессии, а `$` SEARCH criterion
 сопоставляет их как для SEARCH, так и UID SEARCH. Успешный SELECT, SAVE-команда
 с ответом NO, EXPUNGE и MOVE сбрасывают/синхронизируют результат; обычный SEARCH

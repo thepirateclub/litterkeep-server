@@ -537,6 +537,18 @@ ManageSieve до заявленного набора современных фо
   `litterkeep-g12-phone` preserved. Litterkeep app integration not tested.
 - G14 remains RUNNING.
 
+### 2026-09-25: G14 obsolete null address-list members checkpoint
+
+- RFC 5322 obsolete leading, repeated, and trailing null members in address
+  lists are ignored without fabricating addresses or reordering mailboxes.
+  The independent STARTTLS fixture exercises those forms through FETCH
+  ENVELOPE alongside the group, comment, quoted-pair, and route cases.
+- PASS: Windows Rust 1.97.1, 302 tests, strict Clippy and fmt; Linux Docker
+  Rust 1.97, strict Clippy and 342 tests; independent IMAP acceptance PASS.
+  Data: `./data/g14-quoted-localpart-final`. Temporary container removed,
+  `litterkeep-g12-phone` preserved. Litterkeep app integration not tested.
+- G14 remains RUNNING.
+
 ### 2026-09-25: G14 RFC 5322 address groups checkpoint
 
 - ENVELOPE address parsing now preserves typed mailbox, group-start, and

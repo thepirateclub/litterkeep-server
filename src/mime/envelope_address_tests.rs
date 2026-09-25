@@ -207,3 +207,14 @@ fn preserves_domain_literal_during_dot_normalization() {
         "((\"Literal\" NIL \"host\" \"[127.0.0.1]\"))"
     );
 }
+
+/// RFC 5322 obsolete address-list null members не создают ложных адресов.
+#[test]
+fn ignores_obsolete_null_members_in_address_list() {
+    let field = to_field(",,alice@example.test,,bob@example.test,");
+    let parsed = parse(vec![&field]).expect("obsolete null address members");
+    assert_eq!(
+        encode_list(&parsed).expect("null-member ENVELOPE"),
+        "((NIL NIL \"alice\" \"example.test\")(NIL NIL \"bob\" \"example.test\"))"
+    );
+}
