@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 5228 empty header strings checkpoint
+
+- Static validation больше не отвергает пустые элементы в `header` и
+  `address` string-list: пустой `:contains` key совпадает с существующим
+  значением, пустой `:is` key не совпадает с непустым значением, а отсутствующий
+  header не совпадает даже с пустым key. Пустое/невалидное имя header в тесте
+  не вызывает ошибку скрипта и просто не совпадает. Unit regressions и
+  независимый ManageSieve CHECKSCRIPT покрывают эти границы.
+- PASS: Windows Rust 1.97.1, fmt, 325 тестов, strict Clippy, Python compile и
+  diff check. Linux Docker Rust 1.97: strict Clippy и 365 тестов. Независимый
+  ManageSieve -> SMTP -> IMAP acceptance прошёл в
+  `./data/g17-sieve-empty-header-strings`. Временный контейнер удалён,
+  `litterkeep-g12-phone` сохранён. Litterkeep app integration не проверялась.
+  G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 5228 header-name whitespace checkpoint
 
 - Общий MIME header parser нормализует SP/HTAB перед `:` в имя поля вместо

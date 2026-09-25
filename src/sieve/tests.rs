@@ -118,6 +118,30 @@ fn header_test_ignores_leading_and_trailing_space_and_tab() {
     assert!(plan.discard);
 }
 
+#[test]
+fn header_test_accepts_empty_keys_and_invalid_header_names() {
+    let empty_contains = parse("if header :contains \"Subject\" \"\" { discard; }")
+        .expect("empty contains key is valid");
+    let plan = execute(&empty_contains, &[("Subject".into(), "invoice".into())], 10)
+        .expect("execute empty contains key");
+    assert!(plan.discard);
+
+    let absent = execute(&empty_contains, &[], 10).expect("execute absent header");
+    assert!(!absent.discard);
+
+    let empty_is =
+        parse("if header :is \"Subject\" \"\" { discard; }").expect("empty is key is valid");
+    let plan = execute(&empty_is, &[("Subject".into(), "invoice".into())], 10)
+        .expect("execute empty is key");
+    assert!(!plan.discard);
+
+    let invalid_name = parse("if header :is \"\" \"invoice\" { discard; }")
+        .expect("invalid header name is not a script error");
+    let plan = execute(&invalid_name, &[("Subject".into(), "invoice".into())], 10)
+        .expect("execute invalid header name");
+    assert!(!plan.discard);
+}
+
 /// Address-проекция отделяет plus-detail и использует тот же typed matcher.
 #[test]
 fn address_test_selects_detail_without_matching_another_recipient() {

@@ -115,13 +115,7 @@ fn string_match_valid(
     ) {
         return Err("empty sieve string matcher");
     }
-    match (
-        names.iter().any(String::is_empty),
-        matcher.keys.iter().any(String::is_empty),
-    ) {
-        (false, false) => Ok(()),
-        _ => Err("empty sieve string matcher"),
-    }
+    Ok(())
 }
 
 fn safe_name(name: &str) -> bool {
