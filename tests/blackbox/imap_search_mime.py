@@ -177,23 +177,20 @@ def main() -> None:
         b"searchable-after-decode-error"
     )
     require(client.append(mailbox, None, None, unknown_cte), "OK")
-    tag = client._command("SEARCH", b"BODY", quoted("searchable-after-decode-error"))
-    status, detail = client._command_complete("SEARCH", tag)
-    assert status == "NO", (status, detail)
-    assert b"UNKNOWN-CTE" in b" ".join(detail), detail
-    _, response_items = client.response("SEARCH")
-    search_result = b" ".join(
-        item for item in (response_items or []) if item is not None
-    ).strip()
-    assert not search_result, search_result
+    opaque_body = require(
+        raw_search(client, b"BODY", quoted("searchable-after-decode-error")), "OK"
+    )
+    assert opaque_body == [b""], opaque_body
     preserved_search = require(raw_search(client, b"$"), "OK")
     assert preserved_search == [b"1"], preserved_search
-    tag = client._command(
-        "SEARCH", b"RETURN", b"(SAVE)", b"BODY", quoted("searchable-after-decode-error")
+    saved_opaque = raw_search(
+        client,
+        b"RETURN",
+        b"(SAVE)",
+        b"BODY",
+        quoted("searchable-after-decode-error"),
     )
-    status, detail = client._command_complete("SEARCH", tag)
-    assert status == "NO", (status, detail)
-    assert b"UNKNOWN-CTE" in b" ".join(detail), detail
+    assert saved_opaque == ("OK", []), saved_opaque
     cleared_search = require(raw_search(client, b"$"), "OK")
     assert cleared_search == [b""], cleared_search
     require(

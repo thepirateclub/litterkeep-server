@@ -48,11 +48,8 @@ fn windows_1252_body_is_decoded_before_search() {
 }
 
 #[test]
-fn unknown_transfer_encoding_aborts_body_projection_with_typed_error() {
+fn unknown_transfer_encoding_is_opaque_and_not_searched_as_declared_text() {
     let raw = b"Content-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: x-private\r\n\r\nsearchable";
-    let result = SearchDocument::parse(raw, true);
-    assert!(matches!(
-        result,
-        Err(SearchTextError::UnknownContentTransferEncoding)
-    ));
+    let document = SearchDocument::parse(raw, true).expect("opaque entity");
+    assert!(!document.body_contains("searchable"));
 }

@@ -7,7 +7,6 @@ use super::{charset::Charset, encoded_word, parameters::MediaType, tree};
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SearchTextError {
     InvalidMessage,
-    UnknownContentTransferEncoding,
 }
 
 /// Одно декодированное поле outer message header для HEADER/TEXT критериев.
@@ -131,9 +130,6 @@ fn is_textual(media_type: &MediaType) -> bool {
 }
 
 fn decode_text_leaf(entity: &tree::Entity, raw: &[u8]) -> Result<Option<String>, SearchTextError> {
-    if let super::transfer::TransferEncoding::Unsupported(_) = &entity.transfer_encoding {
-        return Err(SearchTextError::UnknownContentTransferEncoding);
-    }
     let decoded = match entity.decoded_body(raw) {
         Ok(bytes) => bytes,
         Err(_) => return Ok(None),

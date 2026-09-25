@@ -136,4 +136,15 @@ mod tests {
         assert!(encoded.contains("\"nested\""));
         assert!(encoded.contains("\"TEXT\" \"PLAIN\""));
     }
+
+    #[test]
+    fn unknown_transfer_encoding_reports_effective_octet_stream_type() {
+        let raw = b"Content-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: x-private\r\n\r\nopaque";
+        let entity = super::super::tree::parse(raw).expect("opaque entity");
+
+        assert_eq!(
+            encode(&entity, raw).expect("BODYSTRUCTURE"),
+            "(\"APPLICATION\" \"OCTET-STREAM\" NIL NIL NIL \"x-private\" 6)"
+        );
+    }
 }

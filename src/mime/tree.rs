@@ -56,7 +56,7 @@ fn parse_entity(
         .transpose()
         .map_err(|_| "Content-Type is not ASCII compatible")?
         .unwrap_or("text/plain");
-    let structured = parameters::parse(content_type)?;
+    let mut structured = parameters::parse(content_type)?;
     // При повторных CTE сохраняем бинарный маркер, если встретился любой.
     let transfer_encoding = headers
         .fields
@@ -76,6 +76,13 @@ fn parse_entity(
                 }
             },
         )?;
+    // RFC 2045 §6.4 делает entity с неизвестным CTE непрозрачной для
+    // MIME-интерпретации: фактический тип становится application/octet-stream.
+    // Исходные заголовки остаются в entity.headers и не меняются на wire.
+    if let TransferEncoding::Unsupported(_) = transfer_encoding {
+        structured.media_type = MediaType::ApplicationOctetStream;
+        structured.parameters.clear();
+    }
     let boundary = structured.parameters.get("boundary").cloned();
     let body = raw
         .get(headers.body_offset..)
@@ -248,5 +255,19 @@ mod tests {
         let raw = b"Content-Type: multipart/mixed; boundary=x\r\nContent-Transfer-Encoding: 8bit\r\n\r\n--x\r\nContent-Type: text/plain\r\n\r\nbody\r\n--x--\r\n";
 
         assert!(parse(raw).is_ok());
+    }
+
+    #[test]
+    fn unknown_leaf_encoding_is_opaque_without_rewriting_source_headers() {
+        let raw = b"Content-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: x-private\r\n\r\nbody";
+        let entity = parse(raw).expect("opaque MIME leaf");
+
+        assert_eq!(entity.media_type, MediaType::ApplicationOctetStream);
+        assert!(entity.parameters.is_empty());
+        assert_eq!(
+            entity.headers.first().map(|field| field.value.as_slice()),
+            Some(b"text/plain; charset=utf-8".as_slice())
+        );
+        assert_eq!(raw.get(entity.body_range), Some(b"body".as_slice()));
     }
 }

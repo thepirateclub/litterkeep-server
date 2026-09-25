@@ -107,8 +107,11 @@ Embedded и слитные формы остаются raw text; это ново
 тест подтвердил, что BODY не ищет outer Subject и бинарное
 application/octet-stream вложение, а TEXT включает decoded outer headers.
 Неизвестная charset и невалидная transfer encoding не сравниваются как raw
-octets. Если у текстовой MIME-части неизвестный Content-Transfer-Encoding,
-SEARCH завершается tagged `NO [UNKNOWN-CTE]` без частичного результата.
+octets. Часть с неизвестным Content-Transfer-Encoding рассматривается как
+непрозрачный `application/octet-stream` согласно RFC 2045 §6.4: её тело не
+попадает в текстовый SEARCH projection, а исходные MIME-заголовки сохраняются.
+IMAP BINARY для такой части отдельно завершается `NO [UNKNOWN-CTE]` согласно
+RFC 9051.
 MIME tree отвергает Base64, quoted-printable и неизвестный CTE на всех
 multipart/message composite entities согласно RFC 2045 §6.4; каждое повторное
 поле CTE проверяется отдельно, чтобы позднее 8bit не маскировало нарушение.

@@ -38,6 +38,7 @@ T36	PASS	server-protocol	Registered windows-1252 MIME charset decodes all C1-ran
 T37	PASS	server-protocol	RFC 2047 encoded-text requires nonempty printable ASCII excluding SPACE and question mark; encoded Q octets remain legal; unit-only
 T38	PASS	server-protocol	RFC 2047 unstructured header recognizes complete encoded-word tokens only at field start or after LWS; unit-only
 T39	PASS	server-protocol	RFC 2045 composite MIME tree permits only 7bit/8bit/binary CTE for multipart and message entities; duplicate invalid CTE cannot be hidden; unit-only
+T40	PASS	server-protocol	Unknown MIME CTE becomes effective application/octet-stream for BODYSTRUCTURE and is excluded from text SEARCH; source bytes preserved; unit-only (black-box updated, not run)
 R01	PASS	runtime	orchestrator transfer and registry ownership tests
 R02	PASS	runtime	exclusive resource double-acquire test
 R03	PASS	runtime	timeout keeps live lease occupied

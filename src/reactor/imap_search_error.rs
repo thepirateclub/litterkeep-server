@@ -19,11 +19,3 @@ pub(super) fn unsupported_charset(
         ),
     }
 }
-
-/// Прерывает SEARCH без публикации частичного списка совпадений.
-pub(in crate::reactor) fn unknown_content_transfer_encoding(
-    session: &mut Session,
-    tag: &str,
-) -> io::Result<()> {
-    session.push(format!("{tag} NO [UNKNOWN-CTE] unsupported MIME encoding\r\n").as_bytes())
-}

@@ -20,6 +20,22 @@ Current subgoal: G17
   оставлен только контейнер `litterkeep-g12-phone`; временных контейнеров нет.
 - RFC 2045 §6.4 сверена с IETF Datatracker. G17 остаётся RUNNING.
 
+### 2026-09-25: G17 unknown MIME transfer-encoding checkpoint
+
+- MIME entity с неизвестным CTE теперь получает эффективный тип
+  `application/octet-stream` и не сохраняет параметры объявленного типа в
+  структурной проекции; исходные заголовки и encoded body остаются неизменными.
+  BODYSTRUCTURE сообщает эффективный тип, SEARCH не просматривает такую часть
+  как текст, а BINARY сохраняет обязательный RFC 9051 `NO [UNKNOWN-CTE]`.
+- Unit tests проверяют тип/параметры/исходные байты, BODYSTRUCTURE и отсутствие
+  текста в SEARCH projection. Black-box сценарий обновлён, но сетевой тест в
+  этом checkpoint не запускался. Windows Rust 1.97.1: 379 library + 1 binary
+  test, fmt и strict Clippy PASS. Docker Linux Rust 1.97.1: release build,
+  strict Clippy, 420 library + 1 binary + doc-tests PASS. Test-stage Docker
+  build использовал `--rm`; после него подтверждено отсутствие временных
+  контейнеров, `litterkeep-g12-phone` сохранён. RFC 2045 §6.4 и RFC 9051
+  сверены с IETF Datatracker. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 2047 header-token recognition checkpoint
 
 - Unstructured-header projection распознаёт encoded-word только в начале

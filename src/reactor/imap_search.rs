@@ -22,12 +22,6 @@ pub(super) fn completed(
     }
     let documents = match search_documents(&messages, &key) {
         Ok(documents) => documents,
-        Err(crate::mime::search_text::SearchTextError::UnknownContentTransferEncoding) => {
-            clear_failed_saved_result(session, &result);
-            return super::imap_protocol::imap_search_error::unknown_content_transfer_encoding(
-                session, &tag,
-            );
-        }
         Err(crate::mime::search_text::SearchTextError::InvalidMessage) => {
             std::iter::repeat_with(|| None)
                 .take(messages.len())
@@ -133,8 +127,7 @@ fn clear_failed_saved_result(session: &mut Session, request: &imap::search_resul
     }
 }
 
-/// Строит MIME-проекции до вычисления совпадений, чтобы ошибка декодирования
-/// не позволила отправить клиенту неполный SEARCH/ESEARCH результат.
+/// Строит MIME-проекции до вычисления совпадений.
 fn search_documents(
     messages: &[crate::store::Message],
     key: &SearchKey,
@@ -145,9 +138,6 @@ fn search_documents(
             false => Ok(None),
             true => match SearchDocument::parse(&message.bytes, requires_body(key)) {
                 Ok(document) => Ok(Some(document)),
-                Err(error @ crate::mime::search_text::SearchTextError::UnknownContentTransferEncoding) => {
-                    Err(error)
-                }
                 Err(crate::mime::search_text::SearchTextError::InvalidMessage) => Ok(None),
             },
         })
