@@ -78,7 +78,7 @@ fn encode_languages(
 }
 
 /// Создаёт quoted IMAP string без CR/LF инъекции.
-fn quote_string(value: &str) -> Result<String, &'static str> {
+pub(super) fn quote_string(value: &str) -> Result<String, &'static str> {
     Ok(format!("\"{}\"", quote(value)?))
 }
 

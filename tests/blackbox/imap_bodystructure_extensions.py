@@ -49,6 +49,8 @@ def main() -> None:
         b"Content-Location: https://example.test/mail/\r\n\r\n"
         b"--meta-boundary\r\n"
         b"Content-Type: application/octet-stream\r\n"
+        b"Content-ID: <attachment-1@example.test>\r\n"
+        b"Content-Description: attached file\r\n"
         b"Content-Disposition: attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.bin\r\n"
         b"Content-Language: ru\r\n"
         b"Content-Location: ../files/a%20b.bin\r\n\r\n"
@@ -69,6 +71,7 @@ def main() -> None:
         if forbidden in basic:
             raise AssertionError(f"basic BODY included extension {forbidden!r}: {basic!r}")
     for required in (
+        b'"<attachment-1@example.test>" "attached file"',
         b'("en-US" "fr")',
         b'"https://example.test/mail/"',
         '("attachment" ("FILENAME" "résumé.bin"))'.encode("utf-8"),
@@ -77,7 +80,10 @@ def main() -> None:
     ):
         if required not in extended:
             raise AssertionError(f"BODYSTRUCTURE lacks {required!r}: {extended!r}")
-    print("PASS imap-bodystructure-extensions: BODY profile and MIME metadata")
+    for required in (b'"<attachment-1@example.test>" "attached file"',):
+        if required not in basic:
+            raise AssertionError(f"basic BODY lacks MIME basic fields {required!r}: {basic!r}")
+    print("PASS imap-bodystructure-extensions: basic and extended MIME fields")
 
 
 if __name__ == "__main__":

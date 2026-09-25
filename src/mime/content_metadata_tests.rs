@@ -1,4 +1,4 @@
-//! Проверки Content-Language lists и Content-Location fields.
+//! Проверки стандартных MIME metadata-полей для IMAP BODYSTRUCTURE.
 
 use super::{ContentMetadata, parse};
 use crate::mime::header_block;
@@ -53,4 +53,31 @@ fn invalid_language_does_not_hide_valid_location() {
 
     assert!(parsed.languages.is_none());
     assert_eq!(parsed.location.as_deref(), Some("./part.html"));
+}
+
+#[test]
+fn parses_content_id_and_rfc2047_description() {
+    let parsed = metadata(
+        b"Content-ID: <image.logo-1@example.test> (inline image)\r\nContent-Description: =?UTF-8?B?0J/RgNC40LLQtdGC?=\r\n\r\n",
+    );
+
+    assert_eq!(
+        parsed.content_id.as_deref(),
+        Some("<image.logo-1@example.test>")
+    );
+    assert_eq!(parsed.description.as_deref(), Some("Привет"));
+}
+
+#[test]
+fn omits_ambiguous_or_invalid_content_identity_fields() {
+    for raw in [
+        b"Content-ID: image@example.test\r\n\r\n".as_slice(),
+        b"Content-ID: <image..logo@example.test>\r\n\r\n",
+        b"Content-ID: <image@example.test>\r\nContent-ID: <other@example.test>\r\n\r\n",
+        b"Content-Description: first\r\nContent-Description: second\r\n\r\n",
+    ] {
+        let parsed = metadata(raw);
+        assert!(parsed.content_id.is_none());
+        assert!(parsed.description.is_none());
+    }
 }

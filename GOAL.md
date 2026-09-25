@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 MIME BODY basic identity fields checkpoint
+
+- MIME entity извлекает единственное корректное `Content-ID` из поддерживаемого
+  подмножества `<dot-atom@dot-atom>` и единственное `Content-Description` с
+  RFC 2047 decoding. Неоднозначные повторы и невалидные значения остаются в raw
+  headers, но не проецируются в BODYSTRUCTURE. Quoted id-left и domain-literal
+  Content-ID syntax пока не поддерживаются.
+- `BODY` и `BODYSTRUCTURE` теперь сериализуют Content-ID/Description в базовых
+  MIME-позициях. Расширения disposition/language/location остаются только в
+  BODYSTRUCTURE. Независимый Python `imaplib` STARTTLS acceptance подтвердил
+  оба basic поля в обоих профилях и отсутствие расширений в BODY.
+- PASS: Windows Rust 1.97.1 `cargo test --all-targets --locked` (439 library +
+  1 binary), strict Clippy, format и diff check. Linux Docker Rust 1.97 test
+  target: release build, 480 library + 1 binary, doc-tests и strict Clippy;
+  тот же независимый STARTTLS acceptance прошёл. Временные image/container
+  удалены; `litterkeep-g12-phone` сохранён. Реальный клиент Litterkeep не
+  проверялся. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 UTF-16 byte-order evidence checkpoint
 
 - Generic `UTF-16` now rejects input shorter than the two initial octets needed
