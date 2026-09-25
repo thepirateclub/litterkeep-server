@@ -4,6 +4,18 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 quoted-printable soft-break padding checkpoint
+
+- Quoted-printable decoder распознаёт буквальные SP/TAB перед `=CRLF` как
+  transport padding и удаляет их, при этом encoded `=20` перед soft break
+  сохраняет. Это предотвращает потерю содержимого и ложные пробелы после
+  транспортного line-wrap.
+- Unit tests проверяют оба различающихся случая. Windows Rust 1.97.1: 395
+  library + 1 binary tests, fmt и strict Clippy PASS. Docker Linux Rust 1.97.1:
+  release build, strict Clippy, 436 library + 1 binary + doc-tests PASS. Socket
+  acceptance не запускался. `docker build --rm` использован; после stage
+  проверяется inventory. RFC 2045 §6.7 сверена с IETF Datatracker. G17 RUNNING.
+
 ### 2026-09-25: G17 MIME Content-Transfer-Encoding comments checkpoint
 
 - `Content-Transfer-Encoding` теперь пропускает RFC 822 comments до

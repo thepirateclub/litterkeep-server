@@ -126,8 +126,10 @@ Content-Transfer-Encoding удаляет вложенные comments вне quot
 разбором token. Проверены comments до и после значения unit-тестом.
 Quoted-printable decoder удаляет буквальные SP/TAB на концах hard lines и
 объекта, не удаляя закодированные `=20`/`=09`; encoder сериализует пробелы и
-TAB как hex-octets, чтобы перенос строки не менял содержимое. Этот участок
-проверен unit-тестами, отдельный socket acceptance не запускался.
+TAB как hex-octets, чтобы перенос строки не менял содержимое. Также буквальные
+SP/TAB перед soft break `=CRLF` считаются транспортным padding и удаляются;
+encoded `=20` перед soft break сохраняется. Эти случаи проверены unit-тестами,
+отдельный socket acceptance не запускался.
 Параметр `multipart` boundary проверяется по RFC 2046 §5.1.1: 1..70 ASCII
 октетов из `bchars`, без завершающего пробела; покрыты длины и запрещённые
 символы. Boundary проверки unit-only.

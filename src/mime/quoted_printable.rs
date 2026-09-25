@@ -35,7 +35,14 @@ fn is_transport_padding(input: &[u8], cursor: usize) -> bool {
     while matches!(input.get(lookahead), Some(b' ' | b'\t')) {
         lookahead = lookahead.saturating_add(1);
     }
-    matches!(input.get(lookahead), None | Some(b'\r' | b'\n'))
+    match input.get(lookahead) {
+        None | Some(b'\r' | b'\n') => true,
+        Some(b'=') => {
+            input.get(lookahead.saturating_add(1)) == Some(&b'\r')
+                && input.get(lookahead.saturating_add(2)) == Some(&b'\n')
+        }
+        _ => false,
+    }
 }
 
 fn decode_escape(input: &[u8], cursor: usize, output: &mut Vec<u8>) -> Result<usize, &'static str> {
@@ -101,5 +108,11 @@ mod tests {
     #[test]
     fn preserves_encoded_space_before_transport_padding() {
         assert_eq!(decode(b"visible=20 \r\nnext").unwrap(), b"visible \r\nnext");
+    }
+
+    #[test]
+    fn removes_literal_padding_before_soft_line_break() {
+        assert_eq!(decode(b"visible \t=\r\nnext").unwrap(), b"visiblenext");
+        assert_eq!(decode(b"visible=20=\r\nnext").unwrap(), b"visible next");
     }
 }
