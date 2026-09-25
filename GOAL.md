@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 outbound SMTP line profile checkpoint
+
+- RFC 5321 §4.5.3.1.6 requires message text lines at most 1000 octets including
+  CRLF, excluding the extra transparency dot. Outbound ordinary and implicit-TLS
+  SMTP now validate CRLF framing and line bounds before MAIL; invalid message
+  data returns permanent failure without starting an envelope.
+- Unit regression covers 1000/1001 octet boundaries and bare CR/LF. New
+  `tests/blackbox/smtp_outbound_line_profile.py` independently verifies a valid
+  1000-octet line reaches the peer unchanged and a 1001-octet line is rejected
+  before MAIL. The separate dot-transparency peer acceptance was rerun too.
+- PASS: Linux Docker Rust 1.97 test target, strict Clippy, 494 library + 1
+  binary test and doc-tests; both independent SMTP wire tests pass. Windows
+  Rust 1.97.1 suite passed with 453 library + 1 binary test, strict Clippy,
+  fmt and diff check. Python compile and line-count audit passed. Temporary
+  Docker images removed; no stage containers were created and
+  `litterkeep-g12-phone` was preserved. Stage fixtures remain under
+  `./data/g17-sieve-vacation-qp-encoder-final`. G17 remains RUNNING.
+
 ### 2026-09-25: G17 RFC 5321 outbound SMTP transparency checkpoint
 
 - RFC 5321 §4.5.2 требует удваивать точку в начале каждой строки SMTP DATA,

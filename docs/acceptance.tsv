@@ -66,6 +66,7 @@ T64	PASS	server-protocol	Independent ManageSieve CHECKSCRIPT accepts one MIME-Ve
 T65	PASS	server-protocol	Independent SMTP STARTTLS delivery and IMAP BINARY.PEEK confirm RFC 2045 MIME Base64 decoder ignores non-alphabet ASCII octets inside an attachment without weakening encoded-word decoding
 T66	PASS	server-protocol	Independent SMTP STARTTLS delivery and IMAP fetch verify unknown CTE projects as application/octet-stream, retains raw MIME headers, is omitted from BODY SEARCH and returns UNKNOWN-CTE for BINARY
 T67	PASS	server-protocol	Independent SMTP peer receives outbound DATA with only line-leading dots doubled; peer un-stuffs and byte-compares the complete message, including terminal CRLF
+T68	PASS	server-protocol	Independent SMTP peer verifies a 1000-octet DATA line is delivered, a 1001-octet line is rejected before MAIL, and CRLF framing is preserved
 R01	PASS	runtime	orchestrator transfer and registry ownership tests
 R02	PASS	runtime	exclusive resource double-acquire test
 R03	PASS	runtime	timeout keeps live lease occupied

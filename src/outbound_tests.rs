@@ -67,6 +67,28 @@ fn smtp_data_stuffs_only_lines_that_begin_with_a_dot() {
     assert_eq!(wire, b"header\r\n\r\n..\r\n...text\r\n.\r\n");
 }
 
+#[test]
+fn outbound_data_enforces_line_octet_limit_and_crlf_framing() {
+    let mut maximum_line = vec![b'x'; 998];
+    maximum_line.extend_from_slice(b"\r\n");
+    assert_eq!(outbound::validate_data(&maximum_line), Ok(()));
+
+    let mut oversized_line = vec![b'x'; 999];
+    oversized_line.extend_from_slice(b"\r\n");
+    assert_eq!(
+        outbound::validate_data(&oversized_line),
+        Err(outbound::DataValidationError::LineTooLong)
+    );
+    assert_eq!(
+        outbound::validate_data(b"bare\nline"),
+        Err(outbound::DataValidationError::BareLineFeed)
+    );
+    assert_eq!(
+        outbound::validate_data(b"bare\rline"),
+        Err(outbound::DataValidationError::BareCarriageReturn)
+    );
+}
+
 fn run_rejecting_peer(reply: &str) -> DeliveryOutcome {
     let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
     let address = listener.local_addr().expect("address");

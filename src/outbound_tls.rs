@@ -62,6 +62,9 @@ impl Connection {
         recipients: &[&str],
         message: &[u8],
     ) -> io::Result<DeliveryOutcome> {
+        if outbound::validate_data(message).is_err() {
+            return Ok(DeliveryOutcome::PermanentFailure);
+        }
         self.command(&format!("MAIL FROM:<{sender}>\r\n"))?;
         if let Some(outcome) = outbound::expect(&mut self.stream)? {
             return Ok(outcome);
