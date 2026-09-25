@@ -48,7 +48,7 @@ T46	PASS	server-protocol	RFC 2045 section 6.7 quoted-printable decoder removes l
 T47	PASS	server-protocol	RFC 2045 section 3 Content-Transfer-Encoding accepts nested RFC 822 comments surrounding the token; unit-only
 T48	PASS	server-protocol	RFC 2045 section 6.7 quoted-printable strips literal SP/TAB before soft line break while preserving encoded =20; unit-only
 T49	PASS	server-protocol	RFC 2045 sections 2.7-2.8 7bit/8bit CTE validate 998-octet lines, CRLF framing, NUL prohibition and high-bit profile; unit-only
-T50	PASS	server-protocol	RFC 2045 section 6.7 tolerant incoming quoted-printable preserves malformed escape octets; Sieve :mime strict validation still rejects them; unit-only
+T50	PASS	server-protocol	Independent SMTP STARTTLS and IMAP STARTTLS BINARY.PEEK verify malformed quoted-printable =G1 and incomplete =A escapes remain literal in decoded octets; Sieve :mime strict rejection remains unit-only
 T51	PASS	server-protocol	Independent Python imaplib STARTTLS APPEND with padded MIME boundaries; BODYSTRUCTURE, exact first-part bytes and Base64 attachment via BINARY.PEEK verified
 T52	PASS	unit	RFC 2046 multipart parsing stops at the first closing delimiter; boundary-like epilogue lines remain epilogue and do not consume the part limit
 T53	PASS	unit	RFC 2046 section 5.1.2 outer boundary terminates multiply nested truncated multipart; top-level missing close remains rejected

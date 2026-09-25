@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 RFC 2045 malformed quoted-printable wire recovery
+
+- Добавлен независимый `tests/blackbox/mime_quoted_printable_recovery.py`.
+  SMTP STARTTLS передаёт text/plain QP body с некорректным `=G1` и неполным
+  `=A`; IMAP STARTTLS `BINARY.PEEK[1]` подтверждает точные decoded octets,
+  сохраняя escape-последовательности. Это проверяет tolerant incoming MIME
+  decoder, не строгую Sieve `:mime` validation.
+- PASS: Python compile и независимый acceptance на актуальном Linux release
+  binary из Docker test image с отдельным bind mount
+  `./data/g17-mime-qp-recovery-wire`. Rust исходники не менялись, поэтому
+  Windows suite и Linux test-stage не перезапускались; предыдущий Rust suite
+  остаётся текущим для неизменённого source. Litterkeep не проверялся.
+  Временный контейнер и image tag удалены; `docker ps -a` оставил только
+  ранее существовавший `litterkeep-g12-phone`. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 2045 default Content-Type wire checkpoint
 
 - Добавлен независимый `tests/blackbox/mime_default_content_type.py`: через
