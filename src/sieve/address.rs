@@ -19,6 +19,14 @@ pub(super) fn values(header: &str, part: AddressPart) -> Vec<String> {
     }
 }
 
+/// Проецирует SMTP envelope address; null reverse-path всегда представлен пустой строкой.
+pub(super) fn envelope_value(address: &str, part: AddressPart) -> Vec<String> {
+    match address.is_empty() {
+        true => vec![String::new()],
+        false => values(address, part),
+    }
+}
+
 fn project(local: String, domain: String, part: AddressPart) -> Option<String> {
     // Политика сервера использует первый `+` как разделитель RFC 5233.
     let (user, detail) = match local.split_once('+') {

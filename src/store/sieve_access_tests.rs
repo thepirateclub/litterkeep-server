@@ -118,6 +118,7 @@ fn interrupted_delivery_does_not_publish_sieve_diagnostic() {
             .deliver_sieve_many(
                 &["bob".into()],
                 "alice@litterkeep.test",
+                &["bob@litterkeep.test".into()],
                 b"Subject: interrupted\r\n\r\nbody",
             )
             .is_err()
@@ -162,6 +163,7 @@ fn duplicate_recipient_executes_sieve_plan_once() {
         .deliver_sieve_many(
             &["bob".into(), "bob".into()],
             "alice@litterkeep.test",
+            &["bob@test".into(), "bob@litterkeep.test".into()],
             b"Subject: duplicate recipient\r\n\r\nbody",
         )
         .expect("deliver");
@@ -228,7 +230,12 @@ fn activate(store: &mut Store, name: &str, source: &str) {
 
 fn deliver(store: &mut Store, message: &[u8]) -> u64 {
     store
-        .deliver_sieve_many(&["bob".into()], "alice@litterkeep.test", message)
+        .deliver_sieve_many(
+            &["bob".into()],
+            "alice@litterkeep.test",
+            &["bob@litterkeep.test".into()],
+            message,
+        )
         .expect("deliver")
 }
 

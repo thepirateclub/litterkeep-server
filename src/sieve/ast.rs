@@ -12,7 +12,15 @@ pub struct Script {
 pub enum Capability {
     FileInto,
     Subaddress,
+    Envelope,
     Unsupported(String),
+}
+
+/// Поле SMTP envelope, доступное базовому Sieve test `envelope`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum EnvelopePart {
+    From,
+    To,
 }
 
 /// Верхнеуровневая команда языка.
@@ -47,6 +55,11 @@ pub enum Condition {
     },
     Address {
         names: Vec<String>,
+        part: AddressPart,
+        matcher: StringMatch,
+    },
+    Envelope {
+        parts: Vec<EnvelopePart>,
         part: AddressPart,
         matcher: StringMatch,
     },

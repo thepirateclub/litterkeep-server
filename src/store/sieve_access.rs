@@ -70,18 +70,38 @@ impl Store {
         &mut self,
         accounts: &[String],
         envelope_sender: &str,
+        envelope_recipients: &[String],
         raw: &[u8],
     ) -> io::Result<u64> {
+        if accounts.len() != envelope_recipients.len() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "recipient envelope count mismatch",
+            ));
+        }
+        if !accounts
+            .iter()
+            .zip(envelope_recipients)
+            .all(|(account, address)| {
+                crate::local_route::local_recipient(address).as_deref() == Some(account)
+            })
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "recipient envelope does not match local mailbox",
+            ));
+        }
         let headers = delivery_headers(raw);
         let mut mailboxes = Vec::new();
         let mut outbound = Vec::new();
         let mut diagnostics = Vec::new();
         let mut evaluated = HashSet::with_capacity(accounts.len());
-        for account in accounts {
+        for (account, envelope_to) in accounts.iter().zip(envelope_recipients) {
             if !evaluated.insert(account.as_str()) {
                 continue;
             }
-            let (plan, diagnostic) = self.delivery_plan(account, &headers, raw.len())?;
+            let (plan, diagnostic) =
+                self.delivery_plan(account, &headers, raw.len(), envelope_sender, envelope_to)?;
             if let Some(value) = diagnostic {
                 diagnostics.push(value);
             }
@@ -106,6 +126,8 @@ impl Store {
         account: &str,
         headers: &[(String, String)],
         message_size: usize,
+        envelope_from: &str,
+        envelope_to: &str,
     ) -> io::Result<(
         sieve::DeliveryPlan,
         Option<sieve_diagnostics::PendingDiagnostic>,
@@ -114,7 +136,13 @@ impl Store {
             return Ok((implicit_keep(), None));
         };
         let script = sieve::parse(&source).map_err(io::Error::other)?;
-        match sieve::execute(&script, headers, message_size) {
+        match sieve::execute_with_envelope(
+            &script,
+            headers,
+            message_size,
+            envelope_from,
+            envelope_to,
+        ) {
             Ok(mut plan) => match apply_redirect_policy(&mut plan, headers) {
                 Some(error) => Ok(failed_plan(account, version, error)),
                 None => Ok((plan, None)),

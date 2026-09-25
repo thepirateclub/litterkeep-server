@@ -162,6 +162,7 @@ mod tests {
             .submit(Request::AppendMany {
                 request_id: 8,
                 mailboxes: vec!["bob".into(), "unknown".into()],
+                envelope_recipients: vec!["bob@test".into(), "unknown@test".into()],
                 envelope_sender: "alice@test".into(),
                 bytes: b"message".to_vec(),
             })

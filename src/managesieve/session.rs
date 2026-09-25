@@ -77,12 +77,22 @@ impl Session {
     }
 }
 
+pub fn greeting() -> Vec<u8> {
+    capability_lines(false, b"OK \"ready\"\r\n")
+}
+
 fn capability(tls: bool) -> Vec<u8> {
+    capability_lines(tls, b"OK \"capability\"\r\n")
+}
+
+/// Единый список extension strings для greeting и явной команды CAPABILITY.
+fn capability_lines(tls: bool, ending: &[u8]) -> Vec<u8> {
     let mut output = b"\"IMPLEMENTATION\" \"litterkeep-server\"\r\n\"SASL\" \"PLAIN\"\r\n".to_vec();
     if !tls {
         output.extend_from_slice(b"\"STARTTLS\"\r\n");
     }
-    output.extend_from_slice(b"\"SIEVE\" \"fileinto subaddress\"\r\nOK \"capability\"\r\n");
+    output.extend_from_slice(b"\"SIEVE\" \"fileinto subaddress envelope\"\r\n");
+    output.extend_from_slice(ending);
     output
 }
 fn ok(message: &str) -> Reply {

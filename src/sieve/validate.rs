@@ -19,7 +19,18 @@ pub(super) fn script(script: &Script) -> Result<(), &'static str> {
         .requires
         .iter()
         .any(|value| matches!(value, Capability::Subaddress));
-    commands(&script.commands, 0, &mut count, fileinto, subaddress)
+    let envelope = script
+        .requires
+        .iter()
+        .any(|value| matches!(value, Capability::Envelope));
+    commands(
+        &script.commands,
+        0,
+        &mut count,
+        fileinto,
+        subaddress,
+        envelope,
+    )
 }
 
 fn commands(
@@ -28,6 +39,7 @@ fn commands(
     count: &mut usize,
     fileinto: bool,
     subaddress: bool,
+    envelope: bool,
 ) -> Result<(), &'static str> {
     if depth > 16 {
         return Err("sieve nesting limit exceeded");
@@ -44,13 +56,14 @@ fn commands(
                 then_commands,
                 else_commands,
             } => {
-                condition_valid(condition, depth, subaddress)?;
+                condition_valid(condition, depth, subaddress, envelope)?;
                 commands(
                     then_commands,
                     depth.saturating_add(1),
                     count,
                     fileinto,
                     subaddress,
+                    envelope,
                 )?;
                 commands(
                     else_commands,
@@ -58,6 +71,7 @@ fn commands(
                     count,
                     fileinto,
                     subaddress,
+                    envelope,
                 )?;
             }
         }
@@ -138,6 +152,7 @@ fn condition_valid(
     condition: &Condition,
     depth: usize,
     subaddress: bool,
+    envelope: bool,
 ) -> Result<(), &'static str> {
     if depth > 16 {
         return Err("sieve nesting limit exceeded");
@@ -149,14 +164,24 @@ fn condition_valid(
             ..
         } if !subaddress => Err("subaddress extension must be required"),
         Condition::Address { names, matcher, .. } => string_match_valid(names, matcher),
+        Condition::Envelope { .. } if !envelope => Err("envelope extension must be required"),
+        Condition::Envelope {
+            part: AddressPart::User | AddressPart::Detail,
+            ..
+        } if !subaddress => Err("subaddress extension must be required"),
+        Condition::Envelope { matcher, .. } => matcher_keys_valid(matcher),
         Condition::Exists { names } if names.is_empty() => Err("empty sieve exists list"),
-        Condition::Not(value) => condition_valid(value, depth.saturating_add(1), subaddress),
+        Condition::Not(value) => {
+            condition_valid(value, depth.saturating_add(1), subaddress, envelope)
+        }
         Condition::AllOf(values) | Condition::AnyOf(values) if values.is_empty() => {
             Err("empty sieve condition list")
         }
-        Condition::AllOf(values) | Condition::AnyOf(values) => values
-            .iter()
-            .try_for_each(|value| condition_valid(value, depth.saturating_add(1), subaddress)),
+        Condition::AllOf(values) | Condition::AnyOf(values) => {
+            values.iter().try_for_each(|value| {
+                condition_valid(value, depth.saturating_add(1), subaddress, envelope)
+            })
+        }
         Condition::True | Condition::False | Condition::Exists { .. } | Condition::Size { .. } => {
             Ok(())
         }
@@ -167,10 +192,15 @@ fn string_match_valid(
     names: &[String],
     matcher: &super::ast::StringMatch,
 ) -> Result<(), &'static str> {
-    if matches!(
-        (names.is_empty(), matcher.keys.is_empty()),
-        (true, _) | (_, true)
-    ) {
+    if names.is_empty() {
+        return Err("empty sieve string matcher");
+    }
+    matcher_keys_valid(matcher)
+}
+
+/// Строковый comparator обязан иметь хотя бы один key.
+fn matcher_keys_valid(matcher: &super::ast::StringMatch) -> Result<(), &'static str> {
+    if matcher.keys.is_empty() {
         return Err("empty sieve string matcher");
     }
     Ok(())

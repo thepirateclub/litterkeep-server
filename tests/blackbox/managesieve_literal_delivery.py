@@ -58,7 +58,10 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
     with socket.create_connection((options.host, options.managesieve_port), timeout=10) as plain:
         greeting = read_until(plain, b'OK "ready"\r\n')
         require(b'"STARTTLS"' in greeting, "ManageSieve не объявил STARTTLS")
-        require(b'"SIEVE" "fileinto subaddress"' in greeting, "ManageSieve не объявил subaddress")
+        require(
+            b'"SIEVE" "fileinto subaddress envelope"' in greeting,
+            "ManageSieve не объявил Sieve capabilities",
+        )
         bob_password = os.environ.get("LITTERKEEP_BOB_PASSWORD", "bob-password")
         plaintext_credentials = base64.b64encode(
             b"\x00bob\x00" + bob_password.encode("utf-8")
@@ -154,13 +157,13 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
                 b'if exists ["Subject", "From"] { keep; }',
                 b'OK "completed"\r\n',
             )
-            first_chunk = b'require ["fileinto", "subaddress"]; '
+            first_chunk = b'require ["fileinto", "subaddress", "envelope"]; '
             second_chunk = b"".join(
                 [
                     b'if allof (header :contains "subject" "[invoice]", ',
                     'header :contains "subject" "café☃", '.encode("utf-8"),
                     b'header :matches "subject" "invoice\\\\**", ',
-                    b'address :comparator "i;ascii-casemap" :detail :is "to" "invoices", size :over 1) ',
+                    b'address :comparator "i;ascii-casemap" :detail :is "to" "invoices", envelope :is "to" "bob@litterkeep.test", size :over 1) ',
                     b'{ fileinto "Invoices"; stop; }',
                 ]
             )

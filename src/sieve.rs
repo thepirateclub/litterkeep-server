@@ -10,6 +10,9 @@ mod address;
 mod address_options;
 #[path = "sieve/ast.rs"]
 mod ast;
+#[cfg(test)]
+#[path = "sieve/envelope_tests.rs"]
+mod envelope_tests;
 #[path = "sieve/execution.rs"]
 mod execution;
 #[path = "sieve/lexer.rs"]
@@ -27,9 +30,10 @@ mod tests;
 mod validate;
 
 pub use ast::{
-    Action, AddressPart, Comparator, Condition, MatchType, Script, SizeRelation, StringMatch,
+    Action, AddressPart, Comparator, Condition, EnvelopePart, MatchType, Script, SizeRelation,
+    StringMatch,
 };
-pub use execution::{DeliveryPlan, ExecutionError, execute};
+pub use execution::{DeliveryPlan, ExecutionError, execute, execute_with_envelope};
 
 /// Разбирает и валидирует script до его сохранения или исполнения.
 pub fn parse(source: &str) -> Result<Script, &'static str> {

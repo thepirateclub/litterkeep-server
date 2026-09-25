@@ -145,12 +145,12 @@ impl Session {
         }
         self.handshake_deadline = None;
         let greeting = match self.kind {
-            Kind::Smtp => b"220 litterkeep.test ESMTP litterkeep-server\r\n".as_slice(),
-            Kind::Imap => b"* OK IMAP4rev1 litterkeep-server\r\n".as_slice(),
-            Kind::Pop3 => b"+OK litterkeep-server ready\r\n".as_slice(),
-            Kind::ManageSieve => b"\"IMPLEMENTATION\" \"litterkeep-server\"\r\n\"SASL\" \"PLAIN\"\r\n\"STARTTLS\"\r\n\"SIEVE\" \"fileinto subaddress\"\r\nOK \"ready\"\r\n".as_slice(),
+            Kind::Smtp => b"220 litterkeep.test ESMTP litterkeep-server\r\n".to_vec(),
+            Kind::Imap => b"* OK IMAP4rev1 litterkeep-server\r\n".to_vec(),
+            Kind::Pop3 => b"+OK litterkeep-server ready\r\n".to_vec(),
+            Kind::ManageSieve => crate::managesieve::greeting(),
         };
-        self.push(greeting)?;
+        self.push(&greeting)?;
         self.greeting_sent = true;
         Ok(())
     }

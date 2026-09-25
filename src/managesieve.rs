@@ -9,4 +9,4 @@ mod session;
 mod tests;
 
 pub use command::{Command, parse};
-pub use session::{Reply, Session};
+pub use session::{Reply, Session, greeting};

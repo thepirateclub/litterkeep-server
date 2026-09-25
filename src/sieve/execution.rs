@@ -1,7 +1,7 @@
 //! Bounded исполнение AST в DeliveryPlan без доступа к сети и файловой системе.
 
 use super::address;
-use super::ast::{Action, Command, Condition, Script};
+use super::ast::{Action, Command, Condition, EnvelopePart, Script};
 use super::matching;
 use std::fmt;
 
@@ -66,11 +66,30 @@ enum KeepState {
     Explicit,
 }
 
+/// Неизменяемый контекст одного сообщения и его SMTP envelope.
+struct MessageContext<'a> {
+    headers: &'a [(String, String)],
+    size: usize,
+    envelope_from: &'a str,
+    envelope_to: &'a str,
+}
+
 /// Запускает script над заголовками и исходным размером с fixed budget команд.
 pub fn execute(
     script: &Script,
     headers: &[(String, String)],
     message_size: usize,
+) -> Result<DeliveryPlan, ExecutionError> {
+    execute_with_envelope(script, headers, message_size, "", "")
+}
+
+/// Исполняет правило с SMTP MAIL FROM и конкретным RCPT TO текущей доставки.
+pub fn execute_with_envelope(
+    script: &Script,
+    headers: &[(String, String)],
+    message_size: usize,
+    envelope_from: &str,
+    envelope_to: &str,
 ) -> Result<DeliveryPlan, ExecutionError> {
     let mut plan = DeliveryPlan {
         keep: true,
@@ -81,10 +100,15 @@ pub fn execute(
     let mut stopped = false;
     let mut remaining = 128;
     let mut keep_state = KeepState::Implicit;
+    let context = MessageContext {
+        headers,
+        size: message_size,
+        envelope_from,
+        envelope_to,
+    };
     commands(
         &script.commands,
-        headers,
-        message_size,
+        &context,
         &mut plan,
         &mut stopped,
         &mut remaining,
@@ -95,8 +119,7 @@ pub fn execute(
 
 fn commands(
     items: &[Command],
-    headers: &[(String, String)],
-    message_size: usize,
+    context: &MessageContext<'_>,
     plan: &mut DeliveryPlan,
     stopped: &mut bool,
     remaining: &mut usize,
@@ -117,19 +140,11 @@ fn commands(
                 then_commands,
                 else_commands,
             } => {
-                let selected = match matches(condition, headers, message_size) {
+                let selected = match matches(condition, context) {
                     true => then_commands,
                     false => else_commands,
                 };
-                commands(
-                    selected,
-                    headers,
-                    message_size,
-                    plan,
-                    stopped,
-                    remaining,
-                    keep_state,
-                )?;
+                commands(selected, context, plan, stopped, remaining, keep_state)?;
             }
         }
     }
@@ -175,36 +190,48 @@ fn cancel_implicit_keep(plan: &mut DeliveryPlan, keep_state: &mut KeepState) {
     }
 }
 
-fn matches(condition: &Condition, headers: &[(String, String)], message_size: usize) -> bool {
+fn matches(condition: &Condition, context: &MessageContext<'_>) -> bool {
     match condition {
         Condition::True => true,
         Condition::False => false,
-        Condition::Header { names, matcher } => headers
+        Condition::Header { names, matcher } => context
+            .headers
             .iter()
             .any(|(candidate, value)| header_matches(candidate, value, names, matcher)),
         Condition::Address {
             names,
             part,
             matcher,
-        } => headers
+        } => context
+            .headers
             .iter()
             .any(|(candidate, value)| address_matches(candidate, value, names, *part, matcher)),
+        Condition::Envelope {
+            parts,
+            part,
+            matcher,
+        } => parts.iter().any(|selected| {
+            let address = match selected {
+                EnvelopePart::From => context.envelope_from,
+                EnvelopePart::To => context.envelope_to,
+            };
+            address::envelope_value(address, *part)
+                .iter()
+                .any(|value| matching::matches(value, matcher))
+        }),
         Condition::Exists { names } => names.iter().all(|name| {
-            headers
+            context
+                .headers
                 .iter()
                 .any(|(candidate, _)| candidate.eq_ignore_ascii_case(name))
         }),
         Condition::Size { relation, limit } => match relation {
-            super::ast::SizeRelation::Over => message_size > *limit,
-            super::ast::SizeRelation::Under => message_size < *limit,
+            super::ast::SizeRelation::Over => context.size > *limit,
+            super::ast::SizeRelation::Under => context.size < *limit,
         },
-        Condition::Not(value) => !matches(value, headers, message_size),
-        Condition::AllOf(values) => values
-            .iter()
-            .all(|value| matches(value, headers, message_size)),
-        Condition::AnyOf(values) => values
-            .iter()
-            .any(|value| matches(value, headers, message_size)),
+        Condition::Not(value) => !matches(value, context),
+        Condition::AllOf(values) => values.iter().all(|value| matches(value, context)),
+        Condition::AnyOf(values) => values.iter().any(|value| matches(value, context)),
     }
 }
 

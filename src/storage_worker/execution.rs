@@ -48,18 +48,18 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
         Request::AppendMany {
             request_id,
             mailboxes,
+            envelope_recipients,
             envelope_sender,
             bytes,
-        } => Response::Appended {
+        } => super::local_delivery::append_many_response(
+            store,
+            accounts,
             request_id,
-            result: super::local_delivery::append_many(
-                store,
-                accounts,
-                mailboxes,
-                &envelope_sender,
-                &bytes,
-            ),
-        },
+            mailboxes,
+            envelope_recipients,
+            envelope_sender,
+            bytes,
+        ),
         Request::Read {
             request_id,
             mailbox,

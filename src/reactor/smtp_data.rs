@@ -87,7 +87,8 @@ fn submit_delivery(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<()> {
-    let mailboxes = local_mailboxes(delivery.recipients);
+    let envelope_recipients = delivery.recipients;
+    let mailboxes = local_mailboxes(envelope_recipients.clone());
     let id = next_request(request_id);
     let pending = Pending::Append {
         mailboxes: mailboxes.clone(),
@@ -97,6 +98,7 @@ fn submit_delivery(
         Request::AppendMany {
             request_id: id,
             mailboxes,
+            envelope_recipients,
             envelope_sender: delivery.reverse_path,
             bytes: delivery.bytes,
         },

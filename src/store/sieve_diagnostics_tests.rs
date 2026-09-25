@@ -16,6 +16,7 @@ fn reopen_trims_incomplete_tail_and_preserves_committed_diagnostic() {
         .deliver_sieve_many(
             &["bob".into()],
             "alice@litterkeep.test",
+            &["bob@litterkeep.test".into()],
             b"Subject: diagnostic tail\r\n\r\nbody",
         )
         .expect("deliver");

@@ -44,6 +44,16 @@ Resent-To) и сравнивает mailbox внутри групп, не имя 
 IMAP acceptance доставляет письмо с group-form `To`; произвольные пользовательские
 address-list headers этим не подтверждены.
 
+Sieve `envelope` поддерживает `from` и `to`, `ADDRESS-PART`, match-type и
+comparator по RFC 5228 §5.4; script обязан заявить `require "envelope"`.
+ManageSieve объявляет capability. `from` берётся из исходного SMTP MAIL FROM до trace-заголовка;
+null reverse-path сравнивается как пустая строка независимо от ADDRESS-PART.
+`to` берётся из RCPT TO, сопоставленного локальному mailbox, и не выводится из
+MIME `To`. При нескольких SMTP paths к одному mailbox delivery план
+вычисляется один раз по первому соответствующему RCPT. Unit tests проверяют
+capability, from/to и null sender; независимая SMTP -> Sieve -> IMAP acceptance
+использует настоящий RCPT TO как условие помещения в папку.
+
 Поддерживаемое optional-действие Sieve `fileinto` отвергается при static
 validation, если script не заявил `require "fileinto"`. Это проверяется unit
 regression и независимым ManageSieve CHECKSCRIPT; тот же сетевой acceptance

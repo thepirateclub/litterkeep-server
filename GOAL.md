@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 5228 envelope-test checkpoint
+
+- Добавлен базовый Sieve `envelope` с typed `from`/`to`, ADDRESS-PART,
+  comparator и обязательным `require "envelope"`; subaddress-проекции требуют
+  также `require "subaddress"`. SMTP MAIL FROM до trace и исходный RCPT TO,
+  сопоставленный локальному mailbox, передаются Store owner-ом до executor-а.
+  Null reverse-path сравнивается пустой строкой независимо от ADDRESS-PART.
+  ManageSieve greeting и CAPABILITY используют единый актуальный список.
+- PASS: Windows Rust 1.97.1, 333 теста, strict Clippy, fmt, diff check и Python
+  compile. Linux Docker Rust 1.97: strict Clippy и 373 теста. Независимый
+  ManageSieve -> SMTP -> IMAP acceptance доставил письмо в `Invoices` с
+  проверкой SMTP RCPT TO; MIME `To` при этом является другой group-form
+  строкой. Проверка выполнена в `./data/g17-sieve-envelope`. Временный контейнер
+  удалён, `litterkeep-g12-phone` сохранён. Приложение Litterkeep не проверялось.
+  G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 5228 multiline-string checkpoint
 
 - Sieve lexer теперь распознаёт `text:` как многострочную строку, сохраняет
