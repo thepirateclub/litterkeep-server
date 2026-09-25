@@ -100,6 +100,7 @@ fn composite(media_type: Option<&MediaType>) -> bool {
             MediaType::MultipartMixed
             | MediaType::MultipartAlternative
             | MediaType::MultipartRelated
+            | MediaType::MultipartDigest
             | MediaType::MultipartOther(_)
             | MediaType::MessageRfc822
             | MediaType::MessageOther(_),

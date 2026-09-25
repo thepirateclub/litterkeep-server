@@ -2,7 +2,21 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
-Current subgoal: G17
+Current subgoal: G17  
+
+### 2026-09-25: G17 multipart/digest default media type checkpoint
+
+- RFC 2046 §5.1.5 default для дочерней части `multipart/digest` теперь
+  типизированно выбирает `message/rfc822`; обычные multipart subtype сохраняют
+  `text/plain`. Вложенное сообщение затем получает свой отдельный default
+  `text/plain`. `multipart/digest` распознаётся отдельным вариантом enum.
+- Регрессии проверяют digest child, вложенное сообщение и отсутствие изменения
+  mixed default. Windows Rust 1.97.1: 398 library + 1 binary tests, fmt и strict
+  Clippy PASS. Docker Linux Rust 1.97.1: release build, strict Clippy, 439
+  library + 1 binary + doc-tests PASS. Проверка unit-only, socket acceptance не
+  запускался. Временный verification image удалён; в Docker остался только
+  ранее существовавший `litterkeep-g12-phone`. RFC 2046 §5.1.5 сверена с IETF.
+  G17 RUNNING.
 
 ### 2026-09-25: G17 tolerant quoted-printable recovery checkpoint
 

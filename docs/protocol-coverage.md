@@ -143,6 +143,13 @@ unit-тестами; socket acceptance не запускался.
 Параметр `multipart` boundary проверяется по RFC 2046 §5.1.1: 1..70 ASCII
 октетов из `bchars`, без завершающего пробела; покрыты длины и запрещённые
 символы. Boundary проверки unit-only.
+Вложенная MIME-часть без Content-Type в `multipart/digest` получает default
+`message/rfc822` по RFC 2046 §5.1.5; само вложенное сообщение использует
+`text/plain` default для своего body. В остальных multipart подтипах отсутствие
+Content-Type по-прежнему даёт `text/plain`. Типизация и вложенные ranges
+проверены unit-тестами; socket acceptance не запускался. MIME body part без
+разделителя заголовков пока не принимается, поэтому этот сценарий не включён в
+покрытие.
 Отсутствующий или синтаксически повреждённый `Content-Type` получает
 рекомендуемый RFC 2045 §5.2 fallback `text/plain`/US-ASCII; сырой MIME header
 не переписывается. Duplicate Content-Type отклоняется как неоднозначный ввод.

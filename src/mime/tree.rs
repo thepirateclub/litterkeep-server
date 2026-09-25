@@ -5,6 +5,9 @@ use super::parameters::MediaType;
 use super::transfer::TransferEncoding;
 #[path = "tree_content_type.rs"]
 mod content_type;
+#[cfg(test)]
+#[path = "tree_digest_tests.rs"]
+mod digest_tests;
 #[path = "tree_multipart.rs"]
 mod multipart;
 #[path = "tree_transfer.rs"]
@@ -35,7 +38,13 @@ pub struct Entity {
 /// Строит bounded дерево за линейный проход каждого уровня вложенности.
 pub fn parse(raw: &[u8]) -> Result<Entity, &'static str> {
     let mut count = 0_usize;
-    parse_entity(raw, 0, 0, &mut count)
+    parse_entity(
+        raw,
+        0,
+        0,
+        &mut count,
+        content_type::DefaultMediaType::PlainText,
+    )
 }
 
 fn parse_entity(
@@ -43,6 +52,7 @@ fn parse_entity(
     base: usize,
     depth: usize,
     count: &mut usize,
+    default_media_type: content_type::DefaultMediaType,
 ) -> Result<Entity, &'static str> {
     if depth > MAX_DEPTH {
         return Err("MIME nesting limit exceeded");
@@ -52,7 +62,7 @@ fn parse_entity(
         return Err("MIME part limit exceeded");
     }
     let headers = header_block::parse(raw)?;
-    let mut structured = content_type::parse(&headers.fields)?;
+    let mut structured = content_type::parse(&headers.fields, default_media_type)?;
     let transfer_encoding = transfer_policy::resolve(&headers.fields, &structured.media_type)?;
     // RFC 2045 §6.4 делает entity с неизвестным CTE непрозрачной для
     // MIME-интерпретации: фактический тип становится application/octet-stream.
@@ -82,6 +92,10 @@ fn parse_entity(
                     base + headers.body_offset + range.start,
                     depth.saturating_add(1),
                     count,
+                    match &structured.media_type {
+                        MediaType::MultipartDigest => content_type::DefaultMediaType::MessageRfc822,
+                        _ => content_type::DefaultMediaType::PlainText,
+                    },
                 )?);
             }
         }
@@ -97,6 +111,7 @@ fn parse_entity(
                 base + headers.body_offset,
                 depth.saturating_add(1),
                 count,
+                content_type::DefaultMediaType::PlainText,
             )?);
         }
         _ => {}

@@ -23,6 +23,7 @@ pub(super) fn is_multipart(media_type: &MediaType) -> bool {
         MediaType::MultipartMixed
             | MediaType::MultipartAlternative
             | MediaType::MultipartRelated
+            | MediaType::MultipartDigest
             | MediaType::MultipartOther(_)
     )
 }
