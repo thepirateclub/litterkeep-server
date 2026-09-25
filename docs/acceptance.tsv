@@ -69,6 +69,7 @@ T67	PASS	server-protocol	Independent SMTP peer receives outbound DATA with only 
 T68	PASS	server-protocol	Independent SMTP peer verifies a 1000-octet DATA line is delivered, a 1001-octet line is rejected before MAIL, and CRLF framing is preserved
 T69	PASS	server-protocol	Independent SMTP peer verifies multiline case-insensitive 8BITMIME EHLO negotiation, BODY=8BITMIME with exact UTF-8 MIME body octets, and pre-MAIL permanent refusal when the peer omits the extension
 T70	PASS	server-protocol	Independent SMTP peer verifies an exactly 512-octet greeting/EHLO reply line is accepted and 513-octet greeting and EHLO lines are rejected before MAIL
+T71	PASS	server-protocol	Independent SMTP peer verifies SIZE is sent only when advertised, counts transmitted message octets including the terminal CRLF but excluding dot-stuffing, and rejects a message over the advertised fixed maximum before MAIL
 R01	PASS	runtime	orchestrator transfer and registry ownership tests
 R02	PASS	runtime	exclusive resource double-acquire test
 R03	PASS	runtime	timeout keeps live lease occupied

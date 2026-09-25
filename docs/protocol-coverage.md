@@ -411,3 +411,10 @@ Outbound SMTP ограничивает каждую строку greeting и rep
 CRLF. Reader не накапливает сверх лимита и закрывает соединение при превышении
 или неверном окончании строки. Независимый peer подтвердил приём точной
 границы 512 и отказ для 513 октетов в greeting и EHLO до `MAIL`.
+Как SMTP SIZE client outbound transport разбирает EHLO `SIZE`, `SIZE 0` и
+числовой maximum. При объявленном расширении `MAIL FROM` содержит точное число
+передаваемых message octets, включая добавленный terminal CRLF, но без
+terminator и dot-stuffing; без объявления параметр не отправляется. Размер
+выше фиксированного maximum отвергается до `MAIL`. Независимый peer проверяет
+wire command и все три исхода. Implicit-TLS unit peer проверяет совместное
+использование `SIZE` и `BODY=8BITMIME`.

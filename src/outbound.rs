@@ -9,13 +9,18 @@ use std::{
 mod data;
 #[path = "outbound_ehlo.rs"]
 mod ehlo;
+#[path = "outbound_mail.rs"]
+mod mail;
 #[path = "outbound_reply.rs"]
 mod reply;
 
 #[cfg(test)]
 pub(crate) use data::DataValidationError;
-pub(crate) use data::{has_8bit_body, validate_data, write_data};
-pub(crate) use ehlo::{EhloCapabilities, EhloExtension, read_ehlo};
+#[cfg(test)]
+pub(crate) use data::has_8bit_body;
+pub(crate) use data::{validate_data, write_data};
+pub(crate) use ehlo::{EhloCapabilities, EhloExtension, SizeAdvertisement, read_ehlo};
+pub(crate) use mail::{MailCommand, build_mail_command};
 pub(crate) use reply::read_reply_line;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
@@ -108,12 +113,9 @@ impl Connection {
         if validate_data(message).is_err() {
             return Ok(DeliveryOutcome::PermanentFailure);
         }
-        let mail_command = match has_8bit_body(message) {
-            true if self.capabilities.supports(EhloExtension::EightBitMime) => {
-                format!("MAIL FROM:<{sender}> BODY=8BITMIME\r\n")
-            }
-            true => return Ok(DeliveryOutcome::PermanentFailure),
-            false => format!("MAIL FROM:<{sender}>\r\n"),
+        let mail_command = match build_mail_command(sender, message, &self.capabilities) {
+            MailCommand::Ready(command) => command,
+            MailCommand::PermanentFailure => return Ok(DeliveryOutcome::PermanentFailure),
         };
         self.command(&mail_command)?;
         if let Some(outcome) = expect(&mut self.reader)? {

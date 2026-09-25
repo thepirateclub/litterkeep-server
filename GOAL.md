@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 outbound SMTP SIZE declaration
+
+- Outbound ESMTP now parses the RFC 1870 `SIZE` keyword, optional numeric
+  maximum and zero/unlimited form. When advertised it sends exact message
+  octets in `MAIL FROM SIZE=`, including the terminal CRLF added to DATA but
+  excluding dot-stuffing and the SMTP terminator. An advertised fixed maximum
+  smaller than the message yields permanent failure before MAIL. Plain and
+  implicit-TLS paths share the command builder; TLS regression combines SIZE
+  with 8BITMIME.
+- PASS: Windows Rust 1.97.1 suite, 468 library + 1 binary test, strict Clippy,
+  fmt, Python compile and diff check. Linux Docker Rust 1.97 test target, strict
+  Clippy, 509 library + 1 binary test and doc-tests. Independent runtime peer
+  verifies declaration, omitted SIZE when unavailable, maximum rejection and
+  existing 8BITMIME/reply-limit cases. Fixture:
+  `./data/g17-smtp-size-outbound`. Litterkeep client not tested; G17 remains
+  RUNNING.
+
 ### 2026-09-25: G17 outbound SMTP reply-line bounds
 
 - Outbound SMTP reads greeting, command replies and multiline EHLO lines through

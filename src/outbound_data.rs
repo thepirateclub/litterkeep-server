@@ -34,6 +34,16 @@ pub(crate) fn has_8bit_body(message: &[u8]) -> bool {
     }
 }
 
+/// Считает message octets после добавления обязательного завершающего CRLF.
+///
+/// RFC 1870 не включает SMTP terminator и удвоенные transparency dots в SIZE.
+pub(crate) fn transmitted_message_size(message: &[u8]) -> usize {
+    match message.ends_with(b"\r\n") {
+        true => message.len(),
+        false => message.len().saturating_add(2),
+    }
+}
+
 /// Передаёт DATA с dot-stuffing и одним завершающим CRLF.
 pub(crate) fn write_data(writer: &mut impl Write, message: &[u8]) -> io::Result<()> {
     let mut stuffed = Vec::with_capacity(message.len().saturating_add(16));

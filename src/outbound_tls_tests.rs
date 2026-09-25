@@ -44,6 +44,11 @@ fn malformed_ca_is_rejected_before_connect() {
 #[test]
 fn implicit_tls_uses_ehlo_8bitmime_for_utf8_body() {
     let (ca, certificate, key) = certificate_chain();
+    let message = ("Content-Type: text/plain; charset=UTF-8\r\n\
+Content-Transfer-Encoding: 8bit\r\n\r\nПривет")
+        .as_bytes()
+        .to_vec();
+    let size = message.len().saturating_add(2);
     let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
     let address = listener.local_addr().expect("address");
     let peer = thread::spawn(move || {
@@ -52,13 +57,10 @@ fn implicit_tls_uses_ehlo_8bitmime_for_utf8_body() {
             certificate,
             key,
             1,
-            b"250-peer.test\r\n250 8BITMIME\r\n",
-            "MAIL FROM:<alice@test> BODY=8BITMIME",
+            b"250-peer.test\r\n250-SIZE 1024\r\n250 8BITMIME\r\n",
+            &format!("MAIL FROM:<alice@test> SIZE={size} BODY=8BITMIME"),
         )
     });
-    let message = ("Content-Type: text/plain; charset=UTF-8\r\n\
-Content-Transfer-Encoding: 8bit\r\n\r\nПривет")
-        .as_bytes();
     assert_eq!(
         outbound_tls::deliver(
             &address.to_string(),
@@ -66,7 +68,7 @@ Content-Transfer-Encoding: 8bit\r\n\r\nПривет")
             &ca,
             "alice@test",
             "remote@test",
-            message,
+            &message,
         )
         .expect("TLS delivery"),
         DeliveryOutcome::Delivered

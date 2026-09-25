@@ -71,6 +71,10 @@ def deliver_case(
         case True:
             require(result.returncode == 0, f"delivery failed: {result.stderr}")
             require("BODY=8BITMIME" in peer.envelope_sender, "MAIL omitted BODY=8BITMIME")
+            require(
+                f"SIZE={len(payload)}" in peer.envelope_sender,
+                "MAIL omitted the exact advertised SIZE",
+            )
             expected = payload
             if not payload.endswith(b"\r\n"):
                 expected += b"\r\n"
@@ -132,6 +136,60 @@ def verify_reply_line_limits(
                 require(not peer.envelope_sender, "oversized reply reached MAIL")
 
 
+def verify_size_declaration(
+    image: str, data_root: Path, stage: Path, route: str
+) -> None:
+    """Проверяет SIZE declaration, maximum peer-а и точный размер DATA."""
+    message_path = stage / "outbound-size-declaration.eml"
+    payload = b"Subject: SIZE\r\n\r\nbody"
+    expected_octets = len(payload) + 2
+    message_path.write_bytes(payload)
+    relative_path = message_path.resolve().relative_to(data_root).as_posix()
+    mount = f"type=bind,source={data_root},target=/data"
+    cases = (
+        (b"250-peer.test\r\n250 PIPELINING\r\n", None, True),
+        (b"250-peer.test\r\n250 SIZE 1024\r\n", expected_octets, True),
+        (b"250-peer.test\r\n250 SIZE 10\r\n", None, False),
+    )
+    for ehlo_reply, declared_size, should_deliver in cases:
+        with CaptureServer(("0.0.0.0", 0), ehlo_reply) as peer:
+            _, port = peer.server_address
+            worker = threading.Thread(target=peer.serve_forever, daemon=True)
+            worker.start()
+            try:
+                result = subprocess.run(
+                    [
+                        "docker", "run", "--rm", "--add-host",
+                        "host.docker.internal:host-gateway", "--mount", mount,
+                        image, "deliver", f"{route}:{port}",
+                        "sender@source.test", "recipient@peer.test",
+                        f"/data/{relative_path}",
+                    ],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+            finally:
+                peer.shutdown()
+                worker.join(timeout=5)
+        match (should_deliver, declared_size):
+            case (True, None):
+                require(result.returncode == 0, "SMTP without SIZE was rejected")
+                require(" SIZE=" not in peer.envelope_sender, "unadvertised SIZE was sent")
+            case (True, int()):
+                require(result.returncode == 0, "SIZE accepted within peer maximum failed")
+                require(
+                    f"SIZE={declared_size}" in peer.envelope_sender,
+                    "declared SIZE does not match transmitted message octets",
+                )
+            case (False, None):
+                require(result.returncode != 0, "message over peer SIZE maximum was sent")
+                require(not peer.envelope_sender, "over-limit message reached MAIL")
+            case _:
+                raise AssertionError("invalid SIZE acceptance case")
+
+
 def main() -> None:
     """Проверяет high-bit body только при рекламированном extension."""
     parser = argparse.ArgumentParser()
@@ -151,7 +209,10 @@ def main() -> None:
         "Content-Transfer-Encoding: 8bit\r\n\r\n"
         "Привет\r\n"
     ).encode("utf-8")
-    supported = b"250-peer.test\r\n250-PIPELINING\r\n250 8BITMIME\r\n"
+    supported = (
+        b"250-peer.test\r\n250-SIZE 1048576\r\n"
+        b"250-PIPELINING\r\n250 8BITMIME\r\n"
+    )
     unsupported = b"250-peer.test\r\n250 SIZE 1048576\r\n"
     deliver_case(
         options.image, data_root, message_path, payload, route, supported, True
@@ -160,8 +221,10 @@ def main() -> None:
         options.image, data_root, message_path, payload, route, unsupported, False
     )
     verify_reply_line_limits(options.image, data_root, stage, route)
+    verify_size_declaration(options.image, data_root, stage, route)
     print("PASS smtp-outbound-8bitmime: BODY negotiation and pre-envelope refusal")
     print("PASS smtp-outbound-reply-limit: 512-octet boundary and oversized rejection")
+    print("PASS smtp-outbound-size: exact SIZE declaration and advertised maximum")
 
 
 if __name__ == "__main__":

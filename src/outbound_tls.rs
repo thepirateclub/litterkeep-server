@@ -67,15 +67,11 @@ impl Connection {
         if outbound::validate_data(message).is_err() {
             return Ok(DeliveryOutcome::PermanentFailure);
         }
-        let mail_command = match outbound::has_8bit_body(message) {
-            true if self
-                .capabilities
-                .supports(outbound::EhloExtension::EightBitMime) =>
-            {
-                format!("MAIL FROM:<{sender}> BODY=8BITMIME\r\n")
+        let mail_command = match outbound::build_mail_command(sender, message, &self.capabilities) {
+            outbound::MailCommand::Ready(command) => command,
+            outbound::MailCommand::PermanentFailure => {
+                return Ok(DeliveryOutcome::PermanentFailure);
             }
-            true => return Ok(DeliveryOutcome::PermanentFailure),
-            false => format!("MAIL FROM:<{sender}>\r\n"),
         };
         self.command(&mail_command)?;
         if let Some(outcome) = outbound::expect(&mut self.stream)? {
