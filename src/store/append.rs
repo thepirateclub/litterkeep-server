@@ -112,9 +112,12 @@ impl Store {
             return Err(error);
         }
         self.check_and_poison(AppendStage::DiagnosticsWritten)?;
-        if let Err(error) =
-            super::vacation_suppression::append(&self.root, transaction_id, vacation_claim)
-        {
+        if let Err(error) = super::vacation_suppression::append(
+            &self.root,
+            transaction_id,
+            vacation_claim,
+            &self.committed_transactions,
+        ) {
             self.write_state = WriteState::Poisoned;
             return Err(error);
         }

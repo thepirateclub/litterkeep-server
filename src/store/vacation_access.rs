@@ -59,7 +59,11 @@ impl Store {
             }
             Some(_) | None => {}
         }
-        let claim = PendingClaim { key, expires_at };
+        let claim = PendingClaim {
+            key,
+            expires_at,
+            created_at: request.now_epoch,
+        };
         let outbound = [(String::new(), request.recipient.to_owned())];
         let transaction_id = self.append_vacation_payload(request.raw, &outbound, &claim)?;
         Ok(VacationResponseResult::Queued { transaction_id })

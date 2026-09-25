@@ -27,6 +27,7 @@ T25	BLOCKED	client-integration	Alice connected and sent plain mail in litterkeep
 T26	PASS	runtime	32-session IDLE plateau, churn and resource registry tests
 T27	PASS	maintenance	backup reopened with same UID/bytes; clean G12 backup checked
 T28	PASS	server-protocol	G17 vacation ManageSieve -> SMTP -> Linux queue-drain -> independent SMTP peer -> IMAP restart acceptance
+T29	PASS	server-protocol	RFC 5230 vacation history compaction: committed/latest selection, expiry, oldest-first minimum 1000 and interrupted replacement recovery tests
 R01	PASS	runtime	orchestrator transfer and registry ownership tests
 R02	PASS	runtime	exclusive resource double-acquire test
 R03	PASS	runtime	timeout keeps live lease occupied

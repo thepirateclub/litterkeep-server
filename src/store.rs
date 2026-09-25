@@ -98,6 +98,8 @@ mod subscriptions;
 mod tests;
 #[path = "store/vacation_access.rs"]
 mod vacation_access;
+#[path = "store/vacation_compaction.rs"]
+mod vacation_compaction;
 #[path = "store/vacation_suppression.rs"]
 mod vacation_suppression;
 #[cfg(test)]

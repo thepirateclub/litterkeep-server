@@ -12,7 +12,8 @@ use std::path::{Path, PathBuf};
 const MAX_ACCOUNT: usize = 256;
 const MAX_SENDER: usize = 320;
 const MAX_IDENTITY: usize = 256;
-const MAX_JOURNAL_BYTES: u64 = 8 * 1024 * 1024;
+pub(super) const MAX_JOURNAL_BYTES: u64 = 8 * 1024 * 1024;
+pub(super) const MIN_TRACKED_RESPONSES: usize = 1_000;
 
 /// Структурный ключ устраняет неоднозначность конкатенации полей.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -27,6 +28,7 @@ pub(super) struct VacationKey {
 pub(super) struct PendingClaim {
     pub key: VacationKey,
     pub expires_at: u64,
+    pub created_at: u64,
 }
 
 /// Записывает bounded набор claims перед глобальным commit Store.
@@ -34,24 +36,42 @@ pub(super) fn append(
     root: &Path,
     transaction_id: u64,
     claim: Option<&PendingClaim>,
+    committed: &HashSet<u64>,
 ) -> io::Result<()> {
     let Some(claim) = claim else {
         return Ok(());
     };
     validate(&claim.key)?;
-    let line = format!(
-        "1\t{transaction_id}\t{}\t{}\t{}\t{}\n",
-        claim.expires_at,
-        encode_hex(claim.key.account.as_bytes()),
-        encode_hex(claim.key.sender.as_bytes()),
-        encode_hex(claim.key.identity.as_bytes())
-    );
+    let line = encode_record(&Record {
+        transaction_id,
+        expires_at: claim.expires_at,
+        key: claim.key.clone(),
+    });
     let existing = match fs::metadata(path(root)) {
         Ok(metadata) => metadata.len(),
         Err(error) if error.kind() == io::ErrorKind::NotFound => 0,
         Err(error) => return Err(error),
     };
-    match existing.checked_add(line.len() as u64) {
+    let required =
+        u64::try_from(line.len()).map_err(|_| invalid("vacation record length overflow"))?;
+    match existing.checked_add(required) {
+        Some(size) if size <= MAX_JOURNAL_BYTES => {}
+        _ => {
+            super::vacation_compaction::compact(
+                root,
+                committed,
+                claim.created_at,
+                required,
+                MAX_JOURNAL_BYTES,
+            )?;
+        }
+    }
+    let existing = match fs::metadata(path(root)) {
+        Ok(metadata) => metadata.len(),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => 0,
+        Err(error) => return Err(error),
+    };
+    match existing.checked_add(required) {
         Some(size) if size <= MAX_JOURNAL_BYTES => {}
         _ => {
             return Err(io::Error::new(
@@ -64,7 +84,7 @@ pub(super) fn append(
         .create(true)
         .append(true)
         .open(path(root))?;
-    journal.write_all(line.as_bytes())?;
+    journal.write_all(&line)?;
     journal.sync_all()?;
     super::durability::sync_directory(&root.join("journal"))
 }
@@ -82,16 +102,17 @@ pub(super) fn load(root: &Path, committed: &HashSet<u64>) -> io::Result<HashMap<
 
 /// Восстанавливает журнал, отрезая только неполную последнюю строку.
 pub(super) fn recover(root: &Path) -> io::Result<()> {
+    super::vacation_compaction::recover_replacement(root)?;
     read_complete(root).map(drop)
 }
 
-struct Record {
-    transaction_id: u64,
-    expires_at: u64,
-    key: VacationKey,
+pub(super) struct Record {
+    pub transaction_id: u64,
+    pub expires_at: u64,
+    pub key: VacationKey,
 }
 
-fn read_complete(root: &Path) -> io::Result<Vec<Record>> {
+pub(super) fn read_complete(root: &Path) -> io::Result<Vec<Record>> {
     let bytes = match fs::read(path(root)) {
         Ok(bytes) => bytes,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -182,7 +203,19 @@ fn decode_hex(value: Option<&str>) -> io::Result<String> {
     String::from_utf8(decoded).map_err(|_| invalid("non-utf8 vacation field"))
 }
 
-fn path(root: &Path) -> PathBuf {
+pub(super) fn encode_record(record: &Record) -> Vec<u8> {
+    format!(
+        "1\t{}\t{}\t{}\t{}\t{}\n",
+        record.transaction_id,
+        record.expires_at,
+        encode_hex(record.key.account.as_bytes()),
+        encode_hex(record.key.sender.as_bytes()),
+        encode_hex(record.key.identity.as_bytes())
+    )
+    .into_bytes()
+}
+
+pub(super) fn path(root: &Path) -> PathBuf {
     root.join("journal/vacation-history.log")
 }
 

@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 5230 vacation history compaction checkpoint
+
+- Vacation suppression journal компактизируется перед превышением лимита 8 MiB:
+  учитываются только committed transaction IDs, для каждого ключа сохраняется
+  последняя запись, просроченные claims удаляются, а при нехватке места
+  oldest-first удаляются записи, сохраняя минимум 1000 identities по RFC 5230
+  §4.2. Ниже этого минимума Store отказывает в новой записи, не теряя историю.
+- Замена snapshot защищена temp/backup recovery. Тесты покрывают выбор
+  committed/latest записей, истечение срока, oldest-first границу 1000 и
+  восстановление прерывания по обе стороны публикации файла.
+- PASS: Windows Rust 1.97.1 `cargo test --all-targets --locked` (358 тестов),
+  strict Clippy, fmt и diff check. Docker Linux Rust 1.97 release build,
+  strict Clippy и 399 тестов.
+- Контейнеры не создавались. Проверка `docker ps -a` оставила только
+  `litterkeep-g12-phone`; образ `litterkeep-linux-test:latest` обновлён.
+  Физический отказ файловой системы в ходе `sync`/`rename` не симулировался.
+  G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 5230 vacation implementation checkpoint
 
 - Реализованы typed parser/validator/executor для единственного `vacation`
