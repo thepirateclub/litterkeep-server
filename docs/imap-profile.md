@@ -113,6 +113,11 @@ synchronizing literals в одном SEARCH HEADER, включая два contin
 проверены; хвостовая pipelined команда сохраняется. Unit и wire acceptance
 подтвердили tagged BAD и выполнение NOOP после ошибки. UTF8=ACCEPT и IMAP4rev2
 не реализованы и не заявляются.
+Разделителем command grammar считается только RFC `SP`: HTAB не превращается
+в пробел между tag и verb, а CTL в atom отвергаются. HTAB остаётся допустимым
+в quoted-string, тогда как NUL/CR/LF там отклоняются. Эти границы покрыты
+unit-тестом; независимый STARTTLS acceptance подтвердил tagged BAD на TAB между
+tag и NOOP и последующий успешный NOOP.
 Если строка команды не декодируется как UTF-8, reactor сохраняет безопасный
 ASCII tag перед ответом BAD; повреждённый UTF-8 внутри самого tag использует
 untagged fallback, не отражая недоверенные bytes. Независимый STARTTLS

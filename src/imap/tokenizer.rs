@@ -41,7 +41,7 @@ fn tokenize_internal(
     let mut tokens = Vec::new();
     while let Some(character) = chars.next() {
         match character {
-            value if value.is_ascii_whitespace() => {}
+            ' ' => {}
             '\0' => match literals.pop_front() {
                 Some(value) => push(&mut tokens, Token::Quoted(value), MAX_TOKENS)?,
                 None => return Err("unexpected NUL in IMAP command"),
@@ -77,16 +77,21 @@ fn atom<I>(first: char, chars: &mut std::iter::Peekable<I>) -> Result<String, &'
 where
     I: Iterator<Item = char>,
 {
-    if !first.is_ascii() {
-        return Err("non-ASCII character in IMAP4rev1 atom");
+    match (first.is_ascii(), first.is_ascii_control()) {
+        (false, _) => return Err("non-ASCII character in IMAP4rev1 atom"),
+        (true, true) => return Err("control character in IMAP atom"),
+        (true, false) => {}
     }
     let mut value = String::from(first);
     while let Some(next) = chars.peek().copied() {
         match next {
-            value if value.is_ascii_whitespace() => break,
+            ' ' => break,
             '(' | ')' => break,
             character if !character.is_ascii() => {
                 return Err("non-ASCII character in IMAP4rev1 atom");
+            }
+            character if character.is_ascii_control() => {
+                return Err("control character in IMAP atom");
             }
             character => {
                 value.push(character);
@@ -112,7 +117,13 @@ where
             (true, _) => return Err("invalid quoted-pair in IMAP quoted string"),
             (false, '\\') => escaped = true,
             (false, '"') => return Ok(value),
-            (false, ordinary) if ordinary.is_ascii() => value.push(ordinary),
+            (false, '\t') => value.push('\t'),
+            (false, control) if control.is_ascii_control() => {
+                return Err("control character in IMAP quoted string");
+            }
+            (false, ordinary) if ordinary.is_ascii() && !ordinary.is_ascii_control() => {
+                value.push(ordinary)
+            }
             (false, _) => return Err("non-ASCII character in IMAP4rev1 quoted string"),
         }
     }
@@ -144,6 +155,28 @@ mod tests {
             tokenize("a LOGIN böb password\r\n"),
             Err("non-ASCII character in IMAP4rev1 atom")
         );
+    }
+
+    /// Командный разделитель - SP; управляющие символы atom не легализуют.
+    #[test]
+    fn rejects_tab_as_separator_and_control_atoms() {
+        assert_eq!(
+            tokenize("a\tNOOP\r\n"),
+            Err("control character in IMAP atom")
+        );
+        assert_eq!(
+            tokenize("a LOGIN bo\x01b password\r\n"),
+            Err("control character in IMAP atom")
+        );
+    }
+
+    /// Quoted string допускает HTAB, но не NUL, CR или LF.
+    #[test]
+    fn quoted_string_accepts_tab_and_rejects_line_controls() {
+        assert!(tokenize("a LOGIN \"bob\tuser\" password\r\n").is_ok());
+        assert!(tokenize("a LOGIN \"bob\0user\" password\r\n").is_err());
+        assert!(tokenize("a LOGIN \"bob\ruser\" password\r\n").is_err());
+        assert!(tokenize("a LOGIN \"bob\nuser\" password\r\n").is_err());
     }
 
     /// Скобки списка являются отдельными токенами даже без пробелов.

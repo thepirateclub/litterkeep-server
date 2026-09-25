@@ -35,6 +35,7 @@ def main() -> None:
     require_bad_malformed_utf8(client)
     require_untagged_bad_malformed_tag(client)
     require_untagged_bad_response_special_tag(client)
+    require_bad_tab_separator(client)
     require(client.noop(), ImapStatus.OK)
     if options.credentials is not None:
         password = password_for(options.credentials, "bob")
@@ -105,6 +106,14 @@ def require_untagged_bad_response_special_tag(client: imaplib.IMAP4) -> None:
     response = client.readline()
     if not response.startswith(b"* BAD "):
         raise AssertionError(f"response-special command tag: {response!r}")
+
+
+def require_bad_tab_separator(client: imaplib.IMAP4) -> None:
+    """RFC command grammar requires SP, not HTAB, between tag and command."""
+    client.send(b"A17\tNOOP\r\n")
+    response = client.readline()
+    if not response.startswith(b"A17 BAD "):
+        raise AssertionError(f"HTAB separator response: {response!r}")
 
 
 def require_bad(client: imaplib.IMAP4, verb: str) -> None:

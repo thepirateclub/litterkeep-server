@@ -4,6 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G17 IMAP command SP and CTL grammar, PASS
+
+- IMAP command lexer больше не нормализует HTAB и другие whitespace octets в
+  разделитель: между command components принимается только SP. Управляющие
+  octets отвергаются в atom и quoted-string, кроме разрешённого HTAB внутри
+  quoted-string; CR/LF/NUL там недопустимы. UTF-8 literals остаются отдельным
+  сохранённым путём.
+- PASS: Windows Rust 1.97.1 strict Clippy, 516 library + 1 binary tests,
+  fmt, Python compile и diff check. Linux Docker Rust 1.97 strict Clippy,
+  563 library + 1 binary tests и doc-tests; independent STARTTLS wire test
+  подтвердил BAD для TAB между tag/NOOP и успешную следующую команду.
+  Контейнер и образы удалены; `./data/g17-imap-malformed-utf8` сохранена.
+
 ### 2026-09-26: G17 IMAP4rev1 high-bit atom rejection, PASS
 
 - IMAP4rev1 lexer теперь отвергает UTF-8 high-bit characters внутри atom;
