@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 POP3 RFC 6856 LANG state acceptance
+
+- PASS: независимый TLS peer подтвердил `LANG` capability в AUTHORIZATION и
+  TRANSACTION, RFC language listing `en`, case-insensitive `EN`, preferred `*`
+  и корректное отклонение неподдерживаемого `de` без потери сессии. После
+  ошибки TRANSACTION продолжил успешно выполнять STAT.
+- PASS: Windows Rust 1.97.1 полный suite (484 библиотечных + 1 бинарный тест),
+  strict Clippy, fmt, Python compile и diff check. Linux Docker Rust 1.97 image
+  подтверждён: 527 библиотечных + 1 бинарный тест, strict Clippy и doc-tests;
+  новый независимый socket acceptance прошёл на Linux runtime.
+- Litterkeep app не тестировалось. Временные runtime container и test image
+  удалены, существующий `litterkeep-g12-phone` сохранён. Fixture:
+  `./data/g17-pop3-lang`; G17 остаётся активной.
+
 ### 2026-09-25: G17 SMTP DATA transparency and POP3 TOP wire regression
 
 - Независимый SMTP → Store → POP3 TOP тест выявил, что входящий SMTP DATA

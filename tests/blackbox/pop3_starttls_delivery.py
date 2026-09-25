@@ -17,7 +17,7 @@ ATTACHMENT = b"\x00litterkeep-pop3-attachment\xff\x10"
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--phase", choices=("smtp", "pop3", "empty", "lease", "implicit", "rset", "disconnect", "deleted-visibility", "top"), required=True)
+    parser.add_argument("--phase", choices=("smtp", "pop3", "empty", "lease", "implicit", "rset", "disconnect", "deleted-visibility", "top", "lang"), required=True)
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--smtp-port", type=int, default=2525)
     parser.add_argument("--ca", required=True)
@@ -236,6 +236,42 @@ def top_semantics(port: int, smtp_port: int, tls: ssl.SSLContext, account: str, 
     print("POP3 TOP passed: zero lines, exact body count, short body and dot transparency")
 
 
+def lang_states(port: int, tls: ssl.SSLContext, account: str, password: str) -> None:
+    """Проверяет RFC 6856 LANG в AUTHORIZATION и TRANSACTION по TLS socket."""
+    client = poplib.POP3("127.0.0.1", port)
+    client.stls(context=tls)
+    authorization_caps = client.capa()
+    if "LANG" not in authorization_caps:
+        raise AssertionError("LANG capability missing in AUTHORIZATION")
+    _, listing, _ = client._longcmd("LANG")
+    if listing != [b"en English"]:
+        raise AssertionError(f"LANG listing differs: {listing!r}")
+    if not client._shortcmd("LANG EN").startswith(b"+OK en "):
+        raise AssertionError("case-insensitive English range was not selected")
+    try:
+        client._shortcmd("LANG de")
+    except poplib.error_proto:
+        pass
+    else:
+        raise AssertionError("unsupported language range unexpectedly succeeded")
+    client.user(account)
+    client.pass_(password)
+    transaction_caps = client.capa()
+    if "LANG" not in transaction_caps:
+        raise AssertionError("LANG capability missing in TRANSACTION")
+    if not client._shortcmd("LANG *").startswith(b"+OK en "):
+        raise AssertionError("server-preferred language was not selected")
+    try:
+        client._shortcmd("LANG de")
+    except poplib.error_proto:
+        pass
+    else:
+        raise AssertionError("unsupported transaction language unexpectedly succeeded")
+    client.stat()
+    client.quit()
+    print("POP3 LANG passed in AUTHORIZATION and TRANSACTION; failed selection preserves session")
+
+
 def main() -> None:
     options = arguments()
     tls = context(options.ca)
@@ -264,6 +300,8 @@ def main() -> None:
             )
         case "top":
             top_semantics(options.port, options.smtp_port, tls, options.account, options.password)
+        case "lang":
+            lang_states(options.port, tls, options.account, options.password)
 
 
 if __name__ == "__main__":
