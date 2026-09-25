@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 multipart boundary IMAP socket acceptance
+
+- Независимый Python `imaplib` клиент через STARTTLS сделал IMAP APPEND MIME
+  fixture с transport-padding на opening/closing delimiters; сервер вернул
+  корректный BODYSTRUCTURE, точные octets первой части и исходные байты
+  Base64-вложения через BINARY.PEEK. Linux release image собран, test data
+  изолированы в `./data/g17-multipart-padding`.
+- Windows Rust 1.97.1: `cargo test --locked` (403 library + 1 binary),
+  `cargo clippy --all-targets --locked -- -D warnings`, `cargo fmt --check` и
+  `git diff --check` прошли. Linux Docker test stage на Rust 1.97.1: release
+  build, strict Clippy, 444 library tests, 1 binary test и doc-tests прошли.
+  Socket acceptance использовал только опубликованный IMAP host-порт 52143;
+  SMTP port mapping 52587 был доступен, но SMTP-сценарий не запускался.
+  Временный контейнер и образ удалены; `litterkeep-g12-phone` сохранён.
+  Независимая интеграция с клиентом Litterkeep не проверялась. G17 RUNNING.
+
 ### 2026-09-25: G17 multipart preamble boundary CRLF checkpoint
 
 - Исправлен диапазон MIME preamble: CRLF непосредственно перед первым boundary

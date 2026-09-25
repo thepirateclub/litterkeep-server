@@ -142,11 +142,13 @@ unit-тестами; socket acceptance не запускался.
 не запускался.
 Параметр `multipart` boundary проверяется по RFC 2046 §5.1.1: 1..70 ASCII
 октетов из `bchars`, без завершающего пробела; покрыты длины и запрещённые
-символы. Parser принимает transport-padding у opening/closing delimiter и
-исключает CRLF, непосредственно предшествующий первому delimiter, из preamble;
-собственный CRLF preamble сохраняется. Похожие строки с boundary-префиксом,
-но дополнительным suffix остаются содержимым part. Эти range-проверки
-unit-only, socket acceptance не запускался.
+символы unit-тестами. Parser принимает transport-padding у opening/closing
+delimiter и исключает CRLF, непосредственно предшествующий первому delimiter,
+из preamble; собственный CRLF preamble сохраняется. Точные ranges preamble
+проверены unit-only. Независимый Python `imaplib` STARTTLS-клиент выполнил
+APPEND с padded delimiters, сравнил BODYSTRUCTURE, точные octets первой части
+и Base64-вложение через BINARY.PEEK. Это проверка IMAP APPEND/FETCH, не SMTP
+доставки и не клиента Litterkeep.
 Вложенная MIME-часть без Content-Type в `multipart/digest` получает default
 `message/rfc822` по RFC 2046 §5.1.5; само вложенное сообщение использует
 `text/plain` default для своего body. В остальных multipart подтипах отсутствие

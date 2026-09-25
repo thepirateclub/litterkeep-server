@@ -12,6 +12,9 @@ mod digest_tests;
 mod multipart;
 #[path = "tree_transfer.rs"]
 mod transfer_policy;
+#[cfg(test)]
+#[path = "tree_transport_tests.rs"]
+mod transport_tests;
 use multipart::{absolute, is_multipart, multipart_ranges};
 use std::collections::BTreeMap;
 use std::ops::Range;
