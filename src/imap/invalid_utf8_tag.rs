@@ -22,7 +22,7 @@ fn valid(tag: &str) -> bool {
 
 /// Проверяет один octet тега по безопасному подмножеству IMAP atom.
 fn valid_byte(value: u8) -> bool {
-    let structural = matches!(value, b'(' | b')' | b'{' | b'%' | b'*' | b'"' | 92);
+    let structural = matches!(value, b'(' | b')' | b'{' | b'%' | b'*' | b']' | b'"' | 92);
     match (value, structural) {
         (0x21..=0x7e, false) => true,
         (_, _) => false,
@@ -44,6 +44,13 @@ mod tests {
     #[test]
     fn invalid_utf8_inside_tag_uses_untagged_fallback() {
         let wire = b"A\xff7 LOGIN \"user\" \"password\"\r\n";
+        assert_eq!(extract(wire), "*");
+    }
+
+    /// Resp-special `]` также запрещён в atom и не отражается как tag.
+    #[test]
+    fn response_special_inside_tag_uses_untagged_fallback() {
+        let wire = b"A]7 LOGIN \"user\xff\" \"password\"\r\n";
         assert_eq!(extract(wire), "*");
     }
 }

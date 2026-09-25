@@ -33,6 +33,7 @@ def main() -> None:
     require_bad_utf8_quoted_string(client)
     require_bad_malformed_utf8(client)
     require_untagged_bad_malformed_tag(client)
+    require_untagged_bad_response_special_tag(client)
     require(client.noop(), ImapStatus.OK)
     if options.credentials is not None:
         password = password_for(options.credentials, "bob")
@@ -87,6 +88,14 @@ def require_untagged_bad_malformed_tag(client: imaplib.IMAP4) -> None:
     response = client.readline()
     if not response.startswith(b"* BAD "):
         raise AssertionError(f"malformed command tag response: {response!r}")
+
+
+def require_untagged_bad_response_special_tag(client: imaplib.IMAP4) -> None:
+    """Treats IMAP resp-special as invalid in an atom tag."""
+    client.send(b'A]7 LOGIN "b\xffb" "unused"\r\n')
+    response = client.readline()
+    if not response.startswith(b"* BAD "):
+        raise AssertionError(f"response-special command tag: {response!r}")
 
 
 def require_bad(client: imaplib.IMAP4, verb: str) -> None:

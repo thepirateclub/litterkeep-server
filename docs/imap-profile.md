@@ -115,4 +115,7 @@ synchronizing literals в одном SEARCH HEADER, включая два contin
 ASCII tag перед ответом BAD; повреждённый UTF-8 внутри самого tag использует
 untagged fallback, не отражая недоверенные bytes. Независимый STARTTLS
 black-box проверил tagged BAD на malformed UTF-8 quoted LOGIN, untagged BAD
-для повреждённого tag без отражения octets и успешный NOOP после обоих ошибок.
+для повреждённого tag без отражения octets и успешный NOOP после ошибок.
+При восстановлении tag также исключается `]`, поскольку RFC 9051 относит его к
+`resp-specials`, запрещённым в atom. Само это исправление не реализует
+UTF8=ACCEPT и не меняет рекламируемый профиль.

@@ -4,6 +4,18 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 IMAP resp-special tag sanitization, PASS
+
+- Уточнён IMAP atom sanitizer для повреждённых UTF-8 команд: `]` является
+  RFC 9051 `resp-specials`, поэтому небезопасен в command tag наряду с
+  управляющими и структурными octets. Unit и независимый STARTTLS wire test
+  подтвердили untagged BAD без отражения тега `A]7`; сессия сохраняется.
+- PASS: Windows Rust 1.97.1 strict Clippy, 513 library + 1 binary tests,
+  fmt, Python compile и diff check. Linux Docker Rust 1.97 strict Clippy,
+  560 library + 1 binary tests и doc-tests; независимый runtime black-box
+  PASS. Временные образы и контейнер удалены, `./data/g17-imap-malformed-utf8`
+  сохранена. Это узкая корректировка error path, не реализация UTF8=ACCEPT.
+
 ### 2026-09-25: G17 IMAP malformed UTF-8 tagged error checkpoint, PASS
 
 - IMAP сохраняет безопасный ASCII command tag, если строка содержит
