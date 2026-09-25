@@ -32,6 +32,7 @@ def main() -> None:
     require_bad_quoted_pair(client)
     require_bad_utf8_quoted_string(client)
     require_bad_malformed_utf8(client)
+    require_untagged_bad_malformed_tag(client)
     require(client.noop(), ImapStatus.OK)
     if options.credentials is not None:
         password = password_for(options.credentials, "bob")
@@ -78,6 +79,14 @@ def require_bad_malformed_utf8(client: imaplib.IMAP4) -> None:
         raise AssertionError(f"malformed UTF-8 quote status: {status} {detail!r}")
     if b"invalid command syntax" not in response_text:
         raise AssertionError(f"malformed UTF-8 quote: {status} {detail!r}")
+
+
+def require_untagged_bad_malformed_tag(client: imaplib.IMAP4) -> None:
+    """Не отражает некорректный tag и оставляет соединение пригодным."""
+    client.send(b'A\xff7 LOGIN "bob" "unused"\r\n')
+    response = client.readline()
+    if not response.startswith(b"* BAD "):
+        raise AssertionError(f"malformed command tag response: {response!r}")
 
 
 def require_bad(client: imaplib.IMAP4, verb: str) -> None:

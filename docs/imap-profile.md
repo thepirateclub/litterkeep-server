@@ -114,5 +114,5 @@ synchronizing literals в одном SEARCH HEADER, включая два contin
 Если строка команды не декодируется как UTF-8, reactor сохраняет безопасный
 ASCII tag перед ответом BAD; повреждённый UTF-8 внутри самого tag использует
 untagged fallback, не отражая недоверенные bytes. Независимый STARTTLS
-black-box проверил tagged BAD на malformed UTF-8 quoted LOGIN и успешный NOOP
-после ошибки.
+black-box проверил tagged BAD на malformed UTF-8 quoted LOGIN, untagged BAD
+для повреждённого tag без отражения octets и успешный NOOP после обоих ошибок.

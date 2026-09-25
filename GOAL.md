@@ -9,8 +9,9 @@ Current subgoal: G17
 - IMAP сохраняет безопасный ASCII command tag, если строка содержит
   некорректную UTF-8 последовательность; invalid tag сам не отражается в ответе
   и использует звездочный untagged fallback. Независимый STARTTLS клиент
-  отправил malformed UTF-8 в quoted LOGIN, получил tagged BAD и выполнил NOOP
-  в той же сессии.
+  отправил malformed UTF-8 в quoted LOGIN, получил tagged BAD, затем передал
+  повреждённый tag и получил untagged BAD без отражения байтов; NOOP после
+  обоих случаев подтвердил сохранение сессии.
 - PASS: Windows Rust 1.97.1 cargo test --all-targets --locked (512 library +
   1 binary), strict Clippy, fmt, Python compile и diff check. Linux Docker Rust
   1.97 test target: strict Clippy, 559 library + 1 binary tests и doc-tests;
