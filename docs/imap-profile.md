@@ -103,4 +103,6 @@ Quoted-pair в quoted-string текущего IMAP4rev1 профиля допу�
 и `\\`; произвольный `\x` теперь лексически отвергается, а исходный tag
 сохраняется в tagged BAD. Unit и независимый STARTTLS `imaplib` acceptance
 проверили отказ и продолжение той же сессии командой NOOP. UTF8=ACCEPT не
-объявляется, поэтому RFC 9755 extended UTF-8 quoting ещё не поддержан.
+объявляется и negotiation не реализован, но tokenizer пока пропускает high-bit
+UTF-8 внутри quoted-string без negotiation. Поэтому UTF-8 quoting не считается
+поддержанной функцией; это отдельный открытый IMAP4rev1 conformance defect.

@@ -14,6 +14,9 @@ Current subgoal: G17
   LOGIN, received tagged BAD, then completed NOOP and valid LOGIN on the same
   connection. Fixture: `./data/g17-managesieve-capabilities`. UTF8=ACCEPT and
   IMAP4rev2 remain unsupported and are not advertised.
+- Audit also confirmed that raw UTF-8 inside quoted-string is still accepted
+  without negotiated UTF8=ACCEPT. This is recorded as an open conformance defect,
+  not as supported RFC 9755 behavior.
 - PASS: Windows Rust 1.97.1 full suite (509 library + 1 binary), strict Clippy,
   fmt, Python syntax and diff checks. Linux Rust 1.97 Docker test target passed
   strict Clippy, 554 library + 1 binary tests and doc-tests; independent wire

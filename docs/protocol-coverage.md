@@ -138,7 +138,9 @@ capability до/после TLS и отказ plaintext authentication. Друг�
 IMAP quoted-pair принимает только escaped `"` и `\\` по RFC 3501; иной
 символ после обратной косой черты возвращает tagged BAD, сохраняя командный
 тег. Независимый STARTTLS `imaplib` тест подтвердил BAD и успешный NOOP после
-лексической ошибки. UTF8=ACCEPT и IMAP4rev2 по-прежнему не рекламируются.
+лексической ошибки. UTF8=ACCEPT и IMAP4rev2 не рекламируются; tokenizer ещё не
+ограничивает high-bit UTF-8 в quoted-string negotiated UTF8 mode, поэтому этот
+сценарий остаётся открытым grammar defect, а не заявленной поддержкой RFC 9755.
 
 `FETCH` принимает одиночные и сгруппированные data items, раскрывает ALL, FAST
 и FULL, включает UID в ответы UID FETCH и сохраняет literal как точные октеты.
