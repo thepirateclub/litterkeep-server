@@ -55,7 +55,10 @@ fn encode_base64(input: &[u8]) -> String {
 /// другому account.
 pub fn parse_plain(initial_response: &str) -> Result<PlainCredentials, &'static str> {
     let decoded = decode_base64(initial_response.as_bytes())?;
-    let mut fields = decoded.splitn(3, |byte| *byte == 0);
+    if encode_base64(&decoded) != initial_response {
+        return Err("noncanonical base64");
+    }
+    let mut fields = decoded.split(|byte| *byte == 0);
     let Some(authzid) = fields.next() else {
         return Err("missing authzid");
     };
@@ -65,7 +68,11 @@ pub fn parse_plain(initial_response: &str) -> Result<PlainCredentials, &'static 
     let Some(password) = fields.next() else {
         return Err("missing password");
     };
+    if fields.next().is_some() {
+        return Err("unexpected NUL in SASL PLAIN field");
+    }
     let account = std::str::from_utf8(authcid).map_err(|_| "invalid authcid")?;
+    std::str::from_utf8(password).map_err(|_| "invalid password encoding")?;
     match (authzid.is_empty(), authzid == authcid, account.is_empty()) {
         (_, _, true) => Err("empty authcid"),
         (true, _, false) | (false, true, false) => Ok(PlainCredentials {
@@ -92,6 +99,13 @@ mod tests {
     fn rejects_missing_plain_fields() {
         assert!(parse_plain("AGJvYg").is_err());
         assert!(parse_plain("AGJvYgA").is_err());
+    }
+
+    #[test]
+    fn rejects_noncanonical_base64_and_nul_inside_plain_fields() {
+        assert!(parse_plain("AGJvYg==AAAA").is_err());
+        assert!(parse_plain("AGJvYgB0ZXN0AA==").is_err());
+        assert!(parse_plain("AGJvYgB0ZXN0 ").is_err());
     }
 
     #[test]

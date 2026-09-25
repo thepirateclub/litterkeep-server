@@ -13,7 +13,7 @@ pub(crate) mod reply_wire;
 #[path = "pop3/session.rs"]
 mod session;
 
-pub use command::{Command, MAX_COMMAND_LINE_SIZE, parse};
+pub use command::{Command, MAX_COMMAND_LINE_SIZE, SaslMechanism, parse};
 pub use maildrop::Maildrop;
 pub use session::{Reply, ResponseCode, Session};
 

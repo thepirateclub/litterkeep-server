@@ -1,6 +1,7 @@
 """Проверяет POP3 512-octet status lines и длинные RETR message lines."""
 
 import os
+import base64
 import smtplib
 import socket
 import ssl
@@ -116,6 +117,64 @@ def pop3_round_trip(tls_context):
         connection.close()
 
 
+def verify_sasl_plain(tls_context, with_continuation):
+    connection = socket.create_connection((HOST, POP3_PORT), timeout=15)
+    stream = connection.makefile("rb")
+    try:
+        read_line(stream, "SASL POP3 greeting")
+        clear_capabilities = read_capabilities(connection, stream, "plaintext")
+        if b"SASL PLAIN" in clear_capabilities:
+            raise AssertionError("plaintext CAPA must not advertise SASL PLAIN")
+        send(
+            connection,
+            stream,
+            b"AUTH PLAIN\r\n",
+            b"-ERR STLS required",
+            "plaintext AUTH PLAIN rejection",
+        )
+        send(connection, stream, b"STLS\r\n", b"+OK", "SASL STLS")
+        stream.close()
+        connection = tls_context.wrap_socket(connection, server_hostname="localhost")
+        stream = connection.makefile("rb")
+        encrypted_capabilities = read_capabilities(connection, stream, "TLS authorization")
+        if b"SASL PLAIN" not in encrypted_capabilities:
+            raise AssertionError("TLS CAPA did not advertise SASL PLAIN")
+        if b"STLS" in encrypted_capabilities:
+            raise AssertionError("TLS CAPA must not continue to advertise STLS")
+
+        password = os.environ["LITTERKEEP_BOB_PASSWORD"].encode("ascii")
+        response = base64.b64encode(b"\x00bob\x00" + password)
+        if with_continuation:
+            send(connection, stream, b"AUTH PLAIN\r\n", b"+ ", "AUTH PLAIN challenge")
+            send(connection, stream, b"*\r\n", b"-ERR", "SASL cancellation")
+            send(connection, stream, b"AUTH SCRAM-SHA-256 token\r\n", b"-ERR", "unsupported SASL mechanism")
+            send(connection, stream, b"AUTH PLAIN\r\n", b"+ ", "AUTH PLAIN retry")
+            connection.sendall(response + b"\r\n")
+            success = read_line(stream, "SASL PLAIN continuation result")
+            if not success.startswith(b"+OK"):
+                raise AssertionError(f"AUTH PLAIN continuation failed: {success!r}")
+        else:
+            connection.sendall(b"AUTH PLAIN " + response + b"\r\n")
+            success = read_line(stream, "SASL PLAIN initial-response result")
+            if not success.startswith(b"+OK"):
+                raise AssertionError(f"AUTH PLAIN initial response failed: {success!r}")
+
+        send(connection, stream, b"CAPA\r\n", b"+OK", "CAPA after SASL authentication")
+        transaction_capabilities = []
+        while True:
+            line = read_line(stream, "transaction SASL capability")
+            if line == b".\r\n":
+                break
+            transaction_capabilities.append(line.rstrip(b"\r\n"))
+        if b"SASL PLAIN" not in transaction_capabilities:
+            raise AssertionError("SASL capability disappeared after successful AUTH")
+        send(connection, stream, b"AUTH PLAIN invalid\r\n", b"-ERR", "AUTH after success")
+        send(connection, stream, b"QUIT\r\n", b"+OK", "SASL QUIT")
+    finally:
+        stream.close()
+        connection.close()
+
+
 def verify_maildrop_in_use(tls_context):
     connection = socket.create_connection((HOST, POP3_PORT), timeout=15)
     stream = connection.makefile("rb")
@@ -175,7 +234,9 @@ def main():
     tls_context.verify_mode = ssl.CERT_NONE
     deliver_long_line(tls_context)
     pop3_round_trip(tls_context)
-    print("PASS POP3: bounded lines, 700-octet RETR, RESP-CODES and IN-USE")
+    verify_sasl_plain(tls_context, with_continuation=False)
+    verify_sasl_plain(tls_context, with_continuation=True)
+    print("PASS POP3: SASL PLAIN, bounded lines, long RETR and RESP-CODES")
 
 
 if __name__ == "__main__":

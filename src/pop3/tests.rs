@@ -71,6 +71,59 @@ fn capa_advertises_stls_before_password_exchange() {
     assert!(
         matches!(session.apply(parse("CAPA\r\n")), Reply::Multiline(bytes) if bytes.windows(4).any(|part| part == b"STLS"))
     );
+    assert!(matches!(
+        session.apply(parse("CAPA\r\n")),
+        Reply::Multiline(bytes) if !bytes.windows(10).any(|part| part == b"SASL PLAIN")
+    ));
+    session.tls_established();
+    assert!(matches!(
+        session.apply(parse("CAPA\r\n")),
+        Reply::Multiline(bytes) if bytes.windows(10).any(|part| part == b"SASL PLAIN")
+    ));
+    assert!(matches!(
+        session.apply(parse("CAPA\r\n")),
+        Reply::Multiline(bytes) if !bytes.windows(4).any(|part| part == b"STLS")
+    ));
+}
+
+#[test]
+fn sasl_plain_requires_tls_and_authenticates_without_user_pass() {
+    let response = crate::sasl::encode_plain("bob", b"secret");
+    let mut session = Session::default();
+    let command = parse(&format!("AUTH PLAIN {response}\r\n"));
+    assert!(matches!(session.apply(command), Reply::Error(_)));
+
+    session.tls_established();
+    let command = parse(&format!("AUTH PLAIN {response}\r\n"));
+    assert!(matches!(
+        session.apply(command),
+        Reply::Authenticate { username, password }
+            if username == "bob" && password == b"secret"
+    ));
+}
+
+#[test]
+fn sasl_plain_continuation_supports_response_and_cancellation() {
+    let response = crate::sasl::encode_plain("bob", b"secret");
+    let mut session = Session::default();
+    session.tls_established();
+    assert!(matches!(
+        session.apply(parse("AUTH PLAIN\r\n")),
+        Reply::SaslContinue
+    ));
+    assert!(session.awaiting_sasl_response());
+    assert!(matches!(
+        session.sasl_plain_response(&response),
+        Reply::Authenticate { username, password }
+            if username == "bob" && password == b"secret"
+    ));
+
+    assert!(matches!(
+        session.apply(parse("AUTH PLAIN\r\n")),
+        Reply::SaslContinue
+    ));
+    assert!(matches!(session.sasl_plain_response("*"), Reply::Error(_)));
+    assert!(!session.awaiting_sasl_response());
 }
 
 #[test]

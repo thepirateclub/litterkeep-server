@@ -2,7 +2,24 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
-Current subgoal: G15
+Current subgoal: G16
+
+### 2026-09-25: G16 POP3 SASL PLAIN over TLS checkpoint
+
+- Реализован POP3 `AUTH PLAIN` с initial response и continuation, отменой `*`,
+  строгой Base64/PLAIN-разборкой и credential path через существующую
+  аутентификацию. До TLS механизм не рекламируется и AUTH отклоняется; после
+  STLS capability меняется на `SASL PLAIN`, а `STLS` исчезает. После успешной
+  аутентификации capability остаётся доступной, повторный AUTH отклоняется.
+- PASS: Windows Rust 1.97.1: 276 тестов и strict Clippy. Чистая Linux Docker
+  сборка Rust 1.97: strict Clippy и 316 тестов. Независимый socket acceptance
+  подтвердил оба варианта AUTH PLAIN, cancel, TLS capability и ошибки для
+  неподдерживаемого SCRAM. Проверка использовала отдельный
+  `./data/g16-pop3-sasl-plain`; временный контейнер удалён,
+  `litterkeep-g12-phone` сохранён.
+- Это реализация и проверка только SASL PLAIN. SCRAM и прочие механизмы,
+  полная RFC 5034 совместимость и interoperabilty с litterkeep не проверены;
+  G16 остаётся RUNNING.
 
 ### 2026-09-25: POP3 RFC 1939 USER/PASS sequencing checkpoint
 

@@ -55,6 +55,11 @@ fn action_replies_are_not_serialized_as_wire_text() {
 }
 
 #[test]
+fn sasl_continuation_uses_the_empty_challenge_wire_form() {
+    assert_eq!(encode_reply(Reply::SaslContinue), Some(b"+ \r\n".to_vec()));
+}
+
+#[test]
 fn in_use_response_code_is_serialized_as_a_bounded_rfc_2449_error() {
     let reply = Reply::ErrorCode(ResponseCode::InUse, "maildrop is locked");
     assert_eq!(

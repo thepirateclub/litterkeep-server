@@ -44,3 +44,40 @@ fn preserves_normal_command_arity() {
     );
     assert_eq!(parse("NOOP extra\r\n"), Command::Invalid);
 }
+
+#[test]
+fn parses_sasl_auth_plain_with_or_without_initial_response() {
+    assert_eq!(
+        parse("AUTH plain\r\n"),
+        Command::Auth {
+            mechanism: SaslMechanism::Plain,
+            initial_response: None,
+        }
+    );
+    assert_eq!(
+        parse("AUTH PLAIN AGJvYgB0ZXN0\r\n"),
+        Command::Auth {
+            mechanism: SaslMechanism::Plain,
+            initial_response: Some("AGJvYgB0ZXN0".into()),
+        }
+    );
+    assert_eq!(
+        parse("AUTH SCRAM-SHA-256 token\r\n"),
+        Command::Auth {
+            mechanism: SaslMechanism::Unsupported,
+            initial_response: Some("token".into()),
+        }
+    );
+}
+
+#[test]
+fn rejects_malformed_sasl_auth_arity_and_empty_initial_response() {
+    for wire in [
+        "AUTH\r\n",
+        "AUTH  PLAIN\r\n",
+        "AUTH PLAIN \r\n",
+        "AUTH PLAIN token extra\r\n",
+    ] {
+        assert_eq!(parse(wire), Command::Invalid, "wire command: {wire:?}");
+    }
+}

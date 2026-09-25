@@ -13,10 +13,24 @@ pub enum Command {
     Rset,
     Quit,
     Uidl(Option<u32>),
-    Top { number: u32, lines: u32 },
+    Top {
+        number: u32,
+        lines: u32,
+    },
     Capa,
     Stls,
+    Auth {
+        mechanism: SaslMechanism,
+        initial_response: Option<String>,
+    },
     Invalid,
+}
+
+/// Поддерживаемый набор механизмов POP3 SASL.
+#[derive(Debug, Eq, PartialEq)]
+pub enum SaslMechanism {
+    Plain,
+    Unsupported,
 }
 
 /// RFC 2449 ограничивает команду вместе с CRLF 255 октетами.
@@ -49,7 +63,33 @@ pub fn parse(line: &str) -> Command {
         "TOP" => top(words.next(), words.next(), words.next()),
         "CAPA" => empty(words.next(), Command::Capa),
         "STLS" => empty(words.next(), Command::Stls),
+        "AUTH" => auth(words.next(), words.next(), words.next()),
         _ => Command::Invalid,
+    }
+}
+
+/// Разбирает AUTH с необязательным initial response в пределах command line.
+fn auth(mechanism: Option<&str>, initial_response: Option<&str>, extra: Option<&str>) -> Command {
+    match (mechanism, initial_response, extra) {
+        (Some(name), None, None) if !name.is_empty() => Command::Auth {
+            mechanism: sasl_mechanism(name),
+            initial_response: None,
+        },
+        (Some(name), Some(response), None) if !name.is_empty() && !response.is_empty() => {
+            Command::Auth {
+                mechanism: sasl_mechanism(name),
+                initial_response: Some(response.to_owned()),
+            }
+        }
+        _ => Command::Invalid,
+    }
+}
+
+/// Сопоставляет SASL mechanism case-insensitively с закрытым enum.
+fn sasl_mechanism(name: &str) -> SaslMechanism {
+    match name.to_ascii_uppercase().as_str() {
+        "PLAIN" => SaslMechanism::Plain,
+        _ => SaslMechanism::Unsupported,
     }
 }
 

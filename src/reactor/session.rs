@@ -121,6 +121,9 @@ impl Session {
             managesieve: managesieve::Session::default(),
             managesieve_literal: None,
         };
+        if matches!((result.kind, result.tls.is_some()), (Kind::Pop3, true)) {
+            result.pop3.tls_established();
+        }
         result.send_greeting_if_ready()?;
         Ok(result)
     }
@@ -254,6 +257,9 @@ impl Session {
         self.imap_literal = None;
         self.imap_search_literal = None;
         self.pop3 = pop3::Session::default();
+        if matches!(self.kind, Kind::Pop3) {
+            self.pop3.tls_established();
+        }
         self.pop3_mailbox = None;
         self.managesieve_literal = None;
     }

@@ -12,6 +12,7 @@ pub(crate) fn encode_reply(reply: Reply) -> Option<Vec<u8>> {
         Reply::Ok(text) => Some(single_line(b"+OK ", &text)),
         Reply::Error(text) => Some(single_line(b"-ERR ", text)),
         Reply::ErrorCode(code, text) => Some(extended_error(code, text)),
+        Reply::SaslContinue => Some(b"+ \r\n".to_vec()),
         Reply::Multiline(bytes) => Some(bounded_multiline(bytes)),
         Reply::Message(bytes) => Some(message_multiline(bytes)),
         Reply::Authenticate { .. } | Reply::CommitDeletes(_) | Reply::StartTls => None,

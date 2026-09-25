@@ -13,6 +13,16 @@ pub(super) fn line(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<()> {
+    if session.pop3.awaiting_sasl_response() {
+        let reply = match std::str::from_utf8(&line)
+            .ok()
+            .and_then(|wire| wire.strip_suffix("\r\n"))
+        {
+            Some(response) => session.pop3.sasl_plain_response(response),
+            None => session.pop3.sasl_plain_response(""),
+        };
+        return dispatch_reply(session, reply, slot, generation, worker, owners, request_id);
+    }
     if line.len() > pop3::MAX_COMMAND_LINE_SIZE {
         return session.push(b"-ERR command line too long\r\n");
     }
@@ -23,7 +33,22 @@ pub(super) fn line(
     ) {
         return session.push(b"-ERR STLS required before PASS\r\n");
     }
-    match session.pop3.apply(command) {
+    let reply = session.pop3.apply(command);
+    dispatch_reply(session, reply, slot, generation, worker, owners, request_id)
+}
+
+/// Направляет typed reply к auth/store/TLS action либо bounded serializer-у.
+#[allow(clippy::too_many_arguments)]
+fn dispatch_reply(
+    session: &mut Session,
+    reply: pop3::Reply,
+    slot: usize,
+    generation: u64,
+    worker: &mut WakingStorageWorker,
+    owners: &mut HashMap<u64, (usize, u64, Pending)>,
+    request_id: &mut u64,
+) -> io::Result<()> {
+    match reply {
         pop3::Reply::Authenticate { username, password } => authenticate(
             session, username, password, slot, generation, worker, owners, request_id,
         ),
@@ -74,7 +99,7 @@ pub(super) fn write_reply(session: &mut Session, reply: pop3::Reply) -> io::Resu
 fn authenticate(
     session: &mut Session,
     username: String,
-    password: String,
+    password: Vec<u8>,
     slot: usize,
     generation: u64,
     worker: &mut WakingStorageWorker,
@@ -94,7 +119,7 @@ fn authenticate(
         Request::Authenticate {
             request_id: id,
             username: username.clone(),
-            password: password.into_bytes(),
+            password,
         },
         Pending::Pop3Authenticate { account: username },
         slot,

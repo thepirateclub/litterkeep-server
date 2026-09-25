@@ -1,6 +1,6 @@
 //! POP3 AUTHORIZATION, TRANSACTION и UPDATE без доступа к Store.
 
-use super::{Command, Maildrop};
+use super::{Command, Maildrop, SaslMechanism};
 use crate::store::Message;
 
 #[derive(Default)]
@@ -8,6 +8,7 @@ enum Phase {
     #[default]
     Authorization,
     UserAccepted,
+    SaslPlainResponse,
     Transaction,
     Update,
 }
@@ -15,9 +16,10 @@ pub enum Reply {
     Ok(String),
     Error(&'static str),
     ErrorCode(ResponseCode, &'static str),
+    SaslContinue,
     Multiline(Vec<u8>),
     Message(Vec<u8>),
-    Authenticate { username: String, password: String },
+    Authenticate { username: String, password: Vec<u8> },
     CommitDeletes(Vec<u64>),
     StartTls,
 }
@@ -31,6 +33,7 @@ pub struct Session {
     phase: Phase,
     username: Option<String>,
     maildrop: Option<Maildrop>,
+    tls_active: bool,
 }
 impl Session {
     pub fn apply(&mut self, command: Command) -> Reply {
@@ -46,7 +49,16 @@ impl Session {
             }
             (Phase::UserAccepted, Command::Pass(password)) => self.request_authentication(password),
             (Phase::Authorization, Command::Pass(_)) => Reply::Error("USER required"),
-            (Phase::Authorization | Phase::UserAccepted, Command::Capa) => capa_reply(),
+            (
+                Phase::Authorization | Phase::UserAccepted,
+                Command::Auth {
+                    mechanism,
+                    initial_response,
+                },
+            ) => self.begin_authentication(mechanism, initial_response),
+            (Phase::Authorization | Phase::UserAccepted | Phase::Transaction, Command::Capa) => {
+                capa_reply(self.tls_active)
+            }
             (Phase::Authorization | Phase::UserAccepted, Command::Stls) => Reply::StartTls,
             (Phase::Authorization | Phase::UserAccepted, Command::Noop) => Reply::Ok("noop".into()),
             (Phase::Transaction, Command::Stat) => self.stat(),
@@ -57,7 +69,6 @@ impl Session {
             (Phase::Transaction, Command::Dele(number)) => self.delete(number),
             (Phase::Transaction, Command::Noop) => Reply::Ok("noop".into()),
             (Phase::Transaction, Command::Rset) => self.reset(),
-            (Phase::Transaction, Command::Capa) => capa_reply(),
             (Phase::Transaction, Command::Quit) => self.request_commit(),
             (_, Command::Quit) => {
                 self.phase = Phase::Update;
@@ -74,6 +85,26 @@ impl Session {
                 Reply::Ok("authenticated".into())
             }
             _ => Reply::Error("USER required"),
+        }
+    }
+    /// Переключает доступные SASL mechanisms после завершения TLS handshake.
+    pub fn tls_established(&mut self) {
+        self.tls_active = true;
+        self.reset_authorization();
+    }
+    /// Проверяет, ожидается ли отдельная строка SASL response вместо команды.
+    pub fn awaiting_sasl_response(&self) -> bool {
+        matches!(self.phase, Phase::SaslPlainResponse)
+    }
+    /// Разбирает initial или continuation response механизма RFC 4616 PLAIN.
+    pub fn sasl_plain_response(&mut self, response: &str) -> Reply {
+        match (&self.phase, response) {
+            (Phase::SaslPlainResponse, "*") => {
+                self.reset_authorization();
+                Reply::Error("authentication cancelled")
+            }
+            (Phase::SaslPlainResponse, _) => self.plain_credentials(response),
+            _ => Reply::Error("no SASL response is pending"),
         }
     }
     /// Сбрасывает незавершённую пару USER/PASS после отказа входа или STLS.
@@ -105,9 +136,51 @@ impl Session {
         match self.username.as_ref() {
             Some(username) if !password.is_empty() => Reply::Authenticate {
                 username: username.clone(),
-                password,
+                password: password.into_bytes(),
             },
             _ => Reply::Error("USER required"),
+        }
+    }
+    fn begin_authentication(
+        &mut self,
+        mechanism: SaslMechanism,
+        initial_response: Option<String>,
+    ) -> Reply {
+        if !self.tls_active {
+            return Reply::Error("STLS required before AUTH PLAIN");
+        }
+        match mechanism {
+            SaslMechanism::Plain => match initial_response {
+                Some(response) => self.plain_credentials(&response),
+                None => {
+                    self.reset_authorization();
+                    self.phase = Phase::SaslPlainResponse;
+                    Reply::SaslContinue
+                }
+            },
+            SaslMechanism::Unsupported => Reply::Error("unsupported SASL mechanism"),
+        }
+    }
+    fn plain_credentials(&mut self, response: &str) -> Reply {
+        match crate::sasl::parse_plain(response) {
+            Ok(credentials) => match String::from_utf8(credentials.password) {
+                Ok(password) => {
+                    self.username = Some(credentials.account.clone());
+                    self.phase = Phase::UserAccepted;
+                    Reply::Authenticate {
+                        username: credentials.account,
+                        password: password.into_bytes(),
+                    }
+                }
+                Err(_) => {
+                    self.reset_authorization();
+                    Reply::Error("invalid AUTH PLAIN credentials")
+                }
+            },
+            Err(_) => {
+                self.reset_authorization();
+                Reply::Error("invalid AUTH PLAIN credentials")
+            }
         }
     }
     fn stat(&self) -> Reply {
@@ -178,10 +251,15 @@ impl Session {
         matches!(self.phase, Phase::Transaction)
     }
 }
-fn capa_reply() -> Reply {
-    Reply::Multiline(
-        b"+OK Capability list\r\nUSER\r\nUIDL\r\nTOP\r\nRESP-CODES\r\nSTLS\r\n.\r\n".to_vec(),
-    )
+fn capa_reply(tls_active: bool) -> Reply {
+    let mut response = b"+OK Capability list\r\nUSER\r\nUIDL\r\nTOP\r\nRESP-CODES\r\n".to_vec();
+    if tls_active {
+        response.extend_from_slice(b"SASL PLAIN\r\n");
+    } else {
+        response.extend_from_slice(b"STLS\r\n");
+    }
+    response.extend_from_slice(b".\r\n");
+    Reply::Multiline(response)
 }
 fn list_reply(entries: Vec<(u32, usize)>) -> Reply {
     let mut output = b"+OK scan listing follows\r\n".to_vec();
