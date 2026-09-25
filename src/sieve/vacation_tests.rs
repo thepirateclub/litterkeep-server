@@ -125,6 +125,19 @@ fn mime_vacation_accepts_ascii_entity_and_rejects_unsafe_entities() {
     assert!(parse(&mime_script("Content-Type: text/plain\r\n\r\nпривет\r\n")).is_err());
 }
 
+#[test]
+fn mime_vacation_rejects_malformed_transfer_encoding_and_duplicate_fields() {
+    for entity in [
+        "Content-Type: text/plain\r\nContent-Transfer-Encoding: base64\r\n\r\n%%%\r\n",
+        "Content-Type: text/plain\r\nContent-Transfer-Encoding: base64\r\n\r\naGVsbG8=AAAA\r\n",
+        "Content-Type: text/plain\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nbad=QZ\r\n",
+        "Content-Type: text/plain\r\nContent-Transfer-Encoding: 7bit\r\n\r\nhello\u{00e9}\r\n",
+        "Content-Type: text/plain\r\nContent-Transfer-Encoding: base64\r\nContent-Transfer-Encoding: 7bit\r\n\r\naGVsbG8=\r\n",
+    ] {
+        assert!(parse(&mime_script(entity)).is_err(), "accepted {entity:?}");
+    }
+}
+
 fn mime_script(entity: &str) -> String {
     format!("require \"vacation\"; vacation :mime \"{entity}\";")
 }

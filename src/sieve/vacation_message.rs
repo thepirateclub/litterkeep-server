@@ -121,43 +121,42 @@ pub(super) fn validate_mime_reason(entity: &[u8]) -> Result<(), &'static str> {
             return Err("non-MIME entity header");
         }
     }
-    let transfer = parsed
+    // MIME допускает ровно одно поле Content-Transfer-Encoding на сущность.
+    // Сначала выбираем его как типизированный enum, затем тем же декодером,
+    // который использует остальной сервер, проверяем фактические octets тела.
+    let transfer_fields = parsed
         .fields
         .iter()
-        .find_map(|field| match field.name.as_str() {
-            "content-transfer-encoding" => std::str::from_utf8(&field.value).ok(),
-            _ => None,
-        });
-    match transfer_encoding(transfer) {
-        TransferEncoding::SevenBit
-        | TransferEncoding::QuotedPrintable
-        | TransferEncoding::Base64 => {}
-        TransferEncoding::Unsupported => return Err("unsupported MIME transfer encoding"),
-    }
+        .filter(|field| field.name == "content-transfer-encoding")
+        .collect::<Vec<_>>();
+    let transfer_field = match transfer_fields.as_slice() {
+        [] => None,
+        [field] => Some(*field),
+        _ => return Err("duplicate MIME transfer encoding"),
+    };
+    let transfer = match transfer_field {
+        Some(field) => crate::mime::transfer::TransferEncoding::parse(&field.value)
+            .map_err(|_| "invalid MIME transfer encoding")?,
+        None => crate::mime::transfer::TransferEncoding::SevenBit,
+    };
     let body = entity
         .get(parsed.body_offset..)
         .ok_or("invalid MIME body")?;
-    if body.iter().any(|byte| !byte.is_ascii()) {
-        return Err("MIME body requires an ASCII transfer encoding");
+    match transfer {
+        crate::mime::transfer::TransferEncoding::SevenBit
+        | crate::mime::transfer::TransferEncoding::Base64
+        | crate::mime::transfer::TransferEncoding::QuotedPrintable => {
+            transfer
+                .decode(body)
+                .map_err(|_| "invalid encoded MIME body")?;
+        }
+        crate::mime::transfer::TransferEncoding::EightBit
+        | crate::mime::transfer::TransferEncoding::Binary
+        | crate::mime::transfer::TransferEncoding::Unsupported(_) => {
+            return Err("unsupported MIME transfer encoding");
+        }
     }
     Ok(())
-}
-
-#[derive(Clone, Copy)]
-enum TransferEncoding {
-    SevenBit,
-    QuotedPrintable,
-    Base64,
-    Unsupported,
-}
-
-fn transfer_encoding(value: Option<&str>) -> TransferEncoding {
-    match value.map(str::trim).map(str::to_ascii_lowercase).as_deref() {
-        None | Some("7bit") => TransferEncoding::SevenBit,
-        Some("quoted-printable") => TransferEncoding::QuotedPrintable,
-        Some("base64") => TransferEncoding::Base64,
-        Some("8bit" | "binary") | Some(_) => TransferEncoding::Unsupported,
-    }
 }
 
 #[derive(Clone, Copy)]

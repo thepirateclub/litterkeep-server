@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 Sieve vacation MIME transfer validation checkpoint
+
+- `:mime` validation проверяет не только имя Content-Transfer-Encoding, но и
+  декодируемость фактического body общим MIME decoder-ом. Duplicate CTE и
+  unsupported 8bit/binary отклоняются; Base64 decoder больше не принимает
+  данные после padding или ненулевые padding bits.
+- Regressions проверяют повреждённый base64/QP, не-ASCII body под 7bit,
+  duplicate CTE и повреждённый padding. Это unit-level CHECKSCRIPT validation;
+  независимая ManageSieve-сетевая проверка именно этих отказов не запускалась.
+- PASS: Windows Rust 1.97.1 `cargo test --all-targets --locked` (359 тестов),
+  strict Clippy, fmt и diff check. Linux Docker Rust 1.97 release build,
+  strict Clippy и 400 тестов.
+- Docker build использовал test stage без именованного runtime-контейнера;
+  после сборки `docker ps -a` содержит только `litterkeep-g12-phone`, образ
+  `litterkeep-linux-test:latest` обновлён. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 5230 vacation history compaction checkpoint
 
 - Vacation suppression journal компактизируется перед превышением лимита 8 MiB:

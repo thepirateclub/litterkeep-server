@@ -43,6 +43,8 @@ pub fn headers(raw: &[u8]) -> Result<(BTreeMap<String, String>, &[u8]), &'static
 }
 
 pub fn decode_base64(input: &[u8]) -> Result<Vec<u8>, &'static str> {
+    // MIME base64 состоит из полных квартетов; пробельные разделители строк
+    // удаляются до проверки, сами знаки padding разрешены только в конце.
     let mut values = Vec::new();
     for &b in input {
         if b.is_ascii_whitespace() {
@@ -62,15 +64,23 @@ pub fn decode_base64(input: &[u8]) -> Result<Vec<u8>, &'static str> {
         return Err("invalid base64 width");
     }
     let mut out = Vec::new();
-    for chunk in values.chunks_exact(4) {
+    let chunk_count = values.len() / 4;
+    for (chunk_number, chunk) in values.chunks_exact(4).enumerate() {
         let Some(&[first, second, third, fourth]) = chunk.get(..4) else {
             return Err("invalid base64 chunk");
         };
-        match (first == 64, second == 64, third == 64, fourth == 64) {
-            (true, _, _, _) | (false, true, _, _) | (false, false, true, false) => {
-                return Err("invalid base64 padding");
-            }
-            _ => {}
+        let final_chunk = chunk_number.saturating_add(1) == chunk_count;
+        match (
+            first == 64,
+            second == 64,
+            third == 64,
+            fourth == 64,
+            final_chunk,
+        ) {
+            (false, false, false, false, _) => {}
+            (false, false, false, true, true) if third & 0b11 == 0 => {}
+            (false, false, true, true, true) if second & 0b1111 == 0 => {}
+            _ => return Err("invalid base64 padding"),
         }
         out.push((first << 2) | (second >> 4));
         if third != 64 {
@@ -96,5 +106,8 @@ mod tests {
     #[test]
     fn rejects_invalid_base64() {
         assert!(decode_base64(b"xx=").is_err());
+        assert!(decode_base64(b"YQ==AAAA").is_err());
+        assert!(decode_base64(b"YR==").is_err());
+        assert!(decode_base64(b"YWJ=").is_err());
     }
 }

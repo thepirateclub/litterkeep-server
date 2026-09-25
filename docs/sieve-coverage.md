@@ -72,8 +72,16 @@ reverse-path и заголовки/связи ответа, определённ
 
 Обычный Sieve redirect по-прежнему ссылается на blob входящего письма, тогда как
 `Store::enqueue_outbound_payload` создаёт отдельную transaction/blob для
-сгенерированного сообщения. Не проверены долгосрочная компактизация истории и
-интеграция стороннего MTA. Требования сверены с RFC 5230 §§4.1-4.7 и 5.1-5.8.
+сгенерированного сообщения. Интеграция стороннего MTA не проверена. Требования
+сверены с RFC 5230 §§4.1-4.7 и 5.1-5.8.
+
+RFC 5230 `:mime` CHECKSCRIPT теперь отвергает повторяющиеся
+`Content-Transfer-Encoding` и тело, которое не декодируется заявленным
+7bit/base64/quoted-printable. Используется общий типизированный MIME decoder;
+его base64 проверяет финальность padding и нулевые pad bits. Unit regression
+покрывает неверные символы, данные после padding, некорректный QP escape,
+не-ASCII 7bit и duplicate CTE. Сетевая ManageSieve-проверка этих новых отказов
+пока не выполнялась.
 
 Quoted и `text:` multiline strings принимают CRLF; multiline форма сохраняет
 terminating CRLF тела, снимает один dot-stuffing octet и ограничена 65 536
