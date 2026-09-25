@@ -165,6 +165,31 @@ fn mime_vacation_enforces_wire_line_lengths_and_7bit_octets() {
     .is_err());
 }
 
+#[test]
+fn mime_vacation_rejects_encoded_composite_entities() {
+    let encoded = [
+        "Content-Type: multipart/mixed; boundary=x\r\nContent-Transfer-Encoding: base64\r\n\r\naGVsbG8=",
+        "Content-Type: multipart (note)/related; boundary=\"x(y)\"\r\nContent-Transfer-Encoding: base64\r\n\r\naGVsbG8=",
+        "Content-Type: message/partial\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nhello",
+        "Content-Type: multipart/related; boundary=x\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nhello",
+    ];
+    for entity in encoded {
+        assert!(
+            super::vacation_mime::validate_reason(entity.as_bytes()).is_err(),
+            "accepted composite transfer encoding: {entity}"
+        );
+    }
+
+    let valid_multipart = b"Content-Type: multipart/mixed; boundary=x\r\n\r\n--x\r\nContent-Type: text/plain\r\n\r\nbody\r\n--x--\r\n";
+    assert!(super::vacation_mime::validate_reason(valid_multipart).is_ok());
+    assert!(
+        super::vacation_mime::validate_reason(
+            b"Content-Type: text/plain\r\nContent-Type: application/octet-stream\r\n\r\nbody"
+        )
+        .is_err()
+    );
+}
+
 fn mime_script(entity: &str) -> String {
     format!("require \"vacation\"; vacation :mime \"{entity}\";")
 }

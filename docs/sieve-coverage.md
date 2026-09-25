@@ -90,6 +90,14 @@ RFC 5230 `:mime` CHECKSCRIPT теперь отвергает повторяющ�
 Unit cases проверяют обе границы строк, NUL, bare LF и пробел перед soft break.
 Независимый ManageSieve acceptance ещё не запускался.
 
+RFC 2045 §6.4: encoded transfer forbidden for composite `multipart/*` and
+`message/*`. Validator разбирает `Content-Type` в typed media type, отвергает
+base64/QP на этих составных сущностях и повторный Content-Type. Unit cases
+проверяют `multipart/mixed`, `multipart/related`, `message/partial`, comment
+между type и slash, quoted boundary с круглыми скобками, допустимый 7bit
+multipart и повторное поле. ManageSieve network acceptance этого правила не
+запускался.
+
 Quoted и `text:` multiline strings принимают CRLF; multiline форма сохраняет
 terminating CRLF тела, снимает один dot-stuffing octet и ограничена 65 536
 байтами. Для `text:` допускаются SP/HTAB и hash-comment перед обязательным

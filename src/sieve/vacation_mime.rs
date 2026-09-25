@@ -1,6 +1,6 @@
 //! Проверяет MIME entity из Sieve vacation до сохранения script.
 
-use crate::mime::transfer::TransferEncoding;
+use crate::mime::{parameters::MediaType, transfer::TransferEncoding};
 
 /// Проверяет структуру заголовков и wire-кодировку entity согласно RFC 2045.
 ///
@@ -22,10 +22,13 @@ pub(super) fn validate_reason(entity: &[u8]) -> Result<(), &'static str> {
             return Err("non-MIME entity header");
         }
     }
+    let media_type = parse_content_type(&parsed.fields)?;
     let fields = parsed
         .fields
         .iter()
-        .filter(|field| field.name == "content-transfer-encoding")
+        .filter(|field| {
+            field.kind() == crate::mime::header_block::HeaderName::ContentTransferEncoding
+        })
         .collect::<Vec<_>>();
     let field = match fields.as_slice() {
         [] => None,
@@ -41,25 +44,180 @@ pub(super) fn validate_reason(entity: &[u8]) -> Result<(), &'static str> {
     let body = entity
         .get(parsed.body_offset..)
         .ok_or("invalid MIME body")?;
-    validate_body(&encoding, body)
+    validate_body(&encoding, body, media_type.as_ref())
 }
 
-fn validate_body(encoding: &TransferEncoding, body: &[u8]) -> Result<(), &'static str> {
+fn parse_content_type(
+    fields: &[crate::mime::header_block::HeaderField],
+) -> Result<Option<MediaType>, &'static str> {
+    let content_types = fields
+        .iter()
+        .filter(|field| field.kind() == crate::mime::header_block::HeaderName::ContentType)
+        .collect::<Vec<_>>();
+    let field = match content_types.as_slice() {
+        [] => return Ok(None),
+        [field] => *field,
+        _ => return Err("duplicate MIME content type"),
+    };
+    let value = std::str::from_utf8(&field.value).map_err(|_| "invalid MIME content type")?;
+    let value = remove_comments(value)?;
+    crate::mime::parameters::parse(&value).map(|structured| Some(structured.media_type))
+}
+
+fn remove_comments(value: &str) -> Result<String, &'static str> {
+    let mut output = String::with_capacity(value.len());
+    let mut state = ContentTypeState::Outside;
+    for character in value.chars() {
+        state = match (state, character) {
+            (ContentTypeState::Outside, '(') => {
+                output.push(' ');
+                ContentTypeState::Comment {
+                    depth: 1,
+                    escaped: false,
+                }
+            }
+            (ContentTypeState::Outside, '"') => {
+                output.push(character);
+                ContentTypeState::Quoted { escaped: false }
+            }
+            (ContentTypeState::Outside, _) => {
+                output.push(character);
+                ContentTypeState::Outside
+            }
+            (ContentTypeState::Quoted { escaped: true }, _) => {
+                output.push(character);
+                ContentTypeState::Quoted { escaped: false }
+            }
+            (ContentTypeState::Quoted { escaped: false }, '\\') => {
+                output.push(character);
+                ContentTypeState::Quoted { escaped: true }
+            }
+            (ContentTypeState::Quoted { escaped: false }, '"') => {
+                output.push(character);
+                ContentTypeState::Outside
+            }
+            (ContentTypeState::Quoted { escaped: false }, _) => {
+                output.push(character);
+                ContentTypeState::Quoted { escaped: false }
+            }
+            (
+                ContentTypeState::Comment {
+                    depth,
+                    escaped: true,
+                },
+                _,
+            ) => ContentTypeState::Comment {
+                depth,
+                escaped: false,
+            },
+            (
+                ContentTypeState::Comment {
+                    depth,
+                    escaped: false,
+                },
+                '\\',
+            ) => ContentTypeState::Comment {
+                depth,
+                escaped: true,
+            },
+            (
+                ContentTypeState::Comment {
+                    depth,
+                    escaped: false,
+                },
+                '(',
+            ) => ContentTypeState::Comment {
+                depth: depth.saturating_add(1),
+                escaped: false,
+            },
+            (
+                ContentTypeState::Comment {
+                    depth,
+                    escaped: false,
+                },
+                ')',
+            ) => match depth.saturating_sub(1) {
+                0 => {
+                    output.push(' ');
+                    ContentTypeState::Outside
+                }
+                remaining => ContentTypeState::Comment {
+                    depth: remaining,
+                    escaped: false,
+                },
+            },
+            (
+                ContentTypeState::Comment {
+                    depth,
+                    escaped: false,
+                },
+                _,
+            ) => ContentTypeState::Comment {
+                depth,
+                escaped: false,
+            },
+        };
+    }
+    match state {
+        ContentTypeState::Outside | ContentTypeState::Quoted { .. } => Ok(output),
+        ContentTypeState::Comment { .. } => Err("unterminated MIME comment"),
+    }
+}
+
+#[derive(Clone, Copy)]
+enum ContentTypeState {
+    Outside,
+    Quoted { escaped: bool },
+    Comment { depth: usize, escaped: bool },
+}
+
+fn validate_body(
+    encoding: &TransferEncoding,
+    body: &[u8],
+    media_type: Option<&MediaType>,
+) -> Result<(), &'static str> {
     // RFC считает длину строк в октетах, а не символах. Ограничения различаются
     // для обычного 7bit и двух кодировок, предназначенных для коротких строк.
-    let (maximum_line, rule) = match encoding {
-        TransferEncoding::SevenBit => (998, BodyOctetRule::SevenBit),
-        TransferEncoding::Base64 => (76, BodyOctetRule::Base64),
-        TransferEncoding::QuotedPrintable => (76, BodyOctetRule::QuotedPrintable),
-        TransferEncoding::EightBit
-        | TransferEncoding::Binary
-        | TransferEncoding::Unsupported(_) => return Err("unsupported MIME transfer encoding"),
+    let (maximum_line, rule) = match (encoding, composite(media_type)) {
+        (TransferEncoding::SevenBit, _) => (998, BodyOctetRule::SevenBit),
+        (TransferEncoding::Base64, false) => (76, BodyOctetRule::Base64),
+        (TransferEncoding::QuotedPrintable, false) => (76, BodyOctetRule::QuotedPrintable),
+        (TransferEncoding::Base64 | TransferEncoding::QuotedPrintable, true) => {
+            return Err("encoded transfer is forbidden for composite MIME type");
+        }
+        (
+            TransferEncoding::EightBit
+            | TransferEncoding::Binary
+            | TransferEncoding::Unsupported(_),
+            _,
+        ) => return Err("unsupported MIME transfer encoding"),
     };
     validate_lines(body, maximum_line, rule)?;
     encoding
         .decode(body)
         .map(drop)
         .map_err(|_| "invalid encoded MIME body")
+}
+
+fn composite(media_type: Option<&MediaType>) -> bool {
+    match media_type {
+        Some(
+            MediaType::MultipartMixed
+            | MediaType::MultipartAlternative
+            | MediaType::MultipartRelated
+            | MediaType::MultipartOther(_)
+            | MediaType::MessageRfc822
+            | MediaType::MessageOther(_),
+        ) => true,
+        Some(
+            MediaType::TextPlain
+            | MediaType::TextHtml
+            | MediaType::TextOther(_)
+            | MediaType::ApplicationOctetStream
+            | MediaType::Other(_),
+        )
+        | None => false,
+    }
 }
 
 /// За один проход проверяет CRLF, длину строки и алфавит кодировки.

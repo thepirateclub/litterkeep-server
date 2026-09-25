@@ -14,6 +14,7 @@ pub enum MediaType {
     MultipartRelated,
     MultipartOther(String),
     MessageRfc822,
+    MessageOther(String),
     ApplicationOctetStream,
     Other(String),
 }
@@ -30,6 +31,7 @@ impl MediaType {
             Self::MultipartRelated => ("MULTIPART", "RELATED"),
             Self::MultipartOther(subtype) => ("MULTIPART", subtype),
             Self::MessageRfc822 => ("MESSAGE", "RFC822"),
+            Self::MessageOther(subtype) => ("MESSAGE", subtype),
             Self::ApplicationOctetStream => ("APPLICATION", "OCTET-STREAM"),
             Self::Other(value) => value.split_once('/').unwrap_or((value, "UNKNOWN")),
         }
@@ -238,6 +240,10 @@ fn hex(byte: u8) -> Option<u8> {
 
 fn parse_media_type(value: &str) -> MediaType {
     let normalized = value.to_ascii_lowercase();
+    let Some((kind, subtype)) = normalized.split_once('/') else {
+        return MediaType::Other(normalized);
+    };
+    let normalized = format!("{}/{}", kind.trim(), subtype.trim());
     match normalized.as_str() {
         "text/plain" => MediaType::TextPlain,
         "text/html" => MediaType::TextHtml,
@@ -249,6 +255,7 @@ fn parse_media_type(value: &str) -> MediaType {
         _ => match normalized.split_once('/') {
             Some(("text", subtype)) => MediaType::TextOther(subtype.to_owned()),
             Some(("multipart", subtype)) => MediaType::MultipartOther(subtype.to_owned()),
+            Some(("message", subtype)) => MediaType::MessageOther(subtype.to_owned()),
             _ => MediaType::Other(normalized),
         },
     }

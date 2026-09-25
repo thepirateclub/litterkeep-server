@@ -4,6 +4,25 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 Sieve composite MIME transfer checkpoint
+
+- RFC 2045 §6.4 запрещает base64 и quoted-printable для составных `multipart/*`
+  и `message/*` entity. Vacation MIME validator теперь разбирает Content-Type
+  в typed `MediaType`, удаляя разрешённые RFC comments вне quoted-string;
+  классифицирует все `message/*` как составные и отвергает такие CTE. Повторный
+  Content-Type тоже отклоняется. Multipart с 7bit остаётся допустимым, если
+  проходит line/octet checks.
+- Regression проверяет multipart mixed/related и message partial с запрещённой
+  кодировкой, комментарий между type и slash, quoted boundary с круглыми
+  скобками, допустимый multipart 7bit и duplicate Content-Type. Это unit
+  CHECKSCRIPT coverage, без независимого сетевого ManageSieve клиента.
+- PASS: Windows Rust 1.97.1 `cargo test --all-targets --locked` (361 тест),
+  strict Clippy, fmt и diff check. Linux Docker Rust 1.97 release build,
+  strict Clippy и 402 теста.
+- Docker test-stage собран с `--rm`. Runtime-контейнеры не запускались;
+  после сборки `docker ps -a` содержит только `litterkeep-g12-phone`, образ
+  `litterkeep-linux-test:latest` обновлён. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 Sieve vacation MIME line profile checkpoint
 
 - Проверка `:mime` выделена в отдельный MIME validator. Для 7bit проверяются
