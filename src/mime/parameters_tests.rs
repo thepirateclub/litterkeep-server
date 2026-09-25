@@ -117,6 +117,17 @@ fn decodes_windows_1252_rfc2231_filename() {
 }
 
 #[test]
+fn decodes_utf16be_rfc2231_filename() {
+    let parsed = parameters::parse("application/octet-stream; filename*=UTF-16BE''%00H%00i")
+        .expect("registered UTF-16BE filename");
+
+    assert_eq!(
+        parsed.parameters.get("filename").map(String::as_str),
+        Some("Hi")
+    );
+}
+
+#[test]
 fn rejects_noncanonical_rfc2231_extended_payload_octets() {
     for value in [
         "text/plain; name*=UTF-8''bad?value",

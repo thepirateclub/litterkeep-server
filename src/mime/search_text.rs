@@ -140,7 +140,7 @@ fn decode_text_leaf(entity: &tree::Entity, raw: &[u8]) -> Result<Option<String>,
         .map(|name| Charset::parse(name))
         .unwrap_or(Ok(Charset::UsAscii))
         .ok();
-    let Some(charset) = charset else {
+    let Some(charset) = charset.filter(|charset| charset.is_suitable_for_text_mime()) else {
         return Ok(None);
     };
     Ok(charset.decode(&decoded).ok())

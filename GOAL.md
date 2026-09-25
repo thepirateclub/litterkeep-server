@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 UTF-16 MIME charset checkpoint
+
+- Добавлено декодирование `UTF-16`, `UTF-16BE` и `UTF-16LE` в общем MIME
+  charset-профиле: RFC 2047 encoded-word и RFC 2231 extended filename теперь
+  преобразуются без внешней codec-зависимости. Проверены BOM/порядок байтов,
+  supplementary scalar через корректную surrogate pair и отказ на неполных
+  octets, противоположном BOM, некорректных surrogate. Charset зарегистрирован
+  RFC 2781 как unsuitable для MIME `text/*`, поэтому текстовый SEARCH
+  намеренно не декодирует body с этими метками.
+- Windows Rust 1.97.1: `cargo test --locked` (412 library + 1 binary), strict
+  Clippy, `cargo fmt --check` и `git diff --check` прошли. Linux Docker test
+  stage: release build, strict Clippy, 453 library + 1 binary tests и
+  doc-tests прошли. Socket acceptance не запускался; новые зависимости,
+  постоянные контейнеры и stage data не создавались. Временный image удалён,
+  `litterkeep-g12-phone` сохранён. G17 RUNNING.
+
 ### 2026-09-25: G17 RFC 2046 nested outer-boundary recovery checkpoint
 
 - MIME parser propagates typed multipart close policy through nested entities.

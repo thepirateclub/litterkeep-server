@@ -1,5 +1,9 @@
 //! Ограниченный и явный профиль преобразования MIME charset в Unicode.
 
+#[cfg(test)]
+#[path = "charset_tests.rs"]
+mod tests;
+
 /// Поддерживаемые charset после нормализации на протокольной границе.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Charset {
@@ -8,6 +12,9 @@ pub enum Charset {
     Iso8859_1,
     Windows1251,
     Windows1252,
+    Utf16,
+    Utf16Be,
+    Utf16Le,
 }
 
 impl Charset {
@@ -19,8 +26,16 @@ impl Charset {
             "iso-8859-1" | "latin1" => Ok(Self::Iso8859_1),
             "windows-1251" | "cp1251" => Ok(Self::Windows1251),
             "windows-1252" => Ok(Self::Windows1252),
+            "utf-16" => Ok(Self::Utf16),
+            "utf-16be" => Ok(Self::Utf16Be),
+            "utf-16le" => Ok(Self::Utf16Le),
             _ => Err("unsupported MIME charset"),
         }
+    }
+
+    /// Проверяет допустимость charset именно для MIME-подтипа text.
+    pub fn is_suitable_for_text_mime(self) -> bool {
+        !matches!(self, Self::Utf16 | Self::Utf16Be | Self::Utf16Le)
     }
 
     /// Декодирует только известный профиль, сохраняя ошибку неизвестной кодировки.
@@ -38,7 +53,59 @@ impl Charset {
             Self::Iso8859_1 => Ok(bytes.iter().map(|byte| char::from(*byte)).collect()),
             Self::Windows1251 => decode_windows_1251(bytes),
             Self::Windows1252 => Ok(decode_windows_1252(bytes)),
+            Self::Utf16 => decode_utf16(bytes, Utf16ByteOrder::DetectBom),
+            Self::Utf16Be => decode_utf16(bytes, Utf16ByteOrder::BigEndian),
+            Self::Utf16Le => decode_utf16(bytes, Utf16ByteOrder::LittleEndian),
         }
+    }
+}
+
+/// Порядок байтов UTF-16, заданный меткой или начальной сигнатурой.
+#[derive(Clone, Copy)]
+enum Utf16ByteOrder {
+    DetectBom,
+    BigEndian,
+    LittleEndian,
+}
+
+/// Декодирует UTF-16 с проверкой длины, surrogate pairs и невозможного U+FFFE.
+fn decode_utf16(bytes: &[u8], requested_order: Utf16ByteOrder) -> Result<String, &'static str> {
+    let (order, payload) = match (requested_order, bytes.get(..2)) {
+        (Utf16ByteOrder::DetectBom, Some([0xfe, 0xff])) => (
+            Utf16ByteOrder::BigEndian,
+            bytes.get(2..).ok_or("invalid UTF-16 BOM")?,
+        ),
+        (Utf16ByteOrder::DetectBom, Some([0xff, 0xfe])) => (
+            Utf16ByteOrder::LittleEndian,
+            bytes.get(2..).ok_or("invalid UTF-16 BOM")?,
+        ),
+        (Utf16ByteOrder::DetectBom, _) => (Utf16ByteOrder::BigEndian, bytes),
+        (order, _) => (order, bytes),
+    };
+    if !payload.chunks_exact(2).remainder().is_empty() {
+        return Err("odd UTF-16 octet count");
+    }
+    let units = payload
+        .chunks_exact(2)
+        .map(|pair| utf16_unit(pair, order))
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut output = String::with_capacity(payload.len());
+    for decoded in char::decode_utf16(units) {
+        output.push(decoded.map_err(|_| "invalid UTF-16 surrogate pair")?);
+    }
+    Ok(output)
+}
+
+/// Собирает один 16-битный unit из пары октетов без прямой индексации.
+fn utf16_unit(pair: &[u8], order: Utf16ByteOrder) -> Result<u16, &'static str> {
+    let octets: [u8; 2] = pair.try_into().map_err(|_| "invalid UTF-16 pair")?;
+    let value = match order {
+        Utf16ByteOrder::DetectBom | Utf16ByteOrder::BigEndian => u16::from_be_bytes(octets),
+        Utf16ByteOrder::LittleEndian => u16::from_le_bytes(octets),
+    };
+    match value {
+        0xfffe => Err("UTF-16 contains the invalid U+FFFE value"),
+        _ => Ok(value),
     }
 }
 
@@ -171,41 +238,5 @@ fn decode_windows_1252_byte(byte: u8) -> char {
         0x9c => 'œ',
         0x9e => 'ž',
         0x9f => 'Ÿ',
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn profiles_are_explicit_and_strict() {
-        assert_eq!(Charset::Utf8.decode("ёж".as_bytes()).expect("utf8"), "ёж");
-        assert_eq!(
-            Charset::Iso8859_1.decode(b"caf\xe9").expect("latin1"),
-            "café"
-        );
-        assert!(Charset::UsAscii.decode(b"\xff").is_err());
-        assert_eq!(
-            Charset::parse("windows-1251")
-                .expect("cp1251")
-                .decode(b"\xcf\xf0\xe8\xe2\xe5\xf2"),
-            Ok("Привет".to_owned())
-        );
-        assert!(Charset::Windows1251.decode(b"\x98").is_err());
-    }
-
-    #[test]
-    fn windows_1252_decodes_typographic_range_and_c1_controls() {
-        let decoded = Charset::parse("WINDOWS-1252")
-            .expect("registered MIME charset")
-            .decode(&(0x80_u8..=0x9f_u8).collect::<Vec<_>>())
-            .expect("complete Windows-1252 C1 range");
-
-        assert_eq!(
-            decoded,
-            "€\u{0081}‚ƒ„…†‡ˆ‰Š‹Œ\u{008d}Ž\u{008f}\u{0090}‘’“”•–—˜™š›œ\u{009d}žŸ"
-        );
-        assert!(Charset::parse("cp1252").is_err());
     }
 }

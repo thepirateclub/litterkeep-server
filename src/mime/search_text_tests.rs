@@ -48,6 +48,14 @@ fn windows_1252_body_is_decoded_before_search() {
 }
 
 #[test]
+fn utf16_charset_is_not_used_for_mime_text_search() {
+    let raw = b"Content-Type: text/plain; charset=utf-16\r\nContent-Transfer-Encoding: binary\r\n\r\n\xfe\xff\x00s\x00e\x00c\x00r\x00e\x00t";
+    let document = SearchDocument::parse(raw, true).expect("search document");
+
+    assert!(!document.body_contains("secret"));
+}
+
+#[test]
 fn unknown_transfer_encoding_is_opaque_and_not_searched_as_declared_text() {
     let raw = b"Content-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: x-private\r\n\r\nsearchable";
     let document = SearchDocument::parse(raw, true).expect("opaque entity");
