@@ -1,8 +1,10 @@
 //! Рекурсивное MIME-дерево с абсолютными диапазонами исходного RFC822.
 
-use super::header_block::{self, HeaderField, HeaderName};
-use super::parameters::{self, MediaType};
+use super::header_block::{self, HeaderField};
+use super::parameters::MediaType;
 use super::transfer::TransferEncoding;
+#[path = "tree_content_type.rs"]
+mod content_type;
 #[path = "tree_multipart.rs"]
 mod multipart;
 #[path = "tree_transfer.rs"]
@@ -50,7 +52,7 @@ fn parse_entity(
         return Err("MIME part limit exceeded");
     }
     let headers = header_block::parse(raw)?;
-    let mut structured = parse_content_type(&headers.fields)?;
+    let mut structured = content_type::parse(&headers.fields)?;
     let transfer_encoding = transfer_policy::resolve(&headers.fields, &structured.media_type)?;
     // RFC 2045 §6.4 делает entity с неизвестным CTE непрозрачной для
     // MIME-интерпретации: фактический тип становится application/octet-stream.
@@ -113,31 +115,6 @@ fn parse_entity(
     })
 }
 
-/// Применяет RFC 2045 §5.2 fallback для отсутствующего или некорректного поля.
-fn parse_content_type(fields: &[HeaderField]) -> Result<parameters::StructuredValue, &'static str> {
-    let mut values = fields
-        .iter()
-        .filter(|field| matches!(field.kind(), HeaderName::ContentType));
-    match values.next() {
-        None => parameters::parse("text/plain"),
-        Some(field) => match values.next() {
-            Some(_) => Err("duplicate Content-Type field"),
-            None => parse_single_content_type(&field.value),
-        },
-    }
-}
-
-/// Сохраняет MIME-заголовок как есть, но использует безопасный тип при ошибке.
-fn parse_single_content_type(value: &[u8]) -> Result<parameters::StructuredValue, &'static str> {
-    match std::str::from_utf8(value) {
-        Ok(value) => match parameters::parse(value) {
-            Ok(parsed) => Ok(parsed),
-            Err(_) => parameters::parse("text/plain"),
-        },
-        Err(_) => parameters::parse("text/plain"),
-    }
-}
-
 impl Entity {
     /// Проверяет CTE binary во всём bounded MIME поддереве, включая вложенные parts.
     pub fn contains_binary_transfer_encoding(&self) -> bool {
@@ -193,6 +170,14 @@ mod tests {
         let raw = b"Content-Type: application/octet-stream\r\nContent-Transfer-Encoding: base64\r\n\r\naGVsbG8A";
         let entity = parse(raw).expect("entity");
         assert_eq!(entity.decoded_body(raw).expect("decoded body"), b"hello\0");
+    }
+
+    #[test]
+    fn mime_base64_ignores_non_alphabet_octets() {
+        let raw = b"Content-Type: application/octet-stream\r\nContent-Transfer-Encoding: base64\r\n\r\n!aGVsbG8=";
+        let entity = parse(raw).expect("MIME entity");
+
+        assert_eq!(entity.decoded_body(raw).expect("decoded body"), b"hello");
     }
 
     #[test]

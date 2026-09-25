@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 MIME Base64 decoder profile checkpoint
+
+- Декодирование разделено на строгий путь RFC 2047 encoded-word и MIME CTE
+  путь RFC 2045 §6.8, который игнорирует октеты вне Base64-алфавита.
+  Оба пути сохраняют проверку ширины, padding, нулевых pad bits и отсутствия
+  данных после padding. Реализация однопроходная, временно хранит один quantum.
+- Unit тесты проверяют допустимое игнорирование мусорных октетов и сохранение
+  строгого encoded-word профиля. Windows Rust 1.97.1: 390 library + 1 binary
+  tests, fmt и strict Clippy PASS. Docker Linux Rust 1.97.1: release build,
+  strict Clippy, 431 library + 1 binary + doc-tests PASS. Независимый black-box
+  fixture обновлён, но socket acceptance не запускался. После `docker build
+  --rm` в инвентаре остался только `litterkeep-g12-phone`; временных контейнеров
+  нет. RFC 2045 §6.8 сверена с IETF Datatracker. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 bounded multipart delimiter collection checkpoint
 
 - MIME tree передаёт multipart parser-у остаток общего `MAX_PARTS` бюджета.

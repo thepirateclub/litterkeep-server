@@ -1,6 +1,6 @@
 //! Типизированная MIME Content-Transfer-Encoding и декодирование body.
 
-use super::{decode_base64, quoted_printable};
+use super::{decode_mime_base64, quoted_printable};
 
 /// Поддерживаемые transfer encoding после wire-разбора.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -49,7 +49,7 @@ impl TransferEncoding {
                 Ok(body.to_vec())
             }
             Self::EightBit | Self::Binary => Ok(body.to_vec()),
-            Self::Base64 => decode_base64(body),
+            Self::Base64 => decode_mime_base64(body),
             Self::QuotedPrintable => quoted_printable::decode(body),
             Self::Unsupported(_) => Err("unsupported Content-Transfer-Encoding"),
         }

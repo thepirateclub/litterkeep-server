@@ -1,8 +1,8 @@
 //! Политика выбора и проверки Content-Transfer-Encoding MIME entity.
 
+use super::super::header_block::{HeaderField, HeaderName};
+use super::super::parameters::MediaType;
 use super::super::transfer::TransferEncoding;
-use super::header_block::{HeaderField, HeaderName};
-use super::parameters::MediaType;
 
 /// Разбирает единственное CTE, отвергая неоднозначные повторные поля.
 pub(super) fn resolve(

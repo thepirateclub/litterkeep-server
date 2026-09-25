@@ -39,7 +39,7 @@ def main() -> None:
         + b"?=\r\n"
         b"Content-Type: text/plain; charset=utf-8\r\n"
         b"Content-Transfer-Encoding: base64\r\n\r\n"
-        + encoded_body
+        + b"!" + encoded_body
         + b"\r\n--search-boundary\r\n"
         b"Content-Type: text/calendar; charset=utf-8\r\n"
         b"Content-Transfer-Encoding: quoted-printable\r\n\r\n"
