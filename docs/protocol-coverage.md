@@ -277,6 +277,11 @@ From/To/Cc/Bcc/Sender/Resent-From/Resent-To) и сравнивает mailbox в�
 `To`; поддержку произвольных пользовательских address-list headers это не
 подтверждает.
 
+Sieve `header` декодирует RFC 2047 encoded-word общей MIME-декодировкой до
+сравнения в UTF-8. Unit покрывает ISO-8859-1 и UTF-8 encoded-word, а независимая
+ManageSieve -> SMTP -> IMAP acceptance отправляет encoded UTF-8 Subject и
+проверяет его Unicode-сопоставление при выборе папки.
+
 ## Outbound SMTP
 
 Маршрут задаётся явно как IP:port и typed TLS policy. Scheduler durable,

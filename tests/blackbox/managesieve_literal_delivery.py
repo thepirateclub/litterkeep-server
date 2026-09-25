@@ -130,11 +130,14 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
                 b'OK "completed"\r\n',
             )
             first_chunk = b'require ["fileinto", "subaddress"]; '
-            second_chunk = (
-                b'if allof (header :contains "subject" "[invoice]", '
-                b'header :matches "subject" "invoice\\\\**", '
-                b'address :comparator "i;ascii-casemap" :detail :is "to" "invoices", size :over 1) '
-                b'{ fileinto "Invoices"; stop; }'
+            second_chunk = b"".join(
+                [
+                    b'if allof (header :contains "subject" "[invoice]", ',
+                    'header :contains "subject" "café☃", '.encode("utf-8"),
+                    b'header :matches "subject" "invoice\\\\**", ',
+                    b'address :comparator "i;ascii-casemap" :detail :is "to" "invoices", size :over 1) ',
+                    b'{ fileinto "Invoices"; stop; }',
+                ]
             )
             source = first_chunk + second_chunk
             havespace = f'HAVESPACE "invoices" {len(source)}\r\n'.encode()
@@ -200,7 +203,7 @@ def deliver(options: argparse.Namespace, context: ssl.SSLContext) -> None:
     message = EmailMessage()
     message["From"] = "alice@litterkeep.test"
     message["To"] = "Invoices: bob+invoices@litterkeep.test;"
-    message["Subject"] = "invoice* [invoice] paid"
+    message["Subject"] = "invoice* [invoice] paid café☃"
     message.set_content("invoice body")
     with smtplib.SMTP(options.host, options.smtp_port, timeout=10) as client:
         client.ehlo()

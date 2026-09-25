@@ -117,7 +117,8 @@ fn collect_text(
     Ok(())
 }
 
-fn decode_header_value(value: &[u8]) -> Option<String> {
+/// Преобразует RFC 2047 header text в Unicode для MIME и протокольных тестов.
+pub(crate) fn decode_header_value(value: &[u8]) -> Option<String> {
     let value = std::str::from_utf8(value).ok()?;
     encoded_word::decode_header(value).ok()
 }

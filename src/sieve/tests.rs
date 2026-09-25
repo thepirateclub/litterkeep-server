@@ -100,6 +100,15 @@ fn matches_uses_octet_width_and_sieve_escaped_wildcards() {
     assert!(plan.discard);
 }
 
+#[test]
+fn header_test_decodes_rfc2047_charsets_before_comparison() {
+    let script = parse("if header :is \"subject\" \"café☃\" { discard; }")
+        .expect("parse Unicode header matcher");
+    let encoded = "=?ISO-8859-1?Q?caf=E9?= =?UTF-8?B?4piD?=";
+    let plan = execute(&script, &[("Subject".into(), encoded.into())], 10).expect("execute");
+    assert!(plan.discard);
+}
+
 /// Address-проекция отделяет plus-detail и использует тот же typed matcher.
 #[test]
 fn address_test_selects_detail_without_matching_another_recipient() {

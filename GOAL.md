@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 5228 header charset comparison checkpoint
+
+- Sieve `header` сравнивает RFC 2047 header text после общей MIME-декодировки
+  в Unicode/UTF-8. Unit regression проверяет совместное декодирование
+  ISO-8859-1 и UTF-8 encoded-word в Subject. Независимый acceptance расширен:
+  ManageSieve загружает фильтр с Unicode условием `café☃`, Alice отправляет
+  RFC 2047-кодируемое SMTP-письмо, а Bob подтверждает доставку в `Invoices`
+  через IMAP.
+- PASS: Windows Rust 1.97.1, fmt, 322 теста и strict Clippy; Python fixture
+  compile и diff check. Linux Docker Rust 1.97: strict Clippy и 362 теста.
+  Независимый ManageSieve -> SMTP -> IMAP сценарий прошёл. Рабочий каталог
+  `./data/g17-sieve-rfc2047`; временный контейнер удалён, `litterkeep-g12-phone`
+  сохранён. Прямое подключение Litterkeep не проверялось. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 5228 octet glob checkpoint
 
 - `:matches` теперь токенизирует pattern по UTF-8 octets: базовые

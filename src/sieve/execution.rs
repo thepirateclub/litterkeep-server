@@ -243,5 +243,8 @@ fn header_matches(
     {
         return false;
     }
-    matching::matches(value, matcher)
+    match crate::mime::search_text::decode_header_value(value.as_bytes()) {
+        Some(decoded) => matching::matches(&decoded, matcher),
+        None => false,
+    }
 }
