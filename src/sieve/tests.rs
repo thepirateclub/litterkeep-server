@@ -101,6 +101,20 @@ fn address_test_selects_detail_without_matching_another_recipient() {
     assert_eq!(plan.folders, vec!["Invoices"]);
 }
 
+/// RFC 5228 разрешает менять порядок tagged arguments до string-list.
+#[test]
+fn address_options_accept_arbitrary_tag_order_and_keep_comparator_semantics() {
+    let source = "require \"subaddress\"; if address :comparator \"i;octet\" :detail :contains \"to\" \"SALES\" { discard; }";
+    let message = [("To".into(), "alice+sales@example.test".into())];
+    let case_sensitive = parse(source).expect("reordered address options parse");
+    let plan = execute(&case_sensitive, &message, 10).expect("execute");
+    assert!(plan.keep);
+
+    let matching_key = parse(&source.replace("SALES", "sales")).expect("parse");
+    let plan = execute(&matching_key, &message, 10).expect("execute");
+    assert!(plan.discard);
+}
+
 /// Сетевой fixture использует это составное правило без подмены envelope RCPT.
 #[test]
 fn combined_header_address_and_size_rule_matches_network_fixture() {
@@ -138,6 +152,8 @@ fn invalid_script_does_not_become_a_delivery_plan() {
     assert!(parse("if exists [,\"Subject\"] { keep; }").is_err());
     assert!(parse("if address :detail :is \"to\" \"sales\" { keep; }").is_err());
     assert!(parse("if address :user :is \"to\" \"alice\" { keep; }").is_err());
+    assert!(parse("if address :detail :localpart \"to\" \"alice\" { keep; }").is_err());
+    assert!(parse("if address :is :contains \"to\" \"alice\" { keep; }").is_err());
 }
 
 #[test]

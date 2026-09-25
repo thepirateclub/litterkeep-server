@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 5228 address-tag ordering checkpoint
+
+- Sieve `address` теперь разбирает `ADDRESS-PART`, `MATCH-TYPE` и
+  `COMPARATOR` в любом порядке до позиционных списков. Каждая опция может
+  встретиться один раз; конфликтующие дубликаты отклоняются. Выделен отдельный
+  `address_options.rs`, файл содержит 66 строк.
+- PASS: Windows Rust 1.97.1, fmt, 315 тестов, strict Clippy, Python compile и
+  diff check. Linux Docker Rust 1.97: strict Clippy и 355 тестов. Независимый
+  ManageSieve STARTTLS acceptance проверил переставленные теги в CHECKSCRIPT;
+  активный script с перестановкой реально маршрутизировал SMTP письмо, которое
+  было прочитано через IMAP. Stage `./data/g17-sieve-address-option-order`.
+  Временный контейнер удалён, `litterkeep-g12-phone` сохранён. Интеграция с
+  приложением Litterkeep не проверялась. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 5233 subaddress checkpoint
 
 - `:user`/`:detail` теперь распознаются как `subaddress` extension и требуют

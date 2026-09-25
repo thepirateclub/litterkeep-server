@@ -6,6 +6,8 @@
 
 #[path = "sieve/address.rs"]
 mod address;
+#[path = "sieve/address_options.rs"]
+mod address_options;
 #[path = "sieve/ast.rs"]
 mod ast;
 #[path = "sieve/execution.rs"]

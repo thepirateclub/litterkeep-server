@@ -261,7 +261,12 @@ escape с удалением обратной косой черты и отве�
 расширение. Сервер использует первый `+` в local-part как separator: без него
 `:detail` не создаёт значение для сравнения, а `user+@domain` создаёт пустой
 detail. CHECKSCRIPT и адресные unit tests проверяют эти случаи. Другие политики
-разделителя subaddress пока не настраиваются.
+разделителя subaddress пока не настраиваются. ADDRESS-PART, COMPARATOR и
+MATCH-TYPE перед позиционными списками принимаются в любом порядке, как
+предписывает RFC 5228 §2.6.2; повтор одного такого аргумента отвергается.
+Unit-тест проверяет также фактическую case-sensitive семантику `i;octet`, а
+ManageSieve CHECKSCRIPT и SMTP -> Sieve -> IMAP acceptance проверяют grammar и
+исполнение reordered script.
 
 ## Outbound SMTP
 

@@ -87,6 +87,16 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
                 b'require "subaddress"; if address :detail :is "to" "sales" { keep; }',
                 b'OK "completed"\r\n',
             )
+            check_script(
+                client,
+                b'if address :comparator "i;octet" :detail :is "to" "sales" { keep; }',
+                b'NO "operation failed"\r\n',
+            )
+            check_script(
+                client,
+                b'require "subaddress"; if address :comparator "i;octet" :detail :is "to" "sales" { keep; }',
+                b'OK "completed"\r\n',
+            )
             check_script(client, b"keep;", b'OK "completed"\r\n')
             check_script(
                 client,
@@ -122,7 +132,7 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
             first_chunk = b'require ["fileinto", "subaddress"]; '
             second_chunk = (
                 b'if allof (header :contains "subject" "[invoice]", '
-                b'address :detail :is "to" "invoices", size :over 1) '
+                b'address :comparator "i;ascii-casemap" :detail :is "to" "invoices", size :over 1) '
                 b'{ fileinto "Invoices"; stop; }'
             )
             source = first_chunk + second_chunk

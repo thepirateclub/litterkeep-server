@@ -1,8 +1,9 @@
 //! Рекурсивный parser начального совместимого подмножества Sieve.
 
+use super::address_options;
 use super::ast::{
-    Action, AddressPart, Capability, Command, Comparator, Condition, MatchType, Script,
-    SizeRelation, StringMatch,
+    Action, Capability, Command, Comparator, Condition, MatchType, Script, SizeRelation,
+    StringMatch,
 };
 use super::lexer::Token;
 use super::parser_values::{atom, expect, one_string, string_list, terminated_strings};
@@ -133,8 +134,7 @@ fn header(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
 }
 
 fn address(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
-    let part = address_part(input);
-    let (match_type, comparator) = match_options(input)?;
+    let (part, match_type, comparator) = address_options::parse(input)?;
     Ok(Condition::Address {
         names: string_list(input)?,
         part,
@@ -144,22 +144,6 @@ fn address(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
             keys: string_list(input)?,
         },
     })
-}
-
-fn address_part(input: &mut VecDeque<Token>) -> AddressPart {
-    let Some(Token::Atom(tag)) = input.front() else {
-        return AddressPart::All;
-    };
-    let part = match tag.as_str() {
-        ":all" => AddressPart::All,
-        ":localpart" => AddressPart::LocalPart,
-        ":domain" => AddressPart::Domain,
-        ":user" => AddressPart::User,
-        ":detail" => AddressPart::Detail,
-        _ => return AddressPart::All,
-    };
-    let _ = input.pop_front();
-    part
 }
 
 /// Разбирает разрешённые match-tags без смешивания с аргументами test-а.
