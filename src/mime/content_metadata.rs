@@ -10,6 +10,8 @@ pub struct ContentMetadata {
     pub content_id: Option<String>,
     /// Текстовое описание после RFC 2047 decoding.
     pub description: Option<String>,
+    /// Исходный Content-MD5 в компактной Base64 форме для IMAP extension slot.
+    pub content_md5: Option<String>,
     /// RFC 3282 допускает один или несколько Content-Language tags.
     pub languages: Option<Vec<LanguageTag>>,
     /// URI из единственного Content-Location без преобразования его octets.
@@ -21,8 +23,24 @@ pub fn parse(fields: &[HeaderField]) -> ContentMetadata {
     ContentMetadata {
         content_id: parse_content_id(fields),
         description: parse_description(fields),
+        content_md5: parse_content_md5(fields),
         languages: parse_language_fields(fields),
         location: parse_location_fields(fields),
+    }
+}
+
+/// Проверяет единственный Content-MD5 как канонический Base64 16-октетного digest.
+fn parse_content_md5(fields: &[HeaderField]) -> Option<String> {
+    let field = single_field(fields, HeaderName::ContentMd5)?;
+    let value = std::str::from_utf8(&field.value).ok()?;
+    let normalized = super::structured_comments::remove(value).ok()?;
+    let compact: String = normalized
+        .chars()
+        .filter(|character| !character.is_ascii_whitespace())
+        .collect();
+    match super::decode_base64(compact.as_bytes()).ok()?.len() {
+        16 => Some(compact),
+        _ => None,
     }
 }
 

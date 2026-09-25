@@ -113,3 +113,14 @@ fn multipart_language_and_location_use_parameters_as_first_extension() {
             .ends_with(" \"MIXED\" NIL NIL \"en\" \"https://example.test/mail/\")")
     );
 }
+
+#[test]
+fn multipart_content_md5_does_not_occupy_scalar_body_md5_slot() {
+    let raw = b"Content-Type: multipart/mixed; boundary=x\r\nContent-MD5: XUFAKrxLKna5cZ2REBfFkg==\r\n\r\n--x\r\n\r\nbody\r\n--x--\r\n";
+    let entity = super::super::tree::parse(raw).expect("multipart entity");
+
+    assert_eq!(
+        encode_extended(&entity, raw).expect("BODYSTRUCTURE"),
+        "((\"TEXT\" \"PLAIN\" NIL NIL NIL \"7BIT\" 4 0) \"MIXED\")"
+    );
+}

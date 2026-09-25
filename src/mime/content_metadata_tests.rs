@@ -106,3 +106,20 @@ fn omits_ambiguous_or_invalid_content_identity_fields() {
         assert!(parsed.description.is_none());
     }
 }
+
+#[test]
+fn accepts_only_one_base64_encoded_sixteen_octet_content_md5() {
+    let parsed = metadata(b"Content-MD5: XUFAKrxLKna5cZ2REBfFkg== (comment)\r\n\r\n");
+    assert_eq!(
+        parsed.content_md5.as_deref(),
+        Some("XUFAKrxLKna5cZ2REBfFkg==")
+    );
+
+    for raw in [
+        b"Content-MD5: YQ==\r\n\r\n".as_slice(),
+        b"Content-MD5: XUFAKrxLKna5cZ2REBfFkg=!\r\n\r\n",
+        b"Content-MD5: XUFAKrxLKna5cZ2REBfFkg==\r\nContent-MD5: XUFAKrxLKna5cZ2REBfFkg==\r\n\r\n",
+    ] {
+        assert!(metadata(raw).content_md5.is_none());
+    }
+}

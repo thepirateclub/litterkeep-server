@@ -51,6 +51,7 @@ def main() -> None:
         b"Content-Type: application/octet-stream\r\n"
         b'Content-ID: <"attachment@one"@[IPv6:2001:db8::1]>\r\n'
         b"Content-Description: attached file\r\n"
+        b"Content-MD5: J3e4tEgUAss8veXagrS5IA==\r\n"
         b"Content-Disposition: attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.bin\r\n"
         b"Content-Language: ru\r\n"
         b"Content-Location: ../files/a%20b.bin\r\n\r\n"
@@ -67,11 +68,18 @@ def main() -> None:
             require_ok(client.fetch("1", "(BODYSTRUCTURE)"), "BODYSTRUCTURE FETCH")
         )
 
-    for forbidden in (b'"attachment"', b'"ru"', b'"../files/a%20b.bin"'):
+    for forbidden in (
+        b'"attachment"',
+        b'"ru"',
+        b'"../files/a%20b.bin"',
+        b'"J3e4tEgUAss8veXagrS5IA=="',
+    ):
         if forbidden in basic:
             raise AssertionError(f"basic BODY included extension {forbidden!r}: {basic!r}")
     for required in (
         b'"<\\"attachment@one\\"@[IPv6:2001:db8::1]>" "attached file"',
+        b'"J3e4tEgUAss8veXagrS5IA=="',
+        b'17 "J3e4tEgUAss8veXagrS5IA==" ("attachment"',
         b'("en-US" "fr")',
         b'"https://example.test/mail/"',
         '("attachment" ("FILENAME" "résumé.bin"))'.encode("utf-8"),

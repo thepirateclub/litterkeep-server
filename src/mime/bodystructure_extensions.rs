@@ -16,17 +16,21 @@ pub(super) fn encode(
     disposition: Option<&Disposition>,
     metadata: &ContentMetadata,
 ) -> Result<String, &'static str> {
-    if let (false, false, false) = (
+    match (
+        anchor,
+        metadata.content_md5.is_some(),
         disposition.is_some(),
         metadata.languages.is_some(),
         metadata.location.is_some(),
     ) {
-        return Ok(String::new());
+        (Anchor::BodyMd5, false, false, false, false)
+        | (Anchor::MultipartParameters, _, false, false, false) => return Ok(String::new()),
+        _ => {}
     }
 
-    // Обе якорные позиции сериализуются NIL, но несут разную RFC-семантику.
-    let mut output = match anchor {
-        Anchor::MultipartParameters | Anchor::BodyMd5 => String::from(" NIL"),
+    let mut output = match (anchor, metadata.content_md5.as_deref()) {
+        (Anchor::BodyMd5, Some(digest)) => format!(" {}", quote_string(digest)?),
+        (Anchor::BodyMd5, None) | (Anchor::MultipartParameters, _) => String::from(" NIL"),
     };
     match (
         disposition,

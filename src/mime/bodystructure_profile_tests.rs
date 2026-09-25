@@ -29,3 +29,18 @@ fn basic_body_includes_content_id_and_description_fields() {
         "(\"image\" \"png\" NIL \"<logo@example.test>\" \"logo\" \"7BIT\" 3)"
     );
 }
+
+#[test]
+fn content_md5_is_only_an_extended_bodystructure_field() {
+    let raw = b"Content-Type: application/pdf\r\nContent-MD5: XUFAKrxLKna5cZ2REBfFkg==\r\nContent-Disposition: attachment\r\n\r\npdf";
+    let entity = tree::parse(raw).expect("MIME entity");
+
+    assert_eq!(
+        encode_basic(&entity, raw).expect("BODY"),
+        "(\"application\" \"pdf\" NIL NIL NIL \"7BIT\" 3)"
+    );
+    assert_eq!(
+        encode_extended(&entity, raw).expect("BODYSTRUCTURE"),
+        "(\"application\" \"pdf\" NIL NIL NIL \"7BIT\" 3 \"XUFAKrxLKna5cZ2REBfFkg==\" (\"attachment\" NIL))"
+    );
+}

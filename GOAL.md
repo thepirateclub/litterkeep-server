@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 RFC 9051 Content-MD5 extension checkpoint
+
+- MIME parser сохраняет только одно syntactically valid `Content-MD5` значение:
+  RFC 822 comments и folding удаляются, strict Base64 должен декодироваться
+  ровно в 16 октетов. Header digest передаётся как есть и не пересчитывается;
+  соответствие digest телу не утверждается.
+- RFC 9051 scalar/message BODYSTRUCTURE выводит digest в body-MD5 extension
+  slot до disposition; basic BODY не получает extensions, multipart не
+  использует scalar digest slot. Independent Python `imaplib` STARTTLS acceptance
+  проверяет исходное значение на wire и отсутствие его в BODY.
+- PASS: Windows Rust 1.97.1 `cargo test --all-targets --locked` (443 library +
+  1 binary), strict Clippy, format/diff checks и Python compile. Linux Docker
+  Rust 1.97 test target: release build, 484 library + 1 binary, doc-tests и
+  strict Clippy. Независимый STARTTLS `imaplib` acceptance подтвердил значение
+  body-MD5 перед disposition в BODYSTRUCTURE и отсутствие extensions в BODY.
+  Временные image/container удалены; `litterkeep-g12-phone` сохранён. G17
+  остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 5322/6532 Content-ID forms checkpoint
 
 - Расширен parser единственного Content-ID: кроме dot-atom поддерживаются

@@ -78,9 +78,9 @@ IDLE/DONE и durable Recent. UIDVALIDITY и UID переживают restart.
 и FULL, включает UID в ответы UID FETCH и сохраняет literal как точные октеты.
 `BODY` и `BODYSTRUCTURE` поддерживаются как отдельные запросы; FULL раскрывается
 в BODY согласно RFC 9051, а не в BODYSTRUCTURE.
-`BODYSTRUCTURE` включает корректный RFC 2183 Content-Disposition extension
-после body-MD5 placeholder для scalar/message частей и после subtype для
-multipart. Параметры включая RFC 2231 filename декодируются общим MIME parser-ом;
+`BODYSTRUCTURE` включает RFC 9051 body-MD5 slot и корректный RFC 2183
+Content-Disposition extension для scalar/message частей; multipart начинает
+extensions с parameter list после subtype. Параметры включая RFC 2231 filename декодируются общим MIME parser-ом;
 невалидное или повторное поле не экспортируется. `Content-Language` сохраняет
 один или несколько структурно корректных BCP 47 tags; `Content-Location`
 сохраняется как непустой unfolded URI-текст без percent-decoding. URI grammar
@@ -97,6 +97,12 @@ RFC 5322 `obs-id-left`/`obs-id-right` не поддержаны. Повторн�
 acceptance подтвердил quoted id-left и IPv6 domain literal в обоих профилях;
 UTF-8 identifiers и RFC 2047 description проверены unit-тестами. Прочие
 protocol fields и RFC пробелы остаются непокрытыми.
+Единственный корректный `Content-MD5` выводится в scalar/message body-MD5 slot
+после строгой Base64 проверки и проверки длины декодированного digest в 16
+октетов. Значение передаётся без пересчёта и сервер не проверяет совпадение с
+текущими body octets. Повторы или некорректный digest пропускаются. Поле не
+попадает в `BODY` и не занимает multipart extension slot; независимый STARTTLS
+acceptance подтвердил обе wire-проекции.
 `BODY` поддерживает полное сообщение, HEADER/TEXT, HEADER.FIELDS/NOT, числовые
 MIME paths, вложенный `message/rfc822` и partial ranges; durable `\\Seen`
 различает BODY/RFC822, PEEK и EXAMINE. `NAMESPACE`, `UNSELECT` и `ENABLE`
