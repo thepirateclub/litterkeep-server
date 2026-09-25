@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 ManageSieve RFC 5804 TLS capability transitions, PARTIAL
+
+- ManageSieve capabilities now reflect the security state: before STARTTLS
+  the SASL list is empty; after TLS the server advertises PLAIN and removes
+  STARTTLS. It reissues capabilities after TLS and successful AUTHENTICATE,
+  adds escaped OWNER for the authenticated account, and rejects repeat
+  STARTTLS with an explicit response in authenticated and unauthenticated
+  sessions.
+- Independent Linux socket acceptance passed plaintext greeting/CAPABILITY,
+  STARTTLS, post-TLS greeting/CAPABILITY, PLAIN AUTHENTICATE, OWNER, post-auth
+  CAPABILITY and repeated STARTTLS rejection. Fixture:
+  `./data/g17-managesieve-capabilities`. This does not establish implicit-TLS
+  network interoperability or compatibility with Litterkeep.
+- PASS: Windows Rust 1.97.1 full suite and strict Clippy, fmt, Python syntax and
+  diff checks; Linux Rust 1.97 Docker test target and independent ManageSieve
+  socket acceptance. The test container and temporary image tag are removed
+  after verification; fixture data is preserved. G17 remains ACTIVE.
+
 ### 2026-09-25: G17 IMAP SASL-IR grammar and TLS acceptance, PARTIAL
 
 - IMAP `AUTHENTICATE PLAIN` now parses mechanism and initial response as

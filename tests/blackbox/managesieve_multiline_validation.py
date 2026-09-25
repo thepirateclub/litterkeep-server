@@ -6,7 +6,7 @@ import base64
 import socket
 import ssl
 
-from managesieve_literal_delivery import command, require, read_until
+from managesieve_literal_delivery import authenticate, command, finish_starttls, require, read_until
 
 
 def check_script(client: socket.socket, source: bytes, expected: bytes) -> None:
@@ -32,9 +32,10 @@ def main() -> None:
         require(b'"STARTTLS"' in greeting, "ManageSieve не объявил STARTTLS")
         require(command(raw, b"STARTTLS\r\n") == b'OK "begin TLS"\r\n', "STARTTLS отклонён")
         with context.wrap_socket(raw, server_hostname="localhost") as client:
+            finish_starttls(client)
             secret = ("\0" + options.username + "\0" + options.password).encode()
             auth = b'AUTHENTICATE "PLAIN" "' + base64.b64encode(secret) + b'"\r\n'
-            require(command(client, auth) == b'OK "authenticated"\r\n', "AUTHENTICATE отклонён")
+            require(authenticate(client, auth) == b'OK "authenticated"\r\n', "AUTHENTICATE отклонён")
             check_script(client, b'if header :contains "Subject" text:\r\nInvoice\r\n..-2026\r\n.\r\n { keep; }', b'OK "completed"\r\n')
             check_script(client, b'if header :contains "Subject" text:\r\nInvoice\r\n { keep; }', b'NO "operation failed"\r\n')
 

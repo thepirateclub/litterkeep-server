@@ -69,13 +69,13 @@ def run(options: argparse.Namespace) -> None:
         require(b'"STARTTLS"' in greeting, "ManageSieve не объявил STARTTLS")
         require(command(raw, b"STARTTLS\r\n") == b'OK "begin TLS"\r\n', "STARTTLS отклонён")
         with context.wrap_socket(raw, server_hostname="localhost") as client:
+            read_until(client, b'OK "ready"\r\n')
             credentials = b"\x00" + options.username.encode() + b"\x00" + options.password.encode()
             encoded = base64.b64encode(credentials)
             authentication = b'AUTHENTICATE "PLAIN" "' + encoded + b'"\r\n'
-            require(
-                command(client, authentication) == b'OK "authenticated"\r\n',
-                "ManageSieve AUTHENTICATE PLAIN отклонён",
-            )
+            client.sendall(authentication)
+            auth_reply = read_until(client, b'OK "authenticated"\r\n')
+            require(auth_reply.endswith(b'OK "authenticated"\r\n'), "AUTHENTICATE PLAIN отклонён")
             check_script(
                 client,
                 vacation_script(b"Content-Type: text/plain\r\n\r\nAway\r\n"),

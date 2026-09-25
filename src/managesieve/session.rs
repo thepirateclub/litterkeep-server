@@ -6,7 +6,9 @@ use super::Command;
 enum Phase {
     #[default]
     Plain,
-    Authenticated,
+    Authenticated {
+        owner: String,
+    },
     Closed,
 }
 
@@ -31,69 +33,117 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn apply(&mut self, command: Command, tls_active: bool) -> Reply {
+    pub fn apply(&mut self, command: Command, tls_active: bool, starttls_available: bool) -> Reply {
         match (&self.phase, command) {
-            (Phase::Plain, Command::Capability) | (Phase::Authenticated, Command::Capability) => {
-                Reply::Text(capability(tls_active))
+            (Phase::Plain, Command::Capability) => {
+                Reply::Text(capability(tls_active, starttls_available, None))
             }
-            (Phase::Plain, Command::StartTls) => Reply::StartTls,
+            (Phase::Authenticated { owner }, Command::Capability) => {
+                Reply::Text(capability(tls_active, starttls_available, Some(owner)))
+            }
+            (Phase::Plain, Command::StartTls) if starttls_available && !tls_active => {
+                Reply::StartTls
+            }
+            (Phase::Plain, Command::StartTls) => no("TLS is unavailable or already active"),
+            (Phase::Authenticated { .. }, Command::StartTls) => {
+                no("TLS is unavailable or already active")
+            }
             (Phase::Plain, Command::AuthenticatePlain(response)) if tls_active => {
                 Reply::Authenticate { response }
             }
             (Phase::Plain, Command::AuthenticatePlain(_)) => no("encryption required"),
-            (Phase::Plain, Command::Logout) | (Phase::Authenticated, Command::Logout) => {
+            (Phase::Plain, Command::Logout) | (Phase::Authenticated { .. }, Command::Logout) => {
                 self.phase = Phase::Closed;
                 ok("bye")
             }
-            (Phase::Authenticated, Command::HaveSpace { name, size }) => {
+            (Phase::Authenticated { .. }, Command::HaveSpace { name, size }) => {
                 Reply::HaveSpace { name, size }
             }
-            (Phase::Authenticated, Command::PutScript { name, source }) => {
+            (Phase::Authenticated { .. }, Command::PutScript { name, source }) => {
                 Reply::Put { name, source }
             }
-            (Phase::Authenticated, Command::ListScripts) => Reply::List,
-            (Phase::Authenticated, Command::SetActive(name)) => Reply::SetActive(name),
-            (Phase::Authenticated, Command::GetScript(name)) => Reply::Get(name),
-            (Phase::Authenticated, Command::DeleteScript(name)) => Reply::Delete(name),
-            (Phase::Authenticated, Command::RenameScript { old, new }) => {
+            (Phase::Authenticated { .. }, Command::ListScripts) => Reply::List,
+            (Phase::Authenticated { .. }, Command::SetActive(name)) => Reply::SetActive(name),
+            (Phase::Authenticated { .. }, Command::GetScript(name)) => Reply::Get(name),
+            (Phase::Authenticated { .. }, Command::DeleteScript(name)) => Reply::Delete(name),
+            (Phase::Authenticated { .. }, Command::RenameScript { old, new }) => {
                 Reply::Rename { old, new }
             }
-            (Phase::Authenticated, Command::CheckScript(source)) => Reply::Check(source),
-            (Phase::Authenticated, Command::Noop) => ok("noop"),
+            (Phase::Authenticated { .. }, Command::CheckScript(source)) => Reply::Check(source),
+            (Phase::Authenticated { .. }, Command::Noop) => ok("noop"),
             (_, Command::Invalid) => no("syntax error"),
             _ => no("invalid command for state"),
         }
     }
 
-    pub fn authenticated(&mut self, accepted: bool) -> Reply {
-        match (&self.phase, accepted) {
-            (Phase::Plain, true) => {
-                self.phase = Phase::Authenticated;
-                ok("authenticated")
+    pub fn authenticated(&mut self, owner: String, accepted: bool, tls_active: bool) -> Reply {
+        match (&self.phase, accepted, tls_active) {
+            (Phase::Plain, true, true) => {
+                self.phase = Phase::Authenticated {
+                    owner: owner.clone(),
+                };
+                Reply::Text(capability_lines(
+                    tls_active,
+                    false,
+                    Some(&owner),
+                    b"OK \"authenticated\"\r\n",
+                ))
             }
-            (Phase::Plain, false) => no("authentication failed"),
+            (Phase::Plain, true, false) => no("encryption required"),
+            (Phase::Plain, false, _) => no("authentication failed"),
             _ => no("no authentication pending"),
         }
     }
 }
 
-pub fn greeting() -> Vec<u8> {
-    capability_lines(false, b"OK \"ready\"\r\n")
+pub fn greeting(tls_active: bool, starttls_available: bool) -> Vec<u8> {
+    capability_lines(tls_active, starttls_available, None, b"OK \"ready\"\r\n")
 }
 
-fn capability(tls: bool) -> Vec<u8> {
-    capability_lines(tls, b"OK \"capability\"\r\n")
+fn capability(tls_active: bool, starttls_available: bool, owner: Option<&str>) -> Vec<u8> {
+    capability_lines(
+        tls_active,
+        starttls_available,
+        owner,
+        b"OK \"capability\"\r\n",
+    )
 }
 
 /// Единый список extension strings для greeting и явной команды CAPABILITY.
-fn capability_lines(tls: bool, ending: &[u8]) -> Vec<u8> {
-    let mut output = b"\"IMPLEMENTATION\" \"litterkeep-server\"\r\n\"SASL\" \"PLAIN\"\r\n".to_vec();
-    if !tls {
+fn capability_lines(
+    tls_active: bool,
+    starttls_available: bool,
+    owner: Option<&str>,
+    ending: &[u8],
+) -> Vec<u8> {
+    let mut output = b"\"IMPLEMENTATION\" \"litterkeep-server\"\r\n".to_vec();
+    match (tls_active, starttls_available) {
+        (true, _) => output.extend_from_slice(b"\"SASL\" \"PLAIN\"\r\n"),
+        (false, true) => output.extend_from_slice(b"\"SASL\" \"\"\r\n"),
+        (false, false) => {}
+    }
+    if starttls_available && !tls_active {
         output.extend_from_slice(b"\"STARTTLS\"\r\n");
     }
     output.extend_from_slice(b"\"SIEVE\" \"fileinto subaddress envelope copy vacation\"\r\n");
+    if let Some(owner) = owner {
+        append_owner(&mut output, owner);
+    }
     output.extend_from_slice(ending);
     output
+}
+
+/// Добавляет OWNER как quoted-string, экранируя только два ASCII спецсимвола.
+fn append_owner(output: &mut Vec<u8>, owner: &str) {
+    output.extend_from_slice(b"\"OWNER\" \"");
+    for byte in owner.bytes() {
+        match byte {
+            b'"' | b'\\' => output.push(b'\\'),
+            _ => {}
+        }
+        output.push(byte);
+    }
+    output.extend_from_slice(b"\"\r\n");
 }
 fn ok(message: &str) -> Reply {
     Reply::Text(format!("OK \"{message}\"\r\n").into_bytes())

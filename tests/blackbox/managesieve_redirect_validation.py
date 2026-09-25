@@ -6,7 +6,7 @@ import base64
 import socket
 import ssl
 
-from managesieve_literal_delivery import command, require, read_until
+from managesieve_literal_delivery import authenticate, command, finish_starttls, require, read_until
 
 
 def check_script(client: socket.socket, source: bytes, expected: bytes) -> None:
@@ -32,9 +32,10 @@ def main() -> None:
         require(b'"STARTTLS"' in greeting, "ManageSieve не объявил STARTTLS")
         require(command(raw, b"STARTTLS\r\n") == b'OK "begin TLS"\r\n', "STARTTLS отклонён")
         with context.wrap_socket(raw, server_hostname="localhost") as client:
+            finish_starttls(client)
             credentials = ("\0" + options.username + "\0" + options.password).encode()
             auth = b'AUTHENTICATE "PLAIN" "' + base64.b64encode(credentials) + b'"\r\n'
-            require(command(client, auth) == b'OK "authenticated"\r\n', "AUTHENTICATE отклонён")
+            require(authenticate(client, auth) == b'OK "authenticated"\r\n', "AUTHENTICATE отклонён")
             check_script(client, b'redirect "valid@example.test";', b'OK "completed"\r\n')
             check_script(client, b'redirect "Team: valid@example.test;";', b'NO "operation failed"\r\n')
             check_script(client, b'redirect "<@relay.example:valid@example.test>";', b'NO "operation failed"\r\n')

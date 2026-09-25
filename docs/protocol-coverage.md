@@ -452,6 +452,9 @@ TRANSACTION, обе выдачи CAPA, listing, `EN`, `*`, отказ `de` и в
 Актуальный проверенный профиль и его ограничения описаны отдельно в
 [sieve-coverage.md](sieve-coverage.md), чтобы сохранять компактность этой
 матрицы.
+В частности, независимый Linux socket acceptance проверяет RFC 5804
+capability transitions ManageSieve вокруг STARTTLS и AUTHENTICATE; implicit-TLS
+проверен unit-тестом, а совместимость с Litterkeep остаётся непроверенной.
 
 ## Outbound SMTP
 

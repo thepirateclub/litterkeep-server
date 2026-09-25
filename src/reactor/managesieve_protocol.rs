@@ -26,7 +26,9 @@ pub(super) fn line(
         }
     }
     let command = managesieve::parse(std::str::from_utf8(&line).unwrap_or(""));
-    let reply = session.managesieve.apply(command, session.tls.is_some());
+    let reply = session
+        .managesieve
+        .apply(command, session.is_encrypted(), session.can_starttls());
     apply(session, reply, slot, generation, worker, owners, request_id)
 }
 
@@ -53,7 +55,10 @@ pub(super) fn literal(
         }
         managesieve_literal::Progress::Complete(command) => {
             session.managesieve_literal = None;
-            let reply = session.managesieve.apply(command, session.tls.is_some());
+            let reply =
+                session
+                    .managesieve
+                    .apply(command, session.is_encrypted(), session.can_starttls());
             apply(session, reply, slot, generation, worker, owners, request_id)?;
             Ok(true)
         }

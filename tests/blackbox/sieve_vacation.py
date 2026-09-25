@@ -44,16 +44,28 @@ def command(client: socket.socket, wire: bytes) -> bytes:
     return read_line(client)
 
 
+def read_until(client: socket.socket, marker: bytes) -> bytes:
+    """Поглощает RFC 5804 capability block до его итогового ответа."""
+    received = bytearray()
+    while marker not in received:
+        chunk = client.recv(4096)
+        require(chunk != b"", "ManageSieve closed before capability terminator")
+        received.extend(chunk)
+    return bytes(received)
+
+
 def configure(host: str, port: int, context: ssl.SSLContext, passwords: dict[Account, str]) -> None:
     with socket.create_connection((host, port), timeout=10) as plain:
         greeting = read_line(plain)
         require(b"vacation" in greeting.lower(), "CAPABILITY omitted vacation")
         require(command(plain, b"STARTTLS\r\n") == b'OK "begin TLS"\r\n', "STARTTLS")
         with context.wrap_socket(plain, server_hostname="litterkeep.test") as client:
+            read_until(client, b'OK "ready"\r\n')
             password = passwords[Account.BOB]
             secret = base64.b64encode(b"\x00bob\x00" + password.encode())
             auth = b'AUTHENTICATE "PLAIN" "' + secret + b'"\r\n'
-            response = command(client, auth)
+            client.sendall(auth)
+            response = read_until(client, b'OK "authenticated"\r\n')
             require(response == b'OK "authenticated"\r\n', f"ManageSieve AUTH: {response!r}")
             source = (
                 b'require "vacation"; '

@@ -7,7 +7,10 @@ pub(super) fn authenticate(
     account: String,
     accepted: bool,
 ) -> io::Result<()> {
-    let authentication_reply = session.managesieve.authenticated(accepted);
+    let authentication_reply =
+        session
+            .managesieve
+            .authenticated(account.clone(), accepted, session.is_encrypted());
     if accepted {
         session.authenticated_account = Some(account);
     }

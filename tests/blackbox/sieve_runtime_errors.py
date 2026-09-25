@@ -77,11 +77,14 @@ def activate(
         require(b'"STARTTLS"' in greeting, "STARTTLS capability missing")
         require(command(plain, b"STARTTLS\r\n") == b'OK "begin TLS"\r\n', "STARTTLS")
         with context.wrap_socket(plain, server_hostname="litterkeep.test") as client:
+            read_until(client, b'OK "ready"\r\n')
             encoded = base64.b64encode(
                 b"\x00bob\x00" + password(options, Account.BOB).encode()
             )
             authentication = b'AUTHENTICATE "PLAIN" "' + encoded + b'"\r\n'
-            require(command(client, authentication) == b'OK "authenticated"\r\n', "AUTH")
+            client.sendall(authentication)
+            auth_reply = read_until(client, b'OK "authenticated"\r\n')
+            require(auth_reply.endswith(b'OK "authenticated"\r\n'), "AUTH")
             marker = f'PUTSCRIPT "{name}" {{{len(source)}+}}\r\n'.encode()
             client.sendall(marker + source)
             require(read_until(client, b"\r\n") == b'OK "completed"\r\n', "PUTSCRIPT")

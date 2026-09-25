@@ -93,12 +93,12 @@ def configure_vacation(
         stream.close()
         with context.wrap_socket(plain, server_hostname="litterkeep.test") as secure:
             tls_stream = secure.makefile("rb")
+            read_capabilities(tls_stream)
             sasl = base64.b64encode(b"\x00bob\x00" + bob_password.encode("ascii"))
             secure.sendall(b'AUTHENTICATE "PLAIN" "' + sasl + b'"\r\n')
-            require(
-                read_line(tls_stream).strip().decode("ascii") == SieveReply.AUTHENTICATED.value,
-                "ManageSieve authentication failed",
-            )
+            authenticated = read_capabilities(tls_stream)
+            require(authenticated.endswith((SieveReply.AUTHENTICATED.value + "\r\n").encode("ascii")),
+                    "ManageSieve authentication failed")
             source = b'require "vacation"; vacation :days 1 "' + reason + b'";'
             command = f'PUTSCRIPT "qp-encoder" {{{len(source)}+}}\r\n'.encode("ascii")
             secure.sendall(command + source)

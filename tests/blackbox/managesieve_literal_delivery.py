@@ -41,6 +41,18 @@ def command_until(client: socket.socket, wire: bytes, marker: bytes) -> bytes:
     return read_until(client, marker)
 
 
+def finish_starttls(client: socket.socket) -> bytes:
+    """Поглощает обязательный capability block после завершения TLS."""
+    return read_until(client, b'OK "ready"\r\n')
+
+
+def authenticate(client: socket.socket, wire: bytes) -> bytes:
+    """Читает capabilities и OK после успешного ManageSieve AUTHENTICATE."""
+    client.sendall(wire)
+    read_until(client, b'OK "authenticated"\r\n')
+    return b'OK "authenticated"\r\n'
+
+
 def check_script(client: socket.socket, source: bytes, expected: bytes) -> None:
     """Проверяет literal framing и результат CHECKSCRIPT без клиентской библиотеки."""
     marker = f"CHECKSCRIPT {{{len(source)}}}\r\n".encode()
@@ -75,10 +87,11 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
         starttls = command(plain, b"STARTTLS\r\n")
         require(starttls == b'OK "begin TLS"\r\n', "STARTTLS ManageSieve отклонён")
         with context.wrap_socket(plain, server_hostname="litterkeep.test") as client:
+            finish_starttls(client)
             credentials = base64.b64encode(b"\x00bob\x00" + bob_password.encode("utf-8"))
             authentication = b'AUTHENTICATE "PLAIN" "' + credentials + b'"\r\n'
             require(
-                command(client, authentication) == b'OK "authenticated"\r\n',
+                authenticate(client, authentication) == b'OK "authenticated"\r\n',
                 "ManageSieve AUTHENTICATE не принят",
             )
             check_script(

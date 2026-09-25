@@ -152,7 +152,9 @@ impl Session {
             Kind::Smtp => b"220 litterkeep.test ESMTP litterkeep-server\r\n".to_vec(),
             Kind::Imap => b"* OK IMAP4rev1 litterkeep-server\r\n".to_vec(),
             Kind::Pop3 => b"+OK litterkeep-server ready\r\n".to_vec(),
-            Kind::ManageSieve => crate::managesieve::greeting(),
+            Kind::ManageSieve => {
+                crate::managesieve::greeting(self.is_encrypted(), self.can_starttls())
+            }
         };
         self.push(&greeting)?;
         self.greeting_sent = true;
@@ -248,6 +250,9 @@ impl Session {
     /// Планирует upgrade после полной отправки plaintext-ответа `220`.
     pub(super) fn request_starttls(&mut self) {
         self.input.clear();
+        if matches!(self.kind, Kind::ManageSieve) {
+            self.greeting_sent = false;
+        }
         self.starttls_pending = true;
         self.smtp = SmtpState::Command(smtp::Transaction::default());
         self.smtp_greeting = smtp::GreetingMode::NotEstablished;

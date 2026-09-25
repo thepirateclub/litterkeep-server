@@ -5,6 +5,17 @@ keep/discard, header/address/size tests и diagnostics. ManageSieve поддер
 STARTTLS, SASL PLAIN, literals, CHECKSCRIPT, PUTSCRIPT, LISTSCRIPTS, GETSCRIPT,
 SETACTIVE, DELETESCRIPT и RENAMESCRIPT.
 
+ManageSieve TLS negotiation follows RFC 5804 §§1.7, 2.2: before STARTTLS the
+server advertises an empty SASL mechanism list, then after TLS it reissues the
+capability block with SASL PLAIN and without STARTTLS. The same refreshed block
+is sent after successful AUTHENTICATE and includes the authenticated OWNER;
+explicit CAPABILITY preserves OWNER. Repeated STARTTLS is rejected in both
+authenticated and unauthenticated encrypted sessions. Independent Linux
+socket acceptance verifies greeting, explicit CAPABILITY, TLS transition,
+PLAIN authentication and the post-auth transition. Implicit-TLS greeting is
+unit-tested; separate implicit-TLS network acceptance and Litterkeep client
+interoperability remain unverified.
+
 При runtime error частичный план доставки отбрасывается атомарно и применяется
 только implicit keep; committed diagnostic хранит account, версию скрипта,
 transaction ID и тип ошибки. Offline-команда `sieve-errors <data-dir>
