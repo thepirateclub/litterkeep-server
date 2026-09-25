@@ -47,7 +47,7 @@ impl Session {
     pub(super) fn begin_authentication(
         &mut self,
         mechanism: SaslMechanism,
-        initial_response: Option<String>,
+        initial_response: Option<SaslInitialResponse>,
     ) -> Reply {
         if !self.tls_active {
             return Reply::Error("STLS required before AUTH PLAIN");
@@ -80,13 +80,17 @@ impl Session {
         Reply::Error("invalid AUTH PLAIN credentials")
     }
 
-    fn start_plain_authentication(&mut self, initial_response: Option<String>) -> Reply {
+    fn start_plain_authentication(
+        &mut self,
+        initial_response: Option<SaslInitialResponse>,
+    ) -> Reply {
         self.sasl_previous_authorization = Some(match &self.username {
             Some(username) => PriorAuthorization::User(username.clone()),
             None => PriorAuthorization::NoUser,
         });
         match initial_response {
-            Some(response) => self.plain_credentials(&response),
+            Some(SaslInitialResponse::Empty) => self.plain_credentials(""),
+            Some(SaslInitialResponse::Encoded(response)) => self.plain_credentials(&response),
             None => {
                 self.phase = Phase::SaslPlainResponse;
                 Reply::SaslContinue

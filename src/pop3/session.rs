@@ -1,7 +1,7 @@
 //! POP3 AUTHORIZATION, TRANSACTION и UPDATE без доступа к Store.
 
 use super::listing_reply::{list_reply, uidl_reply};
-use super::{Command, LanguageRequest, Maildrop, SaslMechanism};
+use super::{Command, LanguageRequest, Maildrop, SaslInitialResponse, SaslMechanism};
 use crate::store::Message;
 
 #[path = "session_sasl.rs"]

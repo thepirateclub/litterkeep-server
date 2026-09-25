@@ -1,6 +1,6 @@
 //! Проверяет POP3 command grammar, printable ASCII и RFC 2449 длины.
 use super::*;
-use crate::pop3::LanguageRequest;
+use crate::pop3::{LanguageRequest, SaslInitialResponse};
 
 #[test]
 fn accepts_command_at_rfc2449_octet_limit() {
@@ -75,14 +75,21 @@ fn parses_sasl_auth_plain_with_or_without_initial_response() {
         parse("AUTH PLAIN AGJvYgB0ZXN0\r\n"),
         Command::Auth {
             mechanism: SaslMechanism::Plain,
-            initial_response: Some("AGJvYgB0ZXN0".into()),
+            initial_response: Some(SaslInitialResponse::Encoded("AGJvYgB0ZXN0".into())),
+        }
+    );
+    assert_eq!(
+        parse("AUTH PLAIN =\r\n"),
+        Command::Auth {
+            mechanism: SaslMechanism::Plain,
+            initial_response: Some(SaslInitialResponse::Empty),
         }
     );
     assert_eq!(
         parse("AUTH SCRAM-SHA-256 token\r\n"),
         Command::Auth {
             mechanism: SaslMechanism::Unsupported,
-            initial_response: Some("token".into()),
+            initial_response: Some(SaslInitialResponse::Encoded("token".into())),
         }
     );
 }

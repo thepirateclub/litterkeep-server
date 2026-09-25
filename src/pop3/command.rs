@@ -25,7 +25,7 @@ pub enum Command {
     Lang(super::LanguageRequest),
     Auth {
         mechanism: SaslMechanism,
-        initial_response: Option<String>,
+        initial_response: Option<SaslInitialResponse>,
     },
     Invalid,
 }
@@ -35,6 +35,13 @@ pub enum Command {
 pub enum SaslMechanism {
     Plain,
     Unsupported,
+}
+
+/// Различает отсутствие ответа, пустой SASL response и переданные Base64 данные.
+#[derive(Debug, Eq, PartialEq)]
+pub enum SaslInitialResponse {
+    Empty,
+    Encoded(String),
 }
 
 /// RFC 2449 ограничивает команду вместе с CRLF 255 октетами.
@@ -85,10 +92,18 @@ fn auth(mechanism: Option<&str>, initial_response: Option<&str>, extra: Option<&
         (Some(name), Some(response), None) if !name.is_empty() && !response.is_empty() => {
             Command::Auth {
                 mechanism: sasl_mechanism(name),
-                initial_response: Some(response.to_owned()),
+                initial_response: Some(parse_initial_response(response)),
             }
         }
         _ => Command::Invalid,
+    }
+}
+
+/// Переводит RFC 5034 маркер пустого ответа в typed состояние до SASL FSM.
+fn parse_initial_response(response: &str) -> SaslInitialResponse {
+    match response.as_bytes() {
+        b"=" => SaslInitialResponse::Empty,
+        _ => SaslInitialResponse::Encoded(response.to_owned()),
     }
 }
 

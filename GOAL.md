@@ -87,6 +87,22 @@ Current subgoal: G16
 - Остальные требования RFC 1939 и полного POP3 профиля не покрыты; G16 остаётся
   RUNNING.
 
+### 2026-09-25: G16 POP3 SASL empty initial response checkpoint
+
+- RFC 5034 задаёт единственный `=` как wire representation пустого initial
+  response. POP3 command parser теперь переводит его в отдельный enum вариант,
+  не передавая маркер Base64 decoder-у. Для поддерживаемого PLAIN нулевой payload
+  закономерно отклоняется как некорректные credentials, при этом AUTH состояние
+  восстанавливается и следующая AUTH попытка остаётся возможной.
+- PASS: Windows Rust 1.97.1: 285 тестов, strict Clippy, fmt и Python syntax.
+  Linux Docker Rust 1.97: strict Clippy и 325 тестов. Независимый TLS socket
+  acceptance проверил `AUTH PLAIN =`, отказ, повтор с неверным и затем верным
+  payload; прошли существующие CAPA, AUTH PLAIN, response limits и POP3 delivery
+  regressions. Stage `./data/g16-pop3-sasl-empty`; временный контейнер удалён,
+  `litterkeep-g12-phone` сохранён.
+- Другие SASL-механизмы и полный RFC 5034 профиль не реализованы; G16 остаётся
+  RUNNING.
+
 ### 2026-09-25: POP3 RFC 1939 USER/PASS sequencing checkpoint
 
 - AUTHORIZATION FSM различает состояние после успешного `USER`: повторный

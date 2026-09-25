@@ -172,6 +172,21 @@ fn failed_sasl_backend_auth_allows_new_auth_exchange() {
 }
 
 #[test]
+fn empty_sasl_initial_response_is_not_confused_with_base64_data() {
+    let mut session = Session::default();
+    session.tls_established();
+    let _ = session.apply(parse("USER bob\r\n"));
+    assert!(matches!(
+        session.apply(parse("AUTH PLAIN =\r\n")),
+        Reply::Error(_)
+    ));
+    assert!(matches!(
+        session.apply(parse("PASS test-password\r\n")),
+        Reply::Authenticate { username, .. } if username == "bob"
+    ));
+}
+
+#[test]
 fn pop3_utf8_capability_guards_messages_until_mode_is_enabled() {
     let mut session = Session::default();
     let capabilities = session.apply(parse("CAPA\r\n"));

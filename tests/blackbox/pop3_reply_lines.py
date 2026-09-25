@@ -202,6 +202,13 @@ def verify_failed_sasl_retry(tls_context):
         connection = tls_context.wrap_socket(connection, server_hostname="localhost")
         stream = connection.makefile("rb")
         read_capabilities(connection, stream, "retry authorization")
+        send(
+            connection,
+            stream,
+            b"AUTH PLAIN =\r\n",
+            b"-ERR invalid AUTH PLAIN credentials",
+            "empty SASL initial response",
+        )
         wrong = base64.b64encode(b"\x00bob\x00wrong-password")
         send(connection, stream, b"AUTH PLAIN " + wrong + b"\r\n", b"-ERR", "failed AUTH PLAIN")
         password = os.environ["LITTERKEEP_BOB_PASSWORD"].encode("ascii")
