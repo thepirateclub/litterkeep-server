@@ -35,7 +35,10 @@ pub(super) fn write(
         }
         (Pending::Pop3Authenticate { account }, Response::Authenticated { accepted: true, .. }) => {
             match maildrops.owns(&account, slot, generation) {
-                true => Ok(()),
+                true => {
+                    session.pop3.authentication_accepted();
+                    Ok(())
+                }
                 false => {
                     let reply = session.pop3.maildrop_in_use();
                     pop3_protocol::write_reply(session, reply)

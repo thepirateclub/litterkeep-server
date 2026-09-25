@@ -175,6 +175,27 @@ def verify_sasl_plain(tls_context, with_continuation):
         connection.close()
 
 
+def verify_failed_sasl_retry(tls_context):
+    connection = socket.create_connection((HOST, POP3_PORT), timeout=15)
+    stream = connection.makefile("rb")
+    try:
+        read_line(stream, "retry POP3 greeting")
+        send(connection, stream, b"STLS\r\n", b"+OK", "retry STLS")
+        stream.close()
+        connection = tls_context.wrap_socket(connection, server_hostname="localhost")
+        stream = connection.makefile("rb")
+        read_capabilities(connection, stream, "retry authorization")
+        wrong = base64.b64encode(b"\x00bob\x00wrong-password")
+        send(connection, stream, b"AUTH PLAIN " + wrong + b"\r\n", b"-ERR", "failed AUTH PLAIN")
+        password = os.environ["LITTERKEEP_BOB_PASSWORD"].encode("ascii")
+        correct = base64.b64encode(b"\x00bob\x00" + password)
+        send(connection, stream, b"AUTH PLAIN " + correct + b"\r\n", b"+OK", "AUTH PLAIN retry")
+        send(connection, stream, b"QUIT\r\n", b"+OK", "retry QUIT")
+    finally:
+        stream.close()
+        connection.close()
+
+
 def verify_maildrop_in_use(tls_context):
     connection = socket.create_connection((HOST, POP3_PORT), timeout=15)
     stream = connection.makefile("rb")
@@ -236,6 +257,7 @@ def main():
     pop3_round_trip(tls_context)
     verify_sasl_plain(tls_context, with_continuation=False)
     verify_sasl_plain(tls_context, with_continuation=True)
+    verify_failed_sasl_retry(tls_context)
     print("PASS POP3: SASL PLAIN, bounded lines, long RETR and RESP-CODES")
 
 

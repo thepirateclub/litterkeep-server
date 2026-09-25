@@ -17,9 +17,19 @@ Current subgoal: G16
   неподдерживаемого SCRAM. Проверка использовала отдельный
   `./data/g16-pop3-sasl-plain`; временный контейнер удалён,
   `litterkeep-g12-phone` сохранён.
-- Это реализация и проверка только SASL PLAIN. SCRAM и прочие механизмы,
-  полная RFC 5034 совместимость и interoperabilty с litterkeep не проверены;
-  G16 остаётся RUNNING.
+- Последующая сверка RFC 5034 §4 выявила важную семантику: отказ AUTH не должен
+  менять состояние так, будто AUTH не выполнялся, чтобы клиент мог повторить
+  попытку или продолжить прежнюю USER/PASS пару. Добавлено восстановление этого
+  состояния при malformed PLAIN, отмене, отказе backend и занятом maildrop.
+- PASS update: Windows Rust 1.97.1: 278 тестов и strict Clippy; чистый Linux
+  Docker Rust 1.97: strict Clippy и 318 тестов. Независимый Linux-target
+  `tests/blackbox/pop3_reply_lines.py` повторил AUTH после неверного пароля и
+  прошёл прежние SASL/CAPA/line-limit сценарии на отдельном
+  `./data/g16-pop3-auth-failure-final`. Runtime image собран отдельно от
+  verification target; тестовый контейнер удалён, постоянный
+  `litterkeep-g12-phone` оставлен.
+- G16 по-прежнему покрывает только SASL PLAIN. SCRAM и прочие механизмы,
+  полная RFC 5034 совместимость и взаимодействие с litterkeep не проверены.
 
 ### 2026-09-25: POP3 RFC 1939 USER/PASS sequencing checkpoint
 
@@ -324,7 +334,7 @@ ManageSieve до заявленного набора современных фо
 | G13 | G12 | IMAP FETCH data-item list, ALL/FAST/FULL, UID response semantics, literal wire and attachment-byte acceptance | PASS |
 | G14 | G13 | IMAP4rev2 RFC 9051 baseline plus tested IMAP4rev1 client compatibility | RUNNING |
 | G15 | G12 | SMTP RFC 5321/6409/8314 baseline, including SMTPUTF8 RFC 6531 | NOT RUN |
-| G16 | G12 | POP3 RFC 1939 extensions RFC 2449/5034/6856 and secure TLS profile | NOT RUN |
+| G16 | G12 | POP3 RFC 1939 extensions RFC 2449/5034/6856 and secure TLS profile | RUNNING |
 | G17 | G12 | MIME RFC 5322/2045-2049 updates and Sieve RFC 5228/ManageSieve RFC 5804 profile | NOT RUN |
 | G18 | G14,G15,G16,G17 | Cross-protocol Linux acceptance, truthful capabilities and final coverage matrix | NOT RUN |
 

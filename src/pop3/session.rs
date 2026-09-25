@@ -3,6 +3,9 @@
 use super::{Command, Maildrop, SaslMechanism};
 use crate::store::Message;
 
+#[path = "session_sasl.rs"]
+mod sasl;
+
 #[derive(Default)]
 enum Phase {
     #[default]
@@ -12,6 +15,13 @@ enum Phase {
     Transaction,
     Update,
 }
+
+/// Состояние AUTHORIZATION, которое требуется восстановить после отказа SASL.
+enum PriorAuthorization {
+    NoUser,
+    User(String),
+}
+
 pub enum Reply {
     Ok(String),
     Error(&'static str),
@@ -32,6 +42,7 @@ pub enum ResponseCode {
 pub struct Session {
     phase: Phase,
     username: Option<String>,
+    sasl_previous_authorization: Option<PriorAuthorization>,
     maildrop: Option<Maildrop>,
     tls_active: bool,
 }
@@ -80,6 +91,7 @@ impl Session {
     pub fn authenticated(&mut self, messages: Vec<Message>) -> Reply {
         match (&self.phase, self.username.as_ref()) {
             (Phase::UserAccepted, Some(_)) => {
+                self.sasl_previous_authorization = None;
                 self.maildrop = Some(Maildrop::new(messages));
                 self.phase = Phase::Transaction;
                 Reply::Ok("authenticated".into())
@@ -87,40 +99,11 @@ impl Session {
             _ => Reply::Error("USER required"),
         }
     }
-    /// Переключает доступные SASL mechanisms после завершения TLS handshake.
-    pub fn tls_established(&mut self) {
-        self.tls_active = true;
-        self.reset_authorization();
-    }
-    /// Проверяет, ожидается ли отдельная строка SASL response вместо команды.
-    pub fn awaiting_sasl_response(&self) -> bool {
-        matches!(self.phase, Phase::SaslPlainResponse)
-    }
-    /// Разбирает initial или continuation response механизма RFC 4616 PLAIN.
-    pub fn sasl_plain_response(&mut self, response: &str) -> Reply {
-        match (&self.phase, response) {
-            (Phase::SaslPlainResponse, "*") => {
-                self.reset_authorization();
-                Reply::Error("authentication cancelled")
-            }
-            (Phase::SaslPlainResponse, _) => self.plain_credentials(response),
-            _ => Reply::Error("no SASL response is pending"),
-        }
-    }
     /// Сбрасывает незавершённую пару USER/PASS после отказа входа или STLS.
     pub fn reset_authorization(&mut self) {
         self.username = None;
+        self.sasl_previous_authorization = None;
         self.phase = Phase::Authorization;
-    }
-    /// Сбрасывает USER после неуспешной проверки пароля.
-    pub fn authentication_rejected(&mut self) -> Reply {
-        self.reset_authorization();
-        Reply::Error("authentication failed")
-    }
-    /// Возвращает typed POP3 error после успешной проверки пароля и занятой maildrop.
-    pub fn maildrop_in_use(&mut self) -> Reply {
-        self.reset_authorization();
-        Reply::ErrorCode(ResponseCode::InUse, "maildrop is locked")
     }
     pub fn commit_deletes(&mut self, accepted: bool) -> Reply {
         match (self.phase_is_transaction(), accepted) {
@@ -139,48 +122,6 @@ impl Session {
                 password: password.into_bytes(),
             },
             _ => Reply::Error("USER required"),
-        }
-    }
-    fn begin_authentication(
-        &mut self,
-        mechanism: SaslMechanism,
-        initial_response: Option<String>,
-    ) -> Reply {
-        if !self.tls_active {
-            return Reply::Error("STLS required before AUTH PLAIN");
-        }
-        match mechanism {
-            SaslMechanism::Plain => match initial_response {
-                Some(response) => self.plain_credentials(&response),
-                None => {
-                    self.reset_authorization();
-                    self.phase = Phase::SaslPlainResponse;
-                    Reply::SaslContinue
-                }
-            },
-            SaslMechanism::Unsupported => Reply::Error("unsupported SASL mechanism"),
-        }
-    }
-    fn plain_credentials(&mut self, response: &str) -> Reply {
-        match crate::sasl::parse_plain(response) {
-            Ok(credentials) => match String::from_utf8(credentials.password) {
-                Ok(password) => {
-                    self.username = Some(credentials.account.clone());
-                    self.phase = Phase::UserAccepted;
-                    Reply::Authenticate {
-                        username: credentials.account,
-                        password: password.into_bytes(),
-                    }
-                }
-                Err(_) => {
-                    self.reset_authorization();
-                    Reply::Error("invalid AUTH PLAIN credentials")
-                }
-            },
-            Err(_) => {
-                self.reset_authorization();
-                Reply::Error("invalid AUTH PLAIN credentials")
-            }
         }
     }
     fn stat(&self) -> Reply {

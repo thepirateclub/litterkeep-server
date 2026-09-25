@@ -108,22 +108,67 @@ fn sasl_plain_continuation_supports_response_and_cancellation() {
     let mut session = Session::default();
     session.tls_established();
     assert!(matches!(
+        session.apply(parse("USER alice\r\n")),
+        Reply::Ok(_)
+    ));
+    assert!(matches!(
         session.apply(parse("AUTH PLAIN\r\n")),
         Reply::SaslContinue
     ));
     assert!(session.awaiting_sasl_response());
+    assert!(matches!(session.sasl_plain_response("*"), Reply::Error(_)));
+    assert!(!session.awaiting_sasl_response());
+    assert!(matches!(
+        session.apply(parse("PASS correct\r\n")),
+        Reply::Authenticate { username, .. } if username == "alice"
+    ));
+    assert!(matches!(session.authentication_rejected(), Reply::Error(_)));
+    assert!(matches!(
+        session.apply(parse("AUTH PLAIN\r\n")),
+        Reply::SaslContinue
+    ));
     assert!(matches!(
         session.sasl_plain_response(&response),
         Reply::Authenticate { username, password }
             if username == "bob" && password == b"secret"
     ));
+}
 
+#[test]
+fn failed_sasl_auth_preserves_prior_authorization_and_allows_retry() {
+    let mut session = Session::default();
+    session.tls_established();
     assert!(matches!(
-        session.apply(parse("AUTH PLAIN\r\n")),
-        Reply::SaslContinue
+        session.apply(parse("USER alice\r\n")),
+        Reply::Ok(_)
     ));
-    assert!(matches!(session.sasl_plain_response("*"), Reply::Error(_)));
-    assert!(!session.awaiting_sasl_response());
+    assert!(matches!(
+        session.apply(parse("AUTH PLAIN invalid\r\n")),
+        Reply::Error(_)
+    ));
+    assert!(matches!(
+        session.apply(parse("PASS correct\r\n")),
+        Reply::Authenticate { username, .. } if username == "alice"
+    ));
+    assert!(matches!(session.authentication_rejected(), Reply::Error(_)));
+    assert!(matches!(session.apply(parse("USER bob\r\n")), Reply::Ok(_)));
+}
+
+#[test]
+fn failed_sasl_backend_auth_allows_new_auth_exchange() {
+    let response = crate::sasl::encode_plain("bob", b"wrong");
+    let mut session = Session::default();
+    session.tls_established();
+    assert!(matches!(
+        session.apply(parse(&format!("AUTH PLAIN {response}\r\n"))),
+        Reply::Authenticate { .. }
+    ));
+    assert!(matches!(session.authentication_rejected(), Reply::Error(_)));
+    let response = crate::sasl::encode_plain("alice", b"correct");
+    assert!(matches!(
+        session.apply(parse(&format!("AUTH PLAIN {response}\r\n"))),
+        Reply::Authenticate { username, .. } if username == "alice"
+    ));
 }
 
 #[test]
