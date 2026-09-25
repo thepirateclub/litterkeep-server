@@ -47,8 +47,11 @@ parser-ом. Невалидный IP и незарегистрированный
 SMTP grammar теперь принимает UTF-8 local-part в dot-atom и quoted-string при
 ASCII domain, но сетевой EAI delivery и IDNA U-label validation ещё не проверены.
 MAIL с таким reverse-path требует флаг SMTPUTF8; reactor guard отклоняет
-UTF-8 RCPT без флага активного MAIL, но этот guard ещё не проверен отдельным
-socket acceptance. Сам флаг не требует BODY=8BITMIME: 8-bit тела по-прежнему
+UTF-8 RCPT без флага активного MAIL. Независимый Linux TCP peer подтвердил 553
+без флага, 501 для UTF-8 MAIL без флага и достижение account lookup (550 на
+намеренно отсутствующий UTF-8 account) при корректном SMTPUTF8. Это доказывает
+только wire parsing/policy, не доставку на UTF-8 mailbox. Сам флаг не требует
+BODY=8BITMIME: 8-bit тела по-прежнему
 разрешаются только BODY=8BITMIME, а UTF-8 заголовки требуют SMTPUTF8. Account
 credentials, folder catalog, subscriptions, Sieve snapshots и внутренние
 mailbox keys сохраняют bounded UTF-8 идентификаторы в отдельном hex namespace;

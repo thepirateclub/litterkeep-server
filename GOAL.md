@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 SMTPUTF8 independent recipient-policy socket checkpoint, PARTIAL
+
+- Added `tests/blackbox/smtp_smtputf8_recipient_policy.py` as an independent
+  byte-oriented TCP client. On a Linux runtime initialized under
+  `./data/g17-smtputf8-recipient-policy`, it verified SMTPUTF8 is absent from
+  EHLO, an unmarked UTF-8 RCPT receives 553, an unmarked UTF-8 reverse-path
+  receives 501, and marked UTF-8 MAIL/RCPT reaches account lookup (550 for the
+  deliberately nonexistent Unicode recipient). The expected response sequence
+  confirms the MAIL/RCPT gates and UTF-8 path parsing on the actual listener.
+- This is not a delivery proof: there is no Unicode test account in bootstrap,
+  no accepted Unicode recipient, and no SMTP-to-IMAP message-byte assertion.
+  IDNA and SMTPUTF8 EHLO remain unsupported; no Litterkeep client test.
+- PASS: Python 3.14 `py_compile`; the independent socket test passed against a
+  freshly initialized Linux Rust 1.97 runtime image. The exact test container was
+  stopped and auto-removed, its temporary image tag was removed, and
+  `litterkeep-g12-phone` was preserved. G17 remains ACTIVE.
+
 ### 2026-09-25: G17 SMTP RFC 6531 UTF-8 local-part groundwork, PARTIAL
 
 - SMTP mailbox grammar now accepts non-ASCII UTF-8 characters in dot-atom and
@@ -21,8 +38,7 @@ Current subgoal: G17
   returned `litterkeep-server 0.1.0` for `version`.
 - Not claimed: SMTPUTF8 EHLO capability (it is still not advertised), IDNA,
   Unicode-domain routing, or end-to-end network delivery to a UTF-8 account.
-  The new RCPT guard has no independent socket acceptance yet. No Litterkeep
-  client test. Temporary test/runtime image tags were removed;
+  No Litterkeep client test. Temporary test/runtime image tags were removed;
   `litterkeep-g12-phone` is preserved. G17 remains ACTIVE.
 
 ### 2026-09-25: G17 Unicode account persistence checkpoint, PARTIAL
