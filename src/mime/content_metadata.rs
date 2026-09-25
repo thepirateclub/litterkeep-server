@@ -26,52 +26,145 @@ pub fn parse(fields: &[HeaderField]) -> ContentMetadata {
     }
 }
 
-/// Принимает единственный видимый ASCII Content-ID без folding и комментариев.
+/// Принимает единственный Content-ID в поддерживаемой RFC 5322/6532 грамматике.
 fn parse_content_id(fields: &[HeaderField]) -> Option<String> {
     let field = single_field(fields, HeaderName::ContentId)?;
     let value = std::str::from_utf8(&field.value).ok()?;
     let normalized = super::structured_comments::remove(value).ok()?;
     let identifier = normalized.trim();
     let inner = identifier.strip_prefix('<')?.strip_suffix('>')?;
-    let (left, right) = inner.split_once('@')?;
-    match valid_dot_atom(left) && valid_dot_atom(right) {
-        true => Some(identifier.to_owned()),
-        false => None,
+    let separator = separator_at(inner)?;
+    let (left, right_with_separator) = inner.split_at(separator);
+    let right = right_with_separator.get(1..)?;
+    match (valid_id_left(left), valid_id_right(right)) {
+        (true, true) => Some(identifier.to_owned()),
+        _ => None,
     }
 }
 
-/// Проверяет поддерживаемое подмножество RFC 5322 dot-atom без quoted forms.
-fn valid_dot_atom(value: &str) -> bool {
-    !value.is_empty()
-        && value
-            .split('.')
-            .all(|atom| !atom.is_empty() && atom.bytes().all(is_atext_or_dot))
+/// Находит единственный разделитель вне quoted-string и domain-literal.
+fn separator_at(value: &str) -> Option<usize> {
+    let mut state = IdentifierState::Plain;
+    let mut separator = None;
+    for (offset, character) in value.char_indices() {
+        state = match (state, character) {
+            (IdentifierState::Plain, '"') => IdentifierState::Quoted,
+            (IdentifierState::Plain, '[') => IdentifierState::DomainLiteral,
+            (IdentifierState::Plain, '@') if separator.is_none() => {
+                separator = Some(offset);
+                IdentifierState::Plain
+            }
+            (IdentifierState::Plain, '@') => return None,
+            (IdentifierState::Quoted, '\\') => IdentifierState::QuotedEscape,
+            (IdentifierState::Quoted, '"') => IdentifierState::Plain,
+            (IdentifierState::Quoted, _) => IdentifierState::Quoted,
+            (IdentifierState::QuotedEscape, character) if !character.is_control() => {
+                IdentifierState::Quoted
+            }
+            (IdentifierState::DomainLiteral, '\\') => IdentifierState::DomainEscape,
+            (IdentifierState::DomainLiteral, ']') => IdentifierState::Plain,
+            (IdentifierState::DomainLiteral, '[') => return None,
+            (IdentifierState::DomainLiteral, character) if !character.is_control() => {
+                IdentifierState::DomainLiteral
+            }
+            (IdentifierState::DomainEscape, character) if !character.is_control() => {
+                IdentifierState::DomainLiteral
+            }
+            (IdentifierState::QuotedEscape | IdentifierState::DomainEscape, _) => return None,
+            (IdentifierState::Plain, ']') => return None,
+            (IdentifierState::Plain, character) if !character.is_control() => {
+                IdentifierState::Plain
+            }
+            _ => return None,
+        };
+    }
+    match (state, separator) {
+        (IdentifierState::Plain, Some(offset)) => Some(offset),
+        _ => None,
+    }
 }
 
-fn is_atext_or_dot(byte: u8) -> bool {
-    byte.is_ascii_alphanumeric()
-        || matches!(
-            byte,
-            b'!' | b'#'
-                | b'$'
-                | b'%'
-                | b'&'
-                | b'\''
-                | b'*'
-                | b'+'
-                | b'-'
-                | b'/'
-                | b'='
-                | b'?'
-                | b'^'
-                | b'_'
-                | b'`'
-                | b'{'
-                | b'|'
-                | b'}'
-                | b'~'
-                | b'.'
-        )
+/// Поддерживает RFC dot-atom либо quoted-string для id-left.
+fn valid_id_left(value: &str) -> bool {
+    match value
+        .strip_prefix('"')
+        .and_then(|inner| inner.strip_suffix('"'))
+    {
+        Some(inner) => valid_quoted_text(inner),
+        None => valid_dot_atom(value),
+    }
+}
+
+/// Поддерживает RFC dot-atom либо no-fold-literal для id-right.
+fn valid_id_right(value: &str) -> bool {
+    match value
+        .strip_prefix('[')
+        .and_then(|inner| inner.strip_suffix(']'))
+    {
+        Some(inner) => valid_domain_literal(inner),
+        None => valid_dot_atom(value),
+    }
+}
+
+fn valid_dot_atom(value: &str) -> bool {
+    value.split('.').all(valid_atext_atom)
+}
+
+fn valid_atext_atom(value: &str) -> bool {
+    match value.chars().next() {
+        Some(_) => value.chars().all(is_atext),
+        None => false,
+    }
+}
+
+fn is_atext(character: char) -> bool {
+    match character {
+        character if character.is_ascii_alphanumeric() => true,
+        '!' | '#' | '$' | '%' | '&' | '\'' | '*' | '+' | '-' | '/' | '=' | '?' | '^' | '_'
+        | '`' | '{' | '|' | '}' | '~' => true,
+        character if !character.is_ascii() => !character.is_control(),
+        _ => false,
+    }
+}
+
+/// Проверяет quoted-string/literal payload без CR/LF folding и управляющих символов.
+fn valid_quoted_text(value: &str) -> bool {
+    let mut escaped = false;
+    for character in value.chars() {
+        match (escaped, character) {
+            (true, character) if !character.is_control() => escaped = false,
+            (true, _) => return false,
+            (false, '\\') => escaped = true,
+            (false, character) if !character.is_control() && character != '"' => {}
+            _ => return false,
+        }
+    }
+    !escaped
+}
+
+/// Проверяет dtext/domain quoted-pair без вложенных квадратных скобок.
+fn valid_domain_literal(value: &str) -> bool {
+    let mut escaped = false;
+    for character in value.chars() {
+        match (escaped, character) {
+            (true, character) if !character.is_control() => escaped = false,
+            (true, _) => return false,
+            (false, '\\') => escaped = true,
+            (false, '[' | ']') => return false,
+            (false, character) if !character.is_control() => {}
+            _ => return false,
+        }
+    }
+    !escaped
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum IdentifierState {
+    Plain,
+    Quoted,
+    QuotedEscape,
+    DomainLiteral,
+    DomainEscape,
 }
 
 /// Декодирует единственное RFC 2045 Content-Description без изменения raw header.

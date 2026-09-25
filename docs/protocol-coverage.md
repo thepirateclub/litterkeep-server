@@ -90,11 +90,13 @@ multipart. Параметры включая RFC 2231 filename декодиру�
 `BODYSTRUCTURE`: первый не содержит extensions, второй содержит language,
 location и RFC 2231 attachment filename. Оба профиля возвращают MIME basic
 поля `Content-ID` и `Content-Description`. Описание декодируется по RFC 2047;
-Content-ID принимает только единственное `<dot-atom@dot-atom>` поле, поэтому
-quoted id-left и domain-literal формы пока не поддержаны. Повторные или
-невалидные значения не проецируются. Независимый STARTTLS acceptance подтвердил
-wire-поля в обоих профилях, RFC 2047 и отвергаемые формы Content-ID проверены
-unit-тестами. Прочие protocol fields и RFC пробелы остаются непокрытыми.
+Content-ID принимает единственное поле в формах dot-atom, quoted id-left и
+domain-literal id-right, включая UTF-8 atext по RFC 6532. Устаревшие формы
+RFC 5322 `obs-id-left`/`obs-id-right` не поддержаны. Повторные или
+синтаксически некорректные значения не проецируются. Независимый STARTTLS
+acceptance подтвердил quoted id-left и IPv6 domain literal в обоих профилях;
+UTF-8 identifiers и RFC 2047 description проверены unit-тестами. Прочие
+protocol fields и RFC пробелы остаются непокрытыми.
 `BODY` поддерживает полное сообщение, HEADER/TEXT, HEADER.FIELDS/NOT, числовые
 MIME paths, вложенный `message/rfc822` и partial ranges; durable `\\Seen`
 различает BODY/RFC822, PEEK и EXAMINE. `NAMESPACE`, `UNSELECT` и `ENABLE`

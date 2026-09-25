@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 RFC 5322/6532 Content-ID forms checkpoint
+
+- Расширен parser единственного Content-ID: кроме dot-atom поддерживаются
+  quoted id-left, domain-literal id-right и UTF-8 atext согласно RFC 6532.
+  Проверяются единственный `@` вне кавычек/literal, баланс ограничителей и
+  отсутствие управляющих символов. Obsolete RFC 5322 id forms остаются вне
+  принятого подмножества; malformed и повторные поля не проецируются.
+- Независимый Python `imaplib` STARTTLS acceptance проверяет quoted id-left и
+  IPv6 domain literal в basic полях `BODY`/`BODYSTRUCTURE`. UTF-8 identifier
+  формы подтверждаются unit-тестом.
+- PASS: Windows Rust 1.97.1 `cargo test --all-targets --locked` (440 library +
+  1 binary), strict Clippy, format/diff checks и Python compile. Linux Docker
+  Rust 1.97 test target: release build, 481 library + 1 binary, doc-tests и
+  strict Clippy; независимый STARTTLS `imaplib` acceptance прошёл. Временные
+  image/container удалены; `litterkeep-g12-phone` сохранён. G17 остаётся
+  RUNNING.
+
 ### 2026-09-25: G17 MIME BODY basic identity fields checkpoint
 
 - MIME entity извлекает единственное корректное `Content-ID` из поддерживаемого
