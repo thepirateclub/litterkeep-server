@@ -18,6 +18,7 @@ pub(super) enum Token {
 }
 
 pub(super) fn tokenize(source: &str) -> Result<Vec<Token>, &'static str> {
+    validate_source_octets(source)?;
     let mut characters = source.chars().peekable();
     let mut tokens = Vec::new();
     while let Some(character) = characters.next() {
@@ -25,7 +26,7 @@ pub(super) fn tokenize(source: &str) -> Result<Vec<Token>, &'static str> {
             ' ' | '\t' => {}
             '\r' if characters.next() == Some('\n') => {}
             '\r' | '\n' => return Err("invalid sieve line ending"),
-            '#' => line_comment(&mut characters),
+            '#' => line_comment(&mut characters)?,
             '/' => block_comment(&mut characters)?,
             '"' => tokens.push(Token::String(string(&mut characters)?)),
             '[' => tokens.push(Token::OpenList),
@@ -45,12 +46,29 @@ pub(super) fn tokenize(source: &str) -> Result<Vec<Token>, &'static str> {
     Ok(tokens)
 }
 
-fn line_comment(characters: &mut Peekable<Chars<'_>>) {
-    for character in characters.by_ref() {
-        if character == '\n' {
-            break;
+/// Запрещает NUL и непарные CR/LF во всех областях, включая комментарии.
+fn validate_source_octets(source: &str) -> Result<(), &'static str> {
+    let mut characters = source.chars().peekable();
+    while let Some(character) = characters.next() {
+        match character {
+            '\0' => return Err("NUL is not permitted in sieve scripts"),
+            '\r' if characters.next() == Some('\n') => {}
+            '\r' | '\n' => return Err("invalid sieve line ending"),
+            _ => {}
         }
     }
+    Ok(())
+}
+
+/// Hash-comment обязана завершаться CRLF; EOF не завершает комментарий.
+fn line_comment(characters: &mut Peekable<Chars<'_>>) -> Result<(), &'static str> {
+    while let Some(character) = characters.next() {
+        if character == '\r' {
+            let _ = characters.next();
+            return Ok(());
+        }
+    }
+    Err("unterminated sieve hash comment")
 }
 
 fn block_comment(characters: &mut Peekable<Chars<'_>>) -> Result<(), &'static str> {

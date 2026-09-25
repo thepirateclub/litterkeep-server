@@ -24,3 +24,13 @@ fn quoted_string_rejects_nul_and_bare_line_endings() {
     assert!(tokenize("keep;\rdiscard;").is_err());
     assert!(tokenize("keep;\ndiscard;").is_err());
 }
+
+#[test]
+fn comments_require_crlf_and_reject_nul() {
+    assert!(tokenize("keep; # comment\r\nkeep;").is_ok());
+    assert!(tokenize("keep; # comment\nkeep;").is_err());
+    assert!(tokenize("keep; # comment\rkeep;").is_err());
+    assert!(tokenize("keep; # comment").is_err());
+    assert!(tokenize("/* comment\0 */ keep;").is_err());
+    assert!(tokenize("/* comment\n */ keep;").is_err());
+}

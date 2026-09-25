@@ -4,6 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 5228 comment line-ending checkpoint
+
+- Lexer сначала проверяет весь Sieve source: NUL запрещён, CR и LF допустимы
+  только парой. Hash-comment следует ABNF и обязан завершаться CRLF; достижение
+  EOF внутри такого комментария является ошибкой. Block-comment также не может
+  скрывать одиночный line ending или NUL. Unit regressions и независимый
+  ManageSieve CHECKSCRIPT проверяют корректный CRLF и отказ на bare LF.
+- PASS: Windows Rust 1.97.1, fmt, 326 тестов, strict Clippy, Python compile и
+  diff check. Linux Docker Rust 1.97: strict Clippy и 366 тестов. Независимый
+  ManageSieve -> SMTP -> IMAP acceptance прошёл в `./data/g17-sieve-comment-crlf`.
+  Временный контейнер удалён, `litterkeep-g12-phone` сохранён. Litterkeep app
+  integration не проверялась. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 5228 empty header strings checkpoint
 
 - Static validation больше не отвергает пустые элементы в `header` и

@@ -256,6 +256,10 @@ escape с удалением обратной косой черты и отве�
 элементами и не допускается на краях. Unit и ManageSieve CHECKSCRIPT acceptance
 проверяют эти границы по RFC 5228 §§2.4.2, 5.2-5.3 и 8.1-8.2. Это не означает
 полного покрытия grammar RFC 5228 и extensions.
+Hash-comment теперь обязан завершаться CRLF; предварительная проверка также
+отвергает одиночные CR/LF и NUL в quoted strings и обоих видах комментариев.
+Unit и ManageSieve CHECKSCRIPT acceptance проверяют корректный CRLF и отказ на
+bare LF по RFC 5228 §§2.1-2.3, 8.1.
 `:user` и `:detail` реализованы как RFC 5233 `subaddress`; оба требуют явного
 `require "subaddress"`, а ManageSieve greeting и CAPABILITY объявляют это
 расширение. Сервер использует первый `+` в local-part как separator: без него

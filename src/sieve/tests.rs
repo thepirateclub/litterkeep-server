@@ -17,7 +17,7 @@ fn invoice_rule_creates_only_invoices_delivery() {
 
 #[test]
 fn comments_and_implicit_keep_survive_false_condition() {
-    let script = parse("# note\nif false { discard; } else { keep; }").expect("parse");
+    let script = parse("# note\r\nif false { discard; } else { keep; }").expect("parse");
     let plan = execute(&script, &[], 0).expect("execute");
     assert!(plan.keep);
     assert!(!plan.discard);
