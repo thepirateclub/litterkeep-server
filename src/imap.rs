@@ -36,7 +36,7 @@ pub mod status;
 #[path = "imap/store_tests.rs"]
 mod store_tests;
 pub mod tokenizer;
-pub use authenticate::AuthenticationMechanism;
+pub use authenticate::{AuthenticationMechanism, InitialResponse};
 use command_verb::{Verb, parse_verb};
 pub use fetch::{BodySection, FetchAttribute, Partial};
 pub use idle::{IdleContinuation, parse_idle_continuation};
@@ -64,7 +64,7 @@ pub enum Command {
     },
     Authenticate {
         mechanism: AuthenticationMechanism,
-        initial_response: Option<String>,
+        initial_response: InitialResponse,
     },
     Append {
         mailbox: MailboxName,

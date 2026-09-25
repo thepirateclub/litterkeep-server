@@ -128,6 +128,14 @@ LSUB, CREATE/RENAME/DELETE, SELECT/EXAMINE, STATUS, APPEND, SEARCH, FETCH,
 BODYSTRUCTURE, MIME sections/partial, STORE, COPY, MOVE, EXPUNGE, UID EXPUNGE,
 IDLE/DONE и durable Recent. UIDVALIDITY и UID переживают restart.
 
+`AUTHENTICATE PLAIN` принимает механизм и SASL-IR как IMAP `astring`: atom и
+quoted string; маркер `=` переводится в пустой initial response, отличный от
+отсутствующего ответа с continuation. Пустые PLAIN credentials отвергаются, а
+сессия остаётся пригодной для следующей команды. Независимый STARTTLS `imaplib`
+проверил continuation, atom SASL-IR, quoted mechanism/response, пустой marker,
+capability до/после TLS и отказ plaintext authentication. Другие SASL mechanisms
+и channel binding не реализованы и не рекламируются.
+
 `FETCH` принимает одиночные и сгруппированные data items, раскрывает ALL, FAST
 и FULL, включает UID в ответы UID FETCH и сохраняет literal как точные октеты.
 `BODY` и `BODYSTRUCTURE` поддерживаются как отдельные запросы; FULL раскрывается

@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 IMAP SASL-IR grammar and TLS acceptance, PARTIAL
+
+- IMAP `AUTHENTICATE PLAIN` now parses mechanism and initial response as
+  `astring` forms, accepts atom and quoted values, and distinguishes absent
+  response from SASL-IR `=` (present but empty). Empty PLAIN credentials return
+  authentication failure without wedging the session. No new SASL mechanism or
+  capability was added.
+- Independent `imaplib` STARTTLS acceptance confirmed pre/post-TLS capability,
+  continuation, atom SASL-IR, quoted mechanism/response, empty marker rejection,
+  and continued NOOP after denial. Fixture: `./data/g17-imap-sasl-ir`.
+- PASS: Windows Rust 1.97.1 full suite (507 library + 1 binary), strict Clippy,
+  fmt and diff checks. Docker Linux Rust 1.97 test target passed strict Clippy,
+  552 library + 1 binary tests and doc-tests. Docker wire acceptance passed.
+  Test container and temporary image were removed; fixture data is retained.
+  Other SASL mechanisms/channel binding and Litterkeep compatibility
+  remain unverified. G17 remains ACTIVE.
+
 ### 2026-09-25: G17 forced SMTPUTF8-to-IMAP durable delivery, PARTIAL
 
 - The opt-in `init-smtputf8-test` command creates a separate random-password

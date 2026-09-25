@@ -14,7 +14,7 @@ pub(super) fn begin(
     session: &mut Session,
     tag: String,
     mechanism: imap::AuthenticationMechanism,
-    initial_response: Option<String>,
+    initial_response: imap::InitialResponse,
     slot: usize,
     generation: u64,
     worker: &mut WakingStorageWorker,
@@ -29,10 +29,10 @@ pub(super) fn begin(
             .push(format!("{tag} NO [PRIVACYREQUIRED] STARTTLS required\r\n").as_bytes());
     }
     match initial_response {
-        Some(response) => queue(
+        imap::InitialResponse::Present(response) => queue(
             session, tag, mechanism, &response, slot, generation, worker, owners, request_id,
         ),
-        None => {
+        imap::InitialResponse::Absent => {
             session.imap_authenticate = Some(State { tag, mechanism });
             session.push(b"+ \r\n")
         }

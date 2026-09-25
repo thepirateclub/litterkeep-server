@@ -15,7 +15,7 @@ CAPABILITY не выдаёт за более широкое расширение
 | Any | CAPABILITY, NOOP, LOGOUT | PASS | Tagged/untagged ответы, bounded line decoder; безаргументные команды отвергают лишние аргументы |
 | TLS | STARTTLS | PASS | Сброс plaintext state и пошаговый rustls handshake |
 | Authentication | LOGIN | PASS | Только TLS, общий Argon2 worker, повторный вход запрещён |
-| Authentication | AUTHENTICATE PLAIN | PASS | Continuation, cancel, SASL-IR, authzid policy, только TLS |
+| Authentication | AUTHENTICATE PLAIN | PASS | Continuation, cancel, atom/quoted astring, пустой SASL-IR marker, authzid policy, только TLS; прочие механизмы не рекламируются |
 | Mailbox discovery | LIST, LSUB, STATUS | PARTIAL | modified UTF-7, `*`/`%`, root discovery, empty selection `()`, slash-delimited relative reference prefix with canonical response names, SUBSCRIBED, RECURSIVEMATCH with CHILDINFO for SUBSCRIBED/SPECIAL-USE, RETURN (CHILDREN), RETURN (SUBSCRIBED), and RETURN STATUS (MESSAGES/UIDNEXT/UIDVALIDITY/UNSEEN/DELETED/SIZE) verified; missing names are selected only by SUBSCRIBED and retain `\\NonExistent`; multi-namespace/breakout naming is not implemented |
 | Namespace | NAMESPACE | PASS | Advertised and tested; personal namespace is `""` with `/` delimiter, unavailable classes are NIL |
 | Extension negotiation | ENABLE | PARTIAL | Atom and quoted-string token forms are distinguished; unsupported capability atoms are ignored; empty `ENABLED` and stable CAPABILITY verified; no enable-able extension is implemented yet |
