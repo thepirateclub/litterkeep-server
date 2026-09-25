@@ -158,6 +158,9 @@ fn recipient(
     if !transaction.has_recipient_capacity() {
         return session.push(b"452 4.5.3 too many recipients\r\n");
     }
+    if smtp::requires_smtp_utf8(&address) && !session.smtp_utf8 {
+        return session.push(b"553 5.6.7 SMTPUTF8 required for recipient address\r\n");
+    }
     let Some(mailbox) = local_recipient(&address) else {
         return session.push(b"550 unknown local recipient\r\n");
     };

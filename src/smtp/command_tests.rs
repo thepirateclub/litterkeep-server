@@ -56,10 +56,35 @@ fn parses_smtputf8_flag_and_rejects_values_or_duplicates() {
     for wire in [
         "MAIL FROM:<alice@test> SMTPUTF8=YES\r\n",
         "MAIL FROM:<alice@test> SMTPUTF8 SMTPUTF8\r\n",
-        "MAIL FROM:<alice@test> SMTPUTF8\r\n",
     ] {
         assert_eq!(parse(wire), Err(ParseError::Syntax));
     }
+    assert_eq!(
+        parse("MAIL FROM:<alice@test> SMTPUTF8\r\n"),
+        Ok(Command::Mail(MailFrom {
+            reverse_path: "alice@test".into(),
+            declared_size: None,
+            body_mode: BodyMode::SevenBit,
+            smtp_utf8: true,
+        }))
+    );
+}
+
+#[test]
+fn utf8_mailbox_requires_mail_parameter_but_not_eight_bit_body_mode() {
+    assert_eq!(
+        parse("MAIL FROM:<алиса@litterkeep.test> SMTPUTF8\r\n"),
+        Ok(Command::Mail(MailFrom {
+            reverse_path: "алиса@litterkeep.test".into(),
+            declared_size: None,
+            body_mode: BodyMode::SevenBit,
+            smtp_utf8: true,
+        }))
+    );
+    assert_eq!(
+        parse("MAIL FROM:<алиса@litterkeep.test>\r\n"),
+        Err(ParseError::Syntax)
+    );
 }
 
 #[test]

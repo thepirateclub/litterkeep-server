@@ -1,4 +1,4 @@
-//! Грамматика ASCII SMTP mailbox и локальных частей SMTP пути.
+//! Грамматика SMTP mailbox и локальных частей SMTP пути.
 
 /// Форма mailbox после синтаксической проверки SMTP адреса.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -41,6 +41,19 @@ pub(crate) fn canonical_parts(mailbox: &str) -> Option<(String, &str)> {
         DomainForm::DnsName | DomainForm::AddressLiteral => Some((canonical_local, domain)),
         DomainForm::Invalid => None,
     }
+}
+
+/// Определяет, требует ли mailbox параметр SMTPUTF8 из-за UTF-8 local-part.
+///
+/// Домены здесь намеренно остаются ASCII: без IDNA проверки нельзя считать
+/// Unicode domain допустимым SMTP адресом или безопасно выполнять его lookup.
+pub(crate) fn requires_smtp_utf8(mailbox: &str) -> bool {
+    let Some(separator) = at_separator(mailbox) else {
+        return false;
+    };
+    mailbox
+        .get(..separator)
+        .is_some_and(|local_part| !local_part.is_ascii())
 }
 
 /// Удаляет устаревший source route после строгой проверки его RFC-грамматики.
@@ -114,7 +127,7 @@ pub(crate) fn canonical_local_part(local_part: &str) -> Option<String> {
     }
 }
 
-/// Проверяет qtextSMTP и quoted-pairSMTP и создаёт каноническую строку.
+/// Проверяет qtextSMTP с UTF8-non-ascii и ASCII quoted-pairSMTP.
 fn decode_quoted_local_part(quoted: &str) -> Option<String> {
     let mut characters = quoted.chars();
     let mut decoded = String::with_capacity(quoted.len());
@@ -127,6 +140,7 @@ fn decode_quoted_local_part(quoted: &str) -> Option<String> {
                 _ => return None,
             },
             ' '..='!' | '#'..='[' | ']'..='~' => decoded.push(character),
+            _ if !character.is_ascii() => decoded.push(character),
             _ => return None,
         }
     }
@@ -168,9 +182,12 @@ fn valid_local_part(local_part: &str) -> bool {
     local_part.split('.').all(valid_atom)
 }
 
-/// Проверяет один атом на допустимые RFC atext ASCII октеты.
+/// Проверяет один атом на ASCII atext либо RFC 6531 UTF8-non-ascii.
 fn valid_atom(atom: &str) -> bool {
-    !atom.is_empty() && atom.bytes().all(valid_atext)
+    !atom.is_empty()
+        && atom
+            .chars()
+            .all(|character| !character.is_ascii() || valid_atext(character as u8))
 }
 
 /// Классифицирует разрешённые ASCII символы без строковой ветвизации.

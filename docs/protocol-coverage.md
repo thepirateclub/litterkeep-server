@@ -44,12 +44,17 @@ parser-ом. Невалидный IP и незарегистрированный
 поддержаны. Проверенный набор стандартизованных tags сверяется с
 [реестром IANA](https://www.iana.org/assignments/smtp/#smtp-address-literal-tags).
 Полный inbound SMTPUTF8/EAI пока не поддержан и capability не рекламируется:
-SMTP mailbox grammar и IDNA U-label validation остаются ASCII-only. Account
+SMTP grammar теперь принимает UTF-8 local-part в dot-atom и quoted-string при
+ASCII domain, но сетевой EAI delivery и IDNA U-label validation ещё не проверены.
+MAIL с таким reverse-path требует флаг SMTPUTF8; reactor guard отклоняет
+UTF-8 RCPT без флага активного MAIL, но этот guard ещё не проверен отдельным
+socket acceptance. Сам флаг не требует BODY=8BITMIME: 8-bit тела по-прежнему
+разрешаются только BODY=8BITMIME, а UTF-8 заголовки требуют SMTPUTF8. Account
 credentials, folder catalog, subscriptions, Sieve snapshots и внутренние
 mailbox keys сохраняют bounded UTF-8 идентификаторы в отдельном hex namespace;
 прямой Store/Accounts restart test проверяет эти слои, но не сетевую
 аутентификацию или SMTP EAI delivery. Ограниченный DATA/transport checkpoint разбирает MAIL
-флаг SMTPUTF8 с обязательным `BODY=8BITMIME`, разрешает UTF-8 field values, но
+флаг SMTPUTF8, разрешает UTF-8 field values, но
 не ASCII field names, и требует обе peer capabilities на outbound перед MAIL.
 Независимый Linux SMTP peer подтвердил `BODY=8BITMIME SMTPUTF8` и сохранность
 UTF-8 header octets. Этот сценарий не подтверждает локальную EHLO capability,

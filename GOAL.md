@@ -4,6 +4,27 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 SMTP RFC 6531 UTF-8 local-part groundwork, PARTIAL
+
+- SMTP mailbox grammar now accepts non-ASCII UTF-8 characters in dot-atom and
+  quoted local-parts while measuring RFC 5321's 64-octet limit on the wire form.
+  Unicode DNS domains remain rejected because IDNA U-label validation and DNS
+  conversion are not implemented. MAIL with a UTF-8 reverse-path requires the
+  valueless `SMTPUTF8` parameter; the reactor guard refuses a UTF-8 RCPT unless
+  the active MAIL set it. `SMTPUTF8` no longer incorrectly requires `BODY=8BITMIME`; high-bit
+  body octets still require 8BITMIME, independently of UTF-8 headers.
+- PASS: Windows Rust 1.97.1 `cargo test --all-targets --locked` (505 library +
+  1 binary tests), strict Clippy, fmt and diff checks. The first focused run
+  exposed an obsolete ASCII-only quoted local-part expectation, which was
+  corrected. Linux Docker Rust 1.97 target passed release build, strict
+  Clippy, 550 library + 1 binary test and doc-tests. The separate runtime image
+  returned `litterkeep-server 0.1.0` for `version`.
+- Not claimed: SMTPUTF8 EHLO capability (it is still not advertised), IDNA,
+  Unicode-domain routing, or end-to-end network delivery to a UTF-8 account.
+  The new RCPT guard has no independent socket acceptance yet. No Litterkeep
+  client test. Temporary test/runtime image tags were removed;
+  `litterkeep-g12-phone` is preserved. G17 remains ACTIVE.
+
 ### 2026-09-25: G17 Unicode account persistence checkpoint, PARTIAL
 
 - Обратимое namespace-кодирование теперь используется не только для mailbox

@@ -34,6 +34,18 @@ fn rejects_invalid_domain_labels_and_non_ascii() {
 }
 
 #[test]
+fn accepts_utf8_local_parts_but_keeps_domains_ascii_only() {
+    for mailbox in ["алиса@test", "δοκιμή@example.test", "\"почта\"@test"] {
+        assert_ne!(classify_mailbox(mailbox), MailboxForm::Invalid, "{mailbox}");
+        assert!(requires_smtp_utf8(mailbox));
+    }
+    for mailbox in ["alice@тест", "alice@例え.test"] {
+        assert_eq!(classify_mailbox(mailbox), MailboxForm::Invalid, "{mailbox}");
+    }
+    assert!(!requires_smtp_utf8("alice@test"));
+}
+
+#[test]
 fn enforces_each_dns_label_octet_limit() {
     let valid = format!("alice@{}", "a".repeat(63));
     let invalid = format!("alice@{}", "a".repeat(64));
@@ -101,7 +113,6 @@ fn rejects_malformed_or_oversized_quoted_local_parts() {
         "\"unterminated@test",
         "\"dangling\\\"@test",
         "\"control\x01octet\"@test",
-        "\"non-ascii-é\"@test",
         "\"a\"@test@other",
     ] {
         assert_eq!(

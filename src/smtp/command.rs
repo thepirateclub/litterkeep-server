@@ -5,6 +5,8 @@ mod address;
 #[path = "address_literal.rs"]
 mod address_literal;
 pub(crate) use address::canonical_parts;
+#[cfg(target_os = "linux")]
+pub(crate) use address::requires_smtp_utf8;
 
 /// Команда SMTP после разбора wire-строки без потери ESMTP параметров.
 #[derive(Debug, Eq, PartialEq)]
@@ -162,7 +164,7 @@ fn parse_mail_from(argument: &str) -> Result<MailFrom, ParseError> {
             }
         }
     }
-    if let (true, BodyMode::SevenBit) = (smtp_utf8, body_mode) {
+    if address::requires_smtp_utf8(&reverse_path) && !smtp_utf8 {
         return Err(ParseError::Syntax);
     }
     Ok(MailFrom {
