@@ -96,3 +96,4 @@ T75	PASS	outbound	phase-specific RFC 5321 timeout policy plus bounded stalled-gr
 T76	PASS	outbound	positive per-phase timeout environment overrides, RFC default fallback, and invalid zero rejection
 T77	PASS	outbound	streaming DATA writer preserves exact dot-unstuffed octets for 2 MiB peer payload with bounded line fragments and partial writes
 T78	PASS	outbound	RFC 1870 EHLO SIZE decimal above 20 digits is retained and exact message octets are declared on MAIL
+T79	PASS	smtp-pop3	SMTP DATA removes exactly one transparency dot; TOP 0/1/over-body retains exact headers and dot-leading body lines end to end

@@ -136,7 +136,7 @@ fn append_data_line(
     mode: smtp::BodyMode,
     line: &[u8],
 ) -> io::Result<()> {
-    let content = match line.strip_prefix(b"..") {
+    let content = match line.strip_prefix(b".") {
         Some(unstuffed) => unstuffed,
         None => line,
     };
@@ -152,7 +152,7 @@ fn append_data_line(
 
 /// Соблюдает минимум RFC 5321 и 7BIT/8BITMIME octet mode.
 fn data_line_accepts(mode: smtp::BodyMode, content: &[u8]) -> Result<(), ()> {
-    let line_limit_exceeded = content.len().saturating_add(2) > 1000;
+    let line_limit_exceeded = content.len() > 1000;
     let non_ascii_without_extension = match mode {
         smtp::BodyMode::SevenBit => content.iter().any(|octet| !octet.is_ascii()),
         smtp::BodyMode::EightBitMime => false,
@@ -168,4 +168,58 @@ fn next_request(request_id: &mut u64) -> u64 {
     let current = *request_id;
     *request_id = request_id.wrapping_add(1).max(1);
     current
+}
+
+#[cfg(test)]
+mod tests {
+    use super::append_data_line;
+    use crate::smtp::BodyMode;
+
+    /// Каждая DATA wire-строка удаляет один добавочный dot независимо от числа
+    /// точек в исходном содержимом, как требует SMTP transparency.
+    #[test]
+    fn data_removes_exactly_one_transparency_dot_from_every_dotted_line() {
+        let cases: [(&[u8], &[u8]); 3] = [
+            (b"..one\r\n", b".one\r\n"),
+            (b"...two\r\n", b"..two\r\n"),
+            (b"....three\r\n", b"...three\r\n"),
+        ];
+        for (wire, expected) in cases {
+            let mut bytes = Vec::new();
+            let mut oversized = false;
+            append_data_line(&mut bytes, &mut oversized, BodyMode::SevenBit, wire)
+                .expect("DATA line");
+            assert!(!oversized);
+            assert_eq!(bytes, expected);
+        }
+    }
+
+    /// Проверяет 1000 октетов вместе с CRLF, не включая только wire-dot, и
+    /// подтверждает, что следующая длина приводит к отказу всего сообщения.
+    #[test]
+    fn data_line_limit_counts_crlf_but_excludes_the_transparency_dot() {
+        let accepted = format!("..{}\r\n", "x".repeat(997));
+        let rejected = format!("{}\r\n", "x".repeat(999));
+        let mut bytes = Vec::new();
+        let mut oversized = false;
+        append_data_line(
+            &mut bytes,
+            &mut oversized,
+            BodyMode::SevenBit,
+            accepted.as_bytes(),
+        )
+        .expect("boundary DATA line");
+        assert!(!oversized);
+        assert_eq!(bytes.len(), 1000);
+
+        append_data_line(
+            &mut bytes,
+            &mut oversized,
+            BodyMode::SevenBit,
+            rejected.as_bytes(),
+        )
+        .expect("oversized DATA line");
+        assert!(oversized);
+        assert_eq!(bytes.len(), 1000);
+    }
 }

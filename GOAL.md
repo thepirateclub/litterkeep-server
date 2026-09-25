@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 SMTP DATA transparency and POP3 TOP wire regression
+
+- Независимый SMTP → Store → POP3 TOP тест выявил, что входящий SMTP DATA
+  удалял две точки вместо одной для dot-leading строк. Исправлено снятие
+  ровно одного transparency dot; RFC 5321 предел строки проверяется после
+  unstuffing, включая CRLF и исключая дополнительную wire-точку.
+- POP3 `TOP` зафиксирован независимым STLS peer по RFC 1939 §7: ноль строк
+  сохраняет headers и пустой разделитель, один возвращает ровно одну строку,
+  запрос больше тела возвращает всё тело. `.first` и `..second` совпали после
+  SMTP DATA и POP3 multiline dot transparency.
+- PASS: Windows Rust 1.97.1 `cargo fmt --check`, 484 библиотечных + 1 бинарный
+  тест, strict Clippy, Python compile и `git diff --check`. Linux Docker Rust
+  1.97: 527 библиотечных + 1 бинарный тест, strict Clippy и doc-tests.
+- PASS: независимый SMTP → Store → POP3 STARTTLS wire acceptance с валидными
+  локальными учётными данными; TOP 0/1/9 и dot-transparency прошли. Litterkeep
+  app не тестировалось. Runtime container и два созданных для этапа image tags
+  очищены; `litterkeep-g12-phone` сохранён. Fixture: `./data/g17-pop3-top-dotfix`.
+
 ### 2026-09-25: G17 RFC 1870 длинный SMTP SIZE advertisement
 
 - EHLO `SIZE` принимает произвольную последовательность десятичных цифр, как
