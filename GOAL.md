@@ -4,6 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 Sieve RFC 5228 quoted-string checkpoint
+
+- Quoted-string лексер сохраняет CRLF, принимает quoted-other escape как
+  символ после обратной косой черты и отвергает NUL. Вне строки допускаются
+  только space, HTAB и пары CRLF; непарные CR/LF отвергаются.
+- PASS: Windows Rust 1.97.1, fmt, 309 тестов, strict Clippy и diff check;
+  Linux Docker Rust 1.97, strict Clippy и 349 тестов. Независимый ManageSieve
+  STARTTLS-клиент через CHECKSCRIPT принял CRLF в строке и `\a`, отверг NUL и
+  одиночный LF, затем сохранил/активировал script. SMTP -> Sieve -> IMAP
+  доставка в `Invoices` прошла. Stage `./data/g17-sieve-quoted-string`;
+  временный контейнер удалён, `litterkeep-g12-phone` сохранён. Проверка
+  приложения Litterkeep не выполнялась. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 Sieve RFC 5228 require-order checkpoint
 
 - Parser отклоняет `require`, если до него встретилась любая обычная команда;

@@ -40,6 +40,20 @@ def command_until(client: socket.socket, wire: bytes, marker: bytes) -> bytes:
     return read_until(client, marker)
 
 
+def check_script(client: socket.socket, source: bytes, expected: bytes) -> None:
+    """Проверяет literal framing и результат CHECKSCRIPT без клиентской библиотеки."""
+    marker = f"CHECKSCRIPT {{{len(source)}}}\r\n".encode()
+    require(
+        command(client, marker) == b'OK "ready for literal data"\r\n',
+        "CHECKSCRIPT literal не получил continuation",
+    )
+    client.sendall(source)
+    require(
+        read_until(client, b"\r\n") == expected,
+        f"CHECKSCRIPT вернул неверный результат для {source!r}",
+    )
+
+
 def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> None:
     with socket.create_connection((options.host, options.managesieve_port), timeout=10) as plain:
         greeting = read_until(plain, b'OK "ready"\r\n')
@@ -62,15 +76,22 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
                 command(client, authentication) == b'OK "authenticated"\r\n',
                 "ManageSieve AUTHENTICATE не принят",
             )
-            checked_source = b"keep;"
-            check_marker = f"CHECKSCRIPT {{{len(checked_source)}}}\r\n".encode()
-            require(
-                command(client, check_marker) == b'OK "ready for literal data"\r\n',
-                "синхронизирующий CHECKSCRIPT literal не получил continuation",
+            check_script(client, b"keep;", b'OK "completed"\r\n')
+            check_script(
+                client,
+                b'if header :is "subject" "first\r\nsecond" { keep; }',
+                b'OK "completed"\r\n',
             )
-            require(
-                command(client, checked_source) == b'OK "completed"\r\n',
-                "CHECKSCRIPT literal не проверен",
+            check_script(
+                client,
+                b'if header :is "subject" "foo\\abar" { keep; }',
+                b'OK "completed"\r\n',
+            )
+            check_script(client, b'keep;\nkeep;', b'NO "operation failed"\r\n')
+            check_script(
+                client,
+                b'if header :is "subject" "a\x00b" { keep; }',
+                b'NO "operation failed"\r\n',
             )
             first_chunk = b'require ["fileinto"]; '
             second_chunk = (

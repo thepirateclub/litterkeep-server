@@ -20,7 +20,9 @@ pub(super) fn tokenize(source: &str) -> Result<Vec<Token>, &'static str> {
     let mut tokens = Vec::new();
     while let Some(character) = characters.next() {
         match character {
-            value if value.is_ascii_whitespace() => {}
+            ' ' | '\t' => {}
+            '\r' if characters.next() == Some('\n') => {}
+            '\r' | '\n' => return Err("invalid sieve line ending"),
             '#' => line_comment(&mut characters),
             '/' => block_comment(&mut characters)?,
             '"' => tokens.push(Token::String(string(&mut characters)?)),
@@ -61,6 +63,7 @@ fn block_comment(characters: &mut Peekable<Chars<'_>>) -> Result<(), &'static st
     Err("unterminated sieve comment")
 }
 
+/// Читает RFC 5228 quoted-string, сохраняя CRLF и допустимые control octets.
 fn string(characters: &mut Peekable<Chars<'_>>) -> Result<String, &'static str> {
     let mut result = String::new();
     while let Some(character) = characters.next() {
@@ -68,9 +71,11 @@ fn string(characters: &mut Peekable<Chars<'_>>) -> Result<String, &'static str> 
             '"' => return Ok(result),
             '\\' => match characters.next() {
                 Some(value @ ('"' | '\\')) => result.push(value),
+                Some(value) if !matches!(value, '\0' | '\r' | '\n') => result.push(value),
                 _ => return Err("invalid sieve string escape"),
             },
-            '\r' | '\n' => return Err("newline in sieve string"),
+            '\r' if characters.next() == Some('\n') => result.push_str("\r\n"),
+            '\0' | '\r' | '\n' => return Err("invalid character in sieve string"),
             value => result.push(value),
         }
     }
@@ -99,3 +104,7 @@ fn boundary(character: char) -> bool {
         ),
     }
 }
+
+#[cfg(test)]
+#[path = "lexer_tests.rs"]
+mod tests;
