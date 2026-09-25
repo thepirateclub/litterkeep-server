@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 SMTP PIPELINING RFC 2920 checkpoint, PASS
+
+- EHLO теперь рекламирует PIPELINING в plaintext, STARTTLS и TLS профилях.
+  Независимая проверка в tests/blackbox/smtp_pipelining.py отправляет одним
+  write MAIL, несуществующий RCPT, корректный RCPT и DATA, затем сверяет ответы
+  по порядку (250/550/250/354), передаёт тело после 354 и находит сохранённое
+  сообщение Bob независимым IMAP STARTTLS клиентом.
+- PASS: Windows Rust 1.97.1 cargo test --all-targets --locked (510 library +
+  1 binary), strict Clippy, fmt, py_compile и diff check. Linux Rust 1.97
+  Docker test target прошёл strict Clippy, 557 library + 1 binary tests и
+  doc-tests. Независимый runtime black-box прошёл на Docker Linux через
+  STARTTLS/AUTH PLAIN. Временный контейнер и оба этапных image tags удалены;
+  fixture data/g17-smtp-pipelining сохранена. Остальной G17 остаётся ACTIVE.
+
 ### 2026-09-25: G17 IMAP APPENDLIMIT checkpoint, PASS
 
 - IMAP CAPABILITY now publishes the server-wide upload maximum as

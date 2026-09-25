@@ -4,7 +4,11 @@
 
 Submission поддерживает implicit TLS и STARTTLS, EHLO, AUTH PLAIN, MAIL SIZE,
 несколько RCPT, DATA с однократным dot-unstuffing, RSET, NOOP и QUIT. Также
-рекламируется RFC 6152 `8BITMIME`: `BODY=8BITMIME` разрешает high-bit octets,
+рекламируются RFC 2920 `PIPELINING` и RFC 6152 `8BITMIME`. Независимый
+STARTTLS peer подтвердил PIPELINING: один сетевой write содержит MAIL,
+ошибочный RCPT, успешный RCPT и DATA; ответы должны сохранять порядок, принятый
+адресат не теряется, а письмо читается Bob через IMAP. Остальные SMTP extensions
+оцениваются отдельно. `BODY=8BITMIME` разрешает high-bit octets,
 которые сохраняются до IMAP, а без него DATA с такими octets отклоняется после
 dot terminator. `BODY=7BIT` и режим без BODY ограничивают содержимое US-ASCII.
 До TLS AUTH запрещён. Envelope sender должен принадлежать authenticated owner.
