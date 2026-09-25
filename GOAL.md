@@ -4,6 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 quoted-printable trailing transport padding checkpoint
+
+- MIME quoted-printable decoder удаляет буквальные SP/TAB в конце hard line
+  и объекта, как предписывает RFC 2045 §6.7, но сохраняет encoded `=20`/`=09`.
+  Собственный encoder кодирует SP/TAB как hex-octets, чтобы generated soft wrap
+  и декодирование оставались обратимыми.
+- Добавлены тесты line/end padding, encoded spaces и round-trip. Windows Rust
+  1.97.1: 393 library + 1 binary tests, fmt и strict Clippy PASS. Docker Linux
+  Rust 1.97.1: release build, strict Clippy, 434 library + 1 binary + doc-tests
+  PASS. Socket acceptance не запускался. `docker build --rm` использован для
+  тестового stage; контейнерная инвентаризация выполняется перед фиксацией.
+  RFC 2045 §6.7 сверена с IETF Datatracker. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 MIME Base64 decoder profile checkpoint
 
 - Декодирование разделено на строгий путь RFC 2047 encoded-word и MIME CTE
