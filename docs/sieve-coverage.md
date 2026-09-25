@@ -11,9 +11,9 @@ transaction ID и тип ошибки. Offline-команда `sieve-errors <dat
 <account>` печатает TSV с колонкой `outcome=implicit-keep-only`, явно отражая
 отсутствие частично применённых Sieve actions. Store regression проверяет
 durable диагностику и fallback после повторного открытия; CLI unit regression
-проверяет строку отчёта. Сетевой сценарий подтверждает implicit keep при
-redirect-limit и redirect-loop, но фактическое чтение его строки CLI в этом
-сценарии пока не автоматизировано.
+проверяет строку отчёта. Независимый сетевой сценарий подтверждает implicit
+keep при redirect-limit и redirect-loop; после остановки сервера команда
+запущена на тот же persistent store и подтвердила обе committed строки CLI.
 
 RFC 3894 `copy` реализован для `fileinto` и `redirect`; скрипт обязан явно
 заявить `require "copy"`, а `fileinto` дополнительно требует `fileinto`.

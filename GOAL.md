@@ -4028,9 +4028,13 @@ ManageSieve до заявленного набора современных фо
   проверяет точную TSV-строку с кодом ошибки и outcome.
 - PASS: Rust 1.97 Windows `cargo test --all-targets --locked` (337 tests),
   strict Clippy, `cargo fmt --check`, `git diff --check`. Docker Linux Rust 1.97
-  test target: 377 tests, strict Clippy и release build. В этом checkpoint
-  строка отчёта проверена CLI unit test, но чтение записи CLI из живого
-  сетевого runtime-error сценария ещё не автоматизировано. Контейнеры не
-  запускались; `litterkeep-g12-phone` сохранён, временных контейнеров нет.
+  test target: 377 tests, strict Clippy и release build. Независимый
+  `tests/blackbox/sieve_runtime_errors.py` через ManageSieve загрузил
+  limit/loop scripts, отправил письма SMTP и прочитал их через IMAP. После
+  остановки того же Linux сервера `sieve-errors /data bob` прочитал его bind
+  mount `./data/g17-sieve-cli-live` и вывел две пары committed diagnostics:
+  `redirect-limit` и `redirect-loop`, обе с `implicit-keep-only`. Сценарий
+  повторён после обновления клиента для чтения bootstrap credentials. Временный
+  `litterkeep-g17-sieve-cli` удалён; `litterkeep-g12-phone` сохранён.
 - G17 остаётся RUNNING: RFC 5230 vacation и другие неподдержанные Sieve/MIME
   extension scenarios остаются вне текущего подтверждённого покрытия.

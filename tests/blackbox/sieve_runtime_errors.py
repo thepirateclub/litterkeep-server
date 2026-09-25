@@ -9,6 +9,7 @@ import socket
 import ssl
 from email.message import EmailMessage
 from email.policy import SMTP
+from pathlib import Path
 
 
 class Status(Enum):
@@ -17,10 +18,34 @@ class Status(Enum):
     OK = "OK"
 
 
+class Account(Enum):
+    """Локальные тестовые аккаунты из durable bootstrap-файла."""
+
+    ALICE = "alice"
+    BOB = "bob"
+
+
 def require(condition: bool, message: str) -> None:
     """Останавливает сценарий на первой нарушенной границе."""
     if not condition:
         raise AssertionError(message)
+
+
+def password(options: argparse.Namespace, account: Account) -> str:
+    """Читает секрет из существующего bootstrap-файла, не печатая его."""
+    rows = Path(options.credentials).read_text(encoding="utf-8").splitlines()
+    for row in rows:
+        match row.split("\t"):
+            case [account_name, secret]:
+                try:
+                    row_account = Account(account_name)
+                except ValueError:
+                    continue
+                if row_account is account:
+                    return secret
+            case _:
+                continue
+    raise AssertionError(f"credential missing for {account.value}")
 
 
 def read_until(client: socket.socket, marker: bytes) -> bytes:
@@ -52,7 +77,9 @@ def activate(
         require(b'"STARTTLS"' in greeting, "STARTTLS capability missing")
         require(command(plain, b"STARTTLS\r\n") == b'OK "begin TLS"\r\n', "STARTTLS")
         with context.wrap_socket(plain, server_hostname="litterkeep.test") as client:
-            encoded = base64.b64encode(b"\x00bob\x00bob-password")
+            encoded = base64.b64encode(
+                b"\x00bob\x00" + password(options, Account.BOB).encode()
+            )
             authentication = b'AUTHENTICATE "PLAIN" "' + encoded + b'"\r\n'
             require(command(client, authentication) == b'OK "authenticated"\r\n', "AUTH")
             marker = f'PUTSCRIPT "{name}" {{{len(source)}+}}\r\n'.encode()
@@ -80,7 +107,7 @@ def deliver(
         client.ehlo()
         client.starttls(context=context)
         client.ehlo()
-        client.login("alice", "alice-password")
+        client.login("alice", password(options, Account.ALICE))
         client.send_message(message)
 
 
@@ -92,7 +119,7 @@ def assert_kept(
     """Доказывает через IMAP, что runtime error не потерял принятое письмо."""
     with imaplib.IMAP4(options.host, options.imap_port, timeout=10) as client:
         tls_status, _ = client.starttls(ssl_context=context)
-        login_status, _ = client.login("bob", "bob-password")
+        login_status, _ = client.login("bob", password(options, Account.BOB))
         select_status, _ = client.select("INBOX")
         require(Status(tls_status) is Status.OK, "IMAP TLS")
         require(Status(login_status) is Status.OK, "IMAP LOGIN")
@@ -110,6 +137,7 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--imap-port", type=int, required=True)
     parser.add_argument("--sieve-port", type=int, required=True)
     parser.add_argument("--ca", required=True)
+    parser.add_argument("--credentials", required=True)
     parser.add_argument("--verify-existing", action="store_true")
     return parser.parse_args()
 
