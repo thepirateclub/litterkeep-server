@@ -149,6 +149,7 @@ def verify_size_declaration(
     cases = (
         (b"250-peer.test\r\n250 PIPELINING\r\n", None, True),
         (b"250-peer.test\r\n250 SIZE 1024\r\n", expected_octets, True),
+        (b"250-peer.test\r\n250 SIZE 18446744073709551616\r\n", expected_octets, True),
         (b"250-peer.test\r\n250 SIZE 10\r\n", None, False),
     )
     for ehlo_reply, declared_size, should_deliver in cases:

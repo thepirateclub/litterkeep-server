@@ -95,3 +95,4 @@ T74	PASS	outbound	EHLO 500 falls back to HELO in plaintext and implicit TLS with
 T75	PASS	outbound	phase-specific RFC 5321 timeout policy plus bounded stalled-greeting regression
 T76	PASS	outbound	positive per-phase timeout environment overrides, RFC default fallback, and invalid zero rejection
 T77	PASS	outbound	streaming DATA writer preserves exact dot-unstuffed octets for 2 MiB peer payload with bounded line fragments and partial writes
+T78	PASS	outbound	RFC 1870 EHLO SIZE decimal above 20 digits is retained and exact message octets are declared on MAIL

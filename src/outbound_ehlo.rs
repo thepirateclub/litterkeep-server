@@ -9,6 +9,8 @@ pub(crate) enum EhloExtension {
     SizeUnspecified,
     SizeUnlimited,
     SizeMaximum(u64),
+    /// Корректный десятичный лимит, превышающий диапазон локального u64.
+    SizeMaximumAboveU64,
 }
 
 /// Смысл параметра SIZE, объявленного удалённым SMTP-сервером.
@@ -18,6 +20,8 @@ pub(crate) enum SizeAdvertisement {
     NotAdvertised,
     NoFixedLimit,
     Maximum(u64),
+    /// Числовой лимит конечен, но заведомо больше любого локального SIZE value.
+    MaximumAboveU64,
 }
 
 /// Набор распознанных возможностей текущего SMTP peer.
@@ -54,6 +58,7 @@ impl EhloCapabilities {
                     Some(SizeAdvertisement::NoFixedLimit)
                 }
                 EhloExtension::SizeMaximum(maximum) => Some(SizeAdvertisement::Maximum(*maximum)),
+                EhloExtension::SizeMaximumAboveU64 => Some(SizeAdvertisement::MaximumAboveU64),
                 EhloExtension::EightBitMime => None,
             })
             .unwrap_or_default()
@@ -127,11 +132,11 @@ fn parse_size_advertisement<'a>(
 ) -> io::Result<Option<EhloExtension>> {
     let extension = match tokens.next() {
         None => EhloExtension::SizeUnspecified,
-        Some(value) if value.len() <= 20 && value.bytes().all(|byte| byte.is_ascii_digit()) => {
+        Some(value) if value.bytes().all(|byte| byte.is_ascii_digit()) => {
             match value.parse::<u64>() {
                 Ok(0) => EhloExtension::SizeUnlimited,
                 Ok(maximum) => EhloExtension::SizeMaximum(maximum),
-                Err(_) => EhloExtension::SizeMaximum(u64::MAX),
+                Err(_) => EhloExtension::SizeMaximumAboveU64,
             }
         }
         Some(_) => return Ok(None),
@@ -213,6 +218,28 @@ mod tests {
                 .expect("SIZE capability")
                 .size_advertisement(),
             SizeAdvertisement::Maximum(52_428_800)
+        );
+    }
+
+    #[test]
+    fn size_capability_accepts_decimal_maximum_above_u64_range() {
+        let mut reply = Cursor::new(b"250-peer.test\r\n250 SIZE 18446744073709551616\r\n");
+        assert_eq!(
+            read_ehlo(&mut reply)
+                .expect("large SIZE capability")
+                .size_advertisement(),
+            SizeAdvertisement::MaximumAboveU64
+        );
+    }
+
+    #[test]
+    fn size_capability_accepts_arbitrarily_many_leading_zeroes() {
+        let mut reply = Cursor::new(b"250-peer.test\r\n250 SIZE 00000000000000000000000010\r\n");
+        assert_eq!(
+            read_ehlo(&mut reply)
+                .expect("zero-padded SIZE capability")
+                .size_advertisement(),
+            SizeAdvertisement::Maximum(10)
         );
     }
 }

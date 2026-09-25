@@ -25,7 +25,9 @@ pub(crate) fn build_mail_command(
         SizeAdvertisement::Maximum(maximum) if declared_size > maximum => {
             return MailCommand::PermanentFailure;
         }
-        SizeAdvertisement::Maximum(_) => format!(" SIZE={declared_size}"),
+        SizeAdvertisement::Maximum(_) | SizeAdvertisement::MaximumAboveU64 => {
+            format!(" SIZE={declared_size}")
+        }
     };
     let body_parameter = match has_8bit_body(message) {
         true if capabilities.supports(EhloExtension::EightBitMime) => " BODY=8BITMIME",
@@ -98,6 +100,16 @@ mod tests {
         assert!(matches!(
             build_mail_command("alice@test", b"body", &peer),
             MailCommand::Ready(command) if command == "MAIL FROM:<alice@test> SIZE=6\r\n"
+        ));
+    }
+
+    #[test]
+    fn size_above_u64_is_retained_and_declared_for_bounded_local_messages() {
+        let peer = capabilities(b"250-peer.test\r\n250 SIZE 18446744073709551616\r\n");
+        assert!(matches!(
+            build_mail_command("alice@test", b"body", &peer),
+            MailCommand::Ready(command)
+                if command == "MAIL FROM:<alice@test> SIZE=6\r\n"
         ));
     }
 }

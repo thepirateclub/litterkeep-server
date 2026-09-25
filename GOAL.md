@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 RFC 1870 длинный SMTP SIZE advertisement
+
+- EHLO `SIZE` принимает произвольную последовательность десятичных цифр, как
+  задано RFC 1870; ограничение в 20 цифр относится к MAIL `SIZE` value, а не к
+  объявлению peer-а. Переполнение `u64` сохраняется отдельным typed состоянием
+  конечного лимита выше диапазона локального message size. Исходящий клиент
+  продолжает посылать точный локальный размер, не отбрасывая корректное
+  объявление peer-а.
+- PASS: целевые Rust тесты проверили SIZE выше `u64::MAX`, длинную запись с
+  ведущими нулями и построение MAIL. Windows Rust 1.97.1: 484 библиотечных +
+  1 бинарный тест, strict Clippy, fmt, Python compile и diff check. Linux Docker
+  Rust 1.97: strict Clippy, 525 библиотечных + 1 бинарный тест и doc-tests.
+  Независимый Linux SMTP peer подтвердил 21-значное EHLO SIZE и точный MAIL
+  SIZE, вместе с существующими 8BITMIME, reply-line и phase-reply cases.
+  Временные образы удалены; `litterkeep-g12-phone` сохранён. Litterkeep app не
+  проверялось; G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 потоковая запись исходящего SMTP DATA
 
 - Убран временный `Vec` полного размера письма, который удваивал память

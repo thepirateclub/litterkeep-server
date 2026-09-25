@@ -418,6 +418,11 @@ terminator и dot-stuffing; без объявления параметр не о
 выше фиксированного maximum отвергается до `MAIL`. Независимый peer проверяет
 wire command и все три исхода. Implicit-TLS unit peer проверяет совместное
 использование `SIZE` и `BODY=8BITMIME`.
+По RFC 1870 EHLO numeric `SIZE` не ограничен 20 цифрами; это ограничение
+применяется к value команды MAIL. Peer limit выше диапазона `u64` сохраняется
+отдельным typed случаем, поэтому корректное capability не теряется. Rust и
+независимый peer тесты проверяют 21-значный предел и точное MAIL declaration;
+см. [RFC 1870 §3](https://www.rfc-editor.org/rfc/rfc1870.html#section-3).
 Outbound reply handling теперь привязано к фазе SMTP: только greeting 220,
 `DATA` continuation 354, `QUIT` 221 и AUTH success 235 принимаются в этих
 контекстах; команда `MAIL`, `RCPT`, финальная DATA completion и reset требуют
