@@ -40,7 +40,7 @@ T38	PASS	server-protocol	RFC 2047 unstructured header recognizes complete encode
 T39	PASS	server-protocol	RFC 2045 composite MIME tree permits only 7bit/8bit/binary CTE for multipart and message entities; duplicate invalid CTE cannot be hidden; unit-only
 T40	PASS	server-protocol	Unknown MIME CTE becomes effective application/octet-stream for BODYSTRUCTURE, is excluded from text SEARCH, preserves source headers and returns UNKNOWN-CTE for BINARY; verified by unit and independent SMTP/IMAP acceptance
 T41	PASS	server-protocol	Duplicate Content-Transfer-Encoding fields are rejected as ambiguous rather than selecting the last value; absent and single values verified; unit-only
-T42	PASS	server-protocol	Missing or syntactically malformed Content-Type falls back to text/plain with US-ASCII semantics; source header retained and duplicate fields rejected; unit-only (black-box updated, not run)
+T42	PASS	server-protocol	Independent SMTP STARTTLS -> IMAP STARTTLS verifies missing and malformed Content-Type both project as TEXT/PLAIN and preserve original RFC822 bytes; duplicate rejection and US-ASCII decoding remain unit-only
 T43	PASS	server-protocol	RFC 2046 multipart boundary enforces 1..70 ASCII bchars octets and rejects terminal space or forbidden octets; unit-only
 T44	PASS	server-protocol	Multipart delimiter collection stops at remaining global MIME part budget before retaining excess ranges; 256-part overflow rejected; unit-only
 T45	PASS	unit	RFC 2045 section 6.8 MIME Base64 CTE ignores non-alphabet octets; RFC 2047 encoded-word decoding remains strict

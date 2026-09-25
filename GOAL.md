@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 RFC 2045 default Content-Type wire checkpoint
+
+- Добавлен независимый `tests/blackbox/mime_default_content_type.py`: через
+  SMTP STARTTLS отправляет headerless RFC 822 сообщение и сообщение с
+  синтаксически повреждённым Content-Type. IMAP STARTTLS проверяет
+  BODYSTRUCTURE `TEXT/PLAIN`, неизменность исходных байтов и то, что сервер
+  не вставил отсутствовавшее поле.
+- PASS: Windows Rust 1.97.1 `cargo test --all-targets --locked` (450 library
+  + 1 binary), strict Clippy, fmt, diff и Python compile. Linux test image
+  собран из текущего checkout; независимый acceptance пройден на актуальном
+  release binary с отдельным bind mount
+  `./data/g17-mime-default-content-type-byte-proof`.
+  Проверен именно локальный независимый клиент, не Litterkeep. Временный
+  контейнер и image tag удалены; `docker ps -a` оставил только
+  `litterkeep-g12-phone`. Stage data сохранена. Duplicate Content-Type
+  rejection и US-ASCII body decoding остаются unit-only. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 unknown MIME CTE wire behavior
 
 - Независимый SMTP STARTTLS -> IMAP STARTTLS сценарий теперь посылает часть с
