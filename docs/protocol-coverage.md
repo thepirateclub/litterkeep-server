@@ -242,62 +242,9 @@ range получает `-ERR`. Так как поддержана только �
 
 ## Sieve и ManageSieve
 
-Есть bounded parser/executor для обязательного профиля, fileinto, redirect,
-keep/discard, header/address/size tests и diagnostics. ManageSieve поддерживает
-STARTTLS, SASL PLAIN, literals, CHECKSCRIPT, PUTSCRIPT, LISTSCRIPTS, GETSCRIPT,
-SETACTIVE, DELETESCRIPT и RENAMESCRIPT.
-В базовом Sieve `require` разрешён только до первой команды, но несколько
-объявлений `require` подряд допустимы; unit regression проверяет оба правила
-по RFC 5228 §3.2. Quoted-string сохраняет CRLF, допускает `quoted-other`
-escape с удалением обратной косой черты и отвергает NUL; из пробельных
-разделителей вне строк принимаются только SP/HTAB/CRLF. `allof`/`anyof`
-принимают непустой comma-separated `test-list` в круглых скобках; квадратные
-скобки остаются формой непустого `string-list`, где запятая обязательна между
-элементами и не допускается на краях. Unit и ManageSieve CHECKSCRIPT acceptance
-проверяют эти границы по RFC 5228 §§2.4.2, 5.2-5.3 и 8.1-8.2. Это не означает
-полного покрытия grammar RFC 5228 и extensions.
-Hash-comment теперь обязан завершаться CRLF; предварительная проверка также
-отвергает одиночные CR/LF и NUL в quoted strings и обоих видах комментариев.
-Unit и ManageSieve CHECKSCRIPT acceptance проверяют корректный CRLF и отказ на
-bare LF по RFC 5228 §§2.1-2.3, 8.1.
-`:user` и `:detail` реализованы как RFC 5233 `subaddress`; оба требуют явного
-`require "subaddress"`, а ManageSieve greeting и CAPABILITY объявляют это
-расширение. Сервер использует первый `+` в local-part как separator: без него
-`:detail` не создаёт значение для сравнения, а `user+@domain` создаёт пустой
-detail. CHECKSCRIPT и адресные unit tests проверяют эти случаи. Другие политики
-разделителя subaddress пока не настраиваются. ADDRESS-PART, COMPARATOR и
-MATCH-TYPE перед позиционными списками принимаются в любом порядке, как
-предписывает RFC 5228 §2.6.2; повтор одного такого аргумента отвергается.
-Unit-тест проверяет также фактическую case-sensitive семантику `i;octet`, а
-ManageSieve CHECKSCRIPT и SMTP -> Sieve -> IMAP acceptance проверяют grammar и
-исполнение reordered script. `:matches` сравнивает UTF-8 byte stream с width
-wildcard `?` в один octet для обязательных comparator-ов `i;octet` и
-`i;ascii-casemap`; `\*`/`\?` в Sieve string после lexical unescape становятся
-literal wildcard. Unit и SMTP -> Sieve -> IMAP acceptance проверяют эти правила
-по RFC 5228 §2.7.1. `address` использует общий RFC 5322 parser,
-проверяет только известные address-list поля (включая обязательные RFC 5228
-From/To/Cc/Bcc/Sender/Resent-From/Resent-To) и сравнивает mailbox внутри групп,
-не имя группы. SMTP -> Sieve -> IMAP acceptance доставляет письмо с group-form
-`To`; поддержку произвольных пользовательских address-list headers это не
-подтверждает.
-
-Поддерживаемое optional-действие Sieve `fileinto` отвергается при static
-validation, если script не заявил `require "fileinto"`. Это проверяется unit
-regression и независимым ManageSieve CHECKSCRIPT; тот же сетевой acceptance
-подтверждает доставку с объявленной capability.
-
-Sieve `header` декодирует RFC 2047 encoded-word общей MIME-декодировкой до
-сравнения в UTF-8 и игнорирует ведущие/завершающие SP и HTAB по RFC 5228 §5.7.
-Unit покрывает ISO-8859-1 и UTF-8 encoded-word и краевые пробелы; независимая
-ManageSieve -> SMTP -> IMAP acceptance отправляет encoded UTF-8 Subject и
-проверяет его Unicode-сопоставление при выборе папки. Общий header parser
-также игнорирует SP/HTAB между field-name и `:`, как требует §2.4.2.2;
-сетевой тест подтверждает, что `Subject \t:` маршрутизируется по Sieve, а IMAP
-FETCH возвращает исходный байтовый заголовок без переписывания. Header matcher
-принимает пустой ключ и различает `:contains` (пустая подстрока содержится в
-значении существующего поля) от `:is` (пустое значение не равно непустому).
-Невалидное имя поля в `header` test принимается как заведомо не совпадающее,
-а не как ошибка скрипта; эти cases проверены unit-тестом и ManageSieve CHECKSCRIPT.
+Актуальный проверенный профиль и его ограничения описаны отдельно в
+[sieve-coverage.md](sieve-coverage.md), чтобы сохранять компактность этой
+матрицы.
 
 ## Outbound SMTP
 

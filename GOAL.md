@@ -4,6 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 5228 redirect address checkpoint
+
+- Sieve `redirect` static validation теперь принимает только один корректный
+  mailbox по RFC 5322: `addr-spec` или quoted phrase с `<addr-spec>`. Общий
+  parser отвергает mailbox lists, source routes и group syntax. Unit tests и
+  независимый ManageSieve CHECKSCRIPT проверяют допустимую форму и отказы.
+- PASS: Windows Rust 1.97.1, fmt, 327 тестов, strict Clippy, Python compile и
+  diff check. Linux Docker Rust 1.97: strict Clippy и 367 тестов. Независимый
+  ManageSieve -> SMTP -> IMAP acceptance прошёл в
+  `./data/g17-sieve-redirect-address`. Временный контейнер удалён,
+  `litterkeep-g12-phone` сохранён. Доставку redirect во внешний SMTP и
+  интеграцию с Litterkeep не проверяли. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 5228 comment line-ending checkpoint
 
 - Lexer сначала проверяет весь Sieve source: NUL запрещён, CR и LF допустимы

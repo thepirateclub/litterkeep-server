@@ -47,6 +47,16 @@ fn redirect_and_fileinto_preserve_only_explicit_keep() {
     assert_eq!(combined.folders, vec!["Archive"]);
 }
 
+#[test]
+fn redirect_requires_one_sieve_mailbox_without_route_or_group_syntax() {
+    assert!(parse("redirect \"valid@example.test\";").is_ok());
+    assert!(parse("redirect \"\\\"Support: Billing\\\" <valid@example.test>\";").is_ok());
+    assert!(parse("redirect \"user@@example.test\";").is_err());
+    assert!(parse("redirect \"one@example.test, two@example.test\";").is_err());
+    assert!(parse("redirect \"Team: valid@example.test;\";").is_err());
+    assert!(parse("redirect \"<@relay.example:valid@example.test>\";").is_err());
+}
+
 /// `elsif` выбирает первую совпавшую ветвь и не исполняет следующий else.
 #[test]
 fn elsif_is_an_exclusive_bounded_branch() {

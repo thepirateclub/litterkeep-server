@@ -70,10 +70,68 @@ fn action_valid(action: &Action, fileinto: bool) -> Result<(), &'static str> {
     match action {
         Action::FileInto(_) if !fileinto => Err("fileinto extension must be required"),
         Action::FileInto(name) if safe_name(name) => Ok(()),
-        Action::Redirect(address) if address.contains('@') => Ok(()),
+        Action::Redirect(address) if valid_redirect_address(address) => Ok(()),
         Action::FileInto(_) | Action::Redirect(_) => Err("unsafe sieve action target"),
         Action::Keep | Action::Discard | Action::Stop => Ok(()),
     }
+}
+
+/// Применяет RFC 5322 mailbox parser и запрещает sieve-address route/group формы.
+fn valid_redirect_address(value: &str) -> bool {
+    if has_route_or_group_syntax(value) {
+        return false;
+    }
+    match crate::mime::envelope_address::parse_value(value) {
+        Ok(mailboxes) => mailboxes.len() == 1,
+        Err(_) => false,
+    }
+}
+
+#[derive(Clone, Copy)]
+enum RedirectSyntaxState {
+    Text,
+    Quoted,
+    Comment(usize),
+    DomainLiteral,
+}
+
+/// Отличает запрещённые route/group-разделители от текста в quote/comment/domain.
+fn has_route_or_group_syntax(value: &str) -> bool {
+    let mut state = RedirectSyntaxState::Text;
+    let mut escaped = false;
+    for character in value.chars() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match state {
+            RedirectSyntaxState::Text => match character {
+                '"' => state = RedirectSyntaxState::Quoted,
+                '(' => state = RedirectSyntaxState::Comment(1),
+                '[' => state = RedirectSyntaxState::DomainLiteral,
+                ':' | ';' => return true,
+                _ => {}
+            },
+            RedirectSyntaxState::Quoted => match character {
+                '\\' => escaped = true,
+                '"' => state = RedirectSyntaxState::Text,
+                _ => {}
+            },
+            RedirectSyntaxState::Comment(depth) => match character {
+                '\\' => escaped = true,
+                '(' => state = RedirectSyntaxState::Comment(depth.saturating_add(1)),
+                ')' if depth <= 1 => state = RedirectSyntaxState::Text,
+                ')' => state = RedirectSyntaxState::Comment(depth.saturating_sub(1)),
+                _ => {}
+            },
+            RedirectSyntaxState::DomainLiteral => match character {
+                '\\' => escaped = true,
+                ']' => state = RedirectSyntaxState::Text,
+                _ => {}
+            },
+        }
+    }
+    false
 }
 
 fn condition_valid(
