@@ -39,6 +39,7 @@ T37	PASS	server-protocol	RFC 2047 encoded-text requires nonempty printable ASCII
 T38	PASS	server-protocol	RFC 2047 unstructured header recognizes complete encoded-word tokens only at field start or after LWS; unit-only
 T39	PASS	server-protocol	RFC 2045 composite MIME tree permits only 7bit/8bit/binary CTE for multipart and message entities; duplicate invalid CTE cannot be hidden; unit-only
 T40	PASS	server-protocol	Unknown MIME CTE becomes effective application/octet-stream for BODYSTRUCTURE and is excluded from text SEARCH; source bytes preserved; unit-only (black-box updated, not run)
+T41	PASS	server-protocol	Duplicate Content-Transfer-Encoding fields are rejected as ambiguous rather than selecting the last value; absent and single values verified; unit-only
 R01	PASS	runtime	orchestrator transfer and registry ownership tests
 R02	PASS	runtime	exclusive resource double-acquire test
 R03	PASS	runtime	timeout keeps live lease occupied

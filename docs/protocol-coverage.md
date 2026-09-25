@@ -113,9 +113,9 @@ octets. Часть с неизвестным Content-Transfer-Encoding расс�
 IMAP BINARY для такой части отдельно завершается `NO [UNKNOWN-CTE]` согласно
 RFC 9051.
 MIME tree отвергает Base64, quoted-printable и неизвестный CTE на всех
-multipart/message composite entities согласно RFC 2045 §6.4; каждое повторное
-поле CTE проверяется отдельно, чтобы позднее 8bit не маскировало нарушение.
-Новые проверки parser-а unit-only.
+multipart/message composite entities согласно RFC 2045 §6.4; повторное поле
+CTE отклоняется как неоднозначное, поэтому позднее 8bit не маскирует ранее
+указанное кодирование. Эти проверки parser-а unit-only.
 RFC 5322 address groups разбираются в типизированные start/member/end элементы:
 FETCH ENVELOPE выдаёт group marker (`NIL NIL group NIL`), mailbox участников
 и end marker (`NIL NIL NIL NIL`), включая пустую группу. SEARCH FROM/TO/CC/BCC

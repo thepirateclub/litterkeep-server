@@ -36,6 +36,22 @@ Current subgoal: G17
   контейнеров, `litterkeep-g12-phone` сохранён. RFC 2045 §6.4 и RFC 9051
   сверены с IETF Datatracker. G17 остаётся RUNNING.
 
+### 2026-09-25: G17 duplicate MIME transfer-encoding checkpoint
+
+- Разбор CTE вынесен в отдельный `tree_transfer.rs`, сохранив разделение
+  ответственности и лимит в 300 строк для `tree.rs`. Отсутствующий CTE
+  трактуется как 7bit; единственный CTE разбирается обычным путём; второе
+  Content-Transfer-Encoding поле отклоняется как неоднозначная entity, вместо
+  выбора последнего значения и потери смысла предыдущего.
+- Тест проверяет unknown + 8bit обход; unit покрытие включает допустимое
+  отсутствие/одиночный CTE и ограничения composite. Windows Rust 1.97.1:
+  381 library + 1 binary test, fmt и strict Clippy PASS. Docker Linux Rust
+  1.97.1: release build, strict Clippy, 422 library + 1 binary + doc-tests
+  PASS. После `docker build --rm` в inventory остался только ранее существующий
+  `litterkeep-g12-phone`; временных контейнеров нет. Спецификации не задают
+  алгоритм разрешения повторного CTE, поэтому повтор отклоняется как
+  неоднозначный ввод, а не заявляется как буквальное MUST RFC. G17 RUNNING.
+
 ### 2026-09-25: G17 RFC 2047 header-token recognition checkpoint
 
 - Unstructured-header projection распознаёт encoded-word только в начале

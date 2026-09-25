@@ -5,6 +5,8 @@ use super::parameters::{self, MediaType};
 use super::transfer::TransferEncoding;
 #[path = "tree_multipart.rs"]
 mod multipart;
+#[path = "tree_transfer.rs"]
+mod transfer_policy;
 use multipart::{absolute, is_multipart, multipart_ranges};
 use std::collections::BTreeMap;
 use std::ops::Range;
@@ -57,25 +59,7 @@ fn parse_entity(
         .map_err(|_| "Content-Type is not ASCII compatible")?
         .unwrap_or("text/plain");
     let mut structured = parameters::parse(content_type)?;
-    // При повторных CTE сохраняем бинарный маркер, если встретился любой.
-    let transfer_encoding = headers
-        .fields
-        .iter()
-        .filter(|field| matches!(field.kind(), HeaderName::ContentTransferEncoding))
-        .map(|field| TransferEncoding::parse(&field.value))
-        .try_fold(
-            TransferEncoding::SevenBit,
-            |selected: TransferEncoding, parsed| {
-                let parsed = parsed?;
-                validate_composite_transfer(&structured.media_type, &parsed)?;
-                match (selected, parsed) {
-                    (TransferEncoding::Binary, _) | (_, TransferEncoding::Binary) => {
-                        Ok(TransferEncoding::Binary)
-                    }
-                    (_, other) => Ok(other),
-                }
-            },
-        )?;
+    let transfer_encoding = transfer_policy::resolve(&headers.fields, &structured.media_type)?;
     // RFC 2045 §6.4 делает entity с неизвестным CTE непрозрачной для
     // MIME-интерпретации: фактический тип становится application/octet-stream.
     // Исходные заголовки остаются в entity.headers и не меняются на wire.
@@ -134,37 +118,6 @@ fn parse_entity(
         preamble_range,
         epilogue_range,
     })
-}
-
-/// Проверяет запрет RFC 2045 §6.4 на преобразующий CTE у composite entity.
-fn validate_composite_transfer(
-    media_type: &MediaType,
-    transfer_encoding: &TransferEncoding,
-) -> Result<(), &'static str> {
-    match is_composite(media_type) {
-        false => Ok(()),
-        true => match transfer_encoding {
-            TransferEncoding::SevenBit | TransferEncoding::EightBit | TransferEncoding::Binary => {
-                Ok(())
-            }
-            TransferEncoding::Base64
-            | TransferEncoding::QuotedPrintable
-            | TransferEncoding::Unsupported(_) => Err("encoded composite MIME entity is forbidden"),
-        },
-    }
-}
-
-/// Классифицирует все multipart и message типы через разобранный enum.
-fn is_composite(media_type: &MediaType) -> bool {
-    matches!(
-        media_type,
-        MediaType::MultipartMixed
-            | MediaType::MultipartAlternative
-            | MediaType::MultipartRelated
-            | MediaType::MultipartOther(_)
-            | MediaType::MessageRfc822
-            | MediaType::MessageOther(_)
-    )
 }
 
 impl Entity {
@@ -269,5 +222,12 @@ mod tests {
             Some(b"text/plain; charset=utf-8".as_slice())
         );
         assert_eq!(raw.get(entity.body_range), Some(b"body".as_slice()));
+    }
+
+    #[test]
+    fn duplicate_cte_fields_are_rejected_instead_of_selecting_the_last() {
+        let raw = b"Content-Type: text/plain\r\nContent-Transfer-Encoding: x-private\r\nContent-Transfer-Encoding: 8bit\r\n\r\nbody";
+
+        assert!(parse(raw).is_err());
     }
 }
