@@ -71,6 +71,22 @@ Current subgoal: G16
   многоязычная локализация, conversion из legacy charset, UTF-8 credentials и
   соответствие MIME binary CTE не реализованы/не проверены. G16 остаётся RUNNING.
 
+### 2026-09-25: G16 POP3 RFC 1939 LIST/UIDL checkpoint
+
+- `LIST n` и `UIDL n` теперь сериализуются как одиночные `+OK` строки; формы
+  без аргумента остаются многострочными. Maildrop кэширует размер, рассчитанный
+  по передаваемым CRLF строкам, не считая дополнительный dot-stuffing октет.
+- PASS: Windows Rust 1.97.1: 284 теста и strict Clippy. Linux Docker Rust 1.97:
+  strict Clippy и 324 теста. Независимый Linux socket тест проверил одиночные
+  ответы LIST/UIDL, многострочные формы, 700-октетную строку RETR, совпадение
+  LIST octet count с unstuffed RETR и предыдущие SASL/RESP-CODES сценарии.
+  Unit-тест проверил LF-only хранимое сообщение с dot-leading строкой и
+  CRLF-нормализацией. Отдельно повторён UTF8/LANG acceptance. Данные изолированы
+  в `./data/g16-pop3-list-uidl` и `./data/g16-pop3-list-uidl-utf8`; тестовые
+  контейнеры удалены, `litterkeep-g12-phone` оставлен.
+- Остальные требования RFC 1939 и полного POP3 профиля не покрыты; G16 остаётся
+  RUNNING.
+
 ### 2026-09-25: POP3 RFC 1939 USER/PASS sequencing checkpoint
 
 - AUTHORIZATION FSM различает состояние после успешного `USER`: повторный

@@ -250,7 +250,7 @@ fn retrieve_uidl_reset_and_quit_keep_delete_semantics_explicit() {
     let _ = session.apply(parse("USER pop\r\n"));
     let _ = session.authenticated(vec![message(9, b"Subject: one\r\n\r\n.first\r\nbody")]);
     assert!(
-        matches!(session.apply(parse("UIDL 1\r\n")), Reply::Multiline(value) if value.windows(4).any(|part| part == b"0009"))
+        matches!(session.apply(parse("UIDL 1\r\n")), Reply::Ok(value) if value == "1 lk-0000000000000009")
     );
     assert!(
         matches!(session.apply(parse("RETR 1\r\n")), Reply::Message(value) if value.windows(8).any(|part| part == b"..first\r"))
@@ -263,6 +263,9 @@ fn retrieve_uidl_reset_and_quit_keep_delete_semantics_explicit() {
     );
     assert!(matches!(session.commit_deletes(true), Reply::Ok(_)));
 }
+
+#[path = "listing_tests.rs"]
+mod listing_tests;
 
 #[test]
 fn rset_and_empty_quit_require_an_explicit_update_completion() {

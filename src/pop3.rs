@@ -7,6 +7,8 @@
 mod command;
 #[path = "pop3/language.rs"]
 mod language;
+#[path = "pop3/listing_reply.rs"]
+mod listing_reply;
 #[path = "pop3/maildrop.rs"]
 mod maildrop;
 #[cfg(any(target_os = "linux", test))]

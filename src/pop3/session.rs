@@ -1,5 +1,6 @@
 //! POP3 AUTHORIZATION, TRANSACTION и UPDATE без доступа к Store.
 
+use super::listing_reply::{list_reply, uidl_reply};
 use super::{Command, LanguageRequest, Maildrop, SaslMechanism};
 use crate::store::Message;
 
@@ -148,7 +149,9 @@ impl Session {
     fn list(&self, number: Option<u32>) -> Reply {
         match self.utf8_policy(number) {
             Ok(()) => match self.drop() {
-                Some(drop) => drop.list(number).map_or_else(Reply::Error, list_reply),
+                Some(drop) => drop
+                    .list(number)
+                    .map_or_else(Reply::Error, |entries| list_reply(number, entries)),
                 None => Reply::Error("maildrop unavailable"),
             },
             Err(reply) => reply,
@@ -156,7 +159,9 @@ impl Session {
     }
     fn uidl(&self, number: Option<u32>) -> Reply {
         match self.drop() {
-            Some(drop) => drop.uidl(number).map_or_else(Reply::Error, uidl_reply),
+            Some(drop) => drop
+                .uidl(number)
+                .map_or_else(Reply::Error, |entries| uidl_reply(number, entries)),
             None => Reply::Error("maildrop unavailable"),
         }
     }
@@ -253,23 +258,6 @@ fn lang_reply(language: LanguageRequest) -> Reply {
         LanguageRequest::Unsupported => Reply::Error("language not supported"),
     }
 }
-fn list_reply(entries: Vec<(u32, usize)>) -> Reply {
-    let mut output = b"+OK scan listing follows\r\n".to_vec();
-    for (number, size) in entries {
-        output.extend_from_slice(format!("{number} {size}\r\n").as_bytes());
-    }
-    output.extend_from_slice(b".\r\n");
-    Reply::Multiline(output)
-}
-fn uidl_reply(entries: Vec<(u32, String)>) -> Reply {
-    let mut output = b"+OK unique-id listing follows\r\n".to_vec();
-    for (number, uid) in entries {
-        output.extend_from_slice(format!("{number} {uid}\r\n").as_bytes());
-    }
-    output.extend_from_slice(b".\r\n");
-    Reply::Multiline(output)
-}
-
 /// Добавляет обязательный POP3 +OK frame перед уже dot-stuffed RFC822 bytes.
 fn message_reply(description: &str, bytes: Vec<u8>) -> Reply {
     let mut output = format!("+OK {description}\r\n").into_bytes();

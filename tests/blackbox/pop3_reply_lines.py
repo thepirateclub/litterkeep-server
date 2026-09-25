@@ -81,6 +81,15 @@ def pop3_round_trip(tls_context):
             b"+OK",
             "PASS",
         )
+        single_list = send(connection, stream, b"LIST 1\r\n", b"+OK 1 ", "single LIST")
+        list_fields = single_list.split()
+        if len(list_fields) != 3:
+            raise AssertionError(f"LIST with a number was not a single response: {single_list!r}")
+        _status, _message_number, listed_size = list_fields
+        listed_octets = int(listed_size)
+        single_uidl = send(connection, stream, b"UIDL 1\r\n", b"+OK 1 ", "single UIDL")
+        if len(single_uidl.split()) != 3:
+            raise AssertionError(f"UIDL with a number was not a single response: {single_uidl!r}")
         for command in (b"STAT\r\n", b"LIST\r\n", b"UIDL\r\n"):
             connection.sendall(command)
             status = read_line(stream, "POP3 status")
@@ -106,6 +115,14 @@ def pop3_round_trip(tls_context):
             message_lines.append(line.removesuffix(b"\r\n"))
         if MESSAGE_LINE not in message_lines:
             raise AssertionError("RETR changed or rejected the 700-octet RFC message line")
+        unstuffed_octets = sum(
+            len(line[1:] if line.startswith(b"..") else line) + 2
+            for line in message_lines
+        )
+        if listed_octets != unstuffed_octets:
+            raise AssertionError(
+                f"LIST size {listed_octets} differs from RETR content {unstuffed_octets}"
+            )
 
         transaction_capabilities = read_capabilities(connection, stream, "transaction")
         if b"RESP-CODES" not in transaction_capabilities:

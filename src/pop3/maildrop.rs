@@ -1,36 +1,48 @@
 //! Неизменяемый POP3 maildrop snapshot и отложенные DELE-маркеры.
 
 use crate::store::Message;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
+
+/// Размер POP3 после нормализации CRLF и без удвоения dot-stuffing.
+#[derive(Clone, Copy)]
+struct MessageProfile {
+    utf8: bool,
+    octets: usize,
+}
 
 /// Snapshot общего INBOX принадлежит одной POP3 transaction-сессии.
 pub struct Maildrop {
     messages: Vec<Message>,
     deleted: BTreeSet<u32>,
     /// Кэш UID позволяет не сканировать байты повторно на каждом LIST/RETR.
-    utf8_message_uids: BTreeSet<u64>,
+    message_profiles: BTreeMap<u64, MessageProfile>,
 }
 
 impl Maildrop {
     pub fn new(messages: Vec<Message>) -> Self {
-        let utf8_message_uids = messages
+        let message_profiles = messages
             .iter()
-            .filter_map(|message| match contains_non_ascii_utf8(&message.bytes) {
-                true => Some(message.uid),
-                false => None,
+            .map(|message| {
+                (
+                    message.uid,
+                    MessageProfile {
+                        utf8: contains_non_ascii_utf8(&message.bytes),
+                        octets: reported_message_size(&message.bytes),
+                    },
+                )
             })
             .collect();
         Self {
             messages,
             deleted: BTreeSet::new(),
-            utf8_message_uids,
+            message_profiles,
         }
     }
     pub fn stat(&self) -> (usize, usize) {
         self.visible().fold((0, 0), |(count, bytes), (_, message)| {
             (
                 count.saturating_add(1),
-                bytes.saturating_add(message.bytes.len()),
+                bytes.saturating_add(self.profile(message).octets),
             )
         })
     }
@@ -38,10 +50,10 @@ impl Maildrop {
         match number {
             Some(number) => self
                 .message(number)
-                .map(|message| vec![(number, message.bytes.len())]),
+                .map(|message| vec![(number, self.profile(message).octets)]),
             None => Ok(self
                 .visible()
-                .map(|(number, message)| (number, message.bytes.len()))
+                .map(|(number, message)| (number, self.profile(message).octets))
                 .collect()),
         }
     }
@@ -62,10 +74,10 @@ impl Maildrop {
         match number {
             Some(number) => self
                 .message(number)
-                .map(|message| self.utf8_message_uids.contains(&message.uid)),
+                .map(|message| self.profile(message).utf8),
             None => Ok(self
                 .visible()
-                .any(|(_, message)| self.utf8_message_uids.contains(&message.uid))),
+                .any(|(_, message)| self.profile(message).utf8)),
         }
     }
     pub fn retrieve(&self, number: u32) -> Result<Vec<u8>, &'static str> {
@@ -109,6 +121,37 @@ impl Maildrop {
         usize::try_from(number.checked_sub(1)?)
             .ok()
             .and_then(|offset| self.messages.get(offset))
+    }
+
+    /// Читает профиль, построенный одновременно со snapshot maildrop.
+    fn profile(&self, message: &Message) -> MessageProfile {
+        self.message_profiles
+            .get(&message.uid)
+            .copied()
+            .unwrap_or_else(|| MessageProfile {
+                utf8: contains_non_ascii_utf8(&message.bytes),
+                octets: reported_message_size(&message.bytes),
+            })
+    }
+}
+
+/// Считает размер после CRLF-нормализации, не включая byte-stuffing POP3.
+fn reported_message_size(bytes: &[u8]) -> usize {
+    let mut total = 0_usize;
+    let mut line = 0_usize;
+    for byte in bytes {
+        match byte {
+            b'\n' => {
+                total = total.saturating_add(line).saturating_add(2);
+                line = 0;
+            }
+            b'\r' => {}
+            _ => line = line.saturating_add(1),
+        }
+    }
+    match (line == 0, bytes.ends_with(b"\n")) {
+        (false, _) | (true, false) => total.saturating_add(line).saturating_add(2),
+        (true, true) => total,
     }
 }
 
