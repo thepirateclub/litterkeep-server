@@ -10,7 +10,7 @@ pub mod encoded_word;
 #[path = "mime/envelope.rs"]
 pub mod envelope;
 #[path = "mime/envelope_address.rs"]
-mod envelope_address;
+pub(crate) mod envelope_address;
 #[path = "mime/envelope_address_scan.rs"]
 mod envelope_address_scan;
 #[path = "mime/headers.rs"]

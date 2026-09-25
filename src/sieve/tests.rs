@@ -115,6 +115,38 @@ fn address_options_accept_arbitrary_tag_order_and_keep_comparator_semantics() {
     assert!(plan.discard);
 }
 
+#[test]
+fn address_test_ignores_unstructured_fields_and_matches_group_members() {
+    let script = parse("if address :is [\"Subject\", \"To\"] \"bob@example.test\" { discard; }")
+        .expect("parse");
+    let headers = [
+        ("Subject".into(), "bob@example.test".into()),
+        (
+            "To".into(),
+            "Billing: alice@example.test, bob@example.test;".into(),
+        ),
+    ];
+    let plan = execute(&script, &headers, 10).expect("execute");
+    assert!(plan.discard);
+
+    let group_name = parse("if address :is \"to\" \"Billing\" { discard; }").expect("parse");
+    let plan = execute(&group_name, &headers, 10).expect("execute");
+    assert!(plan.keep);
+}
+
+#[test]
+fn address_test_includes_resent_address_fields() {
+    let script =
+        parse("if address :is \"resent-to\" \"bob@example.test\" { discard; }").expect("parse");
+    let plan = execute(
+        &script,
+        &[("Resent-To".into(), "bob@example.test".into())],
+        10,
+    )
+    .expect("execute");
+    assert!(plan.discard);
+}
+
 /// Сетевой fixture использует это составное правило без подмены envelope RCPT.
 #[test]
 fn combined_header_address_and_size_rule_matches_network_fixture() {

@@ -198,7 +198,7 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
 def deliver(options: argparse.Namespace, context: ssl.SSLContext) -> None:
     message = EmailMessage()
     message["From"] = "alice@litterkeep.test"
-    message["To"] = "bob+invoices@litterkeep.test"
+    message["To"] = "Invoices: bob+invoices@litterkeep.test;"
     message["Subject"] = "[invoice] paid"
     message.set_content("invoice body")
     with smtplib.SMTP(options.host, options.smtp_port, timeout=10) as client:

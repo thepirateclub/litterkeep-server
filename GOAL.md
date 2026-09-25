@@ -4,6 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 5228 address-test semantics checkpoint
+
+- Sieve `address` теперь игнорирует неадресные поля, поддерживает обязательные
+  address-list headers вместе с полями `Resent-*` и переиспользует RFC 5322
+  parser из MIME. Адреса членов group участвуют в сравнении, название группы
+  нет; добавлены unit regressions для Subject, Resent-To и группы.
+- PASS: Windows Rust 1.97.1, fmt, 318 тестов, strict Clippy, Python compile и
+  diff check. Linux Docker Rust 1.97: strict Clippy и 358 тестов. Независимый
+  ManageSieve -> SMTP -> IMAP acceptance прошёл с group-form заголовком To и
+  фактической доставкой по subaddress; контейнер удалён, `litterkeep-g12-phone`
+  сохранён. Stage `./data/g17-sieve-address-rfc`. Litterkeep app integration
+  не проверялась. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 5228 address-tag ordering checkpoint
 
 - Sieve `address` теперь разбирает `ADDRESS-PART`, `MATCH-TYPE` и

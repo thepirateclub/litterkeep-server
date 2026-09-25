@@ -25,6 +25,12 @@ pub enum HeaderName {
     To,
     Cc,
     Bcc,
+    ResentFrom,
+    ResentSender,
+    ResentReplyTo,
+    ResentTo,
+    ResentCc,
+    ResentBcc,
     InReplyTo,
     MessageId,
     Other,
@@ -33,7 +39,14 @@ pub enum HeaderName {
 impl HeaderField {
     /// Преобразует строковое wire-имя в enum на границе parser-а.
     pub fn kind(&self) -> HeaderName {
-        match self.name.as_str() {
+        HeaderName::parse(&self.name)
+    }
+}
+
+impl HeaderName {
+    /// Разбирает имя без учёта регистра, не распространяя wire-строку в модель.
+    pub fn parse(value: &str) -> Self {
+        match value.to_ascii_lowercase().as_str() {
             "content-type" => HeaderName::ContentType,
             "content-transfer-encoding" => HeaderName::ContentTransferEncoding,
             "content-disposition" => HeaderName::ContentDisposition,
@@ -46,10 +59,35 @@ impl HeaderField {
             "to" => HeaderName::To,
             "cc" => HeaderName::Cc,
             "bcc" => HeaderName::Bcc,
+            "resent-from" => HeaderName::ResentFrom,
+            "resent-sender" => HeaderName::ResentSender,
+            "resent-reply-to" => HeaderName::ResentReplyTo,
+            "resent-to" => HeaderName::ResentTo,
+            "resent-cc" => HeaderName::ResentCc,
+            "resent-bcc" => HeaderName::ResentBcc,
             "in-reply-to" => HeaderName::InReplyTo,
             "message-id" => HeaderName::MessageId,
             _ => HeaderName::Other,
         }
+    }
+
+    /// RFC 5228 address-test допускает только поля с адресной структурой.
+    pub const fn is_address_list(self) -> bool {
+        matches!(
+            self,
+            Self::From
+                | Self::Sender
+                | Self::ReplyTo
+                | Self::To
+                | Self::Cc
+                | Self::Bcc
+                | Self::ResentFrom
+                | Self::ResentSender
+                | Self::ResentReplyTo
+                | Self::ResentTo
+                | Self::ResentCc
+                | Self::ResentBcc
+        )
     }
 }
 

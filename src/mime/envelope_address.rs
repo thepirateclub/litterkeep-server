@@ -15,6 +15,12 @@ pub(super) struct Address {
     pub(super) host: String,
 }
 
+/// Адресные части mailbox для повторного использования протокольными тестами.
+pub(crate) struct MailboxParts {
+    pub(crate) local: String,
+    pub(crate) domain: String,
+}
+
 /// Типизированный элемент address-list, включая RFC 5322 group boundaries.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) enum AddressEntry {
@@ -31,6 +37,22 @@ pub(super) fn parse(fields: Vec<&HeaderField>) -> Result<Vec<AddressEntry>, &'st
         parse_list(value, &mut entries)?;
     }
     Ok(entries)
+}
+
+/// Разбирает одно RFC 5322 mailbox-list, раскрывая группы только в mailbox.
+pub(crate) fn parse_value(value: &str) -> Result<Vec<MailboxParts>, &'static str> {
+    let mut entries = Vec::new();
+    parse_list(value, &mut entries)?;
+    Ok(entries
+        .into_iter()
+        .filter_map(|entry| match entry {
+            AddressEntry::Mailbox(address) => Some(MailboxParts {
+                local: address.mailbox,
+                domain: address.host,
+            }),
+            AddressEntry::GroupStart(_) | AddressEntry::GroupEnd => None,
+        })
+        .collect())
 }
 
 /// При пустых Sender/Reply-To использует уже разобранный From согласно IMAP.

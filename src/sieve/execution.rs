@@ -215,9 +215,13 @@ fn address_matches(
     part: super::ast::AddressPart,
     matcher: &super::ast::StringMatch,
 ) -> bool {
+    let kind = crate::mime::header_block::HeaderName::parse(candidate);
+    if !kind.is_address_list() {
+        return false;
+    }
     if !names
         .iter()
-        .any(|name| candidate.eq_ignore_ascii_case(name))
+        .any(|name| crate::mime::header_block::HeaderName::parse(name) == kind)
     {
         return false;
     }
