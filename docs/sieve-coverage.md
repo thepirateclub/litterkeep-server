@@ -107,6 +107,14 @@ quoted-string и проверяет `type/subtype` как две непусты�
 некорректные token-ы. Эти новые проверки пока unit-only, без независимого
 сетевого MIME клиента.
 
+Для параметров Content-Type/Content-Disposition проверяются RFC 2045 §5.1
+attribute=value, token/quoted-string и список tspecials. RFC 2231 attribute
+грамматика исключает зарезервированные символы, а continuation номера должны
+начинаться с секции 0 и далее идти без ведущих нулей. Unit cases покрывают
+пробелы/tspecials в unquoted значениях, повреждённые имена, внутреннюю
+неэкранированную кавычку, корректный escaped DQUOTE, пустой quoted value и
+filename continuation. Сетевой MIME acceptance этих новых границ не выполнялся.
+
 Quoted и `text:` multiline strings принимают CRLF; multiline форма сохраняет
 terminating CRLF тела, снимает один dot-stuffing octet и ограничена 65 536
 байтами. Для `text:` допускаются SP/HTAB и hash-comment перед обязательным

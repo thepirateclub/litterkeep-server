@@ -4,6 +4,25 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 MIME parameter grammar checkpoint
+
+- MIME structured parser теперь проверяет attribute/value grammar RFC 2045 §5.1:
+  имена параметров должны быть допустимыми RFC 2231 attribute-char, некавыченные
+  значения должны быть непустыми token, а tspecials разрешены только внутри
+  quoted-string. Неэкранированная внутренняя кавычка и пустое некавыченное
+  значение отвергаются; пустое quoted значение остаётся допустимым.
+- RFC 2231 continuation допускает начальную секцию 0 и канонические следующие
+  номера без ведущих нулей. Regressions также проверяют escaped DQUOTE,
+  boundary-like quoted value и сохранение RFC 2231 filename continuation.
+  Новые случаи пока подтверждены unit tests, независимый сетевой сценарий
+  не запускался.
+- PASS: Windows Rust 1.97.1 cargo test --all-targets --locked (366 тестов
+  библиотеки, 1 тест бинаря), strict Clippy, fmt и diff check. Linux Docker
+  Rust 1.97.1 release build, strict Clippy, 407 тестов библиотеки и 1 тест
+  бинаря.
+- Docker test-stage собран с --rm. После сборки в docker ps -a оставлен только
+  litterkeep-g12-phone; G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 MIME structured-value token checkpoint
 
 - Общий MIME parser теперь удаляет вложенные RFC comments вне quoted-string и

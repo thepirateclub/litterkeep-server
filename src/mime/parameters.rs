@@ -108,25 +108,58 @@ fn split_sections(input: &str) -> Result<Vec<&str>, &'static str> {
     Ok(result)
 }
 
+/// Разбирает обычный атрибут, RFC 2231 extended-форму или её секцию.
+///
+/// Секция со значением 0 начинает continuation; последующие номера должны
+/// быть каноническими положительными числами без ведущих нулей.
 fn parameter_name(name: &str) -> Result<(String, Option<usize>, bool), &'static str> {
     let lower = name.to_ascii_lowercase();
     let encoded = lower.ends_with('*');
     let stem = lower.strip_suffix('*').unwrap_or(&lower);
     let Some((base, suffix)) = stem.rsplit_once('*') else {
+        if !attribute_token(stem) {
+            return Err("invalid MIME parameter attribute");
+        }
         return Ok((stem.to_owned(), None, encoded));
     };
+    if !attribute_token(base) {
+        return Err("invalid MIME parameter attribute");
+    }
+    let valid_section = match (suffix.bytes().next(), suffix.len()) {
+        (Some(b'0'), 1) => true,
+        (Some(b'1'..=b'9'), _) => suffix.bytes().all(|byte| byte.is_ascii_digit()),
+        _ => false,
+    };
+    if !valid_section {
+        return Err("invalid continuation index");
+    }
     let index = suffix
         .parse::<usize>()
         .map_err(|_| "invalid continuation index")?;
-    if base.is_empty() {
-        return Err("empty parameter name");
-    }
     Ok((base.to_owned(), Some(index), encoded))
 }
 
+/// Проверяет имя MIME-атрибута с ограничениями RFC 2231.
+///
+/// Звёздочка, апостроф и процент зарезервированы расширенной грамматикой;
+/// остальные ограничения token наследуются из RFC 2045.
+fn attribute_token(value: &str) -> bool {
+    media_token(value)
+        && value
+            .bytes()
+            .all(|byte| !matches!(byte, b'*' | b'\'' | b'%'))
+}
+
+/// Проверяет MIME token либо снимает кавычки и quoted-pair у значения.
+///
+/// Пустое значение допустимо только в кавычках; неэкранированная внутренняя
+/// кавычка и оборванная escape-последовательность являются ошибкой.
 fn unquote(value: &str) -> Result<String, &'static str> {
     let Some(inner) = value.strip_prefix('"') else {
-        return Ok(value.to_owned());
+        return match media_token(value) {
+            true => Ok(value.to_owned()),
+            false => Err("invalid MIME parameter token"),
+        };
     };
     let inner = inner.strip_suffix('"').ok_or("unterminated quoted value")?;
     let mut output = String::new();
@@ -138,6 +171,7 @@ fn unquote(value: &str) -> Result<String, &'static str> {
                 escaped = false;
             }
             (false, '\\') => escaped = true,
+            (false, '"') => return Err("unescaped quote in MIME parameter"),
             (false, _) => output.push(character),
         }
     }
@@ -276,24 +310,7 @@ fn parse_media_type(value: &str) -> Result<MediaType, &'static str> {
 /// последовательности ASCII-октетов, а не Unicode-символов.
 fn media_token(value: &str) -> bool {
     !value.is_empty()
-        && value.bytes().all(|byte| {
-            matches!(byte, 33..=126)
-                && !matches!(
-                    byte,
-                    b'(' | b')'
-                        | b'<'
-                        | b'>'
-                        | b'@'
-                        | b','
-                        | b';'
-                        | b':'
-                        | b'\\'
-                        | b'"'
-                        | b'/'
-                        | b'['
-                        | b']'
-                        | b'?'
-                        | b'='
-                )
-        })
+        && value
+            .bytes()
+            .all(|byte| matches!(byte, 33..=126) && !b"()<>@,;:\\\"/[]?=".contains(&byte))
 }

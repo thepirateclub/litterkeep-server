@@ -60,6 +60,35 @@ fn retains_well_formed_unknown_media_type() {
 }
 
 #[test]
+fn enforces_parameter_attribute_and_unquoted_value_grammar() {
+    for value in [
+        "text/plain; bad name=x",
+        "text/plain; bad%name=x",
+        "text/plain; filename*01=x",
+        "text/plain; filename*foo=x",
+        "text/plain; name=two words",
+        "text/plain; name=bad?value",
+        "text/plain; name=bad\\\"quote",
+        "text/plain; name=",
+    ] {
+        assert!(parameters::parse(value).is_err(), "accepted {value}");
+    }
+}
+
+#[test]
+fn accepts_empty_and_escaped_quoted_parameter_values() {
+    let parsed = parameters::parse(r#"application/octet-stream; empty=""; name="x\"y/()""#)
+        .expect("quoted MIME parameter values");
+
+    assert_eq!(parsed.parameters.get("empty").map(String::as_str), Some(""));
+    assert_eq!(
+        parsed.parameters.get("name").map(String::as_str),
+        Some("x\"y/()")
+    );
+    assert!(parameters::parse(r#"text/plain; name="x"y""#).is_err());
+}
+
+#[test]
 fn rejects_unterminated_comment_but_preserves_quoted_parentheses() {
     assert!(parameters::parse("text/plain (unfinished").is_err());
     let parsed = parameters::parse("application/octet-stream; name=\"x(y)\"")
