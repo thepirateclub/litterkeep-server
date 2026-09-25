@@ -44,23 +44,23 @@ pub(crate) fn transmitted_message_size(message: &[u8]) -> usize {
     }
 }
 
-/// Передаёт DATA с dot-stuffing и одним завершающим CRLF.
+/// Потоково передаёт DATA с dot-stuffing и одним завершающим CRLF.
+///
+/// Вызывающий слой заранее проверяет CRLF framing и RFC-ограничение длины
+/// строки. Поэтому разделение по LF удерживает каждый временный фрагмент в
+/// пределах одной короткой SMTP-строки вместо копирования всего MIME payload.
+/// Каждый фрагмент передаётся через `write_all`, сохраняя timeout системных
+/// записей и корректность при частичной записи в underlying socket.
 pub(crate) fn write_data(writer: &mut impl Write, message: &[u8]) -> io::Result<()> {
-    let mut stuffed = Vec::with_capacity(message.len().saturating_add(16));
-    let mut line_start = true;
-    let mut previous_was_cr = false;
-    for byte in message.iter().copied() {
-        if line_start && byte == b'.' {
-            stuffed.push(b'.');
+    for line in message.split_inclusive(|byte| *byte == b'\n') {
+        if let Some(b'.') = line.first() {
+            writer.write_all(b".")?;
         }
-        stuffed.push(byte);
-        line_start = previous_was_cr && byte == b'\n';
-        previous_was_cr = byte == b'\r';
+        writer.write_all(line)?;
     }
-    if !stuffed.ends_with(b"\r\n") {
-        stuffed.extend_from_slice(b"\r\n");
+    if !message.ends_with(b"\r\n") {
+        writer.write_all(b"\r\n")?;
     }
-    writer.write_all(&stuffed)?;
     writer.write_all(b".\r\n")
 }
 

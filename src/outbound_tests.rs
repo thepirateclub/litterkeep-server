@@ -104,6 +104,57 @@ fn smtp_data_stuffs_only_lines_that_begin_with_a_dot() {
 }
 
 #[test]
+fn smtp_data_streams_bounded_lines_through_partial_writes() {
+    let line = vec![b'x'; 997];
+    let mut message = Vec::new();
+    let mut expected = Vec::new();
+    for _ in 0..2048 {
+        message.extend_from_slice(b".");
+        message.extend_from_slice(&line);
+        message.extend_from_slice(b"\r\n");
+        expected.extend_from_slice(b"..");
+        expected.extend_from_slice(&line);
+        expected.extend_from_slice(b"\r\n");
+    }
+    expected.extend_from_slice(b".\r\n");
+    let mut writer = PartialWriter::new(7);
+    outbound::write_data(&mut writer, &message).expect("stream DATA");
+    assert_eq!(writer.bytes, expected);
+    assert!(writer.largest_write <= 1000);
+}
+
+/// Writer теста моделирует socket, который принимает только часть буфера.
+struct PartialWriter {
+    bytes: Vec<u8>,
+    chunk_limit: usize,
+    largest_write: usize,
+}
+
+impl PartialWriter {
+    fn new(chunk_limit: usize) -> Self {
+        Self {
+            bytes: Vec::new(),
+            chunk_limit,
+            largest_write: 0,
+        }
+    }
+}
+
+impl Write for PartialWriter {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        self.largest_write = self.largest_write.max(buffer.len());
+        let count = buffer.len().min(self.chunk_limit);
+        self.bytes
+            .extend_from_slice(buffer.get(..count).expect("bounded write"));
+        Ok(count)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+#[test]
 fn outbound_data_enforces_line_octet_limit_and_crlf_framing() {
     let mut maximum_line = vec![b'x'; 998];
     maximum_line.extend_from_slice(b"\r\n");

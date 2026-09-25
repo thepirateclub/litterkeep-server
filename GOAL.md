@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 потоковая запись исходящего SMTP DATA
+
+- Убран временный `Vec` полного размера письма, который удваивал память
+  активной доставки до 25 MiB payload. DATA теперь проходит строками: каждая
+  строка dot-stuffing-уется и передаётся `write_all`; временный фрагмент
+  ограничен SMTP-пределом 1000 октетов. Завершающий CRLF и terminator
+  сохраняют прежнюю wire-семантику для plaintext и implicit TLS.
+- PASS: Windows Rust 1.97.1: 481 библиотечный + 1 бинарный тест, strict
+  Clippy, fmt, Python compile и diff check. Новый unit regression формирует
+  2 MiB dotted payload, ограничивает каждый записываемый фрагмент и заставляет
+  writer возвращать частичные записи. Linux Docker Rust 1.97: strict Clippy,
+  522 библиотечных + 1 бинарный тест и doc-tests; release image собран.
+  Независимый SMTP peer принял около 2 MiB и сверил все DATA octets после
+  dot-unstuffing. Временные образы удалены; `litterkeep-g12-phone` сохранён.
+  Fixture: `./data/g17-smtp-outbound-stream`. Litterkeep app не тестировалось;
+  G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 outbound SMTP per-phase timeouts
 
 - Replaced the shared 10-second socket I/O timeout with RFC 5321 §4.5.3.2

@@ -72,7 +72,8 @@ def main() -> None:
         b"From: sender@source.test\r\n"
         b"To: recipient@peer.test\r\n"
         b"Subject: dot transparency\r\n\r\n"
-        b"first\r\n.\r\n..two\r\n.end"
+        b"first\r\n.\r\n..two\r\n.end\r\n"
+        + (b"." + b"x" * 997 + b"\r\n") * 1024
     )
     message_path = stage / "outbound-dot-transparency.eml"
     message_path.write_bytes(fixture)
@@ -87,7 +88,7 @@ def main() -> None:
         finally:
             peer.shutdown()
             worker.join(timeout=5)
-    expected = fixture + b"\r\n"
+    expected = fixture
     require(peer.payload == expected, f"peer DATA differs: {peer.payload!r} != {expected!r}")
     print("PASS smtp-outbound-dot-transparency: exact DATA octets at independent peer")
 
