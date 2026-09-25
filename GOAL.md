@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 outbound SMTP per-phase timeouts
+
+- Replaced the shared 10-second socket I/O timeout with RFC 5321 §4.5.3.2
+  per-phase defaults for plaintext and implicit TLS: 300 seconds for greeting,
+  MAIL, RCPT and ordinary commands; 120 seconds awaiting DATA acceptance;
+  180 seconds per DATA send; 600 seconds for the post-terminator completion.
+  Tests can retain short uniform deadlines for deterministic stalled-peer checks.
+- PASS: Windows Rust 1.97.1: 478 library + 1 binary test, strict Clippy, fmt
+  and diff check. Linux Docker Rust 1.97: 519 library + 1 binary test, strict
+  Clippy and doc-tests. Timeout table unit test and stalled-greeting wire test
+  pass. Temporary image removed; only `litterkeep-g12-phone` remains. Fixture:
+  `./data/g17-smtp-phase-timeouts`. Runtime timeout reconfiguration and slow
+  peer behavior for each phase remain unverified; G17 stays RUNNING.
+
 ### 2026-09-25: G17 outbound SMTP EHLO-to-HELO fallback
 
 - Outbound plaintext and implicit-TLS transports now fall back to `HELO` when

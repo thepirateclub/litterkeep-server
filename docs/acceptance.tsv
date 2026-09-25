@@ -92,3 +92,4 @@ R18	PASS	runtime	worker cleanup, durable retry and single Store writer tests
 R19	PASS	runtime	cooperative cancel joins outbound work and preserves queue state
 T73	PASS	outbound	421 returns deferred, closes plaintext and TLS pooled channels without RSET, and reconnects
 T74	PASS	outbound	EHLO 500 falls back to HELO in plaintext and implicit TLS without ESMTP parameters
+T75	PASS	outbound	phase-specific RFC 5321 timeout policy plus bounded stalled-greeting regression

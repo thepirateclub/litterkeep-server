@@ -13,6 +13,8 @@ mod ehlo;
 mod mail;
 #[path = "outbound_reply.rs"]
 mod reply;
+#[path = "outbound_timeouts.rs"]
+mod timeouts;
 
 #[cfg(test)]
 pub(crate) use data::DataValidationError;
@@ -26,20 +28,23 @@ pub(crate) use ehlo::{EhloCapabilities, EhloExtension, EhloNegotiation, SizeAdve
 pub(crate) use mail::{MailCommand, build_mail_command};
 pub(crate) use reply::{ReplyExpectation, ReplyResult, expect, expect_success};
 pub(crate) use reply::{parse_reply, read_reply_line};
+pub(crate) use timeouts::SmtpTimeouts;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
-const IO_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Copy)]
 pub(crate) struct TransportLimits {
     connect: Duration,
-    io: Duration,
+    timeouts: SmtpTimeouts,
 }
 
 impl TransportLimits {
     #[cfg(test)]
     pub(crate) fn testing(connect: Duration, io: Duration) -> Self {
-        Self { connect, io }
+        Self {
+            connect,
+            timeouts: SmtpTimeouts::uniform(io),
+        }
     }
 }
 
@@ -47,7 +52,7 @@ impl Default for TransportLimits {
     fn default() -> Self {
         Self {
             connect: CONNECT_TIMEOUT,
-            io: IO_TIMEOUT,
+            timeouts: SmtpTimeouts::default(),
         }
     }
 }
@@ -71,6 +76,7 @@ pub struct Connection {
     writer: TcpStream,
     capabilities: EhloCapabilities,
     close_after_response: bool,
+    timeouts: SmtpTimeouts,
 }
 
 impl Connection {
@@ -95,6 +101,7 @@ impl Connection {
             writer: stream,
             capabilities: EhloCapabilities::default(),
             close_after_response: false,
+            timeouts: limits.timeouts,
         };
         expect_success(&mut result.reader, ReplyExpectation::Greeting)?;
         result.command("EHLO litterkeep.test\r\n")?;
@@ -134,6 +141,8 @@ impl Connection {
         if let Some(outcome) = self.expect_command(ReplyExpectation::Data)? {
             return Ok(outcome);
         }
+        self.writer
+            .set_write_timeout(Some(self.timeouts.data_block()))?;
         write_data(&mut self.writer, message)?;
         self.writer.flush()?;
         match self.expect_command(ReplyExpectation::Message)? {
@@ -159,6 +168,8 @@ impl Connection {
     }
 
     fn command(&mut self, wire: &str) -> io::Result<()> {
+        self.writer
+            .set_write_timeout(Some(self.timeouts.command()))?;
         command(&mut self.writer, wire)
     }
 
@@ -171,6 +182,9 @@ impl Connection {
         &mut self,
         expectation: ReplyExpectation,
     ) -> io::Result<Option<DeliveryOutcome>> {
+        self.reader
+            .get_ref()
+            .set_read_timeout(Some(self.timeouts.response(expectation)))?;
         match expect(&mut self.reader, expectation)? {
             ReplyResult::Accepted => Ok(None),
             ReplyResult::Rejected(outcome) => Ok(Some(outcome)),
@@ -209,8 +223,8 @@ pub(crate) fn parse_route(address: &str) -> io::Result<SocketAddr> {
 
 fn connect_bounded_addr(address: SocketAddr, limits: TransportLimits) -> io::Result<TcpStream> {
     let stream = TcpStream::connect_timeout(&address, limits.connect)?;
-    stream.set_read_timeout(Some(limits.io))?;
-    stream.set_write_timeout(Some(limits.io))?;
+    stream.set_read_timeout(Some(limits.timeouts.greeting()))?;
+    stream.set_write_timeout(Some(limits.timeouts.command()))?;
     Ok(stream)
 }
 

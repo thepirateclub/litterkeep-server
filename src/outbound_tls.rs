@@ -18,6 +18,7 @@ pub struct Connection {
     stream: BufReader<StreamOwned<ClientConnection, TcpStream>>,
     capabilities: outbound::EhloCapabilities,
     close_after_response: bool,
+    timeouts: outbound::SmtpTimeouts,
 }
 
 impl Connection {
@@ -32,6 +33,7 @@ impl Connection {
             stream: BufReader::new(StreamOwned::new(connection, stream)),
             capabilities: outbound::EhloCapabilities::default(),
             close_after_response: false,
+            timeouts: outbound::SmtpTimeouts::default(),
         };
         expect_success(&mut result.stream, outbound::ReplyExpectation::Greeting)?;
         result.command("EHLO litterkeep.test\r\n")?;
@@ -96,6 +98,9 @@ impl Connection {
             return Ok(outcome);
         }
         let stream = self.stream.get_mut();
+        stream
+            .sock
+            .set_write_timeout(Some(self.timeouts.data_block()))?;
         outbound::write_data(stream, message)?;
         stream.flush()?;
         match self.expect_command(outbound::ReplyExpectation::Message)? {
@@ -118,6 +123,10 @@ impl Connection {
     }
 
     fn command(&mut self, wire: &str) -> io::Result<()> {
+        self.stream
+            .get_ref()
+            .sock
+            .set_write_timeout(Some(self.timeouts.command()))?;
         command(&mut self.stream, wire)
     }
 
@@ -130,6 +139,10 @@ impl Connection {
         &mut self,
         expectation: outbound::ReplyExpectation,
     ) -> io::Result<Option<DeliveryOutcome>> {
+        self.stream
+            .get_ref()
+            .sock
+            .set_read_timeout(Some(self.timeouts.response(expectation)))?;
         match outbound::expect(&mut self.stream, expectation)? {
             outbound::ReplyResult::Accepted => Ok(None),
             outbound::ReplyResult::Rejected(outcome) => Ok(Some(outcome)),
