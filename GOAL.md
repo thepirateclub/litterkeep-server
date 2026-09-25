@@ -4,6 +4,26 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 RFC 2557 Content-Location URI-reference checkpoint
+
+- `Content-Location` теперь проецируется только при единственном непустом
+  значении с синтаксисом RFC 3986 URI-reference. Реализованы схема, relative
+  reference, path/query/fragment, percent-encoding, authority, IPv6 и IPvFuture.
+  Octets сохраняются: ссылки не разрешаются и не загружаются; IRI и policy
+  разрешённых схем остаются вне профиля.
+- Добавлены положительные RFC-примеры и отрицательные malformed URI случаи,
+  включая malformed percent encoding, IPv6 authority и некорректную схему.
+  Независимый IMAP STARTTLS `imaplib` acceptance подтвердил валидные absolute
+  и relative locations в BODYSTRUCTURE, исключение `%ZZ` и отсутствие
+  extension fields в basic BODY.
+- PASS: Windows Rust 1.97.1 `cargo test --all-targets --locked` (445 library
+  + 1 binary), strict Clippy, `cargo fmt --all -- --check`, `git diff --check`
+  и Python compile. Linux Docker `test` target: 486 library + 1 binary,
+  doc-tests, strict Clippy и release build. Временный контейнер и оба
+  checkpoint image удалены; `docker ps -a` оставил только
+  `litterkeep-g12-phone`. Stage data сохранена в `./data/g17-content-location-uri`.
+  G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 9051 Content-MD5 extension checkpoint
 
 - MIME parser сохраняет только одно syntactically valid `Content-MD5` значение:

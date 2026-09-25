@@ -214,13 +214,13 @@ fn parse_language_fields(fields: &[HeaderField]) -> Option<Vec<LanguageTag>> {
     }
 }
 
-/// Принимает URI как непрозрачный текст, сохраняя допустимые схемы и формы.
+/// Проверяет RFC 3986 URI-reference syntax без преобразования URI octets.
 fn parse_location_fields(fields: &[HeaderField]) -> Option<String> {
     let field = single_field(fields, HeaderName::ContentLocation)?;
     let value = std::str::from_utf8(&field.value).ok()?;
     let normalized = super::structured_comments::remove(value).ok()?;
     let location = normalized.trim();
-    match location.is_empty() || location.chars().any(char::is_control) {
+    match location.is_empty() || !super::uri_reference::is_valid(location) {
         true => None,
         false => Some(location.to_owned()),
     }

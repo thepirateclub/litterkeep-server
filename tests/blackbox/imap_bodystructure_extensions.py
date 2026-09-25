@@ -55,7 +55,10 @@ def main() -> None:
         b"Content-Disposition: attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.bin\r\n"
         b"Content-Language: ru\r\n"
         b"Content-Location: ../files/a%20b.bin\r\n\r\n"
-        b"attachment-octets\r\n--meta-boundary--\r\n"
+        b"attachment-octets\r\n--meta-boundary\r\n"
+        b"Content-Type: text/plain\r\n"
+        b"Content-Location: ../files/bad%ZZ.txt\r\n\r\n"
+        b"invalid-location-octets\r\n--meta-boundary--\r\n"
     )
     with imaplib.IMAP4(options.host, options.port, timeout=10) as client:
         client.starttls(ssl_context=context)
@@ -88,6 +91,8 @@ def main() -> None:
     ):
         if required not in extended:
             raise AssertionError(f"BODYSTRUCTURE lacks {required!r}: {extended!r}")
+    if b'"../files/bad%ZZ.txt"' in extended:
+        raise AssertionError(f"invalid Content-Location was projected: {extended!r}")
     for required in (b'"<\\"attachment@one\\"@[IPv6:2001:db8::1]>" "attached file"',):
         if required not in basic:
             raise AssertionError(f"basic BODY lacks MIME basic fields {required!r}: {basic!r}")

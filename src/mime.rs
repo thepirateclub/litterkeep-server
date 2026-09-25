@@ -45,6 +45,8 @@ pub(crate) mod structured_comments;
 pub mod transfer;
 #[path = "mime/tree.rs"]
 pub mod tree;
+#[path = "mime/uri_reference.rs"]
+pub(crate) mod uri_reference;
 
 pub fn headers(raw: &[u8]) -> Result<(BTreeMap<String, String>, &[u8]), &'static str> {
     let parsed = header_block::parse(raw)?;

@@ -83,8 +83,12 @@ Content-Disposition extension для scalar/message частей; multipart на
 extensions с parameter list после subtype. Параметры включая RFC 2231 filename декодируются общим MIME parser-ом;
 невалидное или повторное поле не экспортируется. `Content-Language` сохраняет
 один или несколько структурно корректных BCP 47 tags; `Content-Location`
-сохраняется как непустой unfolded URI-текст без percent-decoding. URI grammar
-не валидируется. Поля сериализуются строго после disposition в RFC 9051 порядке.
+сохраняется как единственный непустой unfolded URI-reference по синтаксису
+RFC 3986. Поддерживаются absolute URI и relative reference; percent-encoding
+проверяется, но не декодируется. Не выполняются разрешение ссылок, загрузка,
+проверка допустимости схем, IRI/Unicode URI или реестр URI. Невалидное либо
+повторное поле не экспортируется. Поля сериализуются строго после disposition
+в RFC 9051 порядке.
 `BODY` использует отдельный basic encoder и не получает extension fields.
 Независимый STARTTLS `imaplib` acceptance сравнил wire-ответы `BODY` и
 `BODYSTRUCTURE`: первый не содержит extensions, второй содержит language,
