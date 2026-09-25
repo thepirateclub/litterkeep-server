@@ -87,6 +87,7 @@ where
         match next {
             ' ' => break,
             '(' | ')' => break,
+            '"' => return Err("quote inside IMAP atom"),
             character if !character.is_ascii() => {
                 return Err("non-ASCII character in IMAP4rev1 atom");
             }
@@ -167,6 +168,15 @@ mod tests {
         assert_eq!(
             tokenize("a LOGIN bo\x01b password\r\n"),
             Err("control character in IMAP atom")
+        );
+    }
+
+    /// Кавычка открывает quoted-string только в начале отдельного токена.
+    #[test]
+    fn rejects_quote_inside_atom() {
+        assert_eq!(
+            tokenize("a LOGIN bo\"b password\r\n"),
+            Err("quote inside IMAP atom")
         );
     }
 

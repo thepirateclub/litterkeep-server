@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G17 embedded quote in atom, PASS
+
+- Tokenizer rejects a double quote embedded in an unquoted atom. Quoted strings
+  remain a separate token form. Unit test and independent STARTTLS wire test
+  require tagged BAD and a usable session afterwards. This is a narrow RFC 9051
+  grammar correction, not full atom-special handling.
+- PASS: Windows Rust 1.97.1 strict Clippy, 517 library + 1 binary tests,
+  format check, and Python syntax compilation. Linux Rust 1.97 Docker strict
+  Clippy and 564 library + 1 binary tests plus doc-tests pass. Independent
+  STARTTLS black-box grammar acceptance passed, including BAD for the embedded
+  quote followed by a successful NOOP in the same session. Both stage image
+  tags and the acceptance container were removed; inventory contains only
+  pre-existing containers. Fixture `./data/g17-imap-malformed-utf8` remains.
+  G17 remains ACTIVE; this does not implement full IMAP4rev2 atom contexts.
+
 ### 2026-09-26: G17 IMAP command SP and CTL grammar, PASS
 
 - IMAP command lexer больше не нормализует HTAB и другие whitespace octets в

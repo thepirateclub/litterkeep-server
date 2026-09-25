@@ -76,6 +76,12 @@ INTERNALDATE, RFC822.SIZE, ENVELOPE и BODY; BODYSTRUCTURE остаётся от
 запросом. Windows/Linux unit gates и независимый STARTTLS SMTP/IMAP attachment
 black-box прошли. Litterkeep app не проверялось; IMAP4rev2 не объявляется.
 
+G17 tokenizer checkpoint (2026-09-26): unquoted atom rejects an embedded
+double quote; quoted-string remains a separate token form. Independent STARTTLS
+wire acceptance received tagged BAD and then issued NOOP successfully to verify
+session recovery. This closes only the quoted-special delimiter case, not the
+remaining atom-special context rules or IMAP4rev2 profile.
+
 CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-USE`,
 `NAMESPACE`, `UNSELECT`, `ENABLE`, `ESEARCH` и `SEARCHRES`. ENABLE игнорирует
 неизвестные и пока не поддерживаемые расширения по RFC и возвращает пустой

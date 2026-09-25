@@ -36,6 +36,7 @@ def main() -> None:
     require_untagged_bad_malformed_tag(client)
     require_untagged_bad_response_special_tag(client)
     require_bad_tab_separator(client)
+    require_bad_quote_inside_atom(client)
     require(client.noop(), ImapStatus.OK)
     if options.credentials is not None:
         password = password_for(options.credentials, "bob")
@@ -114,6 +115,14 @@ def require_bad_tab_separator(client: imaplib.IMAP4) -> None:
     response = client.readline()
     if not response.startswith(b"A17 BAD "):
         raise AssertionError(f"HTAB separator response: {response!r}")
+
+
+def require_bad_quote_inside_atom(client: imaplib.IMAP4) -> None:
+    """Кавычка внутри atom должна отклоняться, а соединение сохраняться."""
+    client.send(b'A18 LOGIN bo"b "unused"\r\n')
+    response = client.readline()
+    if not response.startswith(b"A18 BAD "):
+        raise AssertionError(f'quote inside atom response: {response!r}')
 
 
 def require_bad(client: imaplib.IMAP4, verb: str) -> None:
