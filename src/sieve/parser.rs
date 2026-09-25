@@ -7,6 +7,8 @@ use super::ast::{
 };
 use super::lexer::Token;
 use super::parser_values::{atom, expect, one_string, string_list, terminated_strings};
+#[path = "parser_actions.rs"]
+mod actions;
 use std::collections::VecDeque;
 
 pub(super) fn parse(tokens: Vec<Token>) -> Result<Script, &'static str> {
@@ -35,6 +37,7 @@ pub(super) fn parse(tokens: Vec<Token>) -> Result<Script, &'static str> {
 fn capability(value: String) -> Capability {
     match value.as_str() {
         "fileinto" => Capability::FileInto,
+        "copy" => Capability::Copy,
         "subaddress" => Capability::Subaddress,
         "envelope" => Capability::Envelope,
         _ => Capability::Unsupported(value),
@@ -91,8 +94,8 @@ fn action(
         "keep" => Action::Keep,
         "discard" => Action::Discard,
         "stop" => Action::Stop,
-        "fileinto" => Action::FileInto(one_string(input)?),
-        "redirect" => Action::Redirect(one_string(input)?),
+        "fileinto" => actions::fileinto(input)?,
+        "redirect" => actions::redirect(input)?,
         "if" => {
             output.push(if_command(input)?);
             return Ok(());

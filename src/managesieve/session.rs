@@ -91,7 +91,7 @@ fn capability_lines(tls: bool, ending: &[u8]) -> Vec<u8> {
     if !tls {
         output.extend_from_slice(b"\"STARTTLS\"\r\n");
     }
-    output.extend_from_slice(b"\"SIEVE\" \"fileinto subaddress envelope\"\r\n");
+    output.extend_from_slice(b"\"SIEVE\" \"fileinto subaddress envelope copy\"\r\n");
     output.extend_from_slice(ending);
     output
 }

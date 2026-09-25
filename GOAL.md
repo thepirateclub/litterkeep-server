@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 3894 Sieve copy checkpoint
+
+- Реализованы `fileinto :copy` и `redirect :copy` с typed actions, обязательным
+  `require "copy"`, дополнительным `require "fileinto"` для fileinto и
+  обновлённым ManageSieve capability. Оба действия сохраняют implicit keep;
+  unit regression также проверяет, что последующий `discard` всё ещё отменяет
+  его.
+- PASS: Windows Rust 1.97, 335 тестов и strict Clippy. Linux Docker Rust 1.97,
+  strict Clippy и 375 тестов. Независимый ManageSieve -> SMTP -> IMAP acceptance
+  в `./data/g17-sieve-copy-verified` сравнил полные RFC822 bytes письма в INBOX
+  и `Invoices`; bytes совпали. `redirect :copy` проверен на уровне плана, не на
+  внешнем SMTP peer. Временный контейнер удалён; `litterkeep-g12-phone`
+  сохранён. Интеграция приложения Litterkeep не проверялась. G17 остаётся
+  RUNNING.
+
 ### 2026-09-25: G17 RFC 5230 vacation gap inventory
 
 - Сверен RFC 5230 §§4-5 с Sieve executor и durable outbound queue. `vacation`

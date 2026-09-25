@@ -37,7 +37,7 @@ fn capability_advertises_supported_sieve_extensions() {
     };
     assert!(
         response
-            .windows(b"\"SIEVE\" \"fileinto subaddress envelope\"".len())
-            .any(|part| part == b"\"SIEVE\" \"fileinto subaddress envelope\"")
+            .windows(b"\"SIEVE\" \"fileinto subaddress envelope copy\"".len())
+            .any(|part| part == b"\"SIEVE\" \"fileinto subaddress envelope copy\"")
     );
 }

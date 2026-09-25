@@ -15,6 +15,10 @@ pub(super) fn script(script: &Script) -> Result<(), &'static str> {
         .requires
         .iter()
         .any(|value| matches!(value, Capability::FileInto));
+    let copy = script
+        .requires
+        .iter()
+        .any(|value| matches!(value, Capability::Copy));
     let subaddress = script
         .requires
         .iter()
@@ -28,6 +32,7 @@ pub(super) fn script(script: &Script) -> Result<(), &'static str> {
         0,
         &mut count,
         fileinto,
+        copy,
         subaddress,
         envelope,
     )
@@ -38,6 +43,7 @@ fn commands(
     depth: usize,
     count: &mut usize,
     fileinto: bool,
+    copy: bool,
     subaddress: bool,
     envelope: bool,
 ) -> Result<(), &'static str> {
@@ -50,7 +56,7 @@ fn commands(
             return Err("sieve command limit exceeded");
         }
         match command {
-            Command::Action(action) => action_valid(action, fileinto)?,
+            Command::Action(action) => action_valid(action, fileinto, copy)?,
             Command::If {
                 condition,
                 then_commands,
@@ -62,6 +68,7 @@ fn commands(
                     depth.saturating_add(1),
                     count,
                     fileinto,
+                    copy,
                     subaddress,
                     envelope,
                 )?;
@@ -70,6 +77,7 @@ fn commands(
                     depth.saturating_add(1),
                     count,
                     fileinto,
+                    copy,
                     subaddress,
                     envelope,
                 )?;
@@ -80,12 +88,24 @@ fn commands(
 }
 
 /// Проверяет ограничения mailbox и обязательное объявление optional fileinto.
-fn action_valid(action: &Action, fileinto: bool) -> Result<(), &'static str> {
+fn action_valid(action: &Action, fileinto: bool, copy: bool) -> Result<(), &'static str> {
     match action {
         Action::FileInto(_) if !fileinto => Err("fileinto extension must be required"),
         Action::FileInto(name) if safe_name(name) => Ok(()),
-        Action::Redirect(address) if valid_redirect_address(address) => Ok(()),
-        Action::FileInto(_) | Action::Redirect(_) => Err("unsafe sieve action target"),
+        Action::FileIntoCopy(_) if !fileinto => Err("fileinto extension must be required"),
+        Action::FileIntoCopy(_) | Action::RedirectCopy(_) if !copy => {
+            Err("copy extension must be required")
+        }
+        Action::FileIntoCopy(name) if safe_name(name) => Ok(()),
+        Action::Redirect(address) | Action::RedirectCopy(address)
+            if valid_redirect_address(address) =>
+        {
+            Ok(())
+        }
+        Action::FileInto(_)
+        | Action::FileIntoCopy(_)
+        | Action::Redirect(_)
+        | Action::RedirectCopy(_) => Err("unsafe sieve action target"),
         Action::Keep | Action::Discard | Action::Stop => Ok(()),
     }
 }

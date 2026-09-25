@@ -170,11 +170,18 @@ fn apply(
             cancel_implicit_keep(plan, keep_state);
             plan.folders.push(folder.clone());
         }
+        Action::FileIntoCopy(folder) => plan.folders.push(folder.clone()),
         Action::Redirect(address) => {
             if plan.redirects.len() >= 16 {
                 return Err(ExecutionError::RedirectLimit);
             }
             cancel_implicit_keep(plan, keep_state);
+            plan.redirects.push(address.clone());
+        }
+        Action::RedirectCopy(address) => {
+            if plan.redirects.len() >= 16 {
+                return Err(ExecutionError::RedirectLimit);
+            }
             plan.redirects.push(address.clone());
         }
         Action::Stop => *stopped = true,

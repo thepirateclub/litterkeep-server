@@ -5,6 +5,15 @@ keep/discard, header/address/size tests и diagnostics. ManageSieve поддер
 STARTTLS, SASL PLAIN, literals, CHECKSCRIPT, PUTSCRIPT, LISTSCRIPTS, GETSCRIPT,
 SETACTIVE, DELETESCRIPT и RENAMESCRIPT.
 
+RFC 3894 `copy` реализован для `fileinto` и `redirect`; скрипт обязан явно
+заявить `require "copy"`, а `fileinto` дополнительно требует `fileinto`.
+`fileinto :copy` и `redirect :copy` добавляют действие, не отменяя implicit
+keep. Unit tests проверяют capability gating и взаимодействие с последующим
+`discard`. Независимый ManageSieve -> SMTP -> IMAP acceptance проверяет
+`fileinto :copy`: полные RFC822 bytes в INBOX и `Invoices` совпадают. Для
+`redirect :copy` проверен только Sieve DeliveryPlan; внешний SMTP acceptance
+redirect остаётся непроверенным. Правило сверено с RFC 3894 §3.
+
 ## RFC 5230 vacation: не реализовано
 
 `vacation` пока не входит в поддерживаемый профиль и не объявляется в

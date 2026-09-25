@@ -14,6 +14,7 @@ import socket
 import ssl
 from email.message import EmailMessage
 from email.policy import SMTP
+from mailbox_assertions import fetch_single_message
 
 
 def require(condition: bool, message: str) -> None:
@@ -59,7 +60,7 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
         greeting = read_until(plain, b'OK "ready"\r\n')
         require(b'"STARTTLS"' in greeting, "ManageSieve не объявил STARTTLS")
         require(
-            b'"SIEVE" "fileinto subaddress envelope"' in greeting,
+            b'"SIEVE" "fileinto subaddress envelope copy"' in greeting,
             "ManageSieve не объявил Sieve capabilities",
         )
         bob_password = os.environ.get("LITTERKEEP_BOB_PASSWORD", "bob-password")
@@ -157,14 +158,14 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
                 b'if exists ["Subject", "From"] { keep; }',
                 b'OK "completed"\r\n',
             )
-            first_chunk = b'require ["fileinto", "subaddress", "envelope"]; '
+            first_chunk = b'require ["fileinto", "subaddress", "envelope", "copy"]; '
             second_chunk = b"".join(
                 [
                     b'if allof (header :contains "subject" "[invoice]", ',
                     'header :contains "subject" "café☃", '.encode("utf-8"),
                     b'header :matches "subject" "invoice\\\\**", ',
                     b'address :comparator "i;ascii-casemap" :detail :is "to" "invoices", envelope :is "to" "bob@litterkeep.test", size :over 1) ',
-                    b'{ fileinto "Invoices"; stop; }',
+                    b'{ fileinto :copy "Invoices"; stop; }',
                 ]
             )
             source = first_chunk + second_chunk
@@ -226,7 +227,6 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
             require(command(client, b"NOOP\r\n") == b'OK "noop"\r\n', "NOOP не принят")
             require(command(client, b"LOGOUT\r\n") == b'OK "bye"\r\n', "LOGOUT не принят")
 
-
 def deliver(options: argparse.Namespace, context: ssl.SSLContext) -> None:
     message = EmailMessage()
     message["From"] = "alice@litterkeep.test"
@@ -248,33 +248,17 @@ def deliver(options: argparse.Namespace, context: ssl.SSLContext) -> None:
             serialized,
         )
 
-
 def verify_mailbox(options: argparse.Namespace, context: ssl.SSLContext) -> None:
     with imaplib.IMAP4(options.host, options.imap_port, timeout=10) as client:
         tls_status, _ = client.starttls(ssl_context=context)
         require(tls_status == "OK", "IMAP TLS")
         bob_password = os.environ.get("LITTERKEEP_BOB_PASSWORD", "bob-password")
         require(client.login("bob", bob_password)[0] == "OK", "IMAP LOGIN")
-        status, data = client.select("Invoices")
-        require(status == "OK", "Sieve folder не выбран по IMAP")
-        require(data != [b"0"], "Sieve не доставил письмо в Invoices")
-        status, data = client.uid("SEARCH", None, "ALL")
-        require(status == "OK", "IMAP UID SEARCH")
-        search_result = next(iter(data), b"").strip()
-        identifier, _, _ = search_result.partition(b" ")
-        require(identifier != b"", "не найден UID доставленного письма")
-        status, fetched = client.uid("FETCH", identifier, "RFC822")
-        require(status == "OK", "IMAP UID FETCH")
-        payload = b"".join(fetch_bytes(item) for item in fetched)
+        inbox_payload = fetch_single_message(client, "INBOX")
+        payload = fetch_single_message(client, "Invoices")
+        require(payload == inbox_payload, "fileinto :copy bytes differ from implicit INBOX copy")
         require(b"[invoice] paid" in payload, "прочитано не то письмо")
         require(b"Subject \t:" in payload, "исходные байты Subject были изменены")
-
-
-def fetch_bytes(item: object) -> bytes:
-    if not isinstance(item, tuple):
-        return b""
-    _, payload = item
-    return payload if isinstance(payload, bytes) else b""
 
 
 def parse_arguments() -> argparse.Namespace:

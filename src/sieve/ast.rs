@@ -11,6 +11,7 @@ pub struct Script {
 #[derive(Debug, Eq, PartialEq)]
 pub enum Capability {
     FileInto,
+    Copy,
     Subaddress,
     Envelope,
     Unsupported(String),
@@ -40,7 +41,9 @@ pub enum Action {
     Keep,
     Discard,
     FileInto(String),
+    FileIntoCopy(String),
     Redirect(String),
+    RedirectCopy(String),
     Stop,
 }
 
