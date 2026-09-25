@@ -45,19 +45,25 @@ parser-ом. Невалидный IP и незарегистрированный
 [реестром IANA](https://www.iana.org/assignments/smtp/#smtp-address-literal-tags).
 Полный inbound SMTPUTF8/EAI пока не поддержан и capability не рекламируется:
 SMTP grammar теперь принимает UTF-8 local-part в dot-atom и quoted-string при
-ASCII domain, но сетевой EAI delivery и IDNA U-label validation ещё не проверены.
+ASCII domain; IDNA U-label validation и DNS conversion не реализованы.
 MAIL с таким reverse-path требует флаг SMTPUTF8; reactor guard отклоняет
 UTF-8 RCPT без флага активного MAIL. Независимый Linux TCP peer подтвердил 553
 без флага, 501 для UTF-8 MAIL без флага и достижение account lookup (550 на
-намеренно отсутствующий UTF-8 account) при корректном SMTPUTF8. Это доказывает
-только wire parsing/policy, не доставку на UTF-8 mailbox. Сам флаг не требует
-BODY=8BITMIME: 8-bit тела по-прежнему
-разрешаются только BODY=8BITMIME, а UTF-8 заголовки требуют SMTPUTF8. Account
+намеренно отсутствующий UTF-8 account) при корректном SMTPUTF8. Дополнительный
+forced-extension acceptance создал opt-in Unicode account отдельной командой
+dev bootstrap, доставил ему MIME-вложение по SMTP STARTTLS и извлёк его через
+IMAP STARTTLS/SASL PLAIN;
+отдельное чтение после перезапуска подтвердило durable delivery. Вложение
+совпало побайтно, SHA-256 `7f4e114fb71bb6cf784bda9f0d77d06e3ccb15cfdc667bbad322dcef81da20f8`.
+Клиент намеренно отправил `SMTPUTF8`, хотя EHLO его не предлагает, поэтому это
+доказательство реализации пути, а не interoperable conformance test. Сам флаг не требует
+BODY=8BITMIME: 8-bit тела по-прежнему разрешаются только BODY=8BITMIME, а UTF-8
+заголовки требуют SMTPUTF8. Account
 credentials, folder catalog, subscriptions, Sieve snapshots и внутренние
 mailbox keys сохраняют bounded UTF-8 идентификаторы в отдельном hex namespace;
-прямой Store/Accounts restart test проверяет эти слои, но не сетевую
-аутентификацию или SMTP EAI delivery. Ограниченный DATA/transport checkpoint разбирает MAIL
-флаг SMTPUTF8, разрешает UTF-8 field values, но
+прямой Store/Accounts restart test проверяет эти слои, а forced-extension
+acceptance выше отдельно проверяет SMTP/IMAP network путь. Ограниченный
+DATA/transport checkpoint разбирает MAIL флаг SMTPUTF8, разрешает UTF-8 field values, но
 не ASCII field names, и требует обе peer capabilities на outbound перед MAIL.
 Независимый Linux SMTP peer подтвердил `BODY=8BITMIME SMTPUTF8` и сохранность
 UTF-8 header octets. Этот сценарий не подтверждает локальную EHLO capability,

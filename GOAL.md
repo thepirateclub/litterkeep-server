@@ -4,6 +4,35 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 forced SMTPUTF8-to-IMAP durable delivery, PARTIAL
+
+- The opt-in `init-smtputf8-test` command creates a separate random-password
+  acceptance account named `пользователь`; ordinary `init`, existing four
+  accounts and their `test-accounts.tsv` bytes remain unchanged. The independent
+  `smtp_smtputf8_delivery.py` client authenticated Alice over SMTP STARTTLS,
+  forced a raw `MAIL ... SMTPUTF8` and UTF-8 RCPT despite SMTPUTF8 being absent
+  from EHLO, then sent a base64 MIME attachment. IMAP STARTTLS authenticated
+  the Unicode authcid using SASL PLAIN and fetched the committed message.
+- The attachment octets matched exactly, SHA-256
+  `7f4e114fb71bb6cf784bda9f0d77d06e3ccb15cfdc667bbad322dcef81da20f8`.
+  After stopping and restarting the server against the same
+  `./data/g17-smtputf8-delivery-optin`, a read-only IMAP pass recovered the same
+  bytes.
+- This proves the current internal Unicode local-part routing, durable Store
+  key, SASL authcid, and MIME octet path together. It is deliberately not called
+  standards-conforming SMTPUTF8 client interoperability: the test forces an
+  extension that EHLO does not offer. SMTPUTF8 must remain unadvertised until
+  complete RFC 6531 support, including IDNA domain handling. IMAP4rev2/UTF8
+  capability conformance, Litterkeep compatibility, and other EAI cases remain
+  unverified.
+- PASS: Windows Rust 1.97.1 full suite (506 library + 1 binary), strict Clippy,
+  fmt and diff checks; Python 3.14 byte-client syntax check. Linux Rust 1.97
+  runtime built and passed initial plus post-restart SMTP-to-IMAP acceptance.
+  Linux test target passed release build, strict Clippy, 551 library + 1 binary
+  test and doc-tests. Python 3.14 syntax check and `git diff --check` passed.
+  Temporary container and image tags were removed; `litterkeep-g12-phone` is
+  preserved. G17 remains ACTIVE.
+
 ### 2026-09-25: G17 SMTPUTF8 independent recipient-policy socket checkpoint, PARTIAL
 
 - Added `tests/blackbox/smtp_smtputf8_recipient_policy.py` as an independent

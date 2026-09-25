@@ -42,6 +42,7 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some("init") => bootstrap_cli::initialize(),
+        Some("init-smtputf8-test") => bootstrap_cli::initialize_smtp_utf8_test(),
         Some("check") => maintenance_cli::check(),
         Some("backup") => maintenance_cli::backup(),
         Some("seed") => seed_cli::execute(),

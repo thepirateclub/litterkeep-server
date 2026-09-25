@@ -1,6 +1,7 @@
 //! Проверка повторяемости bootstrap без смены секретов и PHC records.
 
 use super::initialize;
+use super::initialize_smtp_utf8_test;
 use crate::accounts::Accounts;
 use std::fs;
 use std::path::PathBuf;
@@ -44,7 +45,7 @@ fn repeated_initialize_preserves_secrets_and_accounts() {
 }
 
 #[test]
-fn saved_passwords_authenticate_all_four_accounts() {
+fn saved_passwords_authenticate_all_acceptance_accounts() {
     let root = directory();
     let report = initialize(&root).expect("init");
     let credentials = fs::read_to_string(report.credentials_path).expect("credentials");
@@ -55,5 +56,35 @@ fn saved_passwords_authenticate_all_four_accounts() {
         let password = fields.next().expect("password");
         assert!(accounts.authenticate(name, password.as_bytes()));
     }
+    assert!(!accounts.exists("пользователь"));
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn unicode_acceptance_account_is_opt_in_and_preserves_existing_credentials() {
+    let root = directory();
+    let standard = initialize(&root).expect("standard init");
+    let original_credentials = fs::read(&standard.credentials_path).expect("standard secrets");
+    let first = initialize_smtp_utf8_test(&root).expect("Unicode test account init");
+    assert!(first.created);
+    let unicode_secrets = fs::read_to_string(&first.credentials_path).expect("Unicode secrets");
+    let mut fields = unicode_secrets.trim_end().split('\t');
+    let username = fields.next().expect("Unicode username");
+    let password = fields.next().expect("Unicode password");
+    assert_eq!(username, "пользователь");
+    assert!(fields.next().is_none());
+
+    let accounts = Accounts::open(&root).expect("account store");
+    assert!(accounts.authenticate(username, password.as_bytes()));
+    let second = initialize_smtp_utf8_test(&root).expect("repeat Unicode init");
+    assert!(!second.created);
+    assert_eq!(
+        fs::read(&standard.credentials_path).expect("unchanged standard secrets"),
+        original_credentials
+    );
+    assert_eq!(
+        fs::read(&second.credentials_path).expect("unchanged Unicode secret"),
+        unicode_secrets.as_bytes()
+    );
     fs::remove_dir_all(root).expect("cleanup");
 }

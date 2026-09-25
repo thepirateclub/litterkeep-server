@@ -6,6 +6,7 @@ pub(crate) fn print() {
     println!("{PRODUCT} {VERSION}\n");
     println!("Usage:");
     println!("  litterkeep-server init --data-dir <data-dir>");
+    println!("  litterkeep-server init-smtputf8-test --data-dir <data-dir>");
     println!(
         "  litterkeep-server seed <smtp> <imap> <server-name> <ca.der> <account> <password-file> <bob-password-file> <qa-password-file>"
     );

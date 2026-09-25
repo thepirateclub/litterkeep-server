@@ -171,7 +171,12 @@ cargo run --locked -- serve 127.0.0.1:2525 127.0.0.1:2143 ./runtime
 ```
 
 This is one process with both listeners and one filesystem-store owner. The
-`init` creates the local acceptance accounts `alice`, `bob`, `qa` and `pop`.
+`init` creates the original local acceptance accounts `alice`, `bob`, `qa` and
+`pop`. The separate opt-in command
+`litterkeep-server init-smtputf8-test --data-dir ./runtime` creates a Unicode
+recipient fixture in `test-smtputf8-account.tsv` without changing the original
+credentials file or generated passwords. This account exists only for the
+forced SMTPUTF8 wire probe, not as a production account-management feature.
 Random passwords are written to `./runtime/test-accounts.tsv`; on Linux this
 file has mode `0600`. The command does not print secrets. A repeated invocation
 validates the existing records and leaves both the password file and PHC hashes
