@@ -78,6 +78,12 @@ IDLE/DONE и durable Recent. UIDVALIDITY и UID переживают restart.
 и FULL, включает UID в ответы UID FETCH и сохраняет literal как точные октеты.
 `BODY` и `BODYSTRUCTURE` поддерживаются как отдельные запросы; FULL раскрывается
 в BODY согласно RFC 9051, а не в BODYSTRUCTURE.
+`BODYSTRUCTURE` включает корректный RFC 2183 Content-Disposition extension
+после body-MD5 placeholder для scalar/message частей и после subtype для
+multipart. Параметры включая RFC 2231 filename декодируются общим MIME parser-ом;
+невалидное или повторное поле не экспортируется. Проверки unit-only; Content-
+Language, Content-Location и другие protocol extension fields остаются
+непокрытыми.
 `BODY` поддерживает полное сообщение, HEADER/TEXT, HEADER.FIELDS/NOT, числовые
 MIME paths, вложенный `message/rfc822` и partial ranges; durable `\\Seen`
 различает BODY/RFC822, PEEK и EXAMINE. `NAMESPACE`, `UNSELECT` и `ENABLE`

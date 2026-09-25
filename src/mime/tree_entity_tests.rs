@@ -149,6 +149,18 @@ fn duplicate_content_type_fields_are_rejected_as_ambiguous() {
 }
 
 #[test]
+fn malformed_or_duplicate_disposition_is_not_published_to_mime_tree() {
+    for raw in [
+        b"Content-Disposition: attachment invalid\r\n\r\nbody".as_slice(),
+        b"Content-Disposition: attachment\r\nContent-Disposition: inline\r\n\r\nbody",
+    ] {
+        let entity = parse(raw).expect("invalid optional disposition does not hide message");
+        assert!(entity.disposition.is_none());
+        assert_eq!(raw.get(entity.body_range), Some(b"body".as_slice()));
+    }
+}
+
+#[test]
 fn multipart_rejects_a_boundary_longer_than_seventy_octets() {
     let boundary = "a".repeat(71);
     let raw = format!(

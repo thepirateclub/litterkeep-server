@@ -1,5 +1,6 @@
 //! Рекурсивное MIME-дерево с абсолютными диапазонами исходного RFC822.
 
+use super::disposition::Disposition;
 use super::header_block::{self, HeaderField};
 use super::language_tag::LanguageTag;
 use super::parameters::MediaType;
@@ -38,6 +39,8 @@ pub struct Entity {
     pub parameters: BTreeMap<String, String>,
     /// Языковые подсказки RFC 2231 для consumer-ов построенного MIME-дерева.
     pub parameter_languages: BTreeMap<String, LanguageTag>,
+    /// Валидный Content-Disposition для расширенной IMAP BODYSTRUCTURE.
+    pub disposition: Option<Disposition>,
     pub transfer_encoding: TransferEncoding,
     pub children: Vec<Entity>,
     pub preamble_range: Option<Range<usize>>,
@@ -74,6 +77,7 @@ fn parse_entity(
     }
     let headers = header_block::parse(raw)?;
     let mut structured = content_type::parse(&headers.fields, default_media_type)?;
+    let disposition = parse_disposition(&headers.fields);
     let transfer_encoding = transfer_policy::resolve(&headers.fields, &structured.media_type)?;
     // RFC 2045 §6.4 делает entity с неизвестным CTE непрозрачной для
     // MIME-интерпретации: фактический тип становится application/octet-stream.
@@ -139,11 +143,29 @@ fn parse_entity(
         media_type: structured.media_type,
         parameters: structured.parameters,
         parameter_languages: structured.parameter_languages,
+        disposition,
         transfer_encoding,
         children,
         preamble_range,
         epilogue_range,
     })
+}
+
+/// Сохраняет только однозначное и синтаксически корректное disposition поле.
+fn parse_disposition(fields: &[HeaderField]) -> Option<Disposition> {
+    let mut values = fields.iter().filter(|field| {
+        matches!(
+            field.kind(),
+            super::header_block::HeaderName::ContentDisposition
+        )
+    });
+    let field = values.next()?;
+    match values.next() {
+        Some(_) => None,
+        None => std::str::from_utf8(&field.value)
+            .ok()
+            .and_then(|value| super::disposition::parse(value).ok()),
+    }
 }
 
 impl Entity {

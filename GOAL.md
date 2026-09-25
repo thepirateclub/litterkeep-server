@@ -4649,3 +4649,20 @@ ManageSieve до заявленного набора современных фо
   strict Clippy и release build. Сетевой acceptance не запускался, так как
   language metadata не меняет существующие text projections.
 - G17 остаётся RUNNING: IANA registry validity и остальные RFC gaps не закрыты.
+
+### 2026-09-25: G14 BODYSTRUCTURE disposition checkpoint
+
+- MIME tree сохраняет единственное корректное Content-Disposition в typed
+  модели. Расширение BODYSTRUCTURE выдаёт RFC 2183 disposition token и
+  нормализованные параметры, включая RFC 2231 filename, в разных extension
+  slots leaf, multipart и message/rfc822. BODY projection не менялась.
+- Некорректное или повторное optional поле не ломает доступность письма и не
+  попадает в структуру; исходный заголовок остаётся в raw MIME headers.
+- PASS: Rust 1.97.1 Windows `cargo test --all-targets --locked` (427 library
+  tests + 1 binary test), strict Clippy, `cargo fmt --check`, `git diff --check`
+  и аудит лимита в 300 строк. Linux Docker test target: 467 library tests,
+  1 binary test, doc-tests, strict Clippy и release build. Сетевой acceptance
+  не запускался. Content-Language и Content-Location остаются незакрытыми
+  RFC 9051 fields.
+- G14 остаётся RUNNING: полный IMAP4rev2 grammar и расширенные BODYSTRUCTURE
+  language/location поля ещё не подтверждены.

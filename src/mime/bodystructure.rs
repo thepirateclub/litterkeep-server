@@ -26,11 +26,12 @@ fn encode_message(entity: &Entity, message: &[u8]) -> Result<String, &'static st
     let envelope = super::envelope::encode(body)?;
     let nested_structure = encode(nested, message)?;
     Ok(format!(
-        "(\"MESSAGE\" \"RFC822\" {} NIL NIL \"{}\" {} {envelope} {nested_structure} {})",
+        "(\"MESSAGE\" \"RFC822\" {} NIL NIL \"{}\" {} {envelope} {nested_structure} {}{})",
         encode_parameters(&entity.parameters)?,
         escaped_atom(entity.transfer_encoding.wire_name())?,
         body.len(),
-        line_count(body)
+        line_count(body),
+        encode_disposition_extension(entity)?
     ))
 }
 
@@ -48,10 +49,12 @@ fn encode_leaf(entity: &Entity, message: &[u8]) -> Result<String, &'static str> 
         body.len()
     );
     match entity.media_type {
-        MediaType::TextPlain | MediaType::TextHtml | MediaType::TextOther(_) => {
-            Ok(format!("{base} {})", line_count(body)))
-        }
-        _ => Ok(format!("{base})")),
+        MediaType::TextPlain | MediaType::TextHtml | MediaType::TextOther(_) => Ok(format!(
+            "{base} {}{})",
+            line_count(body),
+            encode_disposition_extension(entity)?
+        )),
+        _ => Ok(format!("{base}{})", encode_disposition_extension(entity)?)),
     }
 }
 
@@ -61,8 +64,23 @@ fn encode_multipart(entity: &Entity, message: &[u8]) -> Result<String, &'static 
         output.push_str(&encode(child, message)?);
     }
     let (_, subtype) = entity.media_type.type_and_subtype();
-    output.push_str(&format!(" \"{}\")", escaped_atom(subtype)?));
+    output.push_str(&format!(
+        " \"{}\"{})",
+        escaped_atom(subtype)?,
+        encode_disposition_extension(entity)?
+    ));
     Ok(output)
+}
+
+/// Размещает disposition после обязательного NIL body-MD5 extension slot.
+fn encode_disposition_extension(entity: &Entity) -> Result<String, &'static str> {
+    match &entity.disposition {
+        Some(value) => Ok(format!(
+            " NIL {}",
+            super::disposition::encode_bodystructure(value)?
+        )),
+        None => Ok(String::new()),
+    }
 }
 
 fn encode_parameters(parameters: &BTreeMap<String, String>) -> Result<String, &'static str> {
@@ -156,6 +174,40 @@ mod tests {
         assert_eq!(
             encode(&entity, raw).expect("BODYSTRUCTURE"),
             "(\"APPLICATION\" \"OCTET-STREAM\" NIL NIL NIL \"x-private\" 6)"
+        );
+    }
+
+    #[test]
+    fn bodystructure_includes_rfc2183_disposition_after_body_md5_slot() {
+        let raw = b"Content-Type: application/pdf\r\nContent-Disposition: attachment; filename*=UTF-8''report%20Q1.pdf\r\n\r\npdf";
+        let entity = super::super::tree::parse(raw).expect("MIME entity");
+
+        assert_eq!(
+            encode(&entity, raw).expect("BODYSTRUCTURE"),
+            "(\"application\" \"pdf\" NIL NIL NIL \"7BIT\" 3 NIL (\"attachment\" (\"FILENAME\" \"report Q1.pdf\")))"
+        );
+    }
+
+    #[test]
+    fn multipart_disposition_follows_subtype_extension_position() {
+        let raw = b"Content-Type: multipart/mixed; boundary=x\r\nContent-Disposition: inline\r\n\r\n--x\r\n\r\nbody\r\n--x--\r\n";
+        let entity = super::super::tree::parse(raw).expect("multipart entity");
+
+        assert_eq!(
+            encode(&entity, raw).expect("BODYSTRUCTURE"),
+            "((\"TEXT\" \"PLAIN\" NIL NIL NIL \"7BIT\" 4 0) \"MIXED\" NIL (\"inline\" NIL))"
+        );
+    }
+
+    #[test]
+    fn message_rfc822_disposition_follows_embedded_message_fields() {
+        let raw = b"Content-Type: message/rfc822\r\nContent-Disposition: attachment; filename=forwarded.eml\r\n\r\nSubject: nested\r\n\r\nbody";
+        let entity = super::super::tree::parse(raw).expect("message entity");
+
+        assert!(
+            encode(&entity, raw)
+                .expect("BODYSTRUCTURE")
+                .ends_with(" 2 NIL (\"attachment\" (\"FILENAME\" \"forwarded.eml\")))")
         );
     }
 }
