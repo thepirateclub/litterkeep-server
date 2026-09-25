@@ -167,13 +167,14 @@ fn parse_path<'a>(
     let Some(terminator) = closing_path_angle(path) else {
         return Err(ParseError::Syntax);
     };
-    let (mailbox, remainder) = path.split_at(terminator);
+    let (path_content, remainder) = path.split_at(terminator);
     let Some(suffix) = remainder.strip_prefix('>') else {
         return Err(ParseError::Syntax);
     };
-    if mailbox.len().saturating_add(2) > MAX_PATH_SIZE {
+    if path_content.len().saturating_add(2) > MAX_PATH_SIZE {
         return Err(ParseError::Syntax);
     }
+    let mailbox = address::without_source_route(path_content).ok_or(ParseError::Syntax)?;
     match (kind, address::classify_mailbox(mailbox)) {
         (PathKind::Reverse, address::MailboxForm::NullReversePath)
         | (_, address::MailboxForm::DotAtom)

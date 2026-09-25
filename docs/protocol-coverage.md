@@ -28,10 +28,14 @@ ASCII dot-atom и RFC 5321 quoted-string local-part проверяются до 
 аккаунтом; завершающий `>` и `@` внутри quoted local-part не путаются с
 разделителями path. Независимый STARTTLS peer отправил письмо от
 `"alice"@litterkeep.test` к `"bob"@litterkeep.test`, после чего отдельный IMAP
-peer нашёл письмо в INBOX Bob. Пустые или неверно разделённые dot-atom точки,
-пустые доменные labels, не-ASCII домены и DNS labels длиннее 63 октетов
-отклоняются как syntax error. Address literals, source routes и SMTPUTF8
-по-прежнему не поддержаны и не объявляются совместимыми.
+peer нашёл письмо в INBOX Bob. Устаревший SMTP source-route `@domain,@domain:`
+принимается после проверки каждого элемента и отбрасывается до локальной
+маршрутизации согласно RFC 5321 §4.1.2; независимый SMTP-to-IMAP тест доказал,
+что конечный mailbox получает письмо, а route не включает forwarding.
+Пустые или неверно разделённые dot-atom точки, пустые доменные labels,
+не-ASCII домены и DNS labels длиннее 63 октетов отклоняются как syntax error.
+Address literals и SMTPUTF8 по-прежнему не поддержаны и не объявляются
+совместимыми.
 RFC 5321 Postmaster принимается как bare `<Postmaster>` без домена и как
 `postmaster@domain` для локально обслуживаемых доменов; регистр reserved local
 name и домена не влияет на route. Независимый STARTTLS тест отправил DATA и

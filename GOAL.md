@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 SMTP RFC 5321 source-route compatibility
+
+- SMTP MAIL FROM и RCPT TO распознают устаревший `@domain,@domain:mailbox`
+  согласно RFC 5321 §4.1.2, проверяют каждый route element и удаляют route до
+  локальной policy. Route не используется для relay; downstream получает только
+  конечный mailbox. Некорректные пустые, частично заданные и DNS-invalid routes
+  отвергаются как синтаксическая ошибка.
+- PASS: Windows Rust 1.97.1 `cargo test --locked` (490 библиотечных + 1 бинарный),
+  strict Clippy, `cargo fmt --check`, Python compile и `git diff --check`.
+  Linux Docker Rust 1.97: release, strict Clippy, 533 библиотечных + 1 бинарный
+  тест и doc-tests. Независимый STARTTLS SMTP-клиент передал quoted MAIL/RCPT с
+  source routes; отдельный IMAP STARTTLS-клиент нашёл оба письма в INBOX Bob.
+- Временные runtime container и test image удалены; `litterkeep-g12-phone`
+  сохранён. Fixture: `./data/g17-smtp-source-route`. Прямое подключение
+  Litterkeep app не проверялось; address literals и SMTPUTF8 остаются вне этого
+  checkpoint. Общий RFC 5321 профиль не завершён, G17 остаётся активной.
+
 ### 2026-09-25: G17 SMTP RFC 5321 quoted local-part support
 
 - Исправлена ранее задокументированная несовместимость: MAIL FROM и RCPT TO

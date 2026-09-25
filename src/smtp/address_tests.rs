@@ -90,3 +90,20 @@ fn rejects_malformed_or_oversized_quoted_local_parts() {
     assert!(canonical_local_part(&format!("\"{}\"", "a".repeat(62))).is_some());
     assert!(canonical_local_part(&format!("\"{}\"", "a".repeat(63))).is_none());
 }
+
+#[test]
+fn validates_and_discards_rfc_source_routes() {
+    assert_eq!(
+        without_source_route("@first.test,@relay.test:\"alice\"@test"),
+        Some("\"alice\"@test")
+    );
+    assert_eq!(without_source_route("alice@test"), Some("alice@test"));
+    for invalid in [
+        "@first.test,,@relay.test:alice@test",
+        "@first.test,relay.test:alice@test",
+        "@first..test:alice@test",
+        "@first.test alice@test",
+    ] {
+        assert_eq!(without_source_route(invalid), None, "{invalid}");
+    }
+}

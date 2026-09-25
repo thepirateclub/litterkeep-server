@@ -13,6 +13,13 @@ G17 vacation acceptance использовал отдельный Linux Store `d
 Auto-Submitted/To/Subject. Это серверный протокольный acceptance, не проверка
 Litterkeep app и не third-party MTA interoperability.
 
+T82 проверяет устаревшую форму SMTP source-route из RFC 5321 §4.1.2 отдельно
+для MAIL FROM и RCPT TO. Независимый STARTTLS peer передал quoted локальные
+адреса с route-элементами, а независимый IMAP STARTTLS peer подтвердил оба
+сообщения в INBOX Bob. Проверка доказывает локальную доставку конечному mailbox;
+внешняя пересылка по source-route не выполняется. Это не проверка
+взаимодействия с Litterkeep app.
+
 ## Чистый G12 прогон
 
 На новом container-local `/data` bootstrap создал четыре аккаунта. Повтор не

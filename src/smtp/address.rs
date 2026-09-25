@@ -34,6 +34,40 @@ pub(crate) fn canonical_parts(mailbox: &str) -> Option<(String, &str)> {
     }
 }
 
+/// Удаляет устаревший source route после строгой проверки его RFC-грамматики.
+///
+/// RFC 5321 требует принимать source routes ради совместимости, но игнорировать
+/// их при доставке. Поэтому дальше по слоям передаётся только конечный mailbox.
+pub(crate) fn without_source_route(path: &str) -> Option<&str> {
+    match path.strip_prefix('@') {
+        None => Some(path),
+        Some(route_and_mailbox) => {
+            let (route, mailbox) = route_and_mailbox.split_once(':')?;
+            match valid_source_route(route) {
+                true => Some(mailbox),
+                false => None,
+            }
+        }
+    }
+}
+
+/// Проверяет `@domain,@domain` без материализации списка переходов.
+fn valid_source_route(route: &str) -> bool {
+    let mut domains = route.split(',');
+    match domains.next() {
+        Some(first) if valid_domain(first) => domains.all(valid_routed_domain),
+        _ => false,
+    }
+}
+
+/// Проверяет каждый последующий `,@domain` как отдельный синтаксический элемент.
+fn valid_routed_domain(route_item: &str) -> bool {
+    match route_item.strip_prefix('@') {
+        Some(domain) => valid_domain(domain),
+        None => false,
+    }
+}
+
 /// Находит единственный `@` вне quoted-string с однопроходным автоматом.
 fn at_separator(mailbox: &str) -> Option<usize> {
     let mut quoted = false;

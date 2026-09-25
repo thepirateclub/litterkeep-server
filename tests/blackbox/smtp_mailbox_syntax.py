@@ -1,7 +1,7 @@
-"""Проверяет SMTP mailbox grammar и доставку quoted local-part."""
+"""Проверяет SMTP mailbox grammar и сквозную локальную доставку."""
 
-import os
 import imaplib
+import os
 import smtplib
 import ssl
 
@@ -25,8 +25,8 @@ def send_path_command(client, verb, mailbox):
     return client.getreply()
 
 
-def verify_quoted_recipient_delivery():
-    """Независимый IMAP-клиент подтверждает доставку в mailbox Bob."""
+def verify_mailbox_delivery():
+    """Независимый IMAP-клиент проверяет оба доставленных сообщения Bob."""
     tls_context = ssl.create_default_context()
     tls_context.check_hostname = False
     tls_context.verify_mode = ssl.CERT_NONE
@@ -36,11 +36,13 @@ def verify_quoted_recipient_delivery():
     status, _ = client.select("INBOX", readonly=True)
     if status != "OK":
         raise AssertionError(f"could not select Bob's INBOX: {status!r}")
-    status, response = client.search(None, "HEADER", "Subject", '"SMTP quoted local-part"')
-    message_ids = next(iter(response), b"").split()
+    subjects = ("SMTP quoted local-part", "SMTP source-route ignored")
+    for subject in subjects:
+        status, response = client.search(None, "HEADER", "Subject", f'"{subject}"')
+        message_ids = next(iter(response), b"").split()
+        if status != "OK" or not message_ids:
+            raise AssertionError(f"message {subject!r} was not stored in Bob's INBOX")
     client.logout()
-    if status != "OK" or not message_ids:
-        raise AssertionError("quoted RCPT message was not stored in Bob's INBOX")
 
 
 def main():
@@ -85,9 +87,27 @@ def main():
             250,
             "quoted mailbox durable delivery",
         )
-    verify_quoted_recipient_delivery()
+        expect_reply(
+            client.mail('@source.test,@relay.test:"alice"@litterkeep.test'),
+            250,
+            "source-routed MAIL sender",
+        )
+        expect_reply(
+            client.rcpt('@source.test:"bob"@litterkeep.test'),
+            250,
+            "source-routed RCPT recipient",
+        )
+        expect_reply(
+            client.data("Subject: SMTP source-route ignored\r\n\r\ncommitted\r\n"),
+            250,
+            "source-routed durable delivery",
+        )
+    verify_mailbox_delivery()
 
-    print("PASS smtp-mailbox-syntax: malformed addresses rejected; quoted sender/recipient delivered")
+    print(
+        "PASS smtp-mailbox-syntax: malformed paths rejected; quoted addresses "
+        "and ignored source routes delivered"
+    )
 
 
 if __name__ == "__main__":

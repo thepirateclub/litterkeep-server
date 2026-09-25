@@ -72,6 +72,26 @@ fn quoted_local_part_can_contain_path_terminator_and_at_sign() {
 }
 
 #[test]
+fn source_route_is_accepted_and_ignored_for_both_path_kinds() {
+    assert_eq!(
+        parse("MAIL FROM:<@source.test,@relay.test:\"alice\"@test>\r\n"),
+        Ok(Command::Mail(MailFrom {
+            reverse_path: "\"alice\"@test".into(),
+            declared_size: None,
+            body_mode: BodyMode::SevenBit,
+        }))
+    );
+    assert_eq!(
+        parse("RCPT TO:<@source.test:\"bob\"@test>\r\n"),
+        Ok(Command::Rcpt("\"bob\"@test".into()))
+    );
+    assert_eq!(
+        parse("RCPT TO:<@source.test,,@relay.test:bob@test>\r\n"),
+        Err(ParseError::Syntax)
+    );
+}
+
+#[test]
 fn accepts_empty_reverse_path_but_requires_recipient_path() {
     assert_eq!(
         parse("MAIL FROM:<>\r\n"),
