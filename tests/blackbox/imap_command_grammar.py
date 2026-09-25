@@ -39,6 +39,7 @@ def main() -> None:
     require_bad_tab_separator(client)
     require_bad_quote_inside_atom(client)
     require_bad_structural_command_verbs(client)
+    require_bad_login_astring_atom(client)
     require(client.noop(), ImapStatus.OK)
     if options.credentials is not None:
         password = password_for(options.credentials, "bob")
@@ -149,6 +150,14 @@ def require_bad_structural_command_verbs(client: imaplib.IMAP4) -> None:
         response = client.readline()
         if not response.startswith(expected):
             raise AssertionError(f"invalid command verb form: {response!r}")
+
+
+def require_bad_login_astring_atom(client: imaplib.IMAP4) -> None:
+    """Unquoted LOGIN astring отвергает characters из atom-specials."""
+    client.send(b"A21 LOGIN bad%user unused\r\n")
+    response = client.readline()
+    if not response.startswith(b"A21 BAD "):
+        raise AssertionError(f"invalid LOGIN astring atom: {response!r}")
 
 
 def require_bad(client: imaplib.IMAP4, verb: str) -> None:

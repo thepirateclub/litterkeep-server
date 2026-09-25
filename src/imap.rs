@@ -26,6 +26,7 @@ pub mod list;
 #[path = "imap/list_reference.rs"]
 mod list_reference;
 pub mod modified_utf7;
+mod parser;
 pub mod search;
 pub mod search_charset;
 #[path = "imap/search_date.rs"]
@@ -41,14 +42,13 @@ pub mod status;
 #[cfg(test)]
 #[path = "imap/store_tests.rs"]
 mod store_tests;
+mod token_values;
 pub mod tokenizer;
 pub use authenticate::{AuthenticationMechanism, InitialResponse};
-use command_verb::{Verb, parse_verb};
 pub use fetch::{BodySection, FetchAttribute, Partial};
 pub use idle::{IdleContinuation, parse_idle_continuation};
 #[cfg(test)]
 use sequence_set::SequenceSet;
-use tokenizer::Token;
 /// Команда вместе с тегом, которым сервер обязан завершить ответ.
 #[derive(Debug, Eq, PartialEq)]
 pub struct TaggedCommand {
@@ -175,124 +175,13 @@ pub enum Transfer {
 }
 /// Разбирает одну CRLF-строку и не оставляет строковые команды в reactor.
 pub fn parse(line: &str) -> TaggedCommand {
-    parse_tokens(line, tokenizer::tokenize(line))
+    parser::parse(line)
 }
 
 /// Разбирает команду после внутренней сборки synchronizing SEARCH literal.
 #[cfg(target_os = "linux")]
 pub(crate) fn parse_search_literals(line: &str, literals: Vec<String>) -> TaggedCommand {
-    parse_tokens(line, tokenizer::tokenize_search_literals(line, literals))
-}
-
-/// Преобразует lexer result в команду, сохраняя tag даже при синтаксическом отказе.
-fn parse_tokens(line: &str, result: Result<Vec<Token>, &'static str>) -> TaggedCommand {
-    let mut tokens = match result {
-        Ok(tokens) => tokens.into_iter(),
-        Err(_) => {
-            let tag = line
-                .split_ascii_whitespace()
-                .next()
-                .filter(|candidate| tokenizer::valid_tag(candidate))
-                .unwrap_or("*");
-            return unsupported(tag);
-        }
-    };
-    let tag = match tokens.next() {
-        Some(Token::Text(tag)) if tokenizer::valid_tag(&tag) => tag,
-        _ => return unsupported("*"),
-    };
-    let command = match next_atom(&mut tokens).as_deref().map(parse_verb) {
-        Some(Verb::Capability) => parse_empty(tokens, Command::Capability),
-        Some(Verb::Namespace) => parse_empty(tokens, Command::Namespace),
-        Some(Verb::Enable) => enable::parse(tokens),
-        Some(Verb::StartTls) => parse_empty(tokens, Command::StartTls),
-        Some(Verb::Login) => match (next_text(&mut tokens), next_text(&mut tokens)) {
-            (Some(username), Some(password)) => Command::Login { username, password },
-            _ => Command::Unsupported,
-        },
-        Some(Verb::Authenticate) => authenticate::parse(&mut tokens),
-        Some(Verb::Append) => append::parse(tokens),
-        Some(Verb::Logout) => parse_empty(tokens, Command::Logout),
-        Some(Verb::Noop) => parse_empty(tokens, Command::Noop),
-        Some(Verb::Idle) => parse_empty(tokens, Command::Idle),
-        Some(Verb::Create) => folder::parse_create(tokens),
-        Some(Verb::Delete) => folder::parse_delete(tokens),
-        Some(Verb::Rename) => folder::parse_rename(tokens),
-        Some(Verb::Subscribe) => folder::parse_subscribe(tokens, true),
-        Some(Verb::Unsubscribe) => folder::parse_subscribe(tokens, false),
-        Some(Verb::Lsub) => list::parse_lsub(tokens),
-        Some(Verb::Status) => status::parse(tokens),
-        Some(Verb::Check) => parse_empty(tokens, Command::Check),
-        Some(Verb::Close) => parse_empty(tokens, Command::Close),
-        Some(Verb::Unselect) => parse_empty(tokens, Command::Unselect),
-        Some(Verb::Copy) => copy::parse(tokens, Addressing::Sequence, Transfer::Copy),
-        Some(Verb::Move) => copy::parse(tokens, Addressing::Sequence, Transfer::Move),
-        Some(Verb::Expunge) => parse_empty(tokens, Command::Expunge),
-        Some(Verb::List) => list::parse(tokens),
-        Some(Verb::Select) => parse_select(&mut tokens, false),
-        Some(Verb::Examine) => parse_select(&mut tokens, true),
-        Some(Verb::Fetch) => fetch::parse(&mut tokens, Addressing::Sequence),
-        Some(Verb::Store) => flags::parse_store(&mut tokens, Addressing::Sequence),
-        Some(Verb::Search) => search::parse(tokens, Addressing::Sequence),
-        Some(Verb::Uid) => match next_atom(&mut tokens).as_deref().map(parse_verb) {
-            Some(Verb::Fetch) => fetch::parse(&mut tokens, Addressing::Uid),
-            Some(Verb::Store) => flags::parse_store(&mut tokens, Addressing::Uid),
-            Some(Verb::Search) => search::parse(tokens, Addressing::Uid),
-            Some(Verb::Copy) => copy::parse(tokens, Addressing::Uid, Transfer::Copy),
-            Some(Verb::Move) => copy::parse(tokens, Addressing::Uid, Transfer::Move),
-            Some(Verb::Expunge) => parse_uid_expunge(tokens),
-            _ => Command::Unsupported,
-        },
-        Some(Verb::Unsupported) | None => Command::Unsupported,
-    };
-    TaggedCommand { tag, command }
-}
-
-fn parse_uid_expunge(mut tokens: impl Iterator<Item = Token>) -> Command {
-    match (next_atom(&mut tokens), tokens.next()) {
-        (Some(value), None) => sequence_set::MessageSet::parse(&value)
-            .map(|sequence_set| Command::UidExpunge { sequence_set })
-            .unwrap_or(Command::Unsupported),
-        _ => Command::Unsupported,
-    }
-}
-
-fn parse_select(tokens: &mut impl Iterator<Item = Token>, read_only: bool) -> Command {
-    let Some(mailbox) = next_text(tokens).and_then(folder::mailbox) else {
-        return Command::Unsupported;
-    };
-    match read_only {
-        true => Command::Examine { mailbox },
-        false => Command::Select { mailbox },
-    }
-}
-
-fn parse_empty(mut tokens: impl Iterator<Item = Token>, command: Command) -> Command {
-    match tokens.next() {
-        None => command,
-        Some(_) => Command::Unsupported,
-    }
-}
-
-pub(super) fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
-    match tokens.next()? {
-        Token::Text(value) | Token::Quoted(value) => Some(value),
-        Token::ListStart | Token::ListEnd => None,
-    }
-}
-
-fn next_atom(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
-    match tokens.next()? {
-        Token::Text(value) => Some(value),
-        Token::Quoted(_) | Token::ListStart | Token::ListEnd => None,
-    }
-}
-
-fn unsupported(tag: &str) -> TaggedCommand {
-    TaggedCommand {
-        tag: tag.into(),
-        command: Command::Unsupported,
-    }
+    parser::parse_search_literals(line, literals)
 }
 
 #[cfg(test)]

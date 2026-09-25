@@ -31,7 +31,13 @@ fn malformed_quoted_pair_keeps_the_command_tag() {
 #[test]
 fn command_tag_allows_resp_special_but_rejects_plus() {
     assert_eq!(parse("A]7 NOOP\r\n").tag, "A]7");
-    assert_eq!(parse("A+7 NOOP\r\n"), super::unsupported("*"));
+    assert_eq!(
+        parse("A+7 NOOP\r\n"),
+        TaggedCommand {
+            tag: "*".into(),
+            command: Command::Unsupported,
+        }
+    );
 }
 
 /// STARTTLS преобразуется в enum до входа в session FSM.

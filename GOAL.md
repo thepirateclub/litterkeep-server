@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G17 LOGIN and mailbox astring validation, PASS
+
+- LOGIN username/password and SELECT/EXAMINE mailbox require either a valid
+  `ASTRING-CHAR` atom or a lexer-validated quoted string. LOGIN rejects extra
+  arguments. `]` remains valid; `%`, `*`, braces, quote, and backslash require
+  quoted form in these astring contexts.
+- PASS: Windows Rust 1.97.1 strict Clippy, 525 library + 1 binary tests, fmt,
+  Python syntax and diff checks. Linux Docker Rust 1.97 strict Clippy, 572
+  library + 1 binary tests and doc-tests; independent STARTTLS acceptance
+  rejected an unquoted `%` in LOGIN, then completed the remaining grammar suite
+  and authentication. Temporary image and container removed, pre-existing
+  containers untouched, fixture `./data/g17-imap-malformed-utf8` preserved.
+  G17 remains ACTIVE; not every astring argument production is migrated yet.
+
 ### 2026-09-26: G17 command verb token boundaries, PASS
 
 - Top-level IMAP argument extraction no longer skips list delimiters; command

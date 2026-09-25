@@ -7,7 +7,7 @@ pub(crate) fn extract(line: &[u8]) -> String {
         .next()
         .unwrap_or_default();
     match std::str::from_utf8(tag) {
-        Ok(value) if super::tokenizer::valid_tag(value) => value.to_owned(),
+        Ok(value) if super::token_values::valid_tag(value) => value.to_owned(),
         Ok(_) | Err(_) => "*".to_owned(),
     }
 }

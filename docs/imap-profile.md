@@ -14,7 +14,7 @@ CAPABILITY не выдаёт за более широкое расширение
 |---|---|---|---|
 | Any | CAPABILITY, NOOP, LOGOUT | PASS | Tagged/untagged ответы, bounded line decoder; безаргументные команды отвергают лишние аргументы |
 | TLS | STARTTLS | PASS | Сброс plaintext state и пошаговый rustls handshake |
-| Authentication | LOGIN | PASS | Только TLS, общий Argon2 worker, повторный вход запрещён |
+| Authentication | LOGIN | PASS | Только TLS, общий Argon2 worker, повторный вход запрещён; username/password требуют RFC astring atom или quoted-string с точным числом аргументов |
 | Authentication | AUTHENTICATE PLAIN | PASS | Continuation, cancel, atom/quoted astring, пустой SASL-IR marker, authzid policy, только TLS; прочие механизмы не рекламируются |
 | Mailbox discovery | LIST, LSUB, STATUS | PARTIAL | modified UTF-7, `*`/`%`, root discovery, empty selection `()`, slash-delimited relative reference prefix with canonical response names, SUBSCRIBED, RECURSIVEMATCH with CHILDINFO for SUBSCRIBED/SPECIAL-USE, RETURN (CHILDREN), RETURN (SUBSCRIBED), and RETURN STATUS (MESSAGES/UIDNEXT/UIDVALIDITY/UNSEEN/DELETED/SIZE/APPENDLIMIT) verified; missing names are selected only by SUBSCRIBED and retain `\\NonExistent`; multi-namespace/breakout naming is not implemented |
 | Namespace | NAMESPACE | PASS | Advertised and tested; personal namespace is `""` with `/` delimiter, unavailable classes are NIL |
@@ -92,6 +92,12 @@ skips list delimiter tokens. Command verbs and UID subcommands require atom
 tokens, so parenthesized or quoted `NOOP` cannot be accepted as a command.
 Parser tests and independent STARTTLS acceptance verify tagged BAD and session
 recovery. This does not yet make the generic lexer enforce every atom-special.
+
+G17 astring checkpoint (2026-09-26): LOGIN and SELECT/EXAMINE now validate raw
+atom tokens against `ASTRING-CHAR`; special characters require quoted form,
+except the permitted `]` response-special. LOGIN rejects excess arguments.
+Parser cases and independent STARTTLS acceptance verify `%` rejection in LOGIN;
+this does not yet imply every command argument production is covered.
 
 CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-USE`,
 `NAMESPACE`, `UNSELECT`, `ENABLE`, `ESEARCH` и `SEARCHRES`. ENABLE игнорирует
