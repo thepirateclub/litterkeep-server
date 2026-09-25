@@ -485,6 +485,18 @@ ManageSieve до заявленного набора современных фо
 - Temporary container `litterkeep-g14-quoted-localpart-debug` was removed;
   persistent `litterkeep-g12-phone` was preserved. G14 remains RUNNING.
 
+### 2026-09-25: G14 trailing group CFWS checkpoint
+
+- RFC 5322 group terminator `;` may be followed by CFWS. The address scanner
+  now accepts a trailing comment there and omits it from ENVELOPE, while
+  rejecting actual content after the terminator. The independent STARTTLS
+  fixture verifies the comment does not leak in the group/mailbox projection.
+- PASS: Windows Rust 1.97.1, 294 tests, strict Clippy and fmt; Linux Docker
+  Rust 1.97, strict Clippy and 334 tests; independent Linux IMAP acceptance.
+  Data remains under `./data/g14-quoted-localpart-final`; the temporary
+  container was removed and `litterkeep-g12-phone` was preserved. The app was
+  not tested. G14 remains RUNNING.
+
 ### 2026-09-25: G14 RFC 5322 address groups checkpoint
 
 - ENVELOPE address parsing now preserves typed mailbox, group-start, and

@@ -55,6 +55,24 @@ fn rejects_unbalanced_group_boundaries() {
     assert!(parse(vec![&close_group]).is_err());
 }
 
+/// RFC 5322 допускает CFWS после завершающего разделителя группы.
+#[test]
+fn accepts_comment_after_group_terminator() {
+    let field = to_field("Team:alice@example.test; (group closed)");
+    let parsed = parse(vec![&field]).expect("group with trailing comment");
+    assert_eq!(
+        encode_list(&parsed).expect("group ENVELOPE"),
+        "((NIL NIL \"Team\" NIL)(NIL NIL \"alice\" \"example.test\")(NIL NIL NIL NIL))"
+    );
+}
+
+/// Реальный адрес после точки с запятой не маскируется под завершающий CFWS.
+#[test]
+fn rejects_content_after_group_terminator() {
+    let field = to_field("Team:alice@example.test; bob@example.test");
+    assert!(parse(vec![&field]).is_err());
+}
+
 /// Удаляет вложенные comments и quoted-pair, не включая их в ENVELOPE/SEARCH.
 #[test]
 fn strips_nested_comments_from_name_and_addr_spec() {

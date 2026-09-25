@@ -117,8 +117,11 @@ fn split_at(
     let right = value
         .get(position.saturating_add(1)..)
         .ok_or("invalid address suffix")?;
-    match (delimiter, right.trim().is_empty()) {
-        (';', false) => Err("content follows address group terminator"),
+    match delimiter {
+        ';' => match strip_comments(right)?.trim().is_empty() {
+            true => Ok((left, Some(right))),
+            false => Err("content follows address group terminator"),
+        },
         _ => Ok((left, Some(right))),
     }
 }

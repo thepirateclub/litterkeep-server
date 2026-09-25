@@ -113,7 +113,9 @@ member. В address projection вложенные comments удаляются с 
 групповую адресацию. Разделитель addr-spec выбирается вне quoted local-part и
 domain-literal: независимый STARTTLS acceptance подтвердил ENVELOPE с
 `"a@b"` в mailbox-компоненте и `example.test` в hostname, а SEARCH нашёл этот
-адрес. Obsolete address forms и остальные RFC 5322 несовпадения по-прежнему
+адрес. Завершающий CFWS после `;` группы допускает комментарий и не включает
+его в ENVELOPE; тест также отвергает mailbox после уже закрытой группы.
+Obsolete address forms и остальные RFC 5322 несовпадения по-прежнему
 ограничивают parser.
 `RETURN (SAVE)` сохраняет UIDs в состоянии одной сессии, а `$` SEARCH criterion
 сопоставляет их как для SEARCH, так и UID SEARCH. Успешный SELECT, SAVE-команда

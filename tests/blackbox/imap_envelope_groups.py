@@ -63,7 +63,7 @@ def main() -> None:
         "From: Alice Sender (primary (nested)) <alice@example.test>\r\n"
         f"To: {group} (list comment):Ed Jones (mentor (owner \\) note)) "
         "<c(comment)@a.test>,joe@where.test,John <jdoe@one.test>, "
-        'Quoted Local <"a@b"@example.test>;\r\n'
+        'Quoted Local <"a@b"@example.test>; (group closed)\r\n'
         "Cc: Undisclosed recipients:;\r\n"
         "Bcc: Hidden Team:hidden@example.test;\r\n"
         "Subject: address group fixture\r\n\r\nbody\r\n"
@@ -85,7 +85,8 @@ def main() -> None:
     for marker in expected:
         if marker not in wire:
             raise AssertionError(f"ENVELOPE group marker missing {marker!r}: {wire!r}")
-    if b"mentor" in wire or b"list comment" in wire or b"owner" in wire:
+    comment_terms = (b"mentor", b"list comment", b"owner", b"group closed")
+    if any(term in wire for term in comment_terms):
         raise AssertionError(f"RFC 5322 comments leaked into ENVELOPE: {wire!r}")
     if search_address(client, "TO", group) != b"1":
         raise AssertionError("TO search did not match group phrase")
