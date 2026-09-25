@@ -21,30 +21,18 @@ pub fn parse(tokens: impl Iterator<Item = Token>) -> Command {
             StoredFlags::default()
         }
     };
-    let Some(value) = next_text(&mut tokens) else {
+    let Some((internal_date, literal_size)) = date_and_literal(&mut tokens) else {
         return Command::Unsupported;
     };
-    let (internal_date, literal) = match literal_size(&value) {
-        Some(size) => (None, Some(size)),
-        None => {
-            let Some(date) = MailDate::parse(&value) else {
-                return Command::Unsupported;
-            };
-            (
-                Some(date),
-                next_text(&mut tokens).and_then(|text| literal_size(&text)),
-            )
-        }
-    };
-    match (literal, tokens.next()) {
-        (Some(literal_size), None) => Command::Append {
+    match tokens.next() {
+        None => Command::Append {
             mailbox,
             literal_size,
             flags: stored_flags.system,
             keywords: stored_flags.keywords,
             internal_date,
         },
-        _ => Command::Unsupported,
+        Some(_) => Command::Unsupported,
     }
 }
 
@@ -65,4 +53,19 @@ fn literal_size(value: &str) -> Option<usize> {
         .strip_suffix('}')?
         .parse::<usize>()
         .ok()
+}
+
+/// Сохраняет синтаксическую форму RFC: INTERNALDATE обязан быть quoted-string.
+fn date_and_literal(tokens: &mut impl Iterator<Item = Token>) -> Option<(Option<MailDate>, usize)> {
+    match tokens.next()? {
+        Token::Text(value) => Some((None, literal_size(&value)?)),
+        Token::Quoted(value) => {
+            let date = MailDate::parse(&value)?;
+            match tokens.next()? {
+                Token::Text(value) => Some((Some(date), literal_size(&value)?)),
+                Token::Quoted(_) | Token::ListStart | Token::ListEnd => None,
+            }
+        }
+        Token::ListStart | Token::ListEnd => None,
+    }
 }

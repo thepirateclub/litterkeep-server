@@ -1,6 +1,9 @@
 //! Декодирование IMAP-команд: текст сети преобразуется в типизированные варианты.
 
 pub mod append;
+#[cfg(test)]
+#[path = "imap/append_tests.rs"]
+mod append_tests;
 pub mod authenticate;
 #[cfg(test)]
 #[path = "imap/command_structure_tests.rs"]

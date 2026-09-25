@@ -5577,3 +5577,15 @@ ManageSieve до заявленного набора современных фо
   Content-Description basic fields и прочие RFC gaps остаются открытыми.
 - G14 остаётся RUNNING: этот unit-only checkpoint не закрывает полный IMAP4rev2
   grammar или все MIME body fields.
+
+### 2026-09-26: G17 RFC 9051 APPEND date-time checkpoint
+
+- Parser сохраняет синтаксическую форму необязательного INTERNALDATE: RFC
+  `date-time` принимается только как quoted-string. Дата-подобный atom
+  отклоняется до literal continuation; корректная quoted-дата с literal
+  разбирается типизированно.
+- Добавлены parser regressions на некавыченную дату, корректную quoted-дату и
+  лишний аргумент после literal marker. Независимый STARTTLS acceptance
+  проверяет отказ до continuation и успешное завершение с пустым APPEND.
+- G17/G14 остаются RUNNING: остальные пробелы APPEND, IMAP4rev2 и другие
+  протоколы не закрыты.

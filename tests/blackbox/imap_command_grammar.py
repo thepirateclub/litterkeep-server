@@ -47,6 +47,7 @@ def main() -> None:
         password = os.environ["LITTERKEEP_BOB_PASSWORD"]
     require(client.login("bob", password), ImapStatus.OK)
     require_list_mailbox_grammar(client)
+    require_append_internal_date_grammar(client)
     require_append_limit(client)
     require_bad(client, "IDLE")
     require(client.select("INBOX"), ImapStatus.OK)
@@ -197,6 +198,22 @@ def require_bad_store_flag_lists(client: imaplib.IMAP4) -> None:
     response = client.readline()
     if not response.startswith(b"A27 BAD "):
         raise AssertionError(f"quoted APPEND flag must be rejected: {response!r}")
+
+
+def require_append_internal_date_grammar(client: imaplib.IMAP4) -> None:
+    """RFC 9051 APPEND date-time должен быть quoted-string."""
+    client.send(b"A28 APPEND INBOX 19-Sep-2026 12:34:56 +0300 {0}\r\n")
+    response = client.readline()
+    if not response.startswith(b"A28 BAD "):
+        raise AssertionError(f"unquoted APPEND date response: {response!r}")
+    client.send(b'A29 APPEND INBOX "19-Sep-2026 12:34:56 +0300" {0}\r\n')
+    continuation = client.readline()
+    if not continuation.startswith(b"+ "):
+        raise AssertionError(f"quoted APPEND date continuation: {continuation!r}")
+    client.send(b"\r\n")
+    completion = client.readline()
+    if not completion.startswith(b"A29 OK "):
+        raise AssertionError(f"quoted APPEND date completion: {completion!r}")
 
 
 def require_bad(client: imaplib.IMAP4, verb: str) -> None:
