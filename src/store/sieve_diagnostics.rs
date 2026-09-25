@@ -43,6 +43,28 @@ pub struct SieveDiagnostic {
     pub error: ExecutionError,
 }
 
+/// Эффект, который фактически применён после atomic Sieve runtime failure.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SieveFailureOutcome {
+    ImplicitKeepOnly,
+}
+
+impl SieveFailureOutcome {
+    /// Стабильное машиночитаемое обозначение фактического fallback.
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::ImplicitKeepOnly => "implicit-keep-only",
+        }
+    }
+}
+
+impl SieveDiagnostic {
+    /// Неуспешный DeliveryPlan атомарно отбрасывается, остаётся только keep.
+    pub fn outcome(&self) -> SieveFailureOutcome {
+        SieveFailureOutcome::ImplicitKeepOnly
+    }
+}
+
 /// Ещё не опубликованная запись, которой Store назначит transaction ID.
 pub(super) struct PendingDiagnostic {
     pub account: String,

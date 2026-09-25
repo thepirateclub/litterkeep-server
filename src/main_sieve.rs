@@ -40,15 +40,49 @@ pub(crate) fn errors() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    println!("transaction_id\taccount\tscript_version\terror");
+    for line in diagnostics_report(&diagnostics) {
+        println!("{line}");
+    }
+    ExitCode::SUCCESS
+}
+
+/// Преобразует committed диагностики в TSV без потери фактического fallback.
+fn diagnostics_report(diagnostics: &[litterkeep_server::store::SieveDiagnostic]) -> Vec<String> {
+    let mut lines = vec!["transaction_id\taccount\tscript_version\terror\toutcome".to_owned()];
     for diagnostic in diagnostics {
-        println!(
-            "{}\t{}\t{}\t{}",
+        lines.push(format!(
+            "{}\t{}\t{}\t{}\t{}",
             diagnostic.transaction_id,
             diagnostic.account,
             diagnostic.script_version,
-            diagnostic.error.code()
+            diagnostic.error.code(),
+            diagnostic.outcome().code()
+        ));
+    }
+    lines
+}
+
+#[cfg(test)]
+mod tests {
+    use super::diagnostics_report;
+    use litterkeep_server::sieve::ExecutionError;
+    use litterkeep_server::store::SieveDiagnostic;
+
+    /// Проверяет именно строку CLI, включая реально применённое implicit keep.
+    #[test]
+    fn report_names_runtime_error_and_applied_fallback() {
+        let diagnostic = SieveDiagnostic {
+            transaction_id: 42,
+            account: "bob".to_owned(),
+            script_version: 3,
+            error: ExecutionError::RedirectLimit,
+        };
+        assert_eq!(
+            diagnostics_report(&[diagnostic]),
+            [
+                "transaction_id\taccount\tscript_version\terror\toutcome",
+                "42\tbob\t3\tredirect-limit\timplicit-keep-only"
+            ]
         );
     }
-    ExitCode::SUCCESS
 }

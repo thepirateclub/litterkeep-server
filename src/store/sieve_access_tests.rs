@@ -119,6 +119,14 @@ fn runtime_error_keeps_mail_and_publishes_versioned_diagnostic() {
             error: crate::sieve::ExecutionError::RedirectLimit,
         }]
     );
+    assert_eq!(
+        store
+            .sieve_diagnostics("bob")
+            .expect("diagnostics")
+            .first()
+            .map(SieveDiagnostic::outcome),
+        Some(crate::store::SieveFailureOutcome::ImplicitKeepOnly)
+    );
     drop(store);
     let mut store = Store::open(&root).expect("reopen");
     assert_eq!(folder_count(&mut store, "INBOX"), 1);

@@ -5,6 +5,16 @@ keep/discard, header/address/size tests и diagnostics. ManageSieve поддер
 STARTTLS, SASL PLAIN, literals, CHECKSCRIPT, PUTSCRIPT, LISTSCRIPTS, GETSCRIPT,
 SETACTIVE, DELETESCRIPT и RENAMESCRIPT.
 
+При runtime error частичный план доставки отбрасывается атомарно и применяется
+только implicit keep; committed diagnostic хранит account, версию скрипта,
+transaction ID и тип ошибки. Offline-команда `sieve-errors <data-dir>
+<account>` печатает TSV с колонкой `outcome=implicit-keep-only`, явно отражая
+отсутствие частично применённых Sieve actions. Store regression проверяет
+durable диагностику и fallback после повторного открытия; CLI unit regression
+проверяет строку отчёта. Сетевой сценарий подтверждает implicit keep при
+redirect-limit и redirect-loop, но фактическое чтение его строки CLI в этом
+сценарии пока не автоматизировано.
+
 RFC 3894 `copy` реализован для `fileinto` и `redirect`; скрипт обязан явно
 заявить `require "copy"`, а `fileinto` дополнительно требует `fileinto`.
 `fileinto :copy` и `redirect :copy` добавляют действие, не отменяя implicit

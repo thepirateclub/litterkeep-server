@@ -4017,3 +4017,20 @@ ManageSieve до заявленного набора современных фо
   Данные: bind mount `./data/g06-idle-recent`.
 - G06 остаётся RUNNING: ещё нужна полная matrix concurrent change classes и
   явное решение политики `\Recent` для вновь подключающихся selected clients.
+
+### 2026-09-25: G17 Sieve runtime-error outcome checkpoint
+
+- Диагностический контракт и offline-команда `sieve-errors` теперь явно
+  сообщают фактически применённый результат `implicit-keep-only`. Он следует
+  из атомарности delivery plan: при runtime error частичные Sieve actions не
+  публикуются, письмо остаётся только по правилу implicit keep. Store regression
+  проверяет durable diagnostic и fallback после restart; CLI regression
+  проверяет точную TSV-строку с кодом ошибки и outcome.
+- PASS: Rust 1.97 Windows `cargo test --all-targets --locked` (337 tests),
+  strict Clippy, `cargo fmt --check`, `git diff --check`. Docker Linux Rust 1.97
+  test target: 377 tests, strict Clippy и release build. В этом checkpoint
+  строка отчёта проверена CLI unit test, но чтение записи CLI из живого
+  сетевого runtime-error сценария ещё не автоматизировано. Контейнеры не
+  запускались; `litterkeep-g12-phone` сохранён, временных контейнеров нет.
+- G17 остаётся RUNNING: RFC 5230 vacation и другие неподдержанные Sieve/MIME
+  extension scenarios остаются вне текущего подтверждённого покрытия.

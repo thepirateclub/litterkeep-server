@@ -99,7 +99,7 @@ pub use folder_status::MailboxStatus;
 pub use folders::{FolderInfo, SpecialUse};
 pub use model::{AppendMetadata, MailboxSnapshot, Message};
 use quota::Quota;
-pub use sieve_diagnostics::SieveDiagnostic;
+pub use sieve_diagnostics::{SieveDiagnostic, SieveFailureOutcome};
 pub use sieve_scripts::ScriptInfo;
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
