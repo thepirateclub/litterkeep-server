@@ -4,6 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 multipart/digest BODYSTRUCTURE checkpoint
+
+- IMAP BODYSTRUCTURE regression фиксирует сериализацию headerless
+  `multipart/digest`: дочерний `MESSAGE/RFC822`, ENVELOPE вложенного сообщения,
+  его default `TEXT/PLAIN`, размеры в исходных октетах и тип `DIGEST` родителя.
+  Это проверяет применение RFC MIME default на протокольной проекции, а не
+  только на внутреннем MIME tree.
+- Windows Rust 1.97.1: 400 library + 1 binary tests, fmt и strict Clippy PASS.
+  Docker Linux Rust 1.97.1: release build, strict Clippy, 441 library + 1
+  binary + doc-tests PASS. Новая регрессия unit-only, socket acceptance не
+  запускался. Временный image удалён; в инвентаре контейнеров только ранее
+  существовавший `litterkeep-g12-phone`. G17 RUNNING.
+
 ### 2026-09-25: G17 empty MIME header area checkpoint
 
 - MIME header parser принимает пустую header area, ограниченную начальной CRLF;

@@ -138,6 +138,17 @@ mod tests {
     }
 
     #[test]
+    fn encodes_headerless_multipart_digest_as_nested_message() {
+        let raw = b"Content-Type: multipart/digest; boundary=x\r\n\r\n--x\r\n\r\nSubject: nested\r\n\r\nmessage body\r\n--x--\r\n";
+        let entity = super::super::tree::parse(raw).expect("multipart digest");
+
+        assert_eq!(
+            encode(&entity, raw).expect("BODYSTRUCTURE"),
+            "((\"MESSAGE\" \"RFC822\" NIL NIL NIL \"7BIT\" 31 (NIL \"nested\" NIL NIL NIL NIL NIL NIL NIL NIL) (\"TEXT\" \"PLAIN\" NIL NIL NIL \"7BIT\" 12 0) 2) \"DIGEST\")"
+        );
+    }
+
+    #[test]
     fn unknown_transfer_encoding_reports_effective_octet_stream_type() {
         let raw = b"Content-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: x-private\r\n\r\nopaque";
         let entity = super::super::tree::parse(raw).expect("opaque entity");
