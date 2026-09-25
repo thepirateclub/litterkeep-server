@@ -6,7 +6,7 @@
 #[path = "sieve_script_codec.rs"]
 mod codec;
 
-use super::{durability, folders::validate_account};
+use super::folders::validate_account;
 use crate::sieve;
 use std::collections::{BTreeMap, HashMap};
 use std::fs::{self, OpenOptions};
@@ -49,19 +49,10 @@ impl SieveCatalog {
         let directory = root.join("sieve");
         fs::create_dir_all(&directory)?;
         let mut accounts = HashMap::new();
-        for entry in fs::read_dir(&directory)? {
-            let path = entry?.path();
-            if path.extension().and_then(|value| value.to_str()) != Some("state") {
-                continue;
-            }
-            let Some(account) = path.file_stem().and_then(|value| value.to_str()) else {
-                return Err(invalid("non-utf8 sieve account"));
-            };
-            validate_account(account)?;
-            accounts.insert(
-                account.to_owned(),
-                codec::decode(&fs::read_to_string(path)?)?,
-            );
+        let files = super::file_key::entries(&directory, super::file_key::FileKind::SieveState)?;
+        for (account, path) in files {
+            validate_account(&account)?;
+            accounts.insert(account, codec::decode(&fs::read_to_string(path)?)?);
         }
         Ok(Self {
             root: directory,
@@ -199,8 +190,13 @@ impl SieveCatalog {
     }
 
     fn publish(&mut self, account: &str, state: AccountScripts) -> io::Result<()> {
-        let temporary = self.root.join(format!(".{account}.tmp"));
-        let target = self.root.join(format!("{account}.state"));
+        let temporary = super::file_key::prepare(
+            &self.root,
+            account,
+            super::file_key::FileKind::SieveTemporary,
+        )?;
+        let target =
+            super::file_key::prepare(&self.root, account, super::file_key::FileKind::SieveState)?;
         match fs::remove_file(&temporary) {
             Ok(()) => {}
             Err(error) if error.kind() == io::ErrorKind::NotFound => {}
@@ -213,8 +209,9 @@ impl SieveCatalog {
         file.write_all(codec::encoded(&state).as_bytes())?;
         file.sync_all()?;
         drop(file);
-        fs::rename(temporary, target)?;
-        durability::sync_directory(&self.root)?;
+        fs::rename(&temporary, &target)?;
+        let directory = target.parent().unwrap_or(&self.root);
+        super::file_key::sync_key_directory(&self.root, directory)?;
         self.accounts.insert(account.to_owned(), state);
         Ok(())
     }

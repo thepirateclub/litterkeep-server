@@ -1,6 +1,5 @@
 //! Долговечный account-scoped набор подписок IMAP.
 
-use super::durability;
 use super::folder_cursor::{Cursor, short};
 use super::folders::{self, SpecialUse};
 use std::collections::{BTreeSet, HashMap};
@@ -40,17 +39,10 @@ impl SubscriptionCatalog {
         let root = store_root.join("subscriptions");
         fs::create_dir_all(&root)?;
         let mut accounts = HashMap::new();
-        for entry in fs::read_dir(&root)? {
-            let path = entry?.path();
-            if path.extension().and_then(|value| value.to_str()) != Some("journal") {
-                continue;
-            }
-            let account = path
-                .file_stem()
-                .and_then(|value| value.to_str())
-                .ok_or_else(|| folders::invalid("non-utf8 subscription journal"))?;
-            folders::validate_account(account)?;
-            accounts.insert(account.to_owned(), read(&path)?);
+        let files = super::file_key::entries(&root, super::file_key::FileKind::Subscriptions)?;
+        for (account, path) in files {
+            folders::validate_account(&account)?;
+            accounts.insert(account, read(&path)?);
         }
         Ok(Self { root, accounts })
     }
@@ -123,11 +115,12 @@ fn append(root: &Path, account: &str, name: &str, subscribed: bool) -> io::Resul
     frame.extend_from_slice(bytes);
     frame.extend_from_slice(&folders::checksum(&frame).to_be_bytes());
     frame.extend_from_slice(&COMMIT.to_be_bytes());
-    let path = root.join(format!("{account}.journal"));
-    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
+    let path = super::file_key::prepare(root, account, super::file_key::FileKind::Subscriptions)?;
+    let mut file = OpenOptions::new().create(true).append(true).open(&path)?;
     file.write_all(&frame)?;
     file.sync_all()?;
-    durability::sync_directory(root)
+    let directory = path.parent().unwrap_or(root);
+    super::file_key::sync_key_directory(root, directory)
 }
 
 fn decode(cursor: &mut Cursor<'_>, start: usize) -> io::Result<(String, bool)> {

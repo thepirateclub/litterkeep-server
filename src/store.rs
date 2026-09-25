@@ -22,7 +22,7 @@ mod expunges;
 #[path = "store/failure_matrix_tests.rs"]
 mod failure_matrix_tests;
 #[path = "store/file_key.rs"]
-mod file_key;
+pub(crate) mod file_key;
 #[path = "store/flag_journal.rs"]
 mod flag_journal;
 #[path = "store/flags.rs"]

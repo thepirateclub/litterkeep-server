@@ -44,11 +44,11 @@ parser-ом. Невалидный IP и незарегистрированный
 поддержаны. Проверенный набор стандартизованных tags сверяется с
 [реестром IANA](https://www.iana.org/assignments/smtp/#smtp-address-literal-tags).
 Полный inbound SMTPUTF8/EAI пока не поддержан и capability не рекламируется:
-mailbox grammar, IDNA U-label validation, account credential keys и каталоги
-folder/subscription/Sieve остаются ASCII-only. Store умеет безопасно сохранять
-Unicode mailbox keys в отдельном hex-кодированном пространстве имён; этот слой
-проверен напрямую, но пока не подключён к SMTP EAI доставке. Ограниченный
-DATA/transport checkpoint разбирает MAIL
+SMTP mailbox grammar и IDNA U-label validation остаются ASCII-only. Account
+credentials, folder catalog, subscriptions, Sieve snapshots и внутренние
+mailbox keys сохраняют bounded UTF-8 идентификаторы в отдельном hex namespace;
+прямой Store/Accounts restart test проверяет эти слои, но не сетевую
+аутентификацию или SMTP EAI delivery. Ограниченный DATA/transport checkpoint разбирает MAIL
 флаг SMTPUTF8 с обязательным `BODY=8BITMIME`, разрешает UTF-8 field values, но
 не ASCII field names, и требует обе peer capabilities на outbound перед MAIL.
 Независимый Linux SMTP peer подтвердил `BODY=8BITMIME SMTPUTF8` и сохранность

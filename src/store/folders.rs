@@ -40,19 +40,12 @@ impl FolderCatalog {
         fs::create_dir_all(&directory)?;
         let mut accounts = HashMap::new();
         let mut high_ids = HashMap::new();
-        for entry in fs::read_dir(&directory)? {
-            let path = entry?.path();
-            if path.extension().and_then(|value| value.to_str()) != Some("journal") {
-                continue;
-            }
-            let account = path
-                .file_stem()
-                .and_then(|value| value.to_str())
-                .ok_or_else(|| invalid("non-utf8 folder journal"))?;
-            validate_account(account)?;
+        let files = super::file_key::entries(&directory, super::file_key::FileKind::FolderCatalog)?;
+        for (account, path) in files {
+            validate_account(&account)?;
             let replay = folder_journal::read(&path)?;
-            accounts.insert(account.to_owned(), replay.folders);
-            high_ids.insert(account.to_owned(), replay.high_id);
+            accounts.insert(account.clone(), replay.folders);
+            high_ids.insert(account, replay.high_id);
         }
         Ok(Self {
             root: directory,
@@ -217,12 +210,12 @@ pub(super) fn decode_special(value: u8) -> io::Result<Option<SpecialUse>> {
 }
 
 pub(super) fn validate_account(value: &str) -> io::Result<()> {
-    match value
-        .bytes()
-        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-    {
-        true if !value.is_empty() => Ok(()),
-        _ => Err(invalid("unsafe account in folder catalog")),
+    let valid = !value.is_empty()
+        && value.len() <= crate::smtp::MAX_LOCAL_PART_SIZE
+        && value.chars().all(|character| !character.is_control());
+    match valid {
+        true => Ok(()),
+        false => Err(invalid("invalid account in folder catalog")),
     }
 }
 

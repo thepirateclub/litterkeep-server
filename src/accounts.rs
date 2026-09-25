@@ -16,13 +16,21 @@ impl Accounts {
     pub fn create(&self, name: &str, password: &[u8]) -> io::Result<()> {
         valid_name(name)?;
         let credential = Credential::create(password)?;
+        let path = crate::store::file_key::prepare(
+            &self.root,
+            name,
+            crate::store::file_key::FileKind::Credentials,
+        )?;
         let mut file = OpenOptions::new()
             .write(true)
             .create_new(true)
-            .open(self.path(name))?;
+            .open(&path)?;
         file.write_all(credential.as_phc().as_bytes())?;
         file.write_all(b"\n")?;
-        file.sync_all()
+        file.sync_all()?;
+        drop(file);
+        let directory = path.parent().unwrap_or(&self.root);
+        crate::store::file_key::sync_key_directory(&self.root, directory)
     }
     pub fn authenticate(&self, name: &str, password: &[u8]) -> bool {
         match valid_name(name).and_then(|_| fs::read_to_string(self.path(name))) {
@@ -41,22 +49,25 @@ impl Accounts {
             .unwrap_or(false)
     }
     fn path(&self, name: &str) -> PathBuf {
-        self.root.join(format!("{name}.phc"))
+        crate::store::file_key::path(
+            &self.root,
+            name,
+            crate::store::file_key::FileKind::Credentials,
+        )
     }
 }
 fn valid_name(name: &str) -> io::Result<()> {
-    match name.is_empty() {
-        true => Err(io::Error::new(io::ErrorKind::InvalidInput, "empty account")),
-        false => match name
-            .bytes()
-            .find(|byte| !matches!(byte,b'0'..=b'9'|b'A'..=b'Z'|b'a'..=b'z'|b'_'|b'-'))
-        {
-            Some(_) => Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "unsafe account",
-            )),
-            None => Ok(()),
-        },
+    // Храним точные UTF-8 октеты канонического local-part без нормализации.
+    // Полную SMTP mailbox grammar проверяет протокольный слой до маршрута.
+    let invalid_name = name.is_empty()
+        || name.len() > crate::smtp::MAX_LOCAL_PART_SIZE
+        || name.chars().any(char::is_control);
+    match invalid_name {
+        true => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid account name",
+        )),
+        false => Ok(()),
     }
 }
 #[cfg(test)]

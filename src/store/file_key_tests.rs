@@ -135,3 +135,67 @@ fn unicode_move_commits_encoded_destination_and_source_tombstone() {
     drop(reopened);
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn unicode_account_credentials_folders_subscriptions_and_sieve_recover() {
+    let root = std::env::temp_dir().join(format!(
+        "litterkeep-unicode-account-{}",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let account = "用户+почта";
+    let accounts = crate::accounts::Accounts::open(&root).unwrap();
+    accounts.create(account, b"strong-test-password").unwrap();
+    assert!(accounts.exists(account));
+    assert!(accounts.authenticate(account, b"strong-test-password"));
+    assert!(!accounts.authenticate(account, b"wrong-password"));
+    let credential_path = path(&root.join("accounts"), account, FileKind::Credentials);
+    assert_eq!(
+        credential_path.parent(),
+        Some(root.join("accounts/utf8").as_path())
+    );
+
+    let mut store = Store::open(&root).unwrap();
+    store.folders(account).unwrap();
+    store.create_folder(account, "Проекты").unwrap();
+    store.set_subscription(account, "Проекты", true).unwrap();
+    store
+        .put_sieve_script(account, "active", "keep;".to_owned())
+        .unwrap();
+    store
+        .activate_sieve_script(account, Some("active"))
+        .unwrap();
+    drop(store);
+
+    let mut reopened = Store::open(&root).unwrap();
+    assert!(
+        reopened
+            .folders(account)
+            .unwrap()
+            .iter()
+            .any(|folder| folder.name == "Проекты")
+    );
+    assert!(
+        reopened
+            .subscriptions(account)
+            .unwrap()
+            .iter()
+            .any(|folder| folder.name == "Проекты")
+    );
+    assert_eq!(
+        reopened
+            .active_sieve_script(account)
+            .unwrap()
+            .map(|(_, source)| source),
+        Some("keep;".to_owned())
+    );
+    assert!(
+        crate::accounts::Accounts::open(&root)
+            .unwrap()
+            .authenticate(account, b"strong-test-password")
+    );
+    drop(reopened);
+    fs::remove_dir_all(root).unwrap();
+}

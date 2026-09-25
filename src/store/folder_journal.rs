@@ -1,6 +1,5 @@
 //! Append-only события каталога папок и их детерминированное восстановление.
 
-use super::durability;
 use super::folder_cursor::{Cursor, short};
 use super::folders::{self, FolderInfo, SpecialUse};
 use std::collections::HashSet;
@@ -206,11 +205,12 @@ fn apply_create(replay: &mut Replay, folder: FolderInfo) -> io::Result<()> {
 }
 
 fn append(root: &Path, account: &str, frame: Vec<u8>) -> io::Result<()> {
-    let path = root.join(format!("{account}.journal"));
-    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
+    let path = super::file_key::prepare(root, account, super::file_key::FileKind::FolderCatalog)?;
+    let mut file = OpenOptions::new().create(true).append(true).open(&path)?;
     file.write_all(&frame)?;
     file.sync_all()?;
-    durability::sync_directory(root)
+    let directory = path.parent().unwrap_or(root);
+    super::file_key::sync_key_directory(root, directory)
 }
 
 fn header(magic: [u8; 4]) -> Vec<u8> {

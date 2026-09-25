@@ -4,6 +4,26 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 Unicode account persistence checkpoint, PARTIAL
+
+- Обратимое namespace-кодирование теперь используется не только для mailbox
+  journal/flags/expunges, но и для password credentials, folder catalog,
+  подписок и Sieve state/temp. Существующие безопасные ASCII имена оставляют
+  прежние filenames. Unicode ключи сохраняют исходные UTF-8 байты, без
+  Unicode normalization; длина account ограничена 64 октетами, controls
+  отвергаются. Новые кодированные каталоги синхронизируются до Store root.
+- Regression создаёт Unicode credential, каталог папок, подписку и active Sieve
+  script, закрывает владельца и восстанавливает все четыре области после reopen.
+  Это storage/auth API доказательство, не SMTPUTF8 network acceptance: SMTP
+  mailbox parser и EAI delivery path остаются ASCII-only, capability не
+  рекламируется. Litterkeep app не тестировалось.
+- PASS: Windows Rust 1.97.1 `cargo test --all-targets --locked` (503 library
+  + 1 binary), strict Clippy, fmt и diff checks. Linux Docker Rust 1.97 test
+  target: 548 library + 1 binary, doc-tests, strict Clippy; release runtime
+  image built and `version` command returned `litterkeep-server 0.1.0`. Temporary
+  tags removed, and `docker ps -a` retained only `litterkeep-g12-phone`.
+  G17 remains ACTIVE.
+
 ### 2026-09-25: G17 Unicode-safe mailbox storage key groundwork, PARTIAL
 
 - Store mailbox keys that are valid UTF-8 and contain no controls can now be
