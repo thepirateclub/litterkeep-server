@@ -125,9 +125,13 @@ unencoded continuation segments. Charset декодируется явным all
 восьми профилей: US-ASCII, UTF-8, ISO-8859-1, Windows-1251, Windows-1252,
 UTF-16, UTF-16BE и UTF-16LE. Три UTF-16 профиля используются в RFC 2047 и
 RFC 2231, но исключены из декодирования MIME `text/*` при поиске согласно
-RFC 2781. Language tag сейчас разделяется, но не сохраняется и не
-валидируется; пустой/неподдерживаемый charset невозможно представить через
-Unicode API и он отвергается. Новые RFC 2231 regressions unit-only.
+RFC 2781. RFC 2231 начальная секция может опускать charset и language:
+непомеченный ASCII payload принимается, а high-bit octets без charset
+отвергаются, поскольку Unicode API не может безопасно угадать их кодировку.
+Языковой tag проверяется на well-formed BCP 47 структуру RFC 5646 и сохраняется
+без изменения регистра в `StructuredValue` и каждом MIME tree entity. Проверка
+не доказывает членство subtags в датированной IANA Language Subtag Registry.
+RFC 2231 charset/language regressions unit-only.
 
 Зарегистрированный IANA charset windows-1252 теперь декодируется как отдельный
 профиль, не смешивая его с ISO-8859-1. Проверены все 32 octets диапазона

@@ -1,5 +1,6 @@
 //! Разбор MIME media type и параметров, включая RFC 2231 continuations.
 
+use super::language_tag::LanguageTag;
 use std::collections::{BTreeMap, HashMap};
 
 /// Известный media type либо сохранённое неизвестное значение.
@@ -44,13 +45,8 @@ impl MediaType {
 pub struct StructuredValue {
     pub media_type: MediaType,
     pub parameters: BTreeMap<String, String>,
-}
-
-#[derive(Debug)]
-struct Segment {
-    index: Option<usize>,
-    encoded: bool,
-    value: String,
+    /// Языковые подсказки RFC 2231 для тех decoded parameter, где они заданы.
+    pub parameter_languages: BTreeMap<String, LanguageTag>,
 }
 
 /// Разбирает Content-Type или Content-Disposition без потери неизвестного типа.
@@ -59,24 +55,29 @@ pub fn parse(input: &str) -> Result<StructuredValue, &'static str> {
     let sections = split_sections(&normalized)?;
     let mut iterator = sections.into_iter();
     let media_type = parse_media_type(iterator.next().ok_or("missing MIME value")?.trim())?;
-    let mut grouped: HashMap<String, Vec<Segment>> = HashMap::new();
+    let mut grouped: HashMap<String, Vec<super::parameter_join::Segment>> = HashMap::new();
     for section in iterator {
         let (raw_name, raw_value) = section.split_once('=').ok_or("parameter without value")?;
         let (base, index, encoded) = parameter_name(raw_name.trim())?;
         let value = unquote(raw_value.trim())?;
-        grouped.entry(base).or_default().push(Segment {
-            index,
-            encoded,
-            value,
-        });
+        grouped
+            .entry(base)
+            .or_default()
+            .push(super::parameter_join::Segment::new(index, encoded, value));
     }
     let mut parameters = BTreeMap::new();
+    let mut parameter_languages = BTreeMap::new();
     for (name, segments) in grouped {
-        parameters.insert(name, join_segments(segments)?);
+        let (value, language) = super::parameter_join::join_segments(segments)?;
+        parameters.insert(name.clone(), value);
+        if let Some(language) = language {
+            parameter_languages.insert(name, language);
+        }
     }
     Ok(StructuredValue {
         media_type,
         parameters,
+        parameter_languages,
     })
 }
 
@@ -177,55 +178,6 @@ fn unquote(value: &str) -> Result<String, &'static str> {
         return Err("trailing quoted escape");
     }
     Ok(output)
-}
-
-fn join_segments(mut segments: Vec<Segment>) -> Result<String, &'static str> {
-    match segments.iter().all(|segment| segment.index.is_none()) {
-        true if segments.len() == 1 => decode_single(segments.pop().expect("one segment")),
-        true => Err("duplicate MIME parameter"),
-        false => join_continuations(segments),
-    }
-}
-
-fn decode_single(segment: Segment) -> Result<String, &'static str> {
-    match segment.encoded {
-        true => decode_extended(&segment.value),
-        false => Ok(segment.value),
-    }
-}
-
-fn join_continuations(mut segments: Vec<Segment>) -> Result<String, &'static str> {
-    segments.sort_by_key(|segment| segment.index);
-    let mut bytes = Vec::new();
-    let mut charset = None;
-    for (expected, segment) in segments.into_iter().enumerate() {
-        if segment.index != Some(expected) {
-            return Err("non-contiguous MIME continuation");
-        }
-        let (selected, decoded) = match (expected, segment.encoded) {
-            (0, true) => super::parameter_extended::initial(&segment.value)?,
-            (_, true) => (
-                None,
-                super::parameter_extended::continuation(&segment.value)?,
-            ),
-            (_, false) => (None, segment.value.into_bytes()),
-        };
-        match (expected, segment.encoded, selected) {
-            (0, true, None) => return Err("missing extended charset"),
-            (_, _, Some(selected)) => charset = Some(selected),
-            _ => {}
-        }
-        bytes.extend(decoded);
-    }
-    match charset {
-        Some(charset) => charset.decode(&bytes),
-        None => String::from_utf8(bytes).map_err(|_| "continuation is not UTF-8"),
-    }
-}
-
-fn decode_extended(value: &str) -> Result<String, &'static str> {
-    let (charset, bytes) = super::parameter_extended::initial(value)?;
-    charset.ok_or("missing extended charset")?.decode(&bytes)
 }
 
 /// Разбирает пару `type/subtype` и классифицирует известные MIME-типы.

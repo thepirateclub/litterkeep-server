@@ -1,6 +1,7 @@
 //! Рекурсивное MIME-дерево с абсолютными диапазонами исходного RFC822.
 
 use super::header_block::{self, HeaderField};
+use super::language_tag::LanguageTag;
 use super::parameters::MediaType;
 use super::transfer::TransferEncoding;
 #[path = "tree_content_type.rs"]
@@ -35,6 +36,8 @@ pub struct Entity {
     pub body_range: Range<usize>,
     pub media_type: MediaType,
     pub parameters: BTreeMap<String, String>,
+    /// Языковые подсказки RFC 2231 для consumer-ов построенного MIME-дерева.
+    pub parameter_languages: BTreeMap<String, LanguageTag>,
     pub transfer_encoding: TransferEncoding,
     pub children: Vec<Entity>,
     pub preamble_range: Option<Range<usize>>,
@@ -78,6 +81,7 @@ fn parse_entity(
     if let TransferEncoding::Unsupported(_) = transfer_encoding {
         structured.media_type = MediaType::ApplicationOctetStream;
         structured.parameters.clear();
+        structured.parameter_languages.clear();
     }
     let boundary = structured.parameters.get("boundary").cloned();
     let body = raw
@@ -134,6 +138,7 @@ fn parse_entity(
         body_range: base + headers.body_offset..base + raw.len(),
         media_type: structured.media_type,
         parameters: structured.parameters,
+        parameter_languages: structured.parameter_languages,
         transfer_encoding,
         children,
         preamble_range,

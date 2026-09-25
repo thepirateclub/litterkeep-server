@@ -128,6 +128,82 @@ fn decodes_utf16be_rfc2231_filename() {
 }
 
 #[test]
+fn preserves_rfc2231_language_metadata_for_single_and_continued_values() {
+    let single = parameters::parse(
+        "application/octet-stream; filename*=UTF-8'en-US'%D1%84%D0%B0%D0%B9%D0%BB.txt",
+    )
+    .expect("single extended parameter with language");
+    assert_eq!(
+        single
+            .parameter_languages
+            .get("filename")
+            .map(|tag| tag.as_str()),
+        Some("en-US")
+    );
+
+    let continued = parameters::parse(
+        "application/octet-stream; filename*0*=UTF-8'ru'%D1%84%D0%B0; filename*1*=%D0%B9%D0%BB.txt",
+    )
+    .expect("continued extended parameter with language");
+    assert_eq!(
+        continued.parameters.get("filename").map(String::as_str),
+        Some("файл.txt")
+    );
+    assert_eq!(
+        continued
+            .parameter_languages
+            .get("filename")
+            .map(|tag| tag.as_str()),
+        Some("ru")
+    );
+}
+
+#[test]
+fn accepts_omitted_rfc2231_charset_only_for_ascii_payloads() {
+    let parsed = parameters::parse("application/octet-stream; filename*='en'file%20name")
+        .expect("ASCII payload may omit RFC 2231 charset");
+    assert_eq!(
+        parsed.parameters.get("filename").map(String::as_str),
+        Some("file name")
+    );
+    assert_eq!(
+        parsed
+            .parameter_languages
+            .get("filename")
+            .map(|tag| tag.as_str()),
+        Some("en")
+    );
+
+    let continued =
+        parameters::parse("application/octet-stream; filename*0*=''file%20; filename*1=name")
+            .expect("ASCII continuation may omit RFC 2231 charset");
+    assert_eq!(
+        continued.parameters.get("filename").map(String::as_str),
+        Some("file name")
+    );
+    assert!(parameters::parse("application/octet-stream; filename*='ru'%D1%84").is_err());
+}
+
+#[test]
+fn rejects_malformed_rfc2231_language_tags_and_keeps_mime_tree_metadata() {
+    for tag in ["en--US", "en-u", "x", "русский"] {
+        let value = format!("application/octet-stream; filename*=UTF-8'{tag}'value");
+        assert!(parameters::parse(&value).is_err(), "accepted {tag}");
+    }
+
+    let raw = b"Content-Type: multipart/mixed; boundary=x\r\n\r\n--x\r\nContent-Type: application/octet-stream; filename*=UTF-8'en-GB-oed'value\r\n\r\nbody\r\n--x--\r\n";
+    let entity = super::tree::parse(raw).expect("MIME tree keeps language metadata");
+    let attachment = entity.children.first().expect("MIME attachment child");
+    assert_eq!(
+        attachment
+            .parameter_languages
+            .get("filename")
+            .map(|tag| tag.as_str()),
+        Some("en-GB-oed")
+    );
+}
+
+#[test]
 fn rejects_noncanonical_rfc2231_extended_payload_octets() {
     for value in [
         "text/plain; name*=UTF-8''bad?value",

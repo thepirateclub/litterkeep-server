@@ -36,6 +36,7 @@ fn default_value(default: DefaultMediaType) -> StructuredValue {
     StructuredValue {
         media_type,
         parameters: Default::default(),
+        parameter_languages: Default::default(),
     }
 }
 

@@ -106,6 +106,9 @@ Windows-1251 или Windows-1252; UTF-16, UTF-16BE и UTF-16LE также реа
 декодируются в outer и
 MIME-part headers только как полные токены в начале field-body или после LWS.
 Embedded и слитные формы остаются raw text; это новое правило пока unit-only.
+RFC 2231 extended parameters сохраняют BCP 47 language metadata в MIME tree;
+проверяется синтаксис RFC 5646, но не актуальная registry validity. Проверки
+metadata и допустимого опущенного charset пока unit-only.
 RFC 2047 encoded-word и RFC 2231 extended parameter также декодируют UTF-16,
 UTF-16BE и UTF-16LE с проверкой byte order, нечётной длины и surrogate pairs.
 Начальный BOM у UTF-16 выбирает порядок и удаляется как signature; без BOM

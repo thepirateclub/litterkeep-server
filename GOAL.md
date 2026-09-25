@@ -4620,3 +4620,18 @@ ManageSieve до заявленного набора современных фо
   существовавший `litterkeep-g12-phone`.
 - G17 остаётся RUNNING: полный RFC 5228 grammar, все Sieve extensions,
   сторонний MTA и оставшиеся MIME network cases всё ещё требуют покрытия.
+
+### 2026-09-25: G17 RFC 2231 language metadata checkpoint
+
+- Начальная RFC 2231 extended секция теперь сохраняет optional language tag в
+  `StructuredValue` и во всех MIME tree entities. Новый `LanguageTag` проверяет
+  BCP 47 syntax: normal, extension, private-use и grandfathered формы, ASCII,
+  границы subtags и повтор variant/singleton, сохраняя исходный регистр.
+  IANA registry membership не проверяется и не заявляется.
+- Исправлен допустимый omitted charset: ASCII payload работает с пустыми
+  charset/language полями как в одиночном extended parameter, так и в
+  continuation. High-bit payload без charset отклоняется без guess-codec.
+  Unit regressions проверяют acceptance/rejection и сохранение language в
+  nested MIME entity. Network acceptance не запускался.
+- В работе; G17 остаётся RUNNING. RFC 2231 tag validity по актуальной IANA
+  registry и прочие SMTP/IMAP/POP3/MIME/Sieve пробелы не закрыты.

@@ -1,24 +1,40 @@
 //! Декодирование RFC 2231 extended-параметров MIME.
 
 use super::charset::Charset;
+use super::language_tag::LanguageTag;
 use super::parameters::attribute_octet;
 
-/// Разбирает начальный extended value и возвращает его charset и октеты.
+/// Разобранные метаданные начальной RFC 2231 extended-секции.
+pub(super) struct InitialValue {
+    pub(super) charset: Option<Charset>,
+    pub(super) language: Option<LanguageTag>,
+    pub(super) octets: Vec<u8>,
+}
+
+/// Разбирает начальный extended value и сохраняет его charset/language.
 ///
 /// Charset и language разделяются обязательными апострофами; каждый сырой
 /// октет payload обязан быть RFC 2231 attribute-char, иначе он percent-кодируется.
-pub(super) fn initial(value: &str) -> Result<(Option<Charset>, Vec<u8>), &'static str> {
+pub(super) fn initial(value: &str) -> Result<InitialValue, &'static str> {
     let (charset_value, remainder) = value
         .split_once('\'')
         .ok_or("missing extended charset separator")?;
-    let (_, payload) = remainder
+    let (language_value, payload) = remainder
         .split_once('\'')
         .ok_or("missing extended language separator")?;
     let charset = match charset_value.is_empty() {
         true => None,
         false => Some(Charset::parse(charset_value)?),
     };
-    Ok((charset, decode_octets(payload)?))
+    let language = match language_value.is_empty() {
+        true => None,
+        false => Some(LanguageTag::parse(language_value)?),
+    };
+    Ok(InitialValue {
+        charset,
+        language,
+        octets: decode_octets(payload)?,
+    })
 }
 
 /// Декодирует encoded continuation segment без повторной charset metadata.
