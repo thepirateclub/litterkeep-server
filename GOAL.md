@@ -4,6 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 RFC 5228 fileinto capability checkpoint
+
+- Static validation теперь требует `require "fileinto"` для каждого
+  поддерживаемого `fileinto` action; scripts без capability отвергаются до
+  создания DeliveryPlan. Unit regression и независимый ManageSieve CHECKSCRIPT
+  проверяют отрицательный случай. Тот же клиент загружает допустимый script,
+  отправляет письмо через SMTP и подтверждает folder delivery через IMAP.
+- PASS: Windows Rust 1.97.1, fmt, 323 теста, strict Clippy, Python compile и
+  diff check. Linux Docker Rust 1.97: strict Clippy и 363 теста; независимый
+  ManageSieve -> SMTP -> IMAP acceptance прошёл в `./data/g17-sieve-fileinto-require`.
+  Временный контейнер удалён, `litterkeep-g12-phone` сохранён. Прямое подключение
+  Litterkeep не проверялось. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 5228 header whitespace checkpoint
 
 - Sieve `header` теперь обрезает ведущие и завершающие SP/HTAB перед MIME

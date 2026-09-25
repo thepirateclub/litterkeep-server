@@ -100,6 +100,11 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
             check_script(client, b"keep;", b'OK "completed"\r\n')
             check_script(
                 client,
+                b'fileinto "Invoices";',
+                b'NO "operation failed"\r\n',
+            )
+            check_script(
+                client,
                 b'if header :is "subject" "first\r\nsecond" { keep; }',
                 b'OK "completed"\r\n',
             )

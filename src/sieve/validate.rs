@@ -11,21 +11,22 @@ pub(super) fn script(script: &Script) -> Result<(), &'static str> {
         return Err("unsupported sieve require");
     }
     let mut count = 0;
-    commands(
-        &script.commands,
-        0,
-        &mut count,
-        script
-            .requires
-            .iter()
-            .any(|value| matches!(value, Capability::Subaddress)),
-    )
+    let fileinto = script
+        .requires
+        .iter()
+        .any(|value| matches!(value, Capability::FileInto));
+    let subaddress = script
+        .requires
+        .iter()
+        .any(|value| matches!(value, Capability::Subaddress));
+    commands(&script.commands, 0, &mut count, fileinto, subaddress)
 }
 
 fn commands(
     items: &[Command],
     depth: usize,
     count: &mut usize,
+    fileinto: bool,
     subaddress: bool,
 ) -> Result<(), &'static str> {
     if depth > 16 {
@@ -37,23 +38,37 @@ fn commands(
             return Err("sieve command limit exceeded");
         }
         match command {
-            Command::Action(action) => action_valid(action)?,
+            Command::Action(action) => action_valid(action, fileinto)?,
             Command::If {
                 condition,
                 then_commands,
                 else_commands,
             } => {
                 condition_valid(condition, depth, subaddress)?;
-                commands(then_commands, depth.saturating_add(1), count, subaddress)?;
-                commands(else_commands, depth.saturating_add(1), count, subaddress)?;
+                commands(
+                    then_commands,
+                    depth.saturating_add(1),
+                    count,
+                    fileinto,
+                    subaddress,
+                )?;
+                commands(
+                    else_commands,
+                    depth.saturating_add(1),
+                    count,
+                    fileinto,
+                    subaddress,
+                )?;
             }
         }
     }
     Ok(())
 }
 
-fn action_valid(action: &Action) -> Result<(), &'static str> {
+/// Проверяет ограничения mailbox и обязательное объявление optional fileinto.
+fn action_valid(action: &Action, fileinto: bool) -> Result<(), &'static str> {
     match action {
+        Action::FileInto(_) if !fileinto => Err("fileinto extension must be required"),
         Action::FileInto(name) if safe_name(name) => Ok(()),
         Action::Redirect(address) if address.contains('@') => Ok(()),
         Action::FileInto(_) | Action::Redirect(_) => Err("unsafe sieve action target"),

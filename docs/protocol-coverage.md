@@ -277,6 +277,11 @@ From/To/Cc/Bcc/Sender/Resent-From/Resent-To) и сравнивает mailbox в�
 `To`; поддержку произвольных пользовательских address-list headers это не
 подтверждает.
 
+Поддерживаемое optional-действие Sieve `fileinto` отвергается при static
+validation, если script не заявил `require "fileinto"`. Это проверяется unit
+regression и независимым ManageSieve CHECKSCRIPT; тот же сетевой acceptance
+подтверждает доставку с объявленной capability.
+
 Sieve `header` декодирует RFC 2047 encoded-word общей MIME-декодировкой до
 сравнения в UTF-8 и игнорирует ведущие/завершающие SP и HTAB по RFC 5228 §5.7.
 Unit покрывает ISO-8859-1 и UTF-8 encoded-word и краевые пробелы; независимая

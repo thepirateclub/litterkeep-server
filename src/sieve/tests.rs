@@ -36,7 +36,7 @@ fn redirect_and_fileinto_preserve_only_explicit_keep() {
     assert_eq!(redirect.redirects, vec!["remote@peer.test"]);
 
     let combined = execute(
-        &parse("keep; redirect \"remote@peer.test\"; fileinto \"Archive\";")
+        &parse("require \"fileinto\"; keep; redirect \"remote@peer.test\"; fileinto \"Archive\";")
             .expect("combined parse"),
         &[],
         0,
@@ -51,7 +51,7 @@ fn redirect_and_fileinto_preserve_only_explicit_keep() {
 #[test]
 fn elsif_is_an_exclusive_bounded_branch() {
     let script = parse(
-        "if false { discard; } elsif true { fileinto \"Invoices\"; stop; } else { discard; }",
+        "require \"fileinto\"; if false { discard; } elsif true { fileinto \"Invoices\"; stop; } else { discard; }",
     )
     .expect("parse");
     let plan = execute(&script, &[], 0).expect("execute");
@@ -63,7 +63,7 @@ fn elsif_is_an_exclusive_bounded_branch() {
 #[test]
 fn header_matchers_and_size_select_the_expected_branch() {
     let script = parse(
-        "if allof (header :matches :comparator \"i;ascii-casemap\" [\"subject\", \"x-topic\"] [\"invoice-*\"], not exists \"x-cancel\", size :over 1K) { fileinto \"Invoices\"; } else { discard; }",
+        "require \"fileinto\"; if allof (header :matches :comparator \"i;ascii-casemap\" [\"subject\", \"x-topic\"] [\"invoice-*\"], not exists \"x-cancel\", size :over 1K) { fileinto \"Invoices\"; } else { discard; }",
     )
     .expect("parse");
     let plan =
@@ -122,7 +122,7 @@ fn header_test_ignores_leading_and_trailing_space_and_tab() {
 #[test]
 fn address_test_selects_detail_without_matching_another_recipient() {
     let script = parse(
-        "require \"subaddress\"; if address :detail :is \"to\" \"sales\" { fileinto \"Invoices\"; } else { discard; }",
+        "require [\"subaddress\", \"fileinto\"]; if address :detail :is \"to\" \"sales\" { fileinto \"Invoices\"; } else { discard; }",
     )
     .expect("parse");
     let plan = execute(
@@ -205,6 +205,7 @@ fn combined_header_address_and_size_rule_matches_network_fixture() {
 #[test]
 fn invalid_script_does_not_become_a_delivery_plan() {
     assert!(parse("require [\"vacation\"]; keep;").is_err());
+    assert!(parse("fileinto \"Invoices\";").is_err());
     assert!(parse("fileinto \"../Invoices\";").is_err());
     assert!(
         parse("if header :comparator \"i;unicode-casemap\" \"subject\" \"x\" { keep; }").is_err()
