@@ -109,7 +109,7 @@ fn mime_vacation_accepts_ascii_entity_and_rejects_unsafe_entities() {
     let valid = mime_script(
         "Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nOl=E1\r\n",
     );
-    assert!(parse(&valid).is_ok());
+    assert!(parse(&valid).is_ok(), "{:?}", parse(&valid));
     assert!(
         parse(&mime_script(
             "Bcc: victim@test\r\nContent-Type: text/plain\r\n\r\nhello\r\n"
@@ -136,6 +136,33 @@ fn mime_vacation_rejects_malformed_transfer_encoding_and_duplicate_fields() {
     ] {
         assert!(parse(&mime_script(entity)).is_err(), "accepted {entity:?}");
     }
+}
+
+#[test]
+fn mime_vacation_enforces_wire_line_lengths_and_7bit_octets() {
+    let maximum_7bit = format!("Content-Type: text/plain\r\n\r\n{}", "a".repeat(998));
+    assert!(super::vacation_mime::validate_reason(maximum_7bit.as_bytes()).is_ok());
+    let oversized_7bit = format!("Content-Type: text/plain\r\n\r\n{}", "a".repeat(999));
+    assert!(super::vacation_mime::validate_reason(oversized_7bit.as_bytes()).is_err());
+
+    let oversized_base64 = format!(
+        "Content-Type: text/plain\r\nContent-Transfer-Encoding: base64\r\n\r\n{}",
+        "A".repeat(77)
+    );
+    assert!(super::vacation_mime::validate_reason(oversized_base64.as_bytes()).is_err());
+    let oversized_qp = format!(
+        "Content-Type: text/plain\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n{}",
+        "A".repeat(77)
+    );
+    assert!(super::vacation_mime::validate_reason(oversized_qp.as_bytes()).is_err());
+    assert!(super::vacation_mime::validate_reason(b"Content-Type: text/plain\r\n\r\nx\0").is_err());
+    assert!(
+        super::vacation_mime::validate_reason(b"Content-Type: text/plain\r\n\r\nx\ny").is_err()
+    );
+    assert!(super::vacation_mime::validate_reason(
+        b"Content-Type: text/plain\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nx =\r\n"
+    )
+    .is_err());
 }
 
 fn mime_script(entity: &str) -> String {

@@ -33,6 +33,8 @@ mod tests;
 mod vacation_identity;
 #[path = "sieve/vacation_message.rs"]
 mod vacation_message;
+#[path = "sieve/vacation_mime.rs"]
+mod vacation_mime;
 #[path = "sieve/vacation_policy.rs"]
 mod vacation_policy;
 #[cfg(test)]

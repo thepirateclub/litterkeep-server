@@ -48,7 +48,7 @@ fn addresses(action: &VacationAction) -> Result<(), &'static str> {
         }
     }
     if action.mime {
-        super::super::vacation_message::validate_mime_reason(action.reason.as_bytes())?;
+        super::super::vacation_mime::validate_reason(action.reason.as_bytes())?;
     }
     Ok(())
 }

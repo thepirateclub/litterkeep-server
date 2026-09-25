@@ -83,6 +83,13 @@ RFC 5230 `:mime` CHECKSCRIPT теперь отвергает повторяющ�
 не-ASCII 7bit и duplicate CTE. Сетевая ManageSieve-проверка этих новых отказов
 пока не выполнялась.
 
+Отдельный `vacation_mime` validator применяет ограничения RFC 2045 §§2.7, 6.7
+и 6.8: 7bit body не может содержать NUL, bare CR/LF и строки длиннее 998
+октетов; Base64/QP требуют CRLF, разрешённые encoded octets и строки максимум
+76 символов. QP также запрещает незакодированные завершающие пробелы и табы.
+Unit cases проверяют обе границы строк, NUL, bare LF и пробел перед soft break.
+Независимый ManageSieve acceptance ещё не запускался.
+
 Quoted и `text:` multiline strings принимают CRLF; multiline форма сохраняет
 terminating CRLF тела, снимает один dot-stuffing octet и ограничена 65 536
 байтами. Для `text:` допускаются SP/HTAB и hash-comment перед обязательным

@@ -78,7 +78,7 @@ fn append_utf8_text(output: &mut Vec<u8>, body: &[u8]) {
 }
 
 fn append_mime_entity(output: &mut Vec<u8>, entity: &[u8]) -> io::Result<()> {
-    validate_mime_reason(entity).map_err(io::Error::other)?;
+    super::vacation_mime::validate_reason(entity).map_err(io::Error::other)?;
     let parsed = crate::mime::header_block::parse(entity).map_err(io::Error::other)?;
     let header_end = parsed
         .body_offset
@@ -105,60 +105,6 @@ fn append_mime_entity(output: &mut Vec<u8>, entity: &[u8]) -> io::Result<()> {
     Ok(())
 }
 
-/// CHECKSCRIPT отвергает MIME entity, которую 7BIT-only transport не передаст.
-pub(super) fn validate_mime_reason(entity: &[u8]) -> Result<(), &'static str> {
-    let parsed = crate::mime::header_block::parse(entity)?;
-    let header_end = parsed
-        .body_offset
-        .checked_sub(2)
-        .ok_or("invalid MIME boundary")?;
-    let raw_headers = entity.get(..header_end).ok_or("invalid MIME headers")?;
-    if raw_headers.iter().any(|byte| !byte.is_ascii()) {
-        return Err("8bit MIME header");
-    }
-    for field in &parsed.fields {
-        if !mime_entity_header(&field.name) {
-            return Err("non-MIME entity header");
-        }
-    }
-    // MIME допускает ровно одно поле Content-Transfer-Encoding на сущность.
-    // Сначала выбираем его как типизированный enum, затем тем же декодером,
-    // который использует остальной сервер, проверяем фактические octets тела.
-    let transfer_fields = parsed
-        .fields
-        .iter()
-        .filter(|field| field.name == "content-transfer-encoding")
-        .collect::<Vec<_>>();
-    let transfer_field = match transfer_fields.as_slice() {
-        [] => None,
-        [field] => Some(*field),
-        _ => return Err("duplicate MIME transfer encoding"),
-    };
-    let transfer = match transfer_field {
-        Some(field) => crate::mime::transfer::TransferEncoding::parse(&field.value)
-            .map_err(|_| "invalid MIME transfer encoding")?,
-        None => crate::mime::transfer::TransferEncoding::SevenBit,
-    };
-    let body = entity
-        .get(parsed.body_offset..)
-        .ok_or("invalid MIME body")?;
-    match transfer {
-        crate::mime::transfer::TransferEncoding::SevenBit
-        | crate::mime::transfer::TransferEncoding::Base64
-        | crate::mime::transfer::TransferEncoding::QuotedPrintable => {
-            transfer
-                .decode(body)
-                .map_err(|_| "invalid encoded MIME body")?;
-        }
-        crate::mime::transfer::TransferEncoding::EightBit
-        | crate::mime::transfer::TransferEncoding::Binary
-        | crate::mime::transfer::TransferEncoding::Unsupported(_) => {
-            return Err("unsupported MIME transfer encoding");
-        }
-    }
-    Ok(())
-}
-
 #[derive(Clone, Copy)]
 enum MimeEntityHeader {
     Version,
@@ -172,7 +118,7 @@ enum MimeEntityHeader {
     Unsupported,
 }
 
-fn mime_entity_header(name: &str) -> bool {
+pub(super) fn mime_entity_header(name: &str) -> bool {
     match mime_entity_field(name) {
         MimeEntityHeader::Version
         | MimeEntityHeader::ContentType

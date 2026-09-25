@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-25: G17 Sieve vacation MIME line profile checkpoint
+
+- Проверка `:mime` выделена в отдельный MIME validator. Для 7bit проверяются
+  ASCII, запрет NUL, только CRLF и предел 998 октетов на строку; для Base64 и
+  quoted-printable проверяются корректные CRLF, допустимые wire octets и предел
+  76 символов. Quoted-printable также отвергает сырые завершающие пробелы и
+  пробел перед soft line break. Основа: RFC 2045 §§2.7, 6.7, 6.8.
+- Regressions проверяют точную границу 998, превышение 999, превышение 76 для
+  обеих кодировок, NUL, bare LF, повреждённый escape и trailing whitespace.
+  Это unit-level validation, не независимая ManageSieve-сетевая проверка.
+- PASS: Windows Rust 1.97.1 `cargo test --all-targets --locked` (360 тестов),
+  strict Clippy, fmt и diff check. Linux Docker Rust 1.97 release build,
+  strict Clippy и 401 тест.
+- Test-stage собран с `--rm`, runtime-контейнеры не запускались; проверка
+  `docker ps -a` оставила только `litterkeep-g12-phone`. G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 Sieve vacation MIME transfer validation checkpoint
 
 - `:mime` validation проверяет не только имя Content-Transfer-Encoding, но и
