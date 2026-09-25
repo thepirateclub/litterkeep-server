@@ -102,8 +102,7 @@ impl Connection {
         if let Some(outcome) = expect(&mut self.reader)? {
             return Ok(outcome);
         }
-        self.writer.write_all(message)?;
-        self.writer.write_all(b"\r\n.\r\n")?;
+        write_data(&mut self.writer, message)?;
         self.writer.flush()?;
         match expect(&mut self.reader)? {
             Some(outcome) => Ok(outcome),
@@ -137,6 +136,15 @@ impl Connection {
             Some(_) => Err(io::Error::other("SMTP peer rejected connection")),
         }
     }
+}
+
+/// Передаёт DATA с ровно одним завершающим CRLF перед SMTP terminator.
+pub(crate) fn write_data(writer: &mut impl Write, message: &[u8]) -> io::Result<()> {
+    writer.write_all(message)?;
+    if !message.ends_with(b"\r\n") {
+        writer.write_all(b"\r\n")?;
+    }
+    writer.write_all(b".\r\n")
 }
 
 /// Создаёт только числовой TCP route с конечными connect/read/write deadline.

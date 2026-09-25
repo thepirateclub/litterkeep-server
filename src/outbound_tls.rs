@@ -77,8 +77,7 @@ impl Connection {
             return Ok(outcome);
         }
         let stream = self.stream.get_mut();
-        stream.write_all(message)?;
-        stream.write_all(b"\r\n.\r\n")?;
+        outbound::write_data(stream, message)?;
         stream.flush()?;
         match outbound::expect(&mut self.stream)? {
             None => Ok(DeliveryOutcome::Delivered),

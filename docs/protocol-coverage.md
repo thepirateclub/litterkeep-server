@@ -186,8 +186,14 @@ TAB как hex-octets, чтобы перенос строки не менял с
 STARTTLS -> IMAP STARTTLS BINARY.PEEK подтвердил удаление SP/TAB в hard-line
 padding и сохранение decoded `=20`. Перед soft break `=CRLF` буквальные
 SP/TAB также удаляются, а encoded `=20` сохраняется; эти случаи независимо
-проверены тем же wire acceptance. Encoder сериализации whitespace остаётся
-unit-only.
+проверены тем же wire acceptance. Для исходящего Sieve vacation отдельный
+ManageSieve -> SMTP submission -> durable queue -> независимый SMTP peer
+сценарий подтвердил UTF-8 round-trip, кодирование буквальных SP/TAB как
+`=20`/`=09` и физические строки не длиннее 76 октетов. Проверялся именно
+независимый peer, не Litterkeep. В этом пути также обнаружено и исправлено
+добавление лишнего пустого CRLF outbound SMTP transport-ом, если MIME payload
+уже завершался CRLF; обычный и TLS transport теперь используют общую запись
+DATA. Проверка существующего Litterkeep клиента и других MTA остаётся открытой.
 При повреждённом quoted-printable `=` escape входящий decoder сохраняет
 буквальный `=` и следующий символ без преобразования, как рекомендует RFC 2045
 §6.7 для robust decoder. Генераторский Sieve `:mime` validator использует

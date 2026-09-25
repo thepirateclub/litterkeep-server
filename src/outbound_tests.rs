@@ -53,6 +53,13 @@ fn route_rejects_hostname_without_starting_hidden_dns() {
     assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
 }
 
+#[test]
+fn smtp_data_terminator_does_not_add_an_empty_body_line() {
+    let mut wire = Vec::new();
+    outbound::write_data(&mut wire, b"body\r\n").expect("DATA write");
+    assert_eq!(wire, b"body\r\n.\r\n");
+}
+
 fn run_rejecting_peer(reply: &str) -> DeliveryOutcome {
     let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
     let address = listener.local_addr().expect("address");

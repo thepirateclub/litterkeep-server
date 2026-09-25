@@ -44,7 +44,7 @@ T42	PASS	server-protocol	Independent SMTP STARTTLS -> IMAP STARTTLS verifies mis
 T43	PASS	server-protocol	RFC 2046 multipart boundary enforces 1..70 ASCII bchars octets and rejects terminal space or forbidden octets; unit-only
 T44	PASS	server-protocol	Multipart delimiter collection stops at remaining global MIME part budget before retaining excess ranges; 256-part overflow rejected; unit-only
 T45	PASS	unit	RFC 2045 section 6.8 MIME Base64 CTE ignores non-alphabet octets; RFC 2047 encoded-word decoding remains strict
-T46	PASS	server-protocol	Independent SMTP STARTTLS -> IMAP BINARY.PEEK verifies hard-line literal SP/TAB removal and decoded =20 preservation; encoder escaping and =09 remain unit-only
+T46	PASS	server-protocol	Independent SMTP STARTTLS -> IMAP BINARY.PEEK verifies incoming QP padding; ManageSieve UTF-8 vacation -> SMTP submission -> durable queue -> independent SMTP peer verifies outgoing =20/=09, exact decoded body and <=76-octet lines
 T47	PASS	server-protocol	Independent SMTP STARTTLS -> IMAP STARTTLS verifies nested RFC 822 comment and escaped right parenthesis before Base64 CTE, trailing comment, BODYSTRUCTURE and exact BINARY decode
 T48	PASS	server-protocol	Independent SMTP STARTTLS -> IMAP BINARY.PEEK verifies literal SP/TAB removal and encoded =20 preservation before soft line break
 T49	PASS	server-protocol	Independent IMAP STARTTLS APPEND -> BINARY.PEEK verifies 7bit 998/999 boundary, 8bit high-bit acceptance, 7bit high-bit rejection, NUL rejection for both, and bare CR/LF rejection via exact raw literals; not SMTP DATA acceptance

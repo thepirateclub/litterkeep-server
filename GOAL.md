@@ -4,6 +4,28 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-25: G17 outbound quoted-printable vacation wire checkpoint
+
+- Добавлен независимый `tests/blackbox/sieve_vacation_qp_encoder.py`. Через
+  ManageSieve задаётся UTF-8 vacation reason с пробелами и TAB; Alice отправляет
+  trigger через SMTP STARTTLS, после остановки владельца Store durable queue
+  дренируется отдельным Linux процессом на независимый SMTP peer. Peer-пayload
+  независимо декодируется и сравнивается byte-for-byte; проверяются `=20`,
+  `=09` и строки не длиннее 76 октетов. Litterkeep-клиент не проверялся.
+- Сквозной тест обнаружил лишний пустой CRLF на исходящем SMTP DATA. Исправлен
+  общий `outbound::write_data`, используемый обычным и implicit-TLS транспортом;
+  добавлен regression test на единственный завершающий CRLF.
+- PASS: Windows Rust 1.97.1 `cargo test --locked` (450 library + 1 binary),
+  strict Clippy, fmt, diff check и Python compile до добавления последнего
+  unit regression; затем Docker Linux Rust 1.97 test target пересобран без
+  Cargo cache и прошёл Clippy, 492 library + 1 binary и doc-tests. Полный
+  independent ManageSieve -> SMTP -> queue -> peer acceptance прошёл на
+  runtime image. Stage data сохранена в
+  `./data/g17-sieve-vacation-qp-encoder-final`; предыдущий stage после
+  неудачных повторов тоже сохранён. Временные Docker containers и оба image
+  tags удалены, сохранён ранее существовавший `litterkeep-g12-phone`.
+  G17 остаётся RUNNING.
+
 ### 2026-09-25: G17 RFC 2045 Content-Transfer-Encoding comments over wire
 
 - Добавлен независимый `tests/blackbox/mime_cte_comments.py`. SMTP STARTTLS
