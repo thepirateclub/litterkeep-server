@@ -138,6 +138,20 @@ def main() -> None:
     if status != "OK" or normalized_counts != [b"0"]:
         raise AssertionError(f"NFC mailbox alias did not select: {status!r} {normalized_counts!r}")
     require_ok_command(client, "UNSELECT")
+    status, subscription = client.subscribe(decomposed)
+    if status != "OK":
+        raise AssertionError(f"decomposed UTF-8 SUBSCRIBE failed: {subscription!r}")
+    status, normalized_subscriptions = client.lsub("", "*")
+    if status != "OK" or not any(
+        f'"{composed}"'.encode("utf-8") in line for line in normalized_subscriptions
+    ):
+        raise AssertionError(f"LSUB did not return the NFC mailbox name: {normalized_subscriptions!r}")
+    status, normalized_status = client.status(decomposed, "(MESSAGES)")
+    if status != "OK" or not any(
+        f'"{composed}"'.encode("utf-8") in line for line in normalized_status
+    ):
+        raise AssertionError(f"STATUS did not return the NFC mailbox name: {normalized_status!r}")
+    require_ok_command(client, "UNSUBSCRIBE", quoted_mailbox(decomposed))
     status, deleted = client.delete(decomposed)
     if status != "OK":
         raise AssertionError(f"normalized mailbox DELETE failed: {deleted!r}")

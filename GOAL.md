@@ -6409,3 +6409,18 @@ ManageSieve до заявленного набора современных фо
   миграция/доступность не проверялись. Другие Net-Unicode response paths ещё
   открыты, поэтому RFC 9755 capability остаётся скрытой, T108 и G17 остаются
   PARTIAL/ACTIVE.
+
+### 2026-09-26: G17 RFC 9755 NFC LSUB and STATUS response acceptance, scoped PASS
+
+- Расширен независимый `imaplib` STARTTLS acceptance: папка создаётся с
+  decomposed `cafe + combining acute`, затем SUBSCRIBE/LSUB и STATUS вызываются
+  с decomposed именем. LSUB и STATUS wire responses обязаны содержать composed
+  NFC `café`; проверка завершилась успешно на Linux Rust 1.97.
+- Полный сценарий также повторно проверил ENABLE, malformed/unassigned mailbox
+  rejection, LIST/SELECT/DELETE alias, SEARCH, APPEND exact octets и COPY/MOVE.
+  Fixture сохранён в `./data/g21-rfc9755-nfc-lsub-status`; disposable container
+  и оба tagged images удалены и отсутствие проверено. `lower-layer-v1` оставлен
+  запущенным.
+- `docs/acceptance.tsv` содержит scoped T120 PASS. Это не миграция исторических
+  decomposed folder records и не аудит всех RFC 9755 quoted-string response
+  paths; UTF8=ACCEPT остаётся скрытым, G17 остаётся ACTIVE.
