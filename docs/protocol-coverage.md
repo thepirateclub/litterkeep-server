@@ -177,11 +177,13 @@ location и RFC 2231 attachment filename. Оба профиля возвраща
 поля `Content-ID` и `Content-Description`. Описание декодируется по RFC 2047;
 Content-ID принимает единственное поле в формах dot-atom, quoted id-left и
 domain-literal id-right, включая UTF-8 atext по RFC 6532. RFC 5322
-`obs-id-left`/`obs-id-right` CFWS вокруг dot-separated atoms нормализуется,
-поскольку comments и whitespace семантически невидимы. Остальные obsolete
-формы не поддерживаются. Повторные или синтаксически некорректные значения не
-проецируются. Независимый STARTTLS acceptance подтвердил quoted id-left, IPv6
-domain literal и obsolete CFWS форму в обоих профилях; UTF-8 identifiers и
+`obs-id-left`/`obs-id-right` CFWS вокруг dot-separated atoms нормализуется;
+obsolete local-part также принимает последовательность atom/quoted-string
+words с точками вне кавычек. Comments и whitespace вокруг разделителей
+семантически невидимы. Контрольные octets и malformed quoted-pairs остаются
+невалидными. Повторные или синтаксически некорректные значения не проецируются.
+Независимый STARTTLS acceptance подтвердил quoted id-left, IPv6 domain literal,
+obsolete CFWS и quoted-word формы в обоих профилях; UTF-8 identifiers и
 RFC 2047 description проверены unit-тестами. Прочие protocol fields и RFC
 пробелы остаются непокрытыми.
 Единственный корректный `Content-MD5` выводится в scalar/message body-MD5 slot

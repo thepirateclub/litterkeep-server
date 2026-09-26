@@ -61,7 +61,10 @@ def main() -> None:
         b"invalid-location-octets\r\n--meta-boundary\r\n"
         b"Content-Type: application/octet-stream\r\n"
         b"Content-ID: <image (left) . logo @ example (right) . test>\r\n\r\n"
-        b"legacy-id-octets\r\n--meta-boundary--\r\n"
+        b"legacy-id-octets\r\n--meta-boundary\r\n"
+        b"Content-Type: application/octet-stream\r\n"
+        b'Content-ID: <"image.logo" . archive@example.test>\r\n\r\n'
+        b"quoted-word-octets\r\n--meta-boundary--\r\n"
     )
     with imaplib.IMAP4(options.host, options.port, timeout=10) as client:
         client.starttls(ssl_context=context)
@@ -97,6 +100,8 @@ def main() -> None:
     for profile in (basic, extended):
         if b'"<image.logo@example.test>"' not in profile:
             raise AssertionError(f"obsolete Content-ID CFWS was not normalized: {profile!r}")
+        if b'"<\\"image.logo\\".archive@example.test>"' not in profile:
+            raise AssertionError(f"obsolete quoted Content-ID word was lost: {profile!r}")
     if b'"../files/bad%ZZ.txt"' in extended:
         raise AssertionError(f"invalid Content-Location was projected: {extended!r}")
     for required in (b'"<\\"attachment@one\\"@[IPv6:2001:db8::1]>" "attached file"',):

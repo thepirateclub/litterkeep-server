@@ -5590,6 +5590,20 @@ ManageSieve до заявленного набора современных фо
 - G17/G14 остаются RUNNING: остальные пробелы APPEND, IMAP4rev2 и другие
   протоколы не закрыты.
 
+### 2026-09-26: G17 RFC 5322 obsolete Content-ID quoted-word checkpoint
+
+- Разбор `Content-ID` вынесен в отдельную предметную область. Obsolete
+  `local-part = word *("." word)` теперь принимает atom и quoted-string
+  segments, не считая точки внутри кавычек разделителями; CFWS нормализуется
+  только на границах words. Управляющие octets и некорректные quoted-pairs
+  отвергаются.
+- Unit cases проверяют quoted words с точками и по обе стороны от atom.
+  Независимый STARTTLS acceptance проверяет их wire-проекции в `BODY` и
+  `BODYSTRUCTURE`. Реализация остаётся ограниченной корректными printable
+  формами, не заявляет obsolete control-character compatibility.
+- Обновлены RFC coverage и acceptance T86. Остальная MIME, IMAP4rev2 и
+  межпротокольная совместимость продолжают оставаться открытыми.
+
 ### 2026-09-26: G17 RFC 5322 obsolete Content-ID CFWS checkpoint
 
 - MIME `Content-ID` теперь принимает RFC 5322 `obs-id-left`/`obs-id-right`

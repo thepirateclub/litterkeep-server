@@ -70,18 +70,6 @@ fn parses_content_id_and_rfc2047_description() {
 
 #[test]
 fn parses_quoted_domain_literal_and_utf8_content_ids() {
-    assert_eq!(
-        super::separator_at("\"image@logo\"@[IPv6:2001:db8::1]"),
-        Some(12)
-    );
-    assert_eq!(
-        super::normalize_id_left("\"image@logo\"").as_deref(),
-        Some("\"image@logo\"")
-    );
-    assert_eq!(
-        super::normalize_id_right("[IPv6:2001:db8::1]").as_deref(),
-        Some("[IPv6:2001:db8::1]")
-    );
     for (raw, expected) in [
         (
             b"Content-ID: <\"image@logo\"@[IPv6:2001:db8::1]>\r\n\r\n".as_slice(),
@@ -111,6 +99,14 @@ fn normalizes_obsolete_cfws_in_content_id_sides() {
         (
             b"Content-ID: <image @ example.test>\r\n\r\n".as_slice(),
             "<image@example.test>",
+        ),
+        (
+            b"Content-ID: <\"image.logo\" . archive@example.test>\r\n\r\n".as_slice(),
+            "<\"image.logo\".archive@example.test>",
+        ),
+        (
+            b"Content-ID: <archive . \"image.logo\"@example.test>\r\n\r\n".as_slice(),
+            "<archive.\"image.logo\"@example.test>",
         ),
     ] {
         assert_eq!(metadata(header).content_id.as_deref(), Some(expected));
