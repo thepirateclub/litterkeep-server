@@ -34,6 +34,7 @@ pub mod list;
 mod list_mailbox_tests;
 #[path = "imap/list_reference.rs"]
 mod list_reference;
+pub mod mailbox_utf8;
 pub mod modified_utf7;
 mod parser;
 pub mod search;

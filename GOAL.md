@@ -6090,3 +6090,15 @@ ManageSieve до заявленного набора современных фо
   profile. CAPABILITY не изменена; сеточной реализации или PASS нет.
 - Проверено `git diff --check`; это аудит документации, не основание менять
   тестовые счётчики или статус G17.
+
+### 2026-09-26: G17 UTF-8 mailbox validation foundation
+
+- Добавлен типизированный validator mailbox name для точных исключений RFC
+  9755: C0, DEL, C1, U+2028 и U+2029; начальный BOM отклоняется по RFC 5198.
+  Три unit-теста подтверждают отказ и сохранение разрешённой исходной строки.
+- Validator не подключён к IMAP wire/session, не выполняет NFC normalization
+  и не проверяет Unicode assigned-version; `UTF8=ACCEPT` остаётся скрытым,
+  acceptance T108 имеет PARTIAL, runtime acceptance не заявляется.
+- Windows: 584 library + 1 binary tests, doc-tests, fmt и strict Clippy прошли.
+  Linux Docker Rust 1.97 release build, strict Clippy, 635 library + 1 binary
+  tests и doc-tests прошли. Временный image удалён; matching containers не было.
