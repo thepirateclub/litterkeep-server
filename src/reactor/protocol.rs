@@ -80,9 +80,7 @@ pub(super) fn process_input(
             continue;
         }
         match session.kind {
-            Kind::Smtp => super::smtp_protocol::smtp_line(
-                session, line, slot, generation, worker, owners, request_id,
-            )?,
+            Kind::Smtp => smtp_line(session, line, slot, generation, worker, owners, request_id)?,
             Kind::Imap => match session.imap_search_literal_value.take() {
                 Some(values) => super::imap_protocol::line(
                     session,
@@ -127,6 +125,32 @@ pub(super) fn process_input(
         }
     }
     Ok(())
+}
+
+/// Обрабатывает SMTP AUTH continuation до общей protocol dispatch.
+pub(super) fn smtp_line(
+    session: &mut Session,
+    line: Vec<u8>,
+    slot: usize,
+    generation: u64,
+    worker: &mut WakingStorageWorker,
+    owners: &mut HashMap<u64, (usize, u64, Pending)>,
+    request_id: &mut u64,
+) -> io::Result<()> {
+    if session.smtp_auth == SmtpAuthState::AwaitingPlainResponse
+        && super::smtp_auth_continuation::interrupts_exchange(&line)
+    {
+        session.smtp_auth = SmtpAuthState::Command;
+        if super::smtp_auth_continuation::is_nested_auth(&line) {
+            return session.push(b"503 5.5.1 AUTH exchange already in progress\r\n");
+        }
+    }
+    if session.smtp_auth == SmtpAuthState::AwaitingPlainResponse {
+        return super::smtp_protocol::auth_plain_response(
+            session, line, slot, generation, worker, owners, request_id,
+        );
+    }
+    super::smtp_protocol::smtp_line(session, line, slot, generation, worker, owners, request_id)
 }
 
 /// Передаёт bounded request единственному владельцу Store.

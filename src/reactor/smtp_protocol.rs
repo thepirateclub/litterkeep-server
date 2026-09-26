@@ -27,9 +27,6 @@ pub(super) fn smtp_line(
         }
         return session.push(b"500 5.5.2 command line too long\r\n");
     }
-    if session.smtp_auth == SmtpAuthState::AwaitingPlainResponse {
-        return auth_plain_response(session, line, slot, generation, worker, owners, request_id);
-    }
     let command = match smtp::parse(std::str::from_utf8(&line).unwrap_or("")) {
         Ok(command) => command,
         Err(smtp::ParseError::Syntax) => return session.push(b"501 5.5.2 syntax error\r\n"),
@@ -127,7 +124,7 @@ fn authenticate(
 }
 
 /// Принимает единственную base64 response либо стандартную отмену SASL `*`.
-fn auth_plain_response(
+pub(super) fn auth_plain_response(
     session: &mut Session,
     line: Vec<u8>,
     slot: usize,

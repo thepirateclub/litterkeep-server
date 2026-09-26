@@ -53,6 +53,18 @@ with smtplib.SMTP(OPTIONS.host, OPTIONS.port, timeout=10) as client:
         raise AssertionError(f"expected empty 334 challenge, received {(code, challenge)!r}")
     if challenge:
         raise AssertionError(f"expected empty 334 challenge, received {(code, challenge)!r}")
+    code, response = client.noop()
+    if code != 250:
+        raise AssertionError(f"SMTP command did not abort AUTH exchange: {(code, response)!r}")
+    code, challenge = client.docmd("AUTH", "PLAIN")
+    if code != 334:
+        raise AssertionError(f"expected retry challenge, received {(code, challenge)!r}")
+    code, response = client.docmd("AUTH", "PLAIN")
+    if code != 503:
+        raise AssertionError(f"nested AUTH must be rejected: {(code, response)!r}")
+    code, response = client.noop()
+    if code != 250:
+        raise AssertionError(f"session did not recover after nested AUTH: {(code, response)!r}")
     client.send(b"A" * 511 + b"\r\n")
     code, response = client.getreply()
     if code != 500:
@@ -75,11 +87,11 @@ with smtplib.SMTP(OPTIONS.host, OPTIONS.port, timeout=10) as client:
     code, response = client.noop()
     if code != 250:
         raise AssertionError(f"session did not recover after invalid response: {(code, response)!r}")
-    code, response = client.auth(
-        "PLAIN",
-        lambda _challenge: plain_payload(password),
-        initial_response_ok=False,
-    )
+    code, challenge = client.docmd("AUTH", "PLAIN")
+    if code != 334:
+        raise AssertionError(f"expected continuation challenge, received {(code, challenge)!r}")
+    continuation = base64.b64encode(plain_payload(password).encode("ascii")).decode("ascii")
+    code, response = client.docmd(continuation)
     if code != 235:
         raise AssertionError(f"continuation authentication failed: {(code, response)!r}")
     code, response = client.docmd("AUTH", f"PLAIN {initial}")

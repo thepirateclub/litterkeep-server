@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G15 RFC 4954 AUTH command interruption, PASS
+
+- SMTP AUTH PLAIN continuation distinguishes SASL payloads from SMTP command
+  interruption at the shared protocol dispatch boundary. `NOOP` after `334` is
+  processed normally; nested `AUTH` receives 503 and does not start another
+  challenge. Explicit `*` cancel and invalid Base64 retain their prior replies.
+- PASS: Windows Rust 1.97.1 fmt, 544 library + 1 binary tests and strict
+  Clippy. Linux Docker Rust 1.97 strict Clippy, 595 library + 1 binary tests
+  and doc-tests. Independent Python STARTTLS wire test confirmed `NOOP` 250,
+  nested AUTH 503, command recovery, 513-octet response 500, cancellation,
+  malformed response and subsequent successful continuation authentication.
+  Temporary runtime/test containers and both unique image tags removed;
+  generated PKI and randomized accounts remain in `./data/g15-auth-interrupt`.
+  Litterkeep app interoperability was not tested; G15 remains active.
+
 ### 2026-09-26: G15 RFC 4954 continuation line limit, PASS
 
 - SMTP SASL PLAIN continuation now shares the 512-octet RFC 5321 command-line
