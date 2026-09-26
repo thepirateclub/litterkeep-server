@@ -6177,6 +6177,24 @@ ManageSieve до заявленного набора современных фо
   binary test, fmt и strict Clippy; Linux Docker Rust 1.97 дал release build,
   strict Clippy, 648 library + 1 binary tests и doc-tests. Временный image
   удалён, matching containers отсутствовали.
+
+### 2026-09-26: G17 RFC 9755 independent APPEND wire acceptance
+
+- Добавлен `tests/blackbox/imap_utf8_accept_append.py`, независимый Python
+  `imaplib` STARTTLS клиент. На живом Rust 1.97 Linux runtime он подтвердил:
+  UTF-8 header APPEND до ENABLE получает NO; SELECT в отдельной сессии видит
+  пустой INBOX; ENABLE в AUTH state возвращает `* ENABLED UTF8=ACCEPT`; затем
+  APPEND получает APPENDUID, а FETCH RFC822 возвращает исходные 55 octets,
+  включая NUL в body. Пароль Bob скрипт прочитал из локального
+  `test-accounts.tsv`, не печатая его. Для актуальной RFC 9755 framing тест
+  намеренно не включает legacy imaplib `_mode_utf8()`, который добавляет старый
+  APPEND `UTF8` data item из RFC 6855.
+- T112 теперь PASS только для этого проверенного APPEND transition, не для
+  полного RFC 9755. CAPABILITY остаётся скрытым; проверка generic клиента не
+  является проверкой Android/Litterkeep клиента. Данные сохранены в
+  `./data/g19-rfc9755-append-wire`. Одноразовый runtime container и image
+  остановлены/удалены, отсутствие проверено; ранее существовавшие контейнеры
+  не изменялись. Скрипт `--help` проверен, wire acceptance прошёл.
 - При финальной перепроверке выяснилось, что реализация этого чекпойнта уже
   была в HEAD `d75fc71`; краткий статус показал лишь отдельное незакоммиченное
   разбиение `Session`. TLS lifecycle методы перенесены в
