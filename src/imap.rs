@@ -57,6 +57,7 @@ pub mod status;
 mod store_tests;
 mod token_values;
 pub mod tokenizer;
+mod unicode_17;
 pub use authenticate::{AuthenticationMechanism, InitialResponse};
 pub use fetch::{BodySection, FetchAttribute, Partial};
 pub use idle::{IdleContinuation, parse_idle_continuation};

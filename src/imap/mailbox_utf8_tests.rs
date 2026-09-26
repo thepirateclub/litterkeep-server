@@ -33,3 +33,24 @@ fn rejects_leading_bom_but_keeps_interior_scalar() {
     );
     assert_eq!(validate("fol\u{feff}der"), Ok(()));
 }
+
+/// Не пропускает code points, отсутствующие в закреплённом Unicode 17.0.0.
+#[test]
+fn rejects_unassigned_code_points_across_planes() {
+    for character in ['\u{0378}', '\u{1fffe}', '\u{10ffff}'] {
+        assert_eq!(
+            validate(&format!("folder{character}")),
+            Err(MailboxNameError::UnassignedCodePoint),
+            "scalar U+{:04X}",
+            character as u32
+        );
+    }
+}
+
+/// Оставляет допустимыми старые, новые и частные назначенные scalar values.
+#[test]
+fn accepts_assigned_unicode_including_private_use() {
+    for character in ['\u{2ebf0}', '\u{1f600}', '\u{e000}', '\u{10fffd}'] {
+        assert_eq!(validate(&format!("folder{character}")), Ok(()));
+    }
+}

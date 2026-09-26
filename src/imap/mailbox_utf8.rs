@@ -7,21 +7,32 @@ pub enum MailboxNameError {
     ControlCharacter,
     /// Имя начинается с запрещённого Net-Unicode BOM.
     LeadingByteOrderMark,
+    /// Имя содержит scalar, не назначенный закреплённой версией Unicode.
+    UnassignedCodePoint,
 }
 
-/// Проверяет дополнительные запреты RFC 9755 поверх уже декодированного UTF-8.
+/// Проверяет RFC 9755 и обязательное ограничение assigned code points RFC 5198.
 ///
 /// Функция сохраняет исходную последовательность и не нормализует её: RFC 5198
 /// рекомендует NFC для передаваемых строк, но принимающая сторона должна быть
-/// готова увидеть ненормализованный ввод. Проверка Unicode assigned-version
-/// также пока отсутствует, поэтому это не полный Net-Unicode validator.
+/// готова увидеть ненормализованный ввод. UCD закреплён как Unicode 17.0.0 и
+/// проверяется относительно версии Unicode встроенной в текущий Rust toolchain.
 pub fn validate(value: &str) -> Result<(), MailboxNameError> {
     if value.starts_with('\u{feff}') {
         return Err(MailboxNameError::LeadingByteOrderMark);
     }
-    match value.chars().any(is_forbidden_control) {
-        true => Err(MailboxNameError::ControlCharacter),
-        false => Ok(()),
+    match value
+        .chars()
+        .find(|character| is_forbidden_control(*character))
+    {
+        Some(_) => Err(MailboxNameError::ControlCharacter),
+        None => match value
+            .chars()
+            .find(|character| !super::unicode_17::is_assigned(*character))
+        {
+            Some(_) => Err(MailboxNameError::UnassignedCodePoint),
+            None => Ok(()),
+        },
     }
 }
 

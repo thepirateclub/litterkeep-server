@@ -121,6 +121,7 @@ def main() -> None:
     require_bad_create(client, b'"\xc3("', "malformed UTF-8 quoted mailbox")
     require_bad_create(client, b'"\xc2\x85"', "forbidden C1 control in mailbox")
     require_bad_create(client, b'"\x01"', "forbidden C0 control in mailbox")
+    require_bad_create(client, '"\u0378"'.encode("utf-8"), "unassigned Unicode 17 mailbox scalar")
     require_bad_create(client, "旅行".encode("utf-8"), "UTF-8 mailbox atom")
     status, created = client.create("旅行")
     if status != "OK":

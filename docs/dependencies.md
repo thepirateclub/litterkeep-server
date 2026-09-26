@@ -13,6 +13,11 @@ reactor и lifecycle orchestration реализованы в этом репоз
 `examples/make_test_pki.rs` для однократного выпуска test CA и не попадает в
 обычный runtime server binary.
 
+IMAP mailbox validation использует собственные generated ranges Unicode
+17.0.0, а не crate. Официальный источник, версия toolchain, SHA-256 и лицензия
+зафиксированы в [`unicode-data.md`](unicode-data.md); compile-time assertion
+сверяет таблицу с `char::UNICODE_VERSION`.
+
 Проверяемый граф зависимостей строится из закреплённого `Cargo.lock`:
 
 ```powershell

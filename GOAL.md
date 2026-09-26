@@ -6313,3 +6313,31 @@ ManageSieve до заявленного набора современных фо
   `src/imap/mailbox_utf8.rs` исправлен: validator подключён, но assigned-version
   и NFC handling по-прежнему отсутствуют. T108 и полный RFC9755 профиль остаются
   PARTIAL; Litterkeep не проверялся.
+
+### 2026-09-26: G17 Unicode 17.0 assigned-code-point enforcement, scoped PASS
+
+- Добавлены встроенные таблицы unassigned scalar values из официального UCD
+  Unicode 17.0.0. Генератор закрепляет SHA-256 исходного UnicodeData.txt,
+  исчерпывающе сверяет все 1,114,112 code points и делит результат на Rust
+  shards не более 300 строк. Compile-time проверка сопоставляет UCD с
+  `char::UNICODE_VERSION` установленного Rust 1.97.1. Production crate не
+  добавлялись; источник, лицензия и процедура повторной генерации описаны в
+  `docs/unicode-data.md`.
+- Validator enabled-mode mailbox commands теперь отклоняет unassigned scalars.
+  Windows `cargo test --locked`: 592 библиотечных и 1 CLI тест прошли;
+  `cargo fmt --all -- --check` и `cargo clippy --all-targets --locked -- -D
+  warnings` прошли. Linux Docker Rust 1.97 release build, строгий Clippy и
+  652 библиотечных плюс 1 CLI тест прошли.
+- Независимый Python imaplib STARTTLS acceptance на Linux Docker runtime
+  прошёл полный сохранённый mailbox/SEARCH/APPEND сценарий. После ENABLE
+  CREATE имени с unassigned U+0378 получил tagged BAD, тот же клиент успешно
+  продолжил команды; COPY/MOVE RFC822 octets совпали. Данные сохранены в
+  `./data/g19-unicode17-wire`. Проверен независимый тестовый клиент, не
+  приложение Litterkeep.
+- Образа `litterkeep-unicode17-test:work`,
+  `litterkeep-unicode17-runtime:work` и контейнер
+  `litterkeep-unicode17-wire` остановлены/удалены после прогона; проверено их
+  отсутствие. Этапные данные сохранены, несвязанный `lower-layer-v1` остался
+  запущен и не затрагивался.
+  NFC output normalization остаётся нереализованным, UTF8=ACCEPT capability
+  остаётся скрытой, полный RFC 9755 профиль и G17 остаются PARTIAL/ACTIVE.
