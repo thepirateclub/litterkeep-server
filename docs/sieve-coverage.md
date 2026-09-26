@@ -82,9 +82,13 @@ deduplication ответов по адресу отправителя и иде�
 reverse-path и заголовки/связи ответа, определённые стандартом.
 В `Auto-Submitted` распознавание `no` обрезает только RFC WSP (SP/HTAB), чтобы
 Unicode NBSP не снимал защиту от loop-ов; malformed NBSP значения оставляют
-автоответ подавленным. Этот regression unit-only. Полный RFC 3834 разбор CFWS
-comments и optional parameter-list пока не реализован; некоторые валидные
-`no` с такими расширениями также консервативно подавляют ответ.
+автоответ подавленным. Keyword теперь разбирается в typed value с RFC 3834
+CFWS comments и RFC 2045 token/quoted-string optional parameters; один
+синтаксически валидный `no` допускает ответ, остальные keyword, malformed
+значения и повтор поля подавляют его. Проверки парсера unit-only, отдельного
+runtime acceptance для этих вариантов нет. Грамматика сверена с
+[RFC 3834 §5.1](https://www.rfc-editor.org/rfc/rfc3834.html#section-5.1) и
+[RFC 2045 §5.1](https://www.rfc-editor.org/rfc/rfc2045.html#section-5.1).
 
 Обычный Sieve redirect по-прежнему ссылается на blob входящего письма, тогда как
 `Store::enqueue_outbound_payload` создаёт отдельную transaction/blob для

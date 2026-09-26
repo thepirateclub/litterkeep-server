@@ -10,6 +10,8 @@ mod address;
 mod address_options;
 #[path = "sieve/ast.rs"]
 mod ast;
+#[path = "sieve/auto_submitted.rs"]
+mod auto_submitted;
 #[cfg(test)]
 #[path = "sieve/auto_submitted_tests.rs"]
 mod auto_submitted_tests;

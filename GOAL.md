@@ -6018,3 +6018,20 @@ ManageSieve до заявленного набора современных фо
   после gate, его отсутствие проверено; отдельный runtime контейнер не запускался.
   Stage path: `./data/g17-sieve-autosubmitted-wsp`. RFC 3834 comments и optional
   parameter-list parsing остаются частично поддержанными, G17 RUNNING.
+
+### 2026-09-26: G17 RFC 3834 Auto-Submitted CFWS and parameters
+
+- `Auto-Submitted` выделен в отдельный typed parser. Он удаляет RFC 5322 CFWS
+  comments вне quoted-string, разбирает RFC 2045 token/quoted-string параметры,
+  распознаёт `no`, `auto-generated`, `auto-replied` и extension keyword. Только
+  ровно одно синтаксически корректное поле со значением `no` разрешает vacation;
+  invalid значение и повторы подавляют ответ.
+- Unit-регрессии до исправления показали подавление валидного `no` с comments
+  и parameters, а также разрешение ответа при двух повторных `no`. После фикса
+  тесты проходят. Windows полный suite: 579 library + 1 binary, doc-tests,
+  fmt и strict Clippy; Linux Docker Rust 1.97 release build, strict Clippy и
+  suite: 630 library + 1 binary и doc-tests. Проверка parser unit-only,
+  отдельный vacation runtime acceptance не выполнялся. Acceptance T105.
+- Disposable test image удалён после gate, отсутствие проверено; runtime-контейнер
+  не запускался. Data stage `./data/g17-sieve-autosubmitted-wsp`.
+  G17 остаётся RUNNING.

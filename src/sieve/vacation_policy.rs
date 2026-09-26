@@ -35,15 +35,24 @@ pub(crate) fn may_respond(sender: &str, headers: &[(String, String)]) -> bool {
     if automated_sender(sender) {
         return false;
     }
-    !headers
+    if headers
         .iter()
-        .any(|(name, value)| match suppression_header(name) {
-            SuppressionHeader::List => true,
-            SuppressionHeader::AutoSubmitted => {
-                !crate::mime::wsp::trim(value).eq_ignore_ascii_case("no")
-            }
-            SuppressionHeader::Other => false,
-        })
+        .any(|(name, _)| matches!(suppression_header(name), SuppressionHeader::List))
+    {
+        return false;
+    }
+    let mut auto_submitted = headers
+        .iter()
+        .filter(|(name, _)| matches!(suppression_header(name), SuppressionHeader::AutoSubmitted))
+        .map(|(_, value)| value.as_str());
+    match (auto_submitted.next(), auto_submitted.next()) {
+        (None, None) => true,
+        (Some(value), None) => matches!(
+            super::auto_submitted::parse(value),
+            super::auto_submitted::Keyword::No
+        ),
+        _ => false,
+    }
 }
 
 /// Проверяет RFC 5230 §4.5 по реальному SMTP RCPT и адресным заголовкам письма.
