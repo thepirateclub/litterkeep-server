@@ -31,7 +31,12 @@ class CaptureServer(socketserver.ThreadingTCPServer):
         super().__init__(address, CaptureHandler)
         self.envelope_sender = ""
         self.recipient = ""
+        # История нужна acceptance, где сервер открывает отдельную транзакцию на каждый ответ.
+        self.envelope_senders: list[str] = []
+        self.recipients: list[str] = []
         self.payload = b""
+        # Последние bytes сохраняют совместимость, список хранит полный набор доставок.
+        self.payloads: list[bytes] = []
         self.ehlo_reply = ehlo_reply
         self.greeting_reply = greeting_reply
         self.mail_reply = mail_reply
@@ -52,13 +57,16 @@ class CaptureHandler(socketserver.StreamRequestHandler):
                     self.wfile.write(server.ehlo_reply)
                 case Command.MAIL:
                     server.envelope_sender = line.decode("ascii", "replace").strip()
+                    server.envelope_senders.append(server.envelope_sender)
                     self.wfile.write(server.mail_reply)
                 case Command.RECIPIENT:
                     server.recipient = line.decode("ascii", "replace").strip()
+                    server.recipients.append(server.recipient)
                     self.wfile.write(b"250 recipient accepted\r\n")
                 case Command.DATA:
                     self.wfile.write(b"354 send data\r\n")
                     server.payload = read_data(self.rfile)
+                    server.payloads.append(server.payload)
                     self.wfile.write(b"250 response accepted\r\n")
                 case Command.QUIT:
                     self.wfile.write(b"221 bye\r\n")

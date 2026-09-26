@@ -6047,3 +6047,21 @@ ManageSieve до заявленного набора современных фо
   пустой ENABLE response не являются реализацией extension. Runtime acceptance
   не запускался и PASS не выставлялся. Следующий IMAP этап должен реализовать
   состояние и wire семантику до объявления capability. G17 остаётся RUNNING.
+
+### 2026-09-26: G17 Auto-Submitted wire acceptance
+
+- `tests/blackbox/sieve_autosubmitted_wire.py` использует отдельную data stage
+  `./data/g17-sieve-autosubmitted-wire-final` и независимые ManageSieve TLS,
+  SMTP, IMAP и SMTP peer реализации. Восемь SMTP доставок прошли через активный
+  vacation script; IMAP прочитал все восемь исходников, peer принял ровно два
+  ответа на RFC 3834 `no` с корректными comments/parameters и сверил
+  `MAIL FROM:<>` и destinations. Automated, extension, malformed, duplicate и
+  NBSP значения подавлены. Acceptance T106.
+- Клиент принудительно передал `SMTPUTF8` для всех входных писем, хотя сервер
+  capability не рекламирует. Acceptance доказывает Sieve policy и queue runtime
+  behavior, но не объявленную SMTPUTF8 interoperability. Первая harness-попытка
+  ошибочно запускала queue-drain со вторым Store writer-ом и получила writer
+  lock; её stage `./data/g17-sieve-autosubmitted-wire` сохранена и не засчитана.
+  Финальный сценарий прошёл через штатный outbound scheduler. Disposable Linux
+  image и runtime container удаляются после gate; data/PKI stage сохраняется.
+  G17 остаётся RUNNING.

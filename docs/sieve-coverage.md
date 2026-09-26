@@ -86,9 +86,18 @@ Unicode NBSP не снимал защиту от loop-ов; malformed NBSP зн�
 CFWS comments и RFC 2045 token/quoted-string optional parameters; один
 синтаксически валидный `no` допускает ответ, остальные keyword, malformed
 значения и повтор поля подавляют его. Проверки парсера unit-only, отдельного
-runtime acceptance для этих вариантов нет. Грамматика сверена с
+runtime acceptance для этих вариантов первоначально не было. Грамматика сверена с
 [RFC 3834 §5.1](https://www.rfc-editor.org/rfc/rfc3834.html#section-5.1) и
 [RFC 2045 §5.1](https://www.rfc-editor.org/rfc/rfc2045.html#section-5.1).
+Отдельный Linux Docker acceptance `tests/blackbox/sieve_autosubmitted_wire.py`
+передал восемь независимых входных сообщений SMTP через активный ManageSieve
+script: два валидных `no` с CFWS/parameters породили ровно два ответа, а
+automated/extension keywords, malformed parameter, duplicate field и NBSP
+ответа не породили. Все восемь исходных писем прочитаны через IMAP; независимый
+SMTP peer проверил null reverse-path и обе envelope destinations. Независимый
+клиент принудительно передал `SMTPUTF8` для всех входных писем, хотя capability
+не рекламируется; это серверный wire acceptance, не conformance-проверка
+объявленного SMTPUTF8 или Litterkeep-клиента.
 
 Обычный Sieve redirect по-прежнему ссылается на blob входящего письма, тогда как
 `Store::enqueue_outbound_payload` создаёт отдельную transaction/blob для
