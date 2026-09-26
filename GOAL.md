@@ -6214,3 +6214,21 @@ ManageSieve до заявленного набора современных фо
   После переноса повторно прошли fmt, Windows 587 + 1 тест, strict Clippy и
   Linux Docker Rust 1.97 release build, strict Clippy, 640 + 1 тест и
   doc-tests. Временный image удалён, matching containers отсутствовали.
+
+### 2026-09-26: G17 RFC 9755 invalid UTF-8 mailbox wire rejection, PASS
+
+- Независимый TLS acceptance расширен отрицательными CREATE-командами в
+  включённом `UTF8=ACCEPT` session: malformed UTF-8 внутри quoted-string,
+  запрещённые RFC 9755 C1 и C0 scalars, а также UTF-8 atom. Каждый случай
+  получает tagged BAD, после чего тот же клиент успешно выполняет NOOP.
+- Linux Rust 1.97 image собран отдельным временным тегом. `init` создал свежие
+  данные в `./data/g19-rfc9755-invalid-quoted-wire`; полный независимый
+  STARTTLS сценарий прошёл, включая прежние positive CREATE/LIST/LSUB/STATUS/
+  SELECT и байтовую APPEND/FETCH проверку. Container остановлен и удалён,
+  image удалён, отсутствие обоих подтверждено; этапные данные сохранены.
+- Обзор `docs/imap-profile.md` исправлен: ENABLE уже включает локальный режим,
+  хотя capability остаётся скрытой до полного RFC 9755 профиля. Таблица теперь
+  отражает live-проверки malformed UTF-8, controls и UTF-8 atom. RFC 5198
+  assigned-version/NFC policy, оставшиеся команды/ответы и клиент Litterkeep
+  не проверялись; полный RFC профиль по-прежнему PARTIAL. Скрипт имеет 121
+  строку, `--help` и `git diff --check` прошли.

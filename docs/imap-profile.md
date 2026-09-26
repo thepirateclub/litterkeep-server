@@ -18,7 +18,7 @@ CAPABILITY не выдаёт за более широкое расширение
 | Authentication | AUTHENTICATE PLAIN | PASS | Continuation, cancel, atom/quoted astring, пустой SASL-IR marker, authzid policy, только TLS; прочие механизмы не рекламируются |
 | Mailbox discovery | LIST, LSUB, STATUS | PARTIAL | modified UTF-7, `*`/`%`, root discovery, empty selection `()`, slash-delimited relative reference prefix with canonical response names, SUBSCRIBED, RECURSIVEMATCH with CHILDINFO for SUBSCRIBED/SPECIAL-USE, RETURN (CHILDREN), RETURN (SUBSCRIBED), and RETURN STATUS (MESSAGES/UIDNEXT/UIDVALIDITY/UNSEEN/DELETED/SIZE/APPENDLIMIT) verified; missing names are selected only by SUBSCRIBED and retain `\\NonExistent`; multi-namespace/breakout naming is not implemented |
 | Namespace | NAMESPACE | PASS | Advertised and tested; personal namespace is `""` with `/` delimiter, unavailable classes are NIL |
-| Extension negotiation | ENABLE | PARTIAL | Atom and quoted-string token forms are distinguished; unsupported capability atoms are ignored; empty `ENABLED` and stable CAPABILITY verified; no enable-able extension is implemented yet |
+| Extension negotiation | ENABLE | PARTIAL | Atom and quoted-string token forms are distinguished; unsupported capability atoms are ignored; authenticated `ENABLE UTF8=ACCEPT` activates a connection-local mode and returns `ENABLED UTF8=ACCEPT`; extension remains hidden from CAPABILITY until the full profile gate passes |
 | Mailbox mutation | CREATE, DELETE, RENAME | PASS | Durable journal, subtree rename, retired folder IDs |
 | Subscription | SUBSCRIBE, UNSUBSCRIBE | PASS | Durable subscription независимо от существования папки |
 | Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS, PERMANENTFLAGS, включая `\\*` для создания пользовательских keywords, Recent |
@@ -131,12 +131,12 @@ does not close remaining APPEND grammar or the IMAP4rev2 profile.
 
 CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-USE`,
 `NAMESPACE`, `UNSELECT`, `ENABLE`, `ESEARCH` и `SEARCHRES`. ENABLE игнорирует
-неизвестные и пока не поддерживаемые расширения по RFC и возвращает пустой
-`ENABLED`, поскольку сервер пока не включает ни одной дополнительной
-возможности. Дополнительно `APPENDLIMIT=26214400` объявляет единый предельный
-размер сообщения в октетах; STATUS и LIST RETURN STATUS возвращают такое же
-значение для каждого mailbox. `IMAP4rev2` и
-`UTF8=ACCEPT` не активируются и не рекламируются.
+неизвестные и пока не поддерживаемые расширения по RFC. В authenticated state
+`ENABLE UTF8=ACCEPT` активирует режим на текущем соединении и возвращает
+`ENABLED UTF8=ACCEPT`; capability намеренно скрыта, пока не пройдёт весь
+профиль RFC 9755. `APPENDLIMIT=26214400` объявляет единый предельный размер
+сообщения в октетах; STATUS и LIST RETURN STATUS возвращают такое же значение
+для каждого mailbox. `IMAP4rev2` не заявляется.
 `AUTH=PLAIN SASL-IR` доступен только внутри TLS. До STARTTLS сервер выдаёт
 `LOGINDISABLED`; plaintext listener без TLS также не рекламирует парольный
 механизм и отвечает `PRIVACYREQUIRED` на LOGIN/AUTHENTICATE.
@@ -146,7 +146,7 @@ CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-U
 его не видит. Такое детерминированное правило находится в разрешённой RFC 3501
 неоднозначности для нескольких одновременно открытых соединений.
 
-Не заявлены IMAP4rev2, UTF8=ACCEPT, CONDSTORE, QRESYNC, COMPRESS,
+Не заявлены IMAP4rev2, CONDSTORE, QRESYNC, COMPRESS,
 SORT, THREAD и полный набор SEARCH keys. Их отсутствие не маскируется пустым
 успешным результатом.
 
@@ -161,11 +161,15 @@ characters, пока UTF8=ACCEPT не реализован и не соглас�
 SEARCH literal обрабатывается отдельно от legacy atom/quoted-string: UTF-8
 BODY/UID literals и пустой literal проверены независимым STARTTLS клиентом.
 High-bit characters внутри atom отвергаются tagged BAD, пока UTF8=ACCEPT не
-реализован; это проверено unit и независимым STARTTLS acceptance. Последовательные
+включён; это проверено unit и независимым STARTTLS acceptance. После ENABLE
+UTF-8 допустим только в quoted-string, а malformed UTF-8 и запрещённые C0/C1
+mailbox scalars должны получать tagged BAD; их независимая STARTTLS acceptance
+покрывает также восстановление сессии через NOOP. Последовательные
 synchronizing literals в одном SEARCH HEADER, включая два continuation, также
 проверены; хвостовая pipelined команда сохраняется. Unit и wire acceptance
-подтвердили tagged BAD и выполнение NOOP после ошибки. UTF8=ACCEPT и IMAP4rev2
-не реализованы и не заявляются.
+подтвердили tagged BAD и выполнение NOOP после ошибки. UTF8=ACCEPT уже
+переключается через ENABLE, но не заявляется через CAPABILITY до полного
+профиля; IMAP4rev2 не заявляется.
 Разделителем command grammar считается только RFC `SP`: HTAB не превращается
 в пробел между tag и verb, а CTL в atom отвергаются. HTAB остаётся допустимым
 в quoted-string, тогда как NUL/CR/LF там отклоняются. Эти границы покрыты
@@ -179,7 +183,7 @@ black-box проверил tagged BAD на malformed UTF-8 quoted LOGIN, untagge
 При восстановлении tag применяется именно грамматика `tag = 1*<ASTRING-CHAR
 except "+">`: закрывающая скобка допустима как `resp-special`, тогда как plus
 запрещён. Это не совпадает с грамматикой atom и проверяется отдельными cases.
-Само исправление не реализует UTF8=ACCEPT и не меняет рекламируемый профиль.
+Само исправление не меняет рекламируемый профиль.
 
 ## EAI UTF-8 extension: RFC 9755 audit
 
@@ -192,7 +196,7 @@ except "+">`: закрывающая скобка допустима как `res
 | Обязательство RFC 9755 | Текущее состояние | Что требуется для PASS |
 |---|---|---|
 | Capability и ENABLE | `ENABLE UTF8=ACCEPT` после аутентификации активирует session mode и возвращает `ENABLED UTF8=ACCEPT`; APPEND и mailbox subset прошли independent STARTTLS wire checks. CAPABILITY extension скрыт до завершения Unicode profile и remaining response paths | Завершить RFC 5198 normalization/assigned-version policy, wire-проверить remaining paths и только после этого рекламировать `UTF8=ACCEPT`; ENABLE остаётся additive на соединении |
-| UTF-8 quoted-string | Mode-aware lexer включается session ENABLE; independent wire тест подтверждает BAD для UTF-8 CREATE до ENABLE и успешные mailbox commands после него. Malformed UTF-8/control scalars пока проверены parser/unit tests, не wire | Разрешать валидные UTF-8 только в quoted-string после ENABLE; atom остаётся ASCII; wire-проверить malformed UTF-8 и запрещённые controls |
+| UTF-8 quoted-string | Mode-aware lexer включается session ENABLE; independent wire тест подтверждает BAD для UTF-8 CREATE до ENABLE и успешные mailbox commands после него. Malformed UTF-8, C0/C1 controls и UTF-8 atom получают BAD, за которым проходит NOOP | Разрешать валидные UTF-8 только в quoted-string после ENABLE; atom остаётся ASCII; расширить wire проверки на полный набор RFC 9755 |
 | Имена mailbox | SELECT/EXAMINE, CREATE/DELETE/RENAME, SUBSCRIBE/UNSUBSCRIBE, APPEND, STATUS, COPY/MOVE и LIST/LSUB используют явный mode-aware parser; independent client подтвердил CREATE/SUBSCRIBE/SELECT и legacy отказ. NFC/unassigned validation не реализованы | RFC 9755 SHOULD принимать UTF-8 mailbox names; при поддержке RFC 3501 international mailbox naming это MUST. Проверять полный Net-Unicode профиль и преобразовывать во внутреннее имя; NFC SHOULD, Unicode assigned-version/unassigned points должны соответствовать RFC 5198 |
 | Ответы с именами mailbox | LIST/LSUB/STATUS выбирают modified UTF-7 в Legacy и UTF-8 quoted output после ENABLE; independent wire тест проверил UTF-8 LIST/LSUB/STATUS. NAMESPACE пока выдаёт только пустой personal prefix | Сохранять legacy представление для не включённого клиента; проверить namespace/shared prefixes, когда такие имена появятся |
 | APPEND internationalized headers | Independent Python `imaplib` STARTTLS acceptance подтверждает NO и пустой INBOX до ENABLE, затем APPENDUID и точное RFC822 FETCH совпадение байтов после ENABLE; четыре unit tests покрывают UTF-8 header, high-bit body, empty headers и отсутствие разделителя | Сохранить acceptance при полном profile gate; отдельно проверить malformed header policy, mailbox mode и CAPABILITY вместе с остальными RFC 9755 обязательствами |
@@ -202,7 +206,8 @@ except "+">`: закрывающая скобка допустима как `res
 | UTF8=ONLY | Не поддерживается и не рекламируется | Отдельный профиль: подразумевает UTF8=ACCEPT, клиенты всё равно отправляют `ENABLE UTF8=ACCEPT`; требует reject legacy modified UTF-7 и `NO [CANNOT]` для UTF-8-dependent команд до ENABLE |
 
 До прохождения этих gates `UTF8=ACCEPT` и `UTF8=ONLY` не должны появляться в
-CAPABILITY, а успешный пустой ENABLE не считается их активацией. `UTF8=ONLY`
+CAPABILITY. ENABLE уже включает UTF8=ACCEPT на соединении, но само по себе это
+не означает завершения acceptance профиля. `UTF8=ONLY`
 не является синонимом `UTF8=ACCEPT` и требует отдельного строгого режима. См.
 [RFC 5198](https://www.rfc-editor.org/rfc/rfc5198.html) для Net-Unicode
 нормализации, BOM и стабильности Unicode-таблиц. RFC 9755 Sections 3-7

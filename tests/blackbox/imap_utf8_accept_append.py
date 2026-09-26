@@ -36,6 +36,15 @@ def authenticated_client(options: argparse.Namespace, password: str) -> imaplib.
     return client
 
 
+def require_bad_create(client: imaplib.IMAP4, mailbox: bytes, reason: str) -> None:
+    """Проверяет tagged BAD для сырого имени и восстановление сессии."""
+    tag = client._command("CREATE", mailbox)
+    status, response = client._get_tagged_response(tag)
+    if status != "BAD":
+        raise AssertionError(f"{reason}: expected BAD, received {status!r} {response!r}")
+    client.noop()
+
+
 def append_utf8_header(
     client: imaplib.IMAP4,
     mailbox: str,
@@ -79,6 +88,10 @@ def main() -> None:
     ):
         raise AssertionError(f"ENABLE did not report UTF8=ACCEPT: {status!r} {enabled!r}")
     client._encoding = "utf-8"
+    require_bad_create(client, b'"\xc3("', "malformed UTF-8 quoted mailbox")
+    require_bad_create(client, b'"\xc2\x85"', "forbidden C1 control in mailbox")
+    require_bad_create(client, b'"\x01"', "forbidden C0 control in mailbox")
+    require_bad_create(client, "旅行".encode("utf-8"), "UTF-8 mailbox atom")
     status, created = client.create("旅行")
     if status != "OK":
         raise AssertionError(f"UTF-8 CREATE failed: {created!r}")
