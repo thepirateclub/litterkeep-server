@@ -180,3 +180,27 @@ black-box проверил tagged BAD на malformed UTF-8 quoted LOGIN, untagge
 except "+">`: закрывающая скобка допустима как `resp-special`, тогда как plus
 запрещён. Это не совпадает с грамматикой atom и проверяется отдельными cases.
 Само исправление не реализует UTF8=ACCEPT и не меняет рекламируемый профиль.
+
+## EAI UTF-8 extension: RFC 9755 audit
+
+Актуальный стандарт для UTF-8 режима IMAP4rev1 -
+[RFC 9755](https://www.rfc-editor.org/rfc/rfc9755.html), опубликованный в 2025
+году и заменивший RFC 6855. Он не расширяет IMAP4rev2: RFC 9051 уже включает
+этот функциональный набор. Сервер остаётся IMAP4rev1 и `UTF8=ACCEPT` не
+рекламирует; распознавание capability атома парсером не означает поддержки.
+
+| Обязательство RFC 9755 | Текущее состояние | Что требуется для PASS |
+|---|---|---|
+| Capability и ENABLE | Не поддерживается: CAPABILITY не содержит `UTF8=ACCEPT`, ENABLE возвращает пустой список | Рекламировать только после завершения остальных пунктов; ENABLE доступен только в authenticated state и отражает реально активированный режим |
+| UTF-8 quoted-string | Не поддерживается: legacy tokenizer отвергает high-bit octets в quoted-string и atom | Разрешать валидные UTF-8 только в quoted-string после ENABLE; atom остаётся ASCII, malformed UTF-8 и запрещённые controls дают BAD |
+| Имена mailbox | Поддерживается только modified UTF-7 wire representation | В UTF-8 режиме принимать Net-Unicode mailbox names, проверять запрещённые controls/U+2028/U+2029 и преобразовывать в единое внутреннее имя; legacy режим не менять |
+| Ответы с именами mailbox | LIST, LSUB, NAMESPACE используют legacy modified UTF-7 | Включённому клиенту выдавать UTF-8 имена; не включённому клиенту сохранять legacy представление |
+| APPEND internationalized headers | RFC 9755 режим отсутствует; APPEND сохраняет исходные message octets | После реализации расширения разрешать UTF-8 headers при ENABLE и отвергать такие APPEND до ENABLE; проверять exact bytes |
+| SEARCH charset | Extension режим отсутствует | После ENABLE SHOULD отвергать SEARCH с явным CHARSET согласно RFC 9755; проверять charset case и parser state |
+| LOGIN и SASL | LOGIN использует legacy IMAP string grammar; AUTHENTICATE PLAIN отдельный typed путь | Не расширять LOGIN для UTF-8 credentials; UTF-8 identity передавать через AUTHENTICATE и отдельно проверять identity policy |
+| message/global | Уже поддерживается отдельным MIME source/section profile | Сохранить существующую вложенную BODYSTRUCTURE/section семантику при выборе IMAP4rev1 UTF-8 режима |
+
+До прохождения этих gates `UTF8=ACCEPT` не должно появляться в CAPABILITY и
+успешный пустой ENABLE не считается его активацией. RFC 9755 Sections 3-7
+являются нормативным источником для будущего этапа; отдельный runtime acceptance
+пока не выполнялся.

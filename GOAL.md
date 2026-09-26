@@ -6035,3 +6035,15 @@ ManageSieve до заявленного набора современных фо
 - Disposable test image удалён после gate, отсутствие проверено; runtime-контейнер
   не запускался. Data stage `./data/g17-sieve-autosubmitted-wsp`.
   G17 остаётся RUNNING.
+
+### 2026-09-26: G17 current IMAP UTF-8 standard gap audit
+
+- Перепроверена граница IMAP internationalization по актуальному RFC 9755
+  (2025), который заменил RFC 6855 и расширяет IMAP4rev1, но не IMAP4rev2.
+  `imap-profile.md` теперь перечисляет фактическое состояние и отдельные
+  acceptance gates для capability/ENABLE state, UTF-8 quoted strings, mailbox
+  names и responses, APPEND, SEARCH charset, authentication и message/global.
+- CAPABILITY не рекламирует `UTF8=ACCEPT`; наличие capability в parser enum и
+  пустой ENABLE response не являются реализацией extension. Runtime acceptance
+  не запускался и PASS не выставлялся. Следующий IMAP этап должен реализовать
+  состояние и wire семантику до объявления capability. G17 остаётся RUNNING.
