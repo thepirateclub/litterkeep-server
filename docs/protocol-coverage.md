@@ -182,8 +182,10 @@ IMAP quoted-pair принимает только escaped `"` и `\\` по RFC 35
 отклоняет high-bit UTF-8 без negotiation. Отдельный synchronizing SEARCH-literal
 path сохраняет проверенный UTF-8 как значение токена. Независимый STARTTLS
 acceptance проверил tagged BAD для UTF-8 quoted LOGIN, восстановление сессии и
-UTF-8 BODY literal; это не реализует UTF8=ACCEPT. Актуальный audit RFC 9755
-и проверяемых недостающих обязательств приведён в `imap-profile.md`.
+UTF-8 BODY literal; это не реализует UTF8=ACCEPT. Отдельный mode-aware lexer
+helper теперь unit-проверяет high-bit quoted-string без расширения atom, но
+reactor не включает этот режим и capability остаётся скрытой. Актуальный audit
+RFC 9755 и проверяемых недостающих обязательств приведён в `imap-profile.md`.
 
 RFC 7889 APPENDLIMIT объявляет единый предел `26214400` octets, равный
 действующему `MAX_MESSAGE_SIZE`. STATUS и LIST RETURN STATUS возвращают

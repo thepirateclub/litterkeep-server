@@ -6065,3 +6065,17 @@ ManageSieve до заявленного набора современных фо
   Финальный сценарий прошёл через штатный outbound scheduler. Disposable Linux
   image и runtime container удаляются после gate; data/PKI stage сохраняется.
   G17 остаётся RUNNING.
+
+### 2026-09-26: G17 RFC 9755 quoted-string lexer foundation
+
+- Добавлен типизированный `StringMode`: legacy режим остаётся default и
+  отвергает high-bit quoted-string; отдельный RFC 9755 режим допускает валидные
+  UTF-8 scalars только внутри quoted-string, не расширяя ASCII atom. Unicode
+  controls отвергаются. Helper пока не подключён к session ENABLE state,
+  capability не рекламируется, runtime acceptance отсутствует; это PARTIAL,
+  не реализация `UTF8=ACCEPT`. Acceptance T107.
+- Windows `cargo test --locked`: 581 library + 1 binary, doc-tests, fmt и strict
+  Clippy прошли. Linux Docker Rust 1.97 release build, strict Clippy и полный
+  test target: 632 library + 1 binary и doc-tests. Disposable test image удалён
+  после gate; runtime container не запускался. Следующие обязательные связки: ENABLE/session, mailbox
+  input/output, APPEND header policy и SEARCH charset. G17 остаётся RUNNING.

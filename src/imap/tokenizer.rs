@@ -17,9 +17,30 @@ pub enum Token {
     ListEnd,
 }
 
+/// Согласованный режим задаёт только расширение quoted-string из RFC 9755.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StringMode {
+    /// Базовая IMAP4rev1 грамматика без high-bit символов в quoted-string.
+    Legacy,
+    /// Расширенная quoted-string грамматика после ENABLE UTF8=ACCEPT.
+    Utf8Accept,
+}
+
+impl StringMode {
+    /// Определяет, разрешены ли валидные UTF-8 scalars внутри quoted-string.
+    fn accepts_utf8(self) -> bool {
+        matches!(self, Self::Utf8Accept)
+    }
+}
+
 /// Разбирает одну CRLF-строку за `O(n)` времени с ограничением числа токенов.
 pub fn tokenize(line: &str) -> Result<Vec<Token>, &'static str> {
-    tokenize_internal(line, Vec::new().into())
+    tokenize_internal(line, Vec::new().into(), StringMode::Legacy)
+}
+
+/// Разбирает команду в указанном протокольном режиме без ослабления atom.
+pub fn tokenize_with_mode(line: &str, mode: StringMode) -> Result<Vec<Token>, &'static str> {
+    tokenize_internal(line, Vec::new().into(), mode)
 }
 
 /// Разбирает команду, где NUL-placeholders обозначают принятые SEARCH literals.
@@ -28,13 +49,14 @@ pub(super) fn tokenize_search_literals(
     line: &str,
     literals: Vec<String>,
 ) -> Result<Vec<Token>, &'static str> {
-    tokenize_internal(line, literals.into())
+    tokenize_internal(line, literals.into(), StringMode::Legacy)
 }
 
 /// Объединяет wire-грамматику с упорядоченными, отдельно проверенными literals.
 fn tokenize_internal(
     line: &str,
     mut literals: std::collections::VecDeque<String>,
+    mode: StringMode,
 ) -> Result<Vec<Token>, &'static str> {
     const MAX_TOKENS: usize = 64;
     let mut chars = line.trim_end_matches(['\r', '\n']).chars().peekable();
@@ -49,7 +71,7 @@ fn tokenize_internal(
             '(' => push(&mut tokens, Token::ListStart, MAX_TOKENS)?,
             ')' => push(&mut tokens, Token::ListEnd, MAX_TOKENS)?,
             '"' => {
-                let value = quoted(&mut chars)?;
+                let value = quoted(&mut chars, mode)?;
                 push(&mut tokens, Token::Quoted(value), MAX_TOKENS)?;
             }
             first => {
@@ -103,7 +125,7 @@ where
     Ok(value)
 }
 
-fn quoted<I>(chars: &mut I) -> Result<String, &'static str>
+fn quoted<I>(chars: &mut I, mode: StringMode) -> Result<String, &'static str>
 where
     I: Iterator<Item = char>,
 {
@@ -123,6 +145,9 @@ where
                 return Err("control character in IMAP quoted string");
             }
             (false, ordinary) if ordinary.is_ascii() && !ordinary.is_ascii_control() => {
+                value.push(ordinary)
+            }
+            (false, ordinary) if mode.accepts_utf8() && !ordinary.is_control() => {
                 value.push(ordinary)
             }
             (false, _) => return Err("non-ASCII character in IMAP4rev1 quoted string"),
@@ -241,3 +266,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "tokenizer_utf8_tests.rs"]
+mod utf8_mode_tests;

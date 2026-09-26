@@ -192,7 +192,7 @@ except "+">`: закрывающая скобка допустима как `res
 | Обязательство RFC 9755 | Текущее состояние | Что требуется для PASS |
 |---|---|---|
 | Capability и ENABLE | Не поддерживается: CAPABILITY не содержит `UTF8=ACCEPT`, ENABLE возвращает пустой список | Рекламировать только после завершения остальных пунктов; ENABLE доступен только в authenticated state и отражает реально активированный режим |
-| UTF-8 quoted-string | Не поддерживается: legacy tokenizer отвергает high-bit octets в quoted-string и atom | Разрешать валидные UTF-8 только в quoted-string после ENABLE; atom остаётся ASCII, malformed UTF-8 и запрещённые controls дают BAD |
+| UTF-8 quoted-string | Production wire path остаётся legacy ASCII-only; отдельный mode-aware lexer helper проверен unit-тестом, но не связан с session/ENABLE и capability не объявлен | Разрешать валидные UTF-8 только в quoted-string после ENABLE; atom остаётся ASCII, malformed UTF-8 и запрещённые controls дают BAD |
 | Имена mailbox | Поддерживается только modified UTF-7 wire representation | В UTF-8 режиме принимать Net-Unicode mailbox names, проверять запрещённые controls/U+2028/U+2029 и преобразовывать в единое внутреннее имя; legacy режим не менять |
 | Ответы с именами mailbox | LIST, LSUB, NAMESPACE используют legacy modified UTF-7 | Включённому клиенту выдавать UTF-8 имена; не включённому клиенту сохранять legacy представление |
 | APPEND internationalized headers | RFC 9755 режим отсутствует; APPEND сохраняет исходные message octets | После реализации расширения разрешать UTF-8 headers при ENABLE и отвергать такие APPEND до ENABLE; проверять exact bytes |
@@ -203,4 +203,5 @@ except "+">`: закрывающая скобка допустима как `res
 До прохождения этих gates `UTF8=ACCEPT` не должно появляться в CAPABILITY и
 успешный пустой ENABLE не считается его активацией. RFC 9755 Sections 3-7
 являются нормативным источником для будущего этапа; отдельный runtime acceptance
-пока не выполнялся.
+пока не выполнялся. Начальная lexer-проверка покрывает только выбор режима и
+не является отдельным acceptance item с PASS.
