@@ -4,6 +4,18 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G17 RFC 2231 Sieve coverage consistency, PARTIAL
+
+- `vacation_mime` использует общий MIME parameter decoder, поэтому lowercase
+  `%HH` escapes уже поддерживались после предыдущего исправления. Устаревшее
+  утверждение в Sieve-матрице о требовании uppercase удалено; добавлен unit
+  regression для Sieve vacation `:mime` с lowercase и mixed-case UTF-8 filename.
+- PASS: Windows Rust 1.97.1 fmt, 563 библиотечных и 1 бинарный тест, strict
+  Clippy; Linux Docker Rust 1.97 release build, strict Clippy, 614 библиотечных
+  и 1 бинарный тест, doc-tests. Временный image удалён и проверен на
+  отсутствие; контейнер не создавался. Sieve-specific wire acceptance не
+  выполнялся. G17 остаётся ACTIVE.
+
 ### 2026-09-26: G17 RFC 2231 case-insensitive percent escapes, PARTIAL
 
 - MIME extended parameters теперь принимают lowercase и mixed-case

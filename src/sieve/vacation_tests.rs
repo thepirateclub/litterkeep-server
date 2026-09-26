@@ -126,6 +126,14 @@ fn mime_vacation_accepts_ascii_entity_and_rejects_unsafe_entities() {
 }
 
 #[test]
+fn mime_vacation_accepts_lowercase_rfc2231_filename_escapes() {
+    let entity =
+        "Content-Type: application/octet-stream; name*=UTF-8''r%c3%a9sum%C3%A9.bin\r\n\r\nx\r\n";
+
+    assert!(parse(&mime_script(entity)).is_ok());
+}
+
+#[test]
 fn mime_vacation_rejects_malformed_transfer_encoding_and_duplicate_fields() {
     for entity in [
         "Content-Type: text/plain\r\nContent-Transfer-Encoding: base64\r\n\r\n%%%\r\n",

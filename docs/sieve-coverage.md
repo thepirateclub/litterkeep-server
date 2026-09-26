@@ -143,7 +143,10 @@ attribute=value, token/quoted-string и список tspecials. RFC 2231 attribu
 filename continuation. Сетевой MIME acceptance этих новых границ не выполнялся.
 
 RFC 2231 extended payload decoder принимает только attribute-char или
-percent-encoded octets с uppercase hex digits; проверяются mixed encoded и
+percent-encoded octets, а hexadecimal digits в escapes принимаются без учёта
+регистра по ABNF. Unit tests проверяют lowercase/mixed-case UTF-8 escapes в
+общем parser-е и в Sieve vacation `:mime` validator; независимый IMAP wire test
+подтверждает decoded filename в BODYSTRUCTURE. Проверяются mixed encoded и
 unencoded continuation segments. Charset декодируется явным allowlist из
 восьми профилей: US-ASCII, UTF-8, ISO-8859-1, Windows-1251, Windows-1252,
 UTF-16, UTF-16BE и UTF-16LE. Три UTF-16 профиля используются в RFC 2047 и
