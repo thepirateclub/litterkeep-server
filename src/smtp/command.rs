@@ -4,6 +4,8 @@
 mod address;
 #[path = "address_literal.rs"]
 mod address_literal;
+#[path = "auth_command.rs"]
+mod auth_command;
 #[path = "greeting.rs"]
 mod greeting;
 pub(crate) use address::canonical_parts;
@@ -18,8 +20,8 @@ pub enum Command {
     Mail(MailFrom),
     Rcpt(String),
     Data,
-    /// Initial response механизма SASL PLAIN в base64-представлении.
-    AuthPlain(String),
+    /// SASL PLAIN с optional initial response в base64-представлении.
+    AuthPlain(Option<String>),
     /// Проверка имени, не раскрывающая наличие локального пользователя.
     Vrfy(String),
     /// Запрос списка участников, который локальная политика запрещает.
@@ -78,7 +80,7 @@ pub fn parse(line: &str) -> Result<Command, ParseError> {
         "MAIL" => parse_mail_from(argument).map(Command::Mail),
         "RCPT" => parse_recipient(argument).map(Command::Rcpt),
         "DATA" if argument.is_empty() => Ok(Command::Data),
-        "AUTH" => parse_auth(argument),
+        "AUTH" => auth_command::parse(argument),
         "VRFY" => parse_string_command(argument).map(Command::Vrfy),
         "EXPN" => parse_string_command(argument).map(Command::Expn),
         "HELP" => parse_optional_string(argument).map(Command::Help),
@@ -120,17 +122,6 @@ fn parse_optional_string(argument: &str) -> Result<Option<String>, ParseError> {
     match argument.trim().is_empty() {
         true => Ok(None),
         false => parse_string_command(argument).map(Some),
-    }
-}
-
-/// Распознаёт только реализованный SASL механизм.
-fn parse_auth(argument: &str) -> Result<Command, ParseError> {
-    let Some((mechanism, response)) = argument.split_once(' ') else {
-        return Err(ParseError::Syntax);
-    };
-    match mechanism.to_ascii_uppercase().as_str() {
-        "PLAIN" if !response.is_empty() => Ok(Command::AuthPlain(response.to_owned())),
-        _ => Err(ParseError::UnsupportedAuthenticationMechanism),
     }
 }
 

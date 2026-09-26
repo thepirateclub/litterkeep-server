@@ -271,7 +271,7 @@ fn rejects_malformed_mailbox_in_both_paths() {
 fn parses_supported_commands_and_auth_mechanism() {
     assert_eq!(
         parse("AUTH PLAIN AGJvYgB0ZXN0LXBhc3N3b3Jk\r\n"),
-        Ok(Command::AuthPlain("AGJvYgB0ZXN0LXBhc3N3b3Jk".into()))
+        Ok(Command::AuthPlain(Some("AGJvYgB0ZXN0LXBhc3N3b3Jk".into(),)))
     );
     assert_eq!(parse("STARTTLS\r\n"), Ok(Command::StartTls));
     assert_eq!(parse("NOOP\r\n"), Ok(Command::Noop(None)));

@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G15 RFC 4954 AUTH PLAIN continuation, PASS
+
+- AUTH PLAIN now accepts optional initial response. Without it the connection
+  owner records a typed continuation state and sends the required empty
+  `334 ` challenge. A single client response continues SASL; `*` cancellation
+  and invalid Base64 receive 501 and return the session to command mode.
+  Existing async storage-owner credential verification remains unchanged.
+- PASS: Windows Rust 1.97.1 fmt, 544 library + 1 binary tests, strict Clippy;
+  Linux Docker Rust 1.97 strict Clippy, 591 library + 1 binary tests and
+  doc-tests. Independent Python `smtplib` over STARTTLS verified empty
+  challenge, cancel, invalid response and NOOP recovery, successful continuation
+  login, repeat-auth 503, and successful initial-response login. Stage container
+  and unique image tags are removed; generated PKI and randomized credential
+  fixture remain under `./data/g15-auth-plain-continuation`. App/Litterkeep
+  interoperability was not tested. G15 remains active.
+
 ### 2026-09-26: G15 RFC 5321 EHLO and HELO argument grammar, PASS
 
 - Greeting argument validation is separated into `smtp/greeting.rs`:

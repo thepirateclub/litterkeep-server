@@ -15,6 +15,9 @@ pub(super) fn smtp_line(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<()> {
+    if session.smtp_auth == SmtpAuthState::AwaitingPlainResponse {
+        return auth_plain_response(session, line, slot, generation, worker, owners, request_id);
+    }
     if matches!(session.smtp, SmtpState::Data { .. }) {
         return super::smtp_data::data_line(
             session, line, slot, generation, worker, owners, request_id,
@@ -71,7 +74,7 @@ fn help(session: &mut Session, topic: Option<String>) -> io::Result<()> {
 /// Передаёт SASL PLAIN секрет worker-у без проверки в reactor thread.
 fn authenticate(
     session: &mut Session,
-    response: String,
+    response: Option<String>,
     slot: usize,
     generation: u64,
     worker: &mut WakingStorageWorker,
@@ -90,6 +93,10 @@ fn authenticate(
     if transaction.has_sender() {
         return session.push(b"503 5.5.1 bad sequence\r\n");
     }
+    let Some(response) = response else {
+        session.smtp_auth = SmtpAuthState::AwaitingPlainResponse;
+        return session.push(b"334 \r\n");
+    };
     let credentials = match crate::sasl::parse_plain(&response) {
         Ok(credentials) => credentials,
         Err(_) => return session.push(b"501 5.5.2 invalid AUTH PLAIN response\r\n"),
@@ -113,6 +120,37 @@ fn authenticate(
         owners,
     );
     Ok(())
+}
+
+/// Принимает единственную base64 response либо стандартную отмену SASL `*`.
+fn auth_plain_response(
+    session: &mut Session,
+    line: Vec<u8>,
+    slot: usize,
+    generation: u64,
+    worker: &mut WakingStorageWorker,
+    owners: &mut HashMap<u64, (usize, u64, Pending)>,
+    request_id: &mut u64,
+) -> io::Result<()> {
+    session.smtp_auth = SmtpAuthState::Command;
+    let response = std::str::from_utf8(&line)
+        .ok()
+        .and_then(|value| value.strip_suffix("\r\n"));
+    let Some(response) = response else {
+        return session.push(b"501 5.5.2 invalid AUTH PLAIN response\r\n");
+    };
+    match response {
+        "*" => session.push(b"501 5.7.0 authentication cancelled\r\n"),
+        _ => authenticate(
+            session,
+            Some(response.to_owned()),
+            slot,
+            generation,
+            worker,
+            owners,
+            request_id,
+        ),
+    }
 }
 
 /// Принимает MAIL только от аутентифицированного владельца локального адреса.

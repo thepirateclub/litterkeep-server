@@ -139,7 +139,7 @@ use pending::{AuthenticationCommand, Pending, SubscriptionResponse};
 use protocol::process_input;
 use reactor_control::service_control;
 pub use server_all_starttls::serve_all_starttls;
-use session::{Session, SmtpState};
+use session::{Session, SmtpAuthState, SmtpState};
 use session_io::{flush, read_session};
 type SessionLease = ResourceLease<Session>;
 const MAX_SESSIONS: usize = 256;

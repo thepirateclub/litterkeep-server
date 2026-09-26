@@ -14,6 +14,13 @@ dot terminator. `BODY=7BIT` и режим без BODY ограничивают �
 До TLS AUTH запрещён. Envelope sender должен принадлежать authenticated owner.
 Local route не является open relay.
 
+SMTP AUTH PLAIN поддерживает оба RFC 4954 варианта: initial response в команде
+и отдельный ответ после пустого `334 `. SASL cancel `*` и недекодируемый ответ
+получают 501; после отмены или ошибки command stream восстанавливается. После
+успешной аутентификации повторный AUTH отклоняется кодом 503. Независимый
+Python `smtplib` на STARTTLS проверил continuation, initial-response и recovery;
+другие SASL mechanisms не реализованы и не рекламируются.
+
 Аргумент HELO проверяется как единственный RFC 5321 Domain. EHLO принимает
 единственный Domain либо валидный IPv4/IPv6 address-literal; пустой аргумент,
 лишние слова, лишние пробелы и ошибочные DNS labels получают 501. Валидные

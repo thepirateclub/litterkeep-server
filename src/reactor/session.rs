@@ -23,6 +23,14 @@ pub(super) enum SmtpState {
     },
 }
 
+/// Явно хранит PLAIN challenge до ответа или отмены со стороны клиента.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(super) enum SmtpAuthState {
+    #[default]
+    Command,
+    AwaitingPlainResponse,
+}
+
 /// DATA принимает длинные тела, но команды остаются ограниченными одним MiB.
 fn session_input_limit(session: &Session) -> usize {
     match (&session.kind, &session.smtp) {
@@ -71,6 +79,7 @@ pub(super) struct Session {
     /// Единственное значение literal для следующей внутренне собранной SEARCH-команды.
     pub(super) imap_search_literal_value: Option<Vec<String>>,
     pub(super) smtp: SmtpState,
+    pub(super) smtp_auth: SmtpAuthState,
     pub(super) smtp_greeting: smtp::GreetingMode,
     pub(super) smtp_body_mode: crate::smtp::BodyMode,
     /// Маркер SMTPUTF8 действует только для envelope текущей транзакции.
@@ -127,6 +136,7 @@ impl Session {
             imap_search_literal: None,
             imap_search_literal_value: None,
             smtp: SmtpState::Command(smtp::Transaction::default()),
+            smtp_auth: SmtpAuthState::Command,
             smtp_greeting: smtp::GreetingMode::NotEstablished,
             smtp_body_mode: crate::smtp::BodyMode::SevenBit,
             smtp_utf8: false,
@@ -258,6 +268,7 @@ impl Session {
         }
         self.starttls_pending = true;
         self.smtp = SmtpState::Command(smtp::Transaction::default());
+        self.smtp_auth = SmtpAuthState::Command;
         self.smtp_greeting = smtp::GreetingMode::NotEstablished;
         self.smtp_body_mode = crate::smtp::BodyMode::SevenBit;
         self.smtp_utf8 = false;
