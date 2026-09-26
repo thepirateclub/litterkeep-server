@@ -166,6 +166,9 @@ def main() -> None:
     )
     if status != "OK" or stored != message:
         raise AssertionError("accepted UTF-8 APPEND bytes changed")
+    status, matching = client.search(None, 'SUBJECT "café"')
+    if status != "OK" or matching != [b"1"]:
+        raise AssertionError(f"UTF-8 SEARCH criterion failed: {status!r} {matching!r}")
 
     status, counts = client.select("旅行", readonly=False)
     if status != "OK" or counts != [b"1"]:

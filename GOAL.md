@@ -6291,3 +6291,25 @@ ManageSieve до заявленного набора современных фо
   acceptance одного media type, не полного MIME/IMAP профиля. Litterkeep,
   оставшиеся RFC 5198 Unicode constraints, CAPABILITY readiness и другие
   response paths не проверены; G17 остаётся ACTIVE.
+
+### 2026-09-26: G17 RFC 9755 UTF-8 SEARCH subject acceptance, PASS
+
+- После ENABLE и APPEND независимый `imaplib` выполняет implicit
+  `SEARCH SUBJECT "café"` и получает ровно UID/sequence `1`; это проверяет
+  передачу UTF-8 quoted-string через parser и поиск по реальному Subject, а не
+  только успешный разбор либо пустой `SEARCH ALL`.
+- PASS в Linux Rust 1.97 Docker runtime с новым хранилищем
+  `./data/g19-rfc9755-search-subject-wire`. Повторённый общий RFC9755 сценарий
+  также прошёл explicit CHARSET BAD, case-insensitive keyword, invalid UTF-8/
+  C0/C1/atom rejection, mailbox mutations, COPY/MOVE exact bytes и APPEND.
+  Одноразовые image/container удалены; stage data сохранены.
+- `python -m py_compile tests/blackbox/imap_utf8_accept_append.py` и
+  `python -m py_compile tests/blackbox/imap_message_global.py`,
+  `cargo fmt --all -- --check`, `cargo test --locked imap::mailbox_utf8::tests`
+  (3 passed), `cargo test --locked imap::mailbox_mode_tests` (3 passed) и
+  `git diff --check` прошли. `docs/acceptance.tsv` синхронизирована с живым
+  состоянием UTF8 negotiation: больше не утверждает, что ENABLE и validator
+  не подключены; добавлены scoped wire rows T115-T117. Комментарий в
+  `src/imap/mailbox_utf8.rs` исправлен: validator подключён, но assigned-version
+  и NFC handling по-прежнему отсутствуют. T108 и полный RFC9755 профиль остаются
+  PARTIAL; Litterkeep не проверялся.

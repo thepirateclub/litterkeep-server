@@ -1,4 +1,4 @@
-//! Проверка UTF-8 mailbox names для будущего согласованного режима RFC 9755.
+//! Проверка UTF-8 mailbox names в согласованном режиме RFC 9755 `UTF8=ACCEPT`.
 
 /// Причина отказа для mailbox name, не соответствующего исключениям RFC 9755.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -9,11 +9,12 @@ pub enum MailboxNameError {
     LeadingByteOrderMark,
 }
 
-/// Проверяет ограничения RFC 9755 поверх уже декодированного UTF-8.
+/// Проверяет дополнительные запреты RFC 9755 поверх уже декодированного UTF-8.
 ///
 /// Функция сохраняет исходную последовательность и не нормализует её: RFC 5198
 /// рекомендует NFC для передаваемых строк, но принимающая сторона должна быть
-/// готова увидеть ненормализованный ввод. Wire-путь пока остаётся legacy UTF-7.
+/// готова увидеть ненормализованный ввод. Проверка Unicode assigned-version
+/// также пока отсутствует, поэтому это не полный Net-Unicode validator.
 pub fn validate(value: &str) -> Result<(), MailboxNameError> {
     if value.starts_with('\u{feff}') {
         return Err(MailboxNameError::LeadingByteOrderMark);
