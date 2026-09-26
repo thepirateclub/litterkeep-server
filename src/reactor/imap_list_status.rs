@@ -12,7 +12,7 @@ pub(super) fn write(
 ) -> io::Result<()> {
     let values = attributes
         .iter()
-        .filter_map(|attribute| status_value(*attribute, status))
+        .filter_map(|attribute| status_value(session, *attribute, status))
         .collect::<Vec<_>>()
         .join(" ");
     session.push(format!("* STATUS {mailbox} ({values})\r\n").as_bytes())
@@ -20,11 +20,16 @@ pub(super) fn write(
 
 /// Сериализует запрошенное поле без повторного чтения Store или blob.
 fn status_value(
+    session: &Session,
     attribute: imap::status::StatusAttribute,
     status: &crate::store::MailboxStatus,
 ) -> Option<String> {
     match attribute {
         imap::status::StatusAttribute::Messages => Some(format!("MESSAGES {}", status.messages)),
+        imap::status::StatusAttribute::Recent => {
+            let count = session.recent_count_for(&status.key, status.recent);
+            Some(format!("RECENT {count}"))
+        }
         imap::status::StatusAttribute::UidNext => Some(format!("UIDNEXT {}", status.uid_next)),
         imap::status::StatusAttribute::UidValidity => {
             Some(format!("UIDVALIDITY {}", status.uid_validity))
@@ -35,6 +40,5 @@ fn status_value(
         imap::status::StatusAttribute::AppendLimit => {
             Some(format!("APPENDLIMIT {}", crate::smtp::MAX_MESSAGE_SIZE))
         }
-        imap::status::StatusAttribute::Recent => None,
     }
 }

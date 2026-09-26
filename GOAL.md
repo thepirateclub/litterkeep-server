@@ -4,20 +4,28 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
-### 2026-09-27: G17 IMAP UTF-8 LIST RETURN STATUS interoperability, PASS checkpoint
+### 2026-09-27: G17 IMAP LIST extension capability advertisement, PASS checkpoint
 
-- Independent Python IMAP client выполняет LOGIN, `ENABLE UTF8=ACCEPT`, CREATE
-  mailbox с `é` и `LIST ... RETURN (STATUS (...))` в одном TLS-сеансе. Проверено,
-  что соседние untagged LIST/STATUS ответы сохраняют UTF-8 mailbox name и
-  запрошенные MESSAGES/UIDNEXT/UIDVALIDITY/SIZE поля.
-- Black-box test расширен в
-  `tests/blackbox/imap_list_subscribed.py`; `py_compile` прошёл, файл 263 строки.
-  Linux Rust 1.97.1 release server использован из Docker build stage, локальный
-  acceptance прошёл. Это дополнительная cross-profile проверка, не закрытие
-  RFC 9755 или полная готовность `UTF8=ACCEPT` capability.
-- Fixture сохранён в `./data/acceptance-imap-utf8-list-status-20260927`.
-  Временные Docker container/image удалены и отсутствие проверено; остальные
-  контейнеры не изменялись.
+- Аудит RFC 5258/5819 обнаружил, что сервер исполнял extended LIST и
+  `LIST RETURN STATUS`, но не объявлял `LIST-EXTENDED` и `LIST-STATUS`.
+  Capability builder теперь объявляет обе поддерживаемые возможности во всех
+  TLS/STARTTLS/plaintext ответах.
+- Независимый Python IMAP client проверяет оба capability до TLS и после
+  STARTTLS, затем включает `UTF8=ACCEPT`, создаёт mailbox с `é` и проверяет
+  соседние LIST/STATUS responses с UTF-8 именем и запрошенными полями.
+  `RECENT` разрешён в typed `LIST RETURN STATUS`: неполученные сообщения
+  учитываются до SELECT, а после SELECT используется session-owned набор
+  recent UID. Отдельный STATUS и LIST RETURN STATUS согласованы с этим набором.
+  Существующая recursive SUBSCRIBED/CHILDINFO acceptance тоже проходит.
+- Windows Rust 1.97.1 fmt, strict Clippy, 605 library tests, 1 CLI test и
+  doc-tests pass. Linux Docker Rust 1.97 release, strict Clippy, 668 library
+  tests, 1 CLI test и doc-tests pass; один внешний Unicode corpus test ignored
+  из-за отсутствующего файла. Python syntax check pass; black-box script 267 строк.
+- Fixture остаётся в `./data/acceptance-imap-utf8-list-status-20260927`.
+  Временные Docker container/image удалены, имена проверены; контейнеры других
+  проектов не изменялись. Это закрывает только capability advertisement,
+  RECENT в LIST STATUS и проверенные extended-LIST wire paths, не весь RFC
+  9755/IMAP профиль.
 
 ### 2026-09-27: G17 POP3 UTF-8 mode rejects unconvertible high-bit content, PASS checkpoint
 

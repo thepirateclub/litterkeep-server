@@ -58,7 +58,7 @@ pub(super) fn completed(
         }
         Err(_) => return session.push(format!("{tag} NO STATUS failed\r\n").as_bytes()),
     };
-    let recent_count = resolved.recent_uids.len();
+    let recent_count = session.recent_count_for(&resolved.key, resolved.recent_uids.len());
     let snapshot = resolved.snapshot;
     let mut values = Vec::with_capacity(attributes.len());
     for attribute in attributes {

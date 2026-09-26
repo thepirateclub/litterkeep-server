@@ -103,6 +103,14 @@ pub(super) struct Session {
 }
 
 impl Session {
+    /// Возвращает RECENT из выбранной сессии либо ещё не claimed Store UIDs.
+    pub(super) fn recent_count_for(&self, mailbox_key: &str, unclaimed: usize) -> usize {
+        match self.selected_mailbox.as_deref() {
+            Some(selected) if selected == mailbox_key => self.selected_recent.len(),
+            _ => unclaimed,
+        }
+    }
+
     pub(super) fn new(
         kind: Kind,
         stream: TcpStream,

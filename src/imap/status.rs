@@ -64,7 +64,7 @@ pub(super) fn parse_attribute(value: &str) -> Option<StatusAttribute> {
     }
 }
 
-/// Разбирает STATUS return items; RECENT оставлен только для rev1-команды STATUS.
+/// Разбирает STATUS return items расширения LIST-STATUS.
 pub(super) fn parse_return_attributes(
     tokens: &mut impl Iterator<Item = Token>,
 ) -> Option<Vec<StatusAttribute>> {
@@ -76,9 +76,6 @@ pub(super) fn parse_return_attributes(
         match tokens.next() {
             Some(Token::Text(value)) => {
                 let attribute = parse_attribute(&value)?;
-                if matches!(attribute, StatusAttribute::Recent) {
-                    return None;
-                }
                 if !attributes.contains(&attribute) {
                     attributes.push(attribute);
                 }

@@ -15,6 +15,18 @@ def require(status: str, detail: object, expected: str, operation: str) -> objec
     return detail
 
 
+def require_list_capabilities(client: imaplib.IMAP4, phase: str) -> None:
+    """Проверяет объявление LIST extensions до отправки их клиентом."""
+    status, responses = client.capability()
+    require(status, responses, "OK", f"{phase} CAPABILITY")
+    tokens = b" ".join(responses).upper().split()
+    for capability in (b"LIST-EXTENDED", b"LIST-STATUS"):
+        if capability not in tokens:
+            raise AssertionError(
+                f"{phase} CAPABILITY omitted {capability!r}: {tokens!r}"
+            )
+
+
 def list_command(client: imaplib.IMAP4, command: bytes, expected: str = "OK") -> bytes:
     tagged_command(client, command, expected)
     values = client.untagged_responses.pop("LIST", [])
@@ -91,6 +103,25 @@ def verify_utf8_status(client: imaplib.IMAP4, suffix: str) -> None:
         raise AssertionError(f"UTF-8 LIST RETURN STATUS mismatch: {responses!r}")
 
 
+def verify_selected_recent(client: imaplib.IMAP4, name: str) -> None:
+    """Проверяет RECENT из session-owned SELECT после передачи durable claim."""
+    require(*client.select(name), "OK", "SELECT recent fixture")
+    status, rows = client.status(name, "(RECENT)")
+    require(status, rows, "OK", "STATUS RECENT in selected mailbox")
+    if not any(b"RECENT 1" in row for row in rows or []):
+        raise AssertionError(f"STATUS lost session-owned RECENT: {rows!r}")
+    command = (
+        f'LIST () "" "{name}" RETURN (STATUS (MESSAGES RECENT))'
+    ).encode("ascii")
+    responses = ordered_list_command(client, command)
+    require_adjacent(
+        responses,
+        f'* LIST () "/" "{name}"'.encode("ascii"),
+        f'* STATUS "{name}" (MESSAGES 1 RECENT 1)'.encode("ascii"),
+        "STATUS reports selected session RECENT",
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("host", nargs="?", default="127.0.0.1")
@@ -99,7 +130,9 @@ def main() -> None:
     options = parser.parse_args()
     trust = ssl.create_default_context(cafile=options.ca)
     client = imaplib.IMAP4(options.host, options.port, timeout=10)
+    require_list_capabilities(client, "pre-TLS")
     client.starttls(ssl_context=trust)
+    require_list_capabilities(client, "post-TLS")
     password = os.environ["LITTERKEEP_BOB_PASSWORD"]
     require(*client.login("bob", password), "OK", "LOGIN")
     suffix = uuid.uuid4().hex
@@ -226,14 +259,14 @@ def main() -> None:
     )
     status_command = (
         b'LIST () "" "' + present_name.encode() + b'" RETURN '
-        b'(STATUS (MESSAGES UNSEEN DELETED SIZE UIDNEXT UIDVALIDITY APPENDLIMIT))'
+        b'(STATUS (MESSAGES RECENT UNSEEN DELETED SIZE UIDNEXT UIDVALIDITY APPENDLIMIT))'
     )
     ordered = ordered_list_command(client, status_command)
     require_adjacent(
         ordered,
         f'* LIST () "/" "{present_name}"'.encode(),
         (
-            f'* STATUS "{present_name}" (MESSAGES 1 UNSEEN 1 DELETED 1 '
+            f'* STATUS "{present_name}" (MESSAGES 1 RECENT 1 UNSEEN 1 DELETED 1 '
             f'SIZE {len(status_message)} UIDNEXT 2 UIDVALIDITY 1 APPENDLIMIT 26214400)'
         ).encode(),
         "STATUS for existing matching mailbox",
@@ -254,6 +287,7 @@ def main() -> None:
         "missing mailbox has no STATUS response",
     )
     verify_utf8_status(client, suffix)
+    verify_selected_recent(client, present_name)
     list_command(client, b'LIST (RECURSIVEMATCH) "" "%"', "BAD")
     client.logout()
     print("PASS imap-list-subscribed: extended LIST, UTF-8 STATUS and recursive selection")

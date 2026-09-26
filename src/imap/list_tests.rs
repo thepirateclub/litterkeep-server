@@ -67,7 +67,7 @@ fn unsupported_list_return_option_is_rejected() {
     );
 }
 
-/// STATUS return items типизированы, deduplicated, и rev1 RECENT отвергается.
+/// STATUS return items типизированы, deduplicated и включают RFC 3501 RECENT.
 #[test]
 fn list_status_return_items_are_typed_and_deduplicated() {
     assert_eq!(
@@ -90,6 +90,12 @@ fn list_status_return_items_are_typed_and_deduplicated() {
     );
     assert_eq!(
         parse("a LIST \"\" \"*\" RETURN (STATUS (RECENT))\r\n").command,
-        Command::Unsupported
+        Command::List {
+            pattern: ListPattern::All,
+            returns: ListReturnOptions {
+                status: vec![super::status::StatusAttribute::Recent],
+                ..ListReturnOptions::default()
+            },
+        }
     );
 }

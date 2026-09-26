@@ -206,7 +206,13 @@ RFC822 bytes совпадают точно. CAPABILITY всё ещё скрыв�
 Дополнительная комбинированная STARTTLS проверка включает `ENABLE UTF8=ACCEPT`,
 создаёт mailbox с `é` и запрашивает `LIST RETURN STATUS`: соседние LIST и
 STATUS ответы сохраняют UTF-8 имя и порядок запрошенных числовых полей. Это
-проверка совместной сериализации RFC 9755/RFC 5258, не готовность всего профиля.
+проверка совместной сериализации RFC 9755/RFC 5819, не готовность всего профиля.
+CAPABILITY объявляет `LIST-EXTENDED` по RFC 5258 и `LIST-STATUS` по RFC 5819;
+независимый STARTTLS тест проверяет оба объявления до и после TLS upgrade.
+`RECENT` разрешён как атрибут STATUS по RFC 3501: до SELECT возвращается число
+неполученных durable-сообщений, после SELECT STATUS и LIST RETURN STATUS
+используют один session-owned recent UID набор. Это не снимает ограничения
+частичного IMAP4rev1 профиля.
 
 RFC 7889 APPENDLIMIT объявляет единый предел `26214400` octets, равный
 действующему `MAX_MESSAGE_SIZE`. STATUS и LIST RETURN STATUS возвращают

@@ -41,10 +41,18 @@ fn summary(
         true => Some(mailbox_size(store, records)?),
         false => None,
     };
+    let recent = store
+        .recent
+        .get(&mailbox)
+        .map(std::collections::BTreeSet::len)
+        .unwrap_or_default();
+    let uid_next = store.next_uids.get(&mailbox).copied().unwrap_or(1);
     Ok(MailboxStatus {
+        key: mailbox,
         name: folder.name.clone(),
         messages: records.len(),
-        uid_next: store.next_uids.get(&mailbox).copied().unwrap_or(1),
+        recent,
+        uid_next,
         uid_validity: 1,
         unseen,
         deleted,
@@ -81,8 +89,12 @@ fn flags(
 /// Согласованные счётчики ответа STATUS без payload-байтов.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MailboxStatus {
+    /// Внутренний ключ нужен для применения RECENT выбранной IMAP-сессии.
+    pub key: String,
     pub name: String,
     pub messages: usize,
+    /// Количество durable recent UID, ещё не присвоенных сессии командой SELECT.
+    pub recent: usize,
     pub uid_next: u64,
     pub uid_validity: u32,
     pub unseen: usize,
