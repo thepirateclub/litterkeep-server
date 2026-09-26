@@ -595,11 +595,15 @@ RFC 5034, а не как некорректный Base64. Для PLAIN пуст�
 RFC 6856: `UTF8` capability объявляется в обоих состояниях без `USER`-параметра;
 сама команда действует только до входа, включает raw UTF-8 message mode и
 запрещает последующий STLS. До переключения `LIST`, `TOP` и `RETR` возвращают
-`-ERR [UTF8]`, если выбранное письмо содержит корректные non-ASCII UTF-8
-последовательности. Независимый Linux SMTP->POP3 socket acceptance отправил
-8BITMIME UTF-8 письмо, получил `[UTF8]` от LIST/TOP/RETR в ASCII mode, затем
-включил UTF8 до USER и сравнил точные байты RETR. Он также проверил CAPA до/после
-TLS и отказ STLS после UTF8; unit-тесты проверяют guarded retrieval. MIME-дерево
+ошибку для любого high-bit octet и не отправляют такое сообщение как ASCII;
+`[UTF8]` используется, когда обнаружена корректная non-ASCII UTF-8
+последовательность, а непрозрачные high-bit octets получают обычный `-ERR`.
+Независимый Linux SMTP->POP3 socket acceptance отправил 8BITMIME UTF-8 письмо,
+получил `[UTF8]` от LIST/TOP/RETR в ASCII mode, затем включил UTF8 до USER и
+сравнил точные байты RETR. Отдельный IMAP APPEND с единственным `0xFF` проверил
+обычный отказ для LIST/TOP/RETR до UTF8; unit-тест подтвердил точную выдачу этого
+октета после переключения. Acceptance также проверил CAPA до/после TLS и отказ
+STLS после UTF8. MIME-дерево
 рекурсивно обнаруживает `Content-Transfer-Encoding: binary`, включая вложенные
 части всех `multipart/*`; POP3 `TOP` и `RETR` отклоняют такое сообщение даже в
 UTF8 mode. Независимый Linux acceptance сохранил fixture через IMAP APPEND и

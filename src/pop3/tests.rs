@@ -254,9 +254,38 @@ fn maildrop_detects_valid_utf8_after_malformed_octets_without_indexing() {
     let ascii = Maildrop::new(vec![message(1, b"Subject: plain\r\n\r\nbody")]);
     let unicode = Maildrop::new(vec![message(2, b"Subject: caf\xc3\xa9\r\n\r\nbody")]);
     let malformed = Maildrop::new(vec![message(3, b"binary\xff then caf\xc3\xa9")]);
+    let opaque = Maildrop::new(vec![message(4, b"binary\xff only")]);
     assert_eq!(ascii.requires_utf8(None), Ok(false));
     assert_eq!(unicode.requires_utf8(Some(1)), Ok(true));
     assert_eq!(malformed.requires_utf8(Some(1)), Ok(true));
+    assert_eq!(opaque.requires_utf8(Some(1)), Ok(false));
+    assert_eq!(opaque.contains_non_ascii(Some(1)), Ok(true));
+    assert_eq!(ascii.contains_non_ascii(None), Ok(false));
+}
+
+#[test]
+fn ascii_pop3_session_never_sends_opaque_high_bit_octets() {
+    let mut session = Session::default();
+    let _ = session.apply(parse("USER bob\r\n"));
+    let _ = session.authenticated(vec![message(5, b"Subject: opaque\r\n\r\n\xff")]);
+    assert!(matches!(
+        session.apply(parse("RETR 1\r\n")),
+        Reply::Error("non-ASCII message requires UTF8 mode")
+    ));
+    let mut utf8_session = Session::default();
+    assert!(matches!(
+        utf8_session.apply(parse("UTF8\r\n")),
+        Reply::Ok(_)
+    ));
+    let _ = utf8_session.apply(parse("USER bob\r\n"));
+    let _ = utf8_session.authenticated(vec![message(6, b"Subject: opaque\r\n\r\n\xff")]);
+    let retrieved = match utf8_session.apply(parse("RETR 1\r\n")) {
+        Reply::Multiline(bytes) | Reply::Message(bytes) => bytes,
+        Reply::Error(text) => panic!("UTF8-mode opaque retrieval failed: {text}"),
+        Reply::ErrorCode(_, text) => panic!("UTF8-mode opaque retrieval failed: {text}"),
+        _ => panic!("UTF8-mode opaque retrieval returned an unexpected response"),
+    };
+    assert!(retrieved.windows(6).any(|part| part == b"\xff\r\n.\r\n"));
 }
 
 #[path = "listing_tests.rs"]

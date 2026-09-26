@@ -4,6 +4,30 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-27: G17 POP3 ASCII-mode high-bit guard, PASS checkpoint
+
+- RFC 6856 §2.1 forbids sending non-ASCII character strings unchanged when
+  UTF8 mode is disabled. Maildrop detection previously searched only for valid
+  non-ASCII UTF-8 scalars, so an opaque `0xFF` with no other UTF-8 sequence could
+  pass the ASCII-mode retrieval guard.
+- Maildrop now caches both high-bit presence and valid UTF-8 presence. LIST n,
+  TOP and RETR fail closed for opaque high-bit content in ASCII mode; `[UTF8]`
+  is reserved for content containing a valid non-ASCII UTF-8 scalar. Explicit
+  UTF8 mode still permits the exact opaque octets when the MIME binary-CTE
+  policy allows retrieval.
+- Windows Rust 1.97.1 fmt, strict Clippy, 605 library tests, 1 CLI test and
+  doc-tests pass. Linux Docker Rust 1.97 release build, strict Clippy, 668
+  library tests, 1 CLI test and doc-tests pass; one external Unicode corpus test
+  is ignored because its data file is absent.
+- Independent Linux POP3 STARTTLS wire acceptance delivered a normal 8BITMIME
+  UTF-8 message via SMTP and appended a separate `application/octet-stream`
+  fixture containing only `0xFF` via IMAP. LIST/TOP/RETR reject the first with
+  `[UTF8]` and the second with generic `-ERR`; prior capability, STLS ordering,
+  and binary-CTE cases also pass. No Litterkeep client was tested.
+- Fixture `./data/acceptance-pop3-opaque-octets-20260927` is retained. The
+  disposable Docker container and test image are removed and checked after
+  acceptance; unrelated containers are not part of this test.
+
 ### 2026-09-27: G17 preserve opaque octets in IMAP LOGIN password literals, PASS checkpoint
 
 - RFC synchronizing literal framing is octet-based. After CRLF framing was

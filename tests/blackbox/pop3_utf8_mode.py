@@ -86,6 +86,22 @@ def check_tls_utf8_mode():
 
 
 def check_message_download_requires_utf8_mode():
+    opaque_message = (
+        b"From: alice@test\r\nTo: bob@test\r\nSubject: opaque high-bit octet\r\n"
+        b"MIME-Version: 1.0\r\nContent-Type: application/octet-stream\r\n\r\n\xff\r\n"
+    )
+    mailbox = imaplib.IMAP4(HOST, IMAP_PORT)
+    try:
+        mailbox.starttls(ssl_context=ssl_context())
+        status, _ = mailbox.login("bob", os.environ["LITTERKEEP_BOB_PASSWORD"])
+        if status != "OK":
+            raise AssertionError("IMAP login failed before opaque-octet fixture APPEND")
+        status, _ = mailbox.append("INBOX", None, None, opaque_message)
+        if status != "OK":
+            raise AssertionError("IMAP APPEND rejected opaque high-bit fixture")
+    finally:
+        mailbox.logout()
+
     message = (
         b"From: alice@test\r\nTo: bob@test\r\nSubject: UTF8 mode test\r\n"
         b"Content-Type: text/plain; charset=utf-8\r\n"
@@ -93,9 +109,7 @@ def check_message_download_requires_utf8_mode():
         + UTF8_MARKER
         + b"\r\n"
     )
-    context = ssl.create_default_context()
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
+    context = ssl_context()
     with smtplib.SMTP(HOST, SMTP_PORT, timeout=10) as smtp:
         smtp.starttls(context=context)
         smtp.login("alice", os.environ["LITTERKEEP_ALICE_PASSWORD"])
@@ -128,6 +142,7 @@ def check_message_download_requires_utf8_mode():
         status = send(connection, stream, b"STAT\r\n", b"+OK", "message STAT")
         _status, count, _octets = status.split()
         number = str(int(count))
+        opaque_number = str(max(1, int(count) - 1))
         command = f"RETR {number}\r\n".encode("ascii")
         send(
             connection,
@@ -144,6 +159,16 @@ def check_message_download_requires_utf8_mode():
             "TOP before UTF8",
         )
         send(connection, stream, command, b"-ERR [UTF8]", "RETR before UTF8")
+        opaque_rejection = b"-ERR non-ASCII message requires UTF8 mode"
+        for verb in (b"LIST", b"TOP", b"RETR"):
+            argument = b" 1" if verb == b"TOP" else b""
+            send(
+                connection,
+                stream,
+                verb + b" " + opaque_number.encode("ascii") + argument + b"\r\n",
+                opaque_rejection,
+                f"{verb.decode('ascii')} opaque octets before UTF8",
+            )
         send(connection, stream, b"QUIT\r\n", b"+OK", "pre-mode QUIT")
     finally:
         stream.close()
@@ -165,9 +190,7 @@ def check_binary_cte_rejected():
         b"--broken\r\nContent-Type: application/octet-stream\r\n"
         b"Content-Transfer-Encoding: binary\r\n\r\nopaque\x00octets\r\n"
     )
-    context = ssl.create_default_context()
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
+    context = ssl_context()
     mailbox = imaplib.IMAP4(HOST, IMAP_PORT)
     try:
         mailbox.starttls(ssl_context=context)
@@ -220,6 +243,13 @@ def check_binary_cte_rejected():
     finally:
         stream.close()
         connection.close()
+
+
+def ssl_context():
+    context = ssl.create_default_context()
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    return context
 
 def main():
     check_plaintext_upgrade_order()

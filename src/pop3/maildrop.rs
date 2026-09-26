@@ -7,6 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 #[derive(Clone, Copy)]
 struct MessageProfile {
     utf8: bool,
+    non_ascii: bool,
     octets: usize,
     transfer_policy: MimeTransferPolicy,
 }
@@ -45,6 +46,7 @@ impl Maildrop {
                     message.uid,
                     MessageProfile {
                         utf8: contains_non_ascii_utf8(&message.bytes),
+                        non_ascii: contains_non_ascii_octet(&message.bytes),
                         octets: reported_message_size(&message.bytes),
                         transfer_policy: contains_binary_transfer_encoding(&message.bytes),
                     },
@@ -97,6 +99,18 @@ impl Maildrop {
             None => Ok(self
                 .visible()
                 .any(|(_, message)| self.profile(message).utf8)),
+        }
+    }
+    /// Показывает, содержит ли письмо октеты, которые ASCII-сессия не может
+    /// безопасно передать без преобразования или отказа.
+    pub fn contains_non_ascii(&self, number: Option<u32>) -> Result<bool, &'static str> {
+        match number {
+            Some(number) => self
+                .message(number)
+                .map(|message| self.profile(message).non_ascii),
+            None => Ok(self
+                .visible()
+                .any(|(_, message)| self.profile(message).non_ascii)),
         }
     }
     /// Запрещает TOP/RETR для MIME binary CTE по RFC 6856 даже в UTF8 mode.
@@ -163,10 +177,16 @@ impl Maildrop {
             .copied()
             .unwrap_or_else(|| MessageProfile {
                 utf8: contains_non_ascii_utf8(&message.bytes),
+                non_ascii: contains_non_ascii_octet(&message.bytes),
                 octets: reported_message_size(&message.bytes),
                 transfer_policy: MimeTransferPolicy::Unverifiable,
             })
     }
+}
+
+/// Ищет high-bit octet без интерпретации или декодирования содержимого.
+fn contains_non_ascii_octet(bytes: &[u8]) -> bool {
+    bytes.iter().any(|byte| !byte.is_ascii())
 }
 
 /// Проверяет binary CTE; неразбираемая MIME-структура считается непроверяемой.
