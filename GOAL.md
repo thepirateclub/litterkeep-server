@@ -16,19 +16,16 @@ Current subgoal: G17
   сохраняется побайтно. Обнаружение и проверка профиля выполняются при создании
   snapshot и используют кэш на LIST/TOP/RETR.
 - Windows Rust 1.97.1 fmt, strict Clippy, 605 library tests, 1 CLI test и
-  doc-tests pass. Linux Docker gate не подтверждён: release stage собрался,
-  но дальнейшая проверка зависла внутри Docker на Clippy без новых логов.
-  Проверка остановлена, чтобы не держать перегруженный backend; Docker CLI
-  после этого не смог подтвердить состояние ресурсов.
-- Independent STARTTLS acceptance доставляет валидное UTF-8 письмо через SMTP
-  и добавляет opaque-octet сообщение через IMAP APPEND. Планировались проверки
-  `[UTF8]` в ASCII mode, отказ opaque bytes до и после UTF8 и byte-exact
-  retrieval валидного UTF-8 сообщения. Acceptance не запускался, поэтому
-  результат wire-протокола не заявляется; Litterkeep клиент не входит в сценарий.
+  doc-tests pass. Linux Docker Rust 1.97 release, strict Clippy, 668 library
+  tests, 1 CLI test и doc-tests pass; один внешний Unicode corpus test ignored,
+  потому что файл корпуса отсутствует.
+- Independent Linux STARTTLS acceptance доставляет валидное UTF-8 письмо через
+  SMTP и добавляет opaque-octet сообщение через IMAP APPEND. Проверены `[UTF8]`
+  в ASCII mode, отказ opaque bytes до и после UTF8 и byte-exact retrieval
+  валидного UTF-8 сообщения. Litterkeep клиент не входит в сценарий.
 - Stage data остаётся в `./data/acceptance-pop3-utf8-validation-20260927`.
-  Docker CLI после остановки не ответил, поэтому наличие временного образа
-  нельзя подтвердить или удалить безопасно. Контейнер запуска acceptance не
-  создавался. Остальные контейнеры не затрагивались.
+  Временные контейнер и image удалены; точные имена проверены и отсутствуют.
+  Остальные контейнеры других проектов не изменялись.
 
 ### 2026-09-27: G17 POP3 ASCII-mode high-bit guard, PASS checkpoint
 
