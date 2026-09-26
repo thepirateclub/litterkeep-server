@@ -20,6 +20,9 @@ pub(super) fn flush(session: &mut Option<SessionLease>) -> io::Result<bool> {
         Ok(count) => {
             output.drain(..count);
             session.begin_starttls_if_ready()?;
+            if !session.needs_write() {
+                session.last_activity = std::time::Instant::now();
+            }
             Ok(false)
         }
         Err(error) if error.kind() == io::ErrorKind::WouldBlock => Ok(false),
@@ -46,13 +49,16 @@ pub(super) fn read_session(
     let mut bytes = [0_u8; READ_BUDGET];
     match session.stream.read(&mut bytes) {
         Ok(0) => return Ok(true),
-        Ok(count) => match bytes.get(..count) {
-            Some(received) => match receive_plaintext(session, received) {
-                Ok(plaintext) => session.input.extend_from_slice(&plaintext),
-                Err(_) => return Ok(true),
-            },
-            None => return Ok(true),
-        },
+        Ok(count) => {
+            session.last_activity = std::time::Instant::now();
+            match bytes.get(..count) {
+                Some(received) => match receive_plaintext(session, received) {
+                    Ok(plaintext) => session.input.extend_from_slice(&plaintext),
+                    Err(_) => return Ok(true),
+                },
+                None => return Ok(true),
+            }
+        }
         Err(error) if error.kind() == io::ErrorKind::WouldBlock => return Ok(false),
         Err(_) => return Ok(true),
     }

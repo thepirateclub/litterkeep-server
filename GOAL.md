@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G17 RFC 5321 server idle timeout, PASS
+
+- Added the RFC-recommended five-minute SMTP command-inactivity deadline to
+  poll scheduling. Read/write activity refreshes the clock; response bytes must
+  drain before the idle interval begins. Pending storage, queued protocol
+  output, and TLS-handshake work are excluded so the timer cannot steal an
+  active session's resource lease.
+- PASS: Windows Rust 1.97.1 fmt, 544 library + 1 binary tests and strict
+  Clippy. Linux Docker Rust 1.97 strict Clippy, 593 library + 1 binary tests,
+  and doc-tests. Independent STARTTLS client verified greeting, EHLO, upgrade,
+  and NOOP. Container idle expiry at exact 300 seconds is covered deterministically
+  by a lifecycle lease test; the wire probe did not wait five minutes. Test
+  container and both unique image tags removed; generated account/PKI fixtures
+  remain under `./data/g15-smtp-idle-timeout`. Litterkeep app interoperability
+  was not tested; G17 remains active.
+
 ### 2026-09-26: G15 RFC 4954 AUTH continuation semantics correction, PASS
 
 - Superseded the preceding checkpoint after RFC review: §4 defines Base64 client

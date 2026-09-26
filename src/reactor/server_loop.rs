@@ -128,6 +128,7 @@ fn step(
         ),
     )?;
     deadline::expire_handshakes(sessions, lifecycle, maildrops)?;
+    deadline::expire_smtp_idle(sessions, lifecycle, maildrops)?;
     let stop_scheduler = match scheduler.as_mut() {
         Some(value) => value.wake_due(worker, lifecycle)?,
         None => false,
