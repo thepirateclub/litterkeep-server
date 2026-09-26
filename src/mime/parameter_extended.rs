@@ -68,11 +68,12 @@ fn decode_octets(value: &str) -> Result<Vec<u8>, &'static str> {
     Ok(decoded)
 }
 
-/// Декодирует цифры и только заглавные A-F из ext-octet grammar.
+/// Декодирует шестнадцатеричные цифры без учёта регистра по ABNF RFC 2231.
 fn hex(byte: u8) -> Option<u8> {
     match byte {
         b'0'..=b'9' => Some(byte - b'0'),
         b'A'..=b'F' => Some(byte - b'A' + 10),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
         _ => None,
     }
 }

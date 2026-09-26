@@ -4,6 +4,16 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G17 RFC 2231 case-insensitive percent escapes, PARTIAL
+
+- MIME extended parameters теперь принимают lowercase и mixed-case
+  hexadecimal digits в `%HH`. RFC 2231 использует ABNF HEXDIG, где буквенные
+  terminals нечувствительны к регистру. Удалено прежнее неверное ожидание,
+  запрещавшее `%2a`; malformed non-hex escapes всё ещё отвергаются.
+- Unit-набор MIME parameters и strict Clippy прошли на Windows Rust 1.97.1.
+  Полный Windows/Linux gates выполняются; lowercase wire acceptance не
+  проводился. G17 остаётся ACTIVE.
+
 ### 2026-09-26: G17 RFC 6532 encoded message/global ranges, PARTIAL
 
 - `message/global` теперь декодирует Base64 и quoted-printable до разбора

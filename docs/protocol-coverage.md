@@ -193,7 +193,10 @@ STATUS, LIST STATUS и отклонение размера `26214401`; полн�
 `BODYSTRUCTURE` включает RFC 9051 body-MD5 slot и корректный RFC 2183
 Content-Disposition extension для scalar/message частей; multipart начинает
 extensions с parameter list после subtype. Параметры включая RFC 2231 filename декодируются общим MIME parser-ом;
-невалидное или повторное поле не экспортируется. `Content-Language` сохраняет
+невалидное или повторное поле не экспортируется. RFC 2231 percent escapes
+принимают HEXDIG в любом регистре согласно регистронезависимой ABNF; unit test
+проверяет lowercase и смешанный регистр на UTF-8 имени вложения. Независимая
+wire-проверка именно lowercase escape ещё не выполнялась. `Content-Language` сохраняет
 один или несколько структурно корректных BCP 47 tags; `Content-Location`
 сохраняется как единственный непустой unfolded URI-reference по синтаксису
 RFC 3986. Поддерживаются absolute URI и relative reference; percent-encoding

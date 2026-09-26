@@ -209,11 +209,23 @@ fn rejects_noncanonical_rfc2231_extended_payload_octets() {
         "text/plain; name*=UTF-8''bad?value",
         "text/plain; name*=UTF-8''bad'quote",
         "text/plain; name*=UTF-8''bad*value",
-        "text/plain; name*=UTF-8''bad%2avalue",
         "text/plain; name*=UTF-8''bad%G0value",
     ] {
         assert!(parameters::parse(value).is_err(), "accepted {value}");
     }
+}
+
+/// ABNF HEXDIG нечувствителен к регистру и принимает lowercase escapes.
+#[test]
+fn decodes_lowercase_and_mixed_case_rfc2231_percent_escapes() {
+    let parsed =
+        parameters::parse("application/octet-stream; filename*=UTF-8''%d1%81%D1%87%D1%91.txt")
+            .expect("case-insensitive hexadecimal escapes");
+
+    assert_eq!(
+        parsed.parameters.get("filename").map(String::as_str),
+        Some("счё.txt")
+    );
 }
 
 #[test]
