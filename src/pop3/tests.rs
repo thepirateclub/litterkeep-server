@@ -1,5 +1,6 @@
 //! Проверки POP3 FSM, snapshot и отложенного удаления.
 
+use super::maildrop::MessageEncoding;
 use super::*;
 use crate::{mail_date::MailDate, mail_flags::MessageFlags, store::Message};
 use std::path::PathBuf;
@@ -250,17 +251,16 @@ fn pop3_lang_lists_selects_and_rejects_unsupported_ranges() {
 }
 
 #[test]
-fn maildrop_detects_valid_utf8_after_malformed_octets_without_indexing() {
+fn maildrop_classifies_ascii_utf8_opaque_and_mixed_message_bytes() {
     let ascii = Maildrop::new(vec![message(1, b"Subject: plain\r\n\r\nbody")]);
     let unicode = Maildrop::new(vec![message(2, b"Subject: caf\xc3\xa9\r\n\r\nbody")]);
     let malformed = Maildrop::new(vec![message(3, b"binary\xff then caf\xc3\xa9")]);
     let opaque = Maildrop::new(vec![message(4, b"binary\xff only")]);
-    assert_eq!(ascii.requires_utf8(None), Ok(false));
-    assert_eq!(unicode.requires_utf8(Some(1)), Ok(true));
-    assert_eq!(malformed.requires_utf8(Some(1)), Ok(true));
-    assert_eq!(opaque.requires_utf8(Some(1)), Ok(false));
-    assert_eq!(opaque.contains_non_ascii(Some(1)), Ok(true));
-    assert_eq!(ascii.contains_non_ascii(None), Ok(false));
+    assert_eq!(ascii.encoding(None), Ok(MessageEncoding::Ascii));
+    assert_eq!(unicode.encoding(Some(1)), Ok(MessageEncoding::Utf8));
+    assert_eq!(malformed.encoding(Some(1)), Ok(MessageEncoding::Mixed));
+    assert_eq!(opaque.encoding(Some(1)), Ok(MessageEncoding::Opaque));
+    assert_eq!(opaque.encoding(None), Ok(MessageEncoding::Opaque));
 }
 
 #[test]
@@ -279,13 +279,22 @@ fn ascii_pop3_session_never_sends_opaque_high_bit_octets() {
     ));
     let _ = utf8_session.apply(parse("USER bob\r\n"));
     let _ = utf8_session.authenticated(vec![message(6, b"Subject: opaque\r\n\r\n\xff")]);
-    let retrieved = match utf8_session.apply(parse("RETR 1\r\n")) {
-        Reply::Multiline(bytes) | Reply::Message(bytes) => bytes,
-        Reply::Error(text) => panic!("UTF8-mode opaque retrieval failed: {text}"),
-        Reply::ErrorCode(_, text) => panic!("UTF8-mode opaque retrieval failed: {text}"),
-        _ => panic!("UTF8-mode opaque retrieval returned an unexpected response"),
-    };
-    assert!(retrieved.windows(6).any(|part| part == b"\xff\r\n.\r\n"));
+    assert!(matches!(
+        utf8_session.apply(parse("RETR 1\r\n")),
+        Reply::Error("message cannot be represented as valid UTF-8")
+    ));
+
+    let mut valid_utf8_session = Session::default();
+    assert!(matches!(
+        valid_utf8_session.apply(parse("UTF8\r\n")),
+        Reply::Ok(_)
+    ));
+    let _ = valid_utf8_session.apply(parse("USER bob\r\n"));
+    let _ = valid_utf8_session.authenticated(vec![message(7, b"Subject: caf\xc3\xa9\r\n\r\nbody")]);
+    assert!(matches!(
+        valid_utf8_session.apply(parse("RETR 1\r\n")),
+        Reply::Message(_)
+    ));
 }
 
 #[path = "listing_tests.rs"]

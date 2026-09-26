@@ -189,27 +189,8 @@ impl Session {
     }
     fn utf8_policy(&self, number: Option<u32>) -> Result<(), Reply> {
         match self.drop() {
-            Some(drop) => self.maildrop_text_policy(drop, number),
+            Some(drop) => super::text_policy::evaluate(drop, number, self.utf8_active),
             None => Err(Reply::Error("maildrop unavailable")),
-        }
-    }
-    /// Не выдаёт high-bit octets клиенту ASCII-профиля как будто это ASCII.
-    fn maildrop_text_policy(
-        &self,
-        drop: &super::maildrop::Maildrop,
-        number: Option<u32>,
-    ) -> Result<(), Reply> {
-        match (drop.contains_non_ascii(number), drop.requires_utf8(number)) {
-            (Ok(false), Ok(_)) => Ok(()),
-            (Ok(true), Ok(true)) if !self.utf8_active => Err(Reply::ErrorCode(
-                ResponseCode::Utf8,
-                "message contains UTF-8; issue UTF8 first",
-            )),
-            (Ok(true), Ok(_)) if !self.utf8_active => {
-                Err(Reply::Error("non-ASCII message requires UTF8 mode"))
-            }
-            (Ok(_), Ok(_)) => Ok(()),
-            (Err(error), _) | (_, Err(error)) => Err(Reply::Error(error)),
         }
     }
     /// Проверяет ограничения POP3 transfer encoding до чтения сообщения.

@@ -601,9 +601,12 @@ RFC 6856: `UTF8` capability объявляется в обоих состоян�
 Независимый Linux SMTP->POP3 socket acceptance отправил 8BITMIME UTF-8 письмо,
 получил `[UTF8]` от LIST/TOP/RETR в ASCII mode, затем включил UTF8 до USER и
 сравнил точные байты RETR. Отдельный IMAP APPEND с единственным `0xFF` проверил
-обычный отказ для LIST/TOP/RETR до UTF8; unit-тест подтвердил точную выдачу этого
-октета после переключения. Acceptance также проверил CAPA до/после TLS и отказ
-STLS после UTF8. MIME-дерево
+обычный отказ для LIST/TOP/RETR до UTF8; unit-тест подтвердил, что этот октет
+не выдаётся и после переключения UTF8, поскольку содержимое не является
+валидным UTF-8 и legacy charset conversion не реализован. Новый independent
+STARTTLS сценарий после переключения получает `-ERR` для opaque octets и
+byte-check-ит RETR валидного UTF-8 письма. Acceptance также проверил CAPA
+до/после TLS и отказ STLS после UTF8. MIME-дерево
 рекурсивно обнаруживает `Content-Transfer-Encoding: binary`, включая вложенные
 части всех `multipart/*`; POP3 `TOP` и `RETR` отклоняют такое сообщение даже в
 UTF8 mode. Независимый Linux acceptance сохранил fixture через IMAP APPEND и

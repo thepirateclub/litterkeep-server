@@ -4,6 +4,32 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-27: G17 POP3 UTF-8 mode rejects unconvertible high-bit content, PASS checkpoint
+
+- Второй аудит RFC 6856 §2.1 выявил, что предыдущий ASCII guard исправил
+  утечку high-bit octets до UTF8, но пропускал opaque `0xFF` после команды
+  UTF8. Режим должен передавать корректное UTF-8 содержимое; неподдержанную
+  legacy-кодировку следует преобразовать либо отклонить, а не объявлять UTF-8.
+- Maildrop profile теперь классифицируется типизированными вариантами ASCII,
+  UTF-8, opaque и mixed. UTF8 mode передаёт ASCII/валидный UTF-8; opaque и
+  смешанные повреждённые последовательности получают `-ERR`. Валидный UTF-8
+  сохраняется побайтно. Обнаружение и проверка профиля выполняются при создании
+  snapshot и используют кэш на LIST/TOP/RETR.
+- Windows Rust 1.97.1 fmt, strict Clippy, 605 library tests, 1 CLI test и
+  doc-tests pass. Linux Docker gate не подтверждён: release stage собрался,
+  но дальнейшая проверка зависла внутри Docker на Clippy без новых логов.
+  Проверка остановлена, чтобы не держать перегруженный backend; Docker CLI
+  после этого не смог подтвердить состояние ресурсов.
+- Independent STARTTLS acceptance доставляет валидное UTF-8 письмо через SMTP
+  и добавляет opaque-octet сообщение через IMAP APPEND. Планировались проверки
+  `[UTF8]` в ASCII mode, отказ opaque bytes до и после UTF8 и byte-exact
+  retrieval валидного UTF-8 сообщения. Acceptance не запускался, поэтому
+  результат wire-протокола не заявляется; Litterkeep клиент не входит в сценарий.
+- Stage data остаётся в `./data/acceptance-pop3-utf8-validation-20260927`.
+  Docker CLI после остановки не ответил, поэтому наличие временного образа
+  нельзя подтвердить или удалить безопасно. Контейнер запуска acceptance не
+  создавался. Остальные контейнеры не затрагивались.
+
 ### 2026-09-27: G17 POP3 ASCII-mode high-bit guard, PASS checkpoint
 
 - RFC 6856 §2.1 forbids sending non-ASCII character strings unchanged when
@@ -27,6 +53,9 @@ Current subgoal: G17
 - Fixture `./data/acceptance-pop3-opaque-octets-20260927` is retained. The
   disposable Docker container and test image are removed and checked after
   acceptance; unrelated containers are not part of this test.
+- Этот checkpoint фиксировал промежуточное поведение: последующая сверка
+  RFC 6856 уточнила, что opaque octets нельзя выдавать и после UTF8 без
+  charset conversion. Исправление и отдельная проверка записаны выше.
 
 ### 2026-09-27: G17 preserve opaque octets in IMAP LOGIN password literals, PASS checkpoint
 

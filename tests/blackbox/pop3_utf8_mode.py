@@ -173,6 +173,59 @@ def check_message_download_requires_utf8_mode():
     finally:
         stream.close()
         connection.close()
+    check_opaque_rejected_in_utf8_mode()
+
+
+def check_opaque_rejected_in_utf8_mode():
+    """Не выдаёт неподдерживаемую кодировку как будто она является UTF-8."""
+    context = ssl_context()
+    connection = socket.create_connection((HOST, PORT), timeout=10)
+    stream = connection.makefile("rb")
+    try:
+        read_line(stream, "opaque UTF8-mode greeting")
+        send(connection, stream, b"STLS\r\n", b"+OK", "opaque UTF8-mode STLS")
+        stream.close()
+        connection = context.wrap_socket(connection, server_hostname="localhost")
+        stream = connection.makefile("rb")
+        send(connection, stream, b"UTF8\r\n", b"+OK", "opaque UTF8-mode switch")
+        send(connection, stream, b"USER bob\r\n", b"+OK", "opaque UTF8-mode USER")
+        send(
+            connection,
+            stream,
+            f"PASS {os.environ['LITTERKEEP_BOB_PASSWORD']}\r\n".encode("ascii"),
+            b"+OK",
+            "opaque UTF8-mode PASS",
+        )
+        status = send(connection, stream, b"STAT\r\n", b"+OK", "opaque UTF8-mode STAT")
+        _status, count, _octets = status.split()
+        opaque_number = str(max(1, int(count) - 1))
+        send(
+            connection,
+            stream,
+            f"RETR {opaque_number}\r\n".encode("ascii"),
+            b"-ERR message cannot be represented as valid UTF-8",
+            "opaque octets after UTF8",
+        )
+        number = str(int(count))
+        send(
+            connection,
+            stream,
+            f"RETR {number}\r\n".encode("ascii"),
+            b"+OK",
+            "valid UTF8 message after UTF8",
+        )
+        message_lines = []
+        while True:
+            line = read_line(stream, "UTF8-mode message line")
+            if line == b".\r\n":
+                break
+            message_lines.append(line)
+        if UTF8_MARKER not in b"".join(message_lines):
+            raise AssertionError("valid UTF8 message payload changed during POP3 RETR")
+        send(connection, stream, b"QUIT\r\n", b"+OK", "opaque UTF8-mode QUIT")
+    finally:
+        stream.close()
+        connection.close()
 
 
 def check_binary_cte_rejected():

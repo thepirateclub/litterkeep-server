@@ -6,10 +6,34 @@ use std::collections::{BTreeMap, BTreeSet};
 /// Размер POP3 после нормализации CRLF и без удвоения dot-stuffing.
 #[derive(Clone, Copy)]
 struct MessageProfile {
-    utf8: bool,
-    non_ascii: bool,
+    encoding: MessageEncoding,
     octets: usize,
     transfer_policy: MimeTransferPolicy,
+}
+
+/// Классификация high-bit octets относительно POP3 UTF8 mode.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum MessageEncoding {
+    /// Все octets ASCII, поэтому сообщение допустимо в обоих режимах.
+    Ascii,
+    /// Все сообщение является корректным UTF-8 с non-ASCII содержимым.
+    Utf8,
+    /// Есть non-ASCII octets, но нет распознанной UTF-8 последовательности.
+    Opaque,
+    /// Одновременно есть UTF-8 текст и octets, ломающие UTF-8 сообщение.
+    Mixed,
+}
+
+impl MessageEncoding {
+    /// Объединяет требования нескольких писем для многострочного LIST.
+    fn combine(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Ascii, value) | (value, Self::Ascii) => value,
+            (Self::Utf8, Self::Utf8) => Self::Utf8,
+            (Self::Opaque, Self::Opaque) => Self::Opaque,
+            _ => Self::Mixed,
+        }
+    }
 }
 
 /// Результат проверки MIME transfer policy, вычисленный при открытии maildrop.
@@ -45,8 +69,7 @@ impl Maildrop {
                 (
                     message.uid,
                     MessageProfile {
-                        utf8: contains_non_ascii_utf8(&message.bytes),
-                        non_ascii: contains_non_ascii_octet(&message.bytes),
+                        encoding: classify_encoding(&message.bytes),
                         octets: reported_message_size(&message.bytes),
                         transfer_policy: contains_binary_transfer_encoding(&message.bytes),
                     },
@@ -91,26 +114,16 @@ impl Maildrop {
     }
     /// Проверяет, содержит ли выбранное письмо корректные UTF-8 символы вне ASCII.
     /// Полный snapshot сканируется один раз при создании, затем lookup идёт по UID.
-    pub fn requires_utf8(&self, number: Option<u32>) -> Result<bool, &'static str> {
+    pub(crate) fn encoding(&self, number: Option<u32>) -> Result<MessageEncoding, &'static str> {
         match number {
             Some(number) => self
                 .message(number)
-                .map(|message| self.profile(message).utf8),
+                .map(|message| self.profile(message).encoding),
             None => Ok(self
                 .visible()
-                .any(|(_, message)| self.profile(message).utf8)),
-        }
-    }
-    /// Показывает, содержит ли письмо октеты, которые ASCII-сессия не может
-    /// безопасно передать без преобразования или отказа.
-    pub fn contains_non_ascii(&self, number: Option<u32>) -> Result<bool, &'static str> {
-        match number {
-            Some(number) => self
-                .message(number)
-                .map(|message| self.profile(message).non_ascii),
-            None => Ok(self
-                .visible()
-                .any(|(_, message)| self.profile(message).non_ascii)),
+                .fold(MessageEncoding::Ascii, |encoding, (_, message)| {
+                    encoding.combine(self.profile(message).encoding)
+                })),
         }
     }
     /// Запрещает TOP/RETR для MIME binary CTE по RFC 6856 даже в UTF8 mode.
@@ -176,17 +189,25 @@ impl Maildrop {
             .get(&message.uid)
             .copied()
             .unwrap_or_else(|| MessageProfile {
-                utf8: contains_non_ascii_utf8(&message.bytes),
-                non_ascii: contains_non_ascii_octet(&message.bytes),
+                encoding: classify_encoding(&message.bytes),
                 octets: reported_message_size(&message.bytes),
                 transfer_policy: MimeTransferPolicy::Unverifiable,
             })
     }
 }
 
-/// Ищет high-bit octet без интерпретации или декодирования содержимого.
-fn contains_non_ascii_octet(bytes: &[u8]) -> bool {
-    bytes.iter().any(|byte| !byte.is_ascii())
+/// Не выдаёт не-ASCII octets за UTF-8 без преобразования поддерживаемой кодировки.
+fn classify_encoding(bytes: &[u8]) -> MessageEncoding {
+    match (
+        bytes.iter().all(u8::is_ascii),
+        contains_non_ascii_utf8(bytes),
+        std::str::from_utf8(bytes).is_ok(),
+    ) {
+        (true, _, _) => MessageEncoding::Ascii,
+        (false, true, true) => MessageEncoding::Utf8,
+        (false, true, false) => MessageEncoding::Mixed,
+        (false, false, _) => MessageEncoding::Opaque,
+    }
 }
 
 /// Проверяет binary CTE; неразбираемая MIME-структура считается непроверяемой.

@@ -16,6 +16,8 @@ mod maildrop;
 pub(crate) mod reply_wire;
 #[path = "pop3/session.rs"]
 mod session;
+#[path = "pop3/text_policy.rs"]
+mod text_policy;
 
 pub use command::{Command, MAX_COMMAND_LINE_SIZE, SaslInitialResponse, SaslMechanism, parse};
 pub use language::LanguageRequest;
