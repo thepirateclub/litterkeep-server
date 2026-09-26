@@ -33,8 +33,8 @@ def literal(records: list[object], operation: str) -> bytes:
     raise AssertionError(f"{operation} did not return a literal")
 
 
-def fixture_messages() -> tuple[bytes, bytes, bytes]:
-    """Формирует invalid syntax, valid quoted data и invalid disposition."""
+def fixture_messages() -> tuple[bytes, ...]:
+    """Формирует structured WSP и unstructured UTF-8 regressions."""
     subject = uuid.uuid4().hex.encode("ascii")
     prefix = b"From: alice@example.test\r\nTo: bob@example.test\r\nSubject: "
     invalid_type = (
@@ -50,11 +50,26 @@ def fixture_messages() -> tuple[bytes, bytes, bytes]:
         + b"\r\nContent-Type: text/plain\r\n"
         + b"Content-Disposition: \xc2\xa0attachment; filename=x\r\n\r\nbody\r\n"
     )
-    return invalid_type, quoted_data, invalid_disposition
+    invalid_language = (
+        prefix + b"language-" + subject
+        + b"\r\nContent-Language: \xc2\xa0en\r\n\r\nbody\r\n"
+    )
+    invalid_location = (
+        prefix + b"location-" + subject
+        + b"\r\nContent-Location: \xc2\xa0https://example.test/x\r\n\r\nbody\r\n"
+    )
+    description_data = (
+        prefix + b"description-" + subject
+        + b"\r\nContent-Description: \xc2\xa0note\xc2\xa0\r\n\r\nbody\r\n"
+    )
+    return (
+        invalid_type, quoted_data, invalid_disposition,
+        invalid_language, invalid_location, description_data,
+    )
 
 
 def inspect_mailbox(
-    options: argparse.Namespace, expected_sources: tuple[bytes, bytes, bytes]
+    options: argparse.Namespace, expected_sources: tuple[bytes, ...]
 ) -> list[tuple[bytes, bytes]]:
     """Добавляет fixtures и возвращает независимые BODYSTRUCTURE/RFC822 пары."""
     context = ssl.create_default_context(cafile=options.ca)
@@ -107,6 +122,15 @@ def verify(records: list[tuple[bytes, bytes]], expected: tuple[bytes, ...]) -> N
     )
     if b'"attachment"' in structures[invalid_disposition]:
         raise AssertionError("NBSP was incorrectly trimmed from disposition token")
+    invalid_language = next(source for source in expected if b"language-" in source)
+    if b'"en"' in structures[invalid_language]:
+        raise AssertionError("NBSP was incorrectly treated as Content-Language CFWS")
+    invalid_location = next(source for source in expected if b"location-" in source)
+    if b"https://example.test/x" in structures[invalid_location]:
+        raise AssertionError("NBSP was incorrectly trimmed from Content-Location")
+    description = next(source for source in expected if b"description-" in source)
+    if b'"\xc2\xa0note\xc2\xa0"' not in structures[description]:
+        raise AssertionError("Content-Description Unicode whitespace was not preserved")
 
 
 def main() -> None:

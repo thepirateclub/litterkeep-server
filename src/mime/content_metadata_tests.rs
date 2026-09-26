@@ -48,6 +48,30 @@ fn duplicate_or_empty_content_location_is_not_projected() {
 }
 
 #[test]
+fn rejects_unicode_whitespace_where_language_cfws_is_required() {
+    let parsed = metadata("Content-Language: \u{00a0}en\r\n\r\n".as_bytes());
+
+    assert!(parsed.languages.is_none());
+}
+
+#[test]
+fn rejects_unicode_whitespace_where_location_cfws_is_required() {
+    let parsed = metadata("Content-Location: \u{00a0}https://example.test/x\r\n\r\n".as_bytes());
+
+    assert!(parsed.location.is_none());
+}
+
+#[test]
+fn preserves_unicode_whitespace_as_content_description_data() {
+    let parsed = metadata("Content-Description: \u{00a0}письмо\u{00a0}\r\n\r\n".as_bytes());
+
+    assert_eq!(
+        parsed.description.as_deref(),
+        Some("\u{00a0}письмо\u{00a0}")
+    );
+}
+
+#[test]
 fn invalid_language_does_not_hide_valid_location() {
     let parsed = metadata(b"Content-Language: en--US\r\nContent-Location: ./part.html\r\n\r\n");
 

@@ -5931,3 +5931,21 @@ ManageSieve до заявленного набора современных фо
   заметка об отсутствующих Content-ID/Description была устаревшей: basic fields
   уже подтверждены checkpoint-ом T61; теперь закрыта ещё одна форма RFC 5322.
   Полная MIME и IMAP4rev2 грамматика остаются незакрытыми.
+
+### 2026-09-26: G17 MIME structured WSP metadata checkpoint
+
+- В `Content-Language` и `Content-Location` внешнее удаление пробелов теперь
+  ограничено RFC WSP (SP/HTAB); Unicode NBSP не принимается как CFWS. В
+  unstructured `Content-Description` Unicode-пробелы остаются данными. Норма:
+  RFC 5322 WSP, RFC 3282 CFWS и RFC 6532 UTF-8 `text`.
+- Сначала regressions воспроизвели ошибочное принятие/удаление NBSP, затем
+  прошли 13 тестов metadata. Полный Windows `cargo test --locked`: 572 library
+  и 1 binary test. Linux Docker release build, strict Clippy и test gate прошли:
+  623 library, 1 binary и doc-tests. Независимый STARTTLS Python `imaplib`
+  проверил шесть APPEND/FETCH сообщений, BODYSTRUCTURE projection и точное
+  совпадение RFC822 literal bytes. Это не проверка Litterkeep.
+- Контейнер `litterkeep-mime-wsp-runtime` и образы
+  `litterkeep-mime-wsp-runtime:20260926`, `litterkeep-mime-wsp-check:20260926`
+  удалены и их отсутствие подтверждено; аккаунты и PKI сохранены в
+  `./data/g17-mime-ascii-wsp`. G17 остаётся RUNNING: полная MIME-грамматика и
+  остальные протоколы ещё не закрыты.

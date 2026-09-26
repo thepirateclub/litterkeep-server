@@ -208,8 +208,9 @@ Unicode NBSP перед media type, параметром, unquoted value и disp
 fmt и strict Clippy, Linux Docker release build, strict Clippy, 620 library +
 1 binary test и doc-tests. `tests/blackbox/mime_structured_wsp.py` через
 независимый Python `imaplib` APPEND/FETCH подтвердил MIME fallback для NBSP в
-Content-Type, сохранение quoted NBSP и непринятие NBSP перед disposition
-token; исходные RFC822 literal bytes совпали. Это не проверка совместимости
+Content-Type, сохранение quoted NBSP и непринятие NBSP перед disposition token,
+Content-Language и Content-Location; NBSP в unstructured Content-Description
+сохранён. Исходные RFC822 literal bytes совпали. Это не проверка совместимости
 Litterkeep.
 `Content-Language` сохраняет
 один или несколько структурно корректных BCP 47 tags; `Content-Location`

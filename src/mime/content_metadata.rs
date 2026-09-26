@@ -49,7 +49,8 @@ fn parse_description(fields: &[HeaderField]) -> Option<String> {
     let field = single_field(fields, HeaderName::ContentDescription)?;
     let value = std::str::from_utf8(&field.value).ok()?;
     let normalized = super::structured_comments::remove(value).ok()?;
-    let decoded = super::encoded_word::decode_header(normalized.trim()).ok()?;
+    // Content-Description — unstructured UTF-8 text; Unicode-пробелы здесь являются данными.
+    let decoded = super::encoded_word::decode_header(super::wsp::trim(&normalized)).ok()?;
     match decoded.chars().any(char::is_control) {
         true => None,
         false => Some(decoded),
@@ -63,7 +64,7 @@ fn parse_language_fields(fields: &[HeaderField]) -> Option<Vec<LanguageTag>> {
     let normalized = super::structured_comments::remove(value).ok()?;
     let tags = normalized
         .split(',')
-        .map(str::trim)
+        .map(super::wsp::trim)
         .map(LanguageTag::parse)
         .collect::<Result<Vec<_>, _>>()
         .ok()?;
@@ -78,7 +79,8 @@ fn parse_location_fields(fields: &[HeaderField]) -> Option<String> {
     let field = single_field(fields, HeaderName::ContentLocation)?;
     let value = std::str::from_utf8(&field.value).ok()?;
     let normalized = super::structured_comments::remove(value).ok()?;
-    let location = normalized.trim();
+    // В CFWS разрешены RFC WSP, а не произвольные Unicode-разделители.
+    let location = super::wsp::trim(&normalized);
     match location.is_empty() || !super::uri_reference::is_valid(location) {
         true => None,
         false => Some(location.to_owned()),
