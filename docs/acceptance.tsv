@@ -110,3 +110,4 @@ T89	PASS	smtp-policy	Raw-TCP SMTP rejects SP and HTAB between MAIL FROM:/RCPT TO
 T90	PASS	smtp-policy	Raw-TCP SMTP rejects HTAB, repeated SP, and trailing SP after MAIL/RCPT path with 501; valid MAIL parameters separated by one SP and subsequent RCPT/RSET/QUIT succeed
 T91	PASS	smtp-policy	Raw-TCP SMTP rejects missing or malformed HELO/EHLO arguments and multiple words, accepts one DNS Domain for either greeting, and accepts IPv6 address-literal only for EHLO
 T92	PASS	smtp-auth	Independent Python smtplib over STARTTLS verifies RFC 4954 AUTH PLAIN empty 334 challenge, cancel and malformed-response 501 recovery, continuation authentication, repeat-auth 503, and initial-response authentication
+T93	PASS	smtp-auth	STARTTLS SMTP AUTH PLAIN continuation enforces 512-octet command-line maximum, replies 500 to a 513-octet response, restores command state for NOOP, and continues later AUTH successfully

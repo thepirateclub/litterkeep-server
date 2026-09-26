@@ -19,7 +19,10 @@ SMTP AUTH PLAIN поддерживает оба RFC 4954 варианта: initi
 получают 501; после отмены или ошибки command stream восстанавливается. После
 успешной аутентификации повторный AUTH отклоняется кодом 503. Независимый
 Python `smtplib` на STARTTLS проверил continuation, initial-response и recovery;
-другие SASL mechanisms не реализованы и не рекламируются.
+другие SASL mechanisms не реализованы и не рекламируются. Ответ continuation
+ограничен общим RFC 5321 максимумом 512 октетов вместе с CRLF: 513 октетов
+получают 500, после чего клиентская сессия возвращается в command state.
+Проверено независимым STARTTLS black-box. См. [RFC 5321 §4.5.3.1.4](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.1.4).
 
 Аргумент HELO проверяется как единственный RFC 5321 Domain. EHLO принимает
 единственный Domain либо валидный IPv4/IPv6 address-literal; пустой аргумент,

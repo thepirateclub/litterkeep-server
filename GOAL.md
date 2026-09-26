@@ -4,6 +4,18 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G15 RFC 4954 continuation line limit, PASS
+
+- SMTP SASL PLAIN continuation now shares the 512-octet RFC 5321 command-line
+  bound. Overlong response returns 500 and terminates only the pending auth
+  exchange; the following NOOP is parsed normally.
+- PASS: Windows Rust 1.97.1 fmt, 544 library + 1 binary tests and strict Clippy;
+  Linux Docker Rust 1.97 strict Clippy, 591 library + 1 binary tests and
+  doc-tests. Independent Python smtplib over STARTTLS sent a 513-octet
+  continuation, received 500, and confirmed NOOP 250 plus successful subsequent
+  AUTH flows. Temporary container and unique image tags removed; shared stage
+  fixture under `./data/g15-auth-plain-continuation` retained. G15 remains active.
+
 ### 2026-09-26: G15 RFC 4954 AUTH PLAIN continuation, PASS
 
 - AUTH PLAIN now accepts optional initial response. Without it the connection

@@ -15,16 +15,20 @@ pub(super) fn smtp_line(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<()> {
-    if session.smtp_auth == SmtpAuthState::AwaitingPlainResponse {
-        return auth_plain_response(session, line, slot, generation, worker, owners, request_id);
-    }
     if matches!(session.smtp, SmtpState::Data { .. }) {
         return super::smtp_data::data_line(
             session, line, slot, generation, worker, owners, request_id,
         );
     }
     if line.len() > smtp::command_line_limit(&line) {
+        // Превышение лимита завершает текущий SASL exchange до ответа SMTP.
+        if session.smtp_auth == SmtpAuthState::AwaitingPlainResponse {
+            session.smtp_auth = SmtpAuthState::Command;
+        }
         return session.push(b"500 5.5.2 command line too long\r\n");
+    }
+    if session.smtp_auth == SmtpAuthState::AwaitingPlainResponse {
+        return auth_plain_response(session, line, slot, generation, worker, owners, request_id);
     }
     let command = match smtp::parse(std::str::from_utf8(&line).unwrap_or("")) {
         Ok(command) => command,
