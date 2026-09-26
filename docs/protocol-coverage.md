@@ -14,6 +14,11 @@ dot terminator. `BODY=7BIT` и режим без BODY ограничивают �
 До TLS AUTH запрещён. Envelope sender должен принадлежать authenticated owner.
 Local route не является open relay.
 
+Аргумент HELO проверяется как единственный RFC 5321 Domain. EHLO принимает
+единственный Domain либо валидный IPv4/IPv6 address-literal; пустой аргумент,
+лишние слова, лишние пробелы и ошибочные DNS labels получают 501. Валидные
+приветствия принимаются независимым Linux raw-TCP клиентом после серии отказов.
+
 В production `MAIL FROM:` и `RCPT TO:` angle-path начинается сразу после
 двоеточия: пробел и табуляция между delimiter-ом команды и `<` получают 501,
 а последующая команда остаётся синхронизирована. Проверено unit-тестом parser-а

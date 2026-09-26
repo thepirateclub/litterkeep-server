@@ -197,7 +197,7 @@ fn valid_atext(octet: u8) -> bool {
 }
 
 /// Проверяет DNS labels и общий предел длины ASCII domain.
-fn valid_domain(domain: &str) -> bool {
+pub(super) fn valid_domain(domain: &str) -> bool {
     !domain.is_empty()
         && domain.len() <= 255
         && domain.is_ascii()

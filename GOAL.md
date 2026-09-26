@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G15 RFC 5321 EHLO and HELO argument grammar, PASS
+
+- Greeting argument validation is separated into `smtp/greeting.rs`:
+  HELO requires one DNS Domain; EHLO accepts one DNS Domain or address-literal.
+  Multiple words, malformed DNS labels, missing values, repeated/trailing SP,
+  and HTAB are rejected. Unit tests cover IPv4 and IPv6 literal distinction.
+- PASS: Windows Rust 1.97.1 fmt, 542 library + 1 binary tests, strict Clippy;
+  Linux Docker Rust 1.97 strict Clippy, 589 library + 1 binary tests and
+  doc-tests; independent raw-TCP acceptance rejected seven malformed greetings
+  and accepted DNS HELO/EHLO plus IPv6 EHLO. Temporary container removed and
+  `./data/g15-smtp-greeting` retained. A pre-existing image-tag collision was
+  detected after the test build: `litterkeep-server:g15-smtp-greeting` now points
+  to the verified runtime from this source; its previous image digest was not
+  available for restoration. The separate `litterkeep-linux-test:g15-smtp-greeting`
+  image remains untouched. Litterkeep app interoperability was not tested.
+  G15 remains active.
+
 ### 2026-09-26: G15 RFC 5321 ESMTP parameter separators, PASS
 
 - После reverse/forward path парсер принимает только RFC separator `SP`;

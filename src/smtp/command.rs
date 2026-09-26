@@ -4,6 +4,8 @@
 mod address;
 #[path = "address_literal.rs"]
 mod address_literal;
+#[path = "greeting.rs"]
+mod greeting;
 pub(crate) use address::canonical_parts;
 #[cfg(target_os = "linux")]
 pub(crate) use address::requires_smtp_utf8;
@@ -71,8 +73,8 @@ pub fn parse(line: &str) -> Result<Command, ParseError> {
     let line = line.trim_end_matches("\r\n");
     let (verb, argument) = line.split_once(' ').unwrap_or((line, ""));
     match verb.to_ascii_uppercase().as_str() {
-        "EHLO" if !argument.is_empty() => Ok(Command::Ehlo(argument.into())),
-        "HELO" if !argument.is_empty() => Ok(Command::Helo(argument.into())),
+        "EHLO" => greeting::ehlo(argument).map(Command::Ehlo),
+        "HELO" => greeting::helo(argument).map(Command::Helo),
         "MAIL" => parse_mail_from(argument).map(Command::Mail),
         "RCPT" => parse_recipient(argument).map(Command::Rcpt),
         "DATA" if argument.is_empty() => Ok(Command::Data),
