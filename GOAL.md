@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G17 POP3 сохранение CR вне CRLF, PASS
+
+- POP3 ранее удалял любой `CR` из размера `LIST` и тела `RETR/TOP`. Теперь
+  нормализация удаляет только `CR`, непосредственно составляющий пару с `LF`;
+  отдельный CR сохраняется как октет и входит в размер CRLF-представления.
+- Регрессия проверяет CR перед обычным символом и в конце последней строки:
+  проверены одновременно точные `RETR` bytes и `LIST` size.
+- Windows Rust 1.97.1: полный library suite 603 passed, 1 ignored; strict
+  Clippy и fmt прошли. Linux Docker test-stage Rust 1.97: release build,
+  strict Clippy, 664 library + 1 binary test, doc-tests; 1 внешний Unicode
+  corpus test ignored.
+- Временный test image `litterkeep-pop3-cr-preservation-test:work` удалён;
+  созданный для acceptance контейнер не требовался. Ранее работавший
+  `litterkeep-nfc-legacy-compat` и его `./data` mount не затронуты.
+  Изменение не заявляет поддержку malformed bare-CR RFC822 клиентами.
+
 ### 2026-09-26: G17 RFC 5322 WSP in MIME structured values, PASS
 
 - MIME media type, параметр и Content-Disposition больше не используют

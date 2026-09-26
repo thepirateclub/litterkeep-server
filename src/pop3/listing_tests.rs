@@ -37,6 +37,14 @@ fn list_size_counts_crlf_without_dot_stuffing() {
 }
 
 #[test]
+fn list_size_preserves_carriage_returns_not_followed_by_line_feed() {
+    let drop = Maildrop::new(vec![message(2, b"a\rX\nlast\r")]);
+
+    assert_eq!(drop.list(Some(1)), Ok(vec![(1, 12)]));
+    assert_eq!(drop.retrieve(1), Ok(b"a\rX\r\nlast\r\r\n.\r\n".to_vec()));
+}
+
+#[test]
 fn deleted_messages_are_hidden_from_stat_list_and_uidl_until_rset() {
     let mut session = Session::default();
     let _ = session.apply(parse("USER bob\r\n"));

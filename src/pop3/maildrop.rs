@@ -181,23 +181,17 @@ fn contains_binary_transfer_encoding(bytes: &[u8]) -> MimeTransferPolicy {
 }
 
 /// Считает размер после CRLF-нормализации, не включая byte-stuffing POP3.
+/// Удаляет CR только из пары CRLF; одиночный CR остаётся octet сообщения.
 fn reported_message_size(bytes: &[u8]) -> usize {
-    let mut total = 0_usize;
-    let mut line = 0_usize;
-    for byte in bytes {
-        match byte {
-            b'\n' => {
-                total = total.saturating_add(line).saturating_add(2);
-                line = 0;
-            }
-            b'\r' => {}
-            _ => line = line.saturating_add(1),
-        }
-    }
-    match (line == 0, bytes.ends_with(b"\n")) {
-        (false, _) | (true, false) => total.saturating_add(line).saturating_add(2),
-        (true, true) => total,
-    }
+    bytes
+        .split_inclusive(|byte| *byte == b'\n')
+        .fold(0_usize, |total, line| {
+            let content = match line.strip_suffix(b"\n") {
+                Some(without_lf) => without_lf.strip_suffix(b"\r").unwrap_or(without_lf),
+                None => line,
+            };
+            total.saturating_add(content.len()).saturating_add(2)
+        })
 }
 
 /// Находит UTF-8 scalar вне ASCII, пропуская ошибочные октеты без panic.
@@ -228,24 +222,17 @@ fn uidl(uid: u64) -> String {
 }
 
 /// Преобразует raw RFC822 octets в POP3 multiline wire, сохраняя dot-stuffing.
+/// Нормализует пары CRLF и LF, но не вырезает CR из содержимого строки.
 fn dot_stuff(bytes: &[u8]) -> Vec<u8> {
     let mut output = Vec::with_capacity(bytes.len().saturating_add(8));
-    let mut line = Vec::new();
-    for byte in bytes {
-        match byte {
-            b'\n' => {
-                append_line(&mut output, &line);
-                line.clear();
+    for source_line in bytes.split_inclusive(|byte| *byte == b'\n') {
+        match source_line.strip_suffix(b"\n") {
+            Some(without_lf) => {
+                let line = without_lf.strip_suffix(b"\r").unwrap_or(without_lf);
+                append_line(&mut output, line);
             }
-            b'\r' => {}
-            value => line.push(*value),
+            None => append_line(&mut output, source_line),
         }
-    }
-    if matches!(
-        (line.is_empty(), bytes.ends_with(b"\n")),
-        (false, _) | (true, false)
-    ) {
-        append_line(&mut output, &line);
     }
     output.extend_from_slice(b".\r\n");
     output
