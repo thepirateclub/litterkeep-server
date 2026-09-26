@@ -10,8 +10,10 @@ Current subgoal: G17
   hexadecimal digits в `%HH`. RFC 2231 использует ABNF HEXDIG, где буквенные
   terminals нечувствительны к регистру. Удалено прежнее неверное ожидание,
   запрещавшее `%2a`; malformed non-hex escapes всё ещё отвергаются.
-- Unit-набор MIME parameters и strict Clippy прошли на Windows Rust 1.97.1.
-  Полный Windows/Linux gates выполняются; lowercase wire acceptance не
+- PASS: Windows Rust 1.97.1 fmt, 562 библиотечных и 1 бинарный тест, strict
+  Clippy; Linux Docker Rust 1.97 release build, strict Clippy, 613 библиотечных
+  и 1 бинарный тест, doc-tests. Временный test image удалён и проверен на
+  отсутствие; контейнер не создавался. Lowercase wire acceptance не
   проводился. G17 остаётся ACTIVE.
 
 ### 2026-09-26: G17 RFC 6532 encoded message/global ranges, PARTIAL
