@@ -45,6 +45,15 @@ def require_bad_create(client: imaplib.IMAP4, mailbox: bytes, reason: str) -> No
     client.noop()
 
 
+def require_bad_explicit_charset(client: imaplib.IMAP4, criteria: bytes) -> None:
+    """Проверяет RFC 9755 BAD и восстановление после явного SEARCH CHARSET."""
+    tag = client._command("SEARCH", criteria)
+    status, response = client._get_tagged_response(tag)
+    if status != "BAD":
+        raise AssertionError(f"explicit SEARCH CHARSET expected BAD: {status!r} {response!r}")
+    client.noop()
+
+
 def append_utf8_header(
     client: imaplib.IMAP4,
     mailbox: str,
@@ -112,6 +121,11 @@ def main() -> None:
     status, counts = client.select("旅行", readonly=True)
     if status != "OK" or counts != [b"0"]:
         raise AssertionError(f"UTF-8 SELECT failed: {status!r} {counts!r}")
+    require_bad_explicit_charset(client, b"CHARSET UTF-8 ALL")
+    require_bad_explicit_charset(client, b"cHaRsEt uTf-8 ALL")
+    status, matched = client.search(None, "ALL")
+    if status != "OK" or matched != [b""]:
+        raise AssertionError(f"implicit UTF-8 SEARCH failed after BAD: {status!r} {matched!r}")
 
     # imaplib._mode_utf8 добавляет в APPEND устаревший data item UTF8 из
     # RFC 6855; RFC 9755 удалил его, поэтому оставляем современную framing.

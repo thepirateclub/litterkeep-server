@@ -6232,3 +6232,19 @@ ManageSieve до заявленного набора современных фо
   assigned-version/NFC policy, оставшиеся команды/ответы и клиент Litterkeep
   не проверялись; полный RFC профиль по-прежнему PARTIAL. Скрипт имеет 121
   строку, `--help` и `git diff --check` прошли.
+
+### 2026-09-26: G17 RFC 9755 explicit SEARCH CHARSET wire acceptance, PASS
+
+- Независимый STARTTLS сценарий после ENABLE и SELECT подтвердил tagged BAD
+  как для `SEARCH CHARSET UTF-8 ALL`, так и для смешанного регистра
+  `SEARCH cHaRsEt uTf-8 ALL`. После обеих ошибок NOOP проходит, затем обычный
+  implicit UTF-8 `SEARCH ALL` успешно возвращает пустой результат. Существующий
+  unit test проверяет, что extension отказ происходит до store routing.
+- Linux Docker runtime использовал только новый каталог
+  `./data/g19-rfc9755-search-charset-wire`; полный APPEND/mailbox/invalid-input
+  сценарий вместе с новыми SEARCH checks прошёл. Временные container и image
+  удалены, отсутствие подтверждено; данные сохранены. `py_compile` и
+  `git diff --check` прошли.
+- T113 закрывает только эту RFC 9755 SHOULD границу. Остальные SEARCH criteria,
+  Unicode assigned-version policy, response paths, capability readiness и
+  Litterkeep interoperability остаются непроверенными; G17 остаётся ACTIVE.
