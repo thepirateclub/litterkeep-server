@@ -36,8 +36,12 @@ def authenticated_client(options: argparse.Namespace, password: str) -> imaplib.
     return client
 
 
-def append_utf8_header(client: imaplib.IMAP4, message: bytes) -> tuple[str, list[bytes]]:
-    status, response = client.append("INBOX", None, None, message)
+def append_utf8_header(
+    client: imaplib.IMAP4,
+    mailbox: str,
+    message: bytes,
+) -> tuple[str, list[bytes]]:
+    status, response = client.append(mailbox, None, None, message)
     if status != "OK":
         raise AssertionError(f"UTF8=ACCEPT APPEND failed: {response!r}")
     return status, response
@@ -50,6 +54,12 @@ def main() -> None:
     status, capabilities = client.capability()
     if status != "OK" or any(b"UTF8=ACCEPT" in item.upper() for item in capabilities):
         raise AssertionError(f"partial extension was advertised: {capabilities!r}")
+
+    legacy_tag = client._command("CREATE", '"旅行"'.encode("utf-8"))
+    legacy_status, legacy_data = client._get_tagged_response(legacy_tag)
+    if legacy_status != "BAD":
+        raise AssertionError(f"legacy UTF-8 CREATE was not rejected: {legacy_status!r} {legacy_data!r}")
+    client.noop()
 
     message = "From: bob@litterkeep.test\r\nSubject: café\r\n\r\nbody\x00bytes".encode()
     status, rejected = client.append("INBOX", None, None, message)
@@ -68,12 +78,34 @@ def main() -> None:
         b"UTF8=ACCEPT" in item for item in enabled
     ):
         raise AssertionError(f"ENABLE did not report UTF8=ACCEPT: {status!r} {enabled!r}")
+    client._encoding = "utf-8"
+    status, created = client.create("旅行")
+    if status != "OK":
+        raise AssertionError(f"UTF-8 CREATE failed: {created!r}")
+    status, subscribed = client.subscribe("旅行")
+    if status != "OK":
+        raise AssertionError(f"UTF-8 SUBSCRIBE failed: {subscribed!r}")
+    status, folders = client.list("", "*")
+    if status != "OK" or not any('"旅行"'.encode("utf-8") in item for item in folders):
+        raise AssertionError(f"UTF-8 LIST response missing mailbox: {folders!r}")
+    status, subscribed_folders = client.lsub("", "*")
+    if status != "OK" or not any(
+        '"旅行"'.encode("utf-8") in item for item in subscribed_folders
+    ):
+        raise AssertionError(f"UTF-8 LSUB response missing mailbox: {subscribed_folders!r}")
+    status, mailbox_status = client.status("旅行", "(MESSAGES)")
+    if status != "OK" or not any('"旅行"'.encode("utf-8") in item for item in mailbox_status):
+        raise AssertionError(f"UTF-8 STATUS response missing mailbox: {mailbox_status!r}")
+    status, counts = client.select("旅行", readonly=True)
+    if status != "OK" or counts != [b"0"]:
+        raise AssertionError(f"UTF-8 SELECT failed: {status!r} {counts!r}")
+
     # imaplib._mode_utf8 добавляет в APPEND устаревший data item UTF8 из
     # RFC 6855; RFC 9755 удалил его, поэтому оставляем современную framing.
-    status, appended = append_utf8_header(client, message)
+    status, appended = append_utf8_header(client, "旅行", message)
     if not any(b"APPENDUID 1 1" in item for item in appended):
         raise AssertionError(f"accepted APPENDUID missing: {appended!r}")
-    status, counts = client.select("INBOX", readonly=True)
+    status, counts = client.select("旅行", readonly=True)
     if status != "OK" or counts != [b"1"]:
         raise AssertionError(f"accepted APPEND count mismatch: {status!r} {counts!r}")
     status, fetched = client.fetch("1", "(RFC822)")
@@ -87,7 +119,10 @@ def main() -> None:
     if status != "OK" or stored != message:
         raise AssertionError("accepted UTF-8 APPEND bytes changed")
     client.logout()
-    print(f"RFC 9755 APPEND transition passed: octets={len(message)}")
+    print(
+        "RFC 9755 mailbox and APPEND transition passed: "
+        f"CREATE/LIST/LSUB/STATUS/SELECT, octets={len(message)}"
+    )
 
 
 if __name__ == "__main__":

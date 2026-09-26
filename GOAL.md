@@ -6195,6 +6195,18 @@ ManageSieve до заявленного набора современных фо
   `./data/g19-rfc9755-append-wire`. Одноразовый runtime container и image
   остановлены/удалены, отсутствие проверено; ранее существовавшие контейнеры
   не изменялись. Скрипт `--help` проверен, wire acceptance прошёл.
+
+### 2026-09-26: G17 RFC 9755 mailbox command wire acceptance
+
+- Тот же независимый STARTTLS `imaplib` сценарий расширен session matrix:
+  legacy UTF-8 CREATE получает BAD, затем после ENABLE проходят UTF-8 CREATE,
+  SUBSCRIBE, LIST, LSUB, STATUS и SELECT. APPEND UTF-8 headers в отдельной
+  Unicode mailbox сохраняет точные исходные bytes при FETCH.
+- T114 PASS ограничен перечисленными командами. RFC 5198 NFC/assigned-version
+  проверки, malformed UTF-8 wire cases, остальные response paths и CAPABILITY
+  readiness остаются незакрытыми; T111/T113 остаются PARTIAL. Данные сохранены
+  в `./data/g19-rfc9755-mailbox-wire`. Созданные runtime container/image
+  удалены и отсутствие проверено.
 - При финальной перепроверке выяснилось, что реализация этого чекпойнта уже
   была в HEAD `d75fc71`; краткий статус показал лишь отдельное незакоммиченное
   разбиение `Session`. TLS lifecycle методы перенесены в
