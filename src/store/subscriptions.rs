@@ -7,6 +7,10 @@ use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
+#[cfg(test)]
+#[path = "subscription_name_tests.rs"]
+mod name_tests;
+
 const MAGIC: [u8; 4] = *b"LKSB";
 const VERSION: u16 = 1;
 const COMMIT: u32 = 0x5ab5_c011;
@@ -49,18 +53,27 @@ impl SubscriptionCatalog {
 
     pub(super) fn set(&mut self, account: &str, name: &str, subscribed: bool) -> io::Result<()> {
         folders::validate_account(account)?;
-        folders::validate_name(name)?;
+        let name = crate::unicode::nfc::normalize(name);
+        folders::validate_name(&name)?;
         let names = self.accounts.entry(account.to_owned()).or_default();
-        if names.contains(name) == subscribed {
+        let matches = names
+            .iter()
+            .filter(|existing| crate::unicode::nfc::normalize(existing) == name)
+            .cloned()
+            .collect::<Vec<_>>();
+        if subscribed && !matches.is_empty() {
             return Ok(());
         }
-        append(&self.root, account, name, subscribed)?;
         match subscribed {
             true => {
+                append(&self.root, account, &name, true)?;
                 names.insert(name.to_owned());
             }
             false => {
-                names.remove(name);
+                for existing in matches {
+                    append(&self.root, account, &existing, false)?;
+                    names.remove(&existing);
+                }
             }
         }
         Ok(())
@@ -73,7 +86,9 @@ impl SubscriptionCatalog {
             .get(account)
             .into_iter()
             .flatten()
-            .cloned()
+            .map(|name| crate::unicode::nfc::normalize(name))
+            .collect::<BTreeSet<_>>()
+            .into_iter()
             .collect())
     }
 }

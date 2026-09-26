@@ -195,7 +195,7 @@ pub(super) fn mailbox_with_mode(
         super::tokenizer::StringMode::Legacy => super::modified_utf7::decode(&value).ok()?,
         super::tokenizer::StringMode::Utf8Accept => {
             super::mailbox_utf8::validate(&value).ok()?;
-            super::unicode_17_nfc::normalize(&value)
+            crate::unicode::nfc::normalize(&value)
         }
     };
     match decoded.to_ascii_uppercase().as_str() {

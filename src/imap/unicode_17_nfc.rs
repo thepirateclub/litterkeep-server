@@ -21,7 +21,10 @@ const S_COUNT: u32 = L_COUNT * N_COUNT;
 /// canonical composition выполняются раздельно. Hangul обрабатывается
 /// алгоритмически, поэтому таблица не дублирует 11 172 слога.
 pub(crate) fn normalize(value: &str) -> String {
-    compose_ordered(canonical_order(decompose(value)))
+    match value.is_ascii() {
+        true => value.to_owned(),
+        false => compose_ordered(canonical_order(decompose(value))),
+    }
 }
 
 /// Рекурсивно раскрывает canonical mappings явным bounded стеком scalar values.

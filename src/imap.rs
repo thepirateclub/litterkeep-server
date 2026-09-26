@@ -58,8 +58,6 @@ mod store_tests;
 mod token_values;
 pub mod tokenizer;
 mod unicode_17;
-#[path = "imap/unicode_17_nfc.rs"]
-pub(crate) mod unicode_17_nfc;
 pub use authenticate::{AuthenticationMechanism, InitialResponse};
 pub use fetch::{BodySection, FetchAttribute, Partial};
 pub use idle::{IdleContinuation, parse_idle_continuation};

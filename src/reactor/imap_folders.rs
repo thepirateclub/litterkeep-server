@@ -252,7 +252,7 @@ pub(super) fn special_use(value: Option<crate::store::SpecialUse>) -> &'static s
 pub(super) fn quote(value: &str, mode: imap::tokenizer::StringMode) -> String {
     let encoded = match mode {
         imap::tokenizer::StringMode::Legacy => crate::imap::modified_utf7::encode(value),
-        imap::tokenizer::StringMode::Utf8Accept => crate::imap::unicode_17_nfc::normalize(value),
+        imap::tokenizer::StringMode::Utf8Accept => crate::unicode::nfc::normalize(value),
     };
     let escaped = encoded.replace('\\', "\\\\").replace('"', "\\\"");
     format!("\"{escaped}\"")

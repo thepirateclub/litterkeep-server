@@ -29,8 +29,14 @@ pub(super) fn matches_pattern(name: &str, pattern: &imap::folder::ListPattern) -
         imap::folder::ListPattern::Root | imap::folder::ListPattern::RootReference(_) => false,
         imap::folder::ListPattern::All => true,
         imap::folder::ListPattern::OneLevel => !name.contains('/'),
-        imap::folder::ListPattern::Exact(expected) => name == expected,
-        imap::folder::ListPattern::Wildcard(pattern) => wildcard_matches(pattern, name),
+        imap::folder::ListPattern::Exact(expected) => {
+            crate::unicode::nfc::normalize(name) == crate::unicode::nfc::normalize(expected)
+        }
+        imap::folder::ListPattern::Wildcard(pattern) => {
+            let canonical_name = crate::unicode::nfc::normalize(name);
+            let canonical_pattern = crate::unicode::nfc::normalize(pattern);
+            wildcard_matches(&canonical_pattern, &canonical_name)
+        }
     }
 }
 
@@ -102,5 +108,15 @@ mod tests {
         assert!(matches_pattern("Invoices/2026", &percent));
         assert!(!matches_pattern("Invoices/2026/January", &percent));
         assert!(matches_pattern("Invoices/2026/January", &star));
+    }
+
+    #[test]
+    fn exact_and_wildcard_patterns_match_legacy_decomposed_names() {
+        let decomposed = "cafe\u{0301}";
+        let exact = imap::folder::ListPattern::Exact(decomposed.to_owned());
+        let wildcard = imap::folder::ListPattern::Wildcard(format!("{decomposed}*"));
+
+        assert!(matches_pattern("café", &exact));
+        assert!(matches_pattern("café/2026", &wildcard));
     }
 }

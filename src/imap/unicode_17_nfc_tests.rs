@@ -4,6 +4,7 @@ use super::normalize;
 
 #[test]
 fn composes_canonical_latin_and_hangul_sequences() {
+    assert_eq!(normalize("ASCII mailbox/2026"), "ASCII mailbox/2026");
     assert_eq!(normalize("cafe\u{0301}"), "café");
     assert_eq!(normalize("\u{1100}\u{1161}\u{11A8}"), "각");
 }

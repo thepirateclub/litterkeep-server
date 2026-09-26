@@ -46,7 +46,7 @@ fn decode(value: &str, mode: super::tokenizer::StringMode) -> Option<String> {
         super::tokenizer::StringMode::Legacy => super::modified_utf7::decode(value).ok(),
         super::tokenizer::StringMode::Utf8Accept => {
             super::mailbox_utf8::validate(value).ok()?;
-            Some(super::unicode_17_nfc::normalize(value))
+            Some(crate::unicode::nfc::normalize(value))
         }
     }
 }

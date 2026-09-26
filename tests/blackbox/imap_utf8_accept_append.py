@@ -4,6 +4,7 @@ import argparse
 import imaplib
 import ssl
 from pathlib import Path
+from imap_utf7 import modified_utf7
 
 
 def arguments() -> argparse.Namespace:
@@ -105,6 +106,20 @@ def main() -> None:
     if status != "NO" or not any(b"UTF-8 headers require ENABLE" in item for item in rejected):
         raise AssertionError(f"pre-ENABLE APPEND was not rejected: {status!r} {rejected!r}")
     require_empty_inbox(client)
+    legacy_name = "historic-cafe\u0301"
+    encoded_name = f'"{modified_utf7(legacy_name)}"'.encode("ascii")
+    tag = client._command("CREATE", encoded_name)
+    legacy_status, legacy_data = client._get_tagged_response(tag)
+    if legacy_status != "OK":
+        raise AssertionError(f"legacy modified UTF-7 CREATE failed: {legacy_data!r}")
+    legacy_message = b"From: bob@litterkeep.test\r\nSubject: legacy mailbox\r\n\r\nold data"
+    status, appended_legacy = client.append(encoded_name, None, None, legacy_message)
+    if status != "OK":
+        raise AssertionError(f"legacy mailbox APPEND failed: {appended_legacy!r}")
+    status, legacy_listing = client.list("", encoded_name)
+    normalized_legacy = f'"{modified_utf7("historic-café")}"'.encode("ascii")
+    if status != "OK" or not any(normalized_legacy in line for line in legacy_listing):
+        raise AssertionError(f"legacy LIST alias failed: {legacy_listing!r}")
     client.logout()
 
     # RFC 5161 требует выполнить ENABLE в AUTH state, до SELECT/EXAMINE.
@@ -118,6 +133,27 @@ def main() -> None:
     ):
         raise AssertionError(f"ENABLE did not report UTF8=ACCEPT: {status!r} {enabled!r}")
     client._encoding = "utf-8"
+    legacy_composed = "historic-café"
+    status, legacy_listing = client.list("", legacy_composed)
+    if status != "OK" or not any(
+        f'"{legacy_composed}"'.encode("utf-8") in line for line in legacy_listing
+    ):
+        raise AssertionError(f"old decomposed folder LIST alias failed: {legacy_listing!r}")
+    status, legacy_count = client.select(legacy_composed, readonly=True)
+    if status != "OK" or legacy_count != [b"1"]:
+        raise AssertionError(f"old decomposed folder SELECT alias failed: {legacy_count!r}")
+    status, legacy_fetch = client.fetch("1", "(RFC822)")
+    legacy_stored = next(
+        value
+        for item in legacy_fetch
+        if isinstance(item, tuple)
+        for value in item
+        if isinstance(value, bytes) and value.startswith(b"From:")
+    )
+    if status != "OK" or legacy_stored != legacy_message:
+        raise AssertionError("NFC alias changed historical mailbox message bytes")
+    require_ok_command(client, "UNSELECT")
+    require_ok_command(client, "DELETE", quoted_mailbox(legacy_composed))
     require_bad_create(client, b'"\xc3("', "malformed UTF-8 quoted mailbox")
     require_bad_create(client, b'"\xc2\x85"', "forbidden C1 control in mailbox")
     require_bad_create(client, b'"\x01"', "forbidden C0 control in mailbox")

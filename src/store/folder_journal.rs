@@ -260,7 +260,7 @@ fn verify(cursor: &mut Cursor<'_>, start: usize) -> io::Result<()> {
     }
 }
 
-fn renamed_name(name: &str, old: &str, new: &str) -> Option<String> {
+pub(super) fn renamed_name(name: &str, old: &str, new: &str) -> Option<String> {
     match name == old {
         true => Some(new.to_owned()),
         false => descendant(name, old).map(|suffix| format!("{new}/{suffix}")),

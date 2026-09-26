@@ -6424,3 +6424,26 @@ ManageSieve до заявленного набора современных фо
 - `docs/acceptance.tsv` содержит scoped T120 PASS. Это не миграция исторических
   decomposed folder records и не аудит всех RFC 9755 quoted-string response
   paths; UTF8=ACCEPT остаётся скрытым, G17 остаётся ACTIVE.
+
+### 2026-09-26: G17 NFC aliases для исторических IMAP mailbox, scoped PASS
+
+- Store сохраняет исторические journal records и физические mailbox keys без
+  переписывания. NFC-equivalent lookup, rename и delete находят прежний stable
+  folder ID; listing выдаёт NFC-представление, subscription journal выдаёт и
+  удаляет canonical alias. Неоднозначные aliases и rename-коллизии отклоняются.
+- Linux Rust 1.97 Docker gates: release/runtime сборка, strict Clippy,
+  661 library tests и 1 CLI test прошли; один официальный Unicode corpus test
+  оставлен ignored в обычном прогоне. Windows gates: fmt, strict Clippy,
+  600 library tests и 1 CLI test прошли. Полный Unicode 17 NormalizationTest
+  corpus запускался отдельно и прошёл.
+- Store close/reopen test подтверждает стабильный folder ID и прежние message
+  bytes. Независимый Linux STARTTLS acceptance создал историческую папку в
+  modified UTF-7 с decomposed именем, проверил NFC результат LIST в legacy
+  режиме, затем после reconnect и ENABLE открыл composed UTF-8 alias и прочитал
+  точные исходные message bytes. Полный RFC 9755 сценарий также прошёл.
+- Acceptance fixture сохранён в
+  `./data/g23-nfc-legacy-folder-list-wire`. Контейнер и образы этого прогона
+  удалены; ранее существовавшие `litterkeep-nfc-legacy-compat` и `lower-layer-v1`
+  не затрагивались. Litterkeep-приложение не тестировалось. Другие Net-Unicode
+  response paths ещё открыты, поэтому UTF8=ACCEPT скрыт, T108 и G17 остаются
+  PARTIAL/ACTIVE.

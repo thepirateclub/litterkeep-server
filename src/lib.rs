@@ -73,6 +73,8 @@ pub mod storage_worker;
 pub mod store;
 pub mod tls;
 pub mod tls_transport;
+#[path = "unicode.rs"]
+pub(crate) mod unicode;
 
 pub const PRODUCT: &str = "litterkeep-server";
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

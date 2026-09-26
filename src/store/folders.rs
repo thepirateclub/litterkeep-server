@@ -6,6 +6,13 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+#[cfg(test)]
+#[path = "folder_name_tests.rs"]
+mod name_tests;
+
+#[path = "folder_names.rs"]
+mod names;
+
 pub(super) const MAX_NAME: usize = 120;
 
 /// Семантика стандартной папки не выводится из локализованного имени.
@@ -87,21 +94,19 @@ impl FolderCatalog {
 
     pub(super) fn list(&mut self, account: &str) -> io::Result<Vec<FolderInfo>> {
         self.ensure_defaults(account)?;
-        Ok(self.accounts.get(account).cloned().unwrap_or_default())
+        Ok(self
+            .accounts
+            .get(account)
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .map(names::listed_name)
+            .collect())
     }
 
     pub(super) fn resolve(&mut self, account: &str, name: &str) -> io::Result<String> {
         self.ensure_defaults(account)?;
-        let folder = self
-            .accounts
-            .get(account)
-            .into_iter()
-            .flatten()
-            .find(|folder| match folder.special_use {
-                Some(SpecialUse::Inbox) => name.eq_ignore_ascii_case("INBOX"),
-                _ => folder.name == name,
-            })
-            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "folder does not exist"))?;
+        let folder = self.find_by_canonical_name(account, name)?;
         Ok(storage_key(account, folder))
     }
 
@@ -113,22 +118,31 @@ impl FolderCatalog {
         new_name: &str,
     ) -> io::Result<()> {
         self.ensure_defaults(account)?;
-        validate_name(new_name)?;
+        let new_name = crate::unicode::nfc::normalize(new_name);
+        validate_name(&new_name)?;
+        let old_name = self.find_by_canonical_name(account, old_name)?.name.clone();
         let folders = self.accounts.get(account).ok_or_else(missing)?;
-        folder_journal::validate_rename(folders, old_name, new_name)?;
-        folder_journal::append_rename(&self.root, account, old_name, new_name)?;
+        if names::has_rename_collision(folders, &old_name, &new_name) {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                "rename collides with a canonical folder name",
+            ));
+        }
+        folder_journal::validate_rename(folders, &old_name, &new_name)?;
+        folder_journal::append_rename(&self.root, account, &old_name, &new_name)?;
         let folders = self.accounts.get_mut(account).ok_or_else(missing)?;
-        folder_journal::apply_rename(folders, old_name, new_name)
+        folder_journal::apply_rename(folders, &old_name, &new_name)
     }
 
     /// Удаляет имя папки; её устойчивый ID больше никогда не переиспользуется.
     pub(super) fn delete(&mut self, account: &str, name: &str) -> io::Result<()> {
         self.ensure_defaults(account)?;
+        let name = self.find_by_canonical_name(account, name)?.name.clone();
         let folders = self.accounts.get(account).ok_or_else(missing)?;
-        folder_journal::validate_delete(folders, name)?;
-        folder_journal::append_delete(&self.root, account, name)?;
+        folder_journal::validate_delete(folders, &name)?;
+        folder_journal::append_delete(&self.root, account, &name)?;
         let folders = self.accounts.get_mut(account).ok_or_else(missing)?;
-        folder_journal::apply_delete(folders, name)
+        folder_journal::apply_delete(folders, &name)
     }
 
     fn create_with_special(
@@ -137,9 +151,13 @@ impl FolderCatalog {
         name: &str,
         special_use: Option<SpecialUse>,
     ) -> io::Result<FolderInfo> {
-        validate_name(name)?;
+        let name = names::canonical_name(name);
+        validate_name(&name)?;
         let folders = self.accounts.entry(account.to_owned()).or_default();
-        if folders.iter().any(|folder| folder.name == name) {
+        if folders
+            .iter()
+            .any(|folder| names::canonical_name(&folder.name) == name)
+        {
             return Err(io::Error::new(
                 io::ErrorKind::AlreadyExists,
                 "folder exists",
@@ -154,7 +172,7 @@ impl FolderCatalog {
             .ok_or_else(|| io::Error::other("folder id exhausted"))?;
         let folder = FolderInfo {
             id,
-            name: name.to_owned(),
+            name: name.clone(),
             special_use,
         };
         folder_journal::append_create(&self.root, account, &folder)?;

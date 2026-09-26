@@ -32,9 +32,20 @@ assigned и принимаются: RFC 5198 рекомендует избега
 ## NFC normalization для Net-Unicode
 
 Приём mailbox names отклоняет unassigned code points закреплённой версии,
-запрещённые RFC 9755 controls и начальный BOM. В режиме UTF8=ACCEPT входящие
-имена канонизируются к NFC перед обращением к хранилищу, а выдаваемые через
-IMAP mailbox response имена нормализуются тем же алгоритмом.
+запрещённые RFC 9755 controls и начальный BOM. NFC-модуль расположен в общем
+Unicode-слое, поэтому протокольные границы и Store используют одну версию
+алгоритма. В режиме UTF8=ACCEPT входящие имена канонизируются перед обращением
+к хранилищу, а IMAP mailbox responses сериализуются тем же алгоритмом.
+
+Для записей из версий сервера до NFC новая версия не переписывает folder или
+subscription journals. Store ищет старое имя по NFC-эквиваленту, возвращает
+каноническое имя в списках и позволяет rename/delete/unsubscribe через alias.
+Стабильный folder ID остаётся прежним, поэтому mailbox data key не меняется.
+Если в старом каталоге обнаружены два имени с одинаковой NFC-формой, точечное
+разрешение имени возвращает InvalidInput, а не выбирает одну папку случайно.
+Unit-тесты проверяют replay старого folder journal через полный Store reopen,
+сохранность содержимого и alias-операции; независимый IMAP STARTTLS сценарий
+проверяет старое modified UTF-7 имя через новое UTF8=ACCEPT соединение.
 
 Таблицы NFC построены из официальных Unicode 17.0.0 `UnicodeData.txt`,
 `DerivedNormalizationProps.txt` и `NormalizationTest.txt`. Генератор
@@ -49,13 +60,14 @@ runtime dependencies нет.
 
 ```powershell
 $env:LITTERKEEP_UNICODE_NORMALIZATION_TEST = (Resolve-Path data/g20-unicode17-normalization/NormalizationTest.txt).Path
-cargo test --locked imap::unicode_17_nfc::tests::official_unicode_normalization_vectors -- --ignored --exact
+cargo test --locked unicode::nfc::tests::official_unicode_normalization_vectors -- --ignored --exact
 ```
 
 Все обычные NFC unit vectors входят в стандартный `cargo test`. Независимый
 STARTTLS black-box проверяет decomposed CREATE, composed LIST response,
-SELECT по composed имени и DELETE по decomposed имени. Это не проверка
-миграции ранее сохранённых decomposed mailbox names. RFC 5198 формулирует
+SELECT по composed имени и DELETE по decomposed имени. Полный Store reopen и
+wire test проверяют доступ к сохранённой decomposed folder записи по NFC alias;
+journals не переписываются. RFC 5198 формулирует
 нормализацию исходящих строк как SHOULD; реализация NFC не закрывает остальные
 Net-Unicode response paths и сама по себе не разрешает рекламировать
 `UTF8=ACCEPT`.
