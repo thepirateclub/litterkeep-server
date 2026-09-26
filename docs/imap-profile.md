@@ -64,12 +64,14 @@ MIME decoding проверены отдельно. При этом синтак�
 
 Базовый набор SEARCH keys RFC 9051 закрыт parser/evaluator acceptance; это не
 означает полного SEARCH wire grammar. Quoted strings и synchronizing literals
-до 64 KiB проверены, но non-synchronizing LITERAL+ не объявляется. Тот же
-ограниченный synchronizing-literal receiver принимает оба `astring` аргумента
-`LOGIN`; независимый raw STARTTLS-клиент проверил continuation, аутентификацию
-и следующий `NOOP`. Кроме `LOGIN`, literal framing здесь проверен только для
-`SEARCH`/`UID SEARCH`; `APPEND` остаётся на отдельном receiver-е, поддержка
-literal другими командами не подразумевается. Адресные
+до 64 KiB проверены, но non-synchronizing LITERAL+ не объявляется. Ограниченный
+synchronizing-literal receiver принимает оба `astring` аргумента `LOGIN` и
+mailbox `astring` команд CREATE, DELETE, RENAME, SUBSCRIBE, UNSUBSCRIBE, LIST,
+LSUB, STATUS, COPY, MOVE, SELECT и EXAMINE, включая UID COPY/MOVE. Независимый
+raw STARTTLS-клиент проверил continuation и успешное выполнение CREATE, LIST,
+SELECT с literal mailbox. SEARCH/UID SEARCH и APPEND имеют собственные
+проверенные пути. Это не означает поддержку literals в прочих аргументах всех
+команд; не синхронизируемое расширение LITERAL+ не рекламируется. Адресные
 SEARCH criteria и FETCH ENVELOPE используют одну projection; вложенные comments
 и quoted-pairs удаляются из семантических полей. Obsolete forms и malformed
 RFC 5322 syntax остаются ограничениями address parser-а.

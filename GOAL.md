@@ -4,6 +4,27 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-27: G17 broader IMAP mailbox synchronizing literals, PASS checkpoint
+
+- RFC 9051 mailbox command arguments are `astring`, and literals are a general
+  string form. Reactor admission now recognizes mailbox arguments for CREATE,
+  DELETE, RENAME, SUBSCRIBE, UNSUBSCRIBE, LIST, LSUB, STATUS, COPY, MOVE,
+  SELECT and EXAMINE, plus UID COPY/MOVE. Existing LOGIN and SEARCH paths remain.
+- Added independent STARTTLS raw client coverage for CREATE, LIST and SELECT
+  using literal mailbox names. The first fixture name collided with bootstrap's
+  pre-existing Invoices folder and correctly received ALREADYEXISTS; it was not
+  counted as acceptance, and the scenario was changed to a unique LiteralStage.
+- Windows Rust 1.97.1 fmt, strict Clippy and full suite pass: 604 library tests,
+  1 CLI test and doc-tests; Python compile passed. Linux Docker Rust 1.97 test
+  stage passes strict Clippy, 666 library tests, 1 CLI test and doc-tests; one
+  external Unicode corpus test remains ignored without its corpus file.
+- Independent raw STARTTLS client created LiteralStage, found it with LIST using
+  a literal pattern, selected it by literal and continued with NOOP. Fixture
+  `./data/acceptance-imap-mailbox-literal-20260927` is retained. Its disposable
+  runtime container and image were removed and absence verified. Other user
+  containers were left running. This does not establish literals for every
+  IMAP argument or compatibility with the Litterkeep app.
+
 ### 2026-09-27: G17 IMAP LOGIN synchronizing literals, scoped PASS
 
 - RFC 9051 §4.3 допускает synchronizing literal как общую форму IMAP string;

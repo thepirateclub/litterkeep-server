@@ -183,9 +183,11 @@ connection-local mode: legacy quoted-string отклоняет high-bit UTF-8 д
 negotiation, а quoted mailbox names разрешаются после неё. Независимый STARTTLS
 acceptance проверил positive и negative переходы, включая malformed UTF-8,
 C0/C1 controls и ASCII-only atom. Ограниченный synchronizing-literal receiver
-поддерживает SEARCH/UID SEARCH и оба LOGIN astring до 64 KiB; raw STARTTLS
-acceptance проверил двухлитеральный LOGIN. Это не общая поддержка literal для
-всех команд: APPEND использует отдельный receiver, LITERAL+ не рекламируется.
+поддерживает оба LOGIN astring, mailbox аргументы CREATE/DELETE/RENAME,
+SUBSCRIBE/UNSUBSCRIBE, LIST/LSUB/STATUS, COPY/MOVE, SELECT/EXAMINE и UID
+COPY/MOVE, а также SEARCH/UID SEARCH. Независимый raw STARTTLS acceptance
+проверил LOGIN, CREATE, LIST и SELECT; APPEND использует отдельный receiver.
+Это не общая поддержка literal для всех аргументов, LITERAL+ не рекламируется.
 Receiver сохраняет проверенный UTF-8 как значение токена. Независимый STARTTLS
 acceptance проверил tagged BAD для UTF-8 quoted LOGIN, восстановление сессии и
 UTF-8 BODY literal. RFC 9755 explicit SEARCH CHARSET получает BAD; wire-проверены

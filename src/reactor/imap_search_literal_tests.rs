@@ -11,6 +11,15 @@ fn detects_login_search_and_uid_search_synchronizing_literals() {
         start(b"b uid search HEADER {0}\r\n"),
         Start::Begin(_)
     ));
+    for command in [
+        b"c CREATE {8}\r\n".as_slice(),
+        b"d SELECT {8}\r\n",
+        b"e LIST \"\" {8}\r\n",
+        b"f RENAME {8} {7}\r\n",
+        b"g UID COPY 1 {8}\r\n",
+    ] {
+        assert!(matches!(start(command), Start::Begin(_)));
+    }
 }
 
 #[test]

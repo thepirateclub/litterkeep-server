@@ -57,6 +57,41 @@ def authenticate(stream: ssl.SSLSocket, reader: object, password: bytes) -> None
     expect(reader, b"A2 OK", "literal LOGIN")
 
 
+def tagged_responses(reader: object, tag: bytes) -> list[bytes]:
+    """Собирает ограниченный набор untagged строк до заданного tagged OK."""
+    responses = []
+    while len(responses) < 32:
+        line = response(reader)
+        responses.append(line)
+        if line.startswith(tag + b" OK"):
+            return responses
+    raise AssertionError(f"tagged response {tag!r} was not received")
+
+
+def mailbox_literals(stream: ssl.SSLSocket, reader: object) -> None:
+    """Проверяет mailbox astring literals в CREATE, LIST и SELECT командах."""
+    mailbox = b"LiteralStage"
+    marker = literal_marker(mailbox)
+    stream.sendall(b"A4 CREATE " + marker)
+    expect(reader, b"+", "CREATE continuation")
+    stream.sendall(mailbox + b"\r\n")
+    expect(reader, b"A4 OK", "literal CREATE")
+
+    stream.sendall(b'A5 LIST "" ' + marker)
+    expect(reader, b"+", "LIST continuation")
+    stream.sendall(mailbox + b"\r\n")
+    listed = tagged_responses(reader, b"A5")
+    if not any(mailbox in line for line in listed):
+        raise AssertionError("literal LIST did not return the created mailbox")
+
+    stream.sendall(b"A6 SELECT " + marker)
+    expect(reader, b"+", "SELECT continuation")
+    stream.sendall(mailbox + b"\r\n")
+    selected = tagged_responses(reader, b"A6")
+    if not any(b"EXISTS" in line for line in selected):
+        raise AssertionError("literal SELECT omitted mailbox state")
+
+
 def verify_authenticated_command(stream: ssl.SSLSocket, reader: object) -> None:
     """Подтверждает переход сессии в authenticated state после LOGIN."""
     stream.sendall(b"A3 NOOP\r\n")
@@ -80,8 +115,9 @@ def main() -> None:
         with context.wrap_socket(plain, server_hostname="localhost") as secure:
             reader = secure.makefile("rb")
             authenticate(secure, reader, password)
+            mailbox_literals(secure, reader)
             verify_authenticated_command(secure, reader)
-    print("PASS imap-login-literal")
+    print("PASS imap-command-astring-literal")
 
 
 if __name__ == "__main__":

@@ -9,7 +9,15 @@ pub(super) enum Start {
 
 const MAX_IMAP_LITERAL: usize = 64 * 1024;
 
-/// Ищет sync-literal в LOGIN, SEARCH или UID SEARCH и сохраняет префикс.
+/// Семейство команды определяет, допустим ли literal в последнем аргументе.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum LiteralCommand {
+    Login,
+    Search,
+    Mailbox,
+}
+
+/// Ищет sync-literal в строковых и mailbox аргументах поддержанных команд.
 pub(super) fn start(line: &[u8]) -> Start {
     let Ok(command) = std::str::from_utf8(line) else {
         return Start::NotLiteral;
@@ -48,15 +56,19 @@ fn literal_tag(prefix: &str) -> Option<&str> {
     let mut words = prefix.split_ascii_whitespace();
     let tag = words.next()?;
     let first = words.next()?.to_ascii_uppercase();
-    let valid = match first.as_str() {
-        "LOGIN" | "SEARCH" => true,
-        "UID" => words.next()?.eq_ignore_ascii_case("SEARCH"),
-        _ => false,
+    let _recognized_command = match first.as_str() {
+        "LOGIN" => LiteralCommand::Login,
+        "SEARCH" => LiteralCommand::Search,
+        "UID" => match words.next().map(str::to_ascii_uppercase).as_deref() {
+            Some("SEARCH") => LiteralCommand::Search,
+            Some("COPY" | "MOVE") => LiteralCommand::Mailbox,
+            _ => return None,
+        },
+        "CREATE" | "DELETE" | "RENAME" | "SUBSCRIBE" | "UNSUBSCRIBE" | "LIST" | "LSUB"
+        | "STATUS" | "COPY" | "MOVE" | "SELECT" | "EXAMINE" => LiteralCommand::Mailbox,
+        _ => return None,
     };
-    match valid {
-        true => Some(tag),
-        false => None,
-    }
+    Some(tag)
 }
 
 fn literal_size(marker: &str) -> Option<usize> {
