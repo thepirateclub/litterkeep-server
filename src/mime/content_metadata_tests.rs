@@ -74,8 +74,14 @@ fn parses_quoted_domain_literal_and_utf8_content_ids() {
         super::separator_at("\"image@logo\"@[IPv6:2001:db8::1]"),
         Some(12)
     );
-    assert!(super::valid_id_left("\"image@logo\""));
-    assert!(super::valid_id_right("[IPv6:2001:db8::1]"));
+    assert_eq!(
+        super::normalize_id_left("\"image@logo\"").as_deref(),
+        Some("\"image@logo\"")
+    );
+    assert_eq!(
+        super::normalize_id_right("[IPv6:2001:db8::1]").as_deref(),
+        Some("[IPv6:2001:db8::1]")
+    );
     for (raw, expected) in [
         (
             b"Content-ID: <\"image@logo\"@[IPv6:2001:db8::1]>\r\n\r\n".as_slice(),
@@ -90,6 +96,27 @@ fn parses_quoted_domain_literal_and_utf8_content_ids() {
     }
 }
 
+/// Obsolete CFWS вокруг точек не входит в семантический Content-ID.
+#[test]
+fn normalizes_obsolete_cfws_in_content_id_sides() {
+    for (header, expected) in [
+        (
+            b"Content-ID: <image (left) . logo @ example (right) . test>\r\n\r\n".as_slice(),
+            "<image.logo@example.test>",
+        ),
+        (
+            b"Content-ID: <image\t.\tlogo@example\t.\ttest>\r\n\r\n".as_slice(),
+            "<image.logo@example.test>",
+        ),
+        (
+            b"Content-ID: <image @ example.test>\r\n\r\n".as_slice(),
+            "<image@example.test>",
+        ),
+    ] {
+        assert_eq!(metadata(header).content_id.as_deref(), Some(expected));
+    }
+}
+
 #[test]
 fn omits_ambiguous_or_invalid_content_identity_fields() {
     for raw in [
@@ -97,7 +124,7 @@ fn omits_ambiguous_or_invalid_content_identity_fields() {
         b"Content-ID: <image..logo@example.test>\r\n\r\n",
         b"Content-ID: <image@example.test@other.test>\r\n\r\n",
         b"Content-ID: <image@[broken]]>\r\n\r\n",
-        b"Content-ID: <image @example.test>\r\n\r\n",
+        b"Content-ID: <image@exa mple.test>\r\n\r\n",
         b"Content-ID: <image@example.test>\r\nContent-ID: <other@example.test>\r\n\r\n",
         b"Content-Description: first\r\nContent-Description: second\r\n\r\n",
     ] {

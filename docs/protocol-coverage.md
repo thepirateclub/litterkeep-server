@@ -176,12 +176,14 @@ RFC 3986. Поддерживаются absolute URI и relative reference; perce
 location и RFC 2231 attachment filename. Оба профиля возвращают MIME basic
 поля `Content-ID` и `Content-Description`. Описание декодируется по RFC 2047;
 Content-ID принимает единственное поле в формах dot-atom, quoted id-left и
-domain-literal id-right, включая UTF-8 atext по RFC 6532. Устаревшие формы
-RFC 5322 `obs-id-left`/`obs-id-right` не поддержаны. Повторные или
-синтаксически некорректные значения не проецируются. Независимый STARTTLS
-acceptance подтвердил quoted id-left и IPv6 domain literal в обоих профилях;
-UTF-8 identifiers и RFC 2047 description проверены unit-тестами. Прочие
-protocol fields и RFC пробелы остаются непокрытыми.
+domain-literal id-right, включая UTF-8 atext по RFC 6532. RFC 5322
+`obs-id-left`/`obs-id-right` CFWS вокруг dot-separated atoms нормализуется,
+поскольку comments и whitespace семантически невидимы. Остальные obsolete
+формы не поддерживаются. Повторные или синтаксически некорректные значения не
+проецируются. Независимый STARTTLS acceptance подтвердил quoted id-left, IPv6
+domain literal и obsolete CFWS форму в обоих профилях; UTF-8 identifiers и
+RFC 2047 description проверены unit-тестами. Прочие protocol fields и RFC
+пробелы остаются непокрытыми.
 Единственный корректный `Content-MD5` выводится в scalar/message body-MD5 slot
 после строгой Base64 проверки и проверки длины декодированного digest в 16
 октетов. Значение передаётся без пересчёта и сервер не проверяет совпадение с

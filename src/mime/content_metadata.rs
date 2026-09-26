@@ -49,13 +49,13 @@ fn parse_content_id(fields: &[HeaderField]) -> Option<String> {
     let field = single_field(fields, HeaderName::ContentId)?;
     let value = std::str::from_utf8(&field.value).ok()?;
     let normalized = super::structured_comments::remove(value).ok()?;
-    let identifier = normalized.trim();
+    let identifier = normalized.trim_matches([' ', '\t']);
     let inner = identifier.strip_prefix('<')?.strip_suffix('>')?;
     let separator = separator_at(inner)?;
     let (left, right_with_separator) = inner.split_at(separator);
     let right = right_with_separator.get(1..)?;
-    match (valid_id_left(left), valid_id_right(right)) {
-        (true, true) => Some(identifier.to_owned()),
+    match (normalize_id_left(left), normalize_id_right(right)) {
+        (Some(left), Some(right)) => Some(format!("<{left}@{right}>")),
         _ => None,
     }
 }
@@ -90,6 +90,7 @@ fn separator_at(value: &str) -> Option<usize> {
             }
             (IdentifierState::QuotedEscape | IdentifierState::DomainEscape, _) => return None,
             (IdentifierState::Plain, ']') => return None,
+            (IdentifierState::Plain, '\t') => IdentifierState::Plain,
             (IdentifierState::Plain, character) if !character.is_control() => {
                 IdentifierState::Plain
             }
@@ -103,29 +104,51 @@ fn separator_at(value: &str) -> Option<usize> {
 }
 
 /// Поддерживает RFC dot-atom либо quoted-string для id-left.
-fn valid_id_left(value: &str) -> bool {
+fn normalize_id_left(value: &str) -> Option<String> {
+    let value = value.trim_matches([' ', '\t']);
     match value
         .strip_prefix('"')
         .and_then(|inner| inner.strip_suffix('"'))
     {
-        Some(inner) => valid_quoted_text(inner),
-        None => valid_dot_atom(value),
+        Some(inner) => match valid_quoted_text(inner) {
+            true => Some(value.to_owned()),
+            false => None,
+        },
+        None => normalize_dot_atom(value),
     }
 }
 
 /// Поддерживает RFC dot-atom либо no-fold-literal для id-right.
-fn valid_id_right(value: &str) -> bool {
+fn normalize_id_right(value: &str) -> Option<String> {
+    let value = value.trim_matches([' ', '\t']);
     match value
         .strip_prefix('[')
         .and_then(|inner| inner.strip_suffix(']'))
     {
-        Some(inner) => valid_domain_literal(inner),
-        None => valid_dot_atom(value),
+        Some(inner) => match valid_domain_literal(inner) {
+            true => Some(value.to_owned()),
+            false => None,
+        },
+        None => normalize_dot_atom(value),
     }
 }
 
-fn valid_dot_atom(value: &str) -> bool {
-    value.split('.').all(valid_atext_atom)
+/// Убирает семантически невидимые CFWS вокруг точек obsolete id-формы.
+fn normalize_dot_atom(value: &str) -> Option<String> {
+    let mut normalized = String::new();
+    let mut first = true;
+    for segment in value.split('.') {
+        let atom = segment.trim_matches([' ', '\t']);
+        if !valid_atext_atom(atom) {
+            return None;
+        }
+        match first {
+            true => first = false,
+            false => normalized.push('.'),
+        }
+        normalized.push_str(atom);
+    }
+    Some(normalized)
 }
 
 fn valid_atext_atom(value: &str) -> bool {

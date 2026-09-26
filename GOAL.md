@@ -5589,3 +5589,17 @@ ManageSieve до заявленного набора современных фо
   проверяет отказ до continuation и успешное завершение с пустым APPEND.
 - G17/G14 остаются RUNNING: остальные пробелы APPEND, IMAP4rev2 и другие
   протоколы не закрыты.
+
+### 2026-09-26: G17 RFC 5322 obsolete Content-ID CFWS checkpoint
+
+- MIME `Content-ID` теперь принимает RFC 5322 `obs-id-left`/`obs-id-right`
+  CFWS вокруг dot-separated atoms, удаляет comments и схлопывает whitespace
+  вокруг точек, не меняя семантический идентификатор. Другие obsolete формы
+  по-прежнему не заявляются. Норма: [RFC 5322 §4.5.4](https://www.rfc-editor.org/rfc/rfc5322.html#section-4.5.4).
+- Unit regressions проверяют comments и SP/HTAB между dot-separated atoms.
+  Независимый STARTTLS `imaplib` acceptance передаёт obsolete форму через
+  APPEND и сравнивает нормализованный ID в обоих `BODY` и `BODYSTRUCTURE`.
+- Обновлены protocol coverage и запись acceptance T85. Ранее оставшаяся в G14
+  заметка об отсутствующих Content-ID/Description была устаревшей: basic fields
+  уже подтверждены checkpoint-ом T61; теперь закрыта ещё одна форма RFC 5322.
+  Полная MIME и IMAP4rev2 грамматика остаются незакрытыми.
