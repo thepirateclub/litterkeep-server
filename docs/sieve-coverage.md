@@ -31,9 +31,13 @@ RFC 3894 `copy` реализован для `fileinto` и `redirect`; скрип
 `fileinto :copy` и `redirect :copy` добавляют действие, не отменяя implicit
 keep. Unit tests проверяют capability gating и взаимодействие с последующим
 `discard`. Независимый ManageSieve -> SMTP -> IMAP acceptance проверяет
-`fileinto :copy`: полные RFC822 bytes в INBOX и `Invoices` совпадают. Для
-`redirect :copy` проверен только Sieve DeliveryPlan; внешний SMTP acceptance
-redirect остаётся непроверенным. Правило сверено с RFC 3894 §3.
+`fileinto :copy`: полные RFC822 bytes в INBOX и `Invoices` совпадают. Новый
+`tests/blackbox/sieve_redirect_copy_peer.py` активирует `redirect :copy` через
+ManageSieve, проверяет исходную локальную копию через Bob IMAP, останавливает
+единственного Store owner и дренирует durable job к независимому SMTP peer.
+Peer envelope, точные RFC822 bytes, MIME attachment и его decoded octets
+совпадают с локальной копией. Проверен независимый тестовый peer, не Litterkeep
+или произвольный сторонний MTA. Правило сверено с RFC 3894 §3.
 
 Повторный `fileinto` в одну папку не считается ошибкой и не создаёт второго
 экземпляра письма согласно RFC 5228 §2.10.3. Store-level regression проверяет

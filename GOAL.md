@@ -6362,3 +6362,23 @@ ManageSieve до заявленного набора современных фо
   остановлены/удалены, отсутствие проверено. T110 остаётся PARTIAL из-за оставшихся
   Net-Unicode/NFC и response-path требований. `UTF8=ACCEPT` остаётся скрытой,
   Litterkeep не проверялся, G17 ACTIVE.
+
+### 2026-09-26: G17 RFC 3894 redirect :copy external SMTP acceptance, PASS
+
+- Новый independent acceptance
+  `tests/blackbox/sieve_redirect_copy_peer.py` подключается к ManageSieve
+  STARTTLS, проверяет объявленный `copy`, активирует `redirect :copy`, подаёт
+  MIME письмо с binary attachment через SMTP STARTTLS и читает локальный
+  implicit-keep результат через IMAP STARTTLS.
+- После остановки единственного source Store owner bounded `queue-drain`
+  доставил durable redirect job независимому SMTP capture peer. Проверены
+  sender/recipient envelope, совпадение целых RFC822 bytes внешней доставки и
+  Bob inbox, а также decoded attachment bytes. Source body получает ожидаемые
+  Return-Path/Received trace fields; исходное submitted RFC822 содержимое и
+  вложение сохранены после trace prefix.
+- PASS на Linux Rust 1.97 image, fixture
+  `./data/g19-sieve-redirect-copy-final`. Проверен независимый SMTP peer, не
+  Litterkeep и не произвольный сторонний MTA. Container/image удалены после
+  проверки, `lower-layer-v1` не затрагивался. `docs/sieve-coverage.md` и T119
+  обновлены; Windows gates и Python compile прошли. Общая цель и G17 остаются
+  ACTIVE, поскольку остальные RFC/Sieve gaps ещё открыты.
