@@ -481,6 +481,13 @@ evaluator покрыт соответствующими unit и сетевыми
 SEARCHRES не означает полной
 совместимости IMAP4rev1 или IMAP4rev2: остаются SEARCH/ESEARCH расширения и
 другие несовпадения формальных грамматик; см. [матрицу IMAP](imap-profile.md).
+`SENTBEFORE`/`SENTON`/`SENTSINCE` извлекают дату из RFC 5322 `Date` header;
+внешние и weekday CFWS trim ограничен SP/HTAB, поэтому NBSP не делает
+malformed дату поисково-валидной. Независимый STARTTLS `imaplib` APPEND/SEARCH
+подтвердил SENTON match только для одной валидной даты из пяти, при четырёх
+NBSP-вариантах заголовка. Это не расширяет обработку obsolete Date syntax.
+Нормы: [RFC 3501 §6.4.5](https://www.rfc-editor.org/rfc/rfc3501.html#section-6.4.5),
+[RFC 5322 §3.3](https://www.rfc-editor.org/rfc/rfc5322.html#section-3.3).
 
 ## POP3
 

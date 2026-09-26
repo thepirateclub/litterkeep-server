@@ -5985,3 +5985,21 @@ ManageSieve до заявленного набора современных фо
   проверено после acceptance. TLS/accounts сохранены в
   `./data/g17-smtp-ascii-string-wsp`. Сервер не рекламирует SMTPUTF8, поэтому
   Unicode VRFY/EXPN profile RFC 6531 не заявляется; G17 остаётся RUNNING.
+
+### 2026-09-26: G17 RFC 5322 Date header WSP in IMAP SENT search
+
+- `SENTBEFORE`, `SENTON` и `SENTSINCE` читают RFC 5322 `Date` header. Внешние
+  и weekday whitespace сокращения ограничены RFC WSP (SP/HTAB); NBSP больше не
+  превращает невалидное значение в поисково-валидную дату.
+- Новая регрессия до изменения приняла leading NBSP. После фикса Windows
+  `cargo test --locked` прошёл: 576 library + 1 binary и doc-tests; fmt и strict
+  Clippy прошли. Linux Docker release build, strict Clippy и тесты: 627 library
+  + 1 binary и doc-tests. Независимый IMAP STARTTLS `imaplib` APPEND/SEARCH
+  проверил пять Date-вариантов; `SENTON 2-Feb-2026` вернул только сообщение с
+  валидной датой. Acceptance T103.
+- Runtime `litterkeep-imap-sent-date-wsp` и образы
+  `litterkeep-imap-sent-date-wsp-runtime:20260926`,
+  `litterkeep-imap-sent-date-wsp-check:20260926` удалены после теста, отсутствие
+  проверено. Аккаунты и PKI хранятся в
+  `./data/g17-imap-sent-date-wsp`. Поддержка obsolete Date syntax остаётся
+  частичной, G17 остаётся RUNNING.

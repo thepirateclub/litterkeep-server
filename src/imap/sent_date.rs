@@ -9,10 +9,10 @@ use crate::mail_date::MailDate;
 /// время с секундами либо без них. Obsolete named zones намеренно отвергаются,
 /// чтобы сомнительная дата не превращалась в ложное SEARCH-совпадение.
 pub fn parse(value: &[u8]) -> Option<SearchDate> {
-    let value = std::str::from_utf8(value).ok()?.trim();
+    let value = crate::mime::wsp::trim(std::str::from_utf8(value).ok()?);
     let date_time = match value.split_once(',') {
-        Some((weekday, tail)) => match valid_weekday(weekday.trim()) {
-            true => tail.trim(),
+        Some((weekday, tail)) => match valid_weekday(crate::mime::wsp::trim(weekday)) {
+            true => crate::mime::wsp::trim(tail),
             false => return None,
         },
         None => value,
@@ -62,5 +62,20 @@ mod tests {
         assert!(parse(b"Mon, 2 Feb 2026 12:30:00 GMT").is_none());
         assert!(parse(b"Bad, 2 Feb 2026 12:30:00 +0000").is_none());
         assert!(parse(b"2 Feb 2026 12:30:00 +0000 trailing").is_none());
+    }
+
+    #[test]
+    fn rejects_unicode_whitespace_where_rfc5322_cfws_is_required() {
+        for value in [
+            "\u{00a0}2 Feb 2026 12:30:00 +0000",
+            "Mon\u{00a0}, 2 Feb 2026 12:30:00 +0000",
+            "Mon,\u{00a0}2 Feb 2026 12:30:00 +0000",
+            "2 Feb 2026 12:30:00 +0000\u{00a0}",
+        ] {
+            assert!(
+                parse(value.as_bytes()).is_none(),
+                "accepted date: {value:?}"
+            );
+        }
     }
 }
