@@ -115,21 +115,33 @@ pub(crate) fn expect_success<R: BufRead>(
 
 /// Разбирает числовой SMTP code и continuation marker на protocol boundary.
 pub(crate) fn parse_reply(line: &str) -> io::Result<(u16, bool)> {
-    let code = line
+    let body = line.strip_suffix("\r\n").ok_or_else(|| {
+        io::Error::new(ErrorKind::InvalidData, "SMTP reply line must end with CRLF")
+    })?;
+    let code = body
         .get(..3)
-        .ok_or_else(|| io::Error::other("short SMTP reply"))?;
-    let marker = line
-        .as_bytes()
-        .get(3)
-        .copied()
-        .ok_or_else(|| io::Error::other("short SMTP reply"))?;
+        .ok_or_else(|| io::Error::new(ErrorKind::InvalidData, "short SMTP reply"))?;
+    let valid_code = code.bytes().all(|byte| byte.is_ascii_digit());
+    if !valid_code {
+        return Err(io::Error::new(
+            ErrorKind::InvalidData,
+            "SMTP reply code must contain three decimal digits",
+        ));
+    }
     let number = code
         .parse()
-        .map_err(|_| io::Error::other("invalid SMTP reply"))?;
-    match marker {
-        b' ' => Ok((number, false)),
-        b'-' => Ok((number, true)),
-        _ => Err(io::Error::other("invalid SMTP separator")),
+        .map_err(|_| io::Error::new(ErrorKind::InvalidData, "invalid SMTP reply code"))?;
+    let suffix = body
+        .get(3..)
+        .ok_or_else(|| io::Error::new(ErrorKind::InvalidData, "short SMTP reply"))?;
+    match suffix {
+        "" | " " => Ok((number, false)),
+        value if value.starts_with(' ') => Ok((number, false)),
+        value if value.starts_with('-') => Ok((number, true)),
+        _ => Err(io::Error::new(
+            ErrorKind::InvalidData,
+            "invalid SMTP reply separator",
+        )),
     }
 }
 
@@ -192,7 +204,7 @@ pub(crate) fn read_reply_line(reader: &mut impl BufRead) -> io::Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::read_reply_line;
+    use super::{parse_reply, read_reply_line};
     use std::io::{Cursor, ErrorKind};
 
     #[test]
@@ -226,6 +238,35 @@ mod tests {
         assert_eq!(
             read_reply_line(&mut reader)
                 .expect_err("bare LF reply")
+                .kind(),
+            ErrorKind::InvalidData
+        );
+    }
+
+    /// RFC 5321 §4.2 требует принимать код без текста и с пустым текстом.
+    #[test]
+    fn accepts_reply_code_without_text_or_with_only_separator() {
+        assert_eq!(parse_reply("250\r\n").expect("bare code"), (250, false));
+        assert_eq!(parse_reply("250 \r\n").expect("empty text"), (250, false));
+        assert_eq!(parse_reply("250 text\r\n").expect("text"), (250, false));
+        assert_eq!(
+            parse_reply("250-\r\n").expect("empty continuation"),
+            (250, true)
+        );
+    }
+
+    /// Reply code остаётся строго тремя ASCII цифрами и CRLF-строкой.
+    #[test]
+    fn rejects_non_numeric_code_and_missing_crlf() {
+        assert_eq!(
+            parse_reply("+25 text\r\n")
+                .expect_err("sign is not a reply digit")
+                .kind(),
+            ErrorKind::InvalidData
+        );
+        assert_eq!(
+            parse_reply("250 text\n")
+                .expect_err("bare LF is not a complete reply line")
                 .kind(),
             ErrorKind::InvalidData
         );

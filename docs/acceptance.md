@@ -34,6 +34,11 @@ T98 проверяет RFC 5321 §4.2.2: неизвестные SMTP-коман�
 `tests/blackbox/smtp_unknown_command.py`. Проверка независимым raw-TCP клиентом,
 не приложением Litterkeep.
 
+G17 outbound SMTP reply parser принимает bare reply code и пустой reply text
+по RFC 5321 §4.2. Unit-покрытие проверяет форматы строк; независимый TCP peer
+провёл всю delivery транзакцию с пустыми текстами greeting, EHLO, MAIL, RCPT,
+DATA, completion и QUIT. Это не тест с Litterkeep или внешним MTA.
+
 ## Чистый G12 прогон
 
 На новом container-local `/data` bootstrap создал четыре аккаунта. Повтор не

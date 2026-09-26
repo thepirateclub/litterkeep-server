@@ -19,6 +19,9 @@ pub mod maintenance;
 pub mod managesieve;
 pub mod mime;
 pub mod outbound;
+#[cfg(test)]
+#[path = "outbound_bare_reply_tests.rs"]
+mod outbound_bare_reply_tests;
 pub mod outbound_policy;
 pub mod outbound_pool;
 #[cfg(test)]
