@@ -45,6 +45,7 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=2146)
     parser.add_argument("--ca", default="data/pki/ca.pem")
     parser.add_argument("--password", default=os.environ.get("LITTERKEEP_BOB_PASSWORD"))
+    parser.add_argument("--implicit-tls", action="store_true")
     options = parser.parse_args()
     if options.password is None:
         raise ValueError("provide --password or LITTERKEEP_BOB_PASSWORD")
@@ -64,7 +65,7 @@ def main() -> None:
         b"X!#$%&'*+-.^_`|~: extension-field-value\r\n"
         b"Content-Description: attached file\r\n"
         b"Content-MD5: J3e4tEgUAss8veXagrS5IA==\r\n"
-        b"Content-Disposition: attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.bin\r\n"
+        b"Content-Disposition: attachment; filename*=UTF-8''r%c3%a9sum%C3%a9.bin\r\n"
         b"Content-Language: ru\r\n"
         b"Content-Location: ../files/a%20b.bin\r\n\r\n"
         b"attachment-octets\r\n--meta-boundary\r\n"
@@ -78,8 +79,22 @@ def main() -> None:
         b'Content-ID: <"image.logo" (quoted word) . (separator) archive@example.test>\r\n\r\n'
         b"quoted-word-octets\r\n--meta-boundary--\r\n"
     )
-    with imaplib.IMAP4(options.host, options.port, timeout=10) as client:
-        client.starttls(ssl_context=context)
+    match options.implicit_tls:
+        case True:
+            client = imaplib.IMAP4_SSL(
+                options.host,
+                options.port,
+                ssl_context=context,
+                timeout=10,
+            )
+        case False:
+            client = imaplib.IMAP4(options.host, options.port, timeout=10)
+    with client as client:
+        match options.implicit_tls:
+            case True:
+                pass
+            case False:
+                client.starttls(ssl_context=context)
         require_ok(client.login("bob", options.password), "LOGIN")
         require_ok(client.create(mailbox), "CREATE")
         require_ok(client.append(mailbox, None, None, raw), "APPEND")

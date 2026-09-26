@@ -13,8 +13,12 @@ Current subgoal: G17
 - PASS: Windows Rust 1.97.1 fmt, 562 библиотечных и 1 бинарный тест, strict
   Clippy; Linux Docker Rust 1.97 release build, strict Clippy, 613 библиотечных
   и 1 бинарный тест, doc-tests. Временный test image удалён и проверен на
-  отсутствие; контейнер не создавался. Lowercase wire acceptance не
-  проводился. G17 остаётся ACTIVE.
+  отсутствие. Отдельный Linux runtime-контейнер принял IMAP implicit TLS,
+  LOGIN, APPEND и BODYSTRUCTURE FETCH от независимого `imaplib`; смешанные
+  lowercase/uppercase escapes декодированы в filename, исходные RFC822 октеты
+  совпали. Runtime-контейнер и оба временных образа удалены и проверены на
+  отсутствие; `./data/g17-rfc2231-lowercase-wire` с acceptance состоянием
+  сохранён. Litterkeep app interoperability не проверялась. G17 остаётся ACTIVE.
 
 ### 2026-09-26: G17 RFC 6532 encoded message/global ranges, PARTIAL
 
