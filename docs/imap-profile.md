@@ -14,7 +14,7 @@ CAPABILITY не выдаёт за более широкое расширение
 |---|---|---|---|
 | Any | CAPABILITY, NOOP, LOGOUT | PASS | Tagged/untagged ответы, bounded line decoder; безаргументные команды отвергают лишние аргументы |
 | TLS | STARTTLS | PASS | Сброс plaintext state и пошаговый rustls handshake |
-| Authentication | LOGIN | PASS | Только TLS, общий Argon2 worker, повторный вход запрещён; username/password требуют RFC astring atom или quoted-string с точным числом аргументов |
+| Authentication | LOGIN | PASS | Только TLS, общий Argon2 worker, повторный вход запрещён; username/password принимают atom, quoted-string и проверенные synchronizing literals до 64 KiB; raw STARTTLS acceptance проверил два последовательных literal и authenticated NOOP |
 | Authentication | AUTHENTICATE PLAIN | PASS | Continuation, cancel, atom/quoted astring, пустой SASL-IR marker, authzid policy, только TLS; прочие механизмы не рекламируются |
 | Mailbox discovery | LIST, LSUB, STATUS | PARTIAL | modified UTF-7, `*`/`%`, root discovery, empty selection `()`, slash-delimited relative reference prefix with canonical response names, SUBSCRIBED, RECURSIVEMATCH with CHILDINFO for SUBSCRIBED/SPECIAL-USE, RETURN (CHILDREN), RETURN (SUBSCRIBED), and RETURN STATUS (MESSAGES/UIDNEXT/UIDVALIDITY/UNSEEN/DELETED/SIZE/APPENDLIMIT) verified; missing names are selected only by SUBSCRIBED and retain `\\NonExistent`; multi-namespace/breakout naming is not implemented |
 | Namespace | NAMESPACE | PASS | Advertised and tested; personal namespace is `""` with `/` delimiter, unavailable classes are NIL |
@@ -64,7 +64,12 @@ MIME decoding проверены отдельно. При этом синтак�
 
 Базовый набор SEARCH keys RFC 9051 закрыт parser/evaluator acceptance; это не
 означает полного SEARCH wire grammar. Quoted strings и synchronizing literals
-до 64 KiB проверены, но non-synchronizing LITERAL+ не объявляется. Адресные
+до 64 KiB проверены, но non-synchronizing LITERAL+ не объявляется. Тот же
+ограниченный synchronizing-literal receiver принимает оба `astring` аргумента
+`LOGIN`; независимый raw STARTTLS-клиент проверил continuation, аутентификацию
+и следующий `NOOP`. Кроме `LOGIN`, literal framing здесь проверен только для
+`SEARCH`/`UID SEARCH`; `APPEND` остаётся на отдельном receiver-е, поддержка
+literal другими командами не подразумевается. Адресные
 SEARCH criteria и FETCH ENVELOPE используют одну projection; вложенные comments
 и quoted-pairs удаляются из семантических полей. Obsolete forms и malformed
 RFC 5322 syntax остаются ограничениями address parser-а.

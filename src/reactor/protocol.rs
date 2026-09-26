@@ -38,7 +38,7 @@ pub(super) fn process_input(
             match progress {
                 imap_search_literal::Progress::Waiting => break,
                 imap_search_literal::Progress::Continue => {
-                    session.push(b"+ Ready for SEARCH literal\r\n")?;
+                    session.push(b"+ Ready for IMAP literal\r\n")?;
                     break;
                 }
                 imap_search_literal::Progress::Complete(value) => {
@@ -48,12 +48,12 @@ pub(super) fn process_input(
                 }
                 imap_search_literal::Progress::InvalidString => {
                     session.imap_search_literal = None;
-                    session.termination = Some(session::SessionTermination::InvalidSearchLiteral);
+                    session.termination = Some(session::SessionTermination::InvalidImapLiteral);
                     break;
                 }
                 imap_search_literal::Progress::InvalidSyntax => {
                     session.imap_search_literal = None;
-                    session.termination = Some(session::SessionTermination::InvalidSearchLiteral);
+                    session.termination = Some(session::SessionTermination::InvalidImapLiteral);
                     break;
                 }
             }
@@ -95,7 +95,7 @@ pub(super) fn process_input(
                     },
                 )?,
                 None => match imap_search_literal::start(&line) {
-                    imap_search_literal::Start::NotSearchLiteral => super::imap_protocol::line(
+                    imap_search_literal::Start::NotLiteral => super::imap_protocol::line(
                         session,
                         line,
                         None,
@@ -109,7 +109,7 @@ pub(super) fn process_input(
                     )?,
                     imap_search_literal::Start::Begin(receiver) => {
                         session.imap_search_literal = Some(receiver);
-                        session.push(b"+ Ready for SEARCH literal\r\n")?;
+                        session.push(b"+ Ready for IMAP literal\r\n")?;
                     }
                     imap_search_literal::Start::Reject { tag, reason } => {
                         session.push(format!("{tag} BAD {reason}\r\n").as_bytes())?;

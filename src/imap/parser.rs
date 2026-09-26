@@ -15,16 +15,16 @@ pub(super) fn parse_with_mode(line: &str, mode: StringMode) -> TaggedCommand {
     parse_tokens(line, tokenizer::tokenize_with_mode(line, mode), mode)
 }
 
-/// Разбирает SEARCH literals, сохраняя согласованный режим прочих строк.
+/// Разбирает проверенные literals, сохраняя согласованный режим прочих строк.
 #[cfg(target_os = "linux")]
-pub(super) fn parse_search_literals_with_mode(
+pub(super) fn parse_literals_with_mode(
     line: &str,
     literals: Vec<String>,
     mode: StringMode,
 ) -> TaggedCommand {
     parse_tokens(
         line,
-        tokenizer::tokenize_search_literals_with_mode(line, literals, mode),
+        tokenizer::tokenize_literals_with_mode(line, literals, mode),
         mode,
     )
 }

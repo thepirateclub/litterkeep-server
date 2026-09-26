@@ -1,36 +1,36 @@
-//! Ограниченный RFC synchronizing literal framing для SEARCH строк.
+//! Ограниченный RFC synchronizing literal framing для IMAP-команд.
 
 /// Решение до выдачи continuation клиенту.
 pub(super) enum Start {
-    NotSearchLiteral,
+    NotLiteral,
     Begin(Receiver),
     Reject { tag: String, reason: &'static str },
 }
 
-const MAX_SEARCH_LITERAL: usize = 64 * 1024;
+const MAX_IMAP_LITERAL: usize = 64 * 1024;
 
-/// Ищет sync-literal только в SEARCH/UID SEARCH и сохраняет его префикс.
+/// Ищет sync-literal в LOGIN, SEARCH или UID SEARCH и сохраняет префикс.
 pub(super) fn start(line: &[u8]) -> Start {
     let Ok(command) = std::str::from_utf8(line) else {
-        return Start::NotSearchLiteral;
+        return Start::NotLiteral;
     };
     let Some(command) = command.strip_suffix("\r\n") else {
-        return Start::NotSearchLiteral;
+        return Start::NotLiteral;
     };
     let Some((prefix, tag, size)) = initial_marker(command) else {
-        return Start::NotSearchLiteral;
+        return Start::NotLiteral;
     };
-    match size <= MAX_SEARCH_LITERAL {
+    match size <= MAX_IMAP_LITERAL {
         true => match Receiver::new(prefix.as_bytes().to_vec(), size) {
             Some(receiver) => Start::Begin(receiver),
             None => Start::Reject {
                 tag: tag.to_owned(),
-                reason: "SEARCH command exceeds limit",
+                reason: "IMAP command exceeds limit",
             },
         },
         false => Start::Reject {
             tag: tag.to_owned(),
-            reason: "SEARCH literal exceeds limit",
+            reason: "IMAP literal exceeds limit",
         },
     }
 }
@@ -40,20 +40,20 @@ fn initial_marker(command: &str) -> Option<(&str, &str, usize)> {
     let prefix_end = boundary.checked_add(1)?;
     let prefix = command.get(..prefix_end)?;
     let marker = command.get(boundary..)?.trim();
-    let tag = search_tag(prefix)?;
+    let tag = literal_tag(prefix)?;
     Some((prefix, tag, literal_size(marker)?))
 }
 
-fn search_tag(prefix: &str) -> Option<&str> {
+fn literal_tag(prefix: &str) -> Option<&str> {
     let mut words = prefix.split_ascii_whitespace();
     let tag = words.next()?;
     let first = words.next()?.to_ascii_uppercase();
-    let search = match first.as_str() {
-        "SEARCH" => true,
+    let valid = match first.as_str() {
+        "LOGIN" | "SEARCH" => true,
         "UID" => words.next()?.eq_ignore_ascii_case("SEARCH"),
         _ => false,
     };
-    match search {
+    match valid {
         true => Some(tag),
         false => None,
     }
@@ -67,7 +67,7 @@ fn literal_size(marker: &str) -> Option<usize> {
     }
 }
 
-/// Фаза приёма SEARCH literal или остатка команды после его octets.
+/// Фаза приёма literal или остатка команды после его octets.
 enum Phase {
     Literal,
     CommandRemainder,
@@ -80,7 +80,7 @@ enum RemainderProgress {
     LimitExceeded,
 }
 
-/// Владеет всей SEARCH-командой с несколькими literals, не удерживая worker.
+/// Владеет всей командой с несколькими literals, не удерживая worker.
 pub(super) struct Receiver {
     prefix: Vec<u8>,
     expected: usize,
@@ -217,7 +217,7 @@ impl Receiver {
         else {
             return Progress::InvalidSyntax;
         };
-        if expected > MAX_SEARCH_LITERAL || command_size > super::MAX_INPUT {
+        if expected > MAX_IMAP_LITERAL || command_size > super::MAX_INPUT {
             return Progress::InvalidSyntax;
         }
         self.prefix.extend_from_slice(before_marker);

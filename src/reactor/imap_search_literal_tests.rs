@@ -3,7 +3,9 @@
 use super::{Progress, Receiver, Start, start};
 
 #[test]
-fn detects_search_and_uid_search_synchronizing_literals() {
+fn detects_login_search_and_uid_search_synchronizing_literals() {
+    assert!(matches!(start(b"a LOGIN {3}\r\n"), Start::Begin(_)));
+    assert!(matches!(start(b"a LOGIN bob {8}\r\n"), Start::Begin(_)));
     assert!(matches!(start(b"a SEARCH BODY {5}\r\n"), Start::Begin(_)));
     assert!(matches!(
         start(b"b uid search HEADER {0}\r\n"),
@@ -12,14 +14,40 @@ fn detects_search_and_uid_search_synchronizing_literals() {
 }
 
 #[test]
+/// Два клиента literal становятся двумя обязательными typed LOGIN аргументами.
+fn login_literals_rebuild_into_the_typed_login_command() {
+    let mut receiver = Receiver::new(b"a LOGIN ".to_vec(), 3).expect("bounded username");
+    let mut input = b"bob {12}\r\n".to_vec();
+    assert!(matches!(receiver.consume(&mut input), Progress::Continue));
+    let mut password = b"bob-password\r\n".to_vec();
+    let Progress::Complete(values) = receiver.consume(&mut password) else {
+        panic!("LOGIN literals должны завершить команду");
+    };
+    assert_eq!(values, vec!["bob", "bob-password"]);
+    assert_eq!(password, b"a LOGIN \0 \0\r\n");
+    assert_eq!(
+        crate::imap::parse_literals_with_mode(
+            std::str::from_utf8(&password).expect("internal command marker"),
+            values,
+            crate::imap::tokenizer::StringMode::Legacy,
+        )
+        .command,
+        crate::imap::Command::Login {
+            username: "bob".into(),
+            password: "bob-password".into(),
+        }
+    );
+}
+
+#[test]
 fn leaves_other_commands_and_quoted_braces_unchanged() {
     assert!(matches!(
         start(b"a APPEND INBOX {5}\r\n"),
-        Start::NotSearchLiteral
+        Start::NotLiteral
     ));
     assert!(matches!(
         start(b"a SEARCH BODY \"{5}\"\r\n"),
-        Start::NotSearchLiteral
+        Start::NotLiteral
     ));
 }
 
@@ -63,7 +91,7 @@ fn utf8_search_literal_is_not_reparsed_as_wire_quoted_text() {
     assert_eq!(values, vec!["Привет"]);
     assert_eq!(input, b"a SEARCH SUBJECT \0\r\n");
     assert_eq!(
-        crate::imap::parse_search_literals_with_mode(
+        crate::imap::parse_literals_with_mode(
             std::str::from_utf8(&input).expect("internal command marker"),
             values,
             crate::imap::tokenizer::StringMode::Legacy,

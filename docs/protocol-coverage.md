@@ -182,8 +182,11 @@ IMAP quoted-pair принимает только escaped `"` и `\\` по RFC 35
 connection-local mode: legacy quoted-string отклоняет high-bit UTF-8 до
 negotiation, а quoted mailbox names разрешаются после неё. Независимый STARTTLS
 acceptance проверил positive и negative переходы, включая malformed UTF-8,
-C0/C1 controls и ASCII-only atom. Отдельный synchronizing SEARCH-literal
-path сохраняет проверенный UTF-8 как значение токена. Независимый STARTTLS
+C0/C1 controls и ASCII-only atom. Ограниченный synchronizing-literal receiver
+поддерживает SEARCH/UID SEARCH и оба LOGIN astring до 64 KiB; raw STARTTLS
+acceptance проверил двухлитеральный LOGIN. Это не общая поддержка literal для
+всех команд: APPEND использует отдельный receiver, LITERAL+ не рекламируется.
+Receiver сохраняет проверенный UTF-8 как значение токена. Независимый STARTTLS
 acceptance проверил tagged BAD для UTF-8 quoted LOGIN, восстановление сессии и
 UTF-8 BODY literal. RFC 9755 explicit SEARCH CHARSET получает BAD; wire-проверены
 обычный и смешанный регистр keyword, после чего implicit UTF-8 SEARCH работает.

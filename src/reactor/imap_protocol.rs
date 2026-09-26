@@ -36,9 +36,7 @@ pub(super) fn line(
         return invalid_utf8::respond(session, &line);
     };
     let parsed = match literals {
-        Some(values) => {
-            imap::parse_search_literals_with_mode(command, values, session.imap_string_mode)
-        }
+        Some(values) => imap::parse_literals_with_mode(command, values, session.imap_string_mode),
         None => imap::parse_with_mode(command, session.imap_string_mode),
     };
     if imap_search_error::reject_utf8_charset(session, &parsed.tag, &parsed.command)? {

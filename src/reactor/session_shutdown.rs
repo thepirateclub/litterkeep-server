@@ -8,8 +8,8 @@ pub enum SessionTermination {
     Pop3Quit,
     /// Отстающий IDLE-подписчик превысил жёсткую границу выходной очереди.
     NotificationOverflow,
-    /// Некорректный UTF-8 SEARCH literal нарушил синтаксис текущей команды.
-    InvalidSearchLiteral,
+    /// Некорректный IMAP literal нарушил синтаксис текущей команды.
+    InvalidImapLiteral,
 }
 
 impl Session {

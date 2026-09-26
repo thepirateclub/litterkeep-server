@@ -4,6 +4,31 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-27: G17 IMAP LOGIN synchronizing literals, scoped PASS
+
+- RFC 9051 §4.3 допускает synchronizing literal как общую форму IMAP string;
+  LOGIN передаёт username/password как `astring`. Ранее reactor принимал
+  command literals только для SEARCH, поэтому корректный literal LOGIN
+  отклонялся до типизированного LOGIN parser-а.
+- Существующий bounded receiver теперь распознаёт LOGIN и сохраняет общую
+  проверку размера (64 KiB на literal, общий лимит команды), CRLF framing,
+  последовательные continuation и синхронизацию pipelined ввода. APPEND остаётся
+  отдельным receiver-ом. Parser/tokenizer entry points переименованы в общие
+  literal terms. LITERAL+ не рекламируется и поддержка literal другими IMAP
+  командами не подразумевается.
+- Windows Rust 1.97.1: fmt, strict Clippy и полный тестовый набор (604 library,
+  1 CLI, doc-tests) прошли; Python `py_compile` прошёл. Первый фильтр reactor
+  тестов на Windows не выбрал platform-gated Linux tests, что не засчитывалось
+  как receiver-проверка.
+- Linux Docker Rust 1.97: release build, strict Clippy, 667 library tests,
+  1 CLI test и doc-tests прошли; один Unicode corpus test остаётся ignored без
+  внешнего файла. Независимый raw STARTTLS acceptance выполнил два
+  synchronizing literals с ожиданием обоих `+`, получил успешный LOGIN и
+  authenticated NOOP. Это не проверка приложения Litterkeep.
+- Fixture сохранён в `./data/acceptance-imap-login-literal-20260927`; созданные
+  container и test image удалены, отсутствие проверено. Остальные контейнеры не
+  затронуты. Полный IMAP4rev2 профиль и общий G17 остаются ACTIVE.
+
 ### 2026-09-27: G17 POP3 PASS password spaces, PASS
 
 - POP3 command parser теперь трактует весь остаток `PASS` после первого SP как

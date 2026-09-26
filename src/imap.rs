@@ -198,14 +198,14 @@ pub fn parse_with_mode(line: &str, mode: tokenizer::StringMode) -> TaggedCommand
     parser::parse_with_mode(line, mode)
 }
 
-/// Разбирает внутренне собранный SEARCH в выбранном session string mode.
+/// Разбирает внутренне собранную команду в выбранном session string mode.
 #[cfg(target_os = "linux")]
-pub(crate) fn parse_search_literals_with_mode(
+pub(crate) fn parse_literals_with_mode(
     line: &str,
     literals: Vec<String>,
     mode: tokenizer::StringMode,
 ) -> TaggedCommand {
-    parser::parse_search_literals_with_mode(line, literals, mode)
+    parser::parse_literals_with_mode(line, literals, mode)
 }
 
 #[cfg(test)]

@@ -44,9 +44,9 @@ pub fn tokenize_with_mode(line: &str, mode: StringMode) -> Result<Vec<Token>, &'
     tokenize_internal(line, Vec::new().into(), mode)
 }
 
-/// Собирает SEARCH literal placeholders с режимом остальных quoted-string.
+/// Собирает проверенные literal placeholders с режимом остальных строк.
 #[cfg(any(target_os = "linux", test))]
-pub(super) fn tokenize_search_literals_with_mode(
+pub(super) fn tokenize_literals_with_mode(
     line: &str,
     literals: Vec<String>,
     mode: StringMode,
@@ -85,7 +85,7 @@ fn tokenize_internal(
     if literals.is_empty() {
         Ok(tokens)
     } else {
-        Err("SEARCH literal placeholder is missing")
+        Err("IMAP literal placeholder is missing")
     }
 }
 
@@ -258,7 +258,7 @@ mod tests {
     fn wire_quoted_string_rejects_high_bit_but_literal_token_keeps_utf8() {
         assert!(tokenize("a LOGIN \"bøb\" \"pass\"\r\n").is_err());
         assert_eq!(
-            tokenize_search_literals_with_mode(
+            tokenize_literals_with_mode(
                 "a SEARCH SUBJECT \0\r\n",
                 vec!["bøb".into()],
                 StringMode::Legacy,
