@@ -217,6 +217,29 @@ fn address_test_includes_resent_address_fields() {
     assert!(plan.discard);
 }
 
+/// RFC 8098 задаёт для Disposition-Notification-To значение типа mailbox-list.
+#[test]
+fn address_test_includes_mdn_recipient_field() {
+    let script = parse(
+        "if address :is \"disposition-notification-to\" \"reports@example.test\" { discard; }",
+    )
+    .expect("parse MDN address condition");
+    let plan = execute(
+        &script,
+        &[
+            (
+                "Disposition-Notification-To".into(),
+                "Reports <reports@example.test>".into(),
+            ),
+            ("Subject".into(), "reports@example.test".into()),
+        ],
+        10,
+    )
+    .expect("execute MDN address condition");
+
+    assert!(plan.discard);
+}
+
 /// Сетевой fixture использует это составное правило без подмены envelope RCPT.
 #[test]
 fn combined_header_address_and_size_rule_matches_network_fixture() {

@@ -36,6 +36,7 @@ pub enum HeaderName {
     ResentTo,
     ResentCc,
     ResentBcc,
+    DispositionNotificationTo,
     InReplyTo,
     MessageId,
     Other,
@@ -75,6 +76,7 @@ impl HeaderName {
             "resent-to" => HeaderName::ResentTo,
             "resent-cc" => HeaderName::ResentCc,
             "resent-bcc" => HeaderName::ResentBcc,
+            "disposition-notification-to" => HeaderName::DispositionNotificationTo,
             "in-reply-to" => HeaderName::InReplyTo,
             "message-id" => HeaderName::MessageId,
             _ => HeaderName::Other,
@@ -97,6 +99,7 @@ impl HeaderName {
                 | Self::ResentTo
                 | Self::ResentCc
                 | Self::ResentBcc
+                | Self::DispositionNotificationTo
         )
     }
 }

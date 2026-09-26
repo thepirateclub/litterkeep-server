@@ -228,9 +228,14 @@ reordered script. `:matches` сравнивает UTF-8 byte stream с width wil
 Unit и SMTP -> Sieve -> IMAP acceptance проверяют эти правила по RFC 5228 §2.7.1.
 `address` использует общий RFC 5322 parser, проверяет известные address-list
 поля (включая обязательные RFC 5228 From/To/Cc/Bcc/Sender/Resent-From/
-Resent-To) и сравнивает mailbox внутри групп, не имя группы. SMTP -> Sieve ->
-IMAP acceptance доставляет письмо с group-form `To`; произвольные пользовательские
-address-list headers этим не подтверждены.
+Resent-To), RFC 5322 reply/resent поля и `Disposition-Notification-To` из
+RFC 8098 §2.1, значение которого задано как `mailbox-list`. Mailbox внутри
+групп сравниваются, имя группы не сравнивается. Unit и независимая
+ManageSieve -> SMTP -> IMAP acceptance проверяют MDN-поле; письмо попадает в
+Invoices, а исходная INBOX копия побайтно совпадает благодаря implicit keep и
+`fileinto :copy`. Проверено также, что совпадение с одноимённым Subject не
+подменяет address match. Полевая матрица остаётся конечным allowlist:
+произвольные пользовательские address-list headers не подтверждены.
 
 Sieve `envelope` поддерживает `from` и `to`, `ADDRESS-PART`, match-type и
 comparator по RFC 5228 §5.4; script обязан заявить `require "envelope"`.

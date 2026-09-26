@@ -72,7 +72,7 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
         greeting = read_until(plain, b'OK "ready"\r\n')
         require(b'"STARTTLS"' in greeting, "ManageSieve не объявил STARTTLS")
         require(
-            b'"SIEVE" "fileinto subaddress envelope copy"' in greeting,
+            b'"SIEVE" "fileinto subaddress envelope copy vacation"' in greeting,
             "ManageSieve не объявил Sieve capabilities",
         )
         bob_password = os.environ.get("LITTERKEEP_BOB_PASSWORD", "bob-password")
@@ -177,7 +177,9 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
                     b'if allof (header :contains "subject" "[invoice]", ',
                     'header :contains "subject" "café☃", '.encode("utf-8"),
                     b'header :matches "subject" "invoice\\\\**", ',
-                    b'address :comparator "i;ascii-casemap" :detail :is "to" "invoices", envelope :is "to" "bob@litterkeep.test", size :over 1) ',
+                    b'address :comparator "i;ascii-casemap" :detail :is "to" "invoices", ',
+                    b'address :is "disposition-notification-to" "reports@example.test", ',
+                    b'envelope :is "to" "bob@litterkeep.test", size :over 1) ',
                     b'{ fileinto :copy "Invoices"; fileinto :copy "Invoices"; stop; }',
                 ]
             )
@@ -244,6 +246,7 @@ def deliver(options: argparse.Namespace, context: ssl.SSLContext) -> None:
     message = EmailMessage()
     message["From"] = "alice@litterkeep.test"
     message["To"] = "Invoices: bob+invoices@litterkeep.test;"
+    message["Disposition-Notification-To"] = "Reports <reports@example.test>"
     message["Subject"] = "invoice* [invoice] paid café☃"
     message.set_content("invoice body")
     with smtplib.SMTP(options.host, options.smtp_port, timeout=10) as client:

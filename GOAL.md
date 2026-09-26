@@ -6447,3 +6447,25 @@ ManageSieve до заявленного набора современных фо
   не затрагивались. Litterkeep-приложение не тестировалось. Другие Net-Unicode
   response paths ещё открыты, поэтому UTF8=ACCEPT скрыт, T108 и G17 остаются
   PARTIAL/ACTIVE.
+
+### 2026-09-26: G17 Sieve address для RFC 8098 MDN recipients, scoped PASS
+
+- RFC 5228 §5.1 требует ограничивать `address` полями с адресной структурой,
+  включает обязательные адресные поля и рекомендует другие address-list поля.
+  RFC 8098 §2.1 задаёт `Disposition-Notification-To` как `mailbox-list`; это
+  стандартизованный случай за пределами начального списка RFC 5322.
+- Типизированный `HeaderName` теперь распознаёт это поле как адресный список.
+  Sieve unit test сравнивает содержащийся mailbox и убеждается, что обычный
+  `Subject` с теми же октетами не является адресным кандидатом. Произвольные
+  пользовательские поля не открыты: allowlist остаётся явным и конечным.
+- Independent Linux Rust 1.97 Docker gates: strict Clippy, 662 library tests,
+  один CLI test и doc-tests прошли; один отдельный Unicode corpus test остаётся
+  ignored по конструкции. Windows Rust 1.97.1 gates: fmt, strict Clippy,
+  601 library tests и один CLI test прошли; Python acceptance compile прошёл.
+- Независимая проверка ManageSieve -> SMTP -> IMAP активировала script с
+  `address :is "disposition-notification-to"`, отправила письмо Alice и
+  проверила одинаковые RFC822 octets в Bob INBOX и Invoices (`fileinto :copy`
+  вместе с implicit keep). Это не проверка клиента Litterkeep.
+- Fixture сохранён в `./data/g24-sieve-mdn-address`; созданные container и
+  images удалены и отсутствие проверено. Несвязанный `lower-layer-v1` оставлен
+  запущенным. RFC 5228 full profile и общий G17 остаются ACTIVE.
