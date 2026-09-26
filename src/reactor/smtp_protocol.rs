@@ -237,6 +237,7 @@ fn apply_transaction(session: &mut Session, command: smtp::Command) -> io::Resul
     match transaction.apply(&command) {
         Ok(true) => {
             let envelope = transaction.take_envelope();
+            session.smtp_data_activity = std::time::Instant::now();
             session.smtp = SmtpState::Data {
                 bytes: Vec::new(),
                 recipients: envelope.recipients,

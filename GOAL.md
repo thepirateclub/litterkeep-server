@@ -4,21 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
-### 2026-09-26: G17 RFC 5321 server idle timeout, PASS
+### 2026-09-26: G17 RFC 5321 server command and DATA block timeouts, PASS
 
-- Added the RFC-recommended five-minute SMTP command-inactivity deadline to
-  poll scheduling. Read/write activity refreshes the clock; response bytes must
-  drain before the idle interval begins. Pending storage, queued protocol
-  output, and TLS-handshake work are excluded so the timer cannot steal an
-  active session's resource lease.
+- RFC 5321 §4.5.3.2.7 command idle keeps its five-minute interval; §4.5.3.2.5
+  DATA inactivity now uses a separate three-minute deadline. The DATA clock is
+  tied to socket reads, not parsing of buffered lines, preventing stale buffered
+  content from refreshing an incomplete block. Worker ownership and pending
+  replies remain outside these timeouts.
 - PASS: Windows Rust 1.97.1 fmt, 544 library + 1 binary tests and strict
-  Clippy. Linux Docker Rust 1.97 strict Clippy, 593 library + 1 binary tests,
-  and doc-tests. Independent STARTTLS client verified greeting, EHLO, upgrade,
-  and NOOP. Container idle expiry at exact 300 seconds is covered deterministically
-  by a lifecycle lease test; the wire probe did not wait five minutes. Test
-  container and both unique image tags removed; generated account/PKI fixtures
-  remain under `./data/g15-smtp-idle-timeout`. Litterkeep app interoperability
-  was not tested; G17 remains active.
+  Clippy. Linux Docker Rust 1.97 strict Clippy, 595 library + 1 binary tests,
+  and doc-tests. New Linux lifecycle tests verify command and DATA boundaries,
+  cancellation of the lease at deadline, pending-worker retention, and that
+  parsing stale complete lines does not refresh the timer for a partial block.
+  Independent STARTTLS runtime authenticated Alice and verified 235 AUTH, MAIL
+  250, RCPT 250, DATA 354, then disconnected with an unfinished DATA body.
+  Wall-clock 180-second expiry was not observed; litterkeep interoperability
+  was not tested. Test container and both image tags removed; PKI/accounts stay
+  under `./data/g17-smtp-data-timeouts`. G17 remains active.
 
 ### 2026-09-26: G15 RFC 4954 AUTH continuation semantics correction, PASS
 

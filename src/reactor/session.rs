@@ -55,6 +55,8 @@ pub(super) struct Session {
     handshake_deadline: Option<Instant>,
     /// Последняя передача либо получение TCP octets для SMTP idle timer.
     pub(super) last_activity: Instant,
+    /// Начало ожидания текущего DATA-блока или незавершённой DATA-строки.
+    pub(super) smtp_data_activity: Instant,
     /// Отмечает, что TLS close_notify уже передан rustls ровно один раз.
     pub(super) close_notify_started: bool,
     greeting_sent: bool,
@@ -123,6 +125,7 @@ impl Session {
             starttls_pending: false,
             handshake_deadline,
             last_activity: Instant::now(),
+            smtp_data_activity: Instant::now(),
             close_notify_started: false,
             greeting_sent: false,
             pending_submit: None,

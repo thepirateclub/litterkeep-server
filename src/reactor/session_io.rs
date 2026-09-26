@@ -21,7 +21,14 @@ pub(super) fn flush(session: &mut Option<SessionLease>) -> io::Result<bool> {
             output.drain(..count);
             session.begin_starttls_if_ready()?;
             if !session.needs_write() {
-                session.last_activity = std::time::Instant::now();
+                let flushed_at = std::time::Instant::now();
+                session.last_activity = flushed_at;
+                if matches!(
+                    (session.kind, &session.smtp),
+                    (Kind::Smtp, SmtpState::Data { .. })
+                ) {
+                    session.smtp_data_activity = flushed_at;
+                }
             }
             Ok(false)
         }
@@ -50,7 +57,14 @@ pub(super) fn read_session(
     match session.stream.read(&mut bytes) {
         Ok(0) => return Ok(true),
         Ok(count) => {
-            session.last_activity = std::time::Instant::now();
+            let received_at = std::time::Instant::now();
+            session.last_activity = received_at;
+            if matches!(
+                (session.kind, &session.smtp),
+                (Kind::Smtp, SmtpState::Data { .. })
+            ) {
+                session.smtp_data_activity = received_at;
+            }
             match bytes.get(..count) {
                 Some(received) => match receive_plaintext(session, received) {
                     Ok(plaintext) => session.input.extend_from_slice(&plaintext),
