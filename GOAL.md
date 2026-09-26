@@ -6382,3 +6382,30 @@ ManageSieve до заявленного набора современных фо
   проверки, `lower-layer-v1` не затрагивался. `docs/sieve-coverage.md` и T119
   обновлены; Windows gates и Python compile прошли. Общая цель и G17 остаются
   ACTIVE, поскольку остальные RFC/Sieve gaps ещё открыты.
+
+### 2026-09-26: G17 RFC 5198 Unicode 17 NFC mailbox normalization, scoped PASS
+
+- Добавлена собственная NFC реализация без runtime-зависимостей: Unicode 17
+  canonical decomposition, combining-class reordering, composition blocking,
+  composition exclusions и алгоритмический Hangul. Генератор закрепляет SHA-256
+  официальных Unicode 17.0.0 UCD файлов; generated Rust shards не превышают
+  лимит 300 строк. Данные и corpus хранятся только в локальном `./data` и не
+  попадают в Docker build context.
+- Enabled-mode IMAP mailbox inputs нормализуются до доступа к Store, а
+  соответствующие mailbox response names сериализуются в NFC. Полный официальный
+  `NormalizationTest.txt` прошёл: Windows `cargo test --locked` с corpus-test
+  (1 passed), основной прогон оставляет его ignored. Windows gates: fmt, strict
+  Clippy, 595 library + 1 binary tests, Python compile и diff-check прошли.
+- Linux Docker Rust 1.97 release image собран; strict Clippy и 655 library +
+  1 binary tests прошли (1 ignored corpus test). Независимый Python imaplib
+  STARTTLS сценарий на Linux проверил decomposed CREATE, composed LIST/SELECT и
+  DELETE через decomposed имя; также прошли RFC 9755 mailbox/SEARCH/COPY/MOVE/
+  APPEND проверки. Fixture сохранён в
+  `./data/g20-rfc9755-nfc-wire`.
+- Временные `litterkeep-nfc-wire`, `litterkeep-nfc-test:work` и
+  `litterkeep-nfc-runtime:work` удалены, отсутствие подтверждено;
+  `lower-layer-v1` не затрагивался. Проверялся независимый клиент, не
+  приложение Litterkeep. Старые persisted decomposed mailbox names и их
+  миграция/доступность не проверялись. Другие Net-Unicode response paths ещё
+  открыты, поэтому RFC 9755 capability остаётся скрытой, T108 и G17 остаются
+  PARTIAL/ACTIVE.

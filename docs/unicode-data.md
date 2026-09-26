@@ -29,14 +29,36 @@ Runtime использует binary search по включительным ди�
 или production dependency сверх allowlist. Private-use scalars остаются
 assigned и принимаются: RFC 5198 рекомендует избегать их, но не запрещает их.
 
-## Ограничение normalization
+## NFC normalization для Net-Unicode
 
 Приём mailbox names отклоняет unassigned code points закреплённой версии,
-запрещённые RFC 9755 controls и начальный BOM. Исходная строка сохраняется.
-NFC normalization для исходящих mailbox names не реализована; RFC 5198
-формулирует NFC как SHOULD. Поэтому эта таблица закрывает обязательную
-assigned-version проверку, но не весь Unicode/Net-Unicode profile и сама по
-себе не разрешает рекламировать `UTF8=ACCEPT`.
+запрещённые RFC 9755 controls и начальный BOM. В режиме UTF8=ACCEPT входящие
+имена канонизируются к NFC перед обращением к хранилищу, а выдаваемые через
+IMAP mailbox response имена нормализуются тем же алгоритмом.
+
+Таблицы NFC построены из официальных Unicode 17.0.0 `UnicodeData.txt`,
+`DerivedNormalizationProps.txt` и `NormalizationTest.txt`. Генератор
+`tools/generate_unicode17_nfc.ps1` закрепляет SHA-256 каждого входа, исключает
+composition exclusions, генерирует canonical decomposition/combining class/
+composition таблицы и делит их на Rust shards менее 300 строк. Алгоритм в
+`src/imap/unicode_17_nfc.rs` обрабатывает Hangul алгоритмически, остальные
+последовательности - через отсортированные таблицы и binary search. Новых
+runtime dependencies нет.
+
+Полный официальный corpus прошёл отдельной командой на закреплённых таблицах:
+
+```powershell
+$env:LITTERKEEP_UNICODE_NORMALIZATION_TEST = (Resolve-Path data/g20-unicode17-normalization/NormalizationTest.txt).Path
+cargo test --locked imap::unicode_17_nfc::tests::official_unicode_normalization_vectors -- --ignored --exact
+```
+
+Все обычные NFC unit vectors входят в стандартный `cargo test`. Независимый
+STARTTLS black-box проверяет decomposed CREATE, composed LIST response,
+SELECT по composed имени и DELETE по decomposed имени. Это не проверка
+миграции ранее сохранённых decomposed mailbox names. RFC 5198 формулирует
+нормализацию исходящих строк как SHOULD; реализация NFC не закрывает остальные
+Net-Unicode response paths и сама по себе не разрешает рекламировать
+`UTF8=ACCEPT`.
 
 ## Unicode License V3
 

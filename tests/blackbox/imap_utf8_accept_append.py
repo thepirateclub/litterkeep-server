@@ -126,6 +126,21 @@ def main() -> None:
     status, created = client.create("旅行")
     if status != "OK":
         raise AssertionError(f"UTF-8 CREATE failed: {created!r}")
+    decomposed = "cafe\u0301"
+    composed = "café"
+    status, created = client.create(decomposed)
+    if status != "OK":
+        raise AssertionError(f"decomposed UTF-8 CREATE failed: {created!r}")
+    status, normalized_folders = client.list("", composed)
+    if status != "OK" or not any(f'"{composed}"'.encode("utf-8") in line for line in normalized_folders):
+        raise AssertionError(f"LIST did not return NFC mailbox name: {normalized_folders!r}")
+    status, normalized_counts = client.select(composed, readonly=True)
+    if status != "OK" or normalized_counts != [b"0"]:
+        raise AssertionError(f"NFC mailbox alias did not select: {status!r} {normalized_counts!r}")
+    require_ok_command(client, "UNSELECT")
+    status, deleted = client.delete(decomposed)
+    if status != "OK":
+        raise AssertionError(f"normalized mailbox DELETE failed: {deleted!r}")
     status, subscribed = client.subscribe("旅行")
     if status != "OK":
         raise AssertionError(f"UTF-8 SUBSCRIBE failed: {subscribed!r}")
