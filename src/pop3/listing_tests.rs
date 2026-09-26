@@ -42,6 +42,13 @@ fn list_size_preserves_carriage_returns_not_followed_by_line_feed() {
 
     assert_eq!(drop.list(Some(1)), Ok(vec![(1, 12)]));
     assert_eq!(drop.retrieve(1), Ok(b"a\rX\r\nlast\r\r\n.\r\n".to_vec()));
+
+    let top_message = b"Subject: x\r\n\r\nbody\rX\nlast\r";
+    let top_drop = Maildrop::new(vec![message(3, top_message)]);
+    assert_eq!(
+        top_drop.top(1, 1),
+        Ok(b"Subject: x\r\n\r\nbody\rX\r\n.\r\n".to_vec())
+    );
 }
 
 #[test]

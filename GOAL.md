@@ -10,7 +10,7 @@ Current subgoal: G17
   нормализация удаляет только `CR`, непосредственно составляющий пару с `LF`;
   отдельный CR сохраняется как октет и входит в размер CRLF-представления.
 - Регрессия проверяет CR перед обычным символом и в конце последней строки:
-  проверены одновременно точные `RETR` bytes и `LIST` size.
+  проверены точные `RETR` и `TOP` bytes, а также `LIST` size.
 - Windows Rust 1.97.1: полный library suite 603 passed, 1 ignored; strict
   Clippy и fmt прошли. Linux Docker test-stage Rust 1.97: release build,
   strict Clippy, 664 library + 1 binary test, doc-tests; 1 внешний Unicode
