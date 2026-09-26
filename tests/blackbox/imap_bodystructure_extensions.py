@@ -60,7 +60,7 @@ def main() -> None:
         b"Content-Language: en-US, fr\r\n"
         b"Content-Location: https://example.test/mail/\r\n\r\n"
         b"--meta-boundary\r\n"
-        b"Content-Type: application/octet-stream\r\n"
+        b"Content-Type: application/octet-stream; name=\"utf8_name_parameter\"\r\n"
         b'Content-ID: <"attachment@one"@[IPv6:2001:db8::1]>\r\n'
         b"X!#$%&'*+-.^_`|~: extension-field-value\r\n"
         b"Content-Description: attached file\r\n"
@@ -78,7 +78,7 @@ def main() -> None:
         b"Content-Type: application/octet-stream\r\n"
         b'Content-ID: <"image.logo" (quoted word) . (separator) archive@example.test>\r\n\r\n'
         b"quoted-word-octets\r\n--meta-boundary--\r\n"
-    )
+    ).replace(b"utf8_name_parameter", "архив-✓.bin".encode("utf-8"))
     match options.implicit_tls:
         case True:
             client = imaplib.IMAP4_SSL(
@@ -125,6 +125,7 @@ def main() -> None:
         b'("en-US" "fr")',
         b'"https://example.test/mail/"',
         '("attachment" ("FILENAME" "résumé.bin"))'.encode("utf-8"),
+        '"NAME" "архив-✓.bin"'.encode("utf-8"),
         b'"ru"',
         b'"../files/a%20b.bin"',
     ):

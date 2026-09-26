@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G17 RFC 6532 UTF-8 quoted MIME parameters, PARTIAL
+
+- RFC 6532 quoted-string extension подтверждён для MIME parameter values:
+  общий parser сохраняет прямой UTF-8 в quoted `name`, отдельно от RFC 2231
+  `filename*`. Добавлены unit и независимая IMAP `imaplib` wire-проверки;
+  BODYSTRUCTURE вернул оба Unicode значения и оригинальный RFC822 literal
+  совпал побайтно. Это не проверяет SMTPUTF8 transfer.
+- PASS: Windows Rust 1.97.1 fmt, 564 библиотечных и 1 бинарный тест, strict
+  Clippy; Linux Docker Rust 1.97 release build, strict Clippy, 615 библиотечных
+  и 1 бинарный тест, doc-tests. Независимый implicit-TLS IMAP acceptance
+  прошёл. Временные test/runtime images и container удалены, отсутствие
+  проверено; существующий `./data/g17-rfc2231-lowercase-wire` сохранён. G17
+  остаётся ACTIVE.
+
 ### 2026-09-26: G17 RFC 2231 Sieve coverage consistency, PARTIAL
 
 - `vacation_mime` использует общий MIME parameter decoder, поэтому lowercase

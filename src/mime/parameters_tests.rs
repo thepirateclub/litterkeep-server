@@ -228,6 +228,18 @@ fn decodes_lowercase_and_mixed_case_rfc2231_percent_escapes() {
     );
 }
 
+/// RFC 6532 разрешает UTF-8 внутри quoted-string значения MIME-параметра.
+#[test]
+fn preserves_utf8_quoted_mime_parameter_value() {
+    let parsed = parameters::parse("application/octet-stream; name=\"архив-✓.bin\"")
+        .expect("UTF-8 quoted MIME parameter");
+
+    assert_eq!(
+        parsed.parameters.get("name").map(String::as_str),
+        Some("архив-✓.bin")
+    );
+}
+
 #[test]
 fn rejects_unterminated_comment_but_preserves_quoted_parentheses() {
     assert!(parameters::parse("text/plain (unfinished").is_err());

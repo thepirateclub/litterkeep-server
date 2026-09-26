@@ -196,8 +196,11 @@ extensions с parameter list после subtype. Параметры включа
 невалидное или повторное поле не экспортируется. RFC 2231 percent escapes
 принимают HEXDIG в любом регистре согласно регистронезависимой ABNF. Независимый
 Python `imaplib` через implicit TLS выполнил APPEND и BODYSTRUCTURE FETCH с
-UTF-8 filename, содержащим lowercase и uppercase escapes, и подтвердил decoded
-имя и сохранность исходных RFC822 октетов. `Content-Language` сохраняет
+RFC 2231 UTF-8 filename, содержащим lowercase и uppercase escapes, и прямым
+UTF-8 в quoted MIME-параметре `name`; BODYSTRUCTURE вернул оба Unicode значения
+и подтвердил сохранность исходных RFC822 октетов. Прямая форма использует
+RFC 6532 quoted-string extension и не заявляет SMTPUTF8 transfer.
+`Content-Language` сохраняет
 один или несколько структурно корректных BCP 47 tags; `Content-Location`
 сохраняется как единственный непустой unfolded URI-reference по синтаксису
 RFC 3986. Поддерживаются absolute URI и relative reference; percent-encoding
