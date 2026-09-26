@@ -29,6 +29,9 @@ pub(super) fn smtp_line(
     }
     let command = match smtp::parse(std::str::from_utf8(&line).unwrap_or("")) {
         Ok(command) => command,
+        Err(smtp::ParseError::UnrecognizedCommand) => {
+            return session.push(b"500 5.5.2 command unrecognized\r\n");
+        }
         Err(smtp::ParseError::Syntax) => return session.push(b"501 5.5.2 syntax error\r\n"),
         Err(smtp::ParseError::UnsupportedParameter) => {
             return session.push(b"555 5.5.4 unsupported command parameter\r\n");
@@ -51,7 +54,7 @@ pub(super) fn smtp_line(
         smtp::Command::Expn(_) => session.push(b"502 5.5.1 mailing lists are not supported\r\n"),
         smtp::Command::Help(topic) => help(session, topic),
         smtp::Command::StartTls => super::smtp_greeting::starttls(session),
-        smtp::Command::AuthPlain(response) => authenticate(
+        smtp::Command::AuthPlain(response) => super::smtp_auth::authenticate(
             session, response, slot, generation, worker, owners, request_id,
         ),
         smtp::Command::Mail(sender) => mail(session, sender),
@@ -70,57 +73,6 @@ fn help(session: &mut Session, topic: Option<String>) -> io::Result<()> {
             b"214-Commands: EHLO HELO MAIL RCPT DATA RSET NOOP VRFY EXPN HELP QUIT\r\n214 End of HELP\r\n",
         ),
     }
-}
-
-/// Передаёт SASL PLAIN секрет worker-у без проверки в reactor thread.
-fn authenticate(
-    session: &mut Session,
-    response: Option<String>,
-    slot: usize,
-    generation: u64,
-    worker: &mut WakingStorageWorker,
-    owners: &mut HashMap<u64, (usize, u64, Pending)>,
-    request_id: &mut u64,
-) -> io::Result<()> {
-    if session.tls.is_none() {
-        return session.push(b"538 5.7.11 encryption required\r\n");
-    }
-    if session.authenticated_account.is_some() {
-        return session.push(b"503 5.5.1 already authenticated\r\n");
-    }
-    let SmtpState::Command(transaction) = &session.smtp else {
-        return session.push(b"503 5.5.1 bad sequence\r\n");
-    };
-    if transaction.has_sender() {
-        return session.push(b"503 5.5.1 bad sequence\r\n");
-    }
-    let Some(response) = response else {
-        session.smtp_auth = SmtpAuthState::AwaitingPlainResponse;
-        return session.push(b"334 \r\n");
-    };
-    let credentials = match crate::sasl::parse_plain(&response) {
-        Ok(credentials) => credentials,
-        Err(_) => return session.push(b"501 5.5.2 invalid AUTH PLAIN response\r\n"),
-    };
-    let id = next_request(request_id);
-    let account = match crate::local_route::local_login(&credentials.account) {
-        Some(account) => account,
-        None => return session.push(b"535 5.7.8 authentication credentials invalid\r\n"),
-    };
-    super::protocol::submit(
-        session,
-        Request::Authenticate {
-            request_id: id,
-            username: account.clone(),
-            password: credentials.password,
-        },
-        Pending::SmtpAuthenticate { account },
-        slot,
-        generation,
-        worker,
-        owners,
-    );
-    Ok(())
 }
 
 /// Принимает единственную base64 response либо стандартную отмену SASL `*`.
@@ -142,7 +94,7 @@ pub(super) fn auth_plain_response(
     };
     match response {
         "*" => session.push(b"501 5.7.0 authentication cancelled\r\n"),
-        _ => authenticate(
+        _ => super::smtp_auth::authenticate(
             session,
             Some(response.to_owned()),
             slot,
@@ -293,7 +245,7 @@ fn apply_mail_transaction(
 }
 
 /// Выдаёт следующий ненулевой request id без дублирования арифметики.
-fn next_request(request_id: &mut u64) -> u64 {
+pub(super) fn next_request(request_id: &mut u64) -> u64 {
     let current = *request_id;
     *request_id = request_id.wrapping_add(1).max(1);
     current

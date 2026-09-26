@@ -119,13 +119,13 @@ mod session_cancel;
 mod session_close;
 #[path = "reactor/session_io.rs"]
 mod session_io;
+mod smtp_auth;
 #[path = "reactor/smtp_completion.rs"]
 mod smtp_completion;
 #[path = "reactor/smtp_data.rs"]
 mod smtp_data;
 #[path = "reactor/smtp_greeting.rs"]
 mod smtp_greeting;
-#[path = "reactor/smtp_protocol.rs"]
 mod smtp_protocol;
 #[path = "reactor/submit_id.rs"]
 mod submit_id;

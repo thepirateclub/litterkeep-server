@@ -6,8 +6,12 @@ mod address;
 mod address_literal;
 #[path = "auth_command.rs"]
 mod auth_command;
+#[path = "command_error.rs"]
+mod command_error;
 #[path = "greeting.rs"]
 mod greeting;
+#[path = "mail_path.rs"]
+mod mail_path;
 pub(crate) use address::canonical_parts;
 #[cfg(target_os = "linux")]
 pub(crate) use address::requires_smtp_utf8;
@@ -52,12 +56,7 @@ pub enum BodyMode {
 }
 
 /// Причина отказа parser-а позволяет выбрать точный SMTP reply code.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ParseError {
-    Syntax,
-    UnsupportedParameter,
-    UnsupportedAuthenticationMechanism,
-}
+pub use command_error::ParseError;
 
 /// Локальный предел совпадает с числом, передаваемым в EHLO SIZE.
 pub const MAX_MESSAGE_SIZE: u64 = 25 * 1024 * 1024;
@@ -73,22 +72,45 @@ pub const MAX_LOCAL_PART_SIZE: usize = 64;
 /// Преобразует одну полную CRLF строку в закрытый набор SMTP команд.
 pub fn parse(line: &str) -> Result<Command, ParseError> {
     let line = line.trim_end_matches("\r\n");
-    let (verb, argument) = line.split_once(' ').unwrap_or((line, ""));
+    let (verb, argument) = command_parts(line);
     match verb.to_ascii_uppercase().as_str() {
         "EHLO" => greeting::ehlo(argument).map(Command::Ehlo),
         "HELO" => greeting::helo(argument).map(Command::Helo),
-        "MAIL" => parse_mail_from(argument).map(Command::Mail),
-        "RCPT" => parse_recipient(argument).map(Command::Rcpt),
-        "DATA" if argument.is_empty() => Ok(Command::Data),
+        "MAIL" => mail_path::parse_mail_from(argument).map(Command::Mail),
+        "RCPT" => mail_path::parse_recipient(argument).map(Command::Rcpt),
+        "DATA" => match argument.is_empty() {
+            true => Ok(Command::Data),
+            false => Err(ParseError::Syntax),
+        },
         "AUTH" => auth_command::parse(argument),
         "VRFY" => parse_string_command(argument).map(Command::Vrfy),
         "EXPN" => parse_string_command(argument).map(Command::Expn),
         "HELP" => parse_optional_string(argument).map(Command::Help),
-        "STARTTLS" if argument.is_empty() => Ok(Command::StartTls),
+        "STARTTLS" => match argument.is_empty() {
+            true => Ok(Command::StartTls),
+            false => Err(ParseError::Syntax),
+        },
         "NOOP" => parse_optional_string(argument).map(Command::Noop),
-        "RSET" if argument.is_empty() => Ok(Command::Rset),
-        "QUIT" if argument.is_empty() => Ok(Command::Quit),
-        _ => Err(ParseError::Syntax),
+        "RSET" => match argument.is_empty() {
+            true => Ok(Command::Rset),
+            false => Err(ParseError::Syntax),
+        },
+        "QUIT" => match argument.is_empty() {
+            true => Ok(Command::Quit),
+            false => Err(ParseError::Syntax),
+        },
+        _ => Err(ParseError::UnrecognizedCommand),
+    }
+}
+
+/// Отделяет verb только по RFC-пробелу, сохраняя TAB как неверный аргумент.
+fn command_parts(line: &str) -> (&str, &str) {
+    match line.split_once(' ') {
+        Some((verb, argument)) => (verb, argument),
+        None => match line.split_once('\t') {
+            Some((verb, _)) => (verb, "\t"),
+            None => (line, ""),
+        },
     }
 }
 
@@ -122,184 +144,6 @@ fn parse_optional_string(argument: &str) -> Result<Option<String>, ParseError> {
     match argument.trim().is_empty() {
         true => Ok(None),
         false => parse_string_command(argument).map(Some),
-    }
-}
-
-/// Разбирает reverse-path и ровно один необязательный SIZE параметр.
-fn parse_mail_from(argument: &str) -> Result<MailFrom, ParseError> {
-    let (reverse_path, suffix) = parse_path(argument, "FROM:", PathKind::Reverse)?;
-    let parsed_parameters = match suffix.is_empty() {
-        true => Vec::new(),
-        false => suffix
-            .split(' ')
-            .map(parse_mail_parameter)
-            .collect::<Result<Vec<_>, _>>()?,
-    };
-    let mut declared_size = None;
-    let mut body_mode = BodyMode::SevenBit;
-    let mut smtp_utf8 = false;
-    let mut size_seen = false;
-    let mut body_seen = false;
-    let mut smtp_utf8_seen = false;
-    for parameter in parsed_parameters {
-        match parameter {
-            MailParameter::Size(size) if !size_seen => {
-                declared_size = Some(size);
-                size_seen = true;
-            }
-            MailParameter::Body(mode) if !body_seen => {
-                body_mode = mode;
-                body_seen = true;
-            }
-            MailParameter::SmtpUtf8 if !smtp_utf8_seen => {
-                smtp_utf8 = true;
-                smtp_utf8_seen = true;
-            }
-            MailParameter::Size(_) | MailParameter::Body(_) | MailParameter::SmtpUtf8 => {
-                return Err(ParseError::Syntax);
-            }
-        }
-    }
-    if address::requires_smtp_utf8(&reverse_path) && !smtp_utf8 {
-        return Err(ParseError::Syntax);
-    }
-    Ok(MailFrom {
-        reverse_path,
-        declared_size,
-        body_mode,
-        smtp_utf8,
-    })
-}
-
-/// MAIL не рекламирует иные расширения, а RCPT пока принимает только path.
-fn parse_recipient(argument: &str) -> Result<String, ParseError> {
-    let (recipient, suffix) = parse_path(argument, "TO:", PathKind::Forward)?;
-    match suffix.is_empty() {
-        true => Ok(recipient),
-        false => Err(ParseError::UnsupportedParameter),
-    }
-}
-
-/// Выделяет angle path и оставляет хвост ESMTP параметров для typed parser-а.
-fn parse_path<'a>(
-    argument: &'a str,
-    prefix: &str,
-    kind: PathKind,
-) -> Result<(String, &'a str), ParseError> {
-    let (actual, rest) = argument.split_once(':').ok_or(ParseError::Syntax)?;
-    let expected = prefix.strip_suffix(':').unwrap_or(prefix);
-    if !actual.eq_ignore_ascii_case(expected) {
-        return Err(ParseError::Syntax);
-    }
-    // RFC 5321 требует path сразу после двоеточия: пробел здесь не входит
-    // в production MAIL/RCPT и не должен нормализоваться перед разбором.
-    let value = rest;
-    let Some(path) = value.strip_prefix('<') else {
-        return Err(ParseError::Syntax);
-    };
-    let Some(terminator) = closing_path_angle(path) else {
-        return Err(ParseError::Syntax);
-    };
-    let (path_content, remainder) = path.split_at(terminator);
-    let Some(suffix) = remainder.strip_prefix('>') else {
-        return Err(ParseError::Syntax);
-    };
-    if path_content.len().saturating_add(2) > MAX_PATH_SIZE {
-        return Err(ParseError::Syntax);
-    }
-    let mailbox = address::without_source_route(path_content).ok_or(ParseError::Syntax)?;
-    match (kind, address::classify_mailbox(mailbox)) {
-        (PathKind::Reverse, address::MailboxForm::NullReversePath)
-        | (_, address::MailboxForm::DotAtom)
-        | (_, address::MailboxForm::QuotedLocalPart)
-        | (_, address::MailboxForm::AddressLiteral)
-        | (PathKind::Forward, address::MailboxForm::BarePostmaster) => {}
-        _ => return Err(ParseError::Syntax),
-    }
-    match suffix.is_empty() {
-        true => Ok((mailbox.to_owned(), "")),
-        false => parameter_suffix(suffix).map(|parameters| (mailbox.to_owned(), parameters)),
-    }
-}
-
-/// Проверяет разделители ESMTP-параметров: grammar допускает только одиночный SP.
-fn parameter_suffix(suffix: &str) -> Result<&str, ParseError> {
-    let Some(parameters) = suffix.strip_prefix(' ') else {
-        return Err(ParseError::Syntax);
-    };
-    if parameters.is_empty() {
-        return Err(ParseError::Syntax);
-    }
-    if parameters.contains('\t') {
-        return Err(ParseError::Syntax);
-    }
-    if parameters.split(' ').any(str::is_empty) {
-        return Err(ParseError::Syntax);
-    }
-    Ok(parameters)
-}
-
-/// Находит завершающий `>` вне quoted local-part и его escaped символов.
-fn closing_path_angle(path: &str) -> Option<usize> {
-    let mut quoted = false;
-    let mut escaped = false;
-    for (offset, character) in path.char_indices() {
-        match (quoted, escaped, character) {
-            (true, true, _) => escaped = false,
-            (true, false, '\\') => escaped = true,
-            (true, false, '"') => quoted = false,
-            (false, _, '"') => quoted = true,
-            (false, _, '>') => return Some(offset),
-            _ => {}
-        }
-    }
-    None
-}
-
-/// Роль SMTP path задаёт допустимые специальные mailbox формы.
-#[derive(Clone, Copy)]
-enum PathKind {
-    Reverse,
-    Forward,
-}
-
-/// Преобразует ESMTP parameter keyword в явно поддерживаемый enum.
-fn parse_mail_parameter(parameter: &str) -> Result<MailParameter, ParseError> {
-    let (name, value) = match parameter.split_once('=') {
-        Some((name, value)) => (name, Some(value)),
-        None => (parameter, None),
-    };
-    match (name.to_ascii_uppercase().as_str(), value) {
-        ("SIZE", Some(value)) => parse_size(value).map(MailParameter::Size),
-        ("BODY", Some(value)) => parse_body_mode(value).map(MailParameter::Body),
-        ("SMTPUTF8", None) => Ok(MailParameter::SmtpUtf8),
-        ("SIZE" | "BODY" | "SMTPUTF8", _) => Err(ParseError::Syntax),
-        _ => Err(ParseError::UnsupportedParameter),
-    }
-}
-
-/// Преобразует BODY в перечисление только после EHLO-поддержки 8BITMIME.
-fn parse_body_mode(value: &str) -> Result<BodyMode, ParseError> {
-    match value.to_ascii_uppercase().as_str() {
-        "7BIT" => Ok(BodyMode::SevenBit),
-        "8BITMIME" => Ok(BodyMode::EightBitMime),
-        _ => Err(ParseError::Syntax),
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum MailParameter {
-    Size(u128),
-    Body(BodyMode),
-    SmtpUtf8,
-}
-
-/// Ограничивает SIZE value диапазоном RFC 1870: от 1 до 20 цифр.
-fn parse_size(value: &str) -> Result<u128, ParseError> {
-    let valid = (1..=20).contains(&value.len()) && value.bytes().all(|byte| byte.is_ascii_digit());
-    match valid {
-        true => value.parse().map_err(|_| ParseError::Syntax),
-        false => Err(ParseError::Syntax),
     }
 }
 
