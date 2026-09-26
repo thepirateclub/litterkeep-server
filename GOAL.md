@@ -6341,3 +6341,24 @@ ManageSieve до заявленного набора современных фо
   запущен и не затрагивался.
   NFC output normalization остаётся нереализованным, UTF8=ACCEPT capability
   остаётся скрытой, полный RFC 9755 профиль и G17 остаются PARTIAL/ACTIVE.
+
+### 2026-09-26: G17 Unicode mailbox UID COPY/MOVE wire acceptance, PASS
+
+- Новый независимый сценарий
+  `tests/blackbox/imap_utf8_uid_transfer.py` через IMAP STARTTLS включает
+  UTF8=ACCEPT, создаёт source/copy/move mailbox names с UTF-8 и проверяет
+  `UID COPY`/`UID MOVE` по протоколу. Tagged ответы содержат `COPYUID`; после
+  COPY source остаётся, после MOVE source пуст после нового SELECT, обе
+  destination возвращают точные исходные RFC822 octets включая NUL body.
+- Чистый Linux Rust 1.97 runtime прошёл сценарий на данных
+  `./data/g19-rfc9755-uid-transfer-final`. Два первых прогона нашли дефекты
+  acceptance harness, а не сервера: Python imaplib UID COPY возвращает
+  FETCH-oriented untagged data, а EXISTS до повторного SELECT был прежним
+  состоянием. Третий прогон после исправлений прошёл полностью. Эти ранние
+  fixtures оставлены отдельно в `./data/g19-rfc9755-uid-transfer` и
+  `./data/g19-rfc9755-uid-transfer-retry`.
+- Скрипт компилируется через `python -m py_compile`, содержит 122 строки.
+  Docker runtime собран для неизменённого Rust source; контейнер и image
+  остановлены/удалены, отсутствие проверено. T110 остаётся PARTIAL из-за оставшихся
+  Net-Unicode/NFC и response-path требований. `UTF8=ACCEPT` остаётся скрытой,
+  Litterkeep не проверялся, G17 ACTIVE.
