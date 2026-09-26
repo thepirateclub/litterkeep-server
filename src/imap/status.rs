@@ -1,7 +1,6 @@
 //! Grammar и типизированные элементы команды STATUS.
 
 use super::Command;
-use super::folder::mailbox;
 use super::tokenizer::Token;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -16,11 +15,15 @@ pub enum StatusAttribute {
     AppendLimit,
 }
 
-pub(super) fn parse(mut tokens: impl Iterator<Item = Token>) -> Command {
-    let Some(name) = next_text(&mut tokens) else {
+/// Разбирает STATUS mailbox согласно согласованному строковому режиму.
+pub(super) fn parse_with_mode(
+    tokens: &mut impl Iterator<Item = Token>,
+    mode: super::tokenizer::StringMode,
+) -> Command {
+    let Some(name) = next_text(tokens) else {
         return Command::Unsupported;
     };
-    let Some(mailbox) = mailbox(name) else {
+    let Some(mailbox) = super::folder::mailbox_with_mode(name, mode) else {
         return Command::Unsupported;
     };
     if !matches!(tokens.next(), Some(Token::ListStart)) {

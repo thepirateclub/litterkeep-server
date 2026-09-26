@@ -4,20 +4,17 @@ use super::sequence_set::MessageSet;
 use super::tokenizer::Token;
 use super::{Addressing, Command, Transfer, folder};
 
-/// Разбирает sequence-set и destination mailbox без строковой команды в reactor.
-pub(super) fn parse(
-    mut tokens: impl Iterator<Item = Token>,
+/// Разбирает COPY/MOVE destination в явно выбранном string mode.
+pub(super) fn parse_with_mode(
+    tokens: &mut impl Iterator<Item = Token>,
     addressing: Addressing,
     transfer: Transfer,
+    mode: super::tokenizer::StringMode,
 ) -> Command {
-    match (
-        next_text(&mut tokens),
-        next_text(&mut tokens),
-        tokens.next(),
-    ) {
+    match (next_text(tokens), next_text(tokens), tokens.next()) {
         (Some(sequence), Some(destination), None) => match (
             MessageSet::parse(&sequence).ok(),
-            folder::mailbox(destination),
+            folder::mailbox_with_mode(destination, mode),
         ) {
             (Some(sequence_set), Some(destination)) => Command::Copy {
                 transfer,

@@ -32,3 +32,60 @@ fn examine_rejects_forbidden_utf8_mailbox_scalars() {
         Command::Unsupported
     );
 }
+
+/// Остальные mailbox-команды используют тот же декодер без потери Unicode.
+#[test]
+fn mailbox_command_families_share_the_explicit_utf8_mode() {
+    let mode = StringMode::Utf8Accept;
+    let cases = [
+        (
+            "a CREATE \"日本語\"\r\n",
+            Command::Create {
+                mailbox: MailboxName::Named("日本語".into()),
+                special_use: None,
+            },
+        ),
+        (
+            "a DELETE \"日本語\"\r\n",
+            Command::Delete {
+                mailbox: MailboxName::Named("日本語".into()),
+            },
+        ),
+        (
+            "a RENAME \"日本語\" \"旅行\"\r\n",
+            Command::Rename {
+                source: MailboxName::Named("日本語".into()),
+                destination: MailboxName::Named("旅行".into()),
+            },
+        ),
+        (
+            "a SUBSCRIBE \"日本語\"\r\n",
+            Command::Subscribe {
+                mailbox: MailboxName::Named("日本語".into()),
+            },
+        ),
+        (
+            "a STATUS \"日本語\" (MESSAGES)\r\n",
+            Command::Status {
+                mailbox: MailboxName::Named("日本語".into()),
+                attributes: vec![super::status::StatusAttribute::Messages],
+            },
+        ),
+    ];
+    for (wire, expected) in cases {
+        assert_eq!(parse_with_mode(wire, mode).command, expected, "{wire:?}");
+    }
+    assert_eq!(
+        parse_with_mode("a LIST \"\" \"旅行/%\"\r\n", mode).command,
+        Command::List {
+            pattern: super::folder::ListPattern::Wildcard("旅行/%".into()),
+            returns: super::folder::ListReturnOptions::default(),
+        }
+    );
+    assert_eq!(
+        parse_with_mode("a LSUB \"日本語/旅行/\" %\r\n", mode).command,
+        Command::Lsub {
+            pattern: super::folder::ListPattern::Wildcard("日本語/旅行/%".into()),
+        }
+    );
+}

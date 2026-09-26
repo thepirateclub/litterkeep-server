@@ -58,30 +58,42 @@ fn parse_tokens(
         Some(Verb::StartTls) => parse_empty(tokens, Command::StartTls),
         Some(Verb::Login) => parse_login(tokens),
         Some(Verb::Authenticate) => super::authenticate::parse(&mut tokens),
-        Some(Verb::Append) => super::append::parse(tokens),
+        Some(Verb::Append) => super::append::parse_with_mode(tokens, mode),
         Some(Verb::Logout) => parse_empty(tokens, Command::Logout),
         Some(Verb::Noop) => parse_empty(tokens, Command::Noop),
         Some(Verb::Idle) => parse_empty(tokens, Command::Idle),
-        Some(Verb::Create) => super::folder::parse_create(tokens),
-        Some(Verb::Delete) => super::folder::parse_delete(tokens),
-        Some(Verb::Rename) => super::folder::parse_rename(tokens),
-        Some(Verb::Subscribe) => super::folder::parse_subscribe(tokens, true),
-        Some(Verb::Unsubscribe) => super::folder::parse_subscribe(tokens, false),
-        Some(Verb::Lsub) => super::list::parse_lsub(tokens),
-        Some(Verb::Status) => super::status::parse(tokens),
+        Some(Verb::Create) => super::folder::parse_create_with_mode(&mut tokens, mode),
+        Some(Verb::Delete) => super::folder::parse_delete_with_mode(&mut tokens, mode),
+        Some(Verb::Rename) => super::folder::parse_rename_with_mode(&mut tokens, mode),
+        Some(Verb::Subscribe) => super::folder::parse_subscribe_with_mode(&mut tokens, true, mode),
+        Some(Verb::Unsubscribe) => {
+            super::folder::parse_subscribe_with_mode(&mut tokens, false, mode)
+        }
+        Some(Verb::Lsub) => super::list::parse_lsub_with_mode(&mut tokens, mode),
+        Some(Verb::Status) => super::status::parse_with_mode(&mut tokens, mode),
         Some(Verb::Check) => parse_empty(tokens, Command::Check),
         Some(Verb::Close) => parse_empty(tokens, Command::Close),
         Some(Verb::Unselect) => parse_empty(tokens, Command::Unselect),
-        Some(Verb::Copy) => super::copy::parse(tokens, Addressing::Sequence, super::Transfer::Copy),
-        Some(Verb::Move) => super::copy::parse(tokens, Addressing::Sequence, super::Transfer::Move),
+        Some(Verb::Copy) => super::copy::parse_with_mode(
+            &mut tokens,
+            Addressing::Sequence,
+            super::Transfer::Copy,
+            mode,
+        ),
+        Some(Verb::Move) => super::copy::parse_with_mode(
+            &mut tokens,
+            Addressing::Sequence,
+            super::Transfer::Move,
+            mode,
+        ),
         Some(Verb::Expunge) => parse_empty(tokens, Command::Expunge),
-        Some(Verb::List) => super::list::parse(tokens),
+        Some(Verb::List) => super::list::parse_with_mode(&mut tokens, mode),
         Some(Verb::Select) => parse_select(&mut tokens, false, mode),
         Some(Verb::Examine) => parse_select(&mut tokens, true, mode),
         Some(Verb::Fetch) => super::fetch::parse(&mut tokens, Addressing::Sequence),
         Some(Verb::Store) => super::flags::parse_store(&mut tokens, Addressing::Sequence),
         Some(Verb::Search) => super::search::parse(tokens, Addressing::Sequence),
-        Some(Verb::Uid) => parse_uid(&mut tokens),
+        Some(Verb::Uid) => parse_uid(&mut tokens, mode),
         Some(Verb::Unsupported) | None => Command::Unsupported,
     };
     TaggedCommand { tag, command }
@@ -100,7 +112,7 @@ fn parse_login(mut tokens: impl Iterator<Item = Token>) -> Command {
 }
 
 /// Разбирает подкоманду UID как обязательный atom.
-fn parse_uid(tokens: &mut impl Iterator<Item = Token>) -> Command {
+fn parse_uid(tokens: &mut impl Iterator<Item = Token>, mode: StringMode) -> Command {
     match tokens
         .next()
         .and_then(token_values::atom_value)
@@ -110,8 +122,12 @@ fn parse_uid(tokens: &mut impl Iterator<Item = Token>) -> Command {
         Some(Verb::Fetch) => super::fetch::parse(tokens, Addressing::Uid),
         Some(Verb::Store) => super::flags::parse_store(tokens, Addressing::Uid),
         Some(Verb::Search) => super::search::parse(tokens, Addressing::Uid),
-        Some(Verb::Copy) => super::copy::parse(tokens, Addressing::Uid, super::Transfer::Copy),
-        Some(Verb::Move) => super::copy::parse(tokens, Addressing::Uid, super::Transfer::Move),
+        Some(Verb::Copy) => {
+            super::copy::parse_with_mode(tokens, Addressing::Uid, super::Transfer::Copy, mode)
+        }
+        Some(Verb::Move) => {
+            super::copy::parse_with_mode(tokens, Addressing::Uid, super::Transfer::Move, mode)
+        }
         Some(Verb::Expunge) => parse_uid_expunge(tokens),
         _ => Command::Unsupported,
     }

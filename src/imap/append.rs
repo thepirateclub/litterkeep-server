@@ -8,8 +8,16 @@ use crate::mail_flags::StoredFlags;
 
 /// Разбирает APPEND слева направо, не угадывая назначение уже разобранных полей.
 pub fn parse(tokens: impl Iterator<Item = Token>) -> Command {
+    parse_with_mode(tokens, super::tokenizer::StringMode::Legacy)
+}
+
+/// Разбирает APPEND mailbox в выбранном wire string mode.
+pub(super) fn parse_with_mode(
+    tokens: impl Iterator<Item = Token>,
+    mode: super::tokenizer::StringMode,
+) -> Command {
     let mut tokens = tokens.peekable();
-    let Some(mailbox) = next_text(&mut tokens).and_then(mailbox) else {
+    let Some(mailbox) = next_text(&mut tokens).and_then(|value| mailbox(value, mode)) else {
         return Command::Unsupported;
     };
     let stored_flags = match tokens.peek() {
@@ -36,8 +44,8 @@ pub fn parse(tokens: impl Iterator<Item = Token>) -> Command {
     }
 }
 
-fn mailbox(value: String) -> Option<MailboxName> {
-    super::folder::mailbox(value)
+fn mailbox(value: String, mode: super::tokenizer::StringMode) -> Option<MailboxName> {
+    super::folder::mailbox_with_mode(value, mode)
 }
 
 fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {

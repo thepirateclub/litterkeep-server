@@ -17,9 +17,19 @@ enum PatternKind {
 /// reference трактуется как контекст-папка: отсутствующий завершающий delimiter
 /// добавляется перед pattern. Выходной pattern канонический и поэтому LIST
 /// ответы содержат полные имена mailbox, а не относительные фрагменты.
-pub(super) fn resolve(reference: &str, pattern: &str) -> Option<ListPattern> {
-    let reference = super::modified_utf7::decode(reference).ok()?;
-    let pattern = super::modified_utf7::decode(pattern).ok()?;
+#[cfg(test)]
+fn resolve(reference: &str, pattern: &str) -> Option<ListPattern> {
+    resolve_with_mode(reference, pattern, super::tokenizer::StringMode::Legacy)
+}
+
+/// Объединяет reference и pattern после декодирования выбранного wire режима.
+pub(super) fn resolve_with_mode(
+    reference: &str,
+    pattern: &str,
+    mode: super::tokenizer::StringMode,
+) -> Option<ListPattern> {
+    let reference = decode(reference, mode)?;
+    let pattern = decode(pattern, mode)?;
     match (reference.is_empty(), pattern.is_empty()) {
         (true, true) => Some(ListPattern::Root),
         (false, true) => Some(ListPattern::RootReference(
@@ -27,6 +37,17 @@ pub(super) fn resolve(reference: &str, pattern: &str) -> Option<ListPattern> {
         )),
         (true, false) => Some(standalone(pattern)),
         (false, false) => Some(joined(reference, pattern)),
+    }
+}
+
+/// Сохраняет UTF-8 scalar в согласованном режиме и legacy modified UTF-7 иначе.
+fn decode(value: &str, mode: super::tokenizer::StringMode) -> Option<String> {
+    match mode {
+        super::tokenizer::StringMode::Legacy => super::modified_utf7::decode(value).ok(),
+        super::tokenizer::StringMode::Utf8Accept => {
+            super::mailbox_utf8::validate(value).ok()?;
+            Some(value.to_owned())
+        }
     }
 }
 

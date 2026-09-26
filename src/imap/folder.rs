@@ -65,15 +65,23 @@ pub enum Mutation {
 }
 
 pub fn parse_create(mut tokens: impl Iterator<Item = Token>) -> Command {
-    let Some(name) = next_text(&mut tokens) else {
+    parse_create_with_mode(&mut tokens, super::tokenizer::StringMode::Legacy)
+}
+
+/// Разбирает CREATE, декодируя mailbox согласно уже выбранному режиму.
+pub(super) fn parse_create_with_mode(
+    tokens: &mut impl Iterator<Item = Token>,
+    mode: super::tokenizer::StringMode,
+) -> Command {
+    let Some(name) = next_text(tokens) else {
         return Command::Unsupported;
     };
     let special_use = match tokens.next() {
         None => Some(None),
-        Some(Token::ListStart) => parse_use(&mut tokens).map(Some),
+        Some(Token::ListStart) => parse_use(tokens).map(Some),
         _ => None,
     };
-    match (mailbox(name), special_use) {
+    match (mailbox_with_mode(name, mode), special_use) {
         (Some(mailbox), Some(special_use)) => Command::Create {
             mailbox,
             special_use,
@@ -113,8 +121,16 @@ fn special_use(value: &str) -> Option<crate::store::SpecialUse> {
 }
 
 pub fn parse_delete(mut tokens: impl Iterator<Item = Token>) -> Command {
-    match (next_text(&mut tokens), tokens.next()) {
-        (Some(name), None) => mailbox(name)
+    parse_delete_with_mode(&mut tokens, super::tokenizer::StringMode::Legacy)
+}
+
+/// Разбирает DELETE в согласованном string mode.
+pub(super) fn parse_delete_with_mode(
+    tokens: &mut impl Iterator<Item = Token>,
+    mode: super::tokenizer::StringMode,
+) -> Command {
+    match (next_text(tokens), tokens.next()) {
+        (Some(name), None) => mailbox_with_mode(name, mode)
             .map(|mailbox| Command::Delete { mailbox })
             .unwrap_or(Command::Unsupported),
         _ => Command::Unsupported,
@@ -122,12 +138,19 @@ pub fn parse_delete(mut tokens: impl Iterator<Item = Token>) -> Command {
 }
 
 pub fn parse_rename(mut tokens: impl Iterator<Item = Token>) -> Command {
-    match (
-        next_text(&mut tokens),
-        next_text(&mut tokens),
-        tokens.next(),
-    ) {
-        (Some(source), Some(destination), None) => match (mailbox(source), mailbox(destination)) {
+    parse_rename_with_mode(&mut tokens, super::tokenizer::StringMode::Legacy)
+}
+
+/// Разбирает оба имени RENAME в одном согласованном string mode.
+pub(super) fn parse_rename_with_mode(
+    tokens: &mut impl Iterator<Item = Token>,
+    mode: super::tokenizer::StringMode,
+) -> Command {
+    match (next_text(tokens), next_text(tokens), tokens.next()) {
+        (Some(source), Some(destination), None) => match (
+            mailbox_with_mode(source, mode),
+            mailbox_with_mode(destination, mode),
+        ) {
             (Some(source), Some(destination)) => Command::Rename {
                 source,
                 destination,
@@ -139,8 +162,21 @@ pub fn parse_rename(mut tokens: impl Iterator<Item = Token>) -> Command {
 }
 
 pub fn parse_subscribe(mut tokens: impl Iterator<Item = Token>, subscribed: bool) -> Command {
-    let parsed = match (next_text(&mut tokens), tokens.next()) {
-        (Some(name), None) => mailbox(name),
+    parse_subscribe_with_mode(
+        &mut tokens,
+        subscribed,
+        super::tokenizer::StringMode::Legacy,
+    )
+}
+
+/// Разбирает SUBSCRIBE/UNSUBSCRIBE с mailbox, декодированным выбранным режимом.
+pub(super) fn parse_subscribe_with_mode(
+    tokens: &mut impl Iterator<Item = Token>,
+    subscribed: bool,
+    mode: super::tokenizer::StringMode,
+) -> Command {
+    let parsed = match (next_text(tokens), tokens.next()) {
+        (Some(name), None) => mailbox_with_mode(name, mode),
         _ => None,
     };
     match (parsed, subscribed) {
@@ -148,10 +184,6 @@ pub fn parse_subscribe(mut tokens: impl Iterator<Item = Token>, subscribed: bool
         (Some(mailbox), false) => Command::Unsubscribe { mailbox },
         (None, _) => Command::Unsupported,
     }
-}
-
-pub(super) fn mailbox(value: String) -> Option<MailboxName> {
-    mailbox_with_mode(value, super::tokenizer::StringMode::Legacy)
 }
 
 /// Декодирует имя в явно выбранном wire-режиме, не меняя legacy callers.

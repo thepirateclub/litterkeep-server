@@ -2,7 +2,7 @@
 
 use super::Command;
 use super::folder::{ListPattern, ListReturnOptions, ListSelection};
-use super::tokenizer::Token;
+use super::tokenizer::{StringMode, Token};
 
 /// Имя начальной selection-опции после проверки сетевого atom.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -24,21 +24,29 @@ enum ReturnOption {
 
 /// Разбирает LIST и не переносит необработанные имена опций в reactor.
 pub fn parse(mut tokens: impl Iterator<Item = Token>) -> Command {
+    parse_with_mode(&mut tokens, StringMode::Legacy)
+}
+
+/// Разбирает LIST selection и имена в явно выбранном wire string mode.
+pub(super) fn parse_with_mode(
+    tokens: &mut impl Iterator<Item = Token>,
+    mode: StringMode,
+) -> Command {
     match tokens.next() {
-        Some(Token::ListStart) => parse_extended(&mut tokens),
+        Some(Token::ListStart) => parse_extended(tokens, mode),
         Some(first) => {
             let restored = std::iter::once(first).chain(tokens);
-            parse_basic(restored)
+            parse_basic(restored, mode)
         }
         None => Command::Unsupported,
     }
 }
 
-fn parse_extended(tokens: &mut impl Iterator<Item = Token>) -> Command {
+fn parse_extended(tokens: &mut impl Iterator<Item = Token>, mode: StringMode) -> Command {
     let Some(selection) = parse_selection(tokens) else {
         return Command::Unsupported;
     };
-    let Some((pattern, returns)) = parse_pattern(tokens) else {
+    let Some((pattern, returns)) = parse_pattern(tokens, mode) else {
         return Command::Unsupported;
     };
     match (selection.subscribed, selection.special_use) {
@@ -93,8 +101,8 @@ fn selection_option(name: &str) -> Option<SelectionOption> {
     }
 }
 
-fn parse_basic(mut tokens: impl Iterator<Item = Token>) -> Command {
-    match parse_pattern_tail(&mut tokens, true) {
+fn parse_basic(mut tokens: impl Iterator<Item = Token>, mode: StringMode) -> Command {
+    match parse_pattern_tail(&mut tokens, true, mode) {
         Some((pattern, returns)) => Command::List { pattern, returns },
         None => Command::Unsupported,
     }
@@ -103,19 +111,21 @@ fn parse_basic(mut tokens: impl Iterator<Item = Token>) -> Command {
 /// Разбирает reference, pattern и поддерживаемые RETURN options.
 fn parse_pattern(
     tokens: &mut impl Iterator<Item = Token>,
+    mode: StringMode,
 ) -> Option<(ListPattern, ListReturnOptions)> {
-    parse_pattern_tail(tokens, false)
+    parse_pattern_tail(tokens, false, mode)
 }
 
 fn parse_pattern_tail(
     tokens: &mut impl Iterator<Item = Token>,
     allow_root: bool,
+    mode: StringMode,
 ) -> Option<(ListPattern, ListReturnOptions)> {
     let reference = next_astring(tokens)?;
     let pattern = next_pattern(tokens)?;
     match tokens.next() {
         None => {
-            let resolved = super::list_reference::resolve(&reference, &pattern)?;
+            let resolved = super::list_reference::resolve_with_mode(&reference, &pattern, mode)?;
             match (allow_root, pattern.is_empty(), reference.is_empty()) {
                 (false, true, true) => Some((
                     ListPattern::Exact(String::new()),
@@ -125,7 +135,7 @@ fn parse_pattern_tail(
             }
         }
         Some(Token::Text(return_name)) if return_name.eq_ignore_ascii_case("RETURN") => {
-            parse_return(tokens, reference, pattern)
+            parse_return(tokens, reference, pattern, mode)
         }
         _ => None,
     }
@@ -135,6 +145,7 @@ fn parse_return(
     tokens: &mut impl Iterator<Item = Token>,
     reference: String,
     pattern: String,
+    mode: StringMode,
 ) -> Option<(ListPattern, ListReturnOptions)> {
     if !matches!(tokens.next(), Some(Token::ListStart)) {
         return None;
@@ -156,7 +167,7 @@ fn parse_return(
     }
     match tokens.next() {
         None => Some((
-            super::list_reference::resolve(&reference, &pattern)?,
+            super::list_reference::resolve_with_mode(&reference, &pattern, mode)?,
             options,
         )),
         _ => None,
@@ -176,7 +187,15 @@ fn return_option(name: &str) -> Option<ReturnOption> {
 
 /// Сохраняет двухстрочную грамматику и прежнюю семантику LSUB.
 pub fn parse_lsub(mut tokens: impl Iterator<Item = Token>) -> Command {
-    match parse_pattern_tail(&mut tokens, false) {
+    parse_lsub_with_mode(&mut tokens, StringMode::Legacy)
+}
+
+/// Разбирает LSUB reference/pattern в выбранном string mode.
+pub(super) fn parse_lsub_with_mode(
+    tokens: &mut impl Iterator<Item = Token>,
+    mode: StringMode,
+) -> Command {
+    match parse_pattern_tail(tokens, false, mode) {
         Some((pattern, _)) => Command::Lsub { pattern },
         None => Command::Unsupported,
     }
@@ -190,102 +209,4 @@ fn next_pattern(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
     tokens
         .next()
         .and_then(super::token_values::list_mailbox_value)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Повтор selection option не меняет семантику команды.
-    #[test]
-    fn recursive_subscribed_selection_is_typed_and_deduplicated() {
-        assert_eq!(
-            crate::imap::parse("a LIST (RECURSIVEMATCH SUBSCRIBED SUBSCRIBED) \"\" \"%\"\r\n")
-                .command,
-            Command::ListSelection {
-                pattern: ListPattern::OneLevel,
-                selection: ListSelection {
-                    subscribed: true,
-                    special_use: false,
-                    recursive_match: true,
-                },
-                returns: ListReturnOptions::default(),
-            }
-        );
-    }
-
-    /// RECURSIVEMATCH без фильтрующей selection option отклоняется.
-    #[test]
-    fn recursive_match_alone_is_rejected() {
-        assert_eq!(
-            crate::imap::parse("a LIST (RECURSIVEMATCH) \"\" \"%\"\r\n").command,
-            Command::Unsupported
-        );
-    }
-
-    /// Базовый empty pattern продолжает обозначать root delimiter discovery.
-    #[test]
-    fn empty_basic_pattern_requests_root() {
-        assert_eq!(
-            crate::imap::parse("a LIST \"\" \"\"\r\n").command,
-            Command::List {
-                pattern: ListPattern::Root,
-                returns: ListReturnOptions::default(),
-            }
-        );
-    }
-
-    /// RETURN CHILDREN и SUBSCRIBED принимаются как отдельные typed options.
-    #[test]
-    fn list_return_options_are_typed_and_deduplicated() {
-        assert_eq!(
-            crate::imap::parse("a LIST \"\" \"*\" RETURN (CHILDREN SUBSCRIBED CHILDREN)\r\n")
-                .command,
-            Command::List {
-                pattern: ListPattern::All,
-                returns: ListReturnOptions {
-                    subscribed: true,
-                    special_use: false,
-                    children: true,
-                    status: Vec::new(),
-                },
-            }
-        );
-    }
-
-    /// Пока не реализованные return data items отклоняются, а не игнорируются.
-    #[test]
-    fn unsupported_list_return_option_is_rejected() {
-        assert_eq!(
-            crate::imap::parse("a LIST \"\" \"*\" RETURN (UNKNOWN)\r\n").command,
-            Command::Unsupported
-        );
-    }
-
-    /// STATUS items typed; повторы схлопываются, а rev1 RECENT не подменяет rev2 набор.
-    #[test]
-    fn list_status_return_items_are_typed_and_deduplicated() {
-        assert_eq!(
-            crate::imap::parse(
-                "a LIST () \"\" \"*\" RETURN (STATUS (MESSAGES UNSEEN MESSAGES SIZE APPENDLIMIT))\r\n"
-            )
-            .command,
-            Command::List {
-                pattern: ListPattern::All,
-                returns: ListReturnOptions {
-                    status: vec![
-                        super::super::status::StatusAttribute::Messages,
-                        super::super::status::StatusAttribute::Unseen,
-                        super::super::status::StatusAttribute::Size,
-                        super::super::status::StatusAttribute::AppendLimit,
-                    ],
-                    ..ListReturnOptions::default()
-                },
-            }
-        );
-        assert_eq!(
-            crate::imap::parse("a LIST \"\" \"*\" RETURN (STATUS (RECENT))\r\n").command,
-            Command::Unsupported
-        );
-    }
 }
