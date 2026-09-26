@@ -6003,3 +6003,18 @@ ManageSieve до заявленного набора современных фо
   проверено. Аккаунты и PKI хранятся в
   `./data/g17-imap-sent-date-wsp`. Поддержка obsolete Date syntax остаётся
   частичной, G17 остаётся RUNNING.
+
+### 2026-09-26: G17 RFC 3834 Auto-Submitted whitespace guard
+
+- `Auto-Submitted` больше не использует Unicode-aware trim при сравнении
+  keyword `no`: только RFC WSP SP/HTAB может быть внешним whitespace. Malformed
+  NBSP не отключает suppression и не открывает путь для vacation loop.
+- Новая регрессия до изменения разрешала ответ на leading NBSP `no`; после
+  фикса SP/HTAB `no` остаётся разрешённым значением. Windows suite: 577 library
+  + 1 binary, doc-tests, fmt и strict Clippy. Linux Docker release build,
+  strict Clippy и test suite: 628 library + 1 binary и doc-tests. Проверка
+  unit-only; Sieve runtime acceptance не выполнялся. Acceptance T104.
+- Тестовый образ `litterkeep-sieve-autosubmitted-wsp-check:20260926` удалён
+  после gate, его отсутствие проверено; отдельный runtime контейнер не запускался.
+  Stage path: `./data/g17-sieve-autosubmitted-wsp`. RFC 3834 comments и optional
+  parameter-list parsing остаются частично поддержанными, G17 RUNNING.

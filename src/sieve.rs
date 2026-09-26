@@ -11,6 +11,9 @@ mod address_options;
 #[path = "sieve/ast.rs"]
 mod ast;
 #[cfg(test)]
+#[path = "sieve/auto_submitted_tests.rs"]
+mod auto_submitted_tests;
+#[cfg(test)]
 #[path = "sieve/copy_tests.rs"]
 mod copy_tests;
 #[cfg(test)]

@@ -80,6 +80,11 @@ deduplication ответов по адресу отправителя и иде�
 автоответов для daemon/list сообщений, один vacation action на script и
 сохранение implicit keep. Генерируемый ответ использует пустой SMTP
 reverse-path и заголовки/связи ответа, определённые стандартом.
+В `Auto-Submitted` распознавание `no` обрезает только RFC WSP (SP/HTAB), чтобы
+Unicode NBSP не снимал защиту от loop-ов; malformed NBSP значения оставляют
+автоответ подавленным. Этот regression unit-only. Полный RFC 3834 разбор CFWS
+comments и optional parameter-list пока не реализован; некоторые валидные
+`no` с такими расширениями также консервативно подавляют ответ.
 
 Обычный Sieve redirect по-прежнему ссылается на blob входящего письма, тогда как
 `Store::enqueue_outbound_payload` создаёт отдельную transaction/blob для

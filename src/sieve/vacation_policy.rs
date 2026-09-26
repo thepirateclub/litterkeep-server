@@ -39,7 +39,9 @@ pub(crate) fn may_respond(sender: &str, headers: &[(String, String)]) -> bool {
         .iter()
         .any(|(name, value)| match suppression_header(name) {
             SuppressionHeader::List => true,
-            SuppressionHeader::AutoSubmitted => !value.trim().eq_ignore_ascii_case("no"),
+            SuppressionHeader::AutoSubmitted => {
+                !crate::mime::wsp::trim(value).eq_ignore_ascii_case("no")
+            }
             SuppressionHeader::Other => false,
         })
 }
