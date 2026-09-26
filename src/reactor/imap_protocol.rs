@@ -41,6 +41,9 @@ pub(super) fn line(
         }
         None => imap::parse_with_mode(command, session.imap_string_mode),
     };
+    if imap_search_error::reject_utf8_charset(session, &parsed.tag, &parsed.command)? {
+        return Ok(());
+    }
     match parsed.command {
         imap::Command::Capability => imap_capability::write(session, &parsed.tag)?,
         imap::Command::Namespace => imap_namespace::write(session, &parsed.tag)?,
@@ -271,6 +274,7 @@ pub(super) fn line(
             key,
             charset,
             result,
+            ..
         } => imap_selected::queue_authenticated_read(
             session,
             parsed.tag,

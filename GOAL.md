@@ -6159,6 +6159,24 @@ ManageSieve до заявленного набора современных фо
   ENABLE, SEARCH charset behavior и capability остаются неподключёнными. На
   Windows platform-specific reactor tests не компилируются, поэтому gate там
   служит только проверкой portable library.
+
+### 2026-09-26: G17 RFC 9755 ENABLE and SEARCH charset transition
+
+- `ENABLE UTF8=ACCEPT` теперь переключает `Session.imap_string_mode` только
+  после аутентификации и включает extension в соответствующий `ENABLED`
+  response; ENABLE без этой capability сохраняет прежнее поведение. Строка
+  режима сбрасывается при TLS lifecycle reset.
+- SEARCH parser различает отсутствующий и явно переданный CHARSET. В UTF8
+  session явный CHARSET приводит к BAD до Store lookup; если mailbox не выбран,
+  сохраняется первичный NO `select mailbox first`. Новые проверки закрепляют
+  parser distinction и успешный/неуспешный ENABLE state transition.
+- CAPABILITY намеренно не рекламирует UTF8=ACCEPT: независимое wire acceptance,
+  проверка durable APPEND отказа до ENABLE и полного приёма после него ещё нужны.
+  T113 PARTIAL; поведение текущего клиента не проверялось. После добавления
+  reactor-проверки BAD при `RETURN (SAVE)` Windows gate дал 588 library + 1
+  binary test, fmt и strict Clippy; Linux Docker Rust 1.97 дал release build,
+  strict Clippy, 648 library + 1 binary tests и doc-tests. Временный image
+  удалён, matching containers отсутствовали.
 - При финальной перепроверке выяснилось, что реализация этого чекпойнта уже
   была в HEAD `d75fc71`; краткий статус показал лишь отдельное незакоммиченное
   разбиение `Session`. TLS lifecycle методы перенесены в

@@ -46,6 +46,7 @@ impl Session {
         self.smtp_greeting = smtp::GreetingMode::NotEstablished;
         self.smtp_body_mode = crate::smtp::BodyMode::SevenBit;
         self.smtp_utf8 = false;
+        self.imap_string_mode = imap::tokenizer::StringMode::Legacy;
         self.authenticated_account = None;
         self.selected_mailbox = None;
         self.selected_exists = 0;

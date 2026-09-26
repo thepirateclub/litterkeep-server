@@ -61,6 +61,8 @@ pub fn parse(tokens: impl Iterator<Item = Token>, addressing: Addressing) -> Com
     let Some(result) = super::search_result::parse_prefix(&mut tokens) else {
         return Command::Unsupported;
     };
+    let charset_requested =
+        matches!(tokens.front(), Some(Token::Text(value)) if value.eq_ignore_ascii_case("CHARSET"));
     let Some(charset) = super::search_charset::parse_prefix(&mut tokens) else {
         return Command::Unsupported;
     };
@@ -72,6 +74,7 @@ pub fn parse(tokens: impl Iterator<Item = Token>, addressing: Addressing) -> Com
             addressing,
             key,
             charset,
+            charset_explicit: charset_requested,
             result,
         },
         false => Command::Unsupported,

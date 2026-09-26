@@ -76,6 +76,7 @@ fn utf8_search_literal_is_not_reparsed_as_wire_quoted_text() {
                 "Привет".into(),
             ),
             charset: crate::imap::search_charset::Charset::Utf8,
+            charset_explicit: false,
             result: crate::imap::search_result::ResultRequest::Legacy,
         }
     );

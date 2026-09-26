@@ -165,6 +165,7 @@ pub enum Command {
         addressing: Addressing,
         key: search::SearchKey,
         charset: search_charset::Charset,
+        charset_explicit: bool,
         result: search_result::ResultRequest,
     },
     Unsupported,

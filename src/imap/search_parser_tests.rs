@@ -13,6 +13,27 @@ fn parses_text_header_size_and_implicit_and() {
     assert!(matches!(key, SearchKey::And(keys) if keys.len() == 3));
 }
 
+/// Отличает отсутствующий CHARSET от явно переданного UTF-8 для RFC 9755.
+#[test]
+fn records_whether_search_charset_was_explicit() {
+    let implicit = imap::parse("a SEARCH ALL\r\n").command;
+    let explicit = imap::parse("b SEARCH CHARSET UTF-8 ALL\r\n").command;
+    assert!(matches!(
+        implicit,
+        Command::Search {
+            charset_explicit: false,
+            ..
+        }
+    ));
+    assert!(matches!(
+        explicit,
+        Command::Search {
+            charset_explicit: true,
+            ..
+        }
+    ));
+}
+
 /// Адресные criteria используют отдельные ENVELOPE projection variants.
 #[test]
 fn parses_envelope_and_raw_header_criteria_separately() {
