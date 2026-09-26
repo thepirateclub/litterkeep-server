@@ -39,6 +39,9 @@ mod parameters_tests;
 pub mod quoted_printable;
 #[path = "mime/quoted_printable_encode.rs"]
 pub(crate) mod quoted_printable_encode;
+#[cfg(test)]
+#[path = "mime/quoted_printable_rfc_tests.rs"]
+mod quoted_printable_rfc_tests;
 #[path = "mime/search_text.rs"]
 pub mod search_text;
 #[path = "mime/structured_comments.rs"]

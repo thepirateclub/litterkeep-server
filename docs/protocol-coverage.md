@@ -310,9 +310,12 @@ Quoted-printable decoder удаляет буквальные SP/TAB на кон�
 объекта, не удаляя закодированные `=20`/`=09`; encoder сериализует пробелы и
 TAB как hex-octets, чтобы перенос строки не менял содержимое. Независимый SMTP
 STARTTLS -> IMAP STARTTLS BINARY.PEEK подтвердил удаление SP/TAB в hard-line
-padding и сохранение decoded `=20`. Перед soft break `=CRLF` буквальные
-SP/TAB также удаляются, а encoded `=20` сохраняется; эти случаи независимо
-проверены тем же wire acceptance. Для исходящего Sieve vacation отдельный
+padding и сохранение decoded `=20`. SP/TAB перед soft break `=CRLF` являются
+содержимым `qp-segment` и сохраняются, тогда как SP/TAB после последнего
+символа hard line удаляются как transport padding. Unit-регрессии проверяют
+обе позиции; отдельные [RFC 2045 §6.7](https://www.rfc-editor.org/rfc/rfc2045.html#section-6.7)
+векторы проверяют нормативные примеры и полное тело. Для исходящего
+Sieve vacation отдельный
 ManageSieve -> SMTP submission -> durable queue -> независимый SMTP peer
 сценарий подтвердил UTF-8 round-trip, кодирование буквальных SP/TAB как
 `=20`/`=09` и физические строки не длиннее 76 октетов. Проверялся именно
@@ -326,10 +329,9 @@ DATA. Проверка существующего Litterkeep клиента и �
 отдельный strict путь и malformed escape отвергает. Независимый SMTP STARTTLS
 клиент передал `=G1` и неполный `=A`, а IMAP STARTTLS BINARY.PEEK подтвердил
 точные декодированные octets с сохранёнными escape. Независимый ManageSieve
-CHECKSCRIPT также принял корректный quoted-printable soft break и отверг
-malformed hex escape, незакодированные завершающие SP/HTAB и whitespace перед
-soft break. Полные RFC 2045 quoted-printable interoperability cases не
-покрыты.
+CHECKSCRIPT принял корректный quoted-printable soft break, включая SP перед
+`=CRLF`, и отверг malformed hex escape и незакодированные завершающие SP/HTAB.
+Полный список RFC-векторов пока не покрыт.
 `7bit` и `8bit` CTE проверяют профиль RFC 2045 §§2.7-2.8: не более 998
 октетов между CRLF, отсутствие NUL и одиночных CR/LF; `7bit` дополнительно
 отвергает high-bit octets, `8bit` их сохраняет. `binary` остаётся прозрачным.

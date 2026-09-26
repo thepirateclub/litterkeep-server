@@ -181,7 +181,7 @@ fn mime_vacation_enforces_wire_line_lengths_and_7bit_octets() {
     assert!(super::vacation_mime::validate_reason(
         b"Content-Type: text/plain\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nx =\r\n"
     )
-    .is_err());
+    .is_ok());
 }
 
 #[test]

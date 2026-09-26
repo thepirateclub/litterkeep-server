@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G17 RFC 2045 quoted-printable soft-break whitespace, PASS
+
+- Исправлена ошибочная потеря буквальных SP/TAB перед `=CRLF`: по RFC 2045
+  §6.7 эти octets входят в `qp-segment` и являются содержимым, не transport
+  padding. Padding после последнего символа hard line продолжает удаляться.
+  Тот же корректный случай теперь проходит строгий Sieve `:mime` validator.
+  Этим исправлены неверные ожидания двух checkpoint-ов от 2026-09-25 ниже.
+- Unit-векторы проверяют пример RFC, safe/hex octets, hard-line padding и
+  77-октетный malformed input без усечения. Независимые SMTP STARTTLS -> IMAP
+  STARTTLS BINARY.PEEK сравнил весь decoded body; ManageSieve CHECKSCRIPT
+  подтвердил принятие soft break с предшествующим SP. Клиент Litterkeep не
+  проверялся.
+- PASS: Windows Rust 1.97.1 `cargo fmt --check`, 552 библиотечных и 1
+  бинарный тест, strict Clippy. Linux Docker Rust 1.97 strict Clippy, release
+  build, 603 библиотечных и 1 бинарный тест, doc-tests. Временные container и
+  test image удалены; acceptance данные сохранены в
+  `./data/g17-mime-qp-soft-break-wire`. G17 остаётся активной.
+
 ### 2026-09-26: G17 RFC 5321 SMTP reply без текста, PASS
 
 - Исходящий SMTP-клиент принимает финальные ответы из трёх цифр с CRLF и
@@ -319,11 +337,10 @@ Current subgoal: G17
   container and image are removed after acceptance; fixture
   `./data/g17-managesieve-capabilities` is preserved. G17 remains ACTIVE.
 
-### 2026-09-25: G17 Sieve vacation MIME quoted-printable network checks, PARTIAL
+### 2026-09-25: G17 Sieve vacation MIME quoted-printable network checks, SUPERSEDED BY T100
 
-- Расширен независимый ManageSieve CHECKSCRIPT acceptance: валидный QP soft
-  break принимается; malformed hex escape, незакодированные завершающие SP и
-  HTAB и whitespace перед soft break отвергаются на wire-протоколе.
+- Этот исторический прогон ошибочно считал SP перед soft break нарушением
+  RFC 2045. Проверка исправлена и повторена в T100.
 - PASS: Linux Rust 1.97 test-stage image использовал закэшированные успешные
   release build, strict Clippy и 552 library + 1 binary tests; независимый
   CHECKSCRIPT прошёл с credentials fixture `./data/g17-managesieve-capabilities`.
@@ -1180,13 +1197,12 @@ Current subgoal: G17
   завершён; inventory будет отражён после проверки. RFC 2045 §§2.7-2.8 сверены
   с IETF Datatracker. G17 RUNNING.
 
-### 2026-09-25: G17 quoted-printable soft-break padding checkpoint
+### 2026-09-25: G17 quoted-printable soft-break padding checkpoint, SUPERSEDED BY T100
 
-- Quoted-printable decoder распознаёт буквальные SP/TAB перед `=CRLF` как
-  transport padding и удаляет их, при этом encoded `=20` перед soft break
-  сохраняет. Это предотвращает потерю содержимого и ложные пробелы после
-  транспортного line-wrap.
-- Unit tests проверяют оба различающихся случая. Windows Rust 1.97.1: 395
+- Предыдущая реализация ошибочно удаляла буквальные SP/TAB перед `=CRLF`;
+  T100 исправляет это поведение по RFC 2045 §6.7 и обновляет регрессии.
+- Unit tests исходного checkpoint-а проверяли прежнее ошибочное поведение.
+  Windows Rust 1.97.1: 395
   library + 1 binary tests, fmt и strict Clippy PASS. Docker Linux Rust 1.97.1:
   release build, strict Clippy, 436 library + 1 binary + doc-tests PASS. Socket
   acceptance не запускался. `docker build --rm` использован; после stage

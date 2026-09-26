@@ -136,7 +136,7 @@ def run(options: argparse.Namespace) -> None:
                     b"Content-Transfer-Encoding: quoted-printable\r\n\r\n"
                     b"soft-break-space =\r\ncontinued\r\n"
                 ),
-                False,
+                True,
             )
             check_script(
                 client,
@@ -213,7 +213,7 @@ def run(options: argparse.Namespace) -> None:
                     b"Content-Transfer-Encoding: quoted-printable\r\n\r\n"
                     b"soft-break-space =\r\ncontinued\r\n"
                 ),
-                False,
+                True,
             )
             check_script(
                 client,

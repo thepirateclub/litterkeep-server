@@ -38,7 +38,7 @@ def options() -> argparse.Namespace:
 
 
 def fixture(token: str) -> tuple[bytes, bytes]:
-    """Строит transport padding, hard breaks и encoded spaces в одном body."""
+    """Смешивает hard-line padding и значимый WSP перед soft-break '='."""
     identity = token.encode("ascii")
     encoded = (
         b"literal-" + identity + b"  \t\r\n"
@@ -51,7 +51,7 @@ def fixture(token: str) -> tuple[bytes, bytes]:
     expected = (
         b"literal-" + identity + b"\r\n"
         b"encoded -space\r\n"
-        b"soft -breakcontinued\r\n"
+        b"soft -break  \tcontinued\r\n"
         b"joined next\r\n"
     )
     raw = (

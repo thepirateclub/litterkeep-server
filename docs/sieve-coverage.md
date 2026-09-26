@@ -106,10 +106,13 @@ CHECKSCRIPT для корректных 7bit, quoted-printable и Base64 entitie
 и 6.8: 7bit body не может содержать NUL, bare CR/LF и строки длиннее 998
 октетов; Base64/QP требуют CRLF, разрешённые encoded octets и строки максимум
 76 символов. QP также запрещает незакодированные завершающие пробелы и табы.
-Unit cases проверяют обе границы строк, NUL, bare LF и пробел перед soft break.
-Независимый ManageSieve CHECKSCRIPT также принимает корректный soft break и
-отвергает malformed hex escape, незакодированные завершающие SP/HTAB и
-whitespace перед soft break. Эти cases проверяют end-to-end парсер Sieve,
+Unit cases проверяют обе границы строк, NUL, bare LF и SP перед soft break.
+RFC 2045 [§6.7](https://www.rfc-editor.org/rfc/rfc2045.html#section-6.7)
+разрешает whitespace перед завершающим `=` мягкого переноса:
+это часть `qp-segment`, не transport-padding. Независимый ManageSieve CHECKSCRIPT
+принимает такой корректный soft break и отвергает malformed hex escape и
+незакодированные завершающие SP/HTAB. Эти cases проверяют end-to-end парсер
+Sieve,
 валидатор MIME и wire response, но не все граничные длины строк, которые
 остаются unit-only.
 

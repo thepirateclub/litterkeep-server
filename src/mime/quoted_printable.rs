@@ -46,20 +46,16 @@ fn decode_with_policy(input: &[u8], policy: InvalidEscapePolicy) -> Result<Vec<u
     Ok(output)
 }
 
-/// Определяет, принадлежит ли пробел конечной транспортной padding-последовательности.
+/// Отделяет padding перед hard CRLF от пробелов внутри encoded-текста.
+///
+/// По RFC 2045 §6.7 пробелы перед финальным `=` soft break входят в qp-segment,
+/// поэтому lookahead останавливается на `=` и декодер сохраняет эти octets.
 fn is_transport_padding(input: &[u8], cursor: usize) -> bool {
     let mut lookahead = cursor;
     while matches!(input.get(lookahead), Some(b' ' | b'\t')) {
         lookahead = lookahead.saturating_add(1);
     }
-    match input.get(lookahead) {
-        None | Some(b'\r' | b'\n') => true,
-        Some(b'=') => {
-            input.get(lookahead.saturating_add(1)) == Some(&b'\r')
-                && input.get(lookahead.saturating_add(2)) == Some(&b'\n')
-        }
-        _ => false,
-    }
+    matches!(input.get(lookahead), None | Some(b'\r' | b'\n'))
 }
 
 fn decode_escape(
@@ -165,8 +161,8 @@ mod tests {
     }
 
     #[test]
-    fn removes_literal_padding_before_soft_line_break() {
-        assert_eq!(decode(b"visible \t=\r\nnext").unwrap(), b"visiblenext");
+    fn preserves_content_whitespace_before_soft_line_break() {
+        assert_eq!(decode(b"visible \t=\r\nnext").unwrap(), b"visible \tnext");
         assert_eq!(decode(b"visible=20=\r\nnext").unwrap(), b"visible next");
     }
 }

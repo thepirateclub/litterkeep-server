@@ -39,6 +39,12 @@ G17 outbound SMTP reply parser принимает bare reply code и пусто�
 провёл всю delivery транзакцию с пустыми текстами greeting, EHLO, MAIL, RCPT,
 DATA, completion и QUIT. Это не тест с Litterkeep или внешним MTA.
 
+T100 проверяет RFC 2045 §6.7: буквальные SP/TAB перед завершающим `=` soft
+break сохраняются как содержимое `qp-segment`, а transport-padding перед hard
+CRLF удаляется. Независимые SMTP STARTTLS -> IMAP STARTTLS BINARY.PEEK и
+ManageSieve STARTTLS CHECKSCRIPT подтвердили точные octets и приём корректной
+MIME-формы. Это тесты независимого клиента, не Litterkeep.
+
 ## Чистый G12 прогон
 
 На новом container-local `/data` bootstrap создал четыре аккаунта. Повтор не

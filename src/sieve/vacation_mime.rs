@@ -176,12 +176,6 @@ fn validate_lines(body: &[u8], maximum: usize, rule: BodyOctetRule) -> Result<()
             }
             b'\n' => return Err("bare LF in MIME body"),
             value => {
-                if matches!(
-                    (rule, value, last_octet),
-                    (BodyOctetRule::QuotedPrintable, b'=', Some(b' ' | b'\t'))
-                ) {
-                    return Err("quoted-printable soft break follows whitespace");
-                }
                 line_length = line_length.saturating_add(1);
                 if line_length > maximum || !rule.accepts(value) {
                     return Err("invalid MIME body line");
