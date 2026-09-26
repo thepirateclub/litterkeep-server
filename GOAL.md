@@ -4,6 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G15 RFC 5321 ESMTP parameter separators, PASS
+
+- После reverse/forward path парсер принимает только RFC separator `SP`;
+  отклоняет HTAB, повторный SP и завершающий SP. Корректные несколько MAIL
+  параметров с одиночным SP сохранены. Регрессии разделены по parser- и
+  raw-TCP уровням.
+- PASS: Windows Rust 1.97.1 fmt, 539 library + 1 binary tests и strict Clippy;
+  Linux Docker Rust 1.97 strict Clippy, 586 library + 1 binary tests и
+  doc-tests. Независимый Linux raw-TCP клиент получил 501 для пяти неверных
+  вариантов и 250 для валидного MAIL/RCPT, затем завершил сессию. Временные
+  контейнер и образы удалены; fixture `./data/g15-smtp-path-colon-whitespace`
+  сохранён. Совместимость приложения Litterkeep не проверялась. G15 активна.
+
 ### 2026-09-26: G15 RFC 5321 path delimiter whitespace, PASS
 
 - SMTP parser no longer trims whitespace after `MAIL FROM:` or `RCPT TO:`;

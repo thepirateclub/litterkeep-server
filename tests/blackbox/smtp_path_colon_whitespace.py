@@ -35,7 +35,18 @@ with socket.create_connection((OPTIONS.host, OPTIONS.port), timeout=10) as smtp:
         b"RCPT TO:\t<bob@test>\r\n",
     ):
         exchange(smtp, invalid, b"501")
-    exchange(smtp, b"MAIL FROM:<alice@test>\r\n", b"250")
+    for invalid in (
+        b"MAIL FROM:<alice@test>\tSIZE=1\r\n",
+        b"MAIL FROM:<alice@test>  SIZE=1\r\n",
+        b"MAIL FROM:<alice@test> SIZE=1 \r\n",
+    ):
+        exchange(smtp, invalid, b"501")
+    exchange(smtp, b"MAIL FROM:<alice@test> SIZE=1 BODY=7BIT\r\n", b"250")
+    for invalid in (
+        b"RCPT TO:<bob@test> \r\n",
+        b"RCPT TO:<bob@test>\tNOTIFY=SUCCESS\r\n",
+    ):
+        exchange(smtp, invalid, b"501")
     exchange(smtp, b"RCPT TO:<bob@test>\r\n", b"250")
     exchange(smtp, b"RSET\r\n", b"250")
     exchange(smtp, b"QUIT\r\n", b"221")

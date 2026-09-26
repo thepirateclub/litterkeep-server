@@ -135,10 +135,13 @@ fn parse_auth(argument: &str) -> Result<Command, ParseError> {
 /// Разбирает reverse-path и ровно один необязательный SIZE параметр.
 fn parse_mail_from(argument: &str) -> Result<MailFrom, ParseError> {
     let (reverse_path, suffix) = parse_path(argument, "FROM:", PathKind::Reverse)?;
-    let parsed_parameters = suffix
-        .split_ascii_whitespace()
-        .map(parse_mail_parameter)
-        .collect::<Result<Vec<_>, _>>()?;
+    let parsed_parameters = match suffix.is_empty() {
+        true => Vec::new(),
+        false => suffix
+            .split(' ')
+            .map(parse_mail_parameter)
+            .collect::<Result<Vec<_>, _>>()?,
+    };
     let mut declared_size = None;
     let mut body_mode = BodyMode::SevenBit;
     let mut smtp_utf8 = false;
@@ -222,11 +225,25 @@ fn parse_path<'a>(
     }
     match suffix.is_empty() {
         true => Ok((mailbox.to_owned(), "")),
-        false if suffix.chars().next().is_some_and(char::is_whitespace) => {
-            Ok((mailbox.to_owned(), suffix.trim()))
-        }
-        false => Err(ParseError::Syntax),
+        false => parameter_suffix(suffix).map(|parameters| (mailbox.to_owned(), parameters)),
     }
+}
+
+/// Проверяет разделители ESMTP-параметров: grammar допускает только одиночный SP.
+fn parameter_suffix(suffix: &str) -> Result<&str, ParseError> {
+    let Some(parameters) = suffix.strip_prefix(' ') else {
+        return Err(ParseError::Syntax);
+    };
+    if parameters.is_empty() {
+        return Err(ParseError::Syntax);
+    }
+    if parameters.contains('\t') {
+        return Err(ParseError::Syntax);
+    }
+    if parameters.split(' ').any(str::is_empty) {
+        return Err(ParseError::Syntax);
+    }
+    Ok(parameters)
 }
 
 /// Находит завершающий `>` вне quoted local-part и его escaped символов.
