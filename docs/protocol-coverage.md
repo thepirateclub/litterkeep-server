@@ -35,6 +35,11 @@ Python `smtplib` на STARTTLS проверил continuation, initial-response �
 воспроизводимым Linux raw-TCP сценарием
 [`smtp_unknown_command.py`](../tests/blackbox/smtp_unknown_command.py); тест не
 использует клиент Litterkeep.
+Аргумент ASCII-only SMTP-команд VRFY/EXPN/HELP/NOOP не проходит Unicode-aware
+`trim`: NBSP не маскирует невалидный байт как пустой optional argument или
+ASCII имя. `VRFY alice@example.test`, `NOOP ` и `HELP ` возвращают 501; затем
+NOOP/QUIT в том же TCP соединении подтверждают recovery. Сервер не рекламирует
+SMTPUTF8, поэтому этот тест не заявляет RFC 6531 Unicode VRFY/EXPN support.
 
 В production `MAIL FROM:` и `RCPT TO:` angle-path начинается сразу после
 двоеточия: пробел и табуляция между delimiter-ом команды и `<` получают 501,

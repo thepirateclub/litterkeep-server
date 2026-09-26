@@ -29,6 +29,9 @@ def main():
             (b"WUT extra\r\n", 500),
             (b"DATA unexpected\r\n", 501),
             (b"DATA\tunexpected\r\n", 501),
+            (b"VRFY \xc2\xa0alice@example.test\r\n", 501),
+            (b"NOOP \xc2\xa0\r\n", 501),
+            (b"HELP \xc2\xa0\r\n", 501),
             (b"NOOP\r\n", 250),
             (b"QUIT\r\n", 221),
         )
@@ -37,7 +40,7 @@ def main():
             response = read_reply(stream, expected_code)
             print(f"{command.rstrip()!r} => {response.decode('ascii')}")
         stream.close()
-    print("PASS smtp-unknown-command: 500/501 classification and session recovery")
+    print("PASS smtp-unknown-command: syntax classification and session recovery")
 
 
 if __name__ == "__main__":

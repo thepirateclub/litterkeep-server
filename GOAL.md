@@ -5967,3 +5967,21 @@ ManageSieve до заявленного набора современных фо
   проверено. Аккаунты и PKI сохранены в `./data/g17-rfc6532-phrase-wsp`.
   G17 остаётся RUNNING: остальные internationalized address forms, MIME
   grammar и протокольные пробелы требуют отдельных проверенных этапов.
+
+### 2026-09-26: G17 RFC 5321 SMTP ASCII command-string checkpoint
+
+- `VRFY`/`EXPN` string и optional строки `HELP`/`NOOP` больше не очищают
+  Unicode whitespace через `str::trim`. После удаления только ASCII SP все
+  аргументы проверяются на printable ASCII; Unicode bytes не превращают
+  ошибочный аргумент в корректное имя либо отсутствующий optional value.
+- Регрессия до изменения воспроизвела принятие `VRFY NBSP alice`. Windows
+  `cargo test --locked`: 575 library + 1 binary; fmt и strict Clippy прошли.
+  Linux Docker release build, strict Clippy и test gate: 626 library + 1 binary
+  и doc-tests. Независимый raw-TCP клиент проверил VRFY/NOOP/HELP с NBSP
+  (501), затем NOOP (250) и QUIT (221) в той же сессии. Acceptance T102.
+- Контейнер `litterkeep-smtp-ascii-string-wsp` и образы
+  `litterkeep-smtp-ascii-string-wsp-runtime:20260926`,
+  `litterkeep-smtp-ascii-string-wsp-check:20260926` удалены; отсутствие
+  проверено после acceptance. TLS/accounts сохранены в
+  `./data/g17-smtp-ascii-string-wsp`. Сервер не рекламирует SMTPUTF8, поэтому
+  Unicode VRFY/EXPN profile RFC 6531 не заявляется; G17 остаётся RUNNING.

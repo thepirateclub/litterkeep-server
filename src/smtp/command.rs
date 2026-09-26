@@ -131,7 +131,8 @@ pub fn command_line_limit(line: &[u8]) -> usize {
 
 /// Проверяет RFC 5321 printable ASCII string без CRLF и пустого аргумента.
 fn parse_string_command(argument: &str) -> Result<String, ParseError> {
-    let value = argument.trim();
+    // RFC 5321 String ограничен printable ASCII; удалять можно только разделители SP.
+    let value = argument.trim_matches(' ');
     let valid = !value.is_empty() && value.bytes().all(|byte| (32..=126).contains(&byte));
     match valid {
         true => Ok(value.to_owned()),
@@ -141,7 +142,7 @@ fn parse_string_command(argument: &str) -> Result<String, ParseError> {
 
 /// Разбирает необязательный параметр HELP/NOOP без изменения его значения.
 fn parse_optional_string(argument: &str) -> Result<Option<String>, ParseError> {
-    match argument.trim().is_empty() {
+    match argument.trim_matches(' ').is_empty() {
         true => Ok(None),
         false => parse_string_command(argument).map(Some),
     }
@@ -154,3 +155,7 @@ mod tests;
 #[cfg(test)]
 #[path = "path_whitespace_tests.rs"]
 mod path_whitespace_tests;
+
+#[cfg(test)]
+#[path = "ascii_string_wsp_tests.rs"]
+mod ascii_string_wsp_tests;
