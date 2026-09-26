@@ -119,8 +119,6 @@ mod session_cancel;
 mod session_close;
 #[path = "reactor/session_io.rs"]
 mod session_io;
-#[path = "smtp/auth_continuation.rs"]
-mod smtp_auth_continuation;
 #[path = "reactor/smtp_completion.rs"]
 mod smtp_completion;
 #[path = "reactor/smtp_data.rs"]

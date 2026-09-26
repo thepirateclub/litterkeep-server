@@ -53,18 +53,21 @@ with smtplib.SMTP(OPTIONS.host, OPTIONS.port, timeout=10) as client:
         raise AssertionError(f"expected empty 334 challenge, received {(code, challenge)!r}")
     if challenge:
         raise AssertionError(f"expected empty 334 challenge, received {(code, challenge)!r}")
+    code, response = client.docmd("NOOP")
+    if code != 501:
+        raise AssertionError(f"SMTP command is not a SASL response: {(code, response)!r}")
     code, response = client.noop()
     if code != 250:
-        raise AssertionError(f"SMTP command did not abort AUTH exchange: {(code, response)!r}")
+        raise AssertionError(f"session did not recover after invalid response: {(code, response)!r}")
     code, challenge = client.docmd("AUTH", "PLAIN")
     if code != 334:
         raise AssertionError(f"expected retry challenge, received {(code, challenge)!r}")
     code, response = client.docmd("AUTH", "PLAIN")
-    if code != 503:
-        raise AssertionError(f"nested AUTH must be rejected: {(code, response)!r}")
+    if code != 501:
+        raise AssertionError(f"AUTH command is not a SASL response: {(code, response)!r}")
     code, response = client.noop()
     if code != 250:
-        raise AssertionError(f"session did not recover after nested AUTH: {(code, response)!r}")
+        raise AssertionError(f"session did not recover after invalid response: {(code, response)!r}")
     client.send(b"A" * 511 + b"\r\n")
     code, response = client.getreply()
     if code != 500:

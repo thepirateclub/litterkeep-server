@@ -4,19 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
-### 2026-09-26: G15 RFC 4954 AUTH command interruption, PASS
+### 2026-09-26: G15 RFC 4954 AUTH continuation semantics correction, PASS
 
-- SMTP AUTH PLAIN continuation distinguishes SASL payloads from SMTP command
-  interruption at the shared protocol dispatch boundary. `NOOP` after `334` is
-  processed normally; nested `AUTH` receives 503 and does not start another
-  challenge. Explicit `*` cancel and invalid Base64 retain their prior replies.
+- Superseded the preceding checkpoint after RFC review: §4 defines Base64 client
+  responses and `*` cancellation, not arbitrary SMTP command interruption.
+  During AUTH continuation, `NOOP` and nested `AUTH` are therefore rejected as
+  invalid Base64 responses with 501; the following separate NOOP is processed
+  normally. Earlier T94 is marked SUPERSEDED; T95 replaces it.
 - PASS: Windows Rust 1.97.1 fmt, 544 library + 1 binary tests and strict
   Clippy. Linux Docker Rust 1.97 strict Clippy, 595 library + 1 binary tests
-  and doc-tests. Independent Python STARTTLS wire test confirmed `NOOP` 250,
-  nested AUTH 503, command recovery, 513-octet response 500, cancellation,
-  malformed response and subsequent successful continuation authentication.
-  Temporary runtime/test containers and both unique image tags removed;
-  generated PKI and randomized accounts remain in `./data/g15-auth-interrupt`.
+  and doc-tests. Independent STARTTLS black-box verifies both invalid response
+  lines, 501 replies, command recovery, explicit cancellation, oversized line,
+  and a later successful continuation login. Test container and unique image
+  tags removed; generated PKI and accounts remain under `./data/g15-auth-interrupt`.
   Litterkeep app interoperability was not tested; G15 remains active.
 
 ### 2026-09-26: G15 RFC 4954 continuation line limit, PASS
