@@ -142,6 +142,7 @@ fn composite(media_type: Option<&MediaType>) -> bool {
             | MediaType::MultipartDigest
             | MediaType::MultipartOther(_)
             | MediaType::MessageRfc822
+            | MediaType::MessageGlobal
             | MediaType::MessageOther(_),
         ) => true,
         Some(

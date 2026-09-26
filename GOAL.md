@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G17 RFC 6532 message/global MIME и IMAP BODYSTRUCTURE, PARTIAL
+
+- MIME media type теперь различает `message/global` enum-вариантом. Для
+  identity CTE (`7bit`, `8bit`, `binary`) сохраняется вложенное сообщение с
+  UTF-8 полями заголовка; IMAP `BODYSTRUCTURE` выдаёт тип `MESSAGE/GLOBAL`, а
+  BODY HEADER selection принимает путь к его внутреннему сообщению.
+- RFC 6532 разрешает также Base64 и quoted-printable для `message/global`, но
+  они пока отклоняются: MIME tree использует абсолютные ranges исходных
+  октетов и не имеет модели ranges для отдельно декодированного вложенного
+  сообщения. IMAP4rev2 не рекламируется. Проверены четыре целевых unit-теста;
+  независимого сетевого клиента и Litterkeep acceptance на этом срезе нет.
+- PASS: Windows Rust 1.97.1 `cargo fmt --check`, 556 библиотечных и 1
+  бинарный тест, strict Clippy. Linux Docker release build, strict Clippy,
+  605 библиотечных и 1 бинарный тест и doc-tests. Созданные мной образы
+  удалены и проверены отсутствующими; контейнер не создавался. G17 остаётся
+  активной.
+
 ### 2026-09-26: G17 RFC 2045 quoted-printable soft-break whitespace, PASS
 
 - Исправлена ошибочная потеря буквальных SP/TAB перед `=CRLF`: по RFC 2045

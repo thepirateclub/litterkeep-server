@@ -62,3 +62,13 @@ fn binary_rejects_multipart_and_nonexistent_leaf_paths() {
         Err(FetchError::InvalidSection)
     ));
 }
+
+/// BINARY path проходит через вложенное identity message/global сообщение.
+#[test]
+fn binary_selects_nested_global_message_attachment() {
+    let message = b"Content-Type: message/global\r\n\r\nSubject: nested\r\nContent-Type: application/octet-stream\r\nContent-Transfer-Encoding: base64\r\n\r\nbmVzdGVkAA==";
+    let result = select(message, &[1, 1], None).expect("nested global attachment");
+
+    assert_eq!(result.label, "BINARY[1.1]");
+    assert_eq!(result.bytes.as_ref(), b"nested\0");
+}

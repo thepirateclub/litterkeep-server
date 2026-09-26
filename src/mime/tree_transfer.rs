@@ -58,6 +58,7 @@ fn is_composite(media_type: &MediaType) -> bool {
             | MediaType::MultipartRelated
             | MediaType::MultipartOther(_)
             | MediaType::MessageRfc822
+            | MediaType::MessageGlobal
             | MediaType::MessageOther(_)
     )
 }

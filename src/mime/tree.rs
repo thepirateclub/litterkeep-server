@@ -14,6 +14,9 @@ mod digest_tests;
 #[cfg(test)]
 #[path = "tree_entity_tests.rs"]
 mod entity_tests;
+#[cfg(test)]
+#[path = "tree_global_tests.rs"]
+mod global_tests;
 #[path = "tree_multipart.rs"]
 mod multipart;
 #[path = "tree_transfer.rs"]
@@ -121,7 +124,7 @@ fn parse_entity(
                 )?);
             }
         }
-        MediaType::MessageRfc822 => {
+        MediaType::MessageRfc822 | MediaType::MessageGlobal => {
             match &transfer_encoding {
                 TransferEncoding::SevenBit
                 | TransferEncoding::EightBit

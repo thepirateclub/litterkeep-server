@@ -306,6 +306,17 @@ Content-Transfer-Encoding удаляет вложенные comments вне quot
 acceptance проверили вложенный comment перед Base64, escaped right parenthesis,
 comment после token, BODYSTRUCTURE encoding и точные декодированные octets.
 Исходные RFC822 bytes при доставке сохранены без нормализации.
+
+MIME parser и IMAP BODYSTRUCTURE распознают RFC 6532 `message/global` при
+identity Content-Transfer-Encoding (`7bit`, `8bit`, `binary`): UTF-8 заголовки
+вложенного сообщения остаются исходными октетами, а nested sections адресуются
+как у `message/rfc822`. RFC 6532 разрешает для `message/global` также
+non-identity CTE, но декодирование пока не реализовано: MIME tree хранит
+абсолютные ranges исходного сообщения, поэтому такое содержимое явно
+отклоняется, а не интерпретируется как будто оно уже декодировано. См.
+[RFC 6532 §3.5](https://www.rfc-editor.org/rfc/rfc6532.html#section-3.5),
+[§3.7](https://www.rfc-editor.org/rfc/rfc6532.html#section-3.7)
+и [RFC 9051 §9](https://www.rfc-editor.org/rfc/rfc9051.html#section-9).
 Quoted-printable decoder удаляет буквальные SP/TAB на концах hard lines и
 объекта, не удаляя закодированные `=20`/`=09`; encoder сериализует пробелы и
 TAB как hex-octets, чтобы перенос строки не менял содержимое. Независимый SMTP

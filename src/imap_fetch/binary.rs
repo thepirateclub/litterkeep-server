@@ -55,7 +55,7 @@ fn resolve<'a>(root: &'a Entity, path: &[usize]) -> Result<&'a Entity, FetchErro
             (false, _) => Err(FetchError::InvalidSection),
             (true, true) => Ok(root),
             (true, false) => match &root.media_type {
-                MediaType::MessageRfc822 => {
+                MediaType::MessageRfc822 | MediaType::MessageGlobal => {
                     let nested = root.children.first().ok_or(FetchError::InvalidSection)?;
                     resolve(nested, remaining)
                 }
@@ -71,7 +71,7 @@ fn ensure_leaf(entity: &Entity) -> Result<(), FetchError> {
         | (MediaType::MultipartAlternative, _)
         | (MediaType::MultipartOther(_), _) => Err(FetchError::InvalidSection),
         (MediaType::MultipartRelated, _) | (_, false) => Err(FetchError::InvalidSection),
-        (MediaType::MessageRfc822, _) => Err(FetchError::InvalidSection),
+        (MediaType::MessageRfc822 | MediaType::MessageGlobal, _) => Err(FetchError::InvalidSection),
         _ => Ok(()),
     }
 }

@@ -141,7 +141,7 @@ fn validate_message_path(root: &Entity, path: &[usize]) -> Result<(), &'static s
     };
     let parent = entity_at(root, parent_path)?;
     match &parent.media_type {
-        MediaType::MessageRfc822 => Ok(()),
+        MediaType::MessageRfc822 | MediaType::MessageGlobal => Ok(()),
         _ => Err("HEADER/TEXT selectors require an encapsulated message"),
     }
 }

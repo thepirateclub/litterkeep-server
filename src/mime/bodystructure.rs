@@ -41,7 +41,9 @@ fn encode_in_profile(
     profile: Profile,
 ) -> Result<String, &'static str> {
     match &entity.media_type {
-        MediaType::MessageRfc822 => encode_message(entity, message, profile),
+        MediaType::MessageRfc822 | MediaType::MessageGlobal => {
+            encode_message(entity, message, profile)
+        }
         _ => match entity.children.is_empty() {
             true => encode_leaf(entity, message, profile),
             false => encode_multipart(entity, message, profile),
@@ -64,7 +66,8 @@ fn encode_message(
     let envelope = super::envelope::encode(body)?;
     let nested_structure = encode_in_profile(nested, message, profile)?;
     Ok(format!(
-        "(\"MESSAGE\" \"RFC822\" {} {} {} \"{}\" {} {envelope} {nested_structure} {}{})",
+        "(\"MESSAGE\" \"{}\" {} {} {} \"{}\" {} {envelope} {nested_structure} {}{})",
+        entity.media_type.type_and_subtype().1,
         encode_parameters(&entity.parameters)?,
         encode_optional_string(entity.content_metadata.content_id.as_deref())?,
         encode_optional_string(entity.content_metadata.description.as_deref())?,
