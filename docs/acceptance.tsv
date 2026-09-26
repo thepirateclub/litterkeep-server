@@ -65,6 +65,7 @@ T63	PASS	server-protocol	Independent Python imaplib STARTTLS fetch verifies RFC 
 T64	PASS	server-protocol	Independent ManageSieve CHECKSCRIPT accepts one MIME-Version 1.0 with RFC comments and rejects unsupported, duplicate, or whitespace-corrupted declarations in vacation :mime
 T85	PASS	server-protocol	Independent Python imaplib STARTTLS APPEND/FETCH normalizes RFC 5322 obsolete CFWS around Content-ID dot-separated atoms in both BODY and BODYSTRUCTURE
 T86	PASS	server-protocol	Independent Python imaplib STARTTLS APPEND/FETCH preserves quoted-string words in RFC 5322 obsolete Content-ID local-part in BODY and BODYSTRUCTURE
+T87	PASS	server-protocol	Independent Python imaplib STARTTLS APPEND/FETCH removes RFC 5322 CFWS comments around quoted obsolete Content-ID words and dot separators in BODY and BODYSTRUCTURE
 T65	PASS	server-protocol	Independent SMTP STARTTLS delivery and IMAP BINARY.PEEK confirm RFC 2045 MIME Base64 decoder ignores non-alphabet ASCII octets inside an attachment without weakening encoded-word decoding
 T66	PASS	server-protocol	Independent SMTP STARTTLS delivery and IMAP fetch verify unknown CTE projects as application/octet-stream, retains raw MIME headers, is omitted from BODY SEARCH and returns UNKNOWN-CTE for BINARY
 T67	PASS	server-protocol	Independent SMTP peer receives outbound DATA with only line-leading dots doubled; peer un-stuffs and byte-compares the complete message, including terminal CRLF

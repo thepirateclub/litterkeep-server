@@ -179,12 +179,13 @@ Content-ID принимает единственное поле в формах 
 domain-literal id-right, включая UTF-8 atext по RFC 6532. RFC 5322
 `obs-id-left`/`obs-id-right` CFWS вокруг dot-separated atoms нормализуется;
 obsolete local-part также принимает последовательность atom/quoted-string
-words с точками вне кавычек. Comments и whitespace вокруг разделителей
-семантически невидимы. Контрольные octets и malformed quoted-pairs остаются
-невалидными. Повторные или синтаксически некорректные значения не проецируются.
+words с точками вне кавычек. Comments и whitespace вокруг quoted/atom words
+и точек семантически невидимы. Контрольные octets и malformed quoted-pairs
+остаются невалидными. Повторные или синтаксически некорректные значения не
+проецируются.
 Независимый STARTTLS acceptance подтвердил quoted id-left, IPv6 domain literal,
-obsolete CFWS и quoted-word формы в обоих профилях; UTF-8 identifiers и
-RFC 2047 description проверены unit-тестами. Прочие protocol fields и RFC
+obsolete CFWS и quoted-word формы, включая comments, в обоих профилях; UTF-8
+identifiers и RFC 2047 description проверены unit-тестами. Прочие protocol fields и RFC
 пробелы остаются непокрытыми.
 Единственный корректный `Content-MD5` выводится в scalar/message body-MD5 slot
 после строгой Base64 проверки и проверки длины декодированного digest в 16

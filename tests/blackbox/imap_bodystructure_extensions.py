@@ -63,7 +63,7 @@ def main() -> None:
         b"Content-ID: <image (left) . logo @ example (right) . test>\r\n\r\n"
         b"legacy-id-octets\r\n--meta-boundary\r\n"
         b"Content-Type: application/octet-stream\r\n"
-        b'Content-ID: <"image.logo" . archive@example.test>\r\n\r\n'
+        b'Content-ID: <"image.logo" (quoted word) . (separator) archive@example.test>\r\n\r\n'
         b"quoted-word-octets\r\n--meta-boundary--\r\n"
     )
     with imaplib.IMAP4(options.host, options.port, timeout=10) as client:

@@ -5604,6 +5604,15 @@ ManageSieve до заявленного набора современных фо
 - Обновлены RFC coverage и acceptance T86. Остальная MIME, IMAP4rev2 и
   межпротокольная совместимость продолжают оставаться открытыми.
 
+### 2026-09-26: G17 RFC 5322 quoted-word CFWS wire checkpoint
+
+- Проверены комментарии RFC 5322 CFWS вокруг quoted/atom words и dot
+  separators внутри obsolete Content-ID local-part. Удаление comments не
+  меняет quoted-string; wire projection оставляет только семантические слова.
+- Unit regression и независимый IMAP STARTTLS APPEND/FETCH проверяют
+  нормализованный Content-ID в BODY и BODYSTRUCTURE. Запись acceptance T87;
+  полная MIME и IMAP4rev2 грамматика остаются открытыми.
+
 ### 2026-09-26: G17 RFC 5322 obsolete Content-ID CFWS checkpoint
 
 - MIME `Content-ID` теперь принимает RFC 5322 `obs-id-left`/`obs-id-right`

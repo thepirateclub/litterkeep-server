@@ -101,11 +101,11 @@ fn normalizes_obsolete_cfws_in_content_id_sides() {
             "<image@example.test>",
         ),
         (
-            b"Content-ID: <\"image.logo\" . archive@example.test>\r\n\r\n".as_slice(),
+            b"Content-ID: <\"image.logo\" (quoted word) . (separator) archive@example.test>\r\n\r\n".as_slice(),
             "<\"image.logo\".archive@example.test>",
         ),
         (
-            b"Content-ID: <archive . \"image.logo\"@example.test>\r\n\r\n".as_slice(),
+            b"Content-ID: <archive (atom) . (quoted word) \"image.logo\"@example.test>\r\n\r\n".as_slice(),
             "<archive.\"image.logo\"@example.test>",
         ),
     ] {
