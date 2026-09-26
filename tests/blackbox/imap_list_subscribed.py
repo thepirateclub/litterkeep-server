@@ -3,6 +3,7 @@
 import argparse
 import imaplib
 import os
+import re
 import ssl
 import uuid
 from itertools import pairwise
@@ -24,7 +25,7 @@ def tagged_command(client: imaplib.IMAP4, command: bytes, expected: str) -> None
     tag = client._new_tag()
     client.send(tag + b" " + command + b"\r\n")
     status, detail = client._get_tagged_response(tag)
-    require(status, detail, expected, command.decode("ascii"))
+    require(status, detail, expected, command.decode("utf-8"))
 
 
 def ordered_list_command(client: imaplib.IMAP4, command: bytes) -> list[bytes]:
@@ -65,6 +66,29 @@ def require_record(records: bytes, expected: bytes, operation: str) -> None:
 def reject_record(records: bytes, unexpected: bytes, operation: str) -> None:
     if unexpected in records:
         raise AssertionError(f"{operation}: unexpected {unexpected!r} in {records!r}")
+
+
+def verify_utf8_status(client: imaplib.IMAP4, suffix: str) -> None:
+    """Сверяет RFC 9755 UTF-8 mailbox в RFC 5258 LIST RETURN STATUS ответах."""
+    tagged_command(client, b"ENABLE UTF8=ACCEPT", "OK")
+    name = f"Status Café {suffix}"
+    tagged_command(client, f'CREATE "{name}"'.encode("utf-8"), "OK")
+    command = (
+        f'LIST () "" "{name}" RETURN '
+        "(STATUS (MESSAGES UIDNEXT UIDVALIDITY SIZE))"
+    ).encode("utf-8")
+    responses = ordered_list_command(client, command)
+    expected_list = f'* LIST () "/" "{name}"'.encode("utf-8")
+    expected_status = re.compile(
+        rb'^\* STATUS "' + re.escape(name.encode("utf-8"))
+        + rb'" \(MESSAGES 0 UIDNEXT 1 UIDVALIDITY [0-9]+ SIZE 0\)$'
+    )
+    matched = any(
+        first == expected_list and expected_status.fullmatch(second) is not None
+        for first, second in pairwise(responses)
+    )
+    if not matched:
+        raise AssertionError(f"UTF-8 LIST RETURN STATUS mismatch: {responses!r}")
 
 
 def main() -> None:
@@ -229,9 +253,10 @@ def main() -> None:
         f'* STATUS "{missing_name}"'.encode(),
         "missing mailbox has no STATUS response",
     )
+    verify_utf8_status(client, suffix)
     list_command(client, b'LIST (RECURSIVEMATCH) "" "%"', "BAD")
     client.logout()
-    print("PASS imap-list-subscribed: recursive parents, CHILDINFO, CHILDREN, STATUS order and invalid option")
+    print("PASS imap-list-subscribed: extended LIST, UTF-8 STATUS and recursive selection")
 
 
 if __name__ == "__main__":

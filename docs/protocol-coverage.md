@@ -203,6 +203,10 @@ COPY/MOVE/RENAME/DELETE прошли независимую STARTTLS прове�
 RFC822 bytes совпадают точно. CAPABILITY всё ещё скрывает UTF8=ACCEPT до полного
 профиля. Актуальный audit RFC 9755 и оставшиеся обязательства приведён в
 `imap-profile.md`; это не объявляет IMAP4rev2.
+Дополнительная комбинированная STARTTLS проверка включает `ENABLE UTF8=ACCEPT`,
+создаёт mailbox с `é` и запрашивает `LIST RETURN STATUS`: соседние LIST и
+STATUS ответы сохраняют UTF-8 имя и порядок запрошенных числовых полей. Это
+проверка совместной сериализации RFC 9755/RFC 5258, не готовность всего профиля.
 
 RFC 7889 APPENDLIMIT объявляет единый предел `26214400` octets, равный
 действующему `MAX_MESSAGE_SIZE`. STATUS и LIST RETURN STATUS возвращают

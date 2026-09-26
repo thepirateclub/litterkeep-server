@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-27: G17 IMAP UTF-8 LIST RETURN STATUS interoperability, PASS checkpoint
+
+- Independent Python IMAP client выполняет LOGIN, `ENABLE UTF8=ACCEPT`, CREATE
+  mailbox с `é` и `LIST ... RETURN (STATUS (...))` в одном TLS-сеансе. Проверено,
+  что соседние untagged LIST/STATUS ответы сохраняют UTF-8 mailbox name и
+  запрошенные MESSAGES/UIDNEXT/UIDVALIDITY/SIZE поля.
+- Black-box test расширен в
+  `tests/blackbox/imap_list_subscribed.py`; `py_compile` прошёл, файл 263 строки.
+  Linux Rust 1.97.1 release server использован из Docker build stage, локальный
+  acceptance прошёл. Это дополнительная cross-profile проверка, не закрытие
+  RFC 9755 или полная готовность `UTF8=ACCEPT` capability.
+- Fixture сохранён в `./data/acceptance-imap-utf8-list-status-20260927`.
+  Временные Docker container/image удалены и отсутствие проверено; остальные
+  контейнеры не изменялись.
+
 ### 2026-09-27: G17 POP3 UTF-8 mode rejects unconvertible high-bit content, PASS checkpoint
 
 - Второй аудит RFC 6856 §2.1 выявил, что предыдущий ASCII guard исправил
