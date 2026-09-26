@@ -6102,3 +6102,16 @@ ManageSieve до заявленного набора современных фо
 - Windows: 584 library + 1 binary tests, doc-tests, fmt и strict Clippy прошли.
   Linux Docker Rust 1.97 release build, strict Clippy, 635 library + 1 binary
   tests и doc-tests прошли. Временный image удалён; matching containers не было.
+
+### 2026-09-26: G17 RFC 9755 SELECT parser foundation
+
+- Добавлен явный parser entry point с `StringMode`; SELECT/EXAMINE декодируют
+  quoted UTF-8 mailbox names через RFC 9755 validator только в `Utf8Accept`.
+  Обычный parser остаётся legacy modified UTF-7, что проверяют два новых теста.
+- Reactor/session ENABLE не переключены, остальные mailbox commands и mailbox
+  response encoding не подключены. Capability остаётся скрытой; T109 PARTIAL,
+  runtime acceptance отсутствует. Следующая связка должна охватить весь mailbox
+  command set, LIST/NAMESPACE output и только затем session state.
+- Windows: 586 library + 1 binary tests, doc-tests, fmt и strict Clippy прошли.
+  Linux Docker Rust 1.97 release build, strict Clippy, 637 library + 1 binary
+  tests и doc-tests прошли. Временный image удалён; matching containers не было.

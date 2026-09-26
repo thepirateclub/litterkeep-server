@@ -188,12 +188,23 @@ pub fn parse(line: &str) -> TaggedCommand {
     parser::parse(line)
 }
 
+/// Parser entry point для проверки команд в явно согласованном string mode.
+pub fn parse_with_mode(line: &str, mode: tokenizer::StringMode) -> TaggedCommand {
+    parser::parse_with_mode(line, mode)
+}
+
 /// Разбирает команду после внутренней сборки synchronizing SEARCH literal.
 #[cfg(target_os = "linux")]
 pub(crate) fn parse_search_literals(line: &str, literals: Vec<String>) -> TaggedCommand {
     parser::parse_search_literals(line, literals)
 }
 
+#[cfg(test)]
+#[path = "imap/mailbox_mode_tests.rs"]
+mod mailbox_mode_tests;
+#[cfg(test)]
+#[path = "imap/simple_command_tests.rs"]
+mod simple_command_tests;
 #[cfg(test)]
 #[path = "imap/tests.rs"]
 mod tests;

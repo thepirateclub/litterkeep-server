@@ -151,7 +151,21 @@ pub fn parse_subscribe(mut tokens: impl Iterator<Item = Token>, subscribed: bool
 }
 
 pub(super) fn mailbox(value: String) -> Option<MailboxName> {
-    let decoded = super::modified_utf7::decode(&value).ok()?;
+    mailbox_with_mode(value, super::tokenizer::StringMode::Legacy)
+}
+
+/// Декодирует имя в явно выбранном wire-режиме, не меняя legacy callers.
+pub(super) fn mailbox_with_mode(
+    value: String,
+    mode: super::tokenizer::StringMode,
+) -> Option<MailboxName> {
+    let decoded = match mode {
+        super::tokenizer::StringMode::Legacy => super::modified_utf7::decode(&value).ok()?,
+        super::tokenizer::StringMode::Utf8Accept => {
+            super::mailbox_utf8::validate(&value).ok()?;
+            value
+        }
+    };
     match decoded.to_ascii_uppercase().as_str() {
         "INBOX" => Some(MailboxName::Inbox),
         _ => Some(MailboxName::Named(decoded)),

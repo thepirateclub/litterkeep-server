@@ -2,22 +2,35 @@
 
 use super::command_verb::{Verb, parse_verb};
 use super::token_values;
-use super::tokenizer::{self, Token};
+use super::tokenizer::{self, StringMode, Token};
 use super::{Addressing, Command, TaggedCommand};
 
 /// Разбирает одну командную строку через lexer и типизированный dispatch.
 pub(super) fn parse(line: &str) -> TaggedCommand {
-    parse_tokens(line, tokenizer::tokenize(line))
+    parse_with_mode(line, StringMode::Legacy)
+}
+
+/// Разбирает одну команду после выбора клиентского string mode.
+pub(super) fn parse_with_mode(line: &str, mode: StringMode) -> TaggedCommand {
+    parse_tokens(line, tokenizer::tokenize_with_mode(line, mode), mode)
 }
 
 /// Разбирает команду после внутренней сборки synchronizing SEARCH literal.
 #[cfg(target_os = "linux")]
 pub(super) fn parse_search_literals(line: &str, literals: Vec<String>) -> TaggedCommand {
-    parse_tokens(line, tokenizer::tokenize_search_literals(line, literals))
+    parse_tokens(
+        line,
+        tokenizer::tokenize_search_literals(line, literals),
+        StringMode::Legacy,
+    )
 }
 
 /// Преобразует lexer result в команду, сохраняя tag даже при синтаксическом отказе.
-fn parse_tokens(line: &str, result: Result<Vec<Token>, &'static str>) -> TaggedCommand {
+fn parse_tokens(
+    line: &str,
+    result: Result<Vec<Token>, &'static str>,
+    mode: StringMode,
+) -> TaggedCommand {
     let mut tokens = match result {
         Ok(tokens) => tokens.into_iter(),
         Err(_) => {
@@ -63,8 +76,8 @@ fn parse_tokens(line: &str, result: Result<Vec<Token>, &'static str>) -> TaggedC
         Some(Verb::Move) => super::copy::parse(tokens, Addressing::Sequence, super::Transfer::Move),
         Some(Verb::Expunge) => parse_empty(tokens, Command::Expunge),
         Some(Verb::List) => super::list::parse(tokens),
-        Some(Verb::Select) => parse_select(&mut tokens, false),
-        Some(Verb::Examine) => parse_select(&mut tokens, true),
+        Some(Verb::Select) => parse_select(&mut tokens, false, mode),
+        Some(Verb::Examine) => parse_select(&mut tokens, true, mode),
         Some(Verb::Fetch) => super::fetch::parse(&mut tokens, Addressing::Sequence),
         Some(Verb::Store) => super::flags::parse_store(&mut tokens, Addressing::Sequence),
         Some(Verb::Search) => super::search::parse(tokens, Addressing::Sequence),
@@ -118,8 +131,14 @@ fn parse_uid_expunge(mut tokens: impl Iterator<Item = Token>) -> Command {
 }
 
 /// SELECT и EXAMINE разбирают mailbox как astring после выбора режима.
-fn parse_select(tokens: &mut impl Iterator<Item = Token>, read_only: bool) -> Command {
-    let Some(mailbox) = next_astring(tokens).and_then(super::folder::mailbox) else {
+fn parse_select(
+    tokens: &mut impl Iterator<Item = Token>,
+    read_only: bool,
+    mode: StringMode,
+) -> Command {
+    let Some(mailbox) =
+        next_astring(tokens).and_then(|value| super::folder::mailbox_with_mode(value, mode))
+    else {
         return Command::Unsupported;
     };
     match read_only {

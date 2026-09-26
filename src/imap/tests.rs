@@ -294,8 +294,3 @@ fn idle_done_is_typed() {
         IdleContinuation::Done
     ));
 }
-
-#[test]
-fn noop_is_typed() {
-    assert_eq!(parse("A8 NOOP\r\n").command, Command::Noop);
-}
