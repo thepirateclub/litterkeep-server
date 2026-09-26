@@ -8,7 +8,15 @@ use std::collections::{BTreeMap, BTreeSet};
 struct MessageProfile {
     utf8: bool,
     octets: usize,
-    binary_transfer_encoding: bool,
+    transfer_policy: MimeTransferPolicy,
+}
+
+/// Результат проверки MIME transfer policy, вычисленный при открытии maildrop.
+#[derive(Clone, Copy)]
+pub(crate) enum MimeTransferPolicy {
+    Allowed,
+    Binary,
+    Unverifiable,
 }
 
 /// Snapshot общего INBOX принадлежит одной POP3 transaction-сессии.
@@ -38,7 +46,7 @@ impl Maildrop {
                     MessageProfile {
                         utf8: contains_non_ascii_utf8(&message.bytes),
                         octets: reported_message_size(&message.bytes),
-                        binary_transfer_encoding: contains_binary_transfer_encoding(&message.bytes),
+                        transfer_policy: contains_binary_transfer_encoding(&message.bytes),
                     },
                 )
             })
@@ -92,9 +100,9 @@ impl Maildrop {
         }
     }
     /// Запрещает TOP/RETR для MIME binary CTE по RFC 6856 даже в UTF8 mode.
-    pub fn contains_binary_transfer_encoding(&self, number: u32) -> Result<bool, &'static str> {
+    pub(crate) fn transfer_policy(&self, number: u32) -> Result<MimeTransferPolicy, &'static str> {
         self.message(number)
-            .map(|message| self.profile(message).binary_transfer_encoding)
+            .map(|message| self.profile(message).transfer_policy)
     }
     pub fn retrieve(&self, number: u32) -> Result<Vec<u8>, &'static str> {
         self.message(number)
@@ -156,16 +164,19 @@ impl Maildrop {
             .unwrap_or_else(|| MessageProfile {
                 utf8: contains_non_ascii_utf8(&message.bytes),
                 octets: reported_message_size(&message.bytes),
-                binary_transfer_encoding: contains_binary_transfer_encoding(&message.bytes),
+                transfer_policy: MimeTransferPolicy::Unverifiable,
             })
     }
 }
 
-/// Проверяет binary CTE в bounded MIME tree, если структура разбирается.
-fn contains_binary_transfer_encoding(bytes: &[u8]) -> bool {
+/// Проверяет binary CTE; неразбираемая MIME-структура считается непроверяемой.
+fn contains_binary_transfer_encoding(bytes: &[u8]) -> MimeTransferPolicy {
     match crate::mime::tree::parse(bytes) {
-        Ok(entity) => entity.contains_binary_transfer_encoding(),
-        Err(_) => false,
+        Ok(entity) => match entity.contains_binary_transfer_encoding() {
+            true => MimeTransferPolicy::Binary,
+            false => MimeTransferPolicy::Allowed,
+        },
+        Err(_) => MimeTransferPolicy::Unverifiable,
     }
 }
 

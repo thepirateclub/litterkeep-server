@@ -159,6 +159,12 @@ def check_binary_cte_rejected():
         b"Content-Transfer-Encoding: binary\r\n\r\n"
         b"opaque\x00octets\r\n--policy--\r\n"
     )
+    malformed_message = (
+        b"From: alice@test\r\nTo: bob@test\r\nSubject: unverifiable binary CTE\r\n"
+        b"MIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=broken\r\n\r\n"
+        b"--broken\r\nContent-Type: application/octet-stream\r\n"
+        b"Content-Transfer-Encoding: binary\r\n\r\nopaque\x00octets\r\n"
+    )
     context = ssl.create_default_context()
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
@@ -171,6 +177,9 @@ def check_binary_cte_rejected():
         status, _ = mailbox.append("INBOX", None, None, raw_message)
         if status != "OK":
             raise AssertionError("IMAP APPEND rejected the MIME binary CTE fixture")
+        status, _ = mailbox.append("INBOX", None, None, malformed_message)
+        if status != "OK":
+            raise AssertionError("IMAP APPEND rejected malformed multipart fixture")
     finally:
         mailbox.logout()
 
@@ -193,12 +202,20 @@ def check_binary_cte_rejected():
         )
         status = send(connection, stream, b"STAT\r\n", b"+OK", "binary CTE STAT")
         _ok, count, _octets = status.split()
-        message_number = count.decode("ascii")
-        command = f"RETR {message_number}\r\n".encode("ascii")
+        message_count = int(count)
+        if message_count < 2:
+            raise AssertionError(f"expected both CTE fixtures in the maildrop: {message_count}")
+        binary_number = message_count - 1
+        binary_retr = f"RETR {binary_number}\r\n".encode("ascii")
         rejection = b"-ERR MIME binary transfer encoding is not permitted"
-        send(connection, stream, command, rejection, "binary CTE RETR")
-        top_command = f"TOP {message_number} 2\r\n".encode("ascii")
+        send(connection, stream, binary_retr, rejection, "binary CTE RETR")
+        top_command = f"TOP {binary_number} 2\r\n".encode("ascii")
         send(connection, stream, top_command, rejection, "binary CTE TOP")
+        unverifiable_rejection = b"-ERR MIME structure cannot be verified for POP3"
+        malformed_retr = f"RETR {message_count}\r\n".encode("ascii")
+        send(connection, stream, malformed_retr, unverifiable_rejection, "unverifiable MIME RETR")
+        malformed_top = f"TOP {message_count} 2\r\n".encode("ascii")
+        send(connection, stream, malformed_top, unverifiable_rejection, "unverifiable MIME TOP")
         send(connection, stream, b"QUIT\r\n", b"+OK", "binary CTE QUIT")
     finally:
         stream.close()

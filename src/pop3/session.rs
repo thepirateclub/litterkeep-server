@@ -203,11 +203,14 @@ impl Session {
     /// Проверяет ограничения POP3 transfer encoding до чтения сообщения.
     fn retrieval_policy(&self, number: u32) -> Result<(), Reply> {
         match self.drop() {
-            Some(drop) => match drop.contains_binary_transfer_encoding(number) {
-                Ok(true) => Err(Reply::Error(
+            Some(drop) => match drop.transfer_policy(number) {
+                Ok(super::maildrop::MimeTransferPolicy::Binary) => Err(Reply::Error(
                     "MIME binary transfer encoding is not permitted",
                 )),
-                Ok(false) => self.utf8_policy(Some(number)),
+                Ok(super::maildrop::MimeTransferPolicy::Allowed) => self.utf8_policy(Some(number)),
+                Ok(super::maildrop::MimeTransferPolicy::Unverifiable) => {
+                    Err(Reply::Error("MIME structure cannot be verified for POP3"))
+                }
                 Err(error) => Err(Reply::Error(error)),
             },
             None => Err(Reply::Error("maildrop unavailable")),

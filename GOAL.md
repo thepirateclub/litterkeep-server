@@ -6469,3 +6469,28 @@ ManageSieve до заявленного набора современных фо
 - Fixture сохранён в `./data/g24-sieve-mdn-address`; созданные container и
   images удалены и отсутствие проверено. Несвязанный `lower-layer-v1` оставлен
   запущенным. RFC 5228 full profile и общий G17 остаются ACTIVE.
+
+### 2026-09-26: G17 POP3 fail-closed MIME binary CTE policy, scoped PASS
+
+- RFC 6856 §2.1 запрещает MIME `binary` CTE в POP3 независимо от включённого
+  UTF8 mode. До изменения ошибка bounded MIME parser-а отображалась как
+  `binary=false`, поэтому непроверяемая структура могла быть отправлена как
+  обычное письмо.
+- Maildrop теперь кэширует типизированное состояние MIME policy: дерево без
+  binary CTE, найденный binary CTE или непроверяемая структура. Для последнего
+  состояния POP3 `RETR` и `TOP` отвечают `-ERR`; письмо не удаляется, а IMAP и
+  durable Store сохраняют прежнюю семантику. Это намеренно fail-closed для
+  malformed/unsupported MIME и может ограничить только POP3 доступность.
+- Windows Rust 1.97.1: targeted MIME policy tests (2), полный Cargo test suite
+  (602 library + 1 CLI), strict Clippy, fmt и Python compile прошли. Linux Rust
+  1.97 Docker gates: strict Clippy, 663 library
+  tests, 1 CLI test и doc-tests прошли; один Unicode corpus test остаётся
+  ignored в обычном прогоне.
+- Independent Linux Rust 1.97 STLS acceptance проверила валидный multipart с
+  binary CTE и malformed multipart с тем же CTE. Обе структуры дают ожидаемый
+  `-ERR` на `RETR` и `TOP`, после отказов команда QUIT успешно завершается.
+  Независимый SMTP/IMAP peer использовался только для создания fixtures, не
+  приложение Litterkeep.
+- Fixture сохранён в `./data/g25-pop3-mime-unverifiable`; созданные container и
+  образы удалены, отсутствие проверено. Несвязанный `lower-layer-v1` оставлен
+  запущенным. Полный RFC 6856 профиль и общий G17 остаются ACTIVE.
