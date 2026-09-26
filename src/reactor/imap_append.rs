@@ -2,6 +2,9 @@
 
 use super::*;
 
+#[path = "imap_append_utf8.rs"]
+mod utf8;
+
 /// Проверяет папку у владельца store до выдачи literal continuation.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn begin(
@@ -88,6 +91,20 @@ pub(super) fn consume(
         }
         imap_literal::LiteralProgress::Complete(completed) => {
             session.imap_literal = None;
+            if matches!(
+                session.imap_string_mode,
+                imap::tokenizer::StringMode::Legacy
+            ) && utf8::has_eight_bit_header(&completed.bytes)
+            {
+                session.push(
+                    format!(
+                        "{} NO UTF-8 headers require ENABLE UTF8=ACCEPT\r\n",
+                        completed.tag
+                    )
+                    .as_bytes(),
+                )?;
+                return Ok(None);
+            }
             let id = *request_id;
             *request_id = request_id.wrapping_add(1).max(1);
             Ok(Some((

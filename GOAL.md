@@ -6143,6 +6143,22 @@ ManageSieve до заявленного набора современных фо
   fmt, tests, doc-tests и strict Clippy; Linux Docker Rust 1.97 release build,
   strict Clippy, 640 library + 1 binary и doc-tests. Временный image удалён,
   matching containers не было. T111 остаётся PARTIAL: wire acceptance отсутствует.
+
+### 2026-09-26: G17 RFC 9755 APPEND UTF-8 header guard
+
+- После RFC-проверки UTF8=ACCEPT не активировался отдельно, поскольку сервер
+  должен отклонять APPEND с 8-bit header octets до ENABLE и принимать его после.
+  Добавлен guard на завершении literal до отправки storage request. Проверяется
+  только header region; тело с произвольными octets и пустой header block
+  пропускаются. При отсутствующем разделителе проверка консервативно считает
+  весь literal заголовками.
+- Четыре Linux-only unit tests покрывают UTF-8 заголовок, бинарное тело,
+  пустой header block и отсутствие separator. Linux Docker Rust 1.97: release
+  build, strict Clippy, 644 library + 1 binary tests и doc-tests прошли. T112
+  PARTIAL: независимый wire тест ещё не доказывает ответ NO и отсутствие записи;
+  ENABLE, SEARCH charset behavior и capability остаются неподключёнными. На
+  Windows platform-specific reactor tests не компилируются, поэтому gate там
+  служит только проверкой portable library.
 - При финальной перепроверке выяснилось, что реализация этого чекпойнта уже
   была в HEAD `d75fc71`; краткий статус показал лишь отдельное незакоммиченное
   разбиение `Session`. TLS lifecycle методы перенесены в
