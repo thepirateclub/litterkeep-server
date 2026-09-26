@@ -6143,3 +6143,10 @@ ManageSieve до заявленного набора современных фо
   fmt, tests, doc-tests и strict Clippy; Linux Docker Rust 1.97 release build,
   strict Clippy, 640 library + 1 binary и doc-tests. Временный image удалён,
   matching containers не было. T111 остаётся PARTIAL: wire acceptance отсутствует.
+- При финальной перепроверке выяснилось, что реализация этого чекпойнта уже
+  была в HEAD `d75fc71`; краткий статус показал лишь отдельное незакоммиченное
+  разбиение `Session`. TLS lifecycle методы перенесены в
+  `session_transport_methods.rs`, чтобы оба файла соблюдали лимит 300 строк.
+  После переноса повторно прошли fmt, Windows 587 + 1 тест, strict Clippy и
+  Linux Docker Rust 1.97 release build, strict Clippy, 640 + 1 тест и
+  doc-tests. Временный image удалён, matching containers отсутствовали.
