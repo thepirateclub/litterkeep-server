@@ -4,6 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G17 RFC 6532 message/global independent IMAP wire checkpoint
+
+- Добавлен самостоятельный `tests/blackbox/imap_message_global.py`: через
+  независимый `imaplib` клиент он загружает Base64 `message/global` с UTF-8
+  вложенными заголовками и проверяет BODYSTRUCTURE, сохранение encoded
+  `BODY[1]`, decoded `BODY[1.1]` и `BODY[1.HEADER]`, decoded `BINARY[1.1]` и
+  точное сохранение исходного RFC822 literal.
+- PASS: Python `py_compile`; Linux Rust 1.97 release runtime image собран;
+  независимый STARTTLS socket acceptance прошёл в отдельном
+  `./data/g18-message-global-wire`. Временные контейнер и образ после теста
+  удалены и отсутствие проверено; acceptance data сохранена. Litterkeep app,
+  полный MIME профиль и IMAP4rev2 не проверялись. G17 остаётся ACTIVE.
+
 ### 2026-09-26: G17 RFC 6532 UTF-8 quoted MIME parameters, PARTIAL
 
 - RFC 6532 quoted-string extension подтверждён для MIME parameter values:

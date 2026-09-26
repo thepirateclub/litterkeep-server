@@ -32,8 +32,10 @@ BODYSTRUCTURE возвращает `MESSAGE/GLOBAL`, `BODY[1]` остаётся 
 `BODY[1.1]` выбирает decoded вложенную часть, а BODY HEADER и BINARY selection
 проходят во вложенные части. Неизвестный CTE сохраняет opaque
 `application/octet-stream` fallback. Проверены unit-векторы для ownership,
-ENVELOPE и section numbering; independent network acceptance пока не выполнялся.
-Это не меняет CAPABILITY и не объявляет IMAP4rev2.
+ENVELOPE и section numbering; независимый Linux STARTTLS black-box дополнительно
+сверяет encoded BODY[1], decoded BODY[1.1], nested UTF-8 header, BINARY и полный
+RFC822 literal. Litterkeep app не проверялось. Это не меняет CAPABILITY и не
+объявляет IMAP4rev2.
 | Search | SEARCH, UID SEARCH | PARTIAL | Все базовые SEARCH keys RFC 9051 распознаются и оцениваются; исчерпывающая проверка parser-а перечисляет каждый key. UTF-8 default, UTF-8/US-ASCII CHARSET, BADCHARSET, synchronizing string literals до 64 KiB, ESEARCH RETURN ALL/COUNT/MIN/MAX, decoded MIME text и исключение неизвестного CTE из текстового projection проверены; MIME text supports US-ASCII, UTF-8, ISO-8859-1, Windows-1251 and Windows-1252; RETURN SAVE and `$` SEARCH criterion work per session with SELECT/error reset and MIN/MAX selection; FETCH/UID FETCH and STORE/UID STORE `$` map saved UIDs to the active number space, COPY/UID COPY `$` resolve saved UIDs in their respective addressing modes, UID EXPUNGE `$` intersects saved UIDs with `\\Deleted`, empty sets are safe, and pipelined SEARCH SAVE followed by COPY is verified; ESEARCH and SEARCHRES are advertised; other MIME charsets and non-base extensions remain |
 | Flag mutation | STORE, UID STORE | PASS | Системные flags и регистронезависимые keywords: Replace/add/remove, SILENT, один durable batch, read-only denial; parenthesized and unparenthesized forms are parsed without dropping delimiters; nested/unbalanced lists and quoted flags rejected |
 | Copy and move | COPY, UID COPY, MOVE, UID MOVE | PASS | Atomic links/tombstones, COPYUID, multi-session projection |

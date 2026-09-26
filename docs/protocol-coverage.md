@@ -321,7 +321,13 @@ quoted-printable декодируют вложенное сообщение в �
 nested BODY HEADER и BINARY part traversal работают на decoded содержимом;
 unknown CTE не разбирается как письмо, а остаётся opaque
 `application/octet-stream`. Вектора проходят unit-тесты, но отдельный network
-black-box для этого media type ещё не запускался. См.
+black-box `tests/blackbox/imap_message_global.py` теперь выполняет APPEND и
+проверяет на независимом STARTTLS клиенте BODYSTRUCTURE, сохранение Base64
+wire-body через BODY[1], UTF-8 вложенные BODY[1.1]/BODY[1.HEADER], decoded
+BINARY[1.1] и неизменность исходного RFC822 literal. Прогон выполнен на Linux
+Rust 1.97 Docker runtime с отдельным каталогом `./data/g18-message-global-wire`;
+Litterkeep app не проверялось. Это acceptance конкретного media type, а не
+полный сертификат MIME или IMAP4rev2. См.
 [RFC 6532 §3.5](https://www.rfc-editor.org/rfc/rfc6532.html#section-3.5),
 [§3.7](https://www.rfc-editor.org/rfc/rfc6532.html#section-3.7)
 и [RFC 9051 §9](https://www.rfc-editor.org/rfc/rfc9051.html#section-9).
