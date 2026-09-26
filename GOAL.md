@@ -6272,3 +6272,22 @@ ManageSieve до заявленного набора современных фо
   paths, Litterkeep interoperability и полная RFC 9755 CAPABILITY readiness
   не проверены; T114 расширяет только перечисленные команды, профиль остаётся
   PARTIAL, G17 ACTIVE.
+
+### 2026-09-26: G17 RFC 9755 message/global interoperability, PASS
+
+- Независимый STARTTLS `imaplib` test теперь выполняет ENABLE UTF8=ACCEPT до
+  создания mailbox, APPEND `message/global` и MIME FETCH. BODYSTRUCTURE сохранил
+  допустимое IMAP4rev1 `MESSAGE/GLOBAL`; encoded BODY[1], decoded BODY[1.1],
+  вложенные UTF-8 headers, BINARY[1.1] и полный RFC822 literal совпали с
+  ожидаемыми octets.
+- PASS в Linux Docker Rust 1.97 runtime, данные этапа в
+  `./data/g19-rfc9755-message-global-enabled`. Команда клиента:
+  `python tests/blackbox/imap_message_global.py --port 32143 --ca data/pki/ca.pem`;
+  пароль Bob передан через ожидаемую переменную окружения из локального fixture,
+  не выведен. Временные image/container удалены и отсутствие подтверждено.
+  `python -m py_compile` и `git diff --check` прошли; скрипт 134 строки.
+- Матрицы теперь подтверждают сохранение `message/global` при UTF8 mode.
+  RFC 9755 §6 разрешает оба BODYSTRUCTURE представления для IMAP4rev1; это
+  acceptance одного media type, не полного MIME/IMAP профиля. Litterkeep,
+  оставшиеся RFC 5198 Unicode constraints, CAPABILITY readiness и другие
+  response paths не проверены; G17 остаётся ACTIVE.

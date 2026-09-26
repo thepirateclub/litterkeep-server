@@ -23,6 +23,17 @@ def require_ok(response: tuple[str, list[object]], operation: str) -> list[objec
     return records
 
 
+def enable_utf8_accept(client: imaplib.IMAP4) -> None:
+    """Включает RFC 9755 режим, не рекламируемый до общего profile gate."""
+    status, _ = client._simple_command("ENABLE", "UTF8=ACCEPT")
+    response_type, enabled = client.response("ENABLED")
+    if status != "OK" or response_type != "ENABLED" or not any(
+        b"UTF8=ACCEPT" in item for item in enabled
+    ):
+        raise AssertionError(f"ENABLE UTF8=ACCEPT failed: {status!r} {enabled!r}")
+    client._encoding = "utf-8"
+
+
 def response_octets(value: object) -> bytes:
     """Собирает metadata из вложенных структур imaplib без позиционных индексов."""
     match value:
@@ -72,6 +83,7 @@ def run_acceptance(host: str, port: int, ca: str, password: str) -> None:
     with imaplib.IMAP4(host, port, timeout=10) as client:
         client.starttls(ssl_context=context)
         require_ok(client.login("bob", password), "LOGIN")
+        enable_utf8_accept(client)
         require_ok(client.create(mailbox), "CREATE")
         require_ok(client.append(mailbox, None, None, raw), "APPEND")
         require_ok(client.select(mailbox, readonly=True), "SELECT")
@@ -134,7 +146,10 @@ def main() -> None:
     if options.password is None:
         raise ValueError("provide --password or LITTERKEEP_BOB_PASSWORD")
     run_acceptance(options.host, options.port, options.ca, options.password)
-    print("PASS imap-message-global: BODYSTRUCTURE, encoded/decoded ranges, RFC822")
+    print(
+        "PASS imap-message-global with ENABLE UTF8=ACCEPT: "
+        "BODYSTRUCTURE, encoded/decoded ranges, RFC822"
+    )
 
 
 if __name__ == "__main__":

@@ -358,8 +358,12 @@ black-box `tests/blackbox/imap_message_global.py` теперь выполняе�
 wire-body через BODY[1], UTF-8 вложенные BODY[1.1]/BODY[1.HEADER], decoded
 BINARY[1.1] и неизменность исходного RFC822 literal. Прогон выполнен на Linux
 Rust 1.97 Docker runtime с отдельным каталогом `./data/g18-message-global-wire`;
-Litterkeep app не проверялось. Это acceptance конкретного media type, а не
-полный сертификат MIME или IMAP4rev2. См.
+повторён под `ENABLE UTF8=ACCEPT` в `./data/g19-rfc9755-message-global-enabled`.
+В обоих случаях вложенная структура и все octets совпали. Litterkeep app не
+проверялось. Это acceptance конкретного media type, а не полный сертификат MIME
+или IMAP4rev2. RFC 9755 §6 допускает для IMAP4rev1 с включённым UTF8=ACCEPT как
+`message/rfc822` representation, так и RFC 3501 representation; текущий ответ
+`MESSAGE/GLOBAL` остаётся валидным. См.
 [RFC 6532 §3.5](https://www.rfc-editor.org/rfc/rfc6532.html#section-3.5),
 [§3.7](https://www.rfc-editor.org/rfc/rfc6532.html#section-3.7)
 и [RFC 9051 §9](https://www.rfc-editor.org/rfc/rfc9051.html#section-9).
