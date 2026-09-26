@@ -28,6 +28,17 @@ def fetch_payload(records: list[object]) -> bytes:
     return b" ".join(values)
 
 
+def fetch_message_payload(records: list[object]) -> bytes:
+    """Извлекает исходное RFC822 literal без позиционного доступа."""
+    for record in records:
+        match record:
+            case (_metadata, payload) if isinstance(payload, bytes):
+                return payload
+            case _:
+                continue
+    raise AssertionError(f"RFC822 FETCH response lacks literal: {records!r}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="127.0.0.1")
@@ -50,6 +61,7 @@ def main() -> None:
         b"--meta-boundary\r\n"
         b"Content-Type: application/octet-stream\r\n"
         b'Content-ID: <"attachment@one"@[IPv6:2001:db8::1]>\r\n'
+        b"X!#$%&'*+-.^_`|~: extension-field-value\r\n"
         b"Content-Description: attached file\r\n"
         b"Content-MD5: J3e4tEgUAss8veXagrS5IA==\r\n"
         b"Content-Disposition: attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.bin\r\n"
@@ -76,6 +88,12 @@ def main() -> None:
         extended = fetch_payload(
             require_ok(client.fetch("1", "(BODYSTRUCTURE)"), "BODYSTRUCTURE FETCH")
         )
+        retained_message = fetch_message_payload(
+            require_ok(client.fetch("1", "(RFC822)"), "RFC822 FETCH")
+        )
+
+    if retained_message != raw:
+        raise AssertionError("RFC 5322 extension field changed during MIME parsing")
 
     for forbidden in (
         b'"attachment"',

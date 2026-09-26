@@ -5630,6 +5630,13 @@ ManageSieve до заявленного набора современных фо
 - Unit regressions покрывают punctuation и отрицательные octets. Socket
   acceptance не запускался; подтверждён только parser-level результат.
 
+### 2026-09-26: G17 RFC 5322 extension field-name wire checkpoint
+
+- Независимый IMAP STARTTLS клиент выполнил APPEND с легальным punctuation
+  extension field, дождался BODYSTRUCTURE parsing и сравнил RFC822 FETCH с
+  исходным буфером. Все байты совпали. Acceptance T88; Litterkeep app не
+  проверялось.
+
 ### 2026-09-26: G17 RFC 5322 obsolete Content-ID CFWS checkpoint
 
 - MIME `Content-ID` теперь принимает RFC 5322 `obs-id-left`/`obs-id-right`
