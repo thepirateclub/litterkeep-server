@@ -16,9 +16,12 @@ Current subgoal: G17
   strict Clippy, 664 library + 1 binary test, doc-tests; 1 внешний Unicode
   corpus test ignored.
 - Временный test image `litterkeep-pop3-cr-preservation-test:work` удалён;
-  созданный для acceptance контейнер не требовался. Ранее работавший
-  `litterkeep-nfc-legacy-compat` и его `./data` mount не затронуты.
-  Изменение не заявляет поддержку malformed bare-CR RFC822 клиентами.
+  созданный для acceptance контейнер не требовался. Заодно выявленный после
+  прошлого acceptance временный `litterkeep-nfc-legacy-compat` остановлен и
+  удалён вместе с его двумя проверенными test/runtime images; каталог
+  `./data/g23-nfc-legacy-folder-list-wire` сохранён. Посторонний `devana-v2`
+  контейнер не затронут. Изменение не заявляет поддержку malformed bare-CR
+  RFC822 клиентами.
 
 ### 2026-09-26: G17 RFC 5322 WSP in MIME structured values, PASS
 
