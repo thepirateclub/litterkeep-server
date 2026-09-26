@@ -47,12 +47,8 @@ pub struct Disposition {
 pub fn parse(value: &str) -> Result<Disposition, &'static str> {
     let normalized = super::structured_comments::remove(value)?;
     let mut sections = normalized.splitn(2, ';');
-    let kind = DispositionKind::parse(
-        sections
-            .next()
-            .ok_or("missing MIME disposition token")?
-            .trim(),
-    )?;
+    let raw_kind = sections.next().ok_or("missing MIME disposition token")?;
+    let kind = DispositionKind::parse(super::wsp::trim(raw_kind))?;
     let parameters = match sections.next() {
         Some(tail) => {
             let parsed = parameters::parse(&format!("application/x;{tail}"))?;

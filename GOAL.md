@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G17 RFC 5322 WSP in MIME structured values, PARTIAL
+
+- MIME media type, параметр и Content-Disposition больше не используют
+  Unicode-aware `trim()`: внешняя обрезка принимает только RFC WSP (SP/HTAB).
+  NBSP остаётся допустимым значением внутри quoted-string и не исчезает.
+- Новая regression сначала упала на NBSP перед `text/plain`; после изменения
+  MIME parameter tests (19), disposition tests (5) и полный Windows library
+  suite (569 + 1 binary test) прошли. `cargo fmt --all -- --check`, strict
+  Clippy и `git diff --check` прошли. Все изменённые Rust-файлы меньше 300
+  строк.
+- Linux Docker PASS: Rust 1.97 release build, strict Clippy, 620 library + 1
+  binary test и doc-tests. Созданный test image удалён; отдельная проверка
+  подтвердила отсутствие image и container с именем этапа. Данные этапа
+  зарезервированы в `./data/g17-mime-ascii-wsp`. Независимый IMAP network
+  acceptance NOT RUN, поэтому этап остаётся PARTIAL. Следующий шаг: выполнить
+  независимую MIME wire regression и зафиксировать этап отдельным git-коммитом.
+
 ### 2026-09-26: G17 RFC 2045 Content-Transfer-Encoding token checkpoint
 
 - Устранено принятие невалидного CTE `base64` с Unicode NBSP: parser теперь

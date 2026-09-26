@@ -251,3 +251,26 @@ fn rejects_unterminated_comment_but_preserves_quoted_parentheses() {
         Some("x(y)")
     );
 }
+
+/// RFC 5322 WSP содержит только SP и HTAB, не все Unicode-пробелы.
+#[test]
+fn rejects_unicode_whitespace_outside_mime_parameter_values() {
+    for value in [
+        "\u{00a0}text/plain",
+        "text/plain;\u{00a0}name=value",
+        "text/plain; name=\u{00a0}value",
+    ] {
+        assert!(parameters::parse(value).is_err(), "accepted {value:?}");
+    }
+}
+
+#[test]
+fn trims_ascii_wsp_but_preserves_unicode_whitespace_inside_quotes() {
+    let parsed = parameters::parse(" \ttext/plain\t; \tname\t=\t\"\u{00a0}\" \t")
+        .expect("RFC WSP and quoted Unicode value");
+
+    assert_eq!(
+        parsed.parameters.get("name").map(String::as_str),
+        Some("\u{00a0}")
+    );
+}

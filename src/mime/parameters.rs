@@ -57,12 +57,14 @@ pub fn parse(input: &str) -> Result<StructuredValue, &'static str> {
     let normalized = super::structured_comments::remove(input)?;
     let sections = split_sections(&normalized)?;
     let mut iterator = sections.into_iter();
-    let media_type = parse_media_type(iterator.next().ok_or("missing MIME value")?.trim())?;
+    let media_type = parse_media_type(super::wsp::trim(
+        iterator.next().ok_or("missing MIME value")?,
+    ))?;
     let mut grouped: HashMap<String, Vec<super::parameter_join::Segment>> = HashMap::new();
     for section in iterator {
         let (raw_name, raw_value) = section.split_once('=').ok_or("parameter without value")?;
-        let (base, index, encoded) = parameter_name(raw_name.trim())?;
-        let value = unquote(raw_value.trim())?;
+        let (base, index, encoded) = parameter_name(super::wsp::trim(raw_name))?;
+        let value = unquote(super::wsp::trim(raw_value))?;
         grouped
             .entry(base)
             .or_default()
@@ -190,10 +192,10 @@ fn unquote(value: &str) -> Result<String, &'static str> {
 fn parse_media_type(value: &str) -> Result<MediaType, &'static str> {
     let normalized = value.to_ascii_lowercase();
     let mut sections = normalized.split('/');
-    let Some(kind) = sections.next().map(str::trim) else {
+    let Some(kind) = sections.next().map(super::wsp::trim) else {
         return Err("missing MIME type");
     };
-    let Some(subtype) = sections.next().map(str::trim) else {
+    let Some(subtype) = sections.next().map(super::wsp::trim) else {
         return Err("missing MIME subtype");
     };
     if sections.next().is_some() || !media_token(kind) || !media_token(subtype) {

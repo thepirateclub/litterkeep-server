@@ -52,6 +52,8 @@ pub mod transfer;
 pub mod tree;
 #[path = "mime/uri_reference.rs"]
 pub(crate) mod uri_reference;
+#[path = "mime/wsp.rs"]
+pub(crate) mod wsp;
 
 pub fn headers(raw: &[u8]) -> Result<(BTreeMap<String, String>, &[u8]), &'static str> {
     let parsed = header_block::parse(raw)?;

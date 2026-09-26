@@ -40,3 +40,8 @@ fn extension_dispositions_remain_available_without_string_classification() {
         DispositionKind::Extension("x-company-review".to_owned())
     );
 }
+
+#[test]
+fn rejects_unicode_whitespace_around_disposition_token() {
+    assert!(parse("\u{00a0}attachment").is_err());
+}

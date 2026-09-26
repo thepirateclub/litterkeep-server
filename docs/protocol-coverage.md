@@ -200,6 +200,14 @@ RFC 2231 UTF-8 filename, содержащим lowercase и uppercase escapes, и
 UTF-8 в quoted MIME-параметре `name`; BODYSTRUCTURE вернул оба Unicode значения
 и подтвердил сохранность исходных RFC822 октетов. Прямая форма использует
 RFC 6532 quoted-string extension и не заявляет SMTPUTF8 transfer.
+Внешняя whitespace-обрезка structured MIME значений ограничена ASCII SP/HTAB:
+Unicode NBSP перед media type, параметром, unquoted value и disposition token
+отвергается, а NBSP внутри quoted parameter сохраняется как данные. Регрессия
+до фикса воспроизводилась на NBSP перед `text/plain`; после фикса прошли
+параметрические и disposition unit tests, Windows 569 library + 1 binary test,
+fmt и strict Clippy, Linux Docker release build, strict Clippy, 620 library +
+1 binary test и doc-tests. Независимый сетевой acceptance для этой правки не
+выполнялся.
 `Content-Language` сохраняет
 один или несколько структурно корректных BCP 47 tags; `Content-Location`
 сохраняется как единственный непустой unfolded URI-reference по синтаксису
