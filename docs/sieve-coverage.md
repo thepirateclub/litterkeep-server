@@ -157,8 +157,10 @@ quoted-string и проверяет `type/subtype` как две непусты�
 сохраняются как typed `Other`; пустые, содержащие whitespace/tspecials и
 лишний slash значения отвергаются. Unit tests покрывают comments вокруг
 разделителя и внутри quoted parameter, nested/unterminated comments и
-некорректные token-ы. Эти новые проверки пока unit-only, без независимого
-сетевого MIME клиента.
+некорректные token-ы. Независимый TLS ManageSieve CHECKSCRIPT теперь также
+принимает `multipart (outer(inner))/related` с quoted boundary, содержащим
+скобки, и отвергает subtype с запрещённым tspecial. Остальные границы из
+unit-набора ещё не получили отдельного wire case.
 
 Для параметров Content-Type/Content-Disposition проверяются RFC 2045 §5.1
 attribute=value, token/quoted-string и список tspecials. RFC 2231 attribute

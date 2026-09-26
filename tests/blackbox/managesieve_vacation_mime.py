@@ -56,10 +56,11 @@ def check_script(client: socket.socket, script: bytes, accepted: bool) -> None:
 
 
 def vacation_script(entity: bytes) -> bytes:
-    """Встраивает MIME entity в Sieve quoted-string с сохранением CRLF."""
+    """Экранирует Sieve string и сохраняет исходные CRLF MIME entity."""
     prefix = b'require "vacation"; vacation :mime "'
     suffix = b'";'
-    return prefix + entity + suffix
+    escaped = entity.replace(b"\\", b"\\\\").replace(b'"', b'\\"')
+    return prefix + escaped + suffix
 
 
 def run(options: argparse.Namespace) -> None:
@@ -84,6 +85,23 @@ def run(options: argparse.Namespace) -> None:
                 client,
                 vacation_script(b"Content-Type: text/plain\r\n\r\nAway\r\n"),
                 True,
+            )
+            check_script(
+                client,
+                vacation_script(
+                    b"Content-Type: multipart (outer(inner))/related; boundary=\"x(y)\"\r\n"
+                    b"Content-Transfer-Encoding: 7bit\r\n\r\n"
+                    b"--x(y)\r\nContent-Type: text/plain\r\n\r\nAway\r\n--x(y)--\r\n"
+                ),
+                True,
+            )
+            check_script(
+                client,
+                vacation_script(
+                    b"Content-Type: text/pl?ain\r\n"
+                    b"Content-Transfer-Encoding: 7bit\r\n\r\nAway\r\n"
+                ),
+                False,
             )
             check_script(
                 client,

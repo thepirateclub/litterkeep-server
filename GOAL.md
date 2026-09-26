@@ -6494,3 +6494,22 @@ ManageSieve до заявленного набора современных фо
 - Fixture сохранён в `./data/g25-pop3-mime-unverifiable`; созданные container и
   образы удалены, отсутствие проверено. Несвязанный `lower-layer-v1` оставлен
   запущенным. Полный RFC 6856 профиль и общий G17 остаются ACTIVE.
+
+### 2026-09-26: G17 ManageSieve MIME media-type comment wire checkpoint, scoped PASS
+
+- Ранее вложенные RFC comments в `Content-Type` и punctuation в MIME `type/subtype`
+  были покрыты только unit tests для общего structured-value parser и Sieve
+  `:mime` validator.
+- Независимый STARTTLS ManageSieve `CHECKSCRIPT` теперь принимает корректный
+  `multipart (outer(inner))/related` с quoted boundary `x(y)` и multipart body,
+  а malformed subtype с запрещённым `?` отклоняет. Остальные structured-value
+  vectors не объявляются проверенными по wire.
+- Обнаруженная ошибка была только в acceptance helper: MIME quotes вставлялись
+  внутрь Sieve quoted-string без escaping. Helper теперь экранирует backslash и
+  DQUOTE, сохраняя исходные CRLF. После фикса весь
+  `managesieve_vacation_mime.py` прошёл на Linux Rust 1.97 runtime; Python
+  compile и ограничение 300 строк подтверждены.
+- Fixture сохранён в `./data/g26-sieve-mime-type-comments`; созданные runtime
+  container и image удалены и отсутствие проверено. Несвязанный `lower-layer-v1`
+  не затрагивался. Litterkeep client и полный Sieve/MIME profile не проверялись;
+  G17 остаётся ACTIVE.
