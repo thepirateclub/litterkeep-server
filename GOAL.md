@@ -6248,3 +6248,27 @@ ManageSieve до заявленного набора современных фо
 - T113 закрывает только эту RFC 9755 SHOULD границу. Остальные SEARCH criteria,
   Unicode assigned-version policy, response paths, capability readiness и
   Litterkeep interoperability остаются непроверенными; G17 остаётся ACTIVE.
+
+### 2026-09-26: G17 RFC 9755 Unicode mailbox mutation and transfer acceptance, PASS
+
+- Независимый STARTTLS `imaplib` acceptance после ENABLE провёл письмо с
+  исходными UTF-8 headers через Unicode mailbox: CREATE, SUBSCRIBE, COPY,
+  UNSUBSCRIBE, MOVE, RENAME и DELETE. STATUS/LSUB проверили mailbox и
+  subscription state; после COPY и MOVE FETCH RFC822 совпал с исходными 55
+  octets, включая NUL в body. `UNSELECT` завершил выбор до RENAME/DELETE.
+- Проверка воспроизводилась командой
+  `python tests/blackbox/imap_utf8_accept_append.py --port 32143 --ca data/pki/ca.pem --credentials data/g19-rfc9755-mailbox-ops-retry/test-accounts.tsv`.
+  Первый запуск теста обнаружил только harness mistake: исходный mailbox был
+  выбран readonly, поэтому сервер правильно ответил `[READ-ONLY] COPY denied`.
+  Тест исправлен явным writable SELECT и полностью повторён на новом каталоге.
+- Linux Docker runtime image `litterkeep-rfc9755-ops:work` успешно прошёл; все
+  созданные для этапа container/image остановлены/удалены и отсутствие
+  подтверждено. Данные сохранены в `./data/g19-rfc9755-mailbox-ops-retry`.
+  `python -m py_compile`, `git diff --check` прошли; acceptance script 182
+  строк, Rust production code не менялся.
+- Обновлены `docs/imap-profile.md` и `docs/protocol-coverage.md`, включая
+  исправление устаревшего утверждения, что reactor ещё не включает ENABLE
+  session mode. RFC 5198 assigned-version/NFC policy, остальные UTF8 response
+  paths, Litterkeep interoperability и полная RFC 9755 CAPABILITY readiness
+  не проверены; T114 расширяет только перечисленные команды, профиль остаётся
+  PARTIAL, G17 ACTIVE.

@@ -178,14 +178,20 @@ capability до/после TLS и отказ plaintext authentication. Друг�
 IMAP quoted-pair принимает только escaped `"` и `\\` по RFC 3501; иной
 символ после обратной косой черты возвращает tagged BAD, сохраняя командный
 тег. Независимый STARTTLS `imaplib` тест подтвердил BAD и успешный NOOP после
-лексической ошибки. UTF8=ACCEPT и IMAP4rev2 не рекламируются; legacy quoted-string
-отклоняет high-bit UTF-8 без negotiation. Отдельный synchronizing SEARCH-literal
+лексической ошибки. UTF8=ACCEPT пока не рекламируется, но ENABLE активирует
+connection-local mode: legacy quoted-string отклоняет high-bit UTF-8 до
+negotiation, а quoted mailbox names разрешаются после неё. Независимый STARTTLS
+acceptance проверил positive и negative переходы, включая malformed UTF-8,
+C0/C1 controls и ASCII-only atom. Отдельный synchronizing SEARCH-literal
 path сохраняет проверенный UTF-8 как значение токена. Независимый STARTTLS
 acceptance проверил tagged BAD для UTF-8 quoted LOGIN, восстановление сессии и
-UTF-8 BODY literal; это не реализует UTF8=ACCEPT. Отдельный mode-aware lexer
-helper теперь unit-проверяет high-bit quoted-string без расширения atom, но
-reactor не включает этот режим и capability остаётся скрытой. Актуальный audit
-RFC 9755 и проверяемых недостающих обязательств приведён в `imap-profile.md`.
+UTF-8 BODY literal. RFC 9755 explicit SEARCH CHARSET получает BAD; wire-проверены
+обычный и смешанный регистр keyword, после чего implicit UTF-8 SEARCH работает.
+UTF-8 mailbox CREATE/SUBSCRIBE/UNSUBSCRIBE/LIST/LSUB/STATUS/SELECT, APPEND,
+COPY/MOVE/RENAME/DELETE прошли независимую STARTTLS проверку; после COPY/MOVE
+RFC822 bytes совпадают точно. CAPABILITY всё ещё скрывает UTF8=ACCEPT до полного
+профиля. Актуальный audit RFC 9755 и оставшиеся обязательства приведён в
+`imap-profile.md`; это не объявляет IMAP4rev2.
 
 RFC 7889 APPENDLIMIT объявляет единый предел `26214400` octets, равный
 действующему `MAX_MESSAGE_SIZE`. STATUS и LIST RETURN STATUS возвращают

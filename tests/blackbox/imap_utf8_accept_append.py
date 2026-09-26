@@ -54,6 +54,27 @@ def require_bad_explicit_charset(client: imaplib.IMAP4, criteria: bytes) -> None
     client.noop()
 
 
+def require_ok_command(client: imaplib.IMAP4, verb: str, *arguments: bytes) -> list[bytes]:
+    """Выполняет сырую mailbox-команду и требует tagged OK."""
+    tag = client._command(verb, *arguments)
+    status, response = client._get_tagged_response(tag)
+    if status != "OK":
+        raise AssertionError(f"{verb} failed: {status!r} {response!r}")
+    return response
+
+
+def require_mailbox_count(client: imaplib.IMAP4, mailbox: str, expected: bytes) -> None:
+    """Проверяет MESSAGES для Unicode mailbox через wire STATUS."""
+    status, response = client.status(mailbox, "(MESSAGES)")
+    if status != "OK" or not any(expected in line for line in response):
+        raise AssertionError(f"{mailbox!r} count mismatch: {status!r} {response!r}")
+
+
+def quoted_mailbox(mailbox: str) -> bytes:
+    """Кодирует международное имя как IMAP quoted-string в UTF-8."""
+    return f'"{mailbox}"'.encode("utf-8")
+
+
 def append_utf8_header(
     client: imaplib.IMAP4,
     mailbox: str,
@@ -145,10 +166,45 @@ def main() -> None:
     )
     if status != "OK" or stored != message:
         raise AssertionError("accepted UTF-8 APPEND bytes changed")
+
+    status, counts = client.select("旅行", readonly=False)
+    if status != "OK" or counts != [b"1"]:
+        raise AssertionError(f"writable UTF-8 SELECT failed: {status!r} {counts!r}")
+    require_ok_command(client, "CREATE", quoted_mailbox("保存"))
+    require_ok_command(client, "SUBSCRIBE", quoted_mailbox("保存"))
+    require_ok_command(client, "COPY", b"1", quoted_mailbox("保存"))
+    status, subscribed = client.lsub("", "*")
+    if status != "OK" or not any('"保存"'.encode("utf-8") in line for line in subscribed):
+        raise AssertionError(f"UTF-8 LSUB missed copied mailbox: {subscribed!r}")
+    require_ok_command(client, "UNSUBSCRIBE", quoted_mailbox("保存"))
+    require_ok_command(client, "CREATE", quoted_mailbox("移動"))
+    status, counts = client.select("保存", readonly=False)
+    if status != "OK" or counts != [b"1"]:
+        raise AssertionError(f"UTF-8 COPY destination mismatch: {status!r} {counts!r}")
+    require_ok_command(client, "MOVE", b"1", quoted_mailbox("移動"))
+    require_mailbox_count(client, "保存", b"MESSAGES 0")
+    require_mailbox_count(client, "移動", b"MESSAGES 1")
+    status, counts = client.select("移動", readonly=True)
+    if status != "OK" or counts != [b"1"]:
+        raise AssertionError(f"UTF-8 MOVE destination mismatch: {status!r} {counts!r}")
+    status, moved = client.fetch("1", "(RFC822)")
+    moved_message = next(
+        value
+        for item in moved
+        if isinstance(item, tuple)
+        for value in item
+        if isinstance(value, bytes) and value.startswith(b"From:")
+    )
+    if status != "OK" or moved_message != message:
+        raise AssertionError("UTF-8 COPY/MOVE changed the message bytes")
+    require_ok_command(client, "UNSELECT")
+    require_ok_command(client, "RENAME", quoted_mailbox("移動"), quoted_mailbox("保管"))
+    require_mailbox_count(client, "保管", b"MESSAGES 1")
+    require_ok_command(client, "DELETE", quoted_mailbox("保管"))
     client.logout()
     print(
-        "RFC 9755 mailbox and APPEND transition passed: "
-        f"CREATE/LIST/LSUB/STATUS/SELECT, octets={len(message)}"
+        "RFC 9755 mailbox, SEARCH, copy/move and APPEND transition passed: "
+        f"CREATE/RENAME/DELETE/COPY/MOVE, octets={len(message)}"
     )
 
 
