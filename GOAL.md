@@ -5637,6 +5637,14 @@ ManageSieve до заявленного набора современных фо
   исходным буфером. Все байты совпали. Acceptance T88; Litterkeep app не
   проверялось.
 
+### 2026-09-26: G17 SMTPUTF8 coverage correction
+
+- T84 уточнён по сохранённым forced-extension Linux runtime evidence: Unicode
+  local-part, account persistence и MIME bytes были проверены end-to-end, но
+  этот клиент намеренно использовал SMTPUTF8, отсутствовавший в EHLO. Статус
+  остаётся PARTIAL: сервер не заявляет полную RFC 6531 interoperability, в
+  частности не поддерживает IDNA U-label domains.
+
 ### 2026-09-26: G17 RFC 5322 obsolete Content-ID CFWS checkpoint
 
 - MIME `Content-ID` теперь принимает RFC 5322 `obs-id-left`/`obs-id-right`
