@@ -124,8 +124,8 @@ fn parse_list(value: &str, entries: &mut Vec<AddressEntry>) -> Result<(), &'stat
             }
             false => match (split_optional(item, ':')?, split_optional(item, ';')?) {
                 ((group_name, Some(members)), _) => {
-                    let group_name =
-                        decode_name(group_name.trim())?.ok_or("empty address group name")?;
+                    let group_name = decode_name(super::wsp::trim(group_name))?
+                        .ok_or("empty address group name")?;
                     entries.push(AddressEntry::GroupStart(group_name));
                     in_group = true;
                     let (member, closing) = split_optional(members, ';')?;
@@ -149,7 +149,7 @@ fn parse_list(value: &str, entries: &mut Vec<AddressEntry>) -> Result<(), &'stat
 }
 
 fn append_mailbox(value: &str, entries: &mut Vec<AddressEntry>) -> Result<(), &'static str> {
-    let value = value.trim();
+    let value = super::wsp::trim(value);
     match value.is_empty() {
         true => Ok(()),
         false => {
@@ -163,19 +163,19 @@ fn parse_mailbox(value: &str) -> Result<Address, &'static str> {
     let value = strip_comments(value)?;
     let (name, addr_spec) = match (value.find('<'), value.rfind('>')) {
         (Some(open), Some(close)) => {
-            let name = value.get(..open).ok_or("invalid display name")?.trim();
+            let name = super::wsp::trim(value.get(..open).ok_or("invalid display name")?);
             let address = value
                 .get(open.saturating_add(1)..close)
                 .ok_or("invalid angle address")?;
             (decode_name(name)?, strip_source_route(address)?)
         }
-        (None, None) => (None, value.trim()),
+        (None, None) => (None, super::wsp::trim(&value)),
         _ => return Err("unbalanced angle address"),
     };
     let addr_spec = strip_comments(addr_spec)?;
     let (mailbox, host) = split_addr_spec(&addr_spec)?;
-    let mailbox = normalize_dot_cfws(mailbox.trim());
-    let host = normalize_dot_cfws(host.trim());
+    let mailbox = normalize_dot_cfws(super::wsp::trim(mailbox));
+    let host = normalize_dot_cfws(super::wsp::trim(host));
     if mailbox.is_empty() {
         return Err("address mailbox is empty");
     }
@@ -204,7 +204,7 @@ fn address_terms(address: &Address) -> Vec<String> {
 
 fn decode_name(value: &str) -> Result<Option<String>, &'static str> {
     let value = strip_comments(value)?;
-    let unquoted = value.trim();
+    let unquoted = super::wsp::trim(&value);
     if unquoted.is_empty() {
         return Ok(None);
     }
@@ -239,14 +239,14 @@ fn normalize_phrase(value: &str) -> String {
     let mut phrase = String::with_capacity(value.len());
     let mut pending_space = false;
     for character in value.chars() {
-        match character.is_whitespace() {
-            true if !phrase.is_empty() => pending_space = true,
-            true => {}
-            false => {
+        match (character, phrase.is_empty()) {
+            (' ' | '\t', false) => pending_space = true,
+            (' ' | '\t', true) => {}
+            (data, _) => {
                 if pending_space {
                     phrase.push(' ');
                 }
-                phrase.push(character);
+                phrase.push(data);
                 pending_space = false;
             }
         }

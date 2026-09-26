@@ -69,12 +69,12 @@ def main() -> None:
         'Quoted Local <"a@b"@example.test>, '
         "Legacy <@old.example,@older.example,:route-target@example.test>, "
         "Old Dots <first (local) . (separator) last @ example . test>; "
-        "(group closed),\r\n"
+        "(group closed), Unicode Alice\u00a0North <unicode@example.test>\r\n"
         "Cc: Undisclosed recipients:;\r\n"
         "Bcc: Hidden Team:hidden@example.test;\r\n"
         "Subject: address group fixture\r\n\r\nbody\r\n"
     )
-    require(client.append(mailbox, None, None, message.encode("ascii")), "APPEND")
+    require(client.append(mailbox, None, None, message.encode("utf-8")), "APPEND")
     require(client.select(mailbox), "SELECT")
     envelope = require(client.fetch("1", "(ENVELOPE)"), "FETCH ENVELOPE")
     wire = response_bytes(envelope)
@@ -90,6 +90,9 @@ def main() -> None:
         b'("Quoted Local" NIL "\\"a@b\\"" "example.test")',
         b'("Legacy" NIL "route-target" "example.test")',
         b'("Old Dots" NIL "first.last" "example.test")',
+        '("Unicode Alice\u00a0North" NIL "unicode" "example.test")'.encode(
+            "utf-8"
+        ),
         b'(NIL NIL NIL NIL)',
         b'(NIL NIL "Undisclosed recipients" NIL)',
         b'(NIL NIL "Hidden Team" NIL)',

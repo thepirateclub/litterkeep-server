@@ -122,7 +122,7 @@ fn validate_encoded_text(value: &str) -> Result<(), &'static str> {
 pub fn decode_phrase(value: &str) -> String {
     let mut output = String::with_capacity(value.len());
     let mut previous_encoded = false;
-    for word in value.split_whitespace() {
+    for word in value.split([' ', '\t']).filter(|word| !word.is_empty()) {
         let decoded = decode_in_context(word, WordContext::Phrase);
         match decoded {
             Ok(decoded) => {

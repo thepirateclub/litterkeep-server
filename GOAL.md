@@ -5949,3 +5949,21 @@ ManageSieve до заявленного набора современных фо
   удалены и их отсутствие подтверждено; аккаунты и PKI сохранены в
   `./data/g17-mime-ascii-wsp`. G17 остаётся RUNNING: полная MIME-грамматика и
   остальные протоколы ещё не закрыты.
+
+### 2026-09-26: G17 RFC 6532 UTF-8 phrase whitespace checkpoint
+
+- RFC 2047 phrase tokenization и RFC 5322 address display-name normalization
+  больше не классифицируют Unicode NBSP как CFWS: разделителями являются
+  только SP/HTAB, а NBSP сохраняется как UTF-8 phrase data.
+- Две регрессии сначала воспроизвели изменение `Alice North` на `Alice North`.
+  После исправления Windows полный `cargo test --locked` прошёл: 574 library,
+  1 binary и doc-tests; fmt и strict Clippy прошли. Linux Docker release build,
+  strict Clippy и test gate прошли: 625 library, 1 binary и doc-tests.
+  Независимый STARTTLS `imaplib` APPEND/FETCH ENVELOPE подтвердил точное UTF-8
+  NBSP display-name. Acceptance T101; Litterkeep app не проверялось.
+- Контейнер `litterkeep-rfc6532-phrase-wsp` и образы
+  `litterkeep-rfc6532-phrase-wsp-runtime:20260926`,
+  `litterkeep-rfc6532-phrase-wsp-check:20260926` удалены и их отсутствие
+  проверено. Аккаунты и PKI сохранены в `./data/g17-rfc6532-phrase-wsp`.
+  G17 остаётся RUNNING: остальные internationalized address forms, MIME
+  grammar и протокольные пробелы требуют отдельных проверенных этапов.

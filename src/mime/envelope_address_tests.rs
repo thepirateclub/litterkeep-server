@@ -108,6 +108,18 @@ fn preserves_parentheses_inside_quoted_display_name() {
     );
 }
 
+/// RFC 6532 non-ASCII whitespace-like characters in a phrase remain text data.
+#[test]
+fn preserves_unicode_whitespace_inside_display_name() {
+    let field = to_field("Alice\u{00a0}North <alice@example.test>");
+    let parsed = parse(vec![&field]).expect("UTF-8 display name");
+
+    assert_eq!(
+        encode_list(&parsed).expect("ENVELOPE display name"),
+        "((\"Alice\u{00a0}North\" NIL \"alice\" \"example.test\"))"
+    );
+}
+
 /// Снимает quoted-pair из имени до сериализации ENVELOPE.
 #[test]
 fn decodes_quoted_pairs_in_display_name() {

@@ -98,6 +98,11 @@ fn decodes_adjacent_words_and_preserves_plain_prefix() {
 }
 
 #[test]
+fn treats_unicode_whitespace_as_phrase_data_not_encoded_word_separator() {
+    assert_eq!(decode_phrase("Alice\u{00a0}North"), "Alice\u{00a0}North");
+}
+
+#[test]
 fn header_recognizes_only_complete_lws_delimited_words() {
     let word = "=?UTF-8?Q?caf=C3=A9?=";
     let embedded = format!("subject{word}tail");

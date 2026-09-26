@@ -443,6 +443,11 @@ phrase. Пробел между соседними encoded-word не вывод�
 контексте Q encoding ограничен ASCII letters/digits и `!*+-/=_`; encoded
 punctuation допустим, а сырой запрещённый знак оставляет слово видимым.
 Границы allowlist проверены unit-only, не независимым клиентом.
+CFWS и разделители phrase обрабатываются только как ASCII SP/HTAB: RFC 6532
+не-ASCII символы, включая NBSP, в display-name не схлопываются в обычный пробел.
+Независимый STARTTLS ENVELOPE acceptance подтвердил точное сохранение NBSP в
+UTF-8 display-name; полный набор интернационализированных address forms ещё не
+покрыт.
 Для obsolete address-list проверены leading/repeated/trailing null members:
 они не формируют ENVELOPE addresses и не сдвигают порядок двух mailbox.
 `RETURN (SAVE)` сохраняет UIDs в состоянии одной сессии, а `$` SEARCH criterion
