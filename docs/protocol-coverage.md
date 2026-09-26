@@ -220,6 +220,9 @@ continuation; non-synchronizing `{n+}` не вызывает continuation и о�
 и APPEND, включая byte-exact APPEND round-trip. При превышении 4096 octets
 сервер закрывает соединение с `BYE [TOOBIG]`, не выделяя недопустимый payload.
 LITERAL+ и MULTIAPPEND не рекламируются.
+Для MULTIAPPEND подготовлена только внутренняя атомарная Store-транзакция с
+отдельными blob ID и общим commit ID; APPEND parser/reactor и UID-set response
+ещё не подключены. Это не сетевое покрытие RFC 3502.
 
 RFC 7889 APPENDLIMIT объявляет единый предел `26214400` octets, равный
 действующему `MAX_MESSAGE_SIZE`. STATUS и LIST RETURN STATUS возвращают

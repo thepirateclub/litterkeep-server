@@ -132,7 +132,7 @@ impl Store {
             }
         }
     }
-    fn check_and_poison(&mut self, stage: AppendStage) -> io::Result<()> {
+    pub(super) fn check_and_poison(&mut self, stage: AppendStage) -> io::Result<()> {
         match self.check_failpoint(stage) {
             Ok(()) => Ok(()),
             Err(error) => {
@@ -212,7 +212,7 @@ impl Store {
         durability::sync_directory(&self.root.join("journal"))?;
         self.check_failpoint(AppendStage::CommitDirectorySynced)
     }
-    fn publish_links(
+    pub(super) fn publish_links(
         &mut self,
         transaction_id: u64,
         links: Vec<(String, model::Record)>,

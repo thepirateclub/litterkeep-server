@@ -6734,3 +6734,20 @@ ManageSieve до заявленного набора современных фо
   контейнер и test image удалены, отсутствие проверено. Litterkeep-приложение не тестировалось; это не
   подтверждает поддержку literals в остальных IMAP production или готовность
   полного RFC 9051 профиля. G17 остаётся ACTIVE.
+
+### 2026-09-27: G17 MULTIAPPEND atomic Store groundwork, PARTIAL
+
+- RFC 3502 требует передавать одно или более сообщений как части APPEND;
+  неуспешная пакетная вставка не должна оставлять частичный набор видимым.
+  Реализован внутренний Store primitive: сообщения получают упорядоченные UID
+  и отдельные immutable blob IDs, а mailbox frames используют один durable
+  commit transaction. После reopen либо виден весь batch, либо ни одного его
+  сообщения.
+- Windows Rust 1.97.1: 611 library tests и 1 CLI test прошли, fmt и strict
+  Clippy прошли. Linux Rust 1.97 Docker: strict Clippy, 676 library tests,
+  1 CLI test и doc-tests прошли; один внешний Unicode corpus test ignored.
+  Unit failure injection после первой mailbox frame подтверждает пустую видимую
+  папку после recovery. Пустое сообщение отклоняется как APPEND cancellation.
+- Это только storage groundwork: parser, IMAP session framing, APPENDUID UID-set
+  serialization и independent wire acceptance ещё не сделаны. MULTIAPPEND не
+  объявляется в CAPABILITY; общий G17 остаётся ACTIVE.

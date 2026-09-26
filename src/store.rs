@@ -55,6 +55,11 @@ mod mailbox_state;
 mod model;
 #[path = "store/move.rs"]
 mod move_messages;
+#[path = "store/multiappend.rs"]
+mod multiappend;
+#[cfg(test)]
+#[path = "store/multiappend_tests.rs"]
+mod multiappend_tests;
 #[path = "store/open.rs"]
 mod open;
 #[path = "store/outbound_access.rs"]
