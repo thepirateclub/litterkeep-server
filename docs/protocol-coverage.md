@@ -260,6 +260,10 @@ MIME Base64 CTE по RFC 2045 §6.8 игнорирует октеты вне Bas
 покрывают оба профиля. Независимый SMTP STARTTLS -> IMAP STARTTLS клиент
 доставляет multipart с `!#` внутри Base64 body и сверяет точные исходные octets
 через `BINARY.PEEK`; encoded-word decoder этим сценарием не затрагивается.
+Общий MIME header-block parser удаляет CRLF только у реальных строк заголовка,
+сворачивает continuation с WSP и отвергает отдельный CR внутри обычной или
+folded строки. RFC 5322 folding требует CRLF перед WSP; регрессии bare CR
+проверены unit-тестами, отдельный socket acceptance не запускался.
 RFC 2045 MIME-поля (кроме Content-Disposition) допускают RFC 822 comments;
 Content-Transfer-Encoding удаляет вложенные comments вне quoted-string перед
 разбором token. Unit-тест и независимый SMTP STARTTLS -> IMAP STARTTLS

@@ -5613,6 +5613,14 @@ ManageSieve до заявленного набора современных фо
   нормализованный Content-ID в BODY и BODYSTRUCTURE. Запись acceptance T87;
   полная MIME и IMAP4rev2 грамматика остаются открытыми.
 
+### 2026-09-26: G17 RFC 5322 bare-CR header checkpoint
+
+- MIME header-block parser теперь отвергает одиночный CR внутри обычной строки
+  поля и folded continuation; корректное CRLF + WSP unfolding сохранено.
+- Unit regressions подтверждают оба отказа и прежнюю проверку CRLF framing.
+  Socket acceptance не запускался, поэтому отмечен только parser-level
+  результат. Полный RFC 5322 и MIME профили остаются открытыми.
+
 ### 2026-09-26: G17 RFC 5322 obsolete Content-ID CFWS checkpoint
 
 - MIME `Content-ID` теперь принимает RFC 5322 `obs-id-left`/`obs-id-right`

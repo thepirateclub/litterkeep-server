@@ -131,6 +131,9 @@ pub fn parse(raw: &[u8]) -> Result<HeaderBlock, &'static str> {
     let mut cursor = 0_usize;
     for line in header_lines.split(|byte| *byte == b'\n') {
         let content = line.strip_suffix(b"\r").ok_or("bare LF in headers")?;
+        if content.contains(&b'\r') {
+            return Err("bare CR in headers");
+        }
         let start = cursor;
         cursor = cursor.saturating_add(line.len()).saturating_add(1);
         match content.first() {
@@ -228,6 +231,12 @@ mod tests {
     fn rejects_bare_lf_and_orphan_continuation() {
         assert!(parse(b"Subject: bad\n\nbody").is_err());
         assert!(parse(b" continuation\r\n\r\nbody").is_err());
+    }
+
+    #[test]
+    fn rejects_bare_cr_inside_field_and_folded_continuation() {
+        assert!(parse(b"Subject: before\rafter\r\n\r\nbody").is_err());
+        assert!(parse(b"Subject: first\r\n folded\rinside\r\n\r\nbody").is_err());
     }
 
     #[test]
