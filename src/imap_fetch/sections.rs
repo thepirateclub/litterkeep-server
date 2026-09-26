@@ -5,7 +5,6 @@ use crate::mime::header_block;
 use crate::mime::parameters::MediaType;
 use crate::mime::tree::{self, Entity};
 use std::borrow::Cow;
-use std::ops::Range;
 
 /// Выбранная section до применения диапазона partial.
 pub(super) struct SelectedSection<'a> {
@@ -37,7 +36,7 @@ fn select_part<'a>(
     mime_headers: bool,
 ) -> Result<SelectedSection<'a>, &'static str> {
     let tree = tree::parse(message)?;
-    let entity = entity_at(&tree, path)?;
+    let entity = part_at(&tree, path)?;
     let range = match mime_headers {
         true => entity.header_range.clone(),
         false => entity.body_range.clone(),
@@ -51,37 +50,40 @@ fn select_part<'a>(
         .map(usize::to_string)
         .collect::<Vec<_>>()
         .join(".");
-    let bytes = message.get(range).ok_or("BODY section range is invalid")?;
-    Ok(selected(
-        &format!("BODY[{numbers}{suffix}]"),
-        Cow::Borrowed(bytes),
-    ))
+    let bytes = match entity.uses_decoded_source() {
+        true => Cow::Owned(
+            entity
+                .source_range(message, range)
+                .ok_or("BODY section range is invalid")?
+                .to_vec(),
+        ),
+        false => Cow::Borrowed(message.get(range).ok_or("BODY section range is invalid")?),
+    };
+    Ok(selected(&format!("BODY[{numbers}{suffix}]"), bytes))
 }
 
 fn select_message_headers<'a>(
     message: &'a [u8],
     path: &[usize],
 ) -> Result<SelectedSection<'a>, &'static str> {
-    let (entity_range, label) = message_entity(message, path, "HEADER")?;
-    let raw = raw_entity(message, entity_range)?;
-    let block = header_block::parse(raw)?;
+    let (raw, label) = message_entity(message, path, "HEADER")?;
+    let block = header_block::parse(&raw)?;
     let bytes = raw
         .get(..block.body_offset)
         .ok_or("HEADER section range is invalid")?;
-    Ok(selected(&label, Cow::Borrowed(bytes)))
+    Ok(selected(&label, Cow::Owned(bytes.to_vec())))
 }
 
 fn select_message_text<'a>(
     message: &'a [u8],
     path: &[usize],
 ) -> Result<SelectedSection<'a>, &'static str> {
-    let (entity_range, label) = message_entity(message, path, "TEXT")?;
-    let raw = raw_entity(message, entity_range)?;
-    let block = header_block::parse(raw)?;
+    let (raw, label) = message_entity(message, path, "TEXT")?;
+    let block = header_block::parse(&raw)?;
     let bytes = raw
         .get(block.body_offset..)
         .ok_or("TEXT section range is invalid")?;
-    Ok(selected(&label, Cow::Borrowed(bytes)))
+    Ok(selected(&label, Cow::Owned(bytes.to_vec())))
 }
 
 fn select_header_fields<'a>(
@@ -94,9 +96,8 @@ fn select_header_fields<'a>(
         true => "HEADER.FIELDS.NOT",
         false => "HEADER.FIELDS",
     };
-    let (entity_range, label) = message_entity(message, path, selector)?;
-    let raw = raw_entity(message, entity_range)?;
-    let block = header_block::parse(raw)?;
+    let (raw, label) = message_entity(message, path, selector)?;
+    let block = header_block::parse(&raw)?;
     let mut bytes = Vec::new();
     for field in &block.fields {
         let matched = names
@@ -119,10 +120,23 @@ fn message_entity(
     message: &[u8],
     path: &[usize],
     selector: &str,
-) -> Result<(Range<usize>, String), &'static str> {
+) -> Result<(Vec<u8>, String), &'static str> {
     let tree = tree::parse(message)?;
-    let entity = entity_at(&tree, path)?;
-    validate_message_path(&tree, path)?;
+    let raw = match path.is_empty() {
+        true => message.to_vec(),
+        false => {
+            let part = part_at(&tree, path)?;
+            match is_message(&part.media_type) {
+                true => part
+                    .children
+                    .first()
+                    .ok_or("encapsulated message is absent")?
+                    .raw_bytes(message)?
+                    .to_vec(),
+                false => return Err("HEADER/TEXT selectors require an encapsulated message"),
+            }
+        }
+    };
     let path_label = path
         .iter()
         .map(usize::to_string)
@@ -132,36 +146,61 @@ fn message_entity(
         true => format!("BODY[{selector}]"),
         false => format!("BODY[{path_label}.{selector}]"),
     };
-    Ok((entity.raw_range.clone(), label))
+    Ok((raw, label))
 }
 
-fn validate_message_path(root: &Entity, path: &[usize]) -> Result<(), &'static str> {
-    let Some((_last, parent_path)) = path.split_last() else {
-        return Ok(());
-    };
-    let parent = entity_at(root, parent_path)?;
-    match &parent.media_type {
-        MediaType::MessageRfc822 | MediaType::MessageGlobal => Ok(()),
-        _ => Err("HEADER/TEXT selectors require an encapsulated message"),
-    }
-}
-
-fn raw_entity(message: &[u8], range: Range<usize>) -> Result<&[u8], &'static str> {
-    message.get(range).ok_or("MIME entity range is invalid")
-}
-
-fn entity_at<'a>(root: &'a Entity, path: &[usize]) -> Result<&'a Entity, &'static str> {
-    let mut current = root;
-    for number in path {
-        let index = number
-            .checked_sub(1)
-            .ok_or("BODY part number starts at one")?;
-        current = current
-            .children
-            .get(index)
-            .ok_or("BODY part does not exist")?;
+/// Преобразует IMAP part-number путь с отдельным уровнем для embedded message.
+fn part_at<'a>(root: &'a Entity, path: &[usize]) -> Result<&'a Entity, &'static str> {
+    let (first, remaining) = path.split_first().ok_or("BODY part number is absent")?;
+    let mut current = numbered_part(root, *first)?;
+    for number in remaining {
+        current = match &current.media_type {
+            MediaType::MultipartMixed
+            | MediaType::MultipartAlternative
+            | MediaType::MultipartRelated
+            | MediaType::MultipartDigest
+            | MediaType::MultipartOther(_) => numbered_part(current, *number)?,
+            MediaType::MessageRfc822 | MediaType::MessageGlobal => {
+                let embedded = current
+                    .children
+                    .first()
+                    .ok_or("encapsulated message is absent")?;
+                numbered_part(embedded, *number)?
+            }
+            _ => return Err("BODY part has no nested parts"),
+        };
     }
     Ok(current)
+}
+
+/// Возвращает номер части multipart либо единственную часть номер один.
+fn numbered_part(entity: &Entity, number: usize) -> Result<&Entity, &'static str> {
+    match &entity.media_type {
+        MediaType::MultipartMixed
+        | MediaType::MultipartAlternative
+        | MediaType::MultipartRelated
+        | MediaType::MultipartDigest
+        | MediaType::MultipartOther(_) => entity
+            .children
+            .get(
+                number
+                    .checked_sub(1)
+                    .ok_or("BODY part number starts at one")?,
+            )
+            .ok_or("BODY part does not exist"),
+        _ => match number {
+            1 => Ok(entity),
+            _ => Err("single-part MIME entity only has part one"),
+        },
+    }
+}
+
+/// Проверяет тип embedded message через MIME enum, не wire-строку.
+fn is_message(media_type: &MediaType) -> bool {
+    matches!(
+        media_type,
+        MediaType::MessageRfc822 | MediaType::MessageGlobal
+    )
 }
 
 fn selected<'a>(label: &str, bytes: Cow<'a, [u8]>) -> SelectedSection<'a> {

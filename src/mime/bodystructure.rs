@@ -56,14 +56,15 @@ fn encode_message(
     message: &[u8],
     profile: Profile,
 ) -> Result<String, &'static str> {
-    let body = message
-        .get(entity.body_range.clone())
-        .ok_or("message/rfc822 range is outside message")?;
+    let body = entity
+        .source_range(message, entity.body_range.clone())
+        .ok_or("message body range is outside its source")?;
     let nested = entity
         .children
         .first()
         .ok_or("message/rfc822 child is absent")?;
-    let envelope = super::envelope::encode(body)?;
+    let nested_message = nested.raw_bytes(message)?;
+    let envelope = super::envelope::encode(nested_message)?;
     let nested_structure = encode_in_profile(nested, message, profile)?;
     Ok(format!(
         "(\"MESSAGE\" \"{}\" {} {} {} \"{}\" {} {envelope} {nested_structure} {}{})",
@@ -73,15 +74,15 @@ fn encode_message(
         encode_optional_string(entity.content_metadata.description.as_deref())?,
         escaped_atom(entity.transfer_encoding.wire_name())?,
         body.len(),
-        line_count(body),
+        line_count(nested_message),
         encode_extensions(entity, extensions::Anchor::BodyMd5, profile)?
     ))
 }
 
 fn encode_leaf(entity: &Entity, message: &[u8], profile: Profile) -> Result<String, &'static str> {
-    let body = message
-        .get(entity.body_range.clone())
-        .ok_or("BODYSTRUCTURE range is outside message")?;
+    let body = entity
+        .source_range(message, entity.body_range.clone())
+        .ok_or("BODYSTRUCTURE body range is outside its source")?;
     let (media_type, subtype) = entity.media_type.type_and_subtype();
     let parameters = encode_parameters(&entity.parameters)?;
     let base = format!(

@@ -4,22 +4,38 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G17 RFC 6532 encoded message/global ranges, PARTIAL
+
+- `message/global` теперь декодирует Base64 и quoted-printable до разбора
+  вложенного сообщения. Decoded bytes принадлежат отдельному `Arc` source;
+  offsets узлов разрешаются относительно владельца и не смешиваются с
+  исходными encoded offsets. Unknown CTE остаётся opaque
+  `application/octet-stream` согласно MIME fallback.
+- IMAP part resolver различает сам part и embedded message: `BODY[1]`
+  возвращает сохранённое encoded body, `BODY[1.1]` выбирает decoded nested
+  part, `BODY[1.HEADER]` читает заголовки embedded message. Проверены также
+  nested BINARY и part numbering для multipart-вложения. Это unit evidence;
+  независимый network black-box и Litterkeep acceptance ещё не выполнялись.
+- Целевые IMAP/MIME тесты и strict Clippy прошли на Windows Rust 1.97.1.
+  Полный Windows набор: 561 библиотечный и 1 бинарный тест, fmt и strict
+  Clippy прошли. Linux Docker Rust 1.97: release build, strict Clippy,
+  612 библиотечных и 1 бинарный тест и doc-tests прошли. Временный test image
+  удалён; контейнер не создавался. Независимый сетевой black-box и Litterkeep
+  acceptance не выполнялись. Goal остаётся ACTIVE.
+
 ### 2026-09-26: G17 RFC 6532 message/global MIME и IMAP BODYSTRUCTURE, PARTIAL
 
 - MIME media type теперь различает `message/global` enum-вариантом. Для
   identity CTE (`7bit`, `8bit`, `binary`) сохраняется вложенное сообщение с
   UTF-8 полями заголовка; IMAP `BODYSTRUCTURE` выдаёт тип `MESSAGE/GLOBAL`, а
   BODY HEADER selection принимает путь к его внутреннему сообщению.
-- RFC 6532 разрешает также Base64 и quoted-printable для `message/global`, но
-  они пока отклоняются: MIME tree использует абсолютные ranges исходных
-  октетов и не имеет модели ranges для отдельно декодированного вложенного
-  сообщения. IMAP4rev2 не рекламируется. Проверены четыре целевых unit-теста;
-  независимого сетевого клиента и Litterkeep acceptance на этом срезе нет.
-- PASS: Windows Rust 1.97.1 `cargo fmt --check`, 556 библиотечных и 1
-  бинарный тест, strict Clippy. Linux Docker release build, strict Clippy,
-  605 библиотечных и 1 бинарный тест и doc-tests. Созданные мной образы
-  удалены и проверены отсутствующими; контейнер не создавался. G17 остаётся
-  активной.
+- Изначальный срез поддерживал только identity CTE и не имел модели ranges
+  для отдельно декодированного сообщения. Реализация расширена в checkpoint-е
+  выше: Base64 и quoted-printable теперь разбираются через отдельный Arc
+  source, а неизвестный CTE остаётся непрозрачным fallback. IMAP4rev2 всё ещё
+  не рекламируется. Сетевой клиент и Litterkeep acceptance не выполнялись.
+- Предыдущая проверка identity-only superseded тестами и gate-ами checkpoint-а
+  выше. G17 остаётся активной.
 
 ### 2026-09-26: G17 RFC 2045 quoted-printable soft-break whitespace, PASS
 

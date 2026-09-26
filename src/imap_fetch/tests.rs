@@ -23,6 +23,53 @@ fn selects_encoded_part_and_octet_partial() {
     assert_eq!(selected.bytes.as_ref(), b"cde");
 }
 
+/// Номер один простого сообщения выбирает его единственный body part.
+#[test]
+fn selects_top_level_single_part_body_as_part_one() {
+    let message = b"Content-Type: text/plain\r\n\r\nsimple body";
+    let selected = select(
+        message,
+        &body(BodySection::Part {
+            path: vec![1],
+            mime_headers: false,
+        }),
+    )
+    .expect("top-level part one");
+
+    assert_eq!(selected.label, "BODY[1]");
+    assert_eq!(selected.bytes.as_ref(), b"simple body");
+}
+
+/// Нумерация multipart учитывает вложенные части encoded message/global.
+#[test]
+fn selects_multipart_global_part_and_its_decoded_body_part() {
+    let message = b"Content-Type: multipart/mixed; boundary=x\r\n\r\n--x\r\nContent-Type: message/global\r\nContent-Transfer-Encoding: base64\r\n\r\nU3ViamVjdDogbmVzdGVkDQpDb250ZW50LVR5cGU6IHRleHQvcGxhaW4NCg0KYm9keQ==\r\n--x--\r\n";
+    let encoded = select(
+        message,
+        &body(BodySection::Part {
+            path: vec![1],
+            mime_headers: false,
+        }),
+    )
+    .expect("encoded message/global MIME body");
+    let nested = select(
+        message,
+        &body(BodySection::Part {
+            path: vec![1, 1],
+            mime_headers: false,
+        }),
+    )
+    .expect("nested message/global body part");
+
+    assert_eq!(encoded.label, "BODY[1]");
+    assert_eq!(
+        encoded.bytes.as_ref(),
+        b"U3ViamVjdDogbmVzdGVkDQpDb250ZW50LVR5cGU6IHRleHQvcGxhaW4NCg0KYm9keQ=="
+    );
+    assert_eq!(nested.label, "BODY[1.1]");
+    assert_eq!(nested.bytes.as_ref(), b"body");
+}
+
 /// HEADER включает delimiting blank line, а TEXT начинается после него.
 #[test]
 fn selects_message_header_and_body_sections() {

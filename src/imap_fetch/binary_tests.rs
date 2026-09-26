@@ -72,3 +72,13 @@ fn binary_selects_nested_global_message_attachment() {
     assert_eq!(result.label, "BINARY[1.1]");
     assert_eq!(result.bytes.as_ref(), b"nested\0");
 }
+
+/// BINARY traversal uses the decoded source beneath Base64 message/global.
+#[test]
+fn binary_selects_attachment_inside_base64_global_message() {
+    let message = b"Content-Type: message/global\r\nContent-Transfer-Encoding: base64\r\n\r\nU3ViamVjdDogbmVzdGVkDQpDb250ZW50LVR5cGU6IGFwcGxpY2F0aW9uL29jdGV0LXN0cmVhbQ0KQ29udGVudC1UcmFuc2Zlci1FbmNvZGluZzogYmFzZTY0DQoNCmJtVnpkR1ZrQUE9PQ==";
+    let result = select(message, &[1, 1], None).expect("decoded global attachment");
+
+    assert_eq!(result.label, "BINARY[1.1]");
+    assert_eq!(result.bytes.as_ref(), b"nested\0");
+}

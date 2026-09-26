@@ -36,9 +36,9 @@ fn validate_composite_transfer(
     media_type: &MediaType,
     transfer_encoding: &TransferEncoding,
 ) -> Result<(), &'static str> {
-    match is_composite(media_type) {
-        false => Ok(()),
-        true => match transfer_encoding {
+    match (media_type, is_composite(media_type)) {
+        (MediaType::MessageGlobal, _) | (_, false) => Ok(()),
+        (_, true) => match transfer_encoding {
             TransferEncoding::SevenBit | TransferEncoding::EightBit | TransferEncoding::Binary => {
                 Ok(())
             }

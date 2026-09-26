@@ -307,13 +307,14 @@ acceptance проверили вложенный comment перед Base64, esca
 comment после token, BODYSTRUCTURE encoding и точные декодированные octets.
 Исходные RFC822 bytes при доставке сохранены без нормализации.
 
-MIME parser и IMAP BODYSTRUCTURE распознают RFC 6532 `message/global` при
-identity Content-Transfer-Encoding (`7bit`, `8bit`, `binary`): UTF-8 заголовки
-вложенного сообщения остаются исходными октетами, а nested sections адресуются
-как у `message/rfc822`. RFC 6532 разрешает для `message/global` также
-non-identity CTE, но декодирование пока не реализовано: MIME tree хранит
-абсолютные ranges исходного сообщения, поэтому такое содержимое явно
-отклоняется, а не интерпретируется как будто оно уже декодировано. См.
+MIME parser и IMAP BODYSTRUCTURE распознают RFC 6532 `message/global`.
+`7bit`, `8bit` и `binary` используют исходные байты, Base64 и
+quoted-printable декодируют вложенное сообщение в отдельный Arc-owned source,
+чьи offsets разрешаются относительно этого source. ENVELOPE, BODYSTRUCTURE,
+nested BODY HEADER и BINARY part traversal работают на decoded содержимом;
+unknown CTE не разбирается как письмо, а остаётся opaque
+`application/octet-stream`. Вектора проходят unit-тесты, но отдельный network
+black-box для этого media type ещё не запускался. См.
 [RFC 6532 §3.5](https://www.rfc-editor.org/rfc/rfc6532.html#section-3.5),
 [§3.7](https://www.rfc-editor.org/rfc/rfc6532.html#section-3.7)
 и [RFC 9051 §9](https://www.rfc-editor.org/rfc/rfc9051.html#section-9).

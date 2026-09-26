@@ -1,4 +1,4 @@
-//! Рекурсивное MIME-дерево с абсолютными диапазонами исходного RFC822.
+//! Рекурсивное MIME-дерево с диапазонами и владельцами decoded sources.
 
 use super::content_metadata::ContentMetadata;
 use super::disposition::Disposition;
@@ -27,11 +27,12 @@ mod transport_tests;
 use multipart::{CloseDelimiterPolicy, absolute, is_multipart, multipart_ranges};
 use std::collections::BTreeMap;
 use std::ops::Range;
+use std::sync::Arc;
 
 const MAX_DEPTH: usize = 16;
 const MAX_PARTS: usize = 256;
 
-/// MIME entity не копирует тело: все диапазоны указывают в исходный message.
+/// Диапазоны указывают на исходное письмо либо на отдельный decoded источник.
 #[derive(Debug, Eq, PartialEq)]
 pub struct Entity {
     /// MIME-заголовки entity после unfold без повторного чтения большого body.
@@ -49,6 +50,8 @@ pub struct Entity {
     pub content_metadata: ContentMetadata,
     pub transfer_encoding: TransferEncoding,
     pub children: Vec<Entity>,
+    /// Общий владелец decoded octets, на которые ссылаются вложенные ranges.
+    decoded_source: Option<Arc<[u8]>>,
     pub preamble_range: Option<Range<usize>>,
     pub epilogue_range: Option<Range<usize>>,
 }
@@ -63,6 +66,7 @@ pub fn parse(raw: &[u8]) -> Result<Entity, &'static str> {
         &mut count,
         content_type::DefaultMediaType::PlainText,
         CloseDelimiterPolicy::Required,
+        None,
     )
 }
 
@@ -73,6 +77,7 @@ fn parse_entity(
     count: &mut usize,
     default_media_type: content_type::DefaultMediaType,
     close_policy: CloseDelimiterPolicy,
+    decoded_source: Option<Arc<[u8]>>,
 ) -> Result<Entity, &'static str> {
     if depth > MAX_DEPTH {
         return Err("MIME nesting limit exceeded");
@@ -121,10 +126,11 @@ fn parse_entity(
                         _ => content_type::DefaultMediaType::PlainText,
                     },
                     CloseDelimiterPolicy::MayEndAtParentBoundary,
+                    decoded_source.clone(),
                 )?);
             }
         }
-        MediaType::MessageRfc822 | MediaType::MessageGlobal => {
+        MediaType::MessageRfc822 => {
             match &transfer_encoding {
                 TransferEncoding::SevenBit
                 | TransferEncoding::EightBit
@@ -138,8 +144,21 @@ fn parse_entity(
                 count,
                 content_type::DefaultMediaType::PlainText,
                 close_policy,
+                decoded_source.clone(),
             )?);
         }
+        MediaType::MessageGlobal => append_global_child(
+            &mut children,
+            body,
+            count,
+            &transfer_encoding,
+            NestedMessageContext {
+                base: base + headers.body_offset,
+                depth,
+                close_policy,
+                inherited_source: decoded_source.clone(),
+            },
+        )?,
         _ => {}
     }
     Ok(Entity {
@@ -154,9 +173,61 @@ fn parse_entity(
         content_metadata,
         transfer_encoding,
         children,
+        decoded_source,
         preamble_range,
         epilogue_range,
     })
+}
+
+/// Ограниченный контекст вложенного разбора message/global.
+struct NestedMessageContext {
+    /// Смещение вложенного тела в родительском source для identity CTE.
+    base: usize,
+    /// Текущая глубина MIME-дерева для общего предела рекурсии.
+    depth: usize,
+    /// Политика закрывающего delimiter, унаследованная от multipart-родителя.
+    close_policy: CloseDelimiterPolicy,
+    /// Владелец source, если родитель уже был декодирован из другого CTE.
+    inherited_source: Option<Arc<[u8]>>,
+}
+
+/// Разбирает embedded message/global с локальными offsets decoded source.
+fn append_global_child(
+    children: &mut Vec<Entity>,
+    body: &[u8],
+    count: &mut usize,
+    encoding: &TransferEncoding,
+    context: NestedMessageContext,
+) -> Result<(), &'static str> {
+    match encoding {
+        TransferEncoding::SevenBit | TransferEncoding::EightBit | TransferEncoding::Binary => {
+            children.push(parse_entity(
+                body,
+                context.base,
+                context.depth.saturating_add(1),
+                count,
+                content_type::DefaultMediaType::PlainText,
+                context.close_policy,
+                context.inherited_source,
+            )?);
+        }
+        TransferEncoding::Base64 | TransferEncoding::QuotedPrintable => {
+            let decoded: Arc<[u8]> = encoding.decode(body)?.into();
+            children.push(parse_entity(
+                &decoded,
+                0,
+                context.depth.saturating_add(1),
+                count,
+                content_type::DefaultMediaType::PlainText,
+                context.close_policy,
+                Some(Arc::clone(&decoded)),
+            )?);
+        }
+        TransferEncoding::Unsupported(_) => {
+            return Err("unsupported message/global transfer encoding");
+        }
+    }
+    Ok(())
 }
 
 /// Сохраняет только однозначное и синтаксически корректное disposition поле.
@@ -177,6 +248,23 @@ fn parse_disposition(fields: &[HeaderField]) -> Option<Disposition> {
 }
 
 impl Entity {
+    /// Возвращает байты диапазона из исходного или выделенного decoded source.
+    pub fn source_range<'a>(&'a self, fallback: &'a [u8], range: Range<usize>) -> Option<&'a [u8]> {
+        let source = self.decoded_source.as_deref().unwrap_or(fallback);
+        source.get(range)
+    }
+
+    /// Возвращает исходное представление entity из принадлежащего ему source.
+    pub fn raw_bytes<'a>(&'a self, fallback: &'a [u8]) -> Result<&'a [u8], &'static str> {
+        self.source_range(fallback, self.raw_range.clone())
+            .ok_or("entity raw range is outside its source")
+    }
+
+    /// Показывает, локальны ли диапазоны отдельному декодированному source.
+    pub fn uses_decoded_source(&self) -> bool {
+        self.decoded_source.is_some()
+    }
+
     /// Проверяет CTE binary во всём bounded MIME поддереве, включая вложенные parts.
     pub fn contains_binary_transfer_encoding(&self) -> bool {
         match (
@@ -195,9 +283,9 @@ impl Entity {
         if !self.children.is_empty() {
             return Err("multipart entity has no scalar decoded body");
         }
-        let body = message
-            .get(self.body_range.clone())
-            .ok_or("entity body range is outside message")?;
+        let body = self
+            .source_range(message, self.body_range.clone())
+            .ok_or("entity body range is outside its source")?;
         self.transfer_encoding.decode(body)
     }
 }
