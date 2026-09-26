@@ -12,8 +12,9 @@ Current subgoal: G17
   продолжается в том же соединении.
 - PASS: Windows Rust 1.97.1: 545 библиотечных и 1 бинарный тест. Linux Docker
   Rust 1.97: strict Clippy, 596 библиотечных и 1 бинарный тест и doc-tests.
-  Независимый raw-TCP клиент проверил приветствие, WUT/500, DATA с аргументом/
-  501, NOOP/250 и QUIT/221 в одной сессии. Litterkeep-клиент не проверялся.
+  Повторяемый `tests/blackbox/smtp_unknown_command.py` на Linux raw-TCP проверил
+  приветствие, WUT/500, DATA с аргументом и TAB/501, NOOP/250 и QUIT/221 в
+  одной сессии. Litterkeep-клиент не проверялся.
   Тестовый контейнер и оба уникальных образа удалены; данные и TLS fixture
   оставлены в `./data/g18-smtp-unknown-command`. G17 остаётся активной.
 
