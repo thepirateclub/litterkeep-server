@@ -4,7 +4,7 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
-### 2026-09-26: G17 RFC 5322 WSP in MIME structured values, PARTIAL
+### 2026-09-26: G17 RFC 5322 WSP in MIME structured values, PASS
 
 - MIME media type, параметр и Content-Disposition больше не используют
   Unicode-aware `trim()`: внешняя обрезка принимает только RFC WSP (SP/HTAB).
@@ -17,9 +17,13 @@ Current subgoal: G17
 - Linux Docker PASS: Rust 1.97 release build, strict Clippy, 620 library + 1
   binary test и doc-tests. Созданный test image удалён; отдельная проверка
   подтвердила отсутствие image и container с именем этапа. Данные этапа
-  зарезервированы в `./data/g17-mime-ascii-wsp`. Независимый IMAP network
-  acceptance NOT RUN, поэтому этап остаётся PARTIAL. Следующий шаг: выполнить
-  независимую MIME wire regression и зафиксировать этап отдельным git-коммитом.
+  сохранены в `./data/g17-mime-ascii-wsp`.
+- PASS: новый независимый `tests/blackbox/mime_structured_wsp.py` выполнил
+  IMAP STARTTLS LOGIN/CREATE/APPEND/FETCH через Python `imaplib`. Проверены
+  fallback malformed Content-Type, literal parameter с quoted NBSP,
+  отбрасывание malformed Content-Disposition и точное совпадение исходных
+  RFC822 bytes. Временные runtime container и image удалены и отсутствие
+  повторно подтверждено. Litterkeep client не проверялся.
 
 ### 2026-09-26: G17 RFC 2045 Content-Transfer-Encoding token checkpoint
 

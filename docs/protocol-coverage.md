@@ -206,8 +206,11 @@ Unicode NBSP перед media type, параметром, unquoted value и disp
 до фикса воспроизводилась на NBSP перед `text/plain`; после фикса прошли
 параметрические и disposition unit tests, Windows 569 library + 1 binary test,
 fmt и strict Clippy, Linux Docker release build, strict Clippy, 620 library +
-1 binary test и doc-tests. Независимый сетевой acceptance для этой правки не
-выполнялся.
+1 binary test и doc-tests. `tests/blackbox/mime_structured_wsp.py` через
+независимый Python `imaplib` APPEND/FETCH подтвердил MIME fallback для NBSP в
+Content-Type, сохранение quoted NBSP и непринятие NBSP перед disposition
+token; исходные RFC822 literal bytes совпали. Это не проверка совместимости
+Litterkeep.
 `Content-Language` сохраняет
 один или несколько структурно корректных BCP 47 tags; `Content-Location`
 сохраняется как единственный непустой unfolded URI-reference по синтаксису
