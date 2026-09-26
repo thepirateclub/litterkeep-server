@@ -2,8 +2,8 @@
 
 use super::*;
 
-/// RFC 5258 и RFC 5819 options объявляются только вместе с их wire support.
-const LIST_CAPABILITIES: &str = "LIST-EXTENDED LIST-STATUS";
+/// RFC 5258, RFC 5819 и RFC 7888 extensions объявляются вместе с wire-путями.
+const LIST_CAPABILITIES: &str = "LIST-EXTENDED LIST-STATUS LITERAL-";
 
 pub(super) fn write(session: &mut Session, tag: &str) -> io::Result<()> {
     match (session.tls.is_some(), session.can_starttls()) {

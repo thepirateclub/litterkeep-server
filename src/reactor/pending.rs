@@ -41,6 +41,7 @@ pub(super) enum Pending {
     ResolveForAppend {
         tag: String,
         literal_size: usize,
+        literal_mode: crate::imap::literal::Mode,
         metadata: crate::store::AppendMetadata,
     },
     ReadForSelect {

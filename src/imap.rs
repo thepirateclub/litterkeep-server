@@ -8,7 +8,7 @@ pub mod authenticate;
 #[cfg(test)]
 #[path = "imap/command_structure_tests.rs"]
 mod command_structure_tests;
-mod command_verb;
+pub(crate) mod command_verb;
 pub mod copy;
 #[cfg(test)]
 #[path = "imap/copy_tests.rs"]
@@ -37,6 +37,7 @@ mod list_reference;
 #[cfg(test)]
 #[path = "imap/list_tests.rs"]
 mod list_tests;
+pub mod literal;
 pub mod mailbox_utf8;
 pub mod modified_utf7;
 mod parser;
@@ -89,6 +90,7 @@ pub enum Command {
     Append {
         mailbox: MailboxName,
         literal_size: usize,
+        literal_mode: literal::Mode,
         flags: crate::mail_flags::MessageFlags,
         keywords: std::collections::BTreeSet<crate::mail_flags::KeywordFlag>,
         internal_date: Option<crate::mail_date::MailDate>,

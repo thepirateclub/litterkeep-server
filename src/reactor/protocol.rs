@@ -37,14 +37,26 @@ pub(super) fn process_input(
                 .consume(&mut session.input);
             match progress {
                 imap_search_literal::Progress::Waiting => break,
-                imap_search_literal::Progress::Continue => {
-                    session.push(b"+ Ready for IMAP literal\r\n")?;
-                    break;
-                }
+                imap_search_literal::Progress::Continue(mode) => match mode {
+                    imap_search_literal::LiteralMode::Synchronizing => {
+                        session.push(b"+ Ready for IMAP literal\r\n")?;
+                        break;
+                    }
+                    imap_search_literal::LiteralMode::NonSynchronizing => continue,
+                },
                 imap_search_literal::Progress::Complete(value) => {
                     session.imap_search_literal = None;
                     session.imap_search_literal_value = Some(value);
                     continue;
+                }
+                imap_search_literal::Progress::TooBig(tag) => {
+                    session.push(
+                        format!("* BYE [TOOBIG] {tag} literal exceeds LITERAL- limits\r\n")
+                            .as_bytes(),
+                    )?;
+                    session.imap_search_literal = None;
+                    session.termination = Some(session::SessionTermination::InvalidImapLiteral);
+                    break;
                 }
                 imap_search_literal::Progress::InvalidString => {
                     session.imap_search_literal = None;
@@ -107,13 +119,26 @@ pub(super) fn process_input(
                             request_id,
                         },
                     )?,
-                    imap_search_literal::Start::Begin(receiver) => {
+                    imap_search_literal::Start::Begin { receiver, mode } => {
                         session.imap_search_literal = Some(receiver);
-                        session.push(b"+ Ready for IMAP literal\r\n")?;
+                        if matches!(mode, imap_search_literal::LiteralMode::Synchronizing) {
+                            session.push(b"+ Ready for IMAP literal\r\n")?;
+                        }
                     }
-                    imap_search_literal::Start::Reject { tag, reason } => {
-                        session.push(format!("{tag} BAD {reason}\r\n").as_bytes())?;
-                    }
+                    imap_search_literal::Start::Reject {
+                        tag,
+                        reason,
+                        terminate,
+                    } => match terminate {
+                        true => {
+                            session.push(format!("* BYE [TOOBIG] {reason}\r\n").as_bytes())?;
+                            session.termination =
+                                Some(session::SessionTermination::InvalidImapLiteral);
+                        }
+                        false => {
+                            session.push(format!("{tag} BAD {reason}\r\n").as_bytes())?;
+                        }
+                    },
                 },
             },
             Kind::Pop3 => super::pop3_protocol::line(

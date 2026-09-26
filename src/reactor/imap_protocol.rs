@@ -72,6 +72,7 @@ pub(super) fn line(
         imap::Command::Append {
             mailbox,
             literal_size,
+            literal_mode,
             flags,
             keywords,
             internal_date,
@@ -80,6 +81,7 @@ pub(super) fn line(
             parsed.tag,
             mailbox,
             literal_size,
+            literal_mode,
             crate::store::AppendMetadata {
                 flags,
                 keywords,

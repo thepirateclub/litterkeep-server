@@ -214,6 +214,13 @@ CAPABILITY объявляет `LIST-EXTENDED` по RFC 5258 и `LIST-STATUS` п�
 используют один session-owned recent UID набор. Это не снимает ограничения
 частичного IMAP4rev1 профиля.
 
+RFC 7888 `LITERAL-` включён в CAPABILITY. Synchronizing literal-ы сохраняют
+continuation; non-synchronizing `{n+}` не вызывает continuation и ограничен
+4096 octets. Независимый STARTTLS клиент проверяет эту форму для LOGIN, SEARCH
+и APPEND, включая byte-exact APPEND round-trip. При превышении 4096 octets
+сервер закрывает соединение с `BYE [TOOBIG]`, не выделяя недопустимый payload.
+LITERAL+ и MULTIAPPEND не рекламируются.
+
 RFC 7889 APPENDLIMIT объявляет единый предел `26214400` octets, равный
 действующему `MAX_MESSAGE_SIZE`. STATUS и LIST RETURN STATUS возвращают
 APPENDLIMIT для mailbox; oversize APPEND получает tagged `NO [TOOBIG]` до

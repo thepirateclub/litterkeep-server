@@ -12,6 +12,7 @@ pub(super) fn begin(
     tag: String,
     mailbox: imap::MailboxName,
     literal_size: usize,
+    literal_mode: crate::imap::literal::Mode,
     metadata: crate::store::AppendMetadata,
     slot: usize,
     generation: u64,
@@ -20,8 +21,21 @@ pub(super) fn begin(
     request_id: &mut u64,
 ) -> io::Result<()> {
     let Some(account) = session.authenticated_account.clone() else {
+        if matches!(literal_mode, crate::imap::literal::Mode::NonSynchronizing) {
+            session.push(b"* BYE non-synchronizing APPEND requires authentication\r\n")?;
+            session.termination = Some(session::SessionTermination::InvalidImapLiteral);
+            return Ok(());
+        }
         return session.push(format!("{tag} NO authenticate first\r\n").as_bytes());
     };
+    if let (crate::imap::literal::Mode::NonSynchronizing, true) =
+        (literal_mode, literal_size > 4096)
+    {
+        session
+            .push(b"* BYE [TOOBIG] non-synchronizing APPEND literal exceeds LITERAL- limit\r\n")?;
+        session.termination = Some(session::SessionTermination::InvalidImapLiteral);
+        return Ok(());
+    }
     if literal_size > MAX_MESSAGE {
         return session.push(format!("{tag} NO [TOOBIG] message exceeds limit\r\n").as_bytes());
     }
@@ -41,6 +55,7 @@ pub(super) fn begin(
         Pending::ResolveForAppend {
             tag,
             literal_size,
+            literal_mode,
             metadata,
         },
         slot,
@@ -56,16 +71,32 @@ pub(super) fn resolved(
     session: &mut Session,
     tag: String,
     literal_size: usize,
+    literal_mode: crate::imap::literal::Mode,
     metadata: crate::store::AppendMetadata,
     result: io::Result<String>,
 ) -> io::Result<()> {
     match result {
         Ok(mailbox) => {
             session.imap_literal = Some(LiteralReceiver::new(tag, mailbox, literal_size, metadata));
-            session.push(b"+ Ready for literal data\r\n")
+            match literal_mode {
+                crate::imap::literal::Mode::Synchronizing => {
+                    session.push(b"+ Ready for literal data\r\n")
+                }
+                crate::imap::literal::Mode::NonSynchronizing => Ok(()),
+            }
         }
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            if matches!(literal_mode, crate::imap::literal::Mode::NonSynchronizing) {
+                session.push(b"* BYE [TRYCREATE] APPEND mailbox does not exist\r\n")?;
+                session.termination = Some(session::SessionTermination::InvalidImapLiteral);
+                return Ok(());
+            }
             session.push(format!("{tag} NO [TRYCREATE] mailbox does not exist\r\n").as_bytes())
+        }
+        Err(_) if matches!(literal_mode, crate::imap::literal::Mode::NonSynchronizing) => {
+            session.push(b"* BYE APPEND mailbox resolution failed\r\n")?;
+            session.termination = Some(session::SessionTermination::InvalidImapLiteral);
+            Ok(())
         }
         Err(_) => session.push(format!("{tag} NO APPEND unavailable\r\n").as_bytes()),
     }

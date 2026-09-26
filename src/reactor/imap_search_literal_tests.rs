@@ -1,15 +1,31 @@
 //! Граничные проверки SEARCH literal framing и восстановления команды.
 
 use super::{Progress, Receiver, Start, start};
+use crate::imap::literal::{Marker, Mode};
+
+fn new_receiver(prefix: &[u8], size: usize) -> Receiver {
+    Receiver::new(
+        prefix.to_vec(),
+        "a".to_owned(),
+        Marker {
+            size,
+            mode: Mode::Synchronizing,
+        },
+    )
+    .expect("bounded literal")
+}
 
 #[test]
 fn detects_login_search_and_uid_search_synchronizing_literals() {
-    assert!(matches!(start(b"a LOGIN {3}\r\n"), Start::Begin(_)));
-    assert!(matches!(start(b"a LOGIN bob {8}\r\n"), Start::Begin(_)));
-    assert!(matches!(start(b"a SEARCH BODY {5}\r\n"), Start::Begin(_)));
+    assert!(matches!(start(b"a LOGIN {3}\r\n"), Start::Begin { .. }));
+    assert!(matches!(start(b"a LOGIN bob {8}\r\n"), Start::Begin { .. }));
+    assert!(matches!(
+        start(b"a SEARCH BODY {5}\r\n"),
+        Start::Begin { .. }
+    ));
     assert!(matches!(
         start(b"b uid search HEADER {0}\r\n"),
-        Start::Begin(_)
+        Start::Begin { .. }
     ));
     for command in [
         b"c CREATE {8}\r\n".as_slice(),
@@ -18,16 +34,48 @@ fn detects_login_search_and_uid_search_synchronizing_literals() {
         b"f RENAME {8} {7}\r\n",
         b"g UID COPY 1 {8}\r\n",
     ] {
-        assert!(matches!(start(command), Start::Begin(_)));
+        assert!(matches!(start(command), Start::Begin { .. }));
     }
+    assert!(matches!(
+        start(b"h SEARCH SUBJECT {5+}\r\n"),
+        Start::Begin { .. }
+    ));
+    assert!(matches!(
+        start(b"i SEARCH SUBJECT {5+}\r\n"),
+        Start::Begin {
+            mode: Mode::NonSynchronizing,
+            ..
+        }
+    ));
+}
+
+#[test]
+fn literal_minus_enforces_4096_octets_and_closes_on_non_sync_overflow() {
+    assert!(matches!(
+        start(b"a SEARCH BODY {4097+}\r\n"),
+        Start::Reject {
+            terminate: true,
+            ..
+        }
+    ));
+    assert!(matches!(
+        start(b"a SEARCH BODY {65537}\r\n"),
+        Start::Reject {
+            terminate: false,
+            ..
+        }
+    ));
 }
 
 #[test]
 /// Два клиента literal становятся двумя обязательными typed LOGIN аргументами.
 fn login_literals_rebuild_into_the_typed_login_command() {
-    let mut receiver = Receiver::new(b"a LOGIN ".to_vec(), 3).expect("bounded username");
+    let mut receiver = new_receiver(b"a LOGIN ", 3);
     let mut input = b"bob {12}\r\n".to_vec();
-    assert!(matches!(receiver.consume(&mut input), Progress::Continue));
+    assert!(matches!(
+        receiver.consume(&mut input),
+        Progress::Continue(_)
+    ));
     let mut password = b"bob-password\r\n".to_vec();
     let Progress::Complete(values) = receiver.consume(&mut password) else {
         panic!("LOGIN literals должны завершить команду");
@@ -74,7 +122,7 @@ fn restores_escaped_literal_at_every_tcp_split() {
     let suffix = b" TEXT tail\r\n";
     let prefix = b"a SEARCH BODY ";
     for split in 0..literal.len() {
-        let mut receiver = Receiver::new(prefix.to_vec(), literal.len()).expect("bounded literal");
+        let mut receiver = new_receiver(prefix, literal.len());
         let mut input = literal.get(..split).expect("prefix split").to_vec();
         assert!(matches!(receiver.consume(&mut input), Progress::Waiting));
         input.extend(literal.get(split..).expect("suffix split"));
@@ -90,8 +138,7 @@ fn restores_escaped_literal_at_every_tcp_split() {
 #[test]
 fn utf8_search_literal_is_not_reparsed_as_wire_quoted_text() {
     let literal = "Привет".as_bytes();
-    let mut receiver =
-        Receiver::new(b"a SEARCH SUBJECT ".to_vec(), literal.len()).expect("bounded literal");
+    let mut receiver = new_receiver(b"a SEARCH SUBJECT ", literal.len());
     let mut input = literal.to_vec();
     input.extend_from_slice(b"\r\n");
     let Progress::Complete(values) = receiver.consume(&mut input) else {
@@ -121,11 +168,14 @@ fn utf8_search_literal_is_not_reparsed_as_wire_quoted_text() {
 
 #[test]
 fn receives_multiple_literals_and_preserves_pipelined_command() {
-    let mut receiver = Receiver::new(b"a SEARCH HEADER ".to_vec(), 7).expect("bounded literal");
-    let mut first = b"Subject {7}\r".to_vec();
+    let mut receiver = new_receiver(b"a SEARCH HEADER ", 7);
+    let mut first = b"Subject {7+}\r".to_vec();
     assert!(matches!(receiver.consume(&mut first), Progress::Waiting));
     first.extend_from_slice(b"\n");
-    assert!(matches!(receiver.consume(&mut first), Progress::Continue));
+    assert!(matches!(
+        receiver.consume(&mut first),
+        Progress::Continue(Mode::NonSynchronizing)
+    ));
     assert!(first.is_empty());
     let mut second = b"literal\r\nNEXT NOOP\r\n".to_vec();
     let Progress::Complete(values) = receiver.consume(&mut second) else {
@@ -136,9 +186,19 @@ fn receives_multiple_literals_and_preserves_pipelined_command() {
 }
 
 #[test]
+fn rejects_an_oversized_followup_non_sync_literal_before_allocation() {
+    let mut receiver = new_receiver(b"a SEARCH HEADER ", 1);
+    let mut input = b"x {4097+}\r\n".to_vec();
+    assert!(matches!(
+        receiver.consume(&mut input),
+        Progress::TooBig(tag) if tag == "a"
+    ));
+}
+
+#[test]
 fn synchronizing_literal_preserves_embedded_crlf_octets() {
     let literal = b"alpha\r\nbeta";
-    let mut receiver = Receiver::new(b"a LOGIN ".to_vec(), literal.len()).expect("bounded");
+    let mut receiver = new_receiver(b"a LOGIN ", literal.len());
     let mut input = literal.to_vec();
     input.extend_from_slice(b"\r\n");
     let Progress::Complete(values) = receiver.consume(&mut input) else {
@@ -150,7 +210,7 @@ fn synchronizing_literal_preserves_embedded_crlf_octets() {
 
 #[test]
 fn preserves_non_utf8_literal_octets_and_rejects_nul() {
-    let mut receiver = Receiver::new(b"a LOGIN bob ".to_vec(), 1).expect("bounded literal");
+    let mut receiver = new_receiver(b"a LOGIN bob ", 1);
     let mut input = b"\xff\r\n".to_vec();
     let Progress::Complete(values) = receiver.consume(&mut input) else {
         panic!("не-UTF-8 парольный octet должен сохраниться как literal");
@@ -169,7 +229,7 @@ fn preserves_non_utf8_literal_octets_and_rejects_nul() {
         }
     );
 
-    let mut receiver = Receiver::new(b"a LOGIN bob ".to_vec(), 2).expect("bounded literal");
+    let mut receiver = new_receiver(b"a LOGIN bob ", 2);
     let mut input = b"a\0".to_vec();
     assert!(matches!(
         receiver.consume(&mut input),

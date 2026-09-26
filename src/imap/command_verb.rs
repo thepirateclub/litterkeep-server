@@ -2,7 +2,7 @@
 
 /// Имя команды в виде Enum до разбора её аргументов.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum Verb {
+pub(crate) enum Verb {
     Capability,
     Namespace,
     Enable,
@@ -37,7 +37,7 @@ pub(super) enum Verb {
 }
 
 /// Единственная точка сравнения сетевого verb без учёта регистра.
-pub(super) fn parse_verb(text: &str) -> Verb {
+pub(crate) fn parse_verb(text: &str) -> Verb {
     match text.to_ascii_uppercase().as_str() {
         "CAPABILITY" => Verb::Capability,
         "NAMESPACE" => Verb::Namespace,

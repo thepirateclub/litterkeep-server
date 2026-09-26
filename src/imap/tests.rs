@@ -118,6 +118,7 @@ fn append_literal_size_is_typed() {
         Command::Append {
             mailbox: MailboxName::Inbox,
             literal_size: 42,
+            literal_mode: crate::imap::literal::Mode::Synchronizing,
             flags: crate::mail_flags::MessageFlags::default(),
             keywords: std::collections::BTreeSet::new(),
             internal_date: None,

@@ -14,7 +14,7 @@ CAPABILITY не выдаёт за более широкое расширение
 |---|---|---|---|
 | Any | CAPABILITY, NOOP, LOGOUT | PASS | Tagged/untagged ответы, bounded line decoder; безаргументные команды отвергают лишние аргументы |
 | TLS | STARTTLS | PASS | Сброс plaintext state и пошаговый rustls handshake |
-| Authentication | LOGIN | PASS | Только TLS, общий Argon2 worker, повторный вход запрещён; username/password принимают atom, quoted-string и проверенные synchronizing literals до 64 KiB; raw STARTTLS acceptance проверил два последовательных literal и authenticated NOOP |
+| Authentication | LOGIN | PASS | Только TLS, общий Argon2 worker, повторный вход запрещён; username/password принимают atom, quoted-string, synchronizing literals до 64 KiB и `LITERAL-` non-synchronizing literals до 4096 octets; независимая STARTTLS acceptance проверяет обе формы |
 | Authentication | AUTHENTICATE PLAIN | PASS | Continuation, cancel, atom/quoted astring, пустой SASL-IR marker, authzid policy, только TLS; прочие механизмы не рекламируются |
 | Mailbox discovery | LIST, LSUB, STATUS | PARTIAL | CAPABILITY advertises implemented `LIST-EXTENDED` (RFC 5258) and `LIST-STATUS` (RFC 5819); modified UTF-7, `*`/`%`, root discovery, empty selection `()`, slash-delimited relative reference prefix with canonical response names, SUBSCRIBED, RECURSIVEMATCH with CHILDINFO for SUBSCRIBED/SPECIAL-USE, RETURN (CHILDREN), RETURN (SUBSCRIBED), and RETURN STATUS (MESSAGES/RECENT/UIDNEXT/UIDVALIDITY/UNSEEN/DELETED/SIZE/APPENDLIMIT) verified; RECENT reports unclaimed durable messages before SELECT and session-owned recent UIDs after SELECT, consistently in STATUS and LIST STATUS; combined UTF8=ACCEPT LIST/STATUS wire responses preserve Unicode mailbox names; missing names are selected only by SUBSCRIBED and retain `\\NonExistent`; multi-namespace/breakout naming is not implemented |
 | Namespace | NAMESPACE | PASS | Advertised and tested; personal namespace is `""` with `/` delimiter, unavailable classes are NIL |
@@ -22,7 +22,7 @@ CAPABILITY не выдаёт за более широкое расширение
 | Mailbox mutation | CREATE, DELETE, RENAME | PASS | Durable journal, subtree rename, retired folder IDs |
 | Subscription | SUBSCRIBE, UNSUBSCRIBE | PASS | Durable subscription независимо от существования папки |
 | Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS, PERMANENTFLAGS, включая `\\*` для создания пользовательских keywords, Recent |
-| Message insertion | APPEND | PARTIAL | Bounded literal, strict parenthesized system flags/keywords, quoted-string-only RFC date-time INTERNALDATE, APPENDUID после fsync; quoted flags, unquoted dates and malformed flag lists are rejected before literal continuation; global 25 MiB limit is advertised through APPENDLIMIT and over-limit sizes are rejected with tagged TOOBIG before payload; MULTIAPPEND and non-synchronizing literal extensions are not advertised |
+| Message insertion | APPEND | PARTIAL | Bounded synchronizing literal and RFC 7888 `LITERAL-` non-synchronizing literals до 4096 octets; strict parenthesized system flags/keywords, quoted-string-only RFC date-time INTERNALDATE, APPENDUID после fsync; oversized non-synchronizing payload gets `BYE [TOOBIG]` and connection closure; global 25 MiB limit is advertised through APPENDLIMIT and oversized synchronizing APPEND is rejected with tagged TOOBIG before payload; MULTIAPPEND and LITERAL+ are not advertised |
 | Reading | FETCH, UID FETCH | PARTIAL | Сгруппированные items, ALL/FAST/FULL с RFC-совместимым раскрытием FULL через BODY, BODY и BODYSTRUCTURE, UID, RFC822/RFC822.HEADER/RFC822.TEXT legacy items с правильными wire labels, BODY sections/partial и BINARY/BINARY.PEEK/BINARY.SIZE; decoded MIME leaf parts, Base64/QP, literal8 для NUL, decoded partial, UNKNOWN-CTE и Seen effects проверены. RFC 6532 message/global принимает identity, Base64 и quoted-printable CTE с отдельным source для decoded вложенных ranges; неизвестный CTE сохраняет opaque octet-stream fallback. Полная rev2 grammar остаётся |
 
 Для `message/global` `7bit`, `8bit`, `binary`, Base64 и quoted-printable
@@ -63,15 +63,18 @@ MIME decoding проверены отдельно. При этом синтак�
 | KEYWORD, UNKEYWORD | Реализованы typed parser/evaluator и сетевые проверки; keywords входят в APPEND v4 и versioned flags journal v2. Старые append v1-v3 и flags v1 читаются как раньше; FETCH FLAGS, STORE и COPY/MOVE сохраняют keywords. STORE обновляет оба класса flags одним checksum/commit frame |
 
 Базовый набор SEARCH keys RFC 9051 закрыт parser/evaluator acceptance; это не
-означает полного SEARCH wire grammar. Quoted strings и synchronizing literals
-до 64 KiB проверены, но non-synchronizing LITERAL+ не объявляется. Ограниченный
-synchronizing-literal receiver принимает оба `astring` аргумента `LOGIN` и
+означает полного SEARCH wire grammar. Quoted strings, synchronizing literals
+до 64 KiB и `LITERAL-` non-synchronizing literals до 4096 octets проверены.
+RFC 7888 `LITERAL-` capability объявляется только вместе с ограниченными
+wire receivers для LOGIN, SEARCH и APPEND; независимый STARTTLS клиент отправил
+все три literal без ожидания continuation и сравнил сохранённые APPEND octets.
+Ограниченный synchronizing-literal receiver принимает оба `astring` аргумента `LOGIN` и
 mailbox `astring` команд CREATE, DELETE, RENAME, SUBSCRIBE, UNSUBSCRIBE, LIST,
 LSUB, STATUS, COPY, MOVE, SELECT и EXAMINE, включая UID COPY/MOVE. Независимый
 raw STARTTLS-клиент проверил continuation и успешное выполнение CREATE, LIST,
 SELECT с literal mailbox. SEARCH/UID SEARCH и APPEND имеют собственные
 проверенные пути. Это не означает поддержку literals в прочих аргументах всех
-команд; не синхронизируемое расширение LITERAL+ не рекламируется. Адресные
+команд; расширение LITERAL+ не рекламируется. Адресные
 SEARCH criteria и FETCH ENVELOPE используют одну projection; вложенные comments
 и quoted-pairs удаляются из семантических полей. Obsolete forms и malformed
 RFC 5322 syntax остаются ограничениями address parser-а.

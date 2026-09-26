@@ -125,10 +125,11 @@ pub(super) fn write_completion(
             Pending::ResolveForAppend {
                 tag,
                 literal_size,
+                literal_mode,
                 metadata,
             },
             Response::FolderResolved { result, .. },
-        ) => imap_append::resolved(session, tag, literal_size, metadata, result),
+        ) => imap_append::resolved(session, tag, literal_size, literal_mode, metadata, result),
         (
             Pending::ReadForFetch {
                 addressing,

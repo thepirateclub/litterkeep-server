@@ -16,7 +16,21 @@ fn append_accepts_quoted_internal_date() {
         parse("A2 APPEND INBOX \"19-Sep-2026 12:34:56 +0300\" {0}\r\n").command,
         Command::Append {
             literal_size: 0,
+            literal_mode: crate::imap::literal::Mode::Synchronizing,
             internal_date: Some(_),
+            ..
+        }
+    ));
+}
+
+/// APPEND разбирает LITERAL- marker в typed non-synchronizing mode.
+#[test]
+fn append_accepts_non_synchronizing_literal_marker() {
+    assert!(matches!(
+        parse("A4 APPEND INBOX {4+}\r\n").command,
+        Command::Append {
+            literal_size: 4,
+            literal_mode: crate::imap::literal::Mode::NonSynchronizing,
             ..
         }
     ));

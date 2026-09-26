@@ -6717,3 +6717,20 @@ ManageSieve до заявленного набора современных фо
   container и image удалены и отсутствие проверено. Несвязанный `lower-layer-v1`
   не затрагивался. Litterkeep client и полный Sieve/MIME profile не проверялись;
   G17 остаётся ACTIVE.
+
+### 2026-09-27: G17 IMAP RFC 7888 LITERAL-, scoped PASS
+
+- CAPABILITY объявляет `LITERAL-`, поддерживаются bounded non-synchronizing
+  literals до 4096 octets в LOGIN, SEARCH и APPEND. Unit tests проверяют отказ
+  до приёма превышающего лимит non-sync payload; сервер закрывает сессию с
+  `BYE [TOOBIG]`, чтобы остаток in-flight payload не разобрался как следующая
+  команда. `LITERAL+` и MULTIAPPEND не объявляются.
+- Linux Rust 1.97 Docker gate: release сборка, strict Clippy, 673 library tests,
+  1 CLI test и doc-tests прошли; один внешний Unicode corpus test ignored.
+  Независимый STARTTLS acceptance проверил capability до/после TLS, LOGIN,
+  SEARCH и APPEND без ожидания continuation; последующий FETCH совпал с точными
+  исходными APPEND octets. Python syntax также проверен.
+- Fixture `./data/acceptance-imap-literal-minus-20260927` сохранён. Созданный
+  контейнер и test image удалены, отсутствие проверено. Litterkeep-приложение не тестировалось; это не
+  подтверждает поддержку literals в остальных IMAP production или готовность
+  полного RFC 9051 профиля. G17 остаётся ACTIVE.
