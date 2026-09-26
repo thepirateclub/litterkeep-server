@@ -158,9 +158,10 @@ fn parse_field(line: &[u8], start: usize, end: usize) -> Result<HeaderField, &'s
     if name.is_empty() {
         return Err("invalid header name");
     }
+    // RFC 5322 ftext допускает печатный ASCII, кроме разделителя `:`.
     let valid_name = name
         .iter()
-        .all(|byte| matches!(byte, b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-'));
+        .all(|byte| matches!(byte, b'!'..=b'9' | b';'..=b'~'));
     if !valid_name {
         return Err("invalid header name");
     }
@@ -250,6 +251,28 @@ mod tests {
             block.fields.first().map(|field| field.value.as_slice()),
             Some(b"invoice".as_slice())
         );
+    }
+
+    #[test]
+    fn accepts_rfc5322_extension_field_name_punctuation() {
+        let raw = b"X!#$%&'*+-.^_`|~: value\r\n\r\nbody";
+        let block = parse(raw).expect("RFC 5322 ftext extension field");
+        let field = block.fields.first().expect("extension field");
+
+        assert_eq!(field.name, "x!#$%&'*+-.^_`|~");
+        assert_eq!(field.kind(), HeaderName::Other);
+        assert_eq!(field.value, b"value");
+    }
+
+    #[test]
+    fn rejects_space_control_and_non_ascii_in_field_name() {
+        for raw in [
+            b"X name: value\r\n\r\nbody".as_slice(),
+            b"X\x01name: value\r\n\r\nbody".as_slice(),
+            b"X\xffname: value\r\n\r\nbody".as_slice(),
+        ] {
+            assert!(parse(raw).is_err(), "accepted field name {raw:?}");
+        }
     }
 
     #[test]

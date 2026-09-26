@@ -5621,6 +5621,15 @@ ManageSieve до заявленного набора современных фо
   Socket acceptance не запускался, поэтому отмечен только parser-level
   результат. Полный RFC 5322 и MIME профили остаются открытыми.
 
+### 2026-09-26: G17 RFC 5322 extension field-name checkpoint
+
+- MIME header parser расширен до `ftext = %d33-57 / %d59-126`, включая
+  пунктуацию допустимых extension names кроме `:`. Сохранена ранее проверенная
+  нормализация завершающего WSP перед двоеточием; внутренний SP, CTL и high-bit
+  octets в field-name отвергаются.
+- Unit regressions покрывают punctuation и отрицательные octets. Socket
+  acceptance не запускался; подтверждён только parser-level результат.
+
 ### 2026-09-26: G17 RFC 5322 obsolete Content-ID CFWS checkpoint
 
 - MIME `Content-ID` теперь принимает RFC 5322 `obs-id-left`/`obs-id-right`

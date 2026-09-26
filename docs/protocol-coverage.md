@@ -264,6 +264,9 @@ MIME Base64 CTE по RFC 2045 §6.8 игнорирует октеты вне Bas
 сворачивает continuation с WSP и отвергает отдельный CR внутри обычной или
 folded строки. RFC 5322 folding требует CRLF перед WSP; регрессии bare CR
 проверены unit-тестами, отдельный socket acceptance не запускался.
+Имена полей валидируются по RFC 5322 `ftext`: печатный US-ASCII без `:`;
+легальная пунктуация extension field names сохраняется, а пробелы, control и
+не-ASCII в имени отвергаются. Тесты unit-only; wire acceptance не запускался.
 RFC 2045 MIME-поля (кроме Content-Disposition) допускают RFC 822 comments;
 Content-Transfer-Encoding удаляет вложенные comments вне quoted-string перед
 разбором token. Unit-тест и независимый SMTP STARTTLS -> IMAP STARTTLS
