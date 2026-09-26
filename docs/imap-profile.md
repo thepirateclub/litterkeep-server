@@ -76,6 +76,13 @@ SEARCH criteria и FETCH ENVELOPE используют одну projection; вл
 и quoted-pairs удаляются из семантических полей. Obsolete forms и malformed
 RFC 5322 syntax остаются ограничениями address parser-а.
 
+Wire framing synchronizing literal отсчитывает объявленные октеты, поэтому CRLF
+внутри payload не завершает значение досрочно. Independent STARTTLS LOGIN
+acceptance передал CRLF внутри password literal, получил обычный отказ
+аутентификации и затем успешно вошёл с правильными credentials в той же сессии.
+Raw NUL и невалидный UTF-8 пока отклоняются строковым token model; это ограничение
+не следует путать с поддержкой полного произвольного literal octet space.
+
 G14 keyword checkpoint (2026-09-24): custom flags и KEYWORD/UNKEYWORD прошли
 Windows tests, Linux Rust 1.97 strict Clippy/254 tests и STARTTLS IMAP black-box
 с повторным открытием data directory. Остальной профиль G14 остаётся RUNNING.

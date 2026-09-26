@@ -188,7 +188,12 @@ SUBSCRIBE/UNSUBSCRIBE, LIST/LSUB/STATUS, COPY/MOVE, SELECT/EXAMINE и UID
 COPY/MOVE, а также SEARCH/UID SEARCH. Независимый raw STARTTLS acceptance
 проверил LOGIN, CREATE, LIST и SELECT; APPEND использует отдельный receiver.
 Это не общая поддержка literal для всех аргументов, LITERAL+ не рекламируется.
-Receiver сохраняет проверенный UTF-8 как значение токена. Независимый STARTTLS
+Внутренние CRLF учитываются в literal octet count и сохраняются как данные:
+STARTTLS LOGIN получил CRLF-containing password literal, вернул обычный auth
+failure, после чего принял правильный login. Текущая строковая token model
+по-прежнему отклоняет raw NUL и невалидный UTF-8, поэтому не принимает весь
+теоретический octet space literal. Receiver сохраняет проверенный UTF-8 как
+значение токена. Независимый STARTTLS
 acceptance проверил tagged BAD для UTF-8 quoted LOGIN, восстановление сессии и
 UTF-8 BODY literal. RFC 9755 explicit SEARCH CHARSET получает BAD; wire-проверены
 обычный и смешанный регистр keyword, после чего implicit UTF-8 SEARCH работает.

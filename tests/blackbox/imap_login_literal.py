@@ -51,10 +51,18 @@ def authenticate(stream: ssl.SSLSocket, reader: object, password: bytes) -> None
     """Передаёт обе LOGIN строки только после своего continuation ответа."""
     stream.sendall(b"A2 LOGIN {3}\r\n")
     expect(reader, b"+", "username continuation")
-    stream.sendall(b"bob " + literal_marker(password))
+    invalid_password = b"bad\r\npassword"
+    stream.sendall(b"bob " + literal_marker(invalid_password))
     expect(reader, b"+", "password continuation")
+    stream.sendall(invalid_password + b"\r\n")
+    expect(reader, b"A2 NO", "CRLF-containing literal password")
+
+    stream.sendall(b"A3 LOGIN {3}\r\n")
+    expect(reader, b"+", "retry username continuation")
+    stream.sendall(b"bob " + literal_marker(password))
+    expect(reader, b"+", "retry password continuation")
     stream.sendall(password + b"\r\n")
-    expect(reader, b"A2 OK", "literal LOGIN")
+    expect(reader, b"A3 OK", "literal LOGIN after authentication failure")
 
 
 def tagged_responses(reader: object, tag: bytes) -> list[bytes]:
@@ -94,8 +102,8 @@ def mailbox_literals(stream: ssl.SSLSocket, reader: object) -> None:
 
 def verify_authenticated_command(stream: ssl.SSLSocket, reader: object) -> None:
     """Подтверждает переход сессии в authenticated state после LOGIN."""
-    stream.sendall(b"A3 NOOP\r\n")
-    expect(reader, b"A3 OK", "authenticated NOOP")
+    stream.sendall(b"A7 NOOP\r\n")
+    expect(reader, b"A7 OK", "authenticated NOOP")
 
 
 def main() -> None:

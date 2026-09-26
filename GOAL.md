@@ -4,6 +4,29 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-27: G17 IMAP synchronizing literal CRLF payload, PASS checkpoint
+
+- RFC 9051 §4.3 explicitly includes CR and LF among synchronizing literal
+  octets. The receiver previously rejected either byte after consuming the
+  advertised count, so valid payload bytes were treated as a framing error.
+- Receiver now frames by octet count and preserves embedded CRLF in the typed
+  literal value. Raw NUL and invalid UTF-8 remain rejected by the current text
+  token model; this checkpoint does not claim arbitrary-octet string support.
+- Windows Rust 1.97.1 strict Clippy, fmt, 604 library tests, 1 CLI test and
+  doc-tests pass. The black-box LOGIN scenario first sends a password literal
+  containing CRLF, expects authentication failure, then retries valid literal
+  LOGIN and exercises mailbox CREATE/LIST/SELECT.
+- Linux Docker Rust 1.97 test stage passes strict Clippy, 666 library tests,
+  1 CLI test and doc-tests; one external Unicode corpus test is ignored because
+  its data file is absent. Independent STARTTLS client received a normal NO for
+  a password literal containing CRLF, then authenticated with the right literal
+  password and completed CREATE/LIST/SELECT. This confirms CRLF octets did not
+  desynchronize the command or session.
+- Fixture `./data/acceptance-imap-literal-crlf-20260927` is retained; its
+  disposable runtime container and image were removed, and absence was verified.
+  Invalid UTF-8 literal octets remain unsupported; this is not a full arbitrary
+  octet or complete IMAP4rev2 claim.
+
 ### 2026-09-27: G17 broader IMAP mailbox synchronizing literals, PASS checkpoint
 
 - RFC 9051 mailbox command arguments are `astring`, and literals are a general

@@ -152,7 +152,7 @@ impl Receiver {
         let Ok(value) = String::from_utf8(std::mem::take(&mut self.bytes)) else {
             return Some(Progress::InvalidString);
         };
-        if value.bytes().any(|byte| matches!(byte, b'\r' | b'\n')) {
+        if value.contains('\0') {
             return Some(Progress::InvalidString);
         }
         self.prefix.push(0);

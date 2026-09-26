@@ -136,8 +136,21 @@ fn receives_multiple_literals_and_preserves_pipelined_command() {
 }
 
 #[test]
-fn rejects_invalid_utf8_and_line_breaks_in_string_literals() {
-    for literal in [b"\xff".as_slice(), b"a\r"] {
+fn synchronizing_literal_preserves_embedded_crlf_octets() {
+    let literal = b"alpha\r\nbeta";
+    let mut receiver = Receiver::new(b"a LOGIN ".to_vec(), literal.len()).expect("bounded");
+    let mut input = literal.to_vec();
+    input.extend_from_slice(b"\r\n");
+    let Progress::Complete(values) = receiver.consume(&mut input) else {
+        panic!("CRLF внутри literal не должны завершать его раньше счётчика октетов");
+    };
+    assert_eq!(values, vec!["alpha\r\nbeta"]);
+    assert_eq!(input, b"a LOGIN \0\r\n");
+}
+
+#[test]
+fn rejects_invalid_utf8_and_nul_in_text_literals() {
+    for literal in [b"\xff".as_slice(), b"a\0"] {
         let mut receiver =
             Receiver::new(b"a SEARCH BODY ".to_vec(), literal.len()).expect("bounded literal");
         let mut input = literal.to_vec();
