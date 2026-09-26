@@ -38,7 +38,12 @@ pub(super) fn validate_reason(entity: &[u8]) -> Result<(), &'static str> {
     };
     let encoding = match field {
         Some(field) => {
-            TransferEncoding::parse(&field.value).map_err(|_| "invalid MIME transfer encoding")?
+            let value =
+                std::str::from_utf8(&field.value).map_err(|_| "invalid MIME transfer encoding")?;
+            // Сначала удаляются RFC comments; typed parser принимает лишь ASCII token.
+            let uncommented = crate::mime::structured_comments::remove(value)?;
+            TransferEncoding::parse(uncommented.as_bytes())
+                .map_err(|_| "invalid MIME transfer encoding")?
         }
         None => TransferEncoding::SevenBit,
     };

@@ -309,7 +309,13 @@ folded строки. RFC 5322 folding требует CRLF перед WSP; рег
 полный RFC822 literal до байта. Это не проверка Litterkeep app.
 RFC 2045 MIME-поля (кроме Content-Disposition) допускают RFC 822 comments;
 Content-Transfer-Encoding удаляет вложенные comments вне quoted-string перед
-разбором token. Unit-тест и независимый SMTP STARTTLS -> IMAP STARTTLS
+разбором token. Сам CTE value ограничен одним RFC 2045 ASCII token: по краям
+принимаются только SP/HTAB, внутренние separators и Unicode whitespace
+отвергаются; неизвестный корректный ASCII token остаётся typed UNKNOWN-CTE.
+Unit-регрессия воспроизводит прежнее принятие NBSP и проверяет отказ после
+исправления. Независимый ManageSieve CHECKSCRIPT подтвердил те же границы в
+vacation `:mime`: comments принимаются, NBSP отвергается. Unit-тест и независимый
+SMTP STARTTLS -> IMAP STARTTLS
 acceptance проверили вложенный comment перед Base64, escaped right parenthesis,
 comment после token, BODYSTRUCTURE encoding и точные декодированные octets.
 Исходные RFC822 bytes при доставке сохранены без нормализации.

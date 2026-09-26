@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G17 RFC 2045 Content-Transfer-Encoding token checkpoint
+
+- Устранено принятие невалидного CTE `base64` с Unicode NBSP: parser теперь
+  ограничивает value одним ASCII token, допускает внешние SP/HTAB, отвергает
+  tspecials и не ломает typed UNKNOWN-CTE для будущих корректных ASCII tokens.
+  Sieve vacation `:mime` удаляет RFC comments перед общим token parser-ом.
+- До исправления новая регрессия падала именно на NBSP. После исправления
+  Windows Rust 1.97.1: 566 библиотечных и 1 бинарный тест, strict Clippy,
+  `cargo fmt --check`; Linux Docker Rust 1.97: 617 библиотечных и 1 бинарный
+  тест, doc-tests и strict Clippy. Независимый ManageSieve TLS CHECKSCRIPT
+  принял comments и отверг NBSP. Временные test/runtime images и container
+  удалены; данные этапа сохранены в `./data/g18-mime-cte-token`. G17 остаётся
+  ACTIVE.
+
 ### 2026-09-26: G17 RFC 6532 message/global independent IMAP wire checkpoint
 
 - Добавлен самостоятельный `tests/blackbox/imap_message_global.py`: через

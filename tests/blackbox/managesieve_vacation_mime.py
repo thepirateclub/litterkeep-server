@@ -227,6 +227,24 @@ def run(options: argparse.Namespace) -> None:
                 client,
                 vacation_script(
                     b"Content-Type: text/plain\r\n"
+                    b"Content-Transfer-Encoding: (before) base64 (after)\r\n\r\n"
+                    b"SGVsbG8=\r\n"
+                ),
+                True,
+            )
+            check_script(
+                client,
+                vacation_script(
+                    "Content-Type: text/plain\r\n"
+                    "Content-Transfer-Encoding: base64\u00a0\r\n\r\n"
+                    "SGVsbG8=\r\n".encode("utf-8")
+                ),
+                False,
+            )
+            check_script(
+                client,
+                vacation_script(
+                    b"Content-Type: text/plain\r\n"
                     b"Content-Transfer-Encoding: base64\r\n"
                     b"Content-Transfer-Encoding: 7bit\r\n\r\nSGVsbG8=\r\n"
                 ),

@@ -29,7 +29,12 @@ impl TransferEncoding {
     /// Преобразует внешнее имя в enum один раз на границе MIME parser-а.
     pub fn parse(value: &[u8]) -> Result<Self, &'static str> {
         let text = std::str::from_utf8(value).map_err(|_| "transfer encoding is not ASCII")?;
-        Ok(match text.trim().to_ascii_lowercase().as_str() {
+        let token = text.trim_matches(|character| matches!(character, ' ' | '\t'));
+        match (token.is_empty(), token.bytes().all(is_token_octet)) {
+            (false, true) => {}
+            _ => return Err("invalid Content-Transfer-Encoding token"),
+        }
+        Ok(match token.to_ascii_lowercase().as_str() {
             "7bit" => Self::SevenBit,
             "8bit" => Self::EightBit,
             "binary" => Self::Binary,
@@ -55,6 +60,30 @@ impl TransferEncoding {
             Self::QuotedPrintable => quoted_printable::decode(body),
             Self::Unsupported(_) => Err("unsupported Content-Transfer-Encoding"),
         }
+    }
+}
+
+/// Проверяет RFC 2045 token: печатный ASCII без separators и tspecials.
+fn is_token_octet(byte: u8) -> bool {
+    match byte {
+        0x21..=0x7e => !matches!(
+            byte,
+            b'(' | b')'
+                | b'<'
+                | b'>'
+                | b'@'
+                | b','
+                | b';'
+                | b':'
+                | b'\\'
+                | b'"'
+                | b'/'
+                | b'['
+                | b']'
+                | b'?'
+                | b'='
+        ),
+        _ => false,
     }
 }
 
@@ -121,6 +150,30 @@ mod tests {
             "café".as_bytes()
         );
         assert!(TransferEncoding::SevenBit.decode(b"\xff").is_err());
+    }
+
+    /// RFC 2045 разрешает ASCII linear whitespace вокруг CTE token, но не Unicode space.
+    #[test]
+    fn parser_rejects_non_ascii_whitespace_and_non_token_octets() {
+        assert_eq!(
+            TransferEncoding::parse(b" \tBASE64\t "),
+            Ok(TransferEncoding::Base64)
+        );
+        for invalid in [
+            "base64\u{00a0}".as_bytes(),
+            "\u{2003}base64".as_bytes(),
+            b"base 64".as_slice(),
+            b"base64/extra".as_slice(),
+        ] {
+            assert!(
+                TransferEncoding::parse(invalid).is_err(),
+                "accepted invalid CTE token {invalid:?}"
+            );
+        }
+        assert_eq!(
+            TransferEncoding::parse(b"x-future-cte"),
+            Ok(TransferEncoding::Unsupported("x-future-cte".to_owned()))
+        );
     }
 
     #[test]

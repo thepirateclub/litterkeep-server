@@ -95,6 +95,10 @@ RFC 5230 `:mime` CHECKSCRIPT теперь отвергает повторяющ�
 `tests/blackbox/managesieve_vacation_mime.py` по TLS ManageSieve подтвердил
 CHECKSCRIPT для корректных 7bit, quoted-printable и Base64 entities, а также
 отказ для повреждённого Base64, duplicate CTE и encoded multipart.
+Общий CTE parser принимает только один ASCII token с внешним SP/HTAB; Unicode
+whitespace и tspecials не нормализуются в известное имя encoding. RFC comments
+в MIME entity удаляются до разбора token. Независимый CHECKSCRIPT подтвердил
+приём `base64` с comments и отказ для NBSP после token.
 Перед сохранением :mime-скрипта также проверяется `MIME-Version`: допускается
 не более одного значения версии 1.0, RFC 822 comments удаляются без склейки
 через реальный whitespace внутри значения; неизвестная версия, повторные поля

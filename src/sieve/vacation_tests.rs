@@ -147,6 +147,17 @@ fn mime_vacation_rejects_malformed_transfer_encoding_and_duplicate_fields() {
 }
 
 #[test]
+fn mime_vacation_parses_ascii_cte_comments_and_rejects_unicode_space() {
+    let commented =
+        b"Content-Type: text/plain\r\nContent-Transfer-Encoding: (before) base64 (after)\r\n\r\naGVsbG8=\r\n";
+    assert!(super::vacation_mime::validate_reason(commented).is_ok());
+
+    let invalid =
+        "Content-Type: text/plain\r\nContent-Transfer-Encoding: base64\u{00a0}\r\n\r\naGVsbG8=\r\n";
+    assert!(super::vacation_mime::validate_reason(invalid.as_bytes()).is_err());
+}
+
+#[test]
 fn mime_vacation_requires_one_supported_mime_version() {
     for entity in [
         "MIME-Version: 2.0\r\nContent-Type: text/plain\r\n\r\nbody",
