@@ -6079,3 +6079,14 @@ ManageSieve до заявленного набора современных фо
   test target: 632 library + 1 binary и doc-tests. Disposable test image удалён
   после gate; runtime container не запускался. Следующие обязательные связки: ENABLE/session, mailbox
   input/output, APPEND header policy и SEARCH charset. G17 остаётся RUNNING.
+
+### 2026-09-26: G17 RFC 9755 conformance wording audit
+
+- По первичному RFC 9755 уточнены нормативные силы рекомендаций для UTF-8
+  mailbox names и SEARCH CHARSET, обязательства APPEND при реализованном
+  extension, а также исключённое множество Unicode mailbox controls.
+- `UTF8=ONLY` выделен в самостоятельную неподдержанную строку acceptance:
+  он подразумевает `UTF8=ACCEPT`, но добавляет обязательный legacy rejection
+  profile. CAPABILITY не изменена; сеточной реализации или PASS нет.
+- Проверено `git diff --check`; это аудит документации, не основание менять
+  тестовые счётчики или статус G17.

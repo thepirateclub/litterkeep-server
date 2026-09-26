@@ -191,17 +191,19 @@ except "+">`: закрывающая скобка допустима как `res
 
 | Обязательство RFC 9755 | Текущее состояние | Что требуется для PASS |
 |---|---|---|
-| Capability и ENABLE | Не поддерживается: CAPABILITY не содержит `UTF8=ACCEPT`, ENABLE возвращает пустой список | Рекламировать только после завершения остальных пунктов; ENABLE доступен только в authenticated state и отражает реально активированный режим |
+| Capability и ENABLE | Не поддерживается: CAPABILITY не содержит `UTF8=ACCEPT` или `UTF8=ONLY`, ENABLE возвращает пустой список | `UTF8=ACCEPT` рекламировать только при выполнении связанного профиля; ENABLE доступен только в authenticated state и отражает реально активированный режим |
 | UTF-8 quoted-string | Production wire path остаётся legacy ASCII-only; отдельный mode-aware lexer helper проверен unit-тестом, но не связан с session/ENABLE и capability не объявлен | Разрешать валидные UTF-8 только в quoted-string после ENABLE; atom остаётся ASCII, malformed UTF-8 и запрещённые controls дают BAD |
-| Имена mailbox | Поддерживается только modified UTF-7 wire representation | В UTF-8 режиме принимать Net-Unicode mailbox names, проверять запрещённые controls/U+2028/U+2029 и преобразовывать в единое внутреннее имя; legacy режим не менять |
+| Имена mailbox | Поддерживается только modified UTF-7 wire representation | RFC 9755 SHOULD принимать UTF-8 mailbox names; при поддержке RFC 3501 international mailbox naming это MUST. Проверять Net-Unicode и исключения U+0000-U+001F, U+007F-U+009F, U+2028/U+2029; преобразовывать во внутреннее имя |
 | Ответы с именами mailbox | LIST, LSUB, NAMESPACE используют legacy modified UTF-7 | Включённому клиенту выдавать UTF-8 имена; не включённому клиенту сохранять legacy представление |
-| APPEND internationalized headers | RFC 9755 режим отсутствует; APPEND сохраняет исходные message octets | После реализации расширения разрешать UTF-8 headers при ENABLE и отвергать такие APPEND до ENABLE; проверять exact bytes |
-| SEARCH charset | Extension режим отсутствует | После ENABLE SHOULD отвергать SEARCH с явным CHARSET согласно RFC 9755; проверять charset case и parser state |
+| APPEND internationalized headers | RFC 9755 режим отсутствует; APPEND сохраняет исходные message octets | Реализованный сервер MUST принимать UTF-8 headers в APPEND; если поддерживает расширение, но клиент не включил его, MUST отвечать NO для APPEND с 8-bit octet в header field; проверять exact bytes |
+| SEARCH charset | Extension режим отсутствует | После ENABLE SHOULD отвечать BAD на SEARCH с явным CHARSET; проверять charset case и session state |
 | LOGIN и SASL | LOGIN использует legacy IMAP string grammar; AUTHENTICATE PLAIN отдельный typed путь | Не расширять LOGIN для UTF-8 credentials; UTF-8 identity передавать через AUTHENTICATE и отдельно проверять identity policy |
 | message/global | Уже поддерживается отдельным MIME source/section profile | Сохранить существующую вложенную BODYSTRUCTURE/section семантику при выборе IMAP4rev1 UTF-8 режима |
+| UTF8=ONLY | Не поддерживается и не рекламируется | Отдельный профиль: подразумевает UTF8=ACCEPT, клиенты всё равно отправляют `ENABLE UTF8=ACCEPT`; требует reject legacy modified UTF-7 и `NO [CANNOT]` для UTF-8-dependent команд до ENABLE |
 
-До прохождения этих gates `UTF8=ACCEPT` не должно появляться в CAPABILITY и
-успешный пустой ENABLE не считается его активацией. RFC 9755 Sections 3-7
+До прохождения этих gates `UTF8=ACCEPT` и `UTF8=ONLY` не должны появляться в
+CAPABILITY, а успешный пустой ENABLE не считается их активацией. `UTF8=ONLY`
+не является синонимом `UTF8=ACCEPT` и требует отдельного строгого режима. RFC 9755 Sections 3-7
 являются нормативным источником для будущего этапа; отдельный runtime acceptance
 пока не выполнялся. Начальная lexer-проверка покрывает только выбор режима и
 не является отдельным acceptance item с PASS.
