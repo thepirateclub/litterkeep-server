@@ -20,7 +20,7 @@ Current subgoal: G17
 - Windows Rust 1.97.1 fmt, strict Clippy, 605 library tests, 1 CLI test и
   doc-tests pass. Linux Docker Rust 1.97 release, strict Clippy, 668 library
   tests, 1 CLI test и doc-tests pass; один внешний Unicode corpus test ignored
-  из-за отсутствующего файла. Python syntax check pass; black-box script 267 строк.
+  из-за отсутствующего файла. Python syntax check pass; black-box script 297 строк.
 - Fixture остаётся в `./data/acceptance-imap-utf8-list-status-20260927`.
   Временные Docker container/image удалены, имена проверены; контейнеры других
   проектов не изменялись. Это закрывает только capability advertisement,
