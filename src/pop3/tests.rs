@@ -21,8 +21,8 @@ fn authentication_and_stat_require_worker_completion() {
     assert!(matches!(session.apply(parse("STAT\r\n")), Reply::Error(_)));
     assert!(matches!(session.apply(parse("USER pop\r\n")), Reply::Ok(_)));
     assert!(matches!(
-        session.apply(parse("PASS password\r\n")),
-        Reply::Authenticate { .. }
+        session.apply(parse("PASS test password\r\n")),
+        Reply::Authenticate { password, .. } if password == b"test password"
     ));
     assert!(matches!(
         session.authenticated(vec![message(7, b"Subject: one\r\n\r\nbody")]),

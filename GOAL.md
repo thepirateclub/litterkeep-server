@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-27: G17 POP3 PASS password spaces, PASS
+
+- POP3 command parser теперь трактует весь остаток `PASS` после первого SP как
+  единственный password, сохраняя внутренние, начальные и конечные пробелы.
+  `USER` остаётся ровно одним непустым токеном; пустой USER/PASS отвергается.
+- RFC 1939 §7.3 разрешает включать пробелы в парольный аргумент. Unit проверяет
+  точные password bytes на выходе session к authentication owner. Независимый
+  Linux STARTTLS peer получил ожидаемый backend `authentication failed` на
+  неверный пароль с пробелами, затем успешно повторил USER.
+- Windows Rust 1.97.1: полный library suite 604 passed, 1 ignored; strict
+  Clippy, fmt и Python `py_compile` прошли. Linux Docker Rust 1.97: release,
+  strict Clippy, 665 library + 1 binary test, doc-tests; 1 внешний Unicode
+  corpus test ignored.
+- Runtime container и временный test image удалены; тестовые credentials
+  сохранены в `./data/acceptance-pop3-pass-spaces-20260927` без вывода секрета.
+  Acceptance не утверждает успешную проверку действующего пароля с пробелами.
+
 ### 2026-09-26: G17 POP3 сохранение CR вне CRLF, PASS
 
 - POP3 ранее удалял любой `CR` из размера `LIST` и тела `RETR/TOP`. Теперь

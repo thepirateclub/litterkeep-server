@@ -63,6 +63,25 @@ fn preserves_normal_command_arity() {
 }
 
 #[test]
+fn pass_keeps_spaces_inside_its_single_password_argument() {
+    assert_eq!(
+        parse("PASS two words\r\n"),
+        Command::Pass("two words".into())
+    );
+    assert_eq!(
+        parse("PASS trailing space \r\n"),
+        Command::Pass("trailing space ".into())
+    );
+    assert_eq!(
+        parse("PASS  leading space\r\n"),
+        Command::Pass(" leading space".into())
+    );
+    assert_eq!(parse("PASS \r\n"), Command::Invalid);
+    assert_eq!(parse("USER \r\n"), Command::Invalid);
+    assert_eq!(parse("USER two words\r\n"), Command::Invalid);
+}
+
+#[test]
 fn parses_sasl_auth_plain_with_or_without_initial_response() {
     assert_eq!(
         parse("AUTH plain\r\n"),

@@ -62,7 +62,7 @@ pub fn parse(line: &str) -> Command {
     }
     match verb.as_str() {
         "USER" => text(words.next(), words.next()).map_or(Command::Invalid, Command::User),
-        "PASS" => text(words.next(), words.next()).map_or(Command::Invalid, Command::Pass),
+        "PASS" => pass_argument(command).map_or(Command::Invalid, Command::Pass),
         "STAT" => empty(words.next(), Command::Stat),
         "LIST" => optional_number(words.next(), words.next(), Command::List),
         "RETR" => required_number(words.next(), words.next(), Command::Retr),
@@ -124,7 +124,16 @@ fn printable_command(command: &str) -> bool {
 
 fn text(value: Option<&str>, extra: Option<&str>) -> Option<String> {
     match (value, extra) {
-        (Some(value), None) => Some(value.to_owned()),
+        (Some(value), None) if !value.is_empty() => Some(value.to_owned()),
+        _ => None,
+    }
+}
+
+/// Сохраняет пробелы в единственном аргументе PASS согласно RFC 1939 §7.3.
+fn pass_argument(command: &str) -> Option<String> {
+    let (verb, password) = command.split_once(' ')?;
+    match (verb.eq_ignore_ascii_case("PASS"), password.is_empty()) {
+        (true, false) => Some(password.to_owned()),
         _ => None,
     }
 }
