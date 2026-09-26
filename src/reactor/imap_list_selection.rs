@@ -188,7 +188,7 @@ fn write_entry(
     returns: &imap::folder::ListReturnOptions,
 ) -> io::Result<()> {
     let attributes = attributes(&result.entry, selection, returns);
-    let name = imap_folders::quote(&result.entry.name);
+    let name = imap_folders::quote(&result.entry.name, session.imap_string_mode);
     let child_info = if result.child_info {
         child_info(selection)
     } else {

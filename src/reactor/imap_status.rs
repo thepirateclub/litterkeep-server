@@ -101,7 +101,7 @@ pub(super) fn completed(
         };
         values.push(value);
     }
-    let mailbox = imap_folders::quote(&name);
+    let mailbox = imap_folders::quote(&name, session.imap_string_mode);
     session.push(
         format!(
             "* STATUS {mailbox} ({})\r\n{tag} OK STATUS completed\r\n",

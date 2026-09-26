@@ -179,7 +179,7 @@ fn root_response(session: &mut Session, tag: &str, root: &str) -> io::Result<()>
     session.push(
         format!(
             "* LIST (\\Noselect) \"/\" {}\r\n{tag} OK LIST completed\r\n",
-            imap_folders::quote(root)
+            imap_folders::quote(root, session.imap_string_mode)
         )
         .as_bytes(),
     )
@@ -249,8 +249,15 @@ pub(super) fn special_use(value: Option<crate::store::SpecialUse>) -> &'static s
     }
 }
 
-pub(super) fn quote(value: &str) -> String {
-    let encoded = crate::imap::modified_utf7::encode(value);
+pub(super) fn quote(value: &str, mode: imap::tokenizer::StringMode) -> String {
+    let encoded = match mode {
+        imap::tokenizer::StringMode::Legacy => crate::imap::modified_utf7::encode(value),
+        imap::tokenizer::StringMode::Utf8Accept => value.to_owned(),
+    };
     let escaped = encoded.replace('\\', "\\\\").replace('"', "\\\"");
     format!("\"{escaped}\"")
 }
+
+#[cfg(test)]
+#[path = "imap_folders_mode_tests.rs"]
+mod mode_tests;

@@ -135,7 +135,7 @@ fn listed_lsub(
         .filter(|folder| imap_list::matches_pattern(&folder.name, &pattern))
     {
         let attributes = lsub_attributes(folder);
-        let name = imap_folders::quote(&folder.name);
+        let name = imap_folders::quote(&folder.name, session.imap_string_mode);
         session.push(format!("* LSUB ({attributes}) \"/\" {name}\r\n").as_bytes())?;
     }
     session.push(format!("{tag} OK LSUB completed\r\n").as_bytes())

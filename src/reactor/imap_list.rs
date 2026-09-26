@@ -18,7 +18,7 @@ pub(super) fn listed(
         .filter(|folder| listed_folder(folder, &pattern, special_use_only))
     {
         let attributes = imap_folders::special_use(folder.special_use);
-        let name = imap_folders::quote(&folder.name);
+        let name = imap_folders::quote(&folder.name, session.imap_string_mode);
         session.push(format!("* LIST ({attributes}) \"/\" {name}\r\n").as_bytes())?;
     }
     session.push(format!("{tag} OK LIST completed\r\n").as_bytes())

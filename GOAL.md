@@ -6129,3 +6129,17 @@ ManageSieve до заявленного набора современных фо
 - Windows: 587 library + 1 binary tests, doc-tests, fmt и strict Clippy прошли.
   Linux Docker Rust 1.97 release build, strict Clippy, 638 library + 1 binary
   tests и doc-tests прошли. Временный image удалён; matching containers не было.
+
+### 2026-09-26: G17 RFC 9755 session mailbox codec foundation
+
+- `Session` хранит typed `StringMode` с default Legacy. Reactor передаёт его
+  обычному parser и SEARCH-literal parser; LIST, LSUB, STATUS и root LIST output
+  выбирают serializer: modified UTF-7 для Legacy или UTF-8 quoted-string для
+  Utf8Accept. ENABLE перехода не делает, поэтому фактический wire mode остаётся
+  Legacy и CAPABILITY не меняется.
+- Два Linux-only теста проверяют кодирование Unicode и quoted escapes. Первая
+  Linux попытка выявила dead SEARCH wrappers; они удалены, тестовый caller
+  переведён на typed mode API. Итоговые gates: Windows 587 library + 1 binary,
+  fmt, tests, doc-tests и strict Clippy; Linux Docker Rust 1.97 release build,
+  strict Clippy, 640 library + 1 binary и doc-tests. Временный image удалён,
+  matching containers не было. T111 остаётся PARTIAL: wire acceptance отсутствует.

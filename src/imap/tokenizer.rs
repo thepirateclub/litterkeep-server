@@ -18,9 +18,10 @@ pub enum Token {
 }
 
 /// Согласованный режим задаёт только расширение quoted-string из RFC 9755.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum StringMode {
     /// Базовая IMAP4rev1 грамматика без high-bit символов в quoted-string.
+    #[default]
     Legacy,
     /// Расширенная quoted-string грамматика после ENABLE UTF8=ACCEPT.
     Utf8Accept,
@@ -43,13 +44,14 @@ pub fn tokenize_with_mode(line: &str, mode: StringMode) -> Result<Vec<Token>, &'
     tokenize_internal(line, Vec::new().into(), mode)
 }
 
-/// Разбирает команду, где NUL-placeholders обозначают принятые SEARCH literals.
+/// Собирает SEARCH literal placeholders с режимом остальных quoted-string.
 #[cfg(any(target_os = "linux", test))]
-pub(super) fn tokenize_search_literals(
+pub(super) fn tokenize_search_literals_with_mode(
     line: &str,
     literals: Vec<String>,
+    mode: StringMode,
 ) -> Result<Vec<Token>, &'static str> {
-    tokenize_internal(line, literals.into(), StringMode::Legacy)
+    tokenize_internal(line, literals.into(), mode)
 }
 
 /// Объединяет wire-грамматику с упорядоченными, отдельно проверенными literals.
@@ -256,7 +258,11 @@ mod tests {
     fn wire_quoted_string_rejects_high_bit_but_literal_token_keeps_utf8() {
         assert!(tokenize("a LOGIN \"bøb\" \"pass\"\r\n").is_err());
         assert_eq!(
-            tokenize_search_literals("a SEARCH SUBJECT \0\r\n", vec!["bøb".into()]),
+            tokenize_search_literals_with_mode(
+                "a SEARCH SUBJECT \0\r\n",
+                vec!["bøb".into()],
+                StringMode::Legacy,
+            ),
             Ok(vec![
                 Token::Text("a".into()),
                 Token::Text("SEARCH".into()),

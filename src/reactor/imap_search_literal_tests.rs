@@ -63,9 +63,10 @@ fn utf8_search_literal_is_not_reparsed_as_wire_quoted_text() {
     assert_eq!(values, vec!["Привет"]);
     assert_eq!(input, b"a SEARCH SUBJECT \0\r\n");
     assert_eq!(
-        crate::imap::parse_search_literals(
+        crate::imap::parse_search_literals_with_mode(
             std::str::from_utf8(&input).expect("internal command marker"),
             values,
+            crate::imap::tokenizer::StringMode::Legacy,
         )
         .command,
         crate::imap::Command::Search {

@@ -63,6 +63,8 @@ pub(super) struct Session {
     pub(super) pending_submit: Option<(Request, Pending)>,
     pub(super) pending: Option<Pending>,
     pub(super) authenticated_account: Option<String>,
+    /// IMAP string grammar выбранной для этой сессии договорённостью.
+    pub(super) imap_string_mode: imap::tokenizer::StringMode,
     /// Store key выбранного mailbox; `None` означает authenticated state.
     pub(super) selected_mailbox: Option<String>,
     pub(super) selected_exists: usize,
@@ -131,6 +133,7 @@ impl Session {
             pending_submit: None,
             pending: None,
             authenticated_account: None,
+            imap_string_mode: imap::tokenizer::StringMode::default(),
             selected_mailbox: None,
             selected_exists: 0,
             selected_recent: BTreeSet::new(),
