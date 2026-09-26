@@ -195,7 +195,9 @@ fn parse_path<'a>(
     if !actual.eq_ignore_ascii_case(expected) {
         return Err(ParseError::Syntax);
     }
-    let value = rest.trim_start();
+    // RFC 5321 требует path сразу после двоеточия: пробел здесь не входит
+    // в production MAIL/RCPT и не должен нормализоваться перед разбором.
+    let value = rest;
     let Some(path) = value.strip_prefix('<') else {
         return Err(ParseError::Syntax);
     };
@@ -294,3 +296,7 @@ fn parse_size(value: &str) -> Result<u128, ParseError> {
 #[cfg(test)]
 #[path = "command_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "path_whitespace_tests.rs"]
+mod path_whitespace_tests;

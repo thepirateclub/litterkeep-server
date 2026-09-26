@@ -4,6 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-26: G15 RFC 5321 path delimiter whitespace, PASS
+
+- SMTP parser no longer trims whitespace after `MAIL FROM:` or `RCPT TO:`;
+  path must immediately follow the command colon. Unit coverage checks SP and
+  HTAB for both commands and retains valid paths with MAIL parameters.
+- PASS: Windows Rust 1.97.1 fmt, 538 library + 1 binary tests, strict Clippy;
+  Linux Docker Rust 1.97 release build, strict Clippy, 585 library + 1 binary
+  tests and doc-tests. Independent raw-TCP blackbox rejected all four malformed
+  commands with 501, then accepted valid MAIL/RCPT and completed RSET/QUIT in
+  the same session. Temporary container and stage image tags are removed;
+  `./data/g15-smtp-path-colon-whitespace` is retained. Litterkeep client
+  interoperability was not tested. G15 remains active.
+
 ### 2026-09-26: G17 STORE and APPEND flag-list boundaries, PASS
 
 - STORE no longer discards parentheses while collecting flags; it validates the

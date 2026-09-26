@@ -14,6 +14,11 @@ dot terminator. `BODY=7BIT` и режим без BODY ограничивают �
 До TLS AUTH запрещён. Envelope sender должен принадлежать authenticated owner.
 Local route не является open relay.
 
+В production `MAIL FROM:` и `RCPT TO:` angle-path начинается сразу после
+двоеточия: пробел и табуляция между delimiter-ом команды и `<` получают 501,
+а последующая команда остаётся синхронизирована. Проверено unit-тестом parser-а
+и независимым raw-TCP клиентом на Linux. См. [RFC 5321 §4.1.2](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.1.2).
+
 SMTP session требует HELO/EHLO перед MAIL/RCPT/DATA. HELO включает только базовый
 SMTP режим: ESMTP MAIL-параметры, AUTH и STARTTLS требуют EHLO. Успешные HELO и
 EHLO сбрасывают незавершённый envelope; это проверяется независимым клиентом.
