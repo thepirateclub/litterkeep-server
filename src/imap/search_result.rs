@@ -53,7 +53,7 @@ pub(super) fn parse_prefix(tokens: &mut VecDeque<Token>) -> Option<ResultRequest
 fn parse_return_list(tokens: &mut VecDeque<Token>) -> Option<Vec<ReturnItem>> {
     match tokens.pop_front()? {
         Token::ListStart => parse_items(tokens),
-        Token::ListEnd | Token::Text(_) | Token::Quoted(_) => None,
+        Token::ListEnd | Token::Text(_) | Token::Quoted(_) | Token::Literal(_) => None,
     }
 }
 
@@ -69,7 +69,7 @@ fn parse_items(tokens: &mut VecDeque<Token>) -> Option<Vec<ReturnItem>> {
                     false => items.push(item),
                 }
             }
-            Token::Quoted(_) | Token::ListStart => return None,
+            Token::Quoted(_) | Token::Literal(_) | Token::ListStart => return None,
         }
     }
 }

@@ -105,7 +105,7 @@ fn parse_group(tokens: &mut VecDeque<Token>, nested: bool) -> Option<SearchKey> 
 fn parse_one(tokens: &mut VecDeque<Token>) -> Option<SearchKey> {
     let value = match tokens.pop_front()? {
         Token::Text(value) => value,
-        Token::Quoted(_) => return None,
+        Token::Quoted(_) | Token::Literal(_) => return None,
         Token::ListStart => return parse_group(tokens, true),
         Token::ListEnd => return None,
     };
@@ -191,6 +191,7 @@ fn argument(tokens: &mut VecDeque<Token>) -> Option<String> {
     match tokens.pop_front()? {
         Token::Text(value) => Some(value),
         Token::Quoted(value) => Some(value),
+        Token::Literal(value) => String::from_utf8(value).ok(),
         Token::ListStart | Token::ListEnd => None,
     }
 }

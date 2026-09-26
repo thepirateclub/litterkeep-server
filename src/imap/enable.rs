@@ -27,7 +27,9 @@ pub(super) fn parse(tokens: impl Iterator<Item = Token>) -> Command {
     for token in tokens {
         match token {
             Token::Text(value) => capabilities.push(Capability::parse(&value)),
-            Token::Quoted(_) | Token::ListStart | Token::ListEnd => return Command::Unsupported,
+            Token::Quoted(_) | Token::Literal(_) | Token::ListStart | Token::ListEnd => {
+                return Command::Unsupported;
+            }
         }
     }
     match capabilities.is_empty() {

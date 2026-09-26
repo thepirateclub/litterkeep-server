@@ -170,7 +170,7 @@ fn parse_parenthesized_flag_values(
         match tokens.next()? {
             Token::Text(value) => values.push(flag_value(Token::Text(value))?),
             Token::ListEnd => return Some(values),
-            Token::Quoted(_) | Token::ListStart => return None,
+            Token::Quoted(_) | Token::Literal(_) | Token::ListStart => return None,
         }
     }
 }
@@ -178,7 +178,11 @@ fn parse_parenthesized_flag_values(
 fn flag_value(token: Token) -> Option<String> {
     match token {
         Token::Text(value) if supported_flag(&value) => Some(value),
-        Token::Text(_) | Token::Quoted(_) | Token::ListStart | Token::ListEnd => None,
+        Token::Text(_)
+        | Token::Quoted(_)
+        | Token::Literal(_)
+        | Token::ListStart
+        | Token::ListEnd => None,
     }
 }
 

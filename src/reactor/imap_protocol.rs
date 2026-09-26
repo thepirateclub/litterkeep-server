@@ -22,7 +22,7 @@ pub(super) mod authenticate;
 pub(super) fn line(
     session: &mut Session,
     line: Vec<u8>,
-    literals: Option<Vec<String>>,
+    literals: Option<Vec<Vec<u8>>>,
     context: super::imap_line_context::LineContext<'_>,
 ) -> io::Result<()> {
     let super::imap_line_context::LineContextParts {
@@ -53,15 +53,7 @@ pub(super) fn line(
             session.push(format!("{} OK NOOP completed\r\n", parsed.tag).as_bytes())?
         }
         imap::Command::Login { username, password } => authenticate::login(
-            session,
-            parsed.tag,
-            username,
-            password.into_bytes(),
-            slot,
-            generation,
-            worker,
-            owners,
-            request_id,
+            session, parsed.tag, username, password, slot, generation, worker, owners, request_id,
         )?,
         imap::Command::Authenticate {
             mechanism,

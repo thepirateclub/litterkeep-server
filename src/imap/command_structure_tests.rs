@@ -38,14 +38,14 @@ fn login_astring_rejects_unquoted_specials_and_accepts_bracket() {
         parse("A6 LOGIN bo]b password\r\n").command,
         Command::Login {
             username: "bo]b".into(),
-            password: "password".into(),
+            password: b"password".to_vec(),
         }
     );
     assert_eq!(
         parse("A7 LOGIN \"bo%ob\" password\r\n").command,
         Command::Login {
             username: "bo%ob".into(),
-            password: "password".into(),
+            password: b"password".to_vec(),
         }
     );
     assert_eq!(

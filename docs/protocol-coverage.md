@@ -190,10 +190,11 @@ COPY/MOVE, а также SEARCH/UID SEARCH. Независимый raw STARTTLS 
 Это не общая поддержка literal для всех аргументов, LITERAL+ не рекламируется.
 Внутренние CRLF учитываются в literal octet count и сохраняются как данные:
 STARTTLS LOGIN получил CRLF-containing password literal, вернул обычный auth
-failure, после чего принял правильный login. Текущая строковая token model
-по-прежнему отклоняет raw NUL и невалидный UTF-8, поэтому не принимает весь
-теоретический octet space literal. Receiver сохраняет проверенный UTF-8 как
-значение токена. Независимый STARTTLS
+failure, после чего принял правильный login. Raw NUL отклоняется; LOGIN password
+literals сохраняются побайтно, включая невалидный UTF-8, до authentication
+owner-а. Текстовые username/mailbox/search аргументы требуют корректный UTF-8 в
+выбранном string mode. Это не полная поддержка произвольных literal octets для
+всех команд. Receiver сохраняет байты отдельным типом токена. Независимый STARTTLS
 acceptance проверил tagged BAD для UTF-8 quoted LOGIN, восстановление сессии и
 UTF-8 BODY literal. RFC 9755 explicit SEARCH CHARSET получает BAD; wire-проверены
 обычный и смешанный регистр keyword, после чего implicit UTF-8 SEARCH работает.

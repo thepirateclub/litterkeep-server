@@ -82,10 +82,10 @@ pub(super) struct Session {
     pub(super) imap_authenticate: Option<imap_protocol::authenticate::State>,
     /// Ограниченный literal остаётся собственностью этой IMAP-сессии.
     pub(super) imap_literal: Option<LiteralReceiver>,
-    /// SEARCH literal ожидает завершения неблокирующего приёма octets.
+    /// IMAP literal ожидает завершения неблокирующего приёма octets.
     pub(super) imap_search_literal: Option<super::imap_search_literal::Receiver>,
-    /// Единственное значение literal для следующей внутренне собранной SEARCH-команды.
-    pub(super) imap_search_literal_value: Option<Vec<String>>,
+    /// Сохранённые октеты literal-аргументов для типизированного parser-а команды.
+    pub(super) imap_search_literal_value: Option<Vec<Vec<u8>>>,
     pub(super) smtp: SmtpState,
     pub(super) smtp_auth: SmtpAuthState,
     pub(super) smtp_greeting: smtp::GreetingMode,

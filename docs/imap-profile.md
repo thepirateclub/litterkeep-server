@@ -80,8 +80,11 @@ Wire framing synchronizing literal отсчитывает объявленные
 внутри payload не завершает значение досрочно. Independent STARTTLS LOGIN
 acceptance передал CRLF внутри password literal, получил обычный отказ
 аутентификации и затем успешно вошёл с правильными credentials в той же сессии.
-Raw NUL и невалидный UTF-8 пока отклоняются строковым token model; это ограничение
-не следует путать с поддержкой полного произвольного literal octet space.
+Raw NUL отклоняется как бинарная строка. LOGIN password literal сохраняется
+побайтно, включая невалидные UTF-8 sequences, и передаётся authentication owner-
+у; username, mailbox и SEARCH string literals остаются text-valued production и
+требуют допустимое для их режима UTF-8 представление. Это не поддержка полного
+произвольного octet space во всех IMAP аргументах.
 
 G14 keyword checkpoint (2026-09-24): custom flags и KEYWORD/UNKEYWORD прошли
 Windows tests, Linux Rust 1.97 strict Clippy/254 tests и STARTTLS IMAP black-box

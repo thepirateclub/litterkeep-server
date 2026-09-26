@@ -130,12 +130,12 @@ fn parse_attribute_list(tokens: &mut impl Iterator<Item = Token>) -> Option<Vec<
                 Token::ListEnd => break,
                 Token::Text(value) => attributes.extend(parse_request_item(&value, tokens)?),
                 Token::Quoted(value) => attributes.extend(parse_request_item(&value, tokens)?),
-                Token::ListStart => return None,
+                Token::Literal(_) | Token::ListStart => return None,
             }
         },
         Token::Text(value) => attributes.extend(parse_request_item(&value, tokens)?),
         Token::Quoted(value) => attributes.extend(parse_request_item(&value, tokens)?),
-        Token::ListEnd => return None,
+        Token::Literal(_) | Token::ListEnd => return None,
     }
     match attributes.is_empty() {
         true => None,
@@ -156,6 +156,7 @@ fn parse_request_item(
 fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
     tokens.find_map(|token| match token {
         Token::Text(value) | Token::Quoted(value) => Some(value),
+        Token::Literal(value) => String::from_utf8(value).ok(),
         Token::ListStart | Token::ListEnd => None,
     })
 }

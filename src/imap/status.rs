@@ -36,7 +36,7 @@ pub(super) fn parse_with_mode(
                 Some(attribute) => attributes.push(attribute),
                 None => return Command::Unsupported,
             },
-            Some(Token::Quoted(_)) => return Command::Unsupported,
+            Some(Token::Quoted(_) | Token::Literal(_)) => return Command::Unsupported,
             Some(Token::ListEnd) => break,
             Some(Token::ListStart) | None => return Command::Unsupported,
         }
@@ -84,7 +84,11 @@ pub(super) fn parse_return_attributes(
                 }
             }
             Some(Token::ListEnd) if !attributes.is_empty() => return Some(attributes),
-            Some(Token::ListStart) | Some(Token::Quoted(_)) | Some(Token::ListEnd) | None => {
+            Some(Token::ListStart)
+            | Some(Token::Quoted(_))
+            | Some(Token::Literal(_))
+            | Some(Token::ListEnd)
+            | None => {
                 return None;
             }
         }
@@ -94,6 +98,7 @@ pub(super) fn parse_return_attributes(
 fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
     match tokens.next()? {
         Token::Text(value) | Token::Quoted(value) => Some(value),
+        Token::Literal(value) => String::from_utf8(value).ok(),
         Token::ListStart | Token::ListEnd => None,
     }
 }

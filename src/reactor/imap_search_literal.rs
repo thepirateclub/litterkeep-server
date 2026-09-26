@@ -97,7 +97,7 @@ pub(super) struct Receiver {
     prefix: Vec<u8>,
     expected: usize,
     bytes: Vec<u8>,
-    literals: Vec<String>,
+    literals: Vec<Vec<u8>>,
     remainder: Vec<u8>,
     phase: Phase,
     total_octets: usize,
@@ -107,7 +107,7 @@ pub(super) struct Receiver {
 pub(super) enum Progress {
     Waiting,
     Continue,
-    Complete(Vec<String>),
+    Complete(Vec<Vec<u8>>),
     InvalidString,
     InvalidSyntax,
 }
@@ -149,12 +149,10 @@ impl Receiver {
         if self.bytes.len() < self.expected {
             return Some(Progress::Waiting);
         }
-        let Ok(value) = String::from_utf8(std::mem::take(&mut self.bytes)) else {
-            return Some(Progress::InvalidString);
-        };
-        if value.contains('\0') {
+        if self.bytes.contains(&0) {
             return Some(Progress::InvalidString);
         }
+        let value = std::mem::take(&mut self.bytes);
         self.prefix.push(0);
         self.literals.push(value);
         None

@@ -4,6 +4,32 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-27: G17 preserve opaque octets in IMAP LOGIN password literals, PASS checkpoint
+
+- RFC synchronizing literal framing is octet-based. After CRLF framing was
+  corrected, a second loss point remained: the receiver and tokenizer forced
+  every literal through `String::from_utf8`, despite the auth owner already
+  accepting password `Vec<u8>`.
+- IMAP lexer now represents received literals as `Token::Literal(Vec<u8>)`;
+  LOGIN password parsing preserves those octets and routes them to the existing
+  credential owner without UTF-8 conversion. Username, mailbox, and SEARCH
+  literals remain text-valued and are validated by their command parser.
+  Embedded NUL is still rejected as binary string data.
+- Windows Rust 1.97.1 formatting, strict Clippy, 604 library tests, 1 CLI test
+  and doc-tests pass. Linux Rust 1.97 Docker test stage passes release build,
+  strict Clippy, 667 library tests, 1 CLI test and doc-tests; one external
+  Unicode corpus test is ignored because the file is absent.
+- Independent raw STARTTLS client sent password literal byte `0xFF` and observed
+  ordinary authentication failure, sent a separate CRLF-containing bad password
+  and recovered, then authenticated with the correct literal password. It also
+  created, listed and selected a literal mailbox before successful NOOP. This
+  verifies byte preservation through lexer, typed LOGIN command and auth owner.
+- Fixture `./data/acceptance-imap-login-octets-20260927` is retained. The
+  disposable runtime container and image were removed and absence verified.
+  Invalid UTF-8 remains unsupported for text-valued username/mailbox/search
+  arguments, so the checkpoint does not claim arbitrary-octet support throughout
+  IMAP or complete IMAP4rev2 conformance.
+
 ### 2026-09-27: G17 IMAP synchronizing literal CRLF payload, PASS checkpoint
 
 - RFC 9051 §4.3 explicitly includes CR and LF among synchronizing literal

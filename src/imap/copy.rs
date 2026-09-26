@@ -31,6 +31,7 @@ pub(super) fn parse_with_mode(
 fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
     match tokens.next()? {
         Token::Text(value) | Token::Quoted(value) => Some(value),
+        Token::Literal(value) => String::from_utf8(value).ok(),
         Token::ListStart | Token::ListEnd => None,
     }
 }

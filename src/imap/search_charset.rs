@@ -44,7 +44,7 @@ pub(super) fn parse_prefix(tokens: &mut VecDeque<Token>) -> Option<Charset> {
             tokens.pop_front();
             match tokens.pop_front()? {
                 Token::Text(value) => Some(Charset::parse(&value)),
-                Token::Quoted(_) | Token::ListStart | Token::ListEnd => None,
+                Token::Quoted(_) | Token::Literal(_) | Token::ListStart | Token::ListEnd => None,
             }
         }
     }

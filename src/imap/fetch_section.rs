@@ -177,10 +177,12 @@ fn parse_field_names(tokens: &mut impl Iterator<Item = Token>) -> Option<Vec<Str
             match tokens.next()? {
                 Token::ListEnd => break,
                 Token::Text(name) if valid_field_name(&name) => names.push(name),
-                Token::Text(_) | Token::Quoted(_) | Token::ListStart => return None,
+                Token::Text(_) | Token::Quoted(_) | Token::Literal(_) | Token::ListStart => {
+                    return None;
+                }
             }
         },
-        Token::Text(_) | Token::Quoted(_) | Token::ListEnd => return None,
+        Token::Text(_) | Token::Quoted(_) | Token::Literal(_) | Token::ListEnd => return None,
     }
     match names.is_empty() {
         true => None,
@@ -195,7 +197,7 @@ fn valid_field_name(value: &str) -> bool {
 fn parse_closing_section(tokens: &mut impl Iterator<Item = Token>) -> Option<Option<Partial>> {
     let closing = match tokens.next()? {
         Token::Text(value) => value,
-        Token::Quoted(_) | Token::ListStart | Token::ListEnd => return None,
+        Token::Quoted(_) | Token::Literal(_) | Token::ListStart | Token::ListEnd => return None,
     };
     let suffix = closing.strip_prefix(']')?;
     match suffix.is_empty() {

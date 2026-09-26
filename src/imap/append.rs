@@ -25,9 +25,11 @@ pub(super) fn parse_with_mode(
             Some(flags) => flags,
             None => return Command::Unsupported,
         },
-        Some(Token::Text(_)) | Some(Token::Quoted(_)) | Some(Token::ListEnd) | None => {
-            StoredFlags::default()
-        }
+        Some(Token::Text(_))
+        | Some(Token::Quoted(_))
+        | Some(Token::Literal(_))
+        | Some(Token::ListEnd)
+        | None => StoredFlags::default(),
     };
     let Some((internal_date, literal_size)) = date_and_literal(&mut tokens) else {
         return Command::Unsupported;
@@ -51,6 +53,7 @@ fn mailbox(value: String, mode: super::tokenizer::StringMode) -> Option<MailboxN
 fn next_text(tokens: &mut impl Iterator<Item = Token>) -> Option<String> {
     match tokens.next()? {
         Token::Text(value) | Token::Quoted(value) => Some(value),
+        Token::Literal(value) => String::from_utf8(value).ok(),
         Token::ListStart | Token::ListEnd => None,
     }
 }
@@ -71,9 +74,9 @@ fn date_and_literal(tokens: &mut impl Iterator<Item = Token>) -> Option<(Option<
             let date = MailDate::parse(&value)?;
             match tokens.next()? {
                 Token::Text(value) => Some((Some(date), literal_size(&value)?)),
-                Token::Quoted(_) | Token::ListStart | Token::ListEnd => None,
+                Token::Quoted(_) | Token::Literal(_) | Token::ListStart | Token::ListEnd => None,
             }
         }
-        Token::ListStart | Token::ListEnd => None,
+        Token::Literal(_) | Token::ListStart | Token::ListEnd => None,
     }
 }

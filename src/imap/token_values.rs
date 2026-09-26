@@ -15,6 +15,17 @@ pub(crate) fn astring_value(token: Token) -> Option<String> {
     match token {
         Token::Text(value) if valid_astring_atom(&value) => Some(value),
         Token::Quoted(value) => Some(value),
+        Token::Literal(value) => String::from_utf8(value).ok(),
+        Token::Text(_) | Token::ListStart | Token::ListEnd => None,
+    }
+}
+
+/// Сохраняет октеты LOGIN password, не требуя UTF-8 от literal token.
+pub(crate) fn astring_bytes(token: Token) -> Option<Vec<u8>> {
+    match token {
+        Token::Text(value) if valid_astring_atom(&value) => Some(value.into_bytes()),
+        Token::Quoted(value) => Some(value.into_bytes()),
+        Token::Literal(value) => Some(value),
         Token::Text(_) | Token::ListStart | Token::ListEnd => None,
     }
 }
@@ -24,6 +35,7 @@ pub(crate) fn list_mailbox_value(token: Token) -> Option<String> {
     match token {
         Token::Text(value) if valid_list_mailbox(&value) => Some(value),
         Token::Quoted(value) => Some(value),
+        Token::Literal(value) => String::from_utf8(value).ok(),
         Token::Text(_) | Token::ListStart | Token::ListEnd => None,
     }
 }
@@ -32,7 +44,11 @@ pub(crate) fn list_mailbox_value(token: Token) -> Option<String> {
 pub(crate) fn atom_value(token: Token) -> Option<String> {
     match token {
         Token::Text(value) if valid_atom(&value) => Some(value),
-        Token::Text(_) | Token::Quoted(_) | Token::ListStart | Token::ListEnd => None,
+        Token::Text(_)
+        | Token::Quoted(_)
+        | Token::Literal(_)
+        | Token::ListStart
+        | Token::ListEnd => None,
     }
 }
 

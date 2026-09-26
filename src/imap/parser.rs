@@ -19,7 +19,7 @@ pub(super) fn parse_with_mode(line: &str, mode: StringMode) -> TaggedCommand {
 #[cfg(target_os = "linux")]
 pub(super) fn parse_literals_with_mode(
     line: &str,
-    literals: Vec<String>,
+    literals: Vec<Vec<u8>>,
     mode: StringMode,
 ) -> TaggedCommand {
     parse_tokens(
@@ -107,7 +107,7 @@ fn parse_tokens(
 fn parse_login(mut tokens: impl Iterator<Item = Token>) -> Command {
     match (
         next_astring(&mut tokens),
-        next_astring(&mut tokens),
+        tokens.next().and_then(token_values::astring_bytes),
         tokens.next(),
     ) {
         (Some(username), Some(password), None) => Command::Login { username, password },

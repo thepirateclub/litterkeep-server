@@ -9,7 +9,7 @@ fn login_has_credentials() {
             tag: "a".into(),
             command: Command::Login {
                 username: "bob".into(),
-                password: "pass".into()
+                password: b"pass".to_vec()
             }
         }
     );

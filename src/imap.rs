@@ -80,7 +80,7 @@ pub enum Command {
     StartTls,
     Login {
         username: String,
-        password: String,
+        password: Vec<u8>,
     },
     Authenticate {
         mechanism: AuthenticationMechanism,
@@ -202,7 +202,7 @@ pub fn parse_with_mode(line: &str, mode: tokenizer::StringMode) -> TaggedCommand
 #[cfg(target_os = "linux")]
 pub(crate) fn parse_literals_with_mode(
     line: &str,
-    literals: Vec<String>,
+    literals: Vec<Vec<u8>>,
     mode: tokenizer::StringMode,
 ) -> TaggedCommand {
     parser::parse_literals_with_mode(line, literals, mode)

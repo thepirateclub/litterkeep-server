@@ -32,7 +32,7 @@ fn login_literals_rebuild_into_the_typed_login_command() {
     let Progress::Complete(values) = receiver.consume(&mut password) else {
         panic!("LOGIN literals должны завершить команду");
     };
-    assert_eq!(values, vec!["bob", "bob-password"]);
+    assert_eq!(values, vec![b"bob".to_vec(), b"bob-password".to_vec()]);
     assert_eq!(password, b"a LOGIN \0 \0\r\n");
     assert_eq!(
         crate::imap::parse_literals_with_mode(
@@ -43,7 +43,7 @@ fn login_literals_rebuild_into_the_typed_login_command() {
         .command,
         crate::imap::Command::Login {
             username: "bob".into(),
-            password: "bob-password".into(),
+            password: b"bob-password".to_vec(),
         }
     );
 }
@@ -82,7 +82,7 @@ fn restores_escaped_literal_at_every_tcp_split() {
         let Progress::Complete(values) = receiver.consume(&mut input) else {
             panic!("SEARCH literal должна завершиться");
         };
-        assert_eq!(values, vec![String::from_utf8(literal.to_vec()).unwrap()]);
+        assert_eq!(values, vec![literal.to_vec()]);
         assert_eq!(input, b"a SEARCH BODY \0 TEXT tail\r\n");
     }
 }
@@ -97,7 +97,7 @@ fn utf8_search_literal_is_not_reparsed_as_wire_quoted_text() {
     let Progress::Complete(values) = receiver.consume(&mut input) else {
         panic!("UTF-8 SEARCH literal должна завершиться");
     };
-    assert_eq!(values, vec!["Привет"]);
+    assert_eq!(values, vec!["Привет".as_bytes().to_vec()]);
     assert_eq!(input, b"a SEARCH SUBJECT \0\r\n");
     assert_eq!(
         crate::imap::parse_literals_with_mode(
@@ -131,7 +131,7 @@ fn receives_multiple_literals_and_preserves_pipelined_command() {
     let Progress::Complete(values) = receiver.consume(&mut second) else {
         panic!("оба SEARCH literals должны завершить команду");
     };
-    assert_eq!(values, vec!["Subject", "literal"]);
+    assert_eq!(values, vec![b"Subject".to_vec(), b"literal".to_vec()]);
     assert_eq!(second, b"a SEARCH HEADER \0 \0\r\nNEXT NOOP\r\n");
 }
 
@@ -144,19 +144,35 @@ fn synchronizing_literal_preserves_embedded_crlf_octets() {
     let Progress::Complete(values) = receiver.consume(&mut input) else {
         panic!("CRLF внутри literal не должны завершать его раньше счётчика октетов");
     };
-    assert_eq!(values, vec!["alpha\r\nbeta"]);
+    assert_eq!(values, vec![b"alpha\r\nbeta".to_vec()]);
     assert_eq!(input, b"a LOGIN \0\r\n");
 }
 
 #[test]
-fn rejects_invalid_utf8_and_nul_in_text_literals() {
-    for literal in [b"\xff".as_slice(), b"a\0"] {
-        let mut receiver =
-            Receiver::new(b"a SEARCH BODY ".to_vec(), literal.len()).expect("bounded literal");
-        let mut input = literal.to_vec();
-        assert!(matches!(
-            receiver.consume(&mut input),
-            Progress::InvalidString
-        ));
-    }
+fn preserves_non_utf8_literal_octets_and_rejects_nul() {
+    let mut receiver = Receiver::new(b"a LOGIN bob ".to_vec(), 1).expect("bounded literal");
+    let mut input = b"\xff\r\n".to_vec();
+    let Progress::Complete(values) = receiver.consume(&mut input) else {
+        panic!("не-UTF-8 парольный octet должен сохраниться как literal");
+    };
+    assert_eq!(values, vec![b"\xff".to_vec()]);
+    assert_eq!(
+        crate::imap::parse_literals_with_mode(
+            std::str::from_utf8(&input).expect("internal command marker"),
+            values,
+            crate::imap::tokenizer::StringMode::Legacy,
+        )
+        .command,
+        crate::imap::Command::Login {
+            username: "bob".into(),
+            password: b"\xff".to_vec(),
+        }
+    );
+
+    let mut receiver = Receiver::new(b"a LOGIN bob ".to_vec(), 2).expect("bounded literal");
+    let mut input = b"a\0".to_vec();
+    assert!(matches!(
+        receiver.consume(&mut input),
+        Progress::InvalidString
+    ));
 }

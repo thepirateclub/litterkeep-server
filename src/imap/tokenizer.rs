@@ -11,6 +11,8 @@ pub enum Token {
     Text(String),
     /// Quoted string с уже обработанными escape-последовательностями.
     Quoted(String),
+    /// Synchronizing literal хранится в исходных октетах до проверки аргумента.
+    Literal(Vec<u8>),
     /// Открывающая круглая скобка списка.
     ListStart,
     /// Закрывающая круглая скобка списка.
@@ -48,7 +50,7 @@ pub fn tokenize_with_mode(line: &str, mode: StringMode) -> Result<Vec<Token>, &'
 #[cfg(any(target_os = "linux", test))]
 pub(super) fn tokenize_literals_with_mode(
     line: &str,
-    literals: Vec<String>,
+    literals: Vec<Vec<u8>>,
     mode: StringMode,
 ) -> Result<Vec<Token>, &'static str> {
     tokenize_internal(line, literals.into(), mode)
@@ -57,7 +59,7 @@ pub(super) fn tokenize_literals_with_mode(
 /// Объединяет wire-грамматику с упорядоченными, отдельно проверенными literals.
 fn tokenize_internal(
     line: &str,
-    mut literals: std::collections::VecDeque<String>,
+    mut literals: std::collections::VecDeque<Vec<u8>>,
     mode: StringMode,
 ) -> Result<Vec<Token>, &'static str> {
     const MAX_TOKENS: usize = 64;
@@ -67,7 +69,7 @@ fn tokenize_internal(
         match character {
             ' ' => {}
             '\0' => match literals.pop_front() {
-                Some(value) => push(&mut tokens, Token::Quoted(value), MAX_TOKENS)?,
+                Some(value) => push(&mut tokens, Token::Literal(value), MAX_TOKENS)?,
                 None => return Err("unexpected NUL in IMAP command"),
             },
             '(' => push(&mut tokens, Token::ListStart, MAX_TOKENS)?,
@@ -267,7 +269,7 @@ mod tests {
                 Token::Text("a".into()),
                 Token::Text("SEARCH".into()),
                 Token::Text("SUBJECT".into()),
-                Token::Quoted("bøb".into()),
+                Token::Literal("bøb".as_bytes().to_vec()),
             ])
         );
     }
