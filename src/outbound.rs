@@ -5,6 +5,8 @@ use std::{
     time::Duration,
 };
 
+#[path = "outbound_bdat.rs"]
+pub(crate) mod bdat;
 #[path = "outbound_data.rs"]
 mod data;
 #[path = "outbound_ehlo.rs"]
@@ -16,6 +18,7 @@ mod reply;
 #[path = "outbound_timeouts.rs"]
 mod timeouts;
 
+pub(crate) use bdat::{has_binary_transfer, validate_binary};
 #[cfg(test)]
 pub(crate) use data::DataValidationError;
 #[cfg(test)]
@@ -127,7 +130,12 @@ impl Connection {
         recipient: &str,
         message: &[u8],
     ) -> io::Result<DeliveryOutcome> {
-        if validate_data(message).is_err() {
+        let binary_transfer = has_binary_transfer(message);
+        let valid_message = match binary_transfer {
+            true => validate_binary(message),
+            false => validate_data(message).is_ok(),
+        };
+        if !valid_message {
             return Ok(DeliveryOutcome::PermanentFailure);
         }
         let mail_command = match build_mail_command(sender, message, &self.capabilities) {
@@ -141,6 +149,18 @@ impl Connection {
         self.command(&format!("RCPT TO:<{recipient}>\r\n"))?;
         if let Some(outcome) = self.expect_command(ReplyExpectation::Recipient)? {
             return Ok(outcome);
+        }
+        if binary_transfer {
+            self.writer
+                .set_write_timeout(Some(self.timeouts.data_block()))?;
+            self.reader
+                .get_ref()
+                .set_read_timeout(Some(self.timeouts.response(ReplyExpectation::Bdat)))?;
+            let reply = bdat::send_plain(&mut self.reader, &mut self.writer, message)?;
+            return Ok(bdat::delivery_outcome(
+                reply,
+                &mut self.close_after_response,
+            ));
         }
         self.command("DATA\r\n")?;
         if let Some(outcome) = self.expect_command(ReplyExpectation::Data)? {

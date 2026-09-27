@@ -4,6 +4,31 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 outbound RFC 3030 BINARYMIME over BDAT
+
+- Исходящий plain TCP и implicit-TLS SMTP transport теперь передаёт MIME
+  `Content-Transfer-Encoding: binary` только если peer объявил одновременно
+  `BINARYMIME` и `CHUNKING`. Валидатор требует корректное MIME-дерево и
+  canonical CRLF для текстовых частей; нетекстовый binary payload остаётся
+  непрозрачным набором октетов. MAIL объявляет точный размер исходных BDAT
+  данных, отправка использует bounded chunks, ждёт отдельный 250 на каждый и
+  немедленно останавливается после отказного ответа.
+- Ограничение длины MAIL включает расширения RFC 3030 и суммирует их с
+  allowance SMTPUTF8 из RFC 6531. Отдельные boundary тесты проверили 512, 522,
+  528 и 538 октетов.
+- Linux Docker Rust 1.97 release build и strict Clippy прошли; полный gate:
+  720 library tests passed, 1 внешний Unicode UCD corpus ignored, 1 CLI test
+  passed, doctests прошли без тестов. Windows targeted BDAT и BINARYMIME тесты
+  прошли (9 и 8), Windows strict Clippy прошёл. Файлы исходников не превышают
+  300 строк; `cargo fmt --check` и `git diff --check` прошли.
+- Проверены независимые plain SMTP и implicit-TLS unit peers; это не внешний
+  MTA и не клиент Litterkeep. Inbound BINARYMIME, durable inbound хранение
+  произвольных octets и end-to-end outbound доставка остаются непроверенными.
+  Корневая цель и G17 остаются ACTIVE.
+- Временный образ `litterkeep-linux-test:g17-outbound-binarymime-20260927`
+  удалён; `docker image inspect` подтвердил его отсутствие, связанных
+  контейнеров не было.
+
 ### 2026-09-27: G17 outbound MIME binary transfer is not sent via DATA
 
 - Исходящая ESMTP-команда теперь проверяет валидное MIME-дерево перед MAIL.

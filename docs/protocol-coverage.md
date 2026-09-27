@@ -33,13 +33,20 @@ RSET, а отвергнутый payload точно дренируется без
 получает 250. Отдельно проверены invalid content на LAST и chunk размера
 26 214 401 октет: ответы 552 отправлены только после drain, затем RSET и NOOP
 успешно восстановили сессию. Перезапуск Store между отправкой и IMAP чтением не
-выполнялся. `BINARYMIME`/`BODY=BINARYMIME` не реализован и не объявляется:
-BDAT bytes всё ещё валидируются по RFC 5321 7BIT либо 8BITMIME.
+выполнялся. Inbound `BINARYMIME`/`BODY=BINARYMIME` пока не реализован и не
+объявляется: принятые BDAT bytes всё ещё валидируются как 7BIT либо 8BITMIME.
 Допустимый RFC 3030 параметр `BODY=BINARYMIME` теперь разбирается в отдельный
-типизированный режим, но EHLO capability намеренно скрыта, а MAIL получает
-`555 5.5.4` до изменения envelope. Проверены parser и Linux reactor unit tests;
-приём произвольных binary octets, durable доставка и outbound relay ещё не
-реализованы и не проверялись.
+типизированный режим, но inbound EHLO capability намеренно скрыта, а MAIL
+получает `555 5.5.4` до изменения envelope. Outbound relay реализует RFC 3030
+для MIME binary parts: требует одновременно peer capabilities `BINARYMIME` и
+`CHUNKING`, валидирует MIME headers и canonical CRLF текстовых частей, объявляет
+точный BDAT payload size и посылает последовательные bounded chunks с ожиданием
+отдельного `250` после каждого. После 4xx/5xx следующий chunk не отправляется.
+Plain TCP и implicit TLS independent peers подтвердили точные байты, включая
+NUL/high-bit octets и нетекстовые bare CR/LF; отдельные тесты подтвердили отказ
+без capability и остановку после 451. RFC 5321 MAIL line limit включает
+добавочные RFC 3030 octets и суммируется с RFC 6531 allowance. Это unit peer
+coverage, не outbound доставка на реальный внешний сервер или Litterkeep app.
 См. [RFC 3030 §§2-3](https://www.rfc-editor.org/rfc/rfc3030.html#section-2).
 
 По рекомендации RFC 8314 §3.4 implicit-TLS SMTP-сессия отвечает на
@@ -880,13 +887,12 @@ terminator и dot-stuffing; без объявления параметр не о
 выше фиксированного maximum отвергается до `MAIL`. Независимый peer проверяет
 wire command и все три исхода. Implicit-TLS unit peer проверяет совместное
 использование `SIZE` и `BODY=8BITMIME`.
-Для валидного MIME-дерева с `Content-Transfer-Encoding: binary` relay пока
-завершает доставку permanent failure до отправки `MAIL`; он не маскирует такой
-part под DATA/8BITMIME. Независимый plain SMTP peer с `CHUNKING` и `8BITMIME`,
-но без `BINARYMIME`, подтвердил отсутствие MAIL после EHLO. Передача такого
-сообщения через BDAT к peer-у с согласованным BINARYMIME ещё не реализована.
-Это один из разрешённых [RFC 3030 §3](https://www.rfc-editor.org/rfc/rfc3030.html#section-3) исходов при отсутствии подходящего
-binary transport; преобразование в Base64 пока не выполняется.
+Для валидного MIME-дерева с `Content-Transfer-Encoding: binary` relay никогда
+не подменяет payload командой DATA/8BITMIME. Если peer не объявляет одновременно
+`BINARYMIME` и `CHUNKING`, команда MAIL не отправляется, и job получает
+permanent failure согласно допустимой политике [RFC 3030 §3](https://www.rfc-editor.org/rfc/rfc3030.html#section-3).
+При наличии обеих extensions используется точное BDAT framing; автоматическое
+преобразование в Base64 пока не выполняется.
 По RFC 1870 EHLO numeric `SIZE` не ограничен 20 цифрами; это ограничение
 применяется к value команды MAIL. Peer limit выше диапазона `u64` сохраняется
 отдельным typed случаем, поэтому корректное capability не теряется. Rust и

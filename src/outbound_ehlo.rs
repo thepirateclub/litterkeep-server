@@ -6,6 +6,8 @@ use std::io::{self, BufRead};
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum EhloExtension {
     EightBitMime,
+    Chunking,
+    BinaryMime,
     SmtpUtf8,
     SizeUnspecified,
     SizeUnlimited,
@@ -64,7 +66,10 @@ impl EhloCapabilities {
                 }
                 EhloExtension::SizeMaximum(maximum) => Some(SizeAdvertisement::Maximum(*maximum)),
                 EhloExtension::SizeMaximumAboveU64 => Some(SizeAdvertisement::MaximumAboveU64),
-                EhloExtension::EightBitMime | EhloExtension::SmtpUtf8 => None,
+                EhloExtension::EightBitMime
+                | EhloExtension::Chunking
+                | EhloExtension::BinaryMime
+                | EhloExtension::SmtpUtf8 => None,
             })
             .unwrap_or_default()
     }
@@ -127,6 +132,8 @@ fn parse_extension(line: &str) -> io::Result<Option<EhloExtension>> {
     };
     match keyword.to_ascii_uppercase().as_str() {
         "8BITMIME" => Ok(Some(EhloExtension::EightBitMime)),
+        "CHUNKING" => Ok(Some(EhloExtension::Chunking)),
+        "BINARYMIME" => Ok(Some(EhloExtension::BinaryMime)),
         "SMTPUTF8" => Ok(Some(EhloExtension::SmtpUtf8)),
         "SIZE" => parse_size_advertisement(tokens),
         _ => Ok(None),

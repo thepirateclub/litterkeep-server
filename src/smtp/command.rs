@@ -12,6 +12,9 @@ mod bdat_command;
 mod command_error;
 #[path = "greeting.rs"]
 mod greeting;
+#[cfg(test)]
+#[path = "mail_line_limit_tests.rs"]
+mod mail_line_limit_tests;
 #[path = "mail_path.rs"]
 mod mail_path;
 #[path = "verify_command.rs"]
@@ -79,6 +82,10 @@ pub const MAX_DATA_LINE_SIZE: usize = 1000;
 pub const MAX_COMMAND_LINE_SIZE: usize = 512;
 /// RFC 6531 добавляет десять октетов для ESMTP MAIL с SMTPUTF8.
 pub const MAX_SMTPUTF8_MAIL_LINE_SIZE: usize = MAX_COMMAND_LINE_SIZE + 10;
+/// RFC 3030 расширяет MAIL ещё на шестнадцать октетов для BINARYMIME.
+pub const MAX_BINARYMIME_MAIL_LINE_SIZE: usize = MAX_COMMAND_LINE_SIZE + 16;
+/// Совместная длина расширений RFC 6531 и RFC 3030 складывается.
+pub const MAX_SMTPUTF8_BINARYMIME_MAIL_LINE_SIZE: usize = MAX_COMMAND_LINE_SIZE + 10 + 16;
 /// Максимальный SMTP reverse-path/forward-path вместе с угловыми скобками.
 pub const MAX_PATH_SIZE: usize = 256;
 /// Максимальный размер SMTP local-part в октетах согласно RFC 5321.
@@ -132,15 +139,25 @@ fn command_parts(line: &str) -> (&str, &str) {
 
 /// Выбирает RFC 5321 либо расширенный RFC 6531 предел до разбора команды.
 pub fn command_line_limit(line: &[u8]) -> usize {
-    let is_extended_mail = line
+    let is_mail_command = line
         .get(..5)
-        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(b"MAIL "))
-        && std::str::from_utf8(line).is_ok_and(|text| {
-            text.split_ascii_whitespace()
-                .any(|parameter| parameter.eq_ignore_ascii_case("SMTPUTF8"))
-        });
-    match is_extended_mail {
-        true => MAX_SMTPUTF8_MAIL_LINE_SIZE,
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(b"MAIL "));
+    match (is_mail_command, std::str::from_utf8(line)) {
+        (true, Ok(text)) => {
+            let flags = text.split_ascii_whitespace().map(str::to_ascii_uppercase);
+            let (smtp_utf8, binarymime) = flags.fold((false, false), |(utf8, binary), token| {
+                (
+                    utf8 || token == "SMTPUTF8",
+                    binary || token == "BODY=BINARYMIME",
+                )
+            });
+            match (smtp_utf8, binarymime) {
+                (true, true) => MAX_SMTPUTF8_BINARYMIME_MAIL_LINE_SIZE,
+                (true, false) => MAX_SMTPUTF8_MAIL_LINE_SIZE,
+                (false, true) => MAX_BINARYMIME_MAIL_LINE_SIZE,
+                (false, false) => MAX_COMMAND_LINE_SIZE,
+            }
+        }
         _ => MAX_COMMAND_LINE_SIZE,
     }
 }

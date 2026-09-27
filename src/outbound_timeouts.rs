@@ -31,7 +31,7 @@ impl SmtpTimeouts {
         match expectation {
             ReplyExpectation::Greeting => self.greeting,
             ReplyExpectation::Data => self.data_initiation,
-            ReplyExpectation::Message => self.data_termination,
+            ReplyExpectation::Message | ReplyExpectation::Bdat => self.data_termination,
             _ => self.command,
         }
     }

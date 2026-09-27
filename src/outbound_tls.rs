@@ -75,7 +75,12 @@ impl Connection {
         recipients: &[&str],
         message: &[u8],
     ) -> io::Result<DeliveryOutcome> {
-        if outbound::validate_data(message).is_err() {
+        let binary_transfer = outbound::has_binary_transfer(message);
+        let valid_message = match binary_transfer {
+            true => outbound::validate_binary(message),
+            false => outbound::validate_data(message).is_ok(),
+        };
+        if !valid_message {
             return Ok(DeliveryOutcome::PermanentFailure);
         }
         let mail_command = match outbound::build_mail_command(sender, message, &self.capabilities) {
@@ -93,6 +98,26 @@ impl Connection {
             if let Some(outcome) = self.expect_command(outbound::ReplyExpectation::Recipient)? {
                 return Ok(outcome);
             }
+        }
+        if binary_transfer {
+            self.stream
+                .get_ref()
+                .sock
+                .set_write_timeout(Some(self.timeouts.data_block()))?;
+            self.stream.get_ref().sock.set_read_timeout(Some(
+                self.timeouts.response(outbound::ReplyExpectation::Bdat),
+            ))?;
+            let reply =
+                outbound::bdat::send(&mut self.stream, message, |reader, command, payload| {
+                    let stream = reader.get_mut();
+                    stream.write_all(command)?;
+                    stream.write_all(payload)?;
+                    stream.flush()
+                })?;
+            return Ok(outbound::bdat::delivery_outcome(
+                reply,
+                &mut self.close_after_response,
+            ));
         }
         self.command("DATA\r\n")?;
         if let Some(outcome) = self.expect_command(outbound::ReplyExpectation::Data)? {
