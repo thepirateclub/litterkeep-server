@@ -80,8 +80,6 @@ pub(super) struct Session {
     pub(super) imap_idle: Option<IdleState>,
     /// SASL continuation остаётся у socket owner до ответа либо отмены.
     pub(super) imap_authenticate: Option<imap_protocol::authenticate::State>,
-    /// Ограниченный literal остаётся собственностью этой IMAP-сессии.
-    pub(super) imap_literal: Option<LiteralReceiver>,
     /// IMAP literal ожидает завершения неблокирующего приёма octets.
     pub(super) imap_search_literal: Option<super::imap_search_literal::Receiver>,
     /// Сохранённые октеты literal-аргументов для типизированного parser-а команды.
@@ -151,7 +149,6 @@ impl Session {
             selected_read_only: false,
             imap_idle: None,
             imap_authenticate: None,
-            imap_literal: None,
             imap_search_literal: None,
             imap_search_literal_value: None,
             smtp: SmtpState::Command(smtp::Transaction::default()),

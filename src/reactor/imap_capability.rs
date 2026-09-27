@@ -3,7 +3,7 @@
 use super::*;
 
 /// RFC 5258, RFC 5819 и RFC 7888 extensions объявляются вместе с wire-путями.
-const LIST_CAPABILITIES: &str = "LIST-EXTENDED LIST-STATUS LITERAL-";
+const LIST_CAPABILITIES: &str = "LIST-EXTENDED LIST-STATUS LITERAL- MULTIAPPEND";
 
 pub(super) fn write(session: &mut Session, tag: &str) -> io::Result<()> {
     match (session.tls.is_some(), session.can_starttls()) {

@@ -221,10 +221,14 @@ continuation; non-synchronizing `{n+}` не вызывает continuation и о�
 сервер закрывает соединение с `BYE [TOOBIG]`, не выделяя недопустимый payload.
 Нулевой APPEND literal получает tagged `NO APPEND cancelled`; independent peer
 проверяет после него `NOOP` и пустой mailbox через `SELECT`, а затем продолжает
-работу в той же STARTTLS-сессии. LITERAL+ и MULTIAPPEND не рекламируются.
-Для MULTIAPPEND подготовлена только внутренняя атомарная Store-транзакция с
-отдельными blob ID и общим commit ID; APPEND parser/reactor и UID-set response
-ещё не подключены. Это не сетевое покрытие RFC 3502.
+работу в той же STARTTLS-сессии. RFC 3502 MULTIAPPEND реализован поверх общего
+literal receiver: каждый synchronizing literal получает собственный continuation,
+а завершённая команда передаётся одним batch-запросом Store owner-у. Успех
+возвращает APPENDUID с UID-set в порядке добавления; failure injection проверяет,
+что после сбоя первой mailbox frame ни одно сообщение не видно после recovery.
+Независимый STARTTLS `imaplib` сценарий отправляет два сообщения с разными
+флагами и NUL/0xFF в первом body, сверяет UID-set `1 3,4`, затем читает оба
+RFC822 тела побайтно и проверяет FLAGS. LITERAL+ по-прежнему не рекламируется.
 
 RFC 7889 APPENDLIMIT объявляет единый предел `26214400` octets, равный
 действующему `MAX_MESSAGE_SIZE`. STATUS и LIST RETURN STATUS возвращают

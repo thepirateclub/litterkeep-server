@@ -115,7 +115,7 @@ fn inbox_is_typed_case_insensitively() {
 fn append_literal_size_is_typed() {
     assert_eq!(
         parse("a7 APPEND INBOX {42}\r\n").command,
-        Command::Append {
+        Command::AppendStart {
             mailbox: MailboxName::Inbox,
             literal_size: 42,
             literal_mode: crate::imap::literal::Mode::Synchronizing,
@@ -128,7 +128,7 @@ fn append_literal_size_is_typed() {
 
 #[test]
 fn append_metadata_is_typed() {
-    let Command::Append {
+    let Command::AppendStart {
         literal_size,
         flags,
         keywords,

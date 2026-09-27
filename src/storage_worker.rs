@@ -3,11 +3,16 @@
 mod dsn_delivery;
 #[path = "storage_worker/execution.rs"]
 mod execution;
+#[path = "storage_worker/imap_append.rs"]
+mod imap_append;
 #[path = "storage_worker/local_delivery.rs"]
 mod local_delivery;
 #[path = "storage_worker/message.rs"]
 mod message;
+#[path = "storage_worker/owner.rs"]
+mod owner;
 use crate::{accounts::Accounts, store::Store};
+pub use imap_append::ImapAppendResult;
 pub use message::{Request, Response};
 use std::io;
 use std::path::Path;
@@ -28,7 +33,7 @@ impl StorageWorker {
         let (outgoing, responses) = mpsc::channel();
         let thread = thread::Builder::new()
             .name("litterkeep-store-writer".into())
-            .spawn(move || execution::run(store, accounts, incoming, outgoing))?;
+            .spawn(move || owner::run(store, accounts, incoming, outgoing))?;
         Ok(Self {
             requests,
             responses,

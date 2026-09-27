@@ -69,13 +69,30 @@ pub(super) fn write_completion(
         }
         (
             Pending::ImapAppend { tag, .. },
-            Response::Appended {
-                result: Ok(uid), ..
+            Response::ImapAppended {
+                result: Ok(result), ..
             },
-        ) => session.push(format!("{tag} OK [APPENDUID 1 {uid}] APPEND completed\r\n").as_bytes()),
-        (Pending::ImapAppend { tag, .. }, Response::Appended { result: Err(_), .. }) => {
-            session.push(format!("{tag} NO APPEND failed\r\n").as_bytes())
+        ) => {
+            let uid_set = result
+                .uids
+                .iter()
+                .map(u64::to_string)
+                .collect::<Vec<_>>()
+                .join(",");
+            session
+                .push(format!("{tag} OK [APPENDUID 1 {uid_set}] APPEND completed\r\n").as_bytes())
         }
+        (
+            Pending::ImapAppend { tag, .. },
+            Response::ImapAppended {
+                result: Err(error), ..
+            },
+        ) => match error.kind() {
+            io::ErrorKind::NotFound => {
+                session.push(format!("{tag} NO [TRYCREATE] mailbox does not exist\r\n").as_bytes())
+            }
+            _ => session.push(format!("{tag} NO APPEND failed\r\n").as_bytes()),
+        },
         (
             Pending::ReadForSelect { tag, read_only },
             Response::FolderSelected {
@@ -121,15 +138,6 @@ pub(super) fn write_completion(
             }
             _ => session.push(format!("{tag} NO SELECT failed\r\n").as_bytes()),
         },
-        (
-            Pending::ResolveForAppend {
-                tag,
-                literal_size,
-                literal_mode,
-                metadata,
-            },
-            Response::FolderResolved { result, .. },
-        ) => imap_append::resolved(session, tag, literal_size, literal_mode, metadata, result),
         (
             Pending::ReadForFetch {
                 addressing,

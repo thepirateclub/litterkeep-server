@@ -14,11 +14,15 @@ pub(super) enum Start {
     Begin {
         receiver: Receiver,
         mode: LiteralMode,
+        command: LiteralCommand,
+        tag: String,
     },
     Reject {
         tag: String,
         reason: &'static str,
         terminate: bool,
+        mode: LiteralMode,
+        command: LiteralCommand,
     },
 }
 
@@ -27,10 +31,11 @@ const MAX_NON_SYNCHRONIZING_LITERAL: usize = 4 * 1024;
 
 /// Семейство команды определяет, допустим ли literal в последнем аргументе.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum LiteralCommand {
+pub(super) enum LiteralCommand {
     Login,
     Search,
     Mailbox,
+    Append,
 }
 
 /// Ищет sync-literal в строковых и mailbox аргументах поддержанных команд.
@@ -41,50 +46,66 @@ pub(super) fn start(line: &[u8]) -> Start {
     let Some(command) = command.strip_suffix("\r\n") else {
         return Start::NotLiteral;
     };
-    let Some((prefix, tag, marker)) = initial_marker(command) else {
+    let Some((prefix, tag, marker, command_kind)) = initial_marker(command) else {
         return Start::NotLiteral;
     };
-    let within_generic_limit = marker.size <= MAX_IMAP_LITERAL;
+    let max_size = match command_kind {
+        LiteralCommand::Append => crate::smtp::MAX_MESSAGE_SIZE as usize,
+        _ => MAX_IMAP_LITERAL,
+    };
+    let within_generic_limit = marker.size <= max_size;
     let within_non_sync_limit = match marker.mode {
         LiteralMode::Synchronizing => true,
         LiteralMode::NonSynchronizing => marker.size <= MAX_NON_SYNCHRONIZING_LITERAL,
     };
     match (within_generic_limit, within_non_sync_limit) {
-        (true, true) => match Receiver::new(prefix.as_bytes().to_vec(), tag.to_owned(), marker) {
+        (true, true) => match Receiver::new(
+            prefix.as_bytes().to_vec(),
+            tag.to_owned(),
+            marker,
+            command_kind,
+        ) {
             Some(receiver) => Start::Begin {
                 receiver,
                 mode: marker.mode,
+                command: command_kind,
+                tag: tag.to_owned(),
             },
             None => Start::Reject {
                 tag: tag.to_owned(),
                 reason: "IMAP command exceeds limit",
                 terminate: matches!(marker.mode, LiteralMode::NonSynchronizing),
+                mode: marker.mode,
+                command: command_kind,
             },
         },
         (false, _) | (true, false) => Start::Reject {
             tag: tag.to_owned(),
             reason: "IMAP literal exceeds configured limit",
             terminate: matches!(marker.mode, LiteralMode::NonSynchronizing),
+            mode: marker.mode,
+            command: command_kind,
         },
     }
 }
 
-fn initial_marker(command: &str) -> Option<(&str, &str, LiteralMarker)> {
+fn initial_marker(command: &str) -> Option<(&str, &str, LiteralMarker, LiteralCommand)> {
     let boundary = command.rfind(|character: char| character.is_ascii_whitespace())?;
     let prefix_end = boundary.checked_add(1)?;
     let prefix = command.get(..prefix_end)?;
     let marker = command.get(boundary..)?.trim();
-    let tag = literal_tag(prefix)?;
-    Some((prefix, tag, literal::parse(marker)?))
+    let (tag, command_kind) = literal_tag(prefix)?;
+    Some((prefix, tag, literal::parse(marker)?, command_kind))
 }
 
-fn literal_tag(prefix: &str) -> Option<&str> {
+fn literal_tag(prefix: &str) -> Option<(&str, LiteralCommand)> {
     let mut words = prefix.split_ascii_whitespace();
     let tag = words.next()?;
     let first = parse_verb(words.next()?);
     let _recognized_command = match first {
         Verb::Login => LiteralCommand::Login,
         Verb::Search => LiteralCommand::Search,
+        Verb::Append => LiteralCommand::Append,
         Verb::Uid => match words.next().map(parse_verb) {
             Some(Verb::Search) => LiteralCommand::Search,
             Some(Verb::Copy | Verb::Move) => LiteralCommand::Mailbox,
@@ -104,7 +125,7 @@ fn literal_tag(prefix: &str) -> Option<&str> {
         | Verb::Examine => LiteralCommand::Mailbox,
         _ => return None,
     };
-    Some(tag)
+    Some((tag, _recognized_command))
 }
 
 #[cfg(test)]

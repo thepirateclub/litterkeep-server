@@ -36,24 +36,37 @@ pub(super) fn notify_completion(
     pending: &Pending,
     response: &Response,
 ) {
-    let Response::Appended {
-        result: Ok(uid), ..
-    } = response
-    else {
-        return;
-    };
-    let mut mailboxes = match pending {
-        Pending::Append { mailboxes } => mailboxes.clone(),
-        Pending::ImapAppend { mailbox, .. } => vec![mailbox.clone()],
-        _ => return,
-    };
-    mailboxes.sort_unstable();
-    mailboxes.dedup();
-    let changes = mailboxes
-        .into_iter()
-        .map(|mailbox| (mailbox, *uid))
-        .collect::<Vec<_>>();
-    notify(sessions, &changes);
+    match (pending, response) {
+        (
+            Pending::Append { mailboxes },
+            Response::Appended {
+                result: Ok(uid), ..
+            },
+        ) => {
+            let mut sorted = mailboxes.clone();
+            sorted.sort_unstable();
+            sorted.dedup();
+            let changes = sorted
+                .into_iter()
+                .map(|mailbox| (mailbox, *uid))
+                .collect::<Vec<_>>();
+            notify(sessions, &changes);
+        }
+        (
+            Pending::ImapAppend { .. },
+            Response::ImapAppended {
+                result: Ok(result), ..
+            },
+        ) => {
+            let changes = result
+                .uids
+                .iter()
+                .map(|uid| (result.mailbox.clone(), *uid))
+                .collect::<Vec<_>>();
+            notify(sessions, &changes);
+        }
+        (_, _) => {}
+    }
 }
 
 /// Увеличивает EXISTS только после подтверждённого durable append.

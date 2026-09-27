@@ -6773,3 +6773,27 @@ ManageSieve до заявленного набора современных фо
 - Этот узкий результат не завершает APPEND/MULTIAPPEND профиль. Пакетный parser,
   reactor, APPENDUID UID-set и MULTIAPPEND wire acceptance остаются открытыми;
   G17 остаётся ACTIVE.
+
+### 2026-09-27: G17 RFC 3502 MULTIAPPEND, scoped PASS
+
+- Завершён сквозной APPEND batch: типизированный parser сохраняет порядок и
+  отдельные flags/keywords/INTERNALDATE; единый ограниченный receiver принимает
+  несколько sync literals и оставляет pipelined следующую команду; reactor
+  передаёт набор единому Store owner-у, который фиксирует весь batch одной
+  транзакцией. Успех возвращает APPENDUID с UID-set в порядке вставки.
+  Capability MULTIAPPEND добавлена после появления реализации и wire-проверки.
+- Независимый Python `imaplib` STARTTLS peer проверил capability до и после TLS,
+  два continuation для двух sync literals, ответы `APPENDUID 1 3,4`, отдельные
+  `\\Seen`/`\\Flagged` и точные RFC822 bytes обоих сообщений; первое тело
+  включало NUL и `0xFF`. Проверен независимый wire-клиент, а не Litterkeep app.
+- Linux Docker на установленном Rust 1.97: release build, strict Clippy,
+  678 library tests, 1 CLI test и doc-tests прошли; один внешний Unicode corpus
+  test ignored из-за отсутствующего UCD-файла. Windows Rust 1.97.1: fmt,
+  `cargo test --all-targets` (614 library tests, 1 CLI test), strict Clippy и
+  diff-check прошли.
+  Python compile прошёл; acceptance script 182 строки. Fixture остаётся в
+  `./data/g27-multiappend-wire`. Тестовый контейнер и оба созданных image tags
+  удалены; точечная проверка Docker подтвердила их отсутствие.
+- Это не закрывает полный APPEND или RFC 9051 профиль: APPENDLIMIT максимум,
+  другие literal production, LITERAL+ и client interoperability остаются
+  отдельными границами. G17 остаётся ACTIVE.

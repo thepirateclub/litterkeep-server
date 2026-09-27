@@ -87,13 +87,17 @@ pub enum Command {
         mechanism: AuthenticationMechanism,
         initial_response: InitialResponse,
     },
-    Append {
+    AppendStart {
         mailbox: MailboxName,
         literal_size: usize,
         literal_mode: literal::Mode,
         flags: crate::mail_flags::MessageFlags,
         keywords: std::collections::BTreeSet<crate::mail_flags::KeywordFlag>,
         internal_date: Option<crate::mail_date::MailDate>,
+    },
+    Append {
+        mailbox: MailboxName,
+        messages: Vec<append::AppendMessage>,
     },
     Logout,
     Noop,
@@ -201,7 +205,7 @@ pub fn parse_with_mode(line: &str, mode: tokenizer::StringMode) -> TaggedCommand
 }
 
 /// Разбирает внутренне собранную команду в выбранном session string mode.
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", test))]
 pub(crate) fn parse_literals_with_mode(
     line: &str,
     literals: Vec<Vec<u8>>,

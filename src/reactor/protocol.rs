@@ -7,6 +7,39 @@ fn take_line(input: &mut Vec<u8>) -> Option<Vec<u8>> {
     Some(input.drain(..end + 2).collect())
 }
 
+/// Формирует отказ с учётом того, известен ли размер синхронной APPEND заранее.
+fn reject_literal(
+    session: &mut Session,
+    tag: &str,
+    reason: &str,
+    terminate: bool,
+    mode: imap_search_literal::LiteralMode,
+    command: imap_search_literal::LiteralCommand,
+) -> io::Result<()> {
+    match (command, mode, terminate) {
+        (
+            imap_search_literal::LiteralCommand::Append,
+            imap_search_literal::LiteralMode::Synchronizing,
+            false,
+        ) => session.push(format!("{tag} NO [TOOBIG] {reason}\r\n").as_bytes()),
+        (
+            imap_search_literal::LiteralCommand::Append,
+            imap_search_literal::LiteralMode::NonSynchronizing,
+            _,
+        ) => {
+            session.push(format!("* BYE [TOOBIG] {reason}\r\n").as_bytes())?;
+            session.termination = Some(session::SessionTermination::InvalidImapLiteral);
+            Ok(())
+        }
+        (_, _, true) => {
+            session.push(format!("* BYE [TOOBIG] {reason}\r\n").as_bytes())?;
+            session.termination = Some(session::SessionTermination::InvalidImapLiteral);
+            Ok(())
+        }
+        (_, _, false) => session.push(format!("{tag} BAD {reason}\r\n").as_bytes()),
+    }
+}
+
 /// Выполняет команды до ожидания worker-а, literal или неполной строки.
 pub(super) fn process_input(
     session: &mut Session,
@@ -19,15 +52,6 @@ pub(super) fn process_input(
     while session.pending.is_none() {
         if session.pending_submit.is_some() {
             break;
-        }
-        if session.imap_literal.is_some() {
-            match imap_append::consume(session, request_id)? {
-                Some((request, pending)) => {
-                    submit(session, request, pending, slot, generation, worker, owners);
-                    continue;
-                }
-                None => break,
-            }
         }
         if session.imap_search_literal.is_some() {
             let progress = session
@@ -119,26 +143,38 @@ pub(super) fn process_input(
                             request_id,
                         },
                     )?,
-                    imap_search_literal::Start::Begin { receiver, mode } => {
-                        session.imap_search_literal = Some(receiver);
-                        if matches!(mode, imap_search_literal::LiteralMode::Synchronizing) {
-                            session.push(b"+ Ready for IMAP literal\r\n")?;
+                    imap_search_literal::Start::Begin {
+                        receiver,
+                        mode,
+                        command,
+                        tag,
+                    } => {
+                        if matches!(command, imap_search_literal::LiteralCommand::Append)
+                            && session.authenticated_account.is_none()
+                        {
+                            match mode {
+                                imap_search_literal::LiteralMode::Synchronizing => session
+                                    .push(format!("{tag} NO authenticate first\r\n").as_bytes())?,
+                                imap_search_literal::LiteralMode::NonSynchronizing => {
+                                    session.push(b"* BYE non-synchronizing APPEND requires authentication\r\n")?;
+                                    session.termination =
+                                        Some(session::SessionTermination::InvalidImapLiteral);
+                                }
+                            }
+                        } else {
+                            session.imap_search_literal = Some(receiver);
+                            if matches!(mode, imap_search_literal::LiteralMode::Synchronizing) {
+                                session.push(b"+ Ready for IMAP literal\r\n")?;
+                            }
                         }
                     }
                     imap_search_literal::Start::Reject {
                         tag,
                         reason,
                         terminate,
-                    } => match terminate {
-                        true => {
-                            session.push(format!("* BYE [TOOBIG] {reason}\r\n").as_bytes())?;
-                            session.termination =
-                                Some(session::SessionTermination::InvalidImapLiteral);
-                        }
-                        false => {
-                            session.push(format!("{tag} BAD {reason}\r\n").as_bytes())?;
-                        }
-                    },
+                        mode,
+                        command,
+                    } => reject_literal(session, &tag, reason, terminate, mode, command)?,
                 },
             },
             Kind::Pop3 => super::pop3_protocol::line(

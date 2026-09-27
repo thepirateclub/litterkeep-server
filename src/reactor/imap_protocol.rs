@@ -69,29 +69,15 @@ pub(super) fn line(
             owners,
             request_id,
         )?,
-        imap::Command::Append {
-            mailbox,
-            literal_size,
-            literal_mode,
-            flags,
-            keywords,
-            internal_date,
-        } => imap_append::begin(
-            session,
-            parsed.tag,
-            mailbox,
-            literal_size,
-            literal_mode,
-            crate::store::AppendMetadata {
-                flags,
-                keywords,
-                internal_date: internal_date.unwrap_or_else(crate::mail_date::MailDate::now),
-            },
-            slot,
-            generation,
-            worker,
-            owners,
-            request_id,
+        imap::Command::AppendStart { .. } => session.push(
+            format!(
+                "{} BAD APPEND literal framing is incomplete\r\n",
+                parsed.tag
+            )
+            .as_bytes(),
+        )?,
+        imap::Command::Append { mailbox, messages } => imap_append::begin(
+            session, parsed.tag, mailbox, messages, slot, generation, worker, owners, request_id,
         )?,
         imap::Command::Logout => {
             session.push(b"* BYE\r\n")?;

@@ -16,7 +16,7 @@ pub(super) fn parse_with_mode(line: &str, mode: StringMode) -> TaggedCommand {
 }
 
 /// Разбирает проверенные literals, сохраняя согласованный режим прочих строк.
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", test))]
 pub(super) fn parse_literals_with_mode(
     line: &str,
     literals: Vec<Vec<u8>>,

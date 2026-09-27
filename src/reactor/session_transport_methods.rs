@@ -53,7 +53,6 @@ impl Session {
         self.selected_recent.clear();
         self.imap_idle = None;
         self.imap_authenticate = None;
-        self.imap_literal = None;
         self.imap_search_literal = None;
         self.pop3 = pop3::Session::default();
         if matches!(self.kind, Kind::Pop3) {

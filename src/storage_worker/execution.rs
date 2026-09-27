@@ -1,22 +1,6 @@
 //! Исполнение типизированных запросов единственным владельцем хранилища.
 use super::{Request, Response};
 use crate::{accounts::Accounts, store::Store};
-use std::sync::mpsc::{Receiver, Sender};
-
-/// Последовательно исполняет запросы, пока владелец receiver-а не завершится.
-pub(super) fn run(
-    mut store: Store,
-    accounts: Accounts,
-    requests: Receiver<Request>,
-    responses: Sender<Response>,
-) {
-    for request in requests {
-        let response = respond(&mut store, &accounts, request);
-        if responses.send(response).is_err() {
-            break;
-        }
-    }
-}
 
 /// Преобразует запрос reactor-а в completion, не выдавая Store наружу.
 pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) -> Response {
@@ -44,6 +28,15 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
         } => Response::Appended {
             request_id,
             result: store.append_with_metadata(&mailbox, &bytes, metadata),
+        },
+        Request::ImapAppend {
+            request_id,
+            account,
+            mailbox,
+            messages,
+        } => Response::ImapAppended {
+            request_id,
+            result: super::imap_append::execute(store, &account, &mailbox, &messages),
         },
         Request::AppendMany {
             request_id,

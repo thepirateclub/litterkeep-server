@@ -8,6 +8,7 @@ pub(super) fn response_id(response: &Response) -> u64 {
         Response::Authenticated { request_id, .. }
         | Response::RecipientValidated { request_id, .. }
         | Response::Appended { request_id, .. }
+        | Response::ImapAppended { request_id, .. }
         | Response::Read { request_id, .. }
         | Response::FlagsUpdated { request_id, .. }
         | Response::FolderCreated { request_id, .. }

@@ -8,6 +8,7 @@ pub(super) fn request_id(request: &Request) -> u64 {
         Request::Authenticate { request_id, .. }
         | Request::ValidateRecipient { request_id, .. }
         | Request::Append { request_id, .. }
+        | Request::ImapAppend { request_id, .. }
         | Request::AppendMany { request_id, .. }
         | Request::Read { request_id, .. }
         | Request::UpdateFlags { request_id, .. }

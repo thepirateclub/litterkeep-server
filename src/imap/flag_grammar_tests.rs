@@ -42,7 +42,7 @@ fn append_rejects_quoted_and_unclosed_flags() {
     );
     assert!(matches!(
         parse("A9 APPEND INBOX (\\Seen) {0}\r\n").command,
-        Command::Append {
+        Command::AppendStart {
             mailbox: MailboxName::Inbox,
             flags,
             ..

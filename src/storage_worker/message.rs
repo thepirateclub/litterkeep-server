@@ -1,5 +1,6 @@
 //! Типизированные сообщения bounded-канала между reactor и владельцем store.
 
+use super::imap_append::ImapAppendResult;
 use crate::mail_flags::{FlagMutation, MessageFlags};
 use crate::store::{MailboxSnapshot, ResolvedMailbox, SubscriptionSnapshot};
 use std::io;
@@ -20,6 +21,13 @@ pub enum Request {
         mailbox: String,
         bytes: Vec<u8>,
         metadata: crate::store::AppendMetadata,
+    },
+    /// Атомарно разрешает mailbox и публикует полный IMAP APPEND batch.
+    ImapAppend {
+        request_id: u64,
+        account: String,
+        mailbox: String,
+        messages: Vec<(Vec<u8>, crate::store::AppendMetadata)>,
     },
     AppendMany {
         request_id: u64,
@@ -190,6 +198,10 @@ pub enum Response {
     Appended {
         request_id: u64,
         result: io::Result<u64>,
+    },
+    ImapAppended {
+        request_id: u64,
+        result: io::Result<ImapAppendResult>,
     },
     Read {
         request_id: u64,

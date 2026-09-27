@@ -13,12 +13,14 @@ class ImapCompletion(Enum):
     """Типизированные статусы завершения независимого IMAP-клиента."""
 
     OK = "OK"
+    NO = "NO"
 
 
 class ImapCapability(Enum):
     """Возможности, которые сервер обязан объявить в этом сценарии."""
 
     LITERAL_MINUS = b"LITERAL-"
+    MULTIAPPEND = b"MULTIAPPEND"
 
 
 def require(
@@ -39,6 +41,15 @@ def require_capability(client: imaplib.IMAP4, phase: str) -> None:
     capabilities = b" ".join(response).upper().split()
     if ImapCapability.LITERAL_MINUS.value not in capabilities:
         raise AssertionError(f"{phase} capability omitted LITERAL-: {capabilities!r}")
+
+
+def require_multiappend(client: imaplib.IMAP4) -> None:
+    """Проверяет публикацию возможности только у реализованной команды."""
+    status, response = client.capability()
+    require(status, response, ImapCompletion.OK, "MULTIAPPEND CAPABILITY")
+    capabilities = b" ".join(response).upper().split()
+    if ImapCapability.MULTIAPPEND.value not in capabilities:
+        raise AssertionError(f"capability omitted MULTIAPPEND: {capabilities!r}")
 
 
 def send_non_sync(
@@ -84,6 +95,54 @@ def verify_append_literal(client: imaplib.IMAP4, mailbox: str) -> None:
         raise AssertionError(f"APPEND payload changed: {messages!r}")
 
 
+def verify_multiappend(client: imaplib.IMAP4, mailbox: str) -> None:
+    """Проверяет атомарную пакетную запись и каждый сохранённый octet."""
+    first = b"Subject: first\r\n\r\nfirst body\x00\xff\r\n"
+    second = b"Subject: second\r\n\r\nsecond body\r\n"
+    tag = client._new_tag()
+    client.tagged_commands.update({tag: None})
+    first_marker = f"{{{len(first)}}}\r\n".encode("ascii")
+    client.send(
+        tag + b' APPEND "' + mailbox.encode("ascii") + b'" (\\Seen) '
+        + first_marker
+    )
+    if client._get_response() is not None:
+        raise AssertionError("first synchronizing literal did not receive continuation")
+    second_marker = f" (\\Flagged) {{{len(second)}}}\r\n".encode("ascii")
+    client.send(first + second_marker)
+    if client._get_response() is not None:
+        raise AssertionError("second synchronizing literal did not receive continuation")
+    client.send(second + b"\r\n")
+    status, detail = client._command_complete("APPEND", tag)
+    require(status, detail, ImapCompletion.OK, "synchronizing MULTIAPPEND")
+    joined_detail = b" ".join(
+        value for value in detail or [] if isinstance(value, bytes)
+    ).upper()
+    if b"APPENDUID 1 3,4" not in joined_detail:
+        raise AssertionError(f"MULTIAPPEND returned wrong UID set: {detail!r}")
+    require(*client.select(mailbox), ImapCompletion.OK, "reselect after MULTIAPPEND")
+    status, rows = client.fetch("3:4", "(UID FLAGS RFC822)")
+    require(status, rows, ImapCompletion.OK, "FETCH after MULTIAPPEND")
+    bodies: list[bytes] = []
+    metadata: list[bytes] = []
+    for row in rows or []:
+        match row:
+            case (header, body) if isinstance(header, bytes) and isinstance(body, bytes):
+                metadata.append(header.upper())
+                bodies.append(body)
+            case _:
+                continue
+    if bodies != [first, second]:
+        raise AssertionError(f"MULTIAPPEND payloads changed: {bodies!r}")
+    if len(metadata) != 2:
+        raise AssertionError(f"MULTIAPPEND FETCH omitted entries: {metadata!r}")
+    if not all(
+        b"\\SEEN" in header if b"UID 3" in header else b"\\FLAGGED" in header
+        for header in metadata
+    ):
+        raise AssertionError(f"MULTIAPPEND message flags changed: {metadata!r}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="127.0.0.1")
@@ -93,8 +152,10 @@ def main() -> None:
     arguments = parser.parse_args()
     client = imaplib.IMAP4(arguments.host, arguments.port, timeout=10)
     require_capability(client, "pre-TLS")
+    require_multiappend(client)
     client.starttls(ssl_context=ssl.create_default_context(cafile=arguments.ca))
     require_capability(client, "post-TLS")
+    require_multiappend(client)
     password = password_for(arguments.credentials).encode("ascii")
     tag = client._new_tag()
     client.tagged_commands.update({tag: None})
@@ -109,7 +170,7 @@ def main() -> None:
     mailbox = f"LiteralMinus-{uuid.uuid4().hex}"
     require(*client.create(mailbox), ImapCompletion.OK, "CREATE mailbox")
     status, detail = client.append(mailbox, None, None, b"")
-    if status.upper() != "NO":
+    if ImapCompletion(status.upper()) is not ImapCompletion.NO:
         raise AssertionError(f"empty APPEND must be cancelled with NO: {status} {detail!r}")
     require(*client.noop(), ImapCompletion.OK, "NOOP after cancelled APPEND")
     selected = require(
@@ -128,8 +189,9 @@ def main() -> None:
     require(*client.select(mailbox), ImapCompletion.OK, "SELECT mailbox")
     verify_search_literal(client)
     verify_append_literal(client, mailbox)
+    verify_multiappend(client, mailbox)
     client.logout()
-    print("PASS imap-literal-minus: capability, LOGIN, SEARCH and byte-exact APPEND")
+    print("PASS IMAP wire: LITERAL-, MULTIAPPEND, SEARCH, LOGIN, flags and exact bytes")
 
 
 def password_for(credentials: Path | None) -> str:

@@ -1,6 +1,6 @@
 //! Владелец bounded-потока IMAP literal-ов и остатка команды.
 
-use super::{MAX_IMAP_LITERAL, MAX_NON_SYNCHRONIZING_LITERAL};
+use super::{LiteralCommand, MAX_IMAP_LITERAL, MAX_NON_SYNCHRONIZING_LITERAL};
 use crate::imap::literal::{self, Marker as LiteralMarker, Mode as LiteralMode};
 
 /// Фаза приёма literal или остатка команды после его octets.
@@ -26,6 +26,7 @@ pub(in crate::reactor) struct Receiver {
     remainder: Vec<u8>,
     phase: Phase,
     total_octets: usize,
+    command: LiteralCommand,
 }
 
 /// Инкрементальный результат одного неблокирующего шага.
@@ -56,8 +57,15 @@ impl Receiver {
         prefix: Vec<u8>,
         tag: String,
         marker: LiteralMarker,
+        command: LiteralCommand,
     ) -> Option<Self> {
-        if prefix.len().checked_add(marker.size)? > super::super::MAX_INPUT {
+        let initial_size = match command {
+            LiteralCommand::Append => prefix.len(),
+            LiteralCommand::Login | LiteralCommand::Search | LiteralCommand::Mailbox => {
+                prefix.len().checked_add(marker.size)?
+            }
+        };
+        if initial_size > super::super::MAX_INPUT {
             return None;
         }
         Some(Self {
@@ -69,6 +77,7 @@ impl Receiver {
             remainder: Vec::new(),
             phase: Phase::Literal,
             total_octets: marker.size,
+            command,
         })
     }
 
@@ -80,7 +89,7 @@ impl Receiver {
         if self.bytes.len() < self.expected {
             return Some(Progress::Waiting);
         }
-        if self.bytes.contains(&0) {
+        if self.bytes.contains(&0) && !matches!(self.command, LiteralCommand::Append) {
             return Some(Progress::InvalidString);
         }
         let value = std::mem::take(&mut self.bytes);
@@ -163,10 +172,17 @@ impl Receiver {
             LiteralMode::Synchronizing => true,
             LiteralMode::NonSynchronizing => marker.size <= MAX_NON_SYNCHRONIZING_LITERAL,
         };
+        let maximum_literal = literal_limit(self.command);
+        let total_within_limit = match self.command {
+            LiteralCommand::Append => total <= maximum_literal,
+            LiteralCommand::Login | LiteralCommand::Search | LiteralCommand::Mailbox => {
+                command_size <= super::super::MAX_INPUT
+            }
+        };
         match (
-            marker.size <= MAX_IMAP_LITERAL,
+            marker.size <= maximum_literal,
             within_non_sync_limit,
-            command_size <= super::super::MAX_INPUT,
+            total_within_limit,
         ) {
             (true, true, true) => {}
             _ => return Progress::TooBig(self.tag.clone()),
@@ -188,6 +204,15 @@ impl Receiver {
         rebuilt.extend(std::mem::take(input));
         *input = rebuilt;
         Progress::Complete(std::mem::take(&mut self.literals))
+    }
+}
+
+fn literal_limit(command: LiteralCommand) -> usize {
+    match command {
+        LiteralCommand::Append => crate::smtp::MAX_MESSAGE_SIZE as usize,
+        LiteralCommand::Login | LiteralCommand::Search | LiteralCommand::Mailbox => {
+            MAX_IMAP_LITERAL
+        }
     }
 }
 

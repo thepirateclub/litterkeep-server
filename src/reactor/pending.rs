@@ -36,13 +36,6 @@ pub(super) enum Pending {
     },
     ImapAppend {
         tag: String,
-        mailbox: String,
-    },
-    ResolveForAppend {
-        tag: String,
-        literal_size: usize,
-        literal_mode: crate::imap::literal::Mode,
-        metadata: crate::store::AppendMetadata,
     },
     ReadForSelect {
         tag: String,

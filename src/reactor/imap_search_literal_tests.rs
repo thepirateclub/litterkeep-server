@@ -1,6 +1,6 @@
 //! Граничные проверки SEARCH literal framing и восстановления команды.
 
-use super::{Progress, Receiver, Start, start};
+use super::{LiteralCommand, Progress, Receiver, Start, start};
 use crate::imap::literal::{Marker, Mode};
 
 fn new_receiver(prefix: &[u8], size: usize) -> Receiver {
@@ -11,6 +11,7 @@ fn new_receiver(prefix: &[u8], size: usize) -> Receiver {
             size,
             mode: Mode::Synchronizing,
         },
+        LiteralCommand::Search,
     )
     .expect("bounded literal")
 }
@@ -100,12 +101,52 @@ fn login_literals_rebuild_into_the_typed_login_command() {
 fn leaves_other_commands_and_quoted_braces_unchanged() {
     assert!(matches!(
         start(b"a APPEND INBOX {5}\r\n"),
-        Start::NotLiteral
+        Start::Begin {
+            command: LiteralCommand::Append,
+            ..
+        }
     ));
     assert!(matches!(
         start(b"a SEARCH BODY \"{5}\"\r\n"),
         Start::NotLiteral
     ));
+}
+
+#[test]
+fn append_receiver_reassembles_multiple_messages_before_one_completion() {
+    let Start::Begin { mut receiver, .. } = start(b"a APPEND INBOX {5}\r\n") else {
+        panic!("APPEND must enter the shared literal receiver");
+    };
+    let mut first = b"first (\\Seen) {6}\r\n".to_vec();
+    assert!(matches!(
+        receiver.consume(&mut first),
+        Progress::Continue(Mode::Synchronizing)
+    ));
+    let mut second = b"second\r\nNEXT NOOP\r\n".to_vec();
+    let Progress::Complete(values) = receiver.consume(&mut second) else {
+        panic!("MULTIAPPEND receiver must complete both messages together");
+    };
+    assert_eq!(values, [b"first".to_vec(), b"second".to_vec()]);
+    assert_eq!(second, b"a APPEND INBOX \0 (\\Seen) \0\r\nNEXT NOOP\r\n");
+    let command = std::str::from_utf8(&second).expect("placeholder command");
+    let (command_line, pipeline) = command
+        .split_once("\r\n")
+        .expect("complete command and pipelined bytes");
+    assert_eq!(pipeline, "NEXT NOOP\r\n");
+    let parsed = crate::imap::parse_literals_with_mode(
+        &format!("{command_line}\r\n"),
+        values,
+        crate::imap::tokenizer::StringMode::Legacy,
+    );
+    let crate::imap::Command::Append { messages, .. } = parsed.command else {
+        panic!("reassembled command must parse as APPEND batch");
+    };
+    let second_message = messages.get(1).expect("second parsed message");
+    assert!(
+        second_message
+            .flags
+            .contains(crate::mail_flags::SystemFlag::Seen)
+    );
 }
 
 #[test]

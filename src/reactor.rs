@@ -47,8 +47,6 @@ mod imap_line_context;
 mod imap_list;
 mod imap_list_selection;
 mod imap_list_status;
-#[path = "reactor/imap_literal.rs"]
-mod imap_literal;
 #[path = "reactor/imap_namespace.rs"]
 mod imap_namespace;
 #[path = "reactor/imap_protocol.rs"]
@@ -132,7 +130,6 @@ mod submit_id;
 use completion_dispatch::complete;
 use completion_retry::retry_submissions;
 use imap_idle::IdleState;
-use imap_literal::LiteralReceiver;
 use maildrop_lease::MaildropLeases;
 pub use outbound_entry::{serve_all_mail_outbound_starttls, serve_all_mail_outbound_tls_starttls};
 use pending::{AuthenticationCommand, Pending, SubscriptionResponse};
