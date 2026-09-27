@@ -7,6 +7,8 @@
 
 use crate::managesieve::Command;
 
+use super::managesieve_rename_literal as rename_literal;
+
 const MAX_LITERAL_BYTES: usize = 65_536;
 
 /// Результат разбора command line до начала владения телом literal.
@@ -29,7 +31,11 @@ enum Operation {
     GetScript,
     DeleteScript,
     SetActive,
+    Rename(rename_literal::Receiver),
 }
+
+#[path = "managesieve_literal_putscript.rs"]
+mod putscript;
 
 /// Единственный bounded владелец байтов literal между TCP reads.
 pub(super) struct LiteralReceiver {
@@ -48,6 +54,10 @@ pub(super) enum Progress {
 }
 
 impl LiteralReceiver {
+    pub(super) fn source(name: String, expected: usize) -> Self {
+        Self::new(Operation::PutSource(name), expected)
+    }
+
     fn new(operation: Operation, expected: usize) -> Self {
         Self {
             operation,
@@ -58,8 +68,17 @@ impl LiteralReceiver {
 
     /// Забирает ровно объявленное число байтов, оставляя pipeline в input.
     pub(super) fn consume(&mut self, input: &mut Vec<u8>) -> Progress {
+        if let Operation::Rename(receiver) = &mut self.operation {
+            return match receiver.consume(input) {
+                rename_literal::Progress::Complete(command) => Progress::Complete(command),
+                rename_literal::Progress::Waiting => Progress::Waiting,
+                rename_literal::Progress::Continue => Progress::NeedContinuation,
+                rename_literal::Progress::Invalid => Progress::Invalid,
+                rename_literal::Progress::InvalidUtf8 => Progress::InvalidUtf8,
+            };
+        }
         if matches!(&self.operation, Operation::PutNameTail(_)) {
-            return self.consume_put_name_tail(input);
+            return putscript::consume_tail(self, input);
         }
         let remaining = self.expected.saturating_sub(self.bytes.len());
         let consumed = remaining.min(input.len());
@@ -73,12 +92,10 @@ impl LiteralReceiver {
         };
         match std::mem::replace(&mut self.operation, Operation::Check) {
             Operation::Put(name) => Progress::Complete(Command::PutScript { name, source }),
-            Operation::PutName => {
-                self.operation = Operation::PutNameTail(source);
-                self.consume_put_name_tail(input)
-            }
+            Operation::PutName => putscript::begin_tail(self, source, input),
             Operation::PutNameTail(_) => Progress::Invalid,
             Operation::PutSource(name) => Progress::Complete(Command::PutScript { name, source }),
+            Operation::Rename(_) => Progress::Invalid,
             Operation::Check => Progress::Complete(Command::CheckScript(source)),
             Operation::Noop => Progress::Complete(Command::Noop(Some(source))),
             Operation::GetScript => Progress::Complete(Command::GetScript(source)),
@@ -90,65 +107,6 @@ impl LiteralReceiver {
                 };
                 Progress::Complete(Command::SetActive(name))
             }
-        }
-    }
-
-    /// Читает оставшуюся строку PUTSCRIPT после literal-имени.
-    fn consume_put_name_tail(&mut self, input: &mut Vec<u8>) -> Progress {
-        let Some(end) = input.windows(2).position(|pair| pair == b"\r\n") else {
-            let remaining = MAX_LITERAL_BYTES.saturating_sub(self.bytes.len());
-            let consumed = remaining.min(input.len());
-            self.bytes.extend(input.drain(..consumed));
-            return match self.bytes.len() < MAX_LITERAL_BYTES {
-                true => Progress::Waiting,
-                false => Progress::Invalid,
-            };
-        };
-        let through_crlf = end.saturating_add(2);
-        self.bytes.extend(input.drain(..through_crlf));
-        let tail = match String::from_utf8(std::mem::take(&mut self.bytes)) {
-            Ok(value) => value,
-            Err(_) => return Progress::InvalidUtf8,
-        };
-        let name = match std::mem::replace(&mut self.operation, Operation::Check) {
-            Operation::PutNameTail(name) => name,
-            _ => return Progress::Invalid,
-        };
-        self.finish_put_name_tail(name, tail, input)
-    }
-
-    /// Завершает quoted source напрямую либо переключает receiver на body literal.
-    fn finish_put_name_tail(
-        &mut self,
-        name: String,
-        tail: String,
-        input: &mut Vec<u8>,
-    ) -> Progress {
-        let Some(tail) = tail.strip_suffix("\r\n") else {
-            return Progress::Invalid;
-        };
-        let tail = tail.trim_start();
-        match quoted_then_tail(tail) {
-            Some((source, "")) => Progress::Complete(Command::PutScript { name, source }),
-            Some(_) => Progress::Invalid,
-            None => self.begin_put_source(name, tail, input),
-        }
-    }
-
-    /// Передаёт literal marker script body тому же bounded receiver-у.
-    fn begin_put_source(&mut self, name: String, marker: &str, input: &mut Vec<u8>) -> Progress {
-        let Some((expected, continuation)) = size(marker) else {
-            return Progress::Invalid;
-        };
-        if expected > MAX_LITERAL_BYTES {
-            return Progress::Invalid;
-        }
-        self.operation = Operation::PutSource(name);
-        self.expected = expected;
-        self.bytes.clear();
-        match continuation {
-            true => Progress::NeedContinuation,
-            false => self.consume(input),
         }
     }
 }
@@ -169,6 +127,18 @@ pub(super) fn start(line: &[u8]) -> Start {
         Verb::GetScript => string_argument(Operation::GetScript, tail),
         Verb::DeleteScript => string_argument(Operation::DeleteScript, tail),
         Verb::SetActive => string_argument(Operation::SetActive, tail),
+        Verb::Rename => match rename_literal::start(tail) {
+            rename_literal::Start::NotLiteral => Start::NotLiteral,
+            rename_literal::Start::Invalid => Start::Invalid,
+            rename_literal::Start::Begin { receiver, sync } => Start::Begin {
+                receiver: LiteralReceiver {
+                    operation: Operation::Rename(receiver),
+                    expected: 0,
+                    bytes: Vec::new(),
+                },
+                continuation: sync,
+            },
+        },
         Verb::Other => Start::NotLiteral,
     }
 }
@@ -180,6 +150,7 @@ enum Verb {
     GetScript,
     DeleteScript,
     SetActive,
+    Rename,
     Other,
 }
 
@@ -192,6 +163,7 @@ impl Verb {
             _ if value.eq_ignore_ascii_case("GETSCRIPT") => Self::GetScript,
             _ if value.eq_ignore_ascii_case("DELETESCRIPT") => Self::DeleteScript,
             _ if value.eq_ignore_ascii_case("SETACTIVE") => Self::SetActive,
+            _ if value.eq_ignore_ascii_case("RENAMESCRIPT") => Self::Rename,
             _ => Self::Other,
         }
     }

@@ -100,6 +100,13 @@ fn putscript_literal_name_accepts_quoted_or_literal_body() {
             source: "keep;".into(),
         }
     );
+    assert_eq!(
+        complete_put(b"PUTSCRIPT {3+}\r\n", b"box {5+}\r\nkeep;NOOP\r\n"),
+        Command::PutScript {
+            name: "box".into(),
+            source: "keep;".into(),
+        }
+    );
 }
 
 #[test]

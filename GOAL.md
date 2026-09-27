@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-27: G18 ManageSieve RENAMESCRIPT literal argument framing, scoped PASS T258
+
+- RENAMESCRIPT now accepts either script name as a bounded synchronizing or
+  non-synchronizing literal, independently of the other name's quoted/literal
+  form. Per-argument size and UTF-8 validation are retained, and bytes after
+  the final literal stay available to the next pipelined command.
+- Linux receiver tests verify literal old + quoted new, two sync literals,
+  quoted old + non-sync literal new, empty quoted old name, and pipeline
+  preservation. Independent STARTTLS socket acceptance sends two non-sync
+  literals followed by NOOP and verifies the command reaches the expected
+  unauthenticated state refusal, then verifies NOOP is preserved. It does not
+  prove a successful Store rename using literal names.
+- Windows Rust 1.97.1 fmt, strict Clippy and all-target tests passed (802
+  library + 1 CLI, 3 ignored; Linux reactor tests are excluded). Linux Docker
+  Rust 1.97.1 fmt, strict Clippy, 895 library + 1 CLI passed, 3 ignored,
+  release build and independent wire scenario passed. Rust image retained and
+  disposable container removed after acceptance.
+
 ### 2026-09-27: G18 ManageSieve PUTSCRIPT literal-name framing, scoped PASS T257
 
 - PUTSCRIPT now accepts its script name as a client literal. After consuming

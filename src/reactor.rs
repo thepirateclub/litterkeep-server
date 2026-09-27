@@ -79,6 +79,8 @@ mod managesieve_completion;
 mod managesieve_literal;
 #[path = "reactor/managesieve_protocol.rs"]
 mod managesieve_protocol;
+#[path = "reactor/managesieve_rename_literal.rs"]
+mod managesieve_rename_literal;
 #[path = "reactor/outbound_entry.rs"]
 mod outbound_entry;
 #[path = "reactor/outbound_scheduler.rs"]

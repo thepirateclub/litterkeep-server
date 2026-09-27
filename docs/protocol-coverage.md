@@ -1013,10 +1013,12 @@ also accept a final synchronizing or non-synchronizing literal string, including
 the zero-length SETACTIVE disable form. Linux reactor tests verify typed command
 conversion; independent wire acceptance checks continuation and state handling.
 PUTSCRIPT accepts a literal name followed by quoted or literal source, with
-sync/non-sync framing and a following pipelined NOOP covered. The independent
-wire check reaches the pre-auth state rejection, not successful Store mutation.
-RENAMESCRIPT literal name arguments and other uncovered string positions remain
-unsupported.
+sync/non-sync framing and a following pipelined NOOP covered. RENAMESCRIPT
+accepts either name as a sync or non-sync literal independently; receiver tests
+cover two sync names, mixed quoted/literal names, UTF-8 and pipeline retention.
+Independent wire checks reach the pre-auth state rejection, not successful
+Store mutation through literal arguments. Other uncovered string positions
+remain unsupported.
 
 ## Outbound SMTP
 

@@ -94,6 +94,12 @@ def main() -> None:
             raise AssertionError("PUTSCRIPT literal body after literal name was not parsed")
         if read_line(connection) != b'OK "noop"\r\n':
             raise AssertionError("command pipelined after PUTSCRIPT literal was consumed")
+        connection.sendall(b"RENAMESCRIPT {3+}\r\nold {3+}\r\nnewNOOP\r\n")
+        rename_reply = read_line(connection)
+        if rename_reply != b'NO "invalid command for state"\r\n':
+            raise AssertionError(f"RENAMESCRIPT literal pair was not parsed: {rename_reply!r}")
+        if read_line(connection) != b'OK "noop"\r\n':
+            raise AssertionError("command pipelined after RENAMESCRIPT literal was consumed")
         exchange(
             connection,
             b'NOOP "a \\\"b\\\\c"\r\n',
