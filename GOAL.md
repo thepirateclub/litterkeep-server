@@ -9031,3 +9031,21 @@ ManageSieve до заявленного набора современных фо
 - Fixture `./data/acceptance-managesieve-auth-sync-20260927` сохранена;
   временные runtime container и созданный image удалены. Peer независимый,
   Litterkeep app не проверялось; SCRAM-SHA-1 и общий G17 остаются открытыми.
+
+### 2026-09-27: G17 RFC 5804 challenge-response synchronizing literal, scoped PASS T275
+
+- Закрыт отдельный framing-вариант после SASL challenge. Для PLAIN без
+  initial-response сервер выдаёт пустой challenge; независимый STARTTLS peer
+  отправил synchronizing literal marker, получил `OK "ready for literal data"`
+  и лишь затем передал payload. Bob успешно аутентифицирован. Тест также
+  сохраняет проверки отмены challenge и повторного входа.
+- Linux receiver unit теперь проверяет sync continuation; Python acceptance
+  проверяет тот же обмен на живом Linux server. Свежий Rust 1.97.1 Docker build,
+  strict Clippy и полный тестовый набор прошли: 911 library + 1 CLI tests,
+  3 ignored. Windows fmt, strict Clippy и 807 library + 1 CLI tests прошли,
+  3 ignored; Python `py_compile` прошёл.
+- Fixture `./data/acceptance-managesieve-challenge-sync-20260927` сохранена.
+  Созданные для этапа Docker container и test image удалены, отсутствие
+  проверено. Acceptance использовал независимый протокольный peer, а не
+  Litterkeep app. SCRAM-SHA-1 остаётся обязательным незакрытым пробелом;
+  полный профиль G17 остаётся ACTIVE.

@@ -85,8 +85,16 @@ def main() -> None:
             challenge = read_until(encrypted, b'""\r\n')
             if challenge != b'""\r\n':
                 raise AssertionError(f"unexpected empty SASL challenge: {challenge!r}")
-            marker = b"{" + str(len(sasl)).encode("ascii") + b"+}\r\n"
-            encrypted.sendall(marker + sasl + b"\r\n")
+            marker = b"{" + str(len(sasl)).encode("ascii") + b"}\r\n"
+            encrypted.sendall(marker)
+            continuation = read_until(
+                encrypted, b'OK "ready for literal data"\r\n'
+            )
+            if continuation != b'OK "ready for literal data"\r\n':
+                raise AssertionError(
+                    f"unexpected SASL literal continuation: {continuation!r}"
+                )
+            encrypted.sendall(sasl + b"\r\n")
             challenged_authentication = read_until(
                 encrypted, b'OK "authenticated"\r\n'
             )

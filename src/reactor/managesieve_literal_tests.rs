@@ -185,11 +185,11 @@ fn authentication_challenge_response_accepts_a_literal() {
     let Start::Begin {
         mut receiver,
         continuation,
-    } = authentication_response(b"{12+}\r\n")
+    } = authentication_response(b"{12}\r\n")
     else {
-        panic!("literal SASL response was not recognized");
+        panic!("synchronizing literal SASL response was not recognized");
     };
-    assert!(!continuation);
+    assert!(continuation);
     let mut response = b"AGFsaWNlAHg=\r\n".to_vec();
     assert!(matches!(
         receiver.consume(&mut response),

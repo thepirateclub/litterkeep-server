@@ -13,10 +13,12 @@ TLS-before-auth политику; независимая Linux проверка 
 
 RFC 5804 §2.1 challenge/response flow для PLAIN тоже поддержан: отсутствие
 initial-response приводит к пустому quoted challenge; ответ может быть quoted
-строкой либо bounded client literal, а `*` отменяет exchange. Независимый Linux
-STARTTLS acceptance прошёл literal continuation до успешной аутентификации и
-проверил повторный вход после отмены. Полное соответствие ManageSieve SASL всё
-ещё не достигнуто: SCRAM-SHA-1 обязателен по RFC и остаётся открытым пробелом.
+строкой либо bounded client literal, а `*` отменяет exchange. T262 проверил
+non-synchronizing literal response независимым Linux STARTTLS peer. T275 отдельно
+проверил synchronizing literal после challenge: клиент получил обязательный
+continuation до отправки payload и затем успешно аутентифицировал Bob. Проверен
+также повторный вход после отмены. Полное соответствие ManageSieve SASL всё ещё
+не достигнуто: SCRAM-SHA-1 обязателен по RFC и остаётся открытым пробелом.
 Причина ограничений реализации записана в [учёте зависимостей](dependencies.md):
 разрешённые production API не дают доступа к SHA-1/HMAC-SHA-1 backend, а account
 store хранит только Argon2id verifier. Это не считается выполненной поддержкой.
