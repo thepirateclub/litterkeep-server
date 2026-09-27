@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-27: G18 IMAP SEARCH single-byte MIME charset matrix, scoped PASS T233
+
+- Независимый Python-клиент отправил Alice одно multipart письмо с 26
+  однобайтовыми MIME charset через SMTP STARTTLS и 8BITMIME; Bob выполнил
+  `SEARCH CHARSET UTF-8 BODY {n}` с UTF-8 synchronizing literal для каждой
+  уникальной строки после MIME decoding. Все 26 поисков вернули сообщение.
+- Проверены ISO-8859-1..10 и 13..16, TIS-620, IBM866, Windows-874 и
+  Windows-1250..1258. Тестовые байты независимо созданы стандартными codec-ами
+  Python в strict режиме, fixture representability проверена для каждой метки.
+- Linux release runtime собран в Docker на Rust 1.97; независимая wire-проверка
+  завершилась `PASS single-byte MIME charset matrix: 26 labels`. Контейнер и
+  временный image удалены и проверяются отдельно. Локальные данные теста
+  сохранены в `./data/g19-imap-singlebyte-matrix`. Это проверка Python клиента,
+  не приложения Litterkeep; UTF-16/32, RFC 2047 headers и другие IMAP SEARCH
+  charset в этот сценарий не входят.
+
 ### 2026-09-27: G18 IMAP SEARCH Windows-874 body decoding, scoped PASS T232
 
 - Профиль SEARCH MIME projection использует charset decoder, но независимая
