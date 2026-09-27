@@ -18,6 +18,7 @@ pub(super) fn queue(
     let Some(account) = session.authenticated_account.clone() else {
         return session.push(format!("{tag} NO authenticate first\r\n").as_bytes());
     };
+    imap_unselect::close_for_select(session)?;
     let name = match requested_mailbox {
         imap::MailboxName::Inbox => "INBOX".to_owned(),
         imap::MailboxName::Named(name) => name,

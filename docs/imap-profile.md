@@ -21,7 +21,7 @@ CAPABILITY не выдаёт за более широкое расширение
 | Extension negotiation | ENABLE | PARTIAL | Atom and quoted-string token forms are distinguished; unquoted arguments are validated against the IMAP atom production, invalid atom-special characters receive tagged BAD, and valid unsupported capability atoms remain ignored; authenticated `ENABLE UTF8=ACCEPT` activates a connection-local mode and returns `ENABLED UTF8=ACCEPT`; extension remains hidden from CAPABILITY until the full profile gate passes |
 | Mailbox mutation | CREATE, DELETE, RENAME | PASS | Durable journal, subtree rename, retired folder IDs |
 | Subscription | SUBSCRIBE, UNSUBSCRIBE | PASS | Durable subscription независимо от существования папки |
-| Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS, PERMANENTFLAGS, включая `\\*` для создания пользовательских keywords, Recent |
+| Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS, PERMANENTFLAGS, включая `\\*` для создания пользовательских keywords, Recent; повторный SELECT/EXAMINE закрывает прежнюю папку с `OK [CLOSED]` до новых ответов, а failed select оставляет authenticated state без выбранной папки |
 | Message insertion | APPEND | PARTIAL | Bounded synchronizing literal and RFC 7888 `LITERAL-` non-synchronizing literals до 4096 octets; strict parenthesized system flags/keywords, quoted-string-only RFC date-time INTERNALDATE, APPENDUID после fsync; zero-length literal returns tagged `NO` without a mailbox mutation and the session accepts a subsequent command; oversized non-synchronizing payload gets `BYE [TOOBIG]` and connection closure; global 25 MiB limit is advertised through APPENDLIMIT and oversized synchronizing APPEND is rejected with tagged TOOBIG before payload; RFC 3502 MULTIAPPEND parses and stores ordered messages in one atomic batch, preserves per-message flags/keywords/date, advertises MULTIAPPEND and returns ordered APPENDUID; independent STARTTLS acceptance checks distinct flags and exact RFC822 bytes including NUL and 0xFF; LITERAL+ is not advertised |
 | Reading | FETCH, UID FETCH | PARTIAL | Сгруппированные items, ALL/FAST/FULL с RFC-совместимым раскрытием FULL через BODY, BODY и BODYSTRUCTURE, UID, RFC822/RFC822.HEADER/RFC822.TEXT legacy items с правильными wire labels, BODY sections/partial и BINARY/BINARY.PEEK/BINARY.SIZE; decoded MIME leaf parts, Base64/QP, literal8 для NUL, decoded partial, UNKNOWN-CTE и Seen effects проверены. RFC 3516 BINARY объявлен в CAPABILITY до STARTTLS, после TLS и после LOGIN. RFC 6532 message/global принимает identity, Base64 и quoted-printable CTE с отдельным source для decoded вложенных ranges; неизвестный CTE сохраняет opaque octet-stream fallback. Полная rev2 grammar остаётся |
 
@@ -136,6 +136,14 @@ validated as an IMAP atom before Enum conversion. Independent STARTTLS grammar
 acceptance confirms `ENABLE X%` receives tagged BAD, while valid unknown
 `X-UNKNOWN` is ignored with an empty ENABLED response and tagged OK. The ENABLE
 and UTF8=ACCEPT profile remains PARTIAL; IMAP4rev2 is not claimed.
+
+G18 SELECT lifecycle checkpoint (2026-09-27): SELECT/EXAMINE clear the previous
+selected mailbox before attempting a replacement and emit untagged `OK [CLOSED]`
+before responses for the new mailbox. An unsuccessful selection leaves no
+mailbox selected and does not expunge messages. Independent Linux STARTTLS
+acceptance verifies repeated SELECT ordering, failed SELECT state, FETCH
+rejection and NOOP recovery. This closes that lifecycle requirement only; the
+full IMAP4rev2 profile remains unclaimed.
 
 G17 astring checkpoint (2026-09-26): LOGIN and SELECT/EXAMINE now validate raw
 atom tokens against `ASTRING-CHAR`; special characters require quoted form,

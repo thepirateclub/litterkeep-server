@@ -351,6 +351,12 @@ LSUB, CREATE/RENAME/DELETE, SELECT/EXAMINE, STATUS, APPEND, SEARCH, FETCH,
 BODYSTRUCTURE, MIME sections/partial, STORE, COPY, MOVE, EXPUNGE, UID EXPUNGE,
 IDLE/DONE и durable Recent. UIDVALIDITY и UID переживают restart.
 
+По RFC 9051 §6.3.2 повторные SELECT/EXAMINE закрывают прежнюю mailbox до
+попытки нового выбора и перед новыми ответами выдают `* OK [CLOSED]`. Если
+новый выбор не удался, session возвращается к authenticated state без выбранной
+mailbox и без expunge. Независимый Linux STARTTLS acceptance проверяет CLOSED
+ordering, отказ FETCH до новой SELECT и последующий NOOP.
+
 Implicit-TLS IMAP отвечает на peer-инициированный `close_notify` после
 успешного tagged NOOP reply. Независимый Linux TLS peer завершил `unwrap()`;
 это подтверждает TLS closure для этого сценария, не полный IMAP4rev2 профиль.

@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-27: G18 IMAP implicit mailbox close on SELECT, scoped PASS T266
+
+- SELECT/EXAMINE now close any previous mailbox before starting the new Store
+  selection. The session clears its selected projection and emits untagged
+  `OK [CLOSED]` before new-mailbox responses. A failed selection therefore
+  leaves authenticated state with no mailbox selected and does not expunge
+  `\\Deleted` messages.
+- Independent Linux STARTTLS acceptance verifies CLOSED ordering for repeated
+  SELECT, CLOSED before a nonexistent-mailbox NO response, rejection of FETCH
+  after that failure, and NOOP recovery. Windows Rust 1.97.1 fmt, strict
+  Clippy and full tests passed (807 library, 1 CLI, 3 ignored). Linux Docker
+  Rust 1.97.1 tests passed (906 library, 1 CLI, 3 ignored); fmt, strict Clippy
+  and wire acceptance passed. Linux test artifacts used container-local
+  `/tmp` after the shared Windows target produced an incremental-copy error.
+  Stage runtime/gate containers were removed, the existing Rust image retained,
+  and no image created. Fixture remains in
+  `./data/acceptance-imap-select-reselection-20260927`.
+
 ### 2026-09-27: G18 IMAP ENABLE atom validation, scoped PASS T265
 
 - ENABLE now validates each unquoted capability token as an IMAP atom before
