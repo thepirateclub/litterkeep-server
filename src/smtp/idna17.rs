@@ -2,6 +2,8 @@
 
 #[path = "idna17/ranges.rs"]
 mod ranges;
+#[path = "idna17/ulabel.rs"]
+mod ulabel;
 
 /// Класс символа по таблице IDNA2008 Derived Property Unicode 17.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -15,6 +17,8 @@ pub enum DerivedProperty {
     /// Символ disallowed, unassigned либо отсутствует в таблице допустимых свойств.
     DisallowedOrUnassigned,
 }
+
+pub use ulabel::{UlabelError, to_alabel};
 
 /// Возвращает производное свойство символа без принятия решения о валидности label.
 ///

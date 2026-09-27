@@ -194,9 +194,12 @@ conversion не реализованы. Дополнительно `smtp::idna17
 прочие значения дают `DisallowedOrUnassigned`. Тесты проверяют представительные
 символы и каждый класс, а не весь IDNA conformance corpus. RFC 5892 прямо
 отделяет свойство code point от валидности label. Классификатор ещё не подключён
-к parser-у и не выполняет NFC, hyphen, contextual, bidi или A-label round-trip
-проверки. DNS conversion и capability SMTPUTF8 также не реализованы, поэтому
-сервер её не рекламирует.
+к parser-у и не выполняет bidi или проверку входных A-label. Новый
+`to_alabel` переводит только NFC PVALID-only U-label в Punycode A-label и
+проверяет leading/trailing/reserved hyphens и 63-октетный encoded label limit.
+CONTEXTJ/CONTEXTO получают явную ошибку, так как их контекстные правила пока
+не выполнены. Функция не подключена к SMTP parser-у, DNS conversion и
+capability SMTPUTF8 также не реализованы, поэтому сервер её не рекламирует.
 См. [RFC 3492](https://www.rfc-editor.org/rfc/rfc3492.html) и
 [RFC 5890](https://www.rfc-editor.org/rfc/rfc5890.html),
 [RFC 5891](https://www.rfc-editor.org/rfc/rfc5891.html) и

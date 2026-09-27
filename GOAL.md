@@ -4,6 +4,26 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 scoped PVALID-only U-label to A-label conversion
+
+- Реализована отдельная `smtp::idna17::to_alabel`: проверяет NFC, свойства
+  Unicode 17, leading/trailing/reserved hyphens, RFC 3492 conversion и длину
+  готового `xn--` label не более 63 ASCII октетов. Четыре новых теста включают
+  multilingual vectors, non-NFC/disallowed/hyphen cases, отказ на CONTEXTJ/O и
+  расширение за DNS label limit.
+- Windows Rust 1.97.1 targeted SMTP IDNA tests (7) и strict all-target Clippy
+  прошли. Linux Docker Rust 1.97 release build, strict Clippy, 741 library
+  tests, 1 CLI test и doctests прошли; один внешний normalization corpus test
+  пропущен без fixture. Семь targeted IDNA tests прошли и на Linux. `cargo fmt
+  --check` и `git diff --check` прошли; созданный Docker image удалён и его tag
+  отсутствует. Ошибка первой версии одного test vector была исправлена: его
+  Punycode output не пересекал 63-октетную границу.
+- Функция намеренно не принимает контекстные code points до реализации всех
+  RFC 5891 rules; bidi и A-label validation отсутствуют. SMTP address parser
+  её не использует, capability SMTPUTF8 остаётся снятой. Это промежуточный
+  conversion building block, не IDNA conformance и не клиентская acceptance.
+  T190 записан как scoped PASS; G17 и корневая цель остаются ACTIVE.
+
 ### 2026-09-27: G17 Unicode 17 RFC 5892 derived-property lookup
 
 - Добавлен собственный классификатор Unicode 17 IDNA2008 Derived Property с

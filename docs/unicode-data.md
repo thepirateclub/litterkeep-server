@@ -94,8 +94,12 @@ cargo test --locked smtp::idna17::tests
 
 Это только lookup RFC 5892 Derived Property. PVALID не означает, что полный
 label соответствует RFC 5891: NFC, ограничения дефиса, контекстные правила,
-bidi и A-label round-trip должны выполняться верхним IDNA-слоем. Нынешний
-SMTP-парсер таблицей не пользуется и SMTPUTF8 не рекламирует.
+bidi и A-label round-trip должны выполняться верхним IDNA-слоем.
+`smtp::idna17::to_alabel` применяет NFC, hyphen rules, PVALID lookup, RFC 3492
+кодирование и 63-октетный предел кодированного label. CONTEXTJ/CONTEXTO пока
+возвращают `ContextRuleRequired`; это закрытый PVALID-only профиль, а не полный
+валидатор. Проверка bidi и входящих A-label не сделана. SMTP parser эту функцию
+пока не вызывает и SMTPUTF8 не рекламирует.
 
 ## Unicode License V3
 
