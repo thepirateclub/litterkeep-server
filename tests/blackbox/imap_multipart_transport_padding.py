@@ -2,10 +2,37 @@
 
 import argparse
 import base64
+from enum import Enum
 import imaplib
 import os
 import ssl
 import uuid
+
+
+class ImapStatus(Enum):
+    """Успешное состояние независимых IMAP-команд."""
+
+    OK = "OK"
+
+
+class BodyStructureToken(Enum):
+    """Типизированные MIME-узлы, ожидаемые в BODYSTRUCTURE."""
+
+    MIXED = b'"MIXED"'
+    TEXT_PLAIN = b'"TEXT" "PLAIN"'
+    APPLICATION_OCTETS = b'"APPLICATION" "OCTET-STREAM"'
+
+
+def require_ok(response: tuple[str, object], operation: str) -> object:
+    """Останавливает acceptance при любом неожиданном IMAP status."""
+    status, detail = response
+    try:
+        observed = ImapStatus(status)
+    except ValueError as error:
+        raise AssertionError(f"{operation}: {status!r} {detail!r}") from error
+    if observed is not ImapStatus.OK:
+        raise AssertionError(f"{operation}: {status!r} {detail!r}")
+    return detail
 
 
 def options() -> argparse.Namespace:
@@ -41,7 +68,9 @@ def fixture() -> tuple[bytes, bytes, bytes, str]:
         + encoded
         + b"--"
         + boundary
-        + b"-- \t\r\nepilogue\r\n"
+        + b"-- \t\r\nepilogue\r\n--"
+        + boundary
+        + b"\r\nContent-Type: text/html\r\n\r\nnot a third part\r\n"
     )
     expected_text = b"first line\r\nlast line"
     return raw, expected_text, attachment, subject
@@ -68,42 +97,50 @@ def main() -> None:
     context.check_hostname = False
     with imaplib.IMAP4(selected.host, selected.imap_port, timeout=10) as client:
         client.starttls(ssl_context=context)
-        status, _ = client.login("bob", selected.password)
-        if status != "OK":
-            raise AssertionError("IMAP authentication failed")
-        status, _ = client.append("INBOX", None, None, raw)
-        if status != "OK":
-            raise AssertionError(f"IMAP APPEND failed: {status!r}")
-        status, _ = client.select("INBOX", readonly=True)
-        if status != "OK":
-            raise AssertionError("INBOX selection failed")
-        status, matches = client.search(None, "HEADER", "SUBJECT", f'"{subject}"')
-        if status != "OK":
-            raise AssertionError("message search failed")
-        sequence = next(iter(matches)).decode("ascii").split()
-        message_number = next(iter(sequence))
+        require_ok(client.login("bob", selected.password), "LOGIN")
+        require_ok(client.append("INBOX", None, None, raw), "APPEND")
+        require_ok(client.select("INBOX", readonly=True), "SELECT INBOX")
+        matches = require_ok(
+            client.search(None, "HEADER", "SUBJECT", f'"{subject}"'),
+            "SEARCH SUBJECT",
+        )
+        identifiers = b" ".join(
+            item for item in matches if isinstance(item, bytes)
+        ).decode("ascii").split()
+        match identifiers:
+            case [message_number]:
+                pass
+            case _:
+                raise AssertionError(f"message search returned {identifiers!r}")
 
-        status, structure = client.fetch(message_number, "(BODYSTRUCTURE)")
-        if status != "OK":
-            raise AssertionError(f"BODYSTRUCTURE failed: {status!r} {structure!r}")
+        structure = require_ok(
+            client.fetch(message_number, "(BODYSTRUCTURE)"), "FETCH BODYSTRUCTURE"
+        )
         wire_structure = b" ".join(
             item for item in structure if isinstance(item, bytes)
         )
-        for required in (
-            b'"MIXED"',
-            b'"TEXT" "PLAIN"',
-            b'"APPLICATION" "OCTET-STREAM"',
-        ):
-            if required not in wire_structure:
-                raise AssertionError(f"BODYSTRUCTURE lacks {required!r}: {wire_structure!r}")
-        status, first_part = client.fetch(message_number, "(BODY.PEEK[1])")
-        if status != "OK" or literal(first_part) != expected_text:
+        for token in BodyStructureToken:
+            if wire_structure.count(token.value) != 1:
+                raise AssertionError(
+                    f"BODYSTRUCTURE token {token.name} count mismatch: {wire_structure!r}"
+                )
+        first_part = require_ok(
+            client.fetch(message_number, "(BODY.PEEK[1])"), "FETCH first part"
+        )
+        if literal(first_part) != expected_text:
             raise AssertionError("boundary padding shifted or truncated the first part")
-        status, binary_part = client.fetch(message_number, "(BINARY.PEEK[2])")
-        if status != "OK" or literal(binary_part) != expected_attachment:
+        binary_part = require_ok(
+            client.fetch(message_number, "(BINARY.PEEK[2])"), "FETCH attachment"
+        )
+        if literal(binary_part) != expected_attachment:
             raise AssertionError("padded closing boundary changed decoded attachment")
+        full_message = require_ok(
+            client.fetch(message_number, "(RFC822)"), "FETCH original message"
+        )
+        if literal(full_message) != raw:
+            raise AssertionError("multipart source bytes, preamble or epilogue changed")
 
-    print("PASS imap-multipart-transport-padding: body ranges and attachment bytes")
+    print("PASS RFC 2046 multipart: padding, ignored epilogue delimiters and exact bytes")
 
 
 if __name__ == "__main__":

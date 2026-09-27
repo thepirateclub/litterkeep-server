@@ -443,13 +443,13 @@ CHECKSCRIPT принял корректный quoted-printable soft break, вк�
 октетов из `bchars`, без завершающего пробела; покрыты длины и запрещённые
 символы unit-тестами. Parser принимает transport-padding у opening/closing
 delimiter и исключает CRLF, непосредственно предшествующий первому delimiter,
-из preamble; собственный CRLF preamble сохраняется. Точные ranges preamble
-проверены unit-only. Сканирование завершается на первом close-delimiter, так
-что совпадающие с boundary строки в epilogue остаются discarded text и не
-участвуют в лимите частей; это unit-only. Независимый Python `imaplib`
-STARTTLS-клиент выполнил
-APPEND с padded delimiters, сравнил BODYSTRUCTURE, точные octets первой части
-и Base64-вложение через BINARY.PEEK. Это проверка IMAP APPEND/FETCH, не SMTP
+из preamble; собственный CRLF preamble сохраняется. Сканирование останавливается
+на первом close-delimiter, поэтому boundary-похожая строка внутри epilogue не
+создаёт часть и не расходует part budget. Независимый Python `imaplib`
+STARTTLS-клиент отправил padded delimiters и epilogue с последующим boundary-
+похожим MIME-заголовком; BODYSTRUCTURE содержит только ожидаемые две части,
+BODY[1] и BINARY.PEEK вложения совпали, а RFC822 FETCH подтвердил точные исходные
+bytes, включая preamble и epilogue. Это проверка IMAP APPEND/FETCH, не SMTP
 доставки и не клиента Litterkeep.
 Вложенная MIME-часть без Content-Type в `multipart/digest` получает default
 `message/rfc822` по RFC 2046 §5.1.5; само вложенное сообщение использует

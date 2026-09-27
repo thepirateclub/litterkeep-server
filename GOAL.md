@@ -6819,3 +6819,22 @@ ManageSieve до заявленного набора современных фо
 - Ограничение относится к MIME projection, а не к отправке/валидации всей
   RFC 2045 грамматики; другие RFC 2045/2046 gaps остаются в матрице, цель G17
   остаётся ACTIVE.
+
+### 2026-09-27: G17 RFC 2046 multipart epilogue wire acceptance, scoped PASS
+
+- Усилена независимая IMAP acceptance для RFC 2046 §5.1.1. Multipart содержит
+  transport-padding у delimiter-ов, preamble, две полезные части и epilogue,
+  в котором после close-delimiter стоит строка с boundary и ложным третьим
+  `Content-Type`. Проверено, что эта строка остаётся discarded epilogue, не
+  добавляет MIME part, а исходный RFC822 с preamble/epilogue сохраняется точно.
+- Независимый STARTTLS `imaplib` клиент проверил BODYSTRUCTURE с ровно двумя
+  частями, точное тело `BODY.PEEK[1]`, побайтно декодированное вложение
+  `BINARY.PEEK[2]` и полный RFC822 FETCH. Клиент Litterkeep не запускался.
+- Linux Rust 1.97 Docker test stage прошёл strict Clippy, 678 library tests,
+  1 CLI test и doc-tests; один внешний Unicode corpus test ignored без UCD-файла.
+  Сборочный test target использовал закэшированные неизменённые Rust-слои;
+  runtime wire acceptance выполнен на Linux контейнере. Python compile прошёл,
+  скрипт 125 строк. Fixture сохранён в `./data/g29-mime-multipart-epilogue`;
+  созданные контейнер и два image tags удалены и отсутствие проверено.
+- Это закрывает только сетевую границу preamble/epilogue и multipart delimiter
+  handling; общий MIME и протокольные профили остаются неполными, G17 ACTIVE.
