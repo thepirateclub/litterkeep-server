@@ -1,5 +1,18 @@
 # Goal ledger
 
+### 2026-09-27: G18 ManageSieve SCRAM-SHA-1 dependency audit, GAP T263
+
+- RFC 5804 §2.1 makes SCRAM-SHA-1 mandatory, and current capability lists omit
+  it. Local evidence confirms production allowlist has only rustls/argon2;
+  pinned rustls keeps ring hash/HMAC adapters crate-private, while account
+  persistence stores only one-way Argon2id PHC verifiers. A compliant SCRAM
+  exchange therefore needs a cryptographic API and per-account SCRAM verifier
+  format not available in the approved implementation surface.
+- No mechanism was falsely advertised and no custom cryptography or dependency
+  exception was introduced. The open gap and evidence are recorded in
+  `docs/dependencies.md` and `docs/sieve-coverage.md`; work continues on other
+  RFC gaps under the existing constraints.
+
 ### 2026-09-27: G18 ManageSieve PLAIN SASL challenge exchange, scoped PASS T262
 
 - `AUTHENTICATE "PLAIN"` without initial data now emits the SASL empty-string

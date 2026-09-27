@@ -17,6 +17,9 @@ initial-response приводит к пустому quoted challenge; ответ
 STARTTLS acceptance прошёл literal continuation до успешной аутентификации и
 проверил повторный вход после отмены. Полное соответствие ManageSieve SASL всё
 ещё не достигнуто: SCRAM-SHA-1 обязателен по RFC и остаётся открытым пробелом.
+Причина ограничений реализации записана в [учёте зависимостей](dependencies.md):
+разрешённые production API не дают доступа к SHA-1/HMAC-SHA-1 backend, а account
+store хранит только Argon2id verifier. Это не считается выполненной поддержкой.
 
 Для client-to-server literals receiver сначала читает ровно объявленное число
 octets, затем обязательный CRLF конца command line; только после него начинает

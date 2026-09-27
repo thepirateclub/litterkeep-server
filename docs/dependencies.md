@@ -13,6 +13,20 @@ reactor и lifecycle orchestration реализованы в этом репоз
 `examples/make_test_pki.rs` для однократного выпуска test CA и не попадает в
 обычный runtime server binary.
 
+### Ограничение SCRAM-SHA-1 для ManageSieve
+
+RFC 5804 §2.1 требует SCRAM-SHA-1, но текущий production allowlist разрешает
+только `rustls` и `argon2`. У закреплённого rustls выбран backend `ring`, однако
+его HMAC/hash адаптеры внутри rustls объявлены `pub(crate)` и не являются API
+этого приложения; использовать транзитивный crate напрямую также означало бы
+добавить третью production-зависимость. Account-файл содержит только Argon2id
+PHC verifier, из которого нельзя восстановить пароль или SCRAM salted password.
+Следовательно, SCRAM нельзя корректно добавить простым протокольным адаптером:
+потребуется явное расширение dependency allowlist либо отдельная криптографически
+ревьюируемая реализация требуемых примитивов и формат хранения SCRAM verifier.
+Пока ни одно из этих изменений не разрешено, сервер не рекламирует SCRAM и
+матрица считает его незакрытым RFC-пробелом.
+
 IMAP mailbox validation использует собственные generated ranges Unicode
 17.0.0, а не crate. Официальный источник, версия toolchain, SHA-256 и лицензия
 зафиксированы в [`unicode-data.md`](unicode-data.md); compile-time assertion
