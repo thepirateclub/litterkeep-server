@@ -83,6 +83,17 @@ def main() -> None:
             connection.sendall(wire)
             if read_line(connection) != b'NO "invalid command for state"\r\n':
                 raise AssertionError(f"literal command was not parsed: {wire!r}")
+        connection.sendall(b"PUTSCRIPT {3}\r\n")
+        if read_line(connection) != b'OK "ready for literal data"\r\n':
+            raise AssertionError("synchronizing PUTSCRIPT name was not accepted")
+        connection.sendall(b'box "keep;"\r\n')
+        if read_line(connection) != b'NO "invalid command for state"\r\n':
+            raise AssertionError("PUTSCRIPT quoted body after literal name was not parsed")
+        connection.sendall(b"PUTSCRIPT {3+}\r\nbox {5+}\r\nkeep;NOOP\r\n")
+        if read_line(connection) != b'NO "invalid command for state"\r\n':
+            raise AssertionError("PUTSCRIPT literal body after literal name was not parsed")
+        if read_line(connection) != b'OK "noop"\r\n':
+            raise AssertionError("command pipelined after PUTSCRIPT literal was consumed")
         exchange(
             connection,
             b'NOOP "a \\\"b\\\\c"\r\n',

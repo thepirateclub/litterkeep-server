@@ -1,5 +1,24 @@
 # Goal ledger
 
+### 2026-09-27: G18 ManageSieve PUTSCRIPT literal-name framing, scoped PASS T257
+
+- PUTSCRIPT now accepts its script name as a client literal. After consuming
+  exactly the name octets, the same session-owned receiver parses the remaining
+  source string as quoted or literal; literal source can independently use a
+  synchronizing continuation or non-synchronizing marker. A pipelined command
+  remains in the input buffer after the complete script source.
+- Linux reactor tests verify name literal + quoted source, name literal +
+  non-sync source, two sequential sync continuations, and exact source/name
+  command conversion. Independent Linux wire acceptance checks a sync literal
+  name with quoted body, non-sync name+body followed by NOOP, and confirms the
+  parsed PUTSCRIPT is denied in the pre-auth FSM state. It does not prove a
+  successful Store write for literal PUTSCRIPT. Windows Rust 1.97.1 fmt,
+  strict Clippy and all-target tests passed (802 library + 1 CLI, 3 external
+  fixtures ignored; reactor tests Linux-only). Linux Docker Rust 1.97.1 fmt,
+  strict Clippy, 891 library + 1 CLI passed, 3 ignored, release build and wire
+  scenario passed. Container removed, image retained. Literal RENAMESCRIPT
+  names and remaining command string positions are still unsupported.
+
 ### 2026-09-27: G18 ManageSieve script-name literal arguments, scoped PASS T256
 
 - The bounded RFC 5804 literal receiver now also handles final string values

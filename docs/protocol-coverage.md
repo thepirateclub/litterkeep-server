@@ -1012,7 +1012,11 @@ for other ManageSieve command arguments. GETSCRIPT, DELETESCRIPT and SETACTIVE
 also accept a final synchronizing or non-synchronizing literal string, including
 the zero-length SETACTIVE disable form. Linux reactor tests verify typed command
 conversion; independent wire acceptance checks continuation and state handling.
-Literal script-name positions in PUTSCRIPT and RENAMESCRIPT remain unsupported.
+PUTSCRIPT accepts a literal name followed by quoted or literal source, with
+sync/non-sync framing and a following pipelined NOOP covered. The independent
+wire check reaches the pre-auth state rejection, not successful Store mutation.
+RENAMESCRIPT literal name arguments and other uncovered string positions remain
+unsupported.
 
 ## Outbound SMTP
 

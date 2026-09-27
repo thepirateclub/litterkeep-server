@@ -48,6 +48,15 @@ pub(super) fn literal(
         .consume(&mut session.input);
     match progress {
         managesieve_literal::Progress::Waiting => Ok(false),
+        managesieve_literal::Progress::NeedContinuation => {
+            session.push(b"OK \"ready for literal data\"\r\n")?;
+            Ok(false)
+        }
+        managesieve_literal::Progress::Invalid => {
+            session.managesieve_literal = None;
+            session.push(b"NO \"invalid literal\"\r\n")?;
+            Ok(true)
+        }
         managesieve_literal::Progress::InvalidUtf8 => {
             session.managesieve_literal = None;
             session.push(b"NO \"literal must be UTF-8\"\r\n")?;

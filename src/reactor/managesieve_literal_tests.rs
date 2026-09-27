@@ -84,6 +84,47 @@ fn literal_script_names_preserve_command_types_and_empty_deactivation() {
     );
 }
 
+#[test]
+fn putscript_literal_name_accepts_quoted_or_literal_body() {
+    assert_eq!(
+        complete_put(b"PUTSCRIPT {3+}\r\n", b"box \"keep;\"\r\n"),
+        Command::PutScript {
+            name: "box".into(),
+            source: "keep;".into(),
+        }
+    );
+    assert_eq!(
+        complete_put(b"PUTSCRIPT {3+}\r\n", b"box {5+}\r\nkeep;"),
+        Command::PutScript {
+            name: "box".into(),
+            source: "keep;".into(),
+        }
+    );
+}
+
+#[test]
+fn putscript_literal_name_and_body_keep_sync_continuations() {
+    let Start::Begin {
+        mut receiver,
+        continuation,
+    } = start(b"PUTSCRIPT {3}\r\n")
+    else {
+        panic!("synchronizing script-name literal was not recognized");
+    };
+    assert!(continuation);
+    let mut name_and_body = b"box {5}\r\n".to_vec();
+    assert!(matches!(
+        receiver.consume(&mut name_and_body),
+        Progress::NeedContinuation
+    ));
+    let mut source = b"keep;".to_vec();
+    assert!(matches!(
+        receiver.consume(&mut source),
+        Progress::Complete(Command::PutScript { name, source })
+            if name == "box" && source == "keep;"
+    ));
+}
+
 fn complete(line: &[u8], content: &[u8]) -> Command {
     let Start::Begin { mut receiver, .. } = start(line) else {
         panic!("ManageSieve literal was not recognized");
@@ -91,8 +132,27 @@ fn complete(line: &[u8], content: &[u8]) -> Command {
     let mut input = content.to_vec();
     match receiver.consume(&mut input) {
         Progress::Complete(command) => command,
-        Progress::Waiting | Progress::InvalidUtf8 => {
+        Progress::Waiting
+        | Progress::NeedContinuation
+        | Progress::Invalid
+        | Progress::InvalidUtf8 => {
             panic!("ManageSieve literal did not complete")
+        }
+    }
+}
+
+fn complete_put(line: &[u8], content: &[u8]) -> Command {
+    let Start::Begin { mut receiver, .. } = start(line) else {
+        panic!("PUTSCRIPT literal name was not recognized");
+    };
+    let mut input = content.to_vec();
+    match receiver.consume(&mut input) {
+        Progress::Complete(command) => command,
+        Progress::Waiting
+        | Progress::NeedContinuation
+        | Progress::Invalid
+        | Progress::InvalidUtf8 => {
+            panic!("PUTSCRIPT literal arguments did not complete")
         }
     }
 }

@@ -21,6 +21,9 @@ pub(super) enum Start {
 
 enum Operation {
     Put(String),
+    PutName,
+    PutNameTail(String),
+    PutSource(String),
     Check,
     Noop,
     GetScript,
@@ -38,6 +41,8 @@ pub(super) struct LiteralReceiver {
 /// Один неблокирующий шаг получения source, без чтения из TCP.
 pub(super) enum Progress {
     Waiting,
+    NeedContinuation,
+    Invalid,
     InvalidUtf8,
     Complete(Command),
 }
@@ -53,6 +58,9 @@ impl LiteralReceiver {
 
     /// Забирает ровно объявленное число байтов, оставляя pipeline в input.
     pub(super) fn consume(&mut self, input: &mut Vec<u8>) -> Progress {
+        if matches!(&self.operation, Operation::PutNameTail(_)) {
+            return self.consume_put_name_tail(input);
+        }
         let remaining = self.expected.saturating_sub(self.bytes.len());
         let consumed = remaining.min(input.len());
         self.bytes.extend(input.drain(..consumed));
@@ -65,6 +73,12 @@ impl LiteralReceiver {
         };
         match std::mem::replace(&mut self.operation, Operation::Check) {
             Operation::Put(name) => Progress::Complete(Command::PutScript { name, source }),
+            Operation::PutName => {
+                self.operation = Operation::PutNameTail(source);
+                self.consume_put_name_tail(input)
+            }
+            Operation::PutNameTail(_) => Progress::Invalid,
+            Operation::PutSource(name) => Progress::Complete(Command::PutScript { name, source }),
             Operation::Check => Progress::Complete(Command::CheckScript(source)),
             Operation::Noop => Progress::Complete(Command::Noop(Some(source))),
             Operation::GetScript => Progress::Complete(Command::GetScript(source)),
@@ -76,6 +90,65 @@ impl LiteralReceiver {
                 };
                 Progress::Complete(Command::SetActive(name))
             }
+        }
+    }
+
+    /// Читает оставшуюся строку PUTSCRIPT после literal-имени.
+    fn consume_put_name_tail(&mut self, input: &mut Vec<u8>) -> Progress {
+        let Some(end) = input.windows(2).position(|pair| pair == b"\r\n") else {
+            let remaining = MAX_LITERAL_BYTES.saturating_sub(self.bytes.len());
+            let consumed = remaining.min(input.len());
+            self.bytes.extend(input.drain(..consumed));
+            return match self.bytes.len() < MAX_LITERAL_BYTES {
+                true => Progress::Waiting,
+                false => Progress::Invalid,
+            };
+        };
+        let through_crlf = end.saturating_add(2);
+        self.bytes.extend(input.drain(..through_crlf));
+        let tail = match String::from_utf8(std::mem::take(&mut self.bytes)) {
+            Ok(value) => value,
+            Err(_) => return Progress::InvalidUtf8,
+        };
+        let name = match std::mem::replace(&mut self.operation, Operation::Check) {
+            Operation::PutNameTail(name) => name,
+            _ => return Progress::Invalid,
+        };
+        self.finish_put_name_tail(name, tail, input)
+    }
+
+    /// Завершает quoted source напрямую либо переключает receiver на body literal.
+    fn finish_put_name_tail(
+        &mut self,
+        name: String,
+        tail: String,
+        input: &mut Vec<u8>,
+    ) -> Progress {
+        let Some(tail) = tail.strip_suffix("\r\n") else {
+            return Progress::Invalid;
+        };
+        let tail = tail.trim_start();
+        match quoted_then_tail(tail) {
+            Some((source, "")) => Progress::Complete(Command::PutScript { name, source }),
+            Some(_) => Progress::Invalid,
+            None => self.begin_put_source(name, tail, input),
+        }
+    }
+
+    /// Передаёт literal marker script body тому же bounded receiver-у.
+    fn begin_put_source(&mut self, name: String, marker: &str, input: &mut Vec<u8>) -> Progress {
+        let Some((expected, continuation)) = size(marker) else {
+            return Progress::Invalid;
+        };
+        if expected > MAX_LITERAL_BYTES {
+            return Progress::Invalid;
+        }
+        self.operation = Operation::PutSource(name);
+        self.expected = expected;
+        self.bytes.clear();
+        match continuation {
+            true => Progress::NeedContinuation,
+            false => self.consume(input),
         }
     }
 }
@@ -125,10 +198,10 @@ impl Verb {
 }
 
 fn put(tail: &str) -> Start {
-    let Some((name, marker)) = quoted_then_tail(tail) else {
-        return Start::NotLiteral;
-    };
-    literal(Operation::Put(name), marker)
+    match quoted_then_tail(tail) {
+        Some((name, marker)) => literal(Operation::Put(name), marker),
+        None => literal(Operation::PutName, tail.trim()),
+    }
 }
 
 fn check(tail: &str) -> Start {
