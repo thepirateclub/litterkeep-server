@@ -62,10 +62,19 @@ fn preserves_domain_literal_separators_inside_angle_address() {
     for control in quoted_controls {
         let source = format!("Literal <host@[left\\{control}right]>");
         let field = to_field(&source);
-        assert!(
-            super::parse(vec![&field]).is_ok(),
-            "rejected obs-qp {control:?}"
-        );
+        let parsed = super::parse(vec![&field]).expect("obsolete quoted-pair address");
+        let envelope = super::encode_list(&parsed).expect("obsolete address ENVELOPE");
+        let domain = format!("[left{control}right]");
+        match control {
+            '\0' | '\r' | '\n' => {
+                let literal = format!("{{{}}}\r\n{domain}", domain.len());
+                assert!(
+                    envelope.contains(&literal),
+                    "missing literal for {control:?}"
+                );
+            }
+            _ => assert!(envelope.contains(&domain), "missing dtext {control:?}"),
+        }
     }
 
     // obs-NO-WS-CTL допустим непосредственно, без quoted-pair.

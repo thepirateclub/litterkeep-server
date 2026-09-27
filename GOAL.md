@@ -4,8 +4,9 @@
 
 - Follow-up parser regression covers all representative `obs-NO-WS-CTL` byte
   ranges (1-8, 11-12, 14-31, 127), accepts NUL/CR/LF when protected by
-  obsolete quoted-pair, and rejects those three octets unquoted. Focused unit
-  test plus Windows 1.97.1 fmt, all-target tests (814 library + 1 CLI, 3
+  obsolete quoted-pair, and rejects those three octets unquoted. ENVELOPE
+  projection checks exact literal framing and octet count for each of NUL, CR
+  and LF. Focused unit test plus Windows 1.97.1 fmt, all-target tests (814 library + 1 CLI, 3
   ignored), and strict Clippy passed. A fresh Linux Docker test stage also
   passed strict Clippy, 923 library + 1 CLI tests (3 ignored), and doc-tests.
 
