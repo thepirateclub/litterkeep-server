@@ -132,6 +132,10 @@ def verify(host: str, port: int, ca_file: Path, credentials: Path) -> None:
     try:
         switched = command_lines(client, b"R1", b"SELECT INBOX")
         require_closed_first(switched, b"R1", ImapStatus.OK, b"INBOX")
+        if not any(
+            line.startswith(b"* OK [PERMANENTFLAGS (\\Answered") for line in switched
+        ):
+            raise AssertionError(f"SELECT lost writable permanent flags: {switched!r}")
         folder_name = "Invoices-" + uuid.uuid4().hex
         status, detail = client.create(folder_name)
         if ImapStatus(status) is not ImapStatus.OK:
@@ -144,6 +148,12 @@ def verify(host: str, port: int, ca_file: Path, credentials: Path) -> None:
         completion = next(reversed(examined), b"")
         if not completion.startswith(b"R5 OK [READ-ONLY]"):
             raise AssertionError(f"EXAMINE was not read-only: {examined!r}")
+        permanent_flags = next(
+            (line for line in examined if line.startswith(b"* OK [PERMANENTFLAGS ")),
+            b"",
+        )
+        if not permanent_flags.startswith(b"* OK [PERMANENTFLAGS ()]"):
+            raise AssertionError(f"EXAMINE advertised writable flags: {examined!r}")
         archive = command_lines(client, b"R6", b"SELECT Archive")
         require_closed_first(archive, b"R6", ImapStatus.OK, b"Archive", b"\\Archive")
         failed = command_lines(client, b"R2", b"SELECT no-such-mailbox")

@@ -1,5 +1,17 @@
 # Goal ledger
 
+### 2026-09-27: G18 RFC 9051 EXAMINE PERMANENTFLAGS, scoped PASS T269
+
+- EXAMINE uses the shared selection response path but is read-only. It now
+  returns `PERMANENTFLAGS ()` instead of advertising permanent system flags and
+  keyword creation. SELECT remains read-write and retains its existing allowed
+  flags. An independent Linux STARTTLS peer checks both branches, including
+  `[READ-ONLY]`, LIST attributes and the existing reselect/failure behavior.
+- Rust 1.97.1 Windows tests passed (807 library + 1 CLI, 3 ignored), along with
+  fmt and strict Clippy. A Linux release runtime wire acceptance passed. This
+  is a scoped EXAMINE permission response fix, not full IMAP4rev2 conformance.
+  Its temporary container and image are removed.
+
 ### 2026-09-27: G18 RFC 9051 SELECT LIST special-use attribute, scoped PASS T268
 
 - The mandatory SELECT/EXAMINE LIST response now serializes the folder's typed

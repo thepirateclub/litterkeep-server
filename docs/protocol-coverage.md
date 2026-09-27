@@ -362,6 +362,9 @@ SELECT INBOX, SELECT уникальной пользовательской па�
 READ-ONLY completion. Для default Archive это LIST также сообщает `\\Archive`,
 взятую из typed special-use каталога, а не выведенную из имени. Это не заявляет
 полный профиль.
+EXAMINE также возвращает `PERMANENTFLAGS ()`, тогда как read-write SELECT
+сохраняет допустимые системные flags и `\\*`; независимый wire peer проверяет
+обе ветви, чтобы read-only режим не рекламировал постоянные изменения.
 
 Implicit-TLS IMAP отвечает на peer-инициированный `close_notify` после
 успешного tagged NOOP reply. Независимый Linux TLS peer завершил `unwrap()`;

@@ -108,9 +108,13 @@ pub(super) fn write_completion(
             session.selected_exists = snapshot.messages.len();
             session.selected_recent = resolved.recent_uids.into_iter().collect();
             session.selected_read_only = read_only;
-            let access = match read_only {
-                true => "READ-ONLY",
-                false => "READ-WRITE",
+            let (access, permanent_flags, permanent_flags_text) = match read_only {
+                true => ("READ-ONLY", "", "No permanent flags permitted"),
+                false => (
+                    "READ-WRITE",
+                    "\\Answered \\Flagged \\Deleted \\Seen \\Draft \\*",
+                    "Flags permitted",
+                ),
             };
             session.push(
                 format!(
@@ -120,7 +124,7 @@ pub(super) fn write_completion(
                      * {} RECENT\r\n\
                      * OK [UIDVALIDITY {}] UIDs valid\r\n\
                      * OK [UIDNEXT {}] Predicted next UID\r\n\
-                     * OK [PERMANENTFLAGS (\\Answered \\Flagged \\Deleted \\Seen \\Draft \\*)] Flags permitted\r\n\
+                     * OK [PERMANENTFLAGS ({permanent_flags})] {permanent_flags_text}\r\n\
                      {tag} OK [{access}] SELECT completed\r\n",
                     snapshot.messages.len(),
                     session.selected_recent.len(),
