@@ -19,13 +19,16 @@ class ReplyCode(Enum):
     HELP = 214
     BAD_COMMAND = 500
     UNKNOWN_RECIPIENT = 550
+    TEMPORARY_FAILURE = 451
     DATA = 354
     QUEUED = 250
     QUIT = 221
 
 
 REPLY_PATTERN = re.compile(rb"\A([0-9]{3})([- ])")
-ENHANCED_PATTERN = re.compile(rb"\A[245][0-9]{2}[- ][245]\.[0-9]{1,3}\.[0-9]{1,3} ")
+ENHANCED_PATTERN = re.compile(
+    rb"\A([245])[0-9]{2}[- ]([245]\.[0-9]{1,3}\.[0-9]{1,3}) "
+)
 TLS_CONTEXT = ssl.create_default_context()
 TLS_CONTEXT.check_hostname = False
 TLS_CONTEXT.verify_mode = ssl.CERT_NONE
@@ -61,9 +64,20 @@ def expect_reply(stream, expected, context):
 def expect_enhanced_reply(stream, expected, context):
     """Требует enhanced status code на каждой строке обычного ответа."""
     lines = expect_reply(stream, expected, context)
+    response_status = None
     for line in lines:
-        if ENHANCED_PATTERN.match(line) is None:
+        match = ENHANCED_PATTERN.match(line)
+        if match is None:
             raise AssertionError(f"{context}: enhanced code absent: {line!r}")
+        primary_class, enhanced_status = match.groups()
+        enhanced_class = enhanced_status.split(b".", 1)[0]
+        expected_class = str(expected.value // 100).encode("ascii")
+        if primary_class != enhanced_class or primary_class != expected_class:
+            raise AssertionError(f"{context}: status classes disagree: {line!r}")
+        if response_status is None:
+            response_status = enhanced_status
+        if enhanced_status != response_status:
+            raise AssertionError(f"{context}: multiline status codes disagree: {lines!r}")
 
 
 def require_capability(lines):

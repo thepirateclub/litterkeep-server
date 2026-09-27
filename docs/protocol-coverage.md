@@ -156,7 +156,8 @@ RFC 2034 `ENHANCEDSTATUSCODES` объявляется в каждом вариа
 plaintext и TLS-состояния. Ответы SMTP классов 2xx, 4xx и 5xx снабжаются
 enhanced code; исключения RFC сохраняются для initial greeting и HELO/EHLO,
 а continuation-коды 3xx его не получают. Многострочный HELP повторяет один
-enhanced code на каждой строке. Независимый STARTTLS socket peer проверяет
+enhanced code на каждой строке, причём тест сверяет класс enhanced-кода с
+основным SMTP-кодом. Независимый STARTTLS socket peer проверяет
 объявление extension, ответы AUTH/envelope/DATA/QUIT и ошибку неизвестного
 командного слова; это wire coverage RFC 2034, а не полное SMTP acceptance.
 

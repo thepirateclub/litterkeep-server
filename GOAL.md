@@ -4,6 +4,16 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 RFC 2034 verifier enforces status-class agreement
+
+- Уточнён independent SMTP peer: теперь каждая строка ответа проверяется не
+  только на синтаксис enhanced status, но и на совпадение класса `2/4/5` с
+  основным SMTP-кодом и ожидаемым ответом; multiline проверяется построчно.
+- Regression проверки принимают согласованные ответы и отвергают отсутствующий
+  код, несовпадение классов и несоответствие ожидаемому классу. Это усиление
+  oracle теста, не новое подтверждение полного SMTP RFC профиля и не повторный
+  Docker/Linux runtime прогон. G17 и корневая цель остаются ACTIVE.
+
 ### 2026-09-27: G17 SMTP RFC 2034 enhanced status codes, scoped PASS
 
 - EHLO теперь публикует `ENHANCEDSTATUSCODES` в plaintext, pre-TLS и TLS
