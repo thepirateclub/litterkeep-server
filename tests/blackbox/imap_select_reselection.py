@@ -55,6 +55,7 @@ def require_closed_first(
     tag: bytes,
     expected_status: ImapStatus,
     expected_mailbox: bytes | None,
+    expected_attributes: bytes = b"",
 ) -> None:
     """Проверяет CLOSED как границу старой и новой mailbox проекций."""
     first = next(iter(responses), b"")
@@ -64,7 +65,9 @@ def require_closed_first(
     if not completion.startswith(tag + b" " + expected_status.value.encode("ascii")):
         raise AssertionError(f"unexpected SELECT completion: {responses!r}")
     if expected_mailbox is not None:
-        expected_list = b'* LIST () "/" "' + expected_mailbox + b'"'
+        expected_list = (
+            b"* LIST (" + expected_attributes + b') "/" "' + expected_mailbox + b'"'
+        )
         if not any(line.startswith(expected_list) for line in responses):
             raise AssertionError(f"SELECT omitted selected-mailbox LIST: {responses!r}")
         list_position = next(
@@ -141,6 +144,8 @@ def verify(host: str, port: int, ca_file: Path, credentials: Path) -> None:
         completion = next(reversed(examined), b"")
         if not completion.startswith(b"R5 OK [READ-ONLY]"):
             raise AssertionError(f"EXAMINE was not read-only: {examined!r}")
+        archive = command_lines(client, b"R6", b"SELECT Archive")
+        require_closed_first(archive, b"R6", ImapStatus.OK, b"Archive", b"\\Archive")
         failed = command_lines(client, b"R2", b"SELECT no-such-mailbox")
         require_closed_first(failed, b"R2", ImapStatus.NO, None)
         require_no_selected_mailbox(client)

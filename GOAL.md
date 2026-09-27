@@ -1,5 +1,18 @@
 # Goal ledger
 
+### 2026-09-27: G18 RFC 9051 SELECT LIST special-use attribute, scoped PASS T268
+
+- The mandatory SELECT/EXAMINE LIST response now serializes the folder's typed
+  `SpecialUse` metadata, using the existing wire attribute mapping. It does not
+  infer special use from localized or user-controlled names. Independent Linux
+  STARTTLS acceptance verifies `\\Archive` on SELECT Archive, in addition to
+  the required LIST name, ordinary SELECT, EXAMINE READ-ONLY and failed-select
+  boundaries.
+- Rust 1.97.1 Windows full tests passed (807 library + 1 CLI, 3 ignored), as did
+  fmt and strict Clippy. The current Linux release runtime wire scenario passed.
+  This is scoped attribute coverage; other base LIST attributes and full
+  IMAP4rev2 remain unclaimed. The temporary image and container are removed.
+
 ### 2026-09-27: G18 RFC 9051 successful SELECT LIST response, scoped PASS T267
 
 - RFC 9051 §6.3.2 requires successful SELECT/EXAMINE to include an untagged

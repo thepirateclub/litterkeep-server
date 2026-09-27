@@ -9,6 +9,8 @@ pub struct ResolvedMailbox {
     pub key: String,
     /// Каноническое имя папки для обязательного SELECT LIST response.
     pub name: String,
+    /// Типизированный special-use атрибут той же записи каталога.
+    pub special_use: Option<super::SpecialUse>,
     pub snapshot: super::MailboxSnapshot,
     /// Durable UID, ещё не назначенные одной selected IMAP-сессии.
     pub recent_uids: Vec<u64>,
@@ -63,7 +65,7 @@ impl Store {
     /// Разрешает имя и читает snapshot одним последовательным действием writer-а.
     pub fn snapshot_folder(&mut self, account: &str, name: &str) -> io::Result<ResolvedMailbox> {
         let key = self.resolve_folder(account, name)?;
-        let canonical_name = self.folder_name(account, &key)?;
+        let folder = self.folder_info(account, &key)?;
         let snapshot = self.snapshot(&key)?;
         let recent_uids = self
             .recent
@@ -72,7 +74,8 @@ impl Store {
             .unwrap_or_default();
         Ok(ResolvedMailbox {
             key,
-            name: canonical_name,
+            name: folder.name,
+            special_use: folder.special_use,
             snapshot,
             recent_uids,
         })
@@ -82,7 +85,7 @@ impl Store {
     pub fn select_folder(&mut self, account: &str, name: &str) -> io::Result<ResolvedMailbox> {
         self.ensure_writable()?;
         let key = self.resolve_folder(account, name)?;
-        let canonical_name = self.folder_name(account, &key)?;
+        let folder = self.folder_info(account, &key)?;
         let snapshot = self.snapshot(&key)?;
         let uids = self
             .recent
@@ -93,15 +96,16 @@ impl Store {
         self.recent.remove(&key);
         Ok(ResolvedMailbox {
             key,
-            name: canonical_name,
+            name: folder.name,
+            special_use: folder.special_use,
             snapshot,
             recent_uids: uids,
         })
     }
 
-    /// Находит wire-visible имя по безопасному внутреннему ключу mailbox.
-    fn folder_name(&mut self, account: &str, key: &str) -> io::Result<String> {
-        self.folders.name_by_storage_key(account, key)
+    /// Находит wire-visible запись по безопасному внутреннему mailbox key.
+    fn folder_info(&mut self, account: &str, key: &str) -> io::Result<FolderInfo> {
+        self.folders.info_by_storage_key(account, key)
     }
 
     /// Не отравляет writer на ожидаемых policy-отказах до начала записи.

@@ -359,7 +359,9 @@ ordering, отказ FETCH до новой SELECT и последующий NOOP
 сервер также выдаёт обязательный RFC 9051 §6.3.2 untagged LIST с каноническим
 именем папки перед прочими выбранными-mailbox ответами; acceptance проверяет
 SELECT INBOX, SELECT уникальной пользовательской папки и EXAMINE INBOX с
-READ-ONLY completion. Это не заявляет полный профиль.
+READ-ONLY completion. Для default Archive это LIST также сообщает `\\Archive`,
+взятую из typed special-use каталога, а не выведенную из имени. Это не заявляет
+полный профиль.
 
 Implicit-TLS IMAP отвечает на peer-инициированный `close_notify` после
 успешного tagged NOOP reply. Независимый Linux TLS peer завершил `unwrap()`;

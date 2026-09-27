@@ -102,6 +102,7 @@ pub(super) fn write_completion(
         ) => {
             let snapshot = resolved.snapshot;
             let mailbox_name = imap_folders::quote(&resolved.name, session.imap_string_mode);
+            let mailbox_attributes = imap_folders::special_use(resolved.special_use);
             session.selected_mailbox = Some(resolved.key);
             session.saved_search_uids.clear();
             session.selected_exists = snapshot.messages.len();
@@ -113,7 +114,7 @@ pub(super) fn write_completion(
             };
             session.push(
                 format!(
-                    "* LIST () \"/\" {mailbox_name}\r\n\
+                    "* LIST ({mailbox_attributes}) \"/\" {mailbox_name}\r\n\
                      * FLAGS (\\Answered \\Flagged \\Deleted \\Seen \\Draft)\r\n\
                      * {} EXISTS\r\n\
                      * {} RECENT\r\n\
