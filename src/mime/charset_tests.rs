@@ -199,6 +199,26 @@ fn windows_1250_decodes_central_european_text_and_rejects_undefined_octets() {
 }
 
 #[test]
+fn windows_1253_decodes_greek_and_rejects_undefined_octets() {
+    let charset = Charset::parse("WINDOWS-1253").expect("registered MIME charset");
+    assert_eq!(
+        charset.decode(b"\xca\xe1\xeb\xe7\xec\xdd\xf1\xe1"),
+        Ok("Καλημέρα".to_owned())
+    );
+    assert_eq!(Charset::parse("csWindows1253"), Ok(Charset::Windows1253));
+    assert!(Charset::parse("cp1253").is_err());
+    for byte in [
+        0x81, 0x88, 0x8a, 0x8c, 0x8d, 0x8e, 0x8f, 0x90, 0x98, 0x9a, 0x9c, 0x9d, 0x9e, 0x9f, 0xaa,
+        0xd2, 0xff,
+    ] {
+        assert!(
+            charset.decode(&[byte]).is_err(),
+            "undefined octet {byte:#04x}"
+        );
+    }
+}
+
+#[test]
 fn utf16_handles_registered_byte_orders_bom_and_supplementary_characters() {
     assert_eq!(
         Charset::parse("UTF-16")
