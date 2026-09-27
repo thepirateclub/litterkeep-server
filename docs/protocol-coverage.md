@@ -35,6 +35,11 @@ RSET, а отвергнутый payload точно дренируется без
 успешно восстановили сессию. Перезапуск Store между отправкой и IMAP чтением не
 выполнялся. `BINARYMIME`/`BODY=BINARYMIME` не реализован и не объявляется:
 BDAT bytes всё ещё валидируются по RFC 5321 7BIT либо 8BITMIME.
+Допустимый RFC 3030 параметр `BODY=BINARYMIME` теперь разбирается в отдельный
+типизированный режим, но EHLO capability намеренно скрыта, а MAIL получает
+`555 5.5.4` до изменения envelope. Проверены parser и Linux reactor unit tests;
+приём произвольных binary octets, durable доставка и outbound relay ещё не
+реализованы и не проверялись.
 См. [RFC 3030 §§2-3](https://www.rfc-editor.org/rfc/rfc3030.html#section-2).
 
 По рекомендации RFC 8314 §3.4 implicit-TLS SMTP-сессия отвечает на

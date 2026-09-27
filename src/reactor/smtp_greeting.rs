@@ -20,9 +20,18 @@ pub(super) fn requirement(
             smtp::GreetingMode::Basic,
             smtp::Command::AuthPlain(_) | smtp::Command::StartTls | smtp::Command::Bdat(_),
         ) => Some(session.push(b"503 5.5.1 EHLO required for this extension\r\n")),
+        (
+            smtp::GreetingMode::Extended,
+            smtp::Command::Mail(smtp::MailFrom {
+                body_mode: smtp::BodyMode::BinaryMime,
+                ..
+            }),
+        ) => Some(session.push(b"555 5.5.4 BINARYMIME is not supported\r\n")),
         (smtp::GreetingMode::Basic, smtp::Command::Mail(mail)) => {
             match (mail.declared_size.is_some(), mail.body_mode, mail.smtp_utf8) {
-                (true, _, _) | (_, smtp::BodyMode::EightBitMime, _) | (_, _, true) => {
+                (true, _, _)
+                | (_, smtp::BodyMode::EightBitMime | smtp::BodyMode::BinaryMime, _)
+                | (_, _, true) => {
                     Some(session.push(b"555 5.5.4 ESMTP parameter requires EHLO\r\n"))
                 }
                 (false, smtp::BodyMode::SevenBit, false) => None,
@@ -82,3 +91,7 @@ fn establish(session: &mut Session, mode: smtp::GreetingMode, response: &[u8]) -
     session.smtp_utf8 = false;
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "smtp_greeting_tests.rs"]
+mod tests;

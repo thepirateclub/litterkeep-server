@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 RFC 3030 typed BODY=BINARYMIME refusal boundary
+
+- RFC 3030 допускает `BINARYMIME` как значение параметра `BODY`; парсер больше
+  не классифицирует его как ошибку синтаксиса. Пока сервер не реализовал
+  BINARYMIME и не объявляет capability, EHLO оставляет её скрытой, а корректный
+  `MAIL ... BODY=BINARYMIME` отклоняется кодом `555` без открытия envelope.
+- Linux Docker Rust 1.97 stage прошёл strict Clippy, 708 library tests passed
+  (плюс 1 внешний UCD corpus ignored), 1 CLI test и doc-tests. Отдельно
+  в Linux контейнере прошли три targeted теста parser/reactor; Windows `cargo
+  test --lib` прошёл 633 теста, 1 внешний corpus ignored. `cargo fmt --check`
+  прошёл. BINARYMIME payload, durable byte preservation и outbound relay не
+  реализованы и не проверялись; это только типизированная отказная граница.
+- Временный image `litterkeep-linux-test:g17-binarymime-20260927` удалён;
+  отсутствие image и контейнеров подтверждено. Litterkeep app не запускалось.
+  G17 и корневая цель остаются ACTIVE.
+
 ### 2026-09-27: G17 RFC 5321 MAIL ordering precedes sender policy
 
 - `MAIL` внутри открытой транзакции теперь проверяет командный порядок раньше

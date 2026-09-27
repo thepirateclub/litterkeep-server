@@ -59,11 +59,13 @@ pub struct MailFrom {
     pub smtp_utf8: bool,
 }
 
-/// RFC 6152 body declaration; default traffic remains strict seven-bit SMTP.
+/// RFC 6152/3030 body profile; unsupported modes are rejected before MAIL.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BodyMode {
     SevenBit,
     EightBitMime,
+    /// Значение RFC 3030 распознаётся, но сервер пока не объявляет поддержку.
+    BinaryMime,
 }
 
 /// Причина отказа parser-а позволяет выбрать точный SMTP reply code.
@@ -165,6 +167,10 @@ fn parse_optional_string(argument: &str) -> Result<Option<String>, ParseError> {
 #[cfg(test)]
 #[path = "command_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "binarymime_tests.rs"]
+mod binarymime_tests;
 
 #[cfg(test)]
 #[path = "path_whitespace_tests.rs"]

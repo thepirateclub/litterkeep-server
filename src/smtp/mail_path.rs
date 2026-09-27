@@ -151,6 +151,7 @@ fn parse_body_mode(value: &str) -> Result<BodyMode, ParseError> {
     match value.to_ascii_uppercase().as_str() {
         "7BIT" => Ok(BodyMode::SevenBit),
         "8BITMIME" => Ok(BodyMode::EightBitMime),
+        "BINARYMIME" => Ok(BodyMode::BinaryMime),
         _ => Err(ParseError::Syntax),
     }
 }
