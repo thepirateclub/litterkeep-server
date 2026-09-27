@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 Sieve ASCII-casemap contains linear-time matching
+
+- `:contains` с `i;ascii-casemap` заменён с перебора всех окон на KMP:
+  поиск работает за O(n + m), хранит O(m) байтов ключа и prefix table и не
+  копирует всё проверяемое поле. Octet comparator и glob matcher не менялись.
+- Adversarial unit test: 131072 ASCII `a` и промах на ключе длиной 2049.
+  В Windows Rust debug до исправления тест занимал 1.29s, после 0.01s в той
+  же среде. Отдельный тест подтверждает ASCII-only folding и сохранение точных
+  не-ASCII октетов. Оба targeted теста прошли в Linux Rust 1.97 Docker image.
+- Полный Linux gate прошёл strict Clippy, 731 library tests, 1 внешний Unicode
+  corpus test ignored без fixture, 1 CLI test и doctests. `cargo fmt --check`
+  и `git diff --check` прошли. Test image удалён и отсутствие проверено.
+  Это ограниченный matcher/performance checkpoint, не полный RFC 5228 профиль,
+  production benchmark или acceptance Litterkeep. T187 записан как scoped PASS;
+  G17 и корневая цель остаются ACTIVE.
+
 ### 2026-09-27: G17 RFC 2047 encoded-word bounded lookahead
 
 - `decode_header` теперь ищет `?=` только в пределах 75 символов от каждого

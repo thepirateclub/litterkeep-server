@@ -30,12 +30,50 @@ fn contains(value: &str, key: &str, comparator: &Comparator) -> bool {
         return true;
     }
     match comparator {
-        Comparator::AsciiCasemap => value
-            .as_bytes()
-            .windows(key.len())
-            .any(|part| part.eq_ignore_ascii_case(key.as_bytes())),
+        Comparator::AsciiCasemap => contains_ascii_casemap(value, key),
         Comparator::Octet => value.contains(key),
     }
+}
+
+/// Выполняет ASCII-casemap поиск за O(n + m), не копируя всё поле заголовка.
+fn contains_ascii_casemap(value: &str, key: &str) -> bool {
+    let pattern = key
+        .bytes()
+        .map(|byte| byte.to_ascii_lowercase())
+        .collect::<Vec<_>>();
+    let prefix = prefix_lengths(&pattern);
+    let mut matched = 0_usize;
+    for byte in value.bytes().map(|value| value.to_ascii_lowercase()) {
+        while matched > 0 && pattern.get(matched).copied() != Some(byte) {
+            matched = prefix.get(matched.saturating_sub(1)).copied().unwrap_or(0);
+        }
+        match pattern.get(matched).copied() {
+            Some(expected) if expected == byte => matched = matched.saturating_add(1),
+            _ => {}
+        }
+        if matched == pattern.len() {
+            return true;
+        }
+    }
+    false
+}
+
+/// Строит KMP prefix table, сохраняя линейную стоимость последующих mismatches.
+fn prefix_lengths(pattern: &[u8]) -> Vec<usize> {
+    let mut prefix = Vec::with_capacity(pattern.len());
+    prefix.push(0);
+    for byte in pattern.iter().copied().skip(1) {
+        let mut matched = prefix.last().copied().unwrap_or(0);
+        while matched > 0 && pattern.get(matched).copied() != Some(byte) {
+            matched = prefix.get(matched.saturating_sub(1)).copied().unwrap_or(0);
+        }
+        match pattern.get(matched).copied() {
+            Some(expected) if expected == byte => matched = matched.saturating_add(1),
+            _ => {}
+        }
+        prefix.push(matched);
+    }
+    prefix
 }
 
 /// Сопоставляет glob по UTF-8 octets, как требуют штатные comparator-ы Sieve.
@@ -167,5 +205,27 @@ mod tests {
         assert!(matches("invoice*", &star));
         assert!(!matches("invoice-2026", &star));
         assert!(matches("invoice?", &question));
+    }
+
+    /// Отрицательный ASCII-casemap поиск не должен сравнивать needle в каждом окне.
+    #[test]
+    fn long_ascii_contains_miss_is_bounded_by_input_and_key_length() {
+        let value = "a".repeat(131_072);
+        let key = format!("{}B", "A".repeat(2_048));
+        let matcher = StringMatch {
+            match_type: MatchType::Contains,
+            comparator: Comparator::AsciiCasemap,
+            keys: vec![key],
+        };
+
+        assert!(!matches(&value, &matcher));
+    }
+
+    /// KMP сравнивает только ASCII case; прочие UTF-8 octets остаются точными.
+    #[test]
+    fn contains_casemap_folds_ascii_without_changing_non_ascii_octets() {
+        assert!(contains("INVOICE-2026", "voice", &Comparator::AsciiCasemap));
+        assert!(!contains("École", "éCOLE", &Comparator::AsciiCasemap));
+        assert!(contains("École", "Éco", &Comparator::AsciiCasemap));
     }
 }
