@@ -10,21 +10,21 @@ pub(super) fn write(session: &mut Session, tag: &str) -> io::Result<()> {
         (true, _) => session
             .push(
                 format!(
-                    "* CAPABILITY IMAP4rev1 IDLE UIDPLUS SPECIAL-USE {LIST_CAPABILITIES} MOVE NAMESPACE UNSELECT ENABLE ESEARCH SEARCHRES APPENDLIMIT={} AUTH=PLAIN SASL-IR\r\n",
+                "* CAPABILITY IMAP4rev1 IDLE UIDPLUS SPECIAL-USE {LIST_CAPABILITIES} BINARY MOVE NAMESPACE UNSELECT ENABLE ESEARCH SEARCHRES APPENDLIMIT={} AUTH=PLAIN SASL-IR\r\n",
                     crate::smtp::MAX_MESSAGE_SIZE
                 )
                 .as_bytes(),
             )?,
         (false, true) => session.push(
             format!(
-                "* CAPABILITY IMAP4rev1 IDLE UIDPLUS SPECIAL-USE {LIST_CAPABILITIES} MOVE NAMESPACE UNSELECT ENABLE ESEARCH SEARCHRES APPENDLIMIT={} STARTTLS LOGINDISABLED\r\n",
+                "* CAPABILITY IMAP4rev1 IDLE UIDPLUS SPECIAL-USE {LIST_CAPABILITIES} BINARY MOVE NAMESPACE UNSELECT ENABLE ESEARCH SEARCHRES APPENDLIMIT={} STARTTLS LOGINDISABLED\r\n",
                 crate::smtp::MAX_MESSAGE_SIZE
             )
             .as_bytes(),
         )?,
         (false, false) => session.push(
             format!(
-                "* CAPABILITY IMAP4rev1 IDLE UIDPLUS SPECIAL-USE {LIST_CAPABILITIES} MOVE NAMESPACE UNSELECT ENABLE ESEARCH SEARCHRES APPENDLIMIT={} LOGINDISABLED\r\n",
+                "* CAPABILITY IMAP4rev1 IDLE UIDPLUS SPECIAL-USE {LIST_CAPABILITIES} BINARY MOVE NAMESPACE UNSELECT ENABLE ESEARCH SEARCHRES APPENDLIMIT={} LOGINDISABLED\r\n",
                 crate::smtp::MAX_MESSAGE_SIZE
             )
             .as_bytes(),

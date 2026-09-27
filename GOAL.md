@@ -6908,3 +6908,10 @@ ManageSieve до заявленного набора современных фо
 - Независимый Linux STARTTLS peer проверил оба варианта по wire, включая exact literal и origin label <0>. Acceptance script прошёл py_compile и содержит 174 строки.
 - Linux Rust 1.97 Docker test stage: strict Clippy, 682 library + 1 CLI test прошли, 1 UCD normalization corpus test ignored, doc-tests прошли. Адресный Windows unit test, cargo fmt --check и git diff --check прошли.
 - Fixture ./data/g36-imap-header-partial сохранён; init/runtime containers и созданный test image удалены, отсутствие проверено. Это независимый IMAP-клиент, не Litterkeep app; остальные FETCH cases и полный IMAP4rev2 профиль остаются неполными, G17 ACTIVE.
+
+### 2026-09-27: G17 RFC 3516 BINARY capability advertisement, scoped PASS
+
+- Реализованный RFC 3516 BINARY/BINARY.PEEK/BINARY.SIZE отсутствовал в трёх вариантах IMAP CAPABILITY. Добавлен точный atom BINARY для plaintext, STARTTLS и защищённого состояния; RFC 3516 §4.1 требует его объявления при поддержке расширения.
+- Новый независимый wire acceptance до STARTTLS, после переключения и после AUTHENTICATE PLAIN подтверждает BINARY во всех состояниях. Bob успешно вошёл по отдельному Linux runtime серверу; проверялись только протокол и независимый клиент, приложение Litterkeep не проверялось.
+- Docker strict Clippy прошёл; 682 library + 1 CLI tests прошли, 1 UCD normalization corpus test ignored, doc-tests прошли. Windows cargo test --lib: 616 прошли, 1 ignored. Python acceptance py_compile, cargo fmt --check и git diff --check прошли; файл клиента 122 строки. Добавлен именованный runtime stage в docker/Dockerfile.linux-test, чтобы runtime acceptance действительно запускал production binary.
+- Fixture ./data/g37-imap-binary-capability сохранена. Временный init/runtime container и все три созданных image tags удалены, отсутствие проверено. Исправлена только публикация уже поддерживаемой возможности; IMAP4rev2 и G17 остаются ACTIVE.

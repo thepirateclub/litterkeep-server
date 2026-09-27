@@ -307,7 +307,11 @@ partial slicing; BINARY применяет literal8 при NUL, нормализ
 и выдаёт tagged NO [UNKNOWN-CTE] для неизвестного кодирования. Независимый
 STARTTLS acceptance отправил вложение через SMTP и сравнил все байты BINARY;
 также проверены SIZE, decoded partial, Seen/PEEK и UNKNOWN-CTE. Это не проверка
-клиента Litterkeep. Остальные требования IMAP4rev2 остаются непокрытыми.
+клиента Litterkeep. BINARY включён в CAPABILITY в plaintext, TLS и authenticated
+состояниях; отдельный STARTTLS wire acceptance проверил точный capability atom
+до переключения, после него и после LOGIN. Это закрывает только discovery для
+уже реализованного RFC 3516 extension; остальные требования IMAP4rev2 остаются
+непокрытыми.
 Для IMAP4rev1 совместимости `RFC822.HEADER` возвращает заголовки под legacy
 data-item label и не меняет `\\Seen`; `RFC822.TEXT` возвращает точные body
 octets под своим label и durable устанавливает `\\Seen`. Независимый

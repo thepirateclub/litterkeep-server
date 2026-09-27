@@ -23,7 +23,7 @@ CAPABILITY не выдаёт за более широкое расширение
 | Subscription | SUBSCRIBE, UNSUBSCRIBE | PASS | Durable subscription независимо от существования папки |
 | Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS, PERMANENTFLAGS, включая `\\*` для создания пользовательских keywords, Recent |
 | Message insertion | APPEND | PARTIAL | Bounded synchronizing literal and RFC 7888 `LITERAL-` non-synchronizing literals до 4096 octets; strict parenthesized system flags/keywords, quoted-string-only RFC date-time INTERNALDATE, APPENDUID после fsync; zero-length literal returns tagged `NO` without a mailbox mutation and the session accepts a subsequent command; oversized non-synchronizing payload gets `BYE [TOOBIG]` and connection closure; global 25 MiB limit is advertised through APPENDLIMIT and oversized synchronizing APPEND is rejected with tagged TOOBIG before payload; RFC 3502 MULTIAPPEND parses and stores ordered messages in one atomic batch, preserves per-message flags/keywords/date, advertises MULTIAPPEND and returns ordered APPENDUID; independent STARTTLS acceptance checks distinct flags and exact RFC822 bytes including NUL and 0xFF; LITERAL+ is not advertised |
-| Reading | FETCH, UID FETCH | PARTIAL | Сгруппированные items, ALL/FAST/FULL с RFC-совместимым раскрытием FULL через BODY, BODY и BODYSTRUCTURE, UID, RFC822/RFC822.HEADER/RFC822.TEXT legacy items с правильными wire labels, BODY sections/partial и BINARY/BINARY.PEEK/BINARY.SIZE; decoded MIME leaf parts, Base64/QP, literal8 для NUL, decoded partial, UNKNOWN-CTE и Seen effects проверены. RFC 6532 message/global принимает identity, Base64 и quoted-printable CTE с отдельным source для decoded вложенных ranges; неизвестный CTE сохраняет opaque octet-stream fallback. Полная rev2 grammar остаётся |
+| Reading | FETCH, UID FETCH | PARTIAL | Сгруппированные items, ALL/FAST/FULL с RFC-совместимым раскрытием FULL через BODY, BODY и BODYSTRUCTURE, UID, RFC822/RFC822.HEADER/RFC822.TEXT legacy items с правильными wire labels, BODY sections/partial и BINARY/BINARY.PEEK/BINARY.SIZE; decoded MIME leaf parts, Base64/QP, literal8 для NUL, decoded partial, UNKNOWN-CTE и Seen effects проверены. RFC 3516 BINARY объявлен в CAPABILITY до STARTTLS, после TLS и после LOGIN. RFC 6532 message/global принимает identity, Base64 и quoted-printable CTE с отдельным source для decoded вложенных ranges; неизвестный CTE сохраняет opaque octet-stream fallback. Полная rev2 grammar остаётся |
 
 Для `message/global` `7bit`, `8bit`, `binary`, Base64 и quoted-printable
 строят вложенную структуру; non-identity CTE получает отдельный decoded source,
@@ -150,8 +150,8 @@ and completes with an empty literal in independent STARTTLS acceptance. This
 does not close remaining APPEND grammar or the IMAP4rev2 profile.
 
 CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-USE`,
-`NAMESPACE`, `UNSELECT`, `ENABLE`, `ESEARCH` и `SEARCHRES`. ENABLE игнорирует
-неизвестные и пока не поддерживаемые расширения по RFC. В authenticated state
+`BINARY` по RFC 3516, `NAMESPACE`, `UNSELECT`, `ENABLE`, `ESEARCH` и `SEARCHRES`.
+ENABLE игнорирует неизвестные и пока не поддерживаемые расширения по RFC. В authenticated state
 `ENABLE UTF8=ACCEPT` активирует режим на текущем соединении и возвращает
 `ENABLED UTF8=ACCEPT`; capability намеренно скрыта, пока не пройдёт весь
 профиль RFC 9755. `APPENDLIMIT=26214400` объявляет единый предельный размер
