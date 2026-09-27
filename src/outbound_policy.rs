@@ -70,6 +70,28 @@ mod tests {
         assert_eq!(next_attempt_epoch(State::Delivered, 1, 100), 0);
     }
 
+    /// Фиксирует весь экспоненциальный ряд и его безопасную верхнюю границу.
+    #[test]
+    fn deferred_retry_backoff_doubles_and_saturates() {
+        let expected = [60, 120, 240, 480, 960, 1_920, 3_600, 3_600];
+        for (attempt, delay) in (1_u8..=8).zip(expected) {
+            assert_eq!(
+                next_attempt_epoch(State::Deferred, attempt, 0),
+                delay,
+                "unexpected retry delay at attempt {attempt}"
+            );
+        }
+    }
+
+    /// Переполнение Unix epoch не превращает очередь в немедленно due job.
+    #[test]
+    fn deferred_retry_deadline_saturates_at_epoch_maximum() {
+        assert_eq!(
+            next_attempt_epoch(State::Deferred, 1, u64::MAX - 10),
+            u64::MAX
+        );
+    }
+
     #[test]
     fn terminal_outcomes_choose_typed_dsn_reason() {
         assert_eq!(
