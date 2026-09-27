@@ -1,5 +1,20 @@
 # Goal ledger
 
+### 2026-09-27: G18 SETACTIVE missing-script code and active disable, scoped PASS T251
+
+- RFC 5804 §2.8 recommends `NONEXISTENT` for an unknown active script and
+  requires empty-name deactivation to succeed, including when none is active.
+  Store missing-script I/O retains a typed source marker and the ManageSieve
+  completion maps it to `NO (NONEXISTENT)` while preserving `NotFound`.
+- Independent `tests/blackbox/managesieve_setactive.py` over Linux TLS verifies
+  no-active empty SETACTIVE, missing-name rejection, successful activation,
+  ACTIVE projection, empty-name deactivation, idempotent repeat and deletion.
+  Windows Rust 1.97.1 strict Clippy and 799 library + 1 CLI pass, 3
+  fixture-dependent ignored. Linux Docker Rust 1.97.1 strict Clippy, 884
+  library + 1 CLI pass, 3 ignored, release build and fmt pass. No Litterkeep
+  client interoperability claim; disposable container removed, existing Rust
+  image retained.
+
 ### 2026-09-27: G18 ManageSieve quota response code, scoped PASS T250
 
 - RFC 5804 §1.5 requires an imposed quota rejection to carry response code

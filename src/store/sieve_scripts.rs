@@ -239,7 +239,7 @@ fn valid_name(name: &str) -> io::Result<()> {
     Ok(())
 }
 fn missing() -> io::Error {
-    io::Error::new(io::ErrorKind::NotFound, "sieve script missing")
+    io::Error::new(io::ErrorKind::NotFound, ScriptMissing)
 }
 fn invalid(message: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message)
@@ -255,9 +255,21 @@ pub(super) fn is_quota_error(error: &io::Error) -> bool {
         .is_some_and(|source| source.is::<QuotaExceeded>())
 }
 
+#[cfg(any(test, target_os = "linux"))]
+pub(super) fn is_missing_error(error: &io::Error) -> bool {
+    error
+        .get_ref()
+        .is_some_and(|source| source.is::<ScriptMissing>())
+}
+
 #[cfg(all(test, target_os = "linux"))]
 pub(super) fn quota_test_error() -> io::Error {
     quota_exceeded("test quota")
+}
+
+#[cfg(all(test, target_os = "linux"))]
+pub(super) fn missing_test_error() -> io::Error {
+    missing()
 }
 
 #[derive(Debug)]
@@ -270,3 +282,14 @@ impl std::fmt::Display for QuotaExceeded {
 }
 
 impl std::error::Error for QuotaExceeded {}
+
+#[derive(Debug)]
+struct ScriptMissing;
+
+impl std::fmt::Display for ScriptMissing {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("sieve script missing")
+    }
+}
+
+impl std::error::Error for ScriptMissing {}

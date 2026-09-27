@@ -37,8 +37,15 @@ string disables active filtering. The parser now rejects a missing argument and
 maps `""` to the store's `None` deactivation value, while non-empty script names
 remain unchanged. Parser tests cover missing, empty, ordinary and extra
 arguments; the independent NOOP wire scenario also asserts that missing
-`SETACTIVE` is rejected as a syntax error. A TLS-authenticated store-level wire
-test for deactivating an actually active script remains unverified.
+`SETACTIVE` is rejected as a syntax error. RFC 5804 §2.8 additionally says
+disabling with an empty string while no script is active is not an error, and
+recommends `NONEXISTENT` for an unknown script. Store missing-script errors now
+retain a typed cause; ManageSieve returns `NO (NONEXISTENT)` without changing
+the original `NotFound` kind used internally. Independent Linux TLS acceptance
+`tests/blackbox/managesieve_setactive.py` verifies empty deactivation before
+activation, unknown-name rejection, activation in LISTSCRIPTS, deactivation of
+that active script, idempotent empty deactivation, and deletion after disable.
+This checks the server and Store owner, not Litterkeep app interoperability.
 
 ManageSieve script count, per-script byte size and serialized account catalog
 are bounded in the Store. RFC 5804 §1.5 requires a `NO` response containing

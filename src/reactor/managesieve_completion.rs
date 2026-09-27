@@ -33,6 +33,9 @@ fn result_response(result: io::Result<()>) -> &'static [u8] {
         Err(error) if crate::store::is_sieve_quota_error(&error) => {
             b"NO (QUOTA) \"quota exceeded\"\r\n"
         }
+        Err(error) if crate::store::is_sieve_missing_error(&error) => {
+            b"NO (NONEXISTENT) \"script does not exist\"\r\n"
+        }
         Err(_) => b"NO \"operation failed\"\r\n",
     }
 }
@@ -65,6 +68,9 @@ pub(super) fn source(session: &mut Session, result: io::Result<(u64, String)>) -
             )
             .as_bytes(),
         ),
+        Err(error) if crate::store::is_sieve_missing_error(&error) => {
+            session.push(b"NO (NONEXISTENT) \"script does not exist\"\r\n")
+        }
         Err(_) => session.push(b"NO \"script not found\"\r\n"),
     }
 }
@@ -77,9 +83,14 @@ mod tests {
     #[test]
     fn mutation_result_distinguishes_quota_from_other_failures() {
         let quota = Err(crate::store::sieve_quota_test_error());
+        let missing = Err(crate::store::sieve_missing_test_error());
         let storage = Err(io::Error::new(io::ErrorKind::StorageFull, "disk full"));
         assert_eq!(result_response(Ok(())), b"OK \"completed\"\r\n");
         assert_eq!(result_response(quota), b"NO (QUOTA) \"quota exceeded\"\r\n");
+        assert_eq!(
+            result_response(missing),
+            b"NO (NONEXISTENT) \"script does not exist\"\r\n"
+        );
         assert_eq!(result_response(storage), b"NO \"operation failed\"\r\n");
     }
 }

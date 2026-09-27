@@ -985,6 +985,11 @@ errors do not become quota responses. Independent Linux TLS wire acceptance
 reaches the 17-script boundary and confirms the failed PUTSCRIPT leaves the
 16-entry catalog unchanged. Litterkeep client interoperability remains
 unverified.
+RFC 5804 §2.8 SETACTIVE is checked over the independent TLS path: empty name
+succeeds with no active script, unknown name gets `NO (NONEXISTENT)`,
+LISTSCRIPTS shows activation and removes ACTIVE after empty-name deactivation,
+and a repeated deactivation succeeds. This is server/store evidence, not
+Litterkeep interoperability.
 
 ## Outbound SMTP
 

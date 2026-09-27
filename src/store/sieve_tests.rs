@@ -74,3 +74,16 @@ fn script_count_limit_preserves_typed_quota_error() {
     drop(store);
     fs::remove_dir_all(root).expect("cleanup");
 }
+
+#[test]
+fn missing_script_preserves_typed_not_found_cause() {
+    let root = directory();
+    let mut store = Store::open(&root).expect("open");
+    let error = store
+        .activate_sieve_script("bob", Some("absent"))
+        .expect_err("unknown script cannot become active");
+    assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
+    assert!(sieve_scripts::is_missing_error(&error));
+    drop(store);
+    fs::remove_dir_all(root).expect("cleanup");
+}
