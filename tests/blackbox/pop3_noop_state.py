@@ -38,6 +38,9 @@ def run(port):
             exchange(stream, b"NOOP", b"-ERR")
             exchange(stream, b"USER bob", b"+OK")
             exchange(stream, b"NOOP", b"-ERR")
+            failed_password = exchange(stream, b"PASS " + b"p" * 40, b"-ERR")
+            if not failed_password.startswith(b"-ERR authentication failed"):
+                raise AssertionError(f"USER не сохранился после NOOP: {failed_password!r}")
             sasl = base64.b64encode(b"\x00bob\x00" + password)
             exchange(stream, b"AUTH PLAIN " + sasl, b"+OK")
             exchange(stream, b"NOOP", b"+OK")

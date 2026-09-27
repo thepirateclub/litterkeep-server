@@ -11,8 +11,8 @@ Current subgoal: G17
   попытки получают state error, а в TRANSACTION команда продолжает отвечать
   положительно.
 - Unit regression и независимый Linux STARTTLS peer проверяют NOOP до USER,
-  после USER, восстановление входа через SASL PLAIN, успешный NOOP после входа
-  и QUIT.
+  после USER, ответ credential backend на корректный PASS после второго NOOP,
+  затем SASL PLAIN retry после отказа PASS, успешный NOOP после входа и QUIT.
 - Windows Rust 1.97.1: 630 library tests (629 passed, 1 внешний UCD test
   ignored без корпуса) и 1 CLI test прошли; strict Clippy, rustfmt и
   `git diff --check` и Python `py_compile` прошли. Linux Docker test stage: 696 library tests
