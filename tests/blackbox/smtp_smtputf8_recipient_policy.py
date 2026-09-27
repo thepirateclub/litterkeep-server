@@ -14,6 +14,8 @@ class ReplyCode(IntEnum):
     SUCCESS = 250
     QUIT = 221
     SYNTAX_ERROR = 501
+    EXPANSION_UNSUPPORTED = 502
+    VERIFICATION_UNAVAILABLE = 252
     SENDER_UTF8_NOT_PERMITTED = 550
     RCPT_UTF8_REQUIRED = 553
     UNKNOWN_LOCAL_RECIPIENT = 550
@@ -72,6 +74,12 @@ def expect_reply(
     return response
 
 
+def require_ascii_response(response: bytes) -> None:
+    """Не разрешает ответам VRFY/EXPN раскрывать UTF-8 без нужды."""
+    if any(octet > 127 for octet in response):
+        raise AssertionError(f"ответ должен оставаться ASCII: {response!r}")
+
+
 def verify_policy(host: str, port: int) -> None:
     """Доказывает отдельные SMTPUTF8 маркеры MAIL и RCPT на сетевом пути."""
     with socket.create_connection((host, port), timeout=10) as connection:
@@ -83,6 +91,33 @@ def verify_policy(host: str, port: int) -> None:
         capabilities = expect_reply(stream, b"EHLO independent-peer.test", ReplyCode.SUCCESS)
         if b"SMTPUTF8" in capabilities.upper():
             raise AssertionError("сервер преждевременно рекламирует неполную SMTPUTF8")
+
+        expect_reply(
+            stream,
+            "VRFY почта@example.test".encode("utf-8"),
+            ReplyCode.SYNTAX_ERROR,
+        )
+        ascii_verify = expect_reply(
+            stream, b"VRFY alice@example.test SMTPUTF8", ReplyCode.VERIFICATION_UNAVAILABLE
+        )
+        utf8_verify = expect_reply(
+            stream,
+            "VRFY почта@example.test SMTPUTF8".encode("utf-8"),
+            ReplyCode.VERIFICATION_UNAVAILABLE,
+        )
+        utf8_expn = expect_reply(
+            stream,
+            "EXPN список@example.test SMTPUTF8".encode("utf-8"),
+            ReplyCode.EXPANSION_UNSUPPORTED,
+        )
+        for response in (ascii_verify, utf8_verify, utf8_expn):
+            require_ascii_response(response)
+        expect_reply(
+            stream,
+            b"VRFY alice@example.test SMTPUTF8=YES",
+            ReplyCode.SYNTAX_ERROR,
+        )
+        expect_reply(stream, b"NOOP", ReplyCode.SUCCESS)
 
         expect_reply(stream, b"MAIL FROM:<alice@test>", ReplyCode.SUCCESS)
         expect_reply(

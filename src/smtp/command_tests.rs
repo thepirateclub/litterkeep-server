@@ -268,29 +268,12 @@ fn rejects_malformed_mailbox_in_both_paths() {
 }
 
 #[test]
-fn parses_supported_commands_and_auth_mechanism() {
-    assert_eq!(
-        parse("AUTH PLAIN AGJvYgB0ZXN0LXBhc3N3b3Jk\r\n"),
-        Ok(Command::AuthPlain(Some("AGJvYgB0ZXN0LXBhc3N3b3Jk".into(),)))
-    );
+fn parses_non_transaction_control_commands() {
     assert_eq!(parse("STARTTLS\r\n"), Ok(Command::StartTls));
     assert_eq!(parse("NOOP\r\n"), Ok(Command::Noop(None)));
     assert_eq!(
         parse("NOOP keep state\r\n"),
         Ok(Command::Noop(Some("keep state".into())))
     );
-    assert_eq!(
-        parse("VRFY alice@test\r\n"),
-        Ok(Command::Vrfy("alice@test".into()))
-    );
-    assert_eq!(parse("EXPN team\r\n"), Ok(Command::Expn("team".into())));
     assert_eq!(parse("HELP\r\n"), Ok(Command::Help(None)));
-    assert_eq!(
-        parse("HELO sender.test\r\n"),
-        Ok(Command::Helo("sender.test".into()))
-    );
-    assert_eq!(
-        parse("AUTH LOGIN response\r\n"),
-        Err(ParseError::UnsupportedAuthenticationMechanism)
-    );
 }

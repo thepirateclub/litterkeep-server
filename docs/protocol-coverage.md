@@ -40,6 +40,13 @@ Python `smtplib` на STARTTLS проверил continuation, initial-response �
 ASCII имя. `VRFY alice@example.test`, `NOOP ` и `HELP ` возвращают 501; затем
 NOOP/QUIT в том же TCP соединении подтверждают recovery. Сервер не рекламирует
 SMTPUTF8, поэтому этот тест не заявляет RFC 6531 Unicode VRFY/EXPN support.
+Парсер отдельно понимает RFC 6531 §3.7.4.2 запросы VRFY/EXPN с valueless
+`SMTPUTF8` и UTF-8 query, сохраняет режим reply encoding и отвергает параметр
+со значением. Без capability непомеченный Unicode VRFY остаётся syntax error;
+при принудительно переданном marker сервер отвечает неизменяемыми privacy-safe
+`252`/`502` и не выдаёт non-ASCII reply. Independent Linux wire test проверил
+ASCII/UTF-8 query, отсутствие capability, malformed marker и session recovery.
+Это не объявленная SMTPUTF8 capability и не interoperability-тест клиента.
 
 В production `MAIL FROM:` и `RCPT TO:` angle-path начинается сразу после
 двоеточия: пробел и табуляция между delimiter-ом команды и `<` получают 501,

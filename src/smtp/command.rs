@@ -12,9 +12,15 @@ mod command_error;
 mod greeting;
 #[path = "mail_path.rs"]
 mod mail_path;
+#[path = "verify_command.rs"]
+mod verify_command;
+#[cfg(test)]
+#[path = "verify_command_tests.rs"]
+mod verify_command_tests;
 pub(crate) use address::canonical_parts;
 #[cfg(target_os = "linux")]
 pub(crate) use address::requires_smtp_utf8;
+pub use verify_command::{ReplyEncoding, VerifyRequest};
 
 /// Команда SMTP после разбора wire-строки без потери ESMTP параметров.
 #[derive(Debug, Eq, PartialEq)]
@@ -27,9 +33,9 @@ pub enum Command {
     /// SASL PLAIN с optional initial response в base64-представлении.
     AuthPlain(Option<String>),
     /// Проверка имени, не раскрывающая наличие локального пользователя.
-    Vrfy(String),
+    Vrfy(VerifyRequest),
     /// Запрос списка участников, который локальная политика запрещает.
-    Expn(String),
+    Expn(VerifyRequest),
     /// Справка SMTP с необязательным именем команды.
     Help(Option<String>),
     StartTls,
@@ -83,8 +89,8 @@ pub fn parse(line: &str) -> Result<Command, ParseError> {
             false => Err(ParseError::Syntax),
         },
         "AUTH" => auth_command::parse(argument),
-        "VRFY" => parse_string_command(argument).map(Command::Vrfy),
-        "EXPN" => parse_string_command(argument).map(Command::Expn),
+        "VRFY" => verify_command::parse(argument).map(Command::Vrfy),
+        "EXPN" => verify_command::parse(argument).map(Command::Expn),
         "HELP" => parse_optional_string(argument).map(Command::Help),
         "STARTTLS" => match argument.is_empty() {
             true => Ok(Command::StartTls),

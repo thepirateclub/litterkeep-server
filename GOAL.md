@@ -4,6 +4,25 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-27: G17 RFC 6531 VRFY/EXPN request syntax, PARTIAL
+
+- RFC 6531 §3.7.4.2 задаёт optional valueless `SMTPUTF8` для VRFY/EXPN и
+  разрешает UTF-8 query; marker относится к формату возможного ответа, а не к
+  параметрам MAIL. Parser теперь сохраняет query и enum `ReplyEncoding`,
+  проверяет controls и отвергает `SMTPUTF8=value`.
+- SMTP capability остаётся не объявленной. В текущем ASCII-only advertisement
+  непомеченный Unicode VRFY получает `501`; forced marker принимает Unicode
+  query. Ответы не раскрывают mailbox: VRFY остаётся `252`, EXPN `502`, весь
+  ответ ASCII. Независимый Linux TCP peer проверил marker absence, ASCII/UTF-8
+  query, неправильное значение marker, коды ответов и восстановление через
+  NOOP. Это parser/fallback checkpoint, не SMTPUTF8 interoperability.
+- Windows Rust 1.97.1: 623 library и 1 CLI test прошли, один внешний UCD test
+  ignored из-за отсутствующего корпуса; strict Clippy и rustfmt прошли.
+  Linux Docker: strict Clippy, 689 library и 1 CLI test прошли, один UCD test
+  ignored; doc-tests прошли. Python `py_compile` и независимый wire acceptance
+  прошли. Fixture `./data/acceptance-smtp-smtputf8-verify-query-20260927`
+  сохранён; временные Docker image и контейнер удалены.
+
 ### 2026-09-27: G17 RFC 6531 sender/recipient enhanced-status wire evidence, PASS
 
 - RFC 6531 §3.5 требует `550` для отказа по MAIL reverse-path и `553` для
