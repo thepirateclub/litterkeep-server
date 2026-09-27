@@ -71,7 +71,7 @@ impl WakingOutboundWorker {
     }
 
     /// Останавливает worker до закрытия его completion wake resource.
-    pub fn shutdown(self) {
-        self.worker.shutdown();
+    pub fn shutdown(self) -> io::Result<()> {
+        self.worker.shutdown()
     }
 }

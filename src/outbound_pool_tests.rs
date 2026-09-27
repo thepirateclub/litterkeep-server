@@ -23,6 +23,8 @@ fn clean_transactions_reuse_one_peer_connection() {
         transaction(&mut stream, &mut reader);
         transaction(&mut stream, &mut reader);
         observed_sender.send(()).expect("observed signal");
+        read_line(&mut reader, "QUIT");
+        stream.write_all(b"221 closing\r\n").expect("quit");
     });
     let mut pool = ConnectionPool::new(address.to_string(), 1).expect("pool");
     assert_eq!(
@@ -39,6 +41,7 @@ fn clean_transactions_reuse_one_peer_connection() {
     observed.recv().expect("both transactions");
     assert_eq!(pool.open_count(), 1);
     assert_eq!(pool.idle_count(), 1);
+    pool.shutdown().expect("plain pool graceful shutdown");
     peer.join().expect("peer");
 }
 
@@ -57,6 +60,8 @@ fn known_rejection_is_reset_before_next_recipient() {
         read_line(&mut reader, "RSET");
         stream.write_all(b"250 reset\r\n").expect("reset reply");
         transaction(&mut stream, &mut reader);
+        read_line(&mut reader, "QUIT");
+        stream.write_all(b"221 closing\r\n").expect("quit");
     });
     let mut pool = ConnectionPool::new(address.to_string(), 1).expect("pool");
     assert_eq!(
@@ -72,6 +77,7 @@ fn known_rejection_is_reset_before_next_recipient() {
     );
     assert_eq!(pool.open_count(), 1);
     assert_eq!(pool.idle_count(), 1);
+    pool.shutdown().expect("plain pool graceful shutdown");
     peer.join().expect("peer");
 }
 
@@ -95,6 +101,8 @@ fn failed_reset_drops_connection_before_next_recipient() {
         greeting_and_ehlo(&mut clean);
         let mut clean_reader = BufReader::new(clean.try_clone().expect("second clone"));
         transaction(&mut clean, &mut clean_reader);
+        read_line(&mut clean_reader, "QUIT");
+        clean.write_all(b"221 closing\r\n").expect("quit");
     });
     let mut pool = ConnectionPool::new(address.to_string(), 1).expect("pool");
     assert_eq!(
@@ -109,6 +117,7 @@ fn failed_reset_drops_connection_before_next_recipient() {
         DeliveryOutcome::Delivered
     );
     assert_eq!(pool.open_count(), 1);
+    pool.shutdown().expect("plain pool graceful shutdown");
     peer.join().expect("peer");
 }
 

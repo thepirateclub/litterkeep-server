@@ -79,12 +79,11 @@ fn run_scheduler(route: Route, path: &std::path::Path, peer: JoinHandle<()>) -> 
             }
         }
         scheduler.wake_due(&storage, &mut lifecycle).expect("timer");
-        if let (true, true) = (scheduler.deadline().is_some(), peer.is_finished()) {
+        if scheduler.deadline().is_some() {
             break;
         }
         assert!(Instant::now() < deadline, "TLS scheduler timed out");
     }
-    peer.join().expect("peer");
     assert!(lifecycle.request_cancel(scheduler.task));
     assert!(
         scheduler
@@ -92,6 +91,7 @@ fn run_scheduler(route: Route, path: &std::path::Path, peer: JoinHandle<()>) -> 
             .expect("cancel")
     );
     scheduler.shutdown(&mut lifecycle).expect("shutdown");
+    peer.join().expect("peer");
     storage.shutdown();
     let store = Store::open(path).expect("reopen");
     store.pending_outbound().expect("pending")
@@ -189,6 +189,8 @@ fn serve_tls_message(listener: TcpListener, certificate: Vec<u8>, key: Vec<u8>) 
         }
     }
     reply(&mut stream, b"250 accepted\r\n");
+    command(&mut stream, "QUIT");
+    reply(&mut stream, b"221 closing\r\n");
 }
 
 fn observe_failed_handshake(listener: TcpListener, certificate: Vec<u8>, key: Vec<u8>) {

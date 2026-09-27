@@ -25,7 +25,7 @@ pub struct Completion {
 pub struct OutboundWorker {
     jobs: SyncSender<Job>,
     completions: Receiver<Completion>,
-    thread: JoinHandle<()>,
+    thread: JoinHandle<io::Result<()>>,
 }
 
 impl OutboundWorker {
@@ -101,9 +101,11 @@ impl OutboundWorker {
     }
 
     /// Закрывает вход jobs и присоединяет единственный transport thread.
-    pub fn shutdown(self) {
+    pub fn shutdown(self) -> io::Result<()> {
         drop(self.jobs);
-        let _ = self.thread.join();
+        self.thread
+            .join()
+            .map_err(|_| io::Error::other("outbound worker thread panicked"))?
     }
 }
 
@@ -113,14 +115,16 @@ fn run<F>(
     incoming: Receiver<Job>,
     outgoing: mpsc::Sender<Completion>,
     mut notifier: F,
-) where
+) -> io::Result<()>
+where
     F: FnMut(),
 {
     for job in incoming {
         let result = pool.deliver(&job.sender, &job.recipient, &job.payload);
         if outgoing.send(Completion { id: job.id, result }).is_err() {
-            return;
+            break;
         }
         notifier();
     }
+    pool.shutdown()
 }

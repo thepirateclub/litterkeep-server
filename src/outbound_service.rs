@@ -34,9 +34,15 @@ pub fn drain(
     let mut storage = WakingStorageWorker::start(root, 1)?;
     let mut outbound = WakingOutboundWorker::start(address, 1, 2)?;
     let result = run(&mut storage, &mut outbound, limit);
-    outbound.shutdown();
+    let shutdown = outbound.shutdown();
     storage.shutdown();
-    result
+    match (result, shutdown) {
+        (Ok(report), Ok(())) => Ok(report),
+        (Err(error), Ok(())) | (Ok(_), Err(error)) => Err(error),
+        (Err(primary), Err(shutdown)) => Err(io::Error::other(format!(
+            "outbound drain failed: {primary}; SMTP shutdown failed: {shutdown}"
+        ))),
+    }
 }
 
 /// Держит только одну delivery между Store и transport, сохраняя простой ownership.

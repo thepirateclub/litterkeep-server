@@ -1060,8 +1060,13 @@ SMTP-level результата, если peer не прислал 421 и сам
 также проверяет QUIT после RCPT 450/550. При timeout ответа на QUIT уже
 подтверждённый результат DATA сохраняется. TLS peer-тест с 100-ms коротким
 timeout проверяет реальный socket; pooled TLS соединение не отправляет QUIT
-между повторными транзакциями. Нормативный 5-минутный wall-clock timeout,
-graceful QUIT при уничтожении TLS pool и интеграция с внешним MTA не проверялись.
+между повторными транзакциями. При явном shutdown owner отправляет QUIT во все
+idle plaintext и implicit-TLS pool sessions, не выполняя блокирующий сетевой
+I/O из Drop; локальные peers проверяют QUIT/221 на pool, worker, service и
+scheduler shutdown. Ошибка одной idle session не отменяет попытку завершить
+остальные и передаётся вызывающему owner. Нормативный 5-минутный wall-clock
+timeout, отказ QUIT в одной из нескольких idle sessions и интеграция с внешним
+MTA не проверялись.
 Для исходящего BDAT промежуточный ответ на каждый chunk теперь
 использует отдельный 5-минутный command timeout, а BDAT LAST - 10-минутный
 DATA-termination timeout; 3-минутный write timeout сохраняется на каждый chunk.

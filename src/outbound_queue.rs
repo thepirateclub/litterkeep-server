@@ -38,27 +38,37 @@ pub fn drain_at(
 ) -> io::Result<DrainReport> {
     let mut report = DrainReport::default();
     let mut pool = ConnectionPool::new(address, ROUTE_POOL_CAPACITY)?;
-    for mut delivery in store.due_outbound(now_epoch)?.into_iter().take(limit) {
-        delivery.attempts = delivery
-            .attempts
-            .checked_add(1)
-            .ok_or_else(|| io::Error::other("outbound attempts exhausted"))?;
-        delivery.state = State::InFlight;
-        store.transition_outbound(&delivery, State::InFlight)?;
-        let payload = store.outbound_blob(&delivery)?;
-        let result = pool.deliver(&delivery.sender, &delivery.recipient, &payload);
-        let state = outbound_policy::state(&result, delivery.attempts);
-        let dsn_failure = outbound_policy::dsn_failure(&result, delivery.attempts);
-        delivery.state = state;
-        delivery.next_attempt_epoch =
-            outbound_policy::next_attempt_epoch(state, delivery.attempts, now_epoch);
-        store.transition_outbound(&delivery, state)?;
-        if let Some(failure) = dsn_failure {
-            publish_dsn(store, accounts, &delivery, &payload, failure)?;
+    let result = (|| {
+        for mut delivery in store.due_outbound(now_epoch)?.into_iter().take(limit) {
+            delivery.attempts = delivery
+                .attempts
+                .checked_add(1)
+                .ok_or_else(|| io::Error::other("outbound attempts exhausted"))?;
+            delivery.state = State::InFlight;
+            store.transition_outbound(&delivery, State::InFlight)?;
+            let payload = store.outbound_blob(&delivery)?;
+            let result = pool.deliver(&delivery.sender, &delivery.recipient, &payload);
+            let state = outbound_policy::state(&result, delivery.attempts);
+            let dsn_failure = outbound_policy::dsn_failure(&result, delivery.attempts);
+            delivery.state = state;
+            delivery.next_attempt_epoch =
+                outbound_policy::next_attempt_epoch(state, delivery.attempts, now_epoch);
+            store.transition_outbound(&delivery, state)?;
+            if let Some(failure) = dsn_failure {
+                publish_dsn(store, accounts, &delivery, &payload, failure)?;
+            }
+            record(&mut report, state);
         }
-        record(&mut report, state);
+        Ok(report)
+    })();
+    let shutdown = pool.shutdown();
+    match (result, shutdown) {
+        (Ok(report), Ok(())) => Ok(report),
+        (Err(error), Ok(())) | (Ok(_), Err(error)) => Err(error),
+        (Err(primary), Err(shutdown)) => Err(io::Error::other(format!(
+            "outbound queue drain failed: {primary}; SMTP shutdown failed: {shutdown}"
+        ))),
     }
-    Ok(report)
 }
 
 /// Возвращает durable wall-clock deadline, пригодный для restart процесса.

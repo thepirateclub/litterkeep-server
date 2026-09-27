@@ -60,10 +60,15 @@ impl OutboundScheduler {
 
     /// Закрывает job channel, присоединяет transport thread и удаляет task record.
     pub(super) fn shutdown(self, lifecycle: &mut Orchestrator<Session>) -> io::Result<()> {
-        self.outbound.shutdown();
-        match lifecycle.retire_task(self.task) {
-            true => Ok(()),
-            false => Err(io::Error::other("scheduler task still owns resources")),
+        let transport = self.outbound.shutdown();
+        let retired = lifecycle.retire_task(self.task);
+        match (transport, retired) {
+            (Ok(()), true) => Ok(()),
+            (Err(error), true) => Err(error),
+            (Ok(()), false) => Err(io::Error::other("scheduler task still owns resources")),
+            (Err(transport), false) => Err(io::Error::other(format!(
+                "SMTP shutdown failed: {transport}; scheduler task still owns resources"
+            ))),
         }
     }
 }

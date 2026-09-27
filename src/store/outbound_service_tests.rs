@@ -84,6 +84,8 @@ fn serve_generated(listener: TcpListener) {
     }
     assert!(body.ends_with(b"Away.\r\n"));
     stream.write_all(b"250 accepted\r\n").expect("accepted");
+    command(&mut reader, "QUIT");
+    stream.write_all(b"221 closing\r\n").expect("quit");
 }
 
 fn serve_one(listener: TcpListener) {
@@ -107,6 +109,8 @@ fn serve_one(listener: TcpListener) {
         }
     }
     stream.write_all(b"250 accepted\r\n").expect("accepted");
+    command(&mut reader, "QUIT");
+    stream.write_all(b"221 closing\r\n").expect("quit");
 }
 
 fn command(reader: &mut BufReader<std::net::TcpStream>, expected: &str) {

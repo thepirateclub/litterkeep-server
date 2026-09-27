@@ -33,6 +33,7 @@ fn tls_pool_discards_421_channel_and_reconnects_for_the_next_delivery() {
         DeliveryOutcome::Delivered
     );
     assert_eq!(pool.idle_count(), 1);
+    pool.shutdown().expect("TLS pool graceful shutdown");
     peer.join().expect("peer");
 }
 
@@ -56,6 +57,8 @@ fn serve_421_peer(listener: TcpListener, certificate: Vec<u8>, key: Vec<u8>) {
     read_line(&mut replacement, "MAIL FROM:");
     write_line(&mut replacement, b"250 sender\r\n");
     read_transaction(&mut replacement);
+    read_line(&mut replacement, "QUIT");
+    write_line(&mut replacement, b"221 closing\r\n");
 }
 
 /// Создаёт CA и сертификат peer.test, которым доверяет тестовый SMTP client.

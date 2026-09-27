@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-27: G18 graceful SMTP pool shutdown, scoped PASS T245
+
+- Исходящий SMTP worker теперь явно закрывает свои idle plaintext/implicit-TLS
+  sessions командой `QUIT` при shutdown; штатный `Drop` не выполняет сетевой I/O.
+  Завершение пробует закрыть остальные sessions даже после ошибки одной сессии,
+  освобождает учётные слоты и возвращает ошибку вызывающему owner. Drain очереди,
+  service и reactor сохраняют ошибки shutdown, не пропуская освобождение задач
+  и storage.
+- Peer-тесты проверяют QUIT/221 при shutdown пулов, worker, outbound service и
+  plaintext/TLS scheduler; повторное использование между транзакциями остаётся
+  без промежуточного QUIT. Windows Rust 1.97.1: fmt, strict Clippy, 795 library
+  + 1 CLI прошли; 3 fixture-dependent теста ignored. Linux Rust 1.97:
+  879 library + 1 CLI прошли, 3 ignored. Контейнер запущен с `--rm`, образ не
+  собирался, отдельные образы/контейнеры не оставлены.
+- Проверен путь штатного shutdown с успешными ответами peer. Ошибки QUIT на
+  нескольких idle connections и внешний MTA interoperability остаются отдельно
+  непроверенными.
+
 ### 2026-09-27: G18 outbound SMTP QUIT semantics for plaintext and implicit TLS, scoped PASS T244
 
 - Исправлен standalone implicit-TLS `deliver`: после завершённого SMTP результата
@@ -14,8 +32,7 @@
   library + 1 CLI прошли; 3 fixture-dependent теста ignored. Linux Rust 1.97:
   879 library + 1 CLI прошли, 3 ignored; контейнер удалён через `--rm`.
 - Это локальные peers, не внешний MTA. Нормативные 5-минутные задержки на
-  wall clock не запускались; graceful QUIT при уничтожении всего TLS pool
-  остаётся отдельным открытым вопросом.
+  wall clock не запускались; явное graceful завершение пула добавлено в T245.
 
 ### 2026-09-27: G18 outbound SMTP QUIT response timeout, scoped PASS T243
 

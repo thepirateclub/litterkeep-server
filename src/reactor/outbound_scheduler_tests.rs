@@ -66,13 +66,12 @@ fn scheduler_drains_without_explicit_queue_command() {
         scheduler
             .wake_due(&storage, &mut lifecycle)
             .expect("deadline");
-        if let (true, true) = (scheduler.deadline().is_some(), peer.is_finished()) {
+        if scheduler.deadline().is_some() {
             break;
         }
         assert!(Instant::now() < deadline, "scheduler timed out");
     }
 
-    peer.join().expect("peer");
     assert_eq!(lifecycle.stats().waiting_tasks, 1);
     assert_eq!(lifecycle.stats().ready_queue_depth, 0);
     assert!(lifecycle.request_cancel(scheduler.task));
@@ -84,6 +83,7 @@ fn scheduler_drains_without_explicit_queue_command() {
             .expect("cancel wake")
     );
     scheduler.shutdown(&mut lifecycle).expect("shutdown");
+    peer.join().expect("peer");
     assert_eq!(lifecycle.task_count(), 0);
     storage.shutdown();
     let store = Store::open(&path).expect("reopen");
@@ -116,6 +116,7 @@ fn serve_one(listener: TcpListener) {
         }
     }
     stream.write_all(b"250 accepted\r\n").expect("accepted");
+    exchange(&mut reader, &mut stream, "QUIT", b"221 closing\r\n");
 }
 
 fn exchange(

@@ -73,6 +73,26 @@ impl ConnectionPool {
         self.open
     }
 
+    /// Завершает каждую idle session командой QUIT и сообщает первую ошибку.
+    ///
+    /// Вызов принадлежит явному owner shutdown; сетевой I/O не выполняется в Drop.
+    pub fn shutdown(&mut self) -> io::Result<()> {
+        let mut first_error = None;
+        for mut connection in self.idle.drain(..) {
+            if let Err(error) = connection.quit() {
+                match first_error.take() {
+                    None => first_error = Some(error),
+                    Some(existing) => first_error = Some(existing),
+                }
+            }
+        }
+        self.open = 0;
+        match first_error {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
+    }
+
     fn acquire(&mut self) -> io::Result<Connection> {
         match self.idle.pop() {
             Some(connection) => Ok(connection),

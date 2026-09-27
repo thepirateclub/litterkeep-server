@@ -119,7 +119,7 @@ fn tls_pool_reuses_only_its_bound_identity_context() {
             2,
             b"250 peer\r\n",
             "MAIL FROM:",
-            false,
+            true,
         )
     });
     let mut pool =
@@ -133,6 +133,7 @@ fn tls_pool_reuses_only_its_bound_identity_context() {
         );
     }
     assert_eq!(pool.idle_count(), 1);
+    pool.shutdown().expect("TLS pool graceful shutdown");
     peer.join().expect("peer");
 }
 

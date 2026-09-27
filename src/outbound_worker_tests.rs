@@ -25,6 +25,8 @@ fn worker_owns_one_pool_across_two_jobs() {
         stream.write_all(b"250 peer\r\n").expect("ehlo");
         transaction(&mut stream, &mut reader);
         transaction(&mut stream, &mut reader);
+        line(&mut reader, "QUIT");
+        stream.write_all(b"221 closing\r\n").expect("quit");
     });
     let worker = OutboundWorker::start(address.to_string(), 2, 1).expect("worker");
     worker.submit(job(1, b"first")).expect("first job");
@@ -38,7 +40,7 @@ fn worker_owns_one_pool_across_two_jobs() {
         completion(&worker).result.expect("second"),
         DeliveryOutcome::Delivered
     );
-    worker.shutdown();
+    worker.shutdown().expect("graceful SMTP shutdown");
     peer.join().expect("peer");
 }
 
@@ -55,7 +57,7 @@ fn worker_denies_unrouted_recipient_before_opening_socket() {
         .expect("submit");
     let error = completion(&worker).result.expect_err("route denied");
     assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
-    worker.shutdown();
+    worker.shutdown().expect("empty pool shutdown");
 }
 
 fn job(id: u64, payload: &[u8]) -> Job {
@@ -116,6 +118,8 @@ fn completion_wakes_linux_reactor_socket() {
         line(&mut reader, "EHLO");
         stream.write_all(b"250 peer\r\n").expect("ehlo");
         transaction(&mut stream, &mut reader);
+        line(&mut reader, "QUIT");
+        stream.write_all(b"221 closing\r\n").expect("quit");
     });
     let mut worker = WakingOutboundWorker::start(address.to_string(), 1, 1).expect("worker");
     worker.worker.submit(job(1, b"wake")).expect("job");
@@ -136,6 +140,6 @@ fn completion_wakes_linux_reactor_socket() {
         completion(&worker.worker).result.expect("delivery"),
         DeliveryOutcome::Delivered
     );
-    worker.shutdown();
+    worker.shutdown().expect("graceful SMTP shutdown");
     peer.join().expect("peer");
 }

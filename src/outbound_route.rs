@@ -75,4 +75,12 @@ impl Pool {
             Self::ImplicitTls(pool) => pool.deliver(sender, &recipient, payload),
         }
     }
+
+    /// Передаёт explicit shutdown обоим transport pool владельцам.
+    pub(crate) fn shutdown(&mut self) -> io::Result<()> {
+        match self {
+            Self::Plain(pool) => pool.shutdown(),
+            Self::ImplicitTls(pool) => pool.shutdown(),
+        }
+    }
 }
