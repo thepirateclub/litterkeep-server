@@ -237,22 +237,25 @@ dev bootstrap, доставил ему MIME-вложение по SMTP STARTTLS 
 IMAP STARTTLS/SASL PLAIN;
 отдельное чтение после перезапуска подтвердило durable delivery. Вложение
 совпало побайтно, SHA-256 `7f4e114fb71bb6cf784bda9f0d77d06e3ccb15cfdc667bbad322dcef81da20f8`.
-Клиент намеренно отправил `SMTPUTF8`, хотя EHLO его не предлагает, поэтому это
-доказательство пути, а не совместимости с Litterkeep app. Сам флаг не требует
-BODY=8BITMIME: 8-bit тела по-прежнему разрешаются только BODY=8BITMIME, а UTF-8
-заголовки требуют SMTPUTF8. Отдельный conforming STARTTLS клиент далее
+Это историческая T84 forced-extension проверка, созданная до T195: тогда
+SMTPUTF8 намеренно передавался без advertisement и проверялся только внутренний
+путь доставки, не interoperability. Ее актуальный conforming wire acceptance
+приведён ниже. Сам флаг не требует BODY=8BITMIME: 8-bit тела по-прежнему
+разрешаются только BODY=8BITMIME, а UTF-8 заголовки требуют SMTPUTF8. Отдельный conforming STARTTLS клиент далее
 передаёт U-label `пользователь@bücher.test`, читает MIME вложение по IMAP и
 независимо сравнивает точные octets. Account
 credentials, folder catalog, subscriptions, Sieve snapshots и внутренние
 mailbox keys сохраняют bounded UTF-8 идентификаторы в отдельном hex namespace;
-прямой Store/Accounts restart test проверяет эти слои, а forced-extension
-acceptance выше отдельно проверяет SMTP/IMAP network путь. Ограниченный
-DATA/transport checkpoint разбирает MAIL флаг SMTPUTF8, разрешает UTF-8 field values, но
-не ASCII field names, и требует обе peer capabilities на outbound перед MAIL.
+прямой Store/Accounts restart test проверяет эти слои, а conforming acceptance
+выше отдельно проверяет SMTP/IMAP network путь. Ограниченный DATA/transport
+checkpoint разбирает MAIL флаг SMTPUTF8, разрешает UTF-8 field values, но
+оставляет field names ASCII, как требует RFC 6532 §3; outbound требует peer
+capabilities перед MAIL.
 Независимый Linux SMTP peer подтвердил `BODY=8BITMIME SMTPUTF8` и сохранность
 UTF-8 header octets. Conforming U-label SMTP/IMAP delivery проверена отдельным
-клиентом выше. RFC 6532 UTF-8 field names и совместимость с Litterkeep app
-остаются непроверенными.
+клиентом выше. Полная грамматика RFC 6532 для UTF-8 в structured fields и
+совместимость с Litterkeep app остаются непроверенными. Имена полей остаются
+ASCII, не являются RFC 6532 extension.
 RFC 5321 Postmaster принимается как bare `<Postmaster>` без домена и как
 `postmaster@domain` для локально обслуживаемых доменов; регистр reserved local
 name и домена не влияет на route. Независимый STARTTLS тест отправил DATA и

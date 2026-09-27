@@ -1,5 +1,19 @@
 # Goal ledger
 
+### 2026-09-27: G17 RFC 6532 SMTPUTF8 coverage wording reconciled, scoped PASS T204
+
+- Уточнена текущая матрица: старый T84 forced-extension delivery был до T195 и
+  больше не описывает advertisement; T195 проверил conforming EHLO SMTPUTF8,
+  STARTTLS delivery U-label адреса и побайтное извлечение MIME-вложения.
+- Удалено ошибочное описание UTF-8 field names как возможной части RFC 6532:
+  §3 явно сохраняет ASCII-only syntax для имён заголовков. Оставшийся scope
+  сформулирован как неполная грамматика UTF-8 в structured field values и
+  непроверенная совместимость с Litterkeep app. Проверено по первичному RFC,
+  семи MIME header parser tests и ранее записанному T195 wire acceptance.
+- Документы прошли `cargo fmt --check` и `git diff --check`; source/tests не
+  менялись. Это исправление инвентаризации, не новый network acceptance и не
+  закрытие RFC 6532 целиком. G17/root остаются ACTIVE.
+
 ### 2026-09-27: G17 Sieve RFC 6131 vacation-seconds, scoped PASS T203
 
 - Добавлена typed capability `vacation-seconds`, typed `VacationInterval`, разбор
