@@ -41,8 +41,11 @@ parts и multipart preamble/epilogue проверяются на canonical CRLF 
 `DATA` после такого MAIL получает 503 и переводит сессию в режим, требующий
 RSET. Если MIME-заголовки содержат UTF-8 field values, BINARYMIME LAST также
 требует установленный в MAIL флаг `SMTPUTF8`; без флага сообщение отклоняется.
-Эта комбинация BINARYMIME/SMTPUTF8 пока покрыта targeted Linux unit test, а не
-отдельным wire acceptance. Independent Linux implicit-TLS peer подтвердил
+Independent Linux implicit-TLS peer проверил обе ветви: без MAIL SMTPUTF8
+UTF-8 заголовки отклонены на BDAT LAST, с принудительно переданным
+SMTPUTF8-флагом exact payload принят, извлечён через IMAP и пережил restart.
+EHLO при этом не рекламирует SMTPUTF8, поэтому forced flag является внутренней
+проверкой комбинации, а не interoperable RFC 6531 conformance. Independent peer подтвердил
 полный SMTP -> файловый Store -> IMAP сценарий для NUL, high-bit, bare LF/CR bytes, запрет DATA,
 отказ на noncanonical text, восстановление через RSET, точное чтение Bob и
 повторное чтение после рестарта сервера. Это локальный independent peer, не

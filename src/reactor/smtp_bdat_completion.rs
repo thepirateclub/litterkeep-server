@@ -61,7 +61,7 @@ pub(super) fn finish_accepted_chunk(
         let mut transaction = chunk.transaction;
         transaction.fail();
         session.smtp = SmtpState::BdatReady(transaction);
-        session.push(b"552 5.6.0 message content violates negotiated 7/8BITMIME profile\r\n")?;
+        session.push(b"552 5.6.0 message content violates negotiated SMTP body profile\r\n")?;
         return Ok(true);
     }
     let transaction = chunk.transaction;

@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 RFC 6531 SMTPUTF8 guard in inbound BINARYMIME, wire acceptance
+
+- T179 расширен с targeted validator test до независимого implicit-TLS
+  SMTP/IMAP acceptance на Linux. EHLO подтверждает CHUNKING/BINARYMIME и
+  отсутствие SMTPUTF8; UTF-8 field values без флага отклоняются при BDAT LAST,
+  с принудительно отправленным MAIL SMTPUTF8 сообщение доставляется Bob, exact
+  payload читается через IMAP и остаётся после рестарта того же контейнера.
+- Свежий Docker Rust 1.97 gate: strict Clippy, 727 library tests passed,
+  1 внешний Unicode UCD test ignored, 1 CLI test passed, doctests без тестов.
+  Python `py_compile`, `cargo fmt --check` и `git diff --check` прошли.
+- Это проверка внутренней guard семантики с намеренно forced extension, не
+  совместимость клиента по SMTPUTF8 и не полная EAI conformance: сервер не
+  рекламирует SMTPUTF8, IDNA и Litterkeep app не тестировались. Fixture
+  `./data/acceptance-smtputf8-binarymime-20260927` сохранена; контейнер и образ
+  удалены с подтверждением отсутствия. T179 теперь PASS в узком указанном scope;
+  G17 и корневая цель остаются ACTIVE.
+
 ### 2026-09-27: G17 RFC 6531 SMTPUTF8 required for BINARYMIME headers
 
 - Исправлен входящий BINARYMIME путь: RFC 6532 UTF-8 field values теперь

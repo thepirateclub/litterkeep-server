@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 PAYLOAD = b"opaque\x00bytes\xffwith\nraw\rcharacters\r\n"
+UTF8_PAYLOAD = b"utf8-header-profile\x00\xff"
 MESSAGE_PREFIX = (
     b"MIME-Version: 1.0\r\n"
     b"From: Alice <alice@litterkeep.test>\r\n"
@@ -53,11 +54,12 @@ def password(path: Path, account: str) -> str:
     raise AssertionError(f"acceptance credentials omit {account}")
 
 
-def require_reply(client: smtplib.SMTP, expected: ReplyCode, phase: str) -> None:
+def require_reply(client: smtplib.SMTP, expected: ReplyCode, phase: str) -> bytes:
     """Проверяет код и diagnostic text, не скрывая wire mismatch."""
     code, response = client.getreply()
     if code != expected:
         raise AssertionError(f"{phase}: SMTP {code} {response!r}")
+    return response
 
 
 def check_data_is_forbidden(client: smtplib.SMTP) -> None:
@@ -102,7 +104,46 @@ def transmit_binary_message(client: smtplib.SMTP) -> bytes:
     return message
 
 
-def stored_message(host: str, port: int, context: ssl.SSLContext, secret: str) -> bytes:
+def transmit_utf8_header_message(client: smtplib.SMTP) -> bytes:
+    """Проверяет UTF-8 header negotiation в принудительном BINARYMIME пути."""
+    message = (
+        "Subject: Привет\r\n"
+        "Content-Type: application/octet-stream\r\n"
+        "Content-Transfer-Encoding: binary\r\n\r\n"
+    ).encode("utf-8") + UTF8_PAYLOAD
+
+    client.putcmd("MAIL", "FROM:<alice@litterkeep.test> BODY=BINARYMIME")
+    require_reply(client, ReplyCode.ACCEPTED, "UTF-8 BINARYMIME MAIL without SMTPUTF8")
+    client.putcmd("RCPT", "TO:<bob@litterkeep.test>")
+    require_reply(client, ReplyCode.ACCEPTED, "UTF-8 BINARYMIME RCPT without SMTPUTF8")
+    client.putcmd("BDAT", f"{len(message)} LAST")
+    client.send(message)
+    diagnostic = require_reply(
+        client, ReplyCode.INVALID_CONTENT, "UTF-8 headers without SMTPUTF8"
+    )
+    if b"negotiated SMTP body profile" not in diagnostic:
+        raise AssertionError(f"wrong SMTPUTF8 rejection diagnostic: {diagnostic!r}")
+    code, response = client.rset()
+    if code != ReplyCode.ACCEPTED:
+        raise AssertionError(f"RSET after SMTPUTF8 rejection: SMTP {code} {response!r}")
+
+    client.putcmd("MAIL", "FROM:<alice@litterkeep.test> BODY=BINARYMIME SMTPUTF8")
+    require_reply(client, ReplyCode.ACCEPTED, "forced SMTPUTF8 BINARYMIME MAIL")
+    client.putcmd("RCPT", "TO:<bob@litterkeep.test>")
+    require_reply(client, ReplyCode.ACCEPTED, "forced SMTPUTF8 RCPT")
+    client.putcmd("BDAT", f"{len(message)} LAST")
+    client.send(message)
+    require_reply(client, ReplyCode.ACCEPTED, "forced SMTPUTF8 BINARYMIME LAST")
+    return message
+
+
+def stored_message(
+    host: str,
+    port: int,
+    context: ssl.SSLContext,
+    secret: str,
+    expected_payload: bytes,
+) -> bytes:
     """Находит raw RFC822 literal в Bob INBOX через независимый IMAP peer."""
     with imaplib.IMAP4_SSL(host, port, ssl_context=context, timeout=15) as client:
         client.login("bob", secret)
@@ -124,7 +165,7 @@ def stored_message(host: str, port: int, context: ssl.SSLContext, secret: str) -
             for item in fetched:
                 match item:
                     case (_, bytes() as raw):
-                        if raw.endswith(PAYLOAD):
+                        if raw.endswith(expected_payload):
                             return raw
                     case _:
                         continue
@@ -143,16 +184,24 @@ def main() -> None:
             raise AssertionError(f"EHLO failed: SMTP {code} {response!r}")
         if not client.has_extn("chunking") or not client.has_extn("binarymime"):
             raise AssertionError(f"EHLO omitted RFC 3030 capabilities: {client.esmtp_features!r}")
+        if client.has_extn("smtputf8"):
+            raise AssertionError("SMTPUTF8 capability is outside this server's advertised profile")
         client.login("alice", alice)
         check_data_is_forbidden(client)
         check_noncanonical_text_is_rejected(client)
         sent = transmit_binary_message(client)
-    received = stored_message(options.host, options.imap_port, context, bob)
+        utf8_sent = transmit_utf8_header_message(client)
+    received = stored_message(options.host, options.imap_port, context, bob, PAYLOAD)
+    utf8_received = stored_message(
+        options.host, options.imap_port, context, bob, UTF8_PAYLOAD
+    )
     if not received.endswith(PAYLOAD):
         raise AssertionError("payload bytes changed between BDAT and IMAP storage")
     if not sent.endswith(PAYLOAD):
         raise AssertionError("test sender payload construction is inconsistent")
-    print("Inbound SMTP BINARYMIME -> IMAP exact payload passed")
+    if not utf8_received.endswith(UTF8_PAYLOAD) or not utf8_sent.endswith(UTF8_PAYLOAD):
+        raise AssertionError("UTF-8 header BINARYMIME payload changed during delivery")
+    print("Inbound SMTP BINARYMIME -> IMAP exact payload and SMTPUTF8 guard passed")
 
 
 if __name__ == "__main__":
