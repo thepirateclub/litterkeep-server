@@ -4,6 +4,25 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 Unicode 17 IDNA Bidi Rule, scoped PASS T193
+
+- U-label validation применяет RFC 5893 §2 к меткам, содержащим классы R или
+  AL: начальный класс, допустимое множество, финальный класс с завершающими
+  NSM и запрет смешения EN/AN в RTL label. Таблица всех Unicode 17
+  Bidi_Class ranges сгенерирована из официального DerivedBidiClass.txt; SHA-256
+  `4867B4B7F0731ED1BFCD34CC6251211FF1542541FCE0734B6FBDA139EE80B3A4`.
+- Искусственные class-векторы покрывают RTL/LTR правила, допустимые окончания,
+  недопустимые классы и смешение цифр; U-label тесты проверяют арабский пример,
+  смешение европейских и арабских цифр и LTR/RTL классов. Windows: 18 IDNA
+  тестов, strict Clippy, fmt и полный набор (674 library passed, 1 внешний NFC
+  corpus ignored без fixture, 1 CLI и doctests). Linux Docker Rust 1.97 release,
+  strict Clippy и полный набор: 752 library passed, 1 такой corpus ignored,
+  1 CLI и doctests. Файлы не превышают 300 строк. Образ удалён, tag отсутствует.
+- Проверка вызывается на отдельной U-label: конвертер пока не получает весь
+  domain, поэтому не активирует RFC 5893 для ASCII/LTR sibling labels в домене,
+  где другая метка RTL. SMTP parser и SMTPUTF8 по-прежнему не интегрированы;
+  входящая A-label validation отсутствует. T193 scoped PASS, G17/root ACTIVE.
+
 ### 2026-09-27: G17 Unicode 17 IDNA CONTEXTJ rules
 
 - Завершены RFC 5892 Appendix A.1/A.2 правила Join Controls: U+200D требует

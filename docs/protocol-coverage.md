@@ -202,13 +202,18 @@ CONTEXTO для U+00B7/U+0375/U+05F3/U+05F4/U+30FB и двух Arabic digit sets
 контекст получает отдельную ошибку. CONTEXTJ использует Unicode 17
 Canonical_Combining_Class=Virama и DerivedJoiningType: ZWJ требует предыдущий
 virama, ZWNJ допускает virama или RFC joining context с пропуском Transparent.
-Ошибочный контекст отклоняется. Bidi пока не проверяется. Функция не подключена к SMTP
-parser-у, DNS conversion и
-capability SMTPUTF8 также не реализованы, поэтому сервер её не рекламирует.
+Ошибочный контекст отклоняется. RFC 5893 Bidi Rule использует Unicode 17
+DerivedBidiClass ranges и проверяет U-label начальный класс, разрешённые классы,
+финальный значимый класс и смешение EN/AN для RTL labels. Проверка вызывается
+пока только для отдельной метки, не распространяется на ASCII/LTR siblings в
+RTL domain и не выполняет domain-level активацию. Функция не подключена к SMTP
+parser-у, DNS conversion и capability SMTPUTF8 также не реализованы, поэтому
+сервер её не рекламирует.
 См. [RFC 3492](https://www.rfc-editor.org/rfc/rfc3492.html) и
 [RFC 5890](https://www.rfc-editor.org/rfc/rfc5890.html),
 [RFC 5891](https://www.rfc-editor.org/rfc/rfc5891.html) и
-[RFC 5892](https://www.rfc-editor.org/rfc/rfc5892.html).
+[RFC 5892](https://www.rfc-editor.org/rfc/rfc5892.html),
+[RFC 5893](https://www.rfc-editor.org/rfc/rfc5893.html).
 MAIL с таким reverse-path требует флаг SMTPUTF8; без него parser возвращает
 отдельную typed policy error, сериализуемую как `550 5.6.7` для отправителя
 согласно RFC 6531 §3.5. Reactor guard отклоняет UTF-8 RCPT без флага активного

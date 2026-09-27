@@ -122,8 +122,13 @@ virama либо L/D + Transparent* + ZWNJ + Transparent* + R/D; ZWJ требуе
 Fixture файлы лежат в `./data/g40-idna17/`; они не требуются во время работы
 сервера и служат только воспроизводимой генерации.
 
-Проверка bidi и входящих A-label не сделана. SMTP parser эту функцию пока не
-вызывает и SMTPUTF8 не рекламирует.
+U-label-local проверка RFC 5893 добавлена по Unicode 17
+DerivedBidiClass.txt (SHA-256
+`4867B4B7F0731ED1BFCD34CC6251211FF1542541FCE0734B6FBDA139EE80B3A4`). Она
+проверяет начальный/разрешённый/финальный классы и запрет смешения EN/AN в RTL
+метке. Domain-level активация для соседних ASCII/LTR labels и входящие A-label
+пока не реализованы. SMTP parser эту функцию пока не вызывает и SMTPUTF8 не
+рекламирует.
 
 ## Unicode License V3
 

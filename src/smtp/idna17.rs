@@ -1,5 +1,9 @@
 //! Derived IDNA2008 code point properties for the pinned Unicode 17.0.0 release.
 
+#[path = "idna17/bidi.rs"]
+mod bidi;
+#[path = "idna17/bidi_property.rs"]
+mod bidi_property;
 #[path = "idna17/joining_property.rs"]
 mod joining_property;
 #[path = "idna17/ranges.rs"]

@@ -19,6 +19,8 @@ pub enum UlabelError {
     ContextRuleRequired,
     /// Контекстное правило известно, но условие для этой кодовой точки нарушено.
     InvalidContext,
+    /// Метка нарушает один из шести условий Bidi Rule RFC 5893.
+    BidiRule,
     /// Получившаяся ASCII-метка превышает DNS-предел в 63 октета.
     EncodedLabelTooLong,
     /// Низкоуровневый кодек Punycode не смог выполнить преобразование.
@@ -73,7 +75,10 @@ fn validate_input(label: &str) -> Result<(), UlabelError> {
             }
         }
     }
-    Ok(())
+    match super::bidi::validate_label(&characters) {
+        true => Ok(()),
+        false => Err(UlabelError::BidiRule),
+    }
 }
 
 /// Проверяет contextual code point по установленному RFC правилу.

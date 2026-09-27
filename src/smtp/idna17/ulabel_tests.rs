@@ -14,6 +14,14 @@ fn converts_normalized_unicode_labels_to_alabels() {
     }
 }
 
+/// RFC 5893 проверяет арабские U-label до преобразования в A-label.
+#[test]
+fn applies_bidi_rule_to_rtl_ulabels() {
+    assert!(to_alabel("مثال").is_ok());
+    assert_eq!(to_alabel("مثال1١"), Err(UlabelError::BidiRule));
+    assert_eq!(to_alabel("abcا"), Err(UlabelError::BidiRule));
+}
+
 /// Не-NFC, неверные дефисы и запрещённые кодовые точки отклоняются.
 #[test]
 fn rejects_non_nfc_and_structurally_invalid_labels() {
