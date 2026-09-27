@@ -56,6 +56,18 @@ def main() -> None:
             b'NOOP "sync-42"\r\n',
             b'OK (TAG "sync-42") "noop"\r\n',
         )
+        connection.sendall(b"NOOP {7}\r\n")
+        if read_line(connection) != b'OK "ready for literal data"\r\n':
+            raise AssertionError("synchronizing NOOP literal was not accepted")
+        connection.sendall(b"sync-42")
+        if read_line(connection) != b'OK (TAG "sync-42") "noop"\r\n':
+            raise AssertionError("synchronizing NOOP literal tag was not echoed")
+        connection.sendall(b"NOOP {7+}\r\nsync-42")
+        if read_line(connection) != b'OK (TAG "sync-42") "noop"\r\n':
+            raise AssertionError("non-synchronizing NOOP literal tag was not echoed")
+        connection.sendall(b"NOOP {1+}\r\n\xff")
+        if read_line(connection) != b'NO "literal must be UTF-8"\r\n':
+            raise AssertionError("invalid UTF-8 literal did not get rejected")
         exchange(
             connection,
             b'NOOP "a \\\"b\\\\c"\r\n',

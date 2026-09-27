@@ -7,7 +7,7 @@
 
 use crate::managesieve::Command;
 
-const MAX_SCRIPT_BYTES: usize = 65_536;
+const MAX_LITERAL_BYTES: usize = 65_536;
 
 /// Результат разбора command line до начала владения телом literal.
 pub(super) enum Start {
@@ -22,9 +22,10 @@ pub(super) enum Start {
 enum Operation {
     Put(String),
     Check,
+    Noop,
 }
 
-/// Единственный bounded владелец байтов script между TCP reads.
+/// Единственный bounded владелец байтов literal между TCP reads.
 pub(super) struct LiteralReceiver {
     operation: Operation,
     expected: usize,
@@ -62,6 +63,7 @@ impl LiteralReceiver {
         match std::mem::replace(&mut self.operation, Operation::Check) {
             Operation::Put(name) => Progress::Complete(Command::PutScript { name, source }),
             Operation::Check => Progress::Complete(Command::CheckScript(source)),
+            Operation::Noop => Progress::Complete(Command::Noop(Some(source))),
         }
     }
 }
@@ -78,6 +80,7 @@ pub(super) fn start(line: &[u8]) -> Start {
     match Verb::parse(verb) {
         Verb::Put => put(tail),
         Verb::Check => check(tail),
+        Verb::Noop => noop(tail),
         Verb::Other => Start::NotLiteral,
     }
 }
@@ -85,6 +88,7 @@ pub(super) fn start(line: &[u8]) -> Start {
 enum Verb {
     Put,
     Check,
+    Noop,
     Other,
 }
 
@@ -93,6 +97,7 @@ impl Verb {
         match () {
             _ if value.eq_ignore_ascii_case("PUTSCRIPT") => Self::Put,
             _ if value.eq_ignore_ascii_case("CHECKSCRIPT") => Self::Check,
+            _ if value.eq_ignore_ascii_case("NOOP") => Self::Noop,
             _ => Self::Other,
         }
     }
@@ -109,11 +114,16 @@ fn check(tail: &str) -> Start {
     literal(Operation::Check, tail.trim())
 }
 
+/// Распознаёт одиночный literal-тег NOOP; любые лишние аргументы отвергаются.
+fn noop(tail: &str) -> Start {
+    literal(Operation::Noop, tail.trim())
+}
+
 fn literal(operation: Operation, marker: &str) -> Start {
     let Some((expected, continuation)) = size(marker) else {
         return Start::NotLiteral;
     };
-    match expected <= MAX_SCRIPT_BYTES {
+    match expected <= MAX_LITERAL_BYTES {
         true => Start::Begin {
             receiver: LiteralReceiver::new(operation, expected),
             continuation,
@@ -204,5 +214,30 @@ mod tests {
             }
         ));
         assert!(matches!(start(b"CHECKSCRIPT {65537+}\r\n"), Start::Invalid));
+    }
+
+    #[test]
+    fn noop_literal_keeps_sync_mode_and_pipeline_boundary() {
+        let Start::Begin {
+            mut receiver,
+            continuation,
+        } = start(b"NOOP {7}\r\n")
+        else {
+            panic!("synchronizing NOOP literal was not recognized");
+        };
+        assert!(continuation);
+        let mut input = b"sync-42NOOP\r\n".to_vec();
+        let Progress::Complete(Command::Noop(Some(tag))) = receiver.consume(&mut input) else {
+            panic!("NOOP literal tag did not complete");
+        };
+        assert_eq!(tag, "sync-42");
+        assert_eq!(input, b"NOOP\r\n");
+        assert!(matches!(
+            start(b"NOOP {7+}\r\n"),
+            Start::Begin {
+                continuation: false,
+                ..
+            }
+        ));
     }
 }

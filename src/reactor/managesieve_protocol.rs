@@ -50,7 +50,7 @@ pub(super) fn literal(
         managesieve_literal::Progress::Waiting => Ok(false),
         managesieve_literal::Progress::InvalidUtf8 => {
             session.managesieve_literal = None;
-            session.push(b"NO \"script must be UTF-8\"\r\n")?;
+            session.push(b"NO \"literal must be UTF-8\"\r\n")?;
             Ok(true)
         }
         managesieve_literal::Progress::Complete(command) => {

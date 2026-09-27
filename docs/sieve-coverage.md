@@ -27,8 +27,9 @@ RFC 5804 §2.13 NOOP is accepted before
 authentication; an optional quoted tag is returned in the required `(TAG
 "...")` response code with quoted-string escaping. Unit tests and the
 independent `tests/blackbox/managesieve_noop_tag.py` Linux socket acceptance
-verify untagged/tagged NOOP, escaping and LOGOUT. NOOP literal tags are not
-verified. RFC 5804 §2.1 requires both SCRAM-SHA-1 and PLAIN; only PLAIN is
+verify untagged/tagged NOOP, escaping and LOGOUT. NOOP literal tags are
+supported in synchronizing and non-synchronizing forms, while other command
+literal arguments remain unverified. RFC 5804 §2.1 requires both SCRAM-SHA-1 and PLAIN; only PLAIN is
 implemented and advertised, so mandatory SCRAM-SHA-1 interoperability remains
 an explicit conformance gap.
 
@@ -72,6 +73,13 @@ Linux wire acceptance in `tests/blackbox/managesieve_noop_tag.py` verify both
 forms while retaining valid NOOP tag behavior. This does not close the
 mandatory SCRAM-SHA-1 gap; the project dependency allowlist currently excludes
 the SHA-1/HMAC primitives needed for a compliant implementation.
+
+RFC 5804 §1.2 and §4 define command string values as quoted or literal. The
+NOOP optional tag accepts bounded sync and non-sync literal-c2s forms;
+independent Linux wire acceptance checks the continuation exchange, direct
+non-sync payload, exact TAG echoes and pipeline preservation. Other ManageSieve
+string arguments still require a separate literal-coverage audit and are not
+claimed as covered by this change.
 
 ManageSieve script count, per-script byte size and serialized account catalog
 are bounded in the Store. RFC 5804 §1.5 requires a `NO` response containing

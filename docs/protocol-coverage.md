@@ -1004,6 +1004,11 @@ quoted-string escapes as syntax errors instead of accepting a valid command
 prefix. Parser tests and the independent Linux wire scenario verify both
 negative cases. Mandatory SCRAM-SHA-1 remains unimplemented under the current
 production dependency allowlist.
+NOOP accepts an optional RFC 5804 string as either quoted text or synchronizing
+and non-synchronizing client literals. Linux reactor tests cover literal
+consumption and pipeline boundaries; independent wire acceptance confirms the
+continuation and exact TAG responses. This does not establish literal support
+for other ManageSieve command arguments.
 
 ## Outbound SMTP
 

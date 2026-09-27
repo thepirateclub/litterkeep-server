@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-27: G18 ManageSieve NOOP literal tag forms, scoped PASS T255
+
+- RFC 5804 §1.2 and §4 allow command strings as quoted or literal values. The
+  NOOP optional tag now accepts synchronizing and non-synchronizing client
+  literals using the bounded session-owned ManageSieve receiver; script literal
+  handling remains unchanged. The receiver consumes exactly the declared
+  octets and leaves following pipelined commands untouched.
+- Linux reactor regression verifies sync mode and pipeline boundary.
+  `tests/blackbox/managesieve_noop_tag.py` verified continuation, non-sync
+  payload, exact echoed TAG for both forms and invalid-UTF-8 rejection against
+  the release listener.
+  Windows Rust 1.97.1 fmt, strict Clippy and all-target tests passed (802 library
+  + 1 CLI, 3 fixture-dependent ignored); the Linux-only receiver test is not
+  compiled on Windows. Linux Docker Rust 1.97.1 fmt, strict Clippy, 888 library
+  + 1 CLI passed, 3 external Unicode fixtures ignored, release build passed.
+  Container removed; existing Rust image retained. Literal forms for the other
+  ManageSieve string arguments remain unverified.
+
 ### 2026-09-27: G18 ManageSieve malformed quoted-string rejection, scoped PASS T254
 
 - The RFC 5804 token reader previously returned a truncated token list after
