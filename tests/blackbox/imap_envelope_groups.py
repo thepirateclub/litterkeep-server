@@ -16,19 +16,19 @@ def require(result: tuple[str, object], operation: str) -> object:
 
 
 def response_bytes(data: object) -> bytes:
-    """Объединяет response chunks imaplib без изменения wire-октетов."""
+    """Объединяет непрерывные response chunks без добавления разделителей."""
     match data:
         case bytes():
             return data
         case tuple() | list():
-            return b" ".join(response_bytes(part) for part in data)
+            return b"".join(response_bytes(part) for part in data)
         case _:
             return b""
 
 
 def search_address(client: imaplib.IMAP4, field: str, value: str) -> bytes:
     """Требует, чтобы ENVELOPE-проекция нашла заданный group/mailbox term."""
-    result = require(client.search("UTF-8", field, f'"{value}"'), f"SEARCH {field}")
+    result = require(client.search(None, field, f'"{value}"'), f"SEARCH {field}")
     match result:
         case [only]:
             return only
@@ -38,12 +38,44 @@ def search_address(client: imaplib.IMAP4, field: str, value: str) -> bytes:
 
 def require_no_search_match(client: imaplib.IMAP4, field: str, value: str) -> None:
     """Подтверждает, что комментарии не становятся содержимым адреса для SEARCH."""
-    result = require(client.search("UTF-8", field, f'"{value}"'), f"SEARCH {field}")
+    result = require(client.search(None, field, f'"{value}"'), f"SEARCH {field}")
     match result:
         case [b""]:
             return
         case _:
             raise AssertionError(f"SEARCH {field} unexpectedly matched {value!r}: {result!r}")
+
+
+def verify_legacy_quoted_control_literal(client: imaplib.IMAP4) -> None:
+    """Проверяет RFC 5322 obs-qp в адресе и IMAP literal в ENVELOPE."""
+    mailbox = f"EnvelopeLiteral-{uuid.uuid4().hex}"
+    require(client.create(mailbox), "CREATE literal mailbox")
+    message = (
+        b"From: Literal <literal@[host\\"
+        + b"\0tail]>\r\nSubject: obsolete quoted pair\r\n\r\nbody\r\n"
+    )
+    require(client.append(mailbox, None, None, message), "APPEND quoted control")
+    require(client.select(mailbox), "SELECT literal mailbox")
+    result = require(client.fetch("1", "(ENVELOPE)"), "FETCH literal ENVELOPE")
+    wire = response_bytes(result)
+    domain = b"[host\\\0tail]"
+    # imaplib извлекает synchronizing literal и убирает framing CRLF из chunks.
+    literal = b"{" + str(len(domain)).encode("ascii") + b"}" + domain
+    if literal not in wire:
+        raise AssertionError(f"quoted control was not returned as a literal: {wire!r}")
+
+
+def enable_utf8_accept(client: imaplib.IMAP4) -> None:
+    """Включает RFC 9755 без устаревшего APPEND data item из imaplib."""
+    status, _ = client._simple_command("ENABLE", "UTF8=ACCEPT")
+    response_type, enabled = client.response("ENABLED")
+    if status != "OK":
+        raise AssertionError(f"ENABLE failed: {status!r}")
+    if response_type != "ENABLED":
+        raise AssertionError(f"ENABLE response is absent: {response_type!r}")
+    if not any(b"UTF8=ACCEPT" in item for item in enabled):
+        raise AssertionError(f"UTF8=ACCEPT was not enabled: {enabled!r}")
+    client._encoding = "utf-8"
 
 
 def main() -> None:
@@ -56,6 +88,7 @@ def main() -> None:
     client = imaplib.IMAP4(options.host, options.port, timeout=10)
     client.starttls(ssl_context=context)
     require(client.login("bob", os.environ["LITTERKEEP_BOB_PASSWORD"]), "LOGIN")
+    enable_utf8_accept(client)
     mailbox = f"EnvelopeGroups-{uuid.uuid4().hex}"
     group = f"A-Group-{uuid.uuid4().hex}"
     require(client.create(mailbox), "CREATE")
@@ -131,6 +164,7 @@ def main() -> None:
         raise AssertionError("BCC search did not match a mailbox inside the group")
     require_no_search_match(client, "TO", "mentor")
     require_no_search_match(client, "TO", "list comment")
+    verify_legacy_quoted_control_literal(client)
     client.logout()
     print(
         "PASS imap-envelope-groups: comments, groups, quoted local-part, "

@@ -1,5 +1,22 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 5322 obsolete quoted-pair in IMAP ENVELOPE, scoped PASS T292
+
+- RFC 5322 §4.1 obs-qp includes NUL, CR, LF and ASCII control bytes, so
+  domain-literal parsing now accepts those octets when protected by a quoted
+  pair. Shared IMAP nstring encoding uses a synchronizing literal when data
+  contains NUL/CR/LF instead of emitting an invalid quoted-string.
+- An independent Python imaplib STARTTLS client APPENDed a message containing
+  an escaped NUL in the From domain-literal and successfully fetched ENVELOPE;
+  the response carried the exact 12-octet host as a parsed literal. Windows
+  Rust 1.97.1 format, all-target tests and strict Clippy passed (814 library +
+  1 CLI, 3 ignored). Fresh Linux Rust 1.97 Docker test stage passed strict
+  Clippy, 923 library + 1 CLI tests (3 ignored), and doc-tests; the stage's
+  runtime container and both created images were removed and absence verified.
+- This verifies one obsolete quoted-pair and IMAP string path, not all
+  obs-qp/control combinations or full RFC 5322/9051 interoperability; G18
+  remains ACTIVE.
+
 ### 2026-09-28: G18 RFC 5322/6532 domain-literal dtext validation, scoped PASS T291
 
 - Domain-literal parsing previously preserved arbitrary characters, including

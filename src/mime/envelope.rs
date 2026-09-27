@@ -58,8 +58,8 @@ pub fn encode(message: &[u8]) -> Result<String, &'static str> {
         envelope_address::with_default(fields(&headers.fields, HeaderName::ReplyTo), &from)?;
     Ok(format!(
         "({} {} {} {} {} {} {} {} {} {})",
-        nstring(single(&headers.fields, HeaderName::Date)?)?,
-        nstring(decoded_single(&headers.fields, HeaderName::Subject)?)?,
+        super::imap_string::encode_nstring(single(&headers.fields, HeaderName::Date)?),
+        super::imap_string::encode_nstring(decoded_single(&headers.fields, HeaderName::Subject)?),
         envelope_address::encode_list(&from)?,
         envelope_address::encode_list(&sender)?,
         envelope_address::encode_list(&reply_to)?,
@@ -75,8 +75,8 @@ pub fn encode(message: &[u8]) -> Result<String, &'static str> {
             &headers.fields,
             HeaderName::Bcc,
         ))?)?,
-        nstring(single(&headers.fields, HeaderName::InReplyTo)?)?,
-        nstring(single(&headers.fields, HeaderName::MessageId)?)?,
+        super::imap_string::encode_nstring(single(&headers.fields, HeaderName::InReplyTo)?),
+        super::imap_string::encode_nstring(single(&headers.fields, HeaderName::MessageId)?),
     ))
 }
 
@@ -100,25 +100,6 @@ fn decoded_single(
         return Ok(None);
     };
     Ok(Some(encoded_word::decode_header(&value)?))
-}
-
-fn nstring(value: Option<String>) -> Result<String, &'static str> {
-    let Some(value) = value else {
-        return Ok("NIL".to_owned());
-    };
-    let mut output = String::from("\"");
-    for character in value.chars() {
-        match character {
-            '\r' | '\n' => return Err("newline in ENVELOPE value"),
-            '\\' | '"' => {
-                output.push('\\');
-                output.push(character);
-            }
-            _ => output.push(character),
-        }
-    }
-    output.push('"');
-    Ok(output)
 }
 
 #[cfg(test)]

@@ -849,9 +849,12 @@ Comment removal также сохраняет скобки и содержимо
 следующий ` . ` как адресный CFWS; проверены точные bytes ENVELOPE. Wire-сценарий
 для этого obsolete form не выполнялся.
 Проверка `dtext` принимает видимые ASCII-символы, разрешённые пробелы,
-obsolete controls/quoted-pair, а также UTF-8 non-ASCII по RFC 6532; NUL
-отвергается. Unit regression проверяет UTF-8 literal и отказ на NUL. Это не
-полный набор domain-literal форм и не wire/interoperability-проверка.
+obs-NO-WS-CTL и UTF-8 non-ASCII по RFC 6532; неэкранированный NUL отвергается.
+RFC 5322 obs-qp сохраняет escaped NUL/CR/LF. Для ENVELOPE такие строки
+кодируются synchronizing IMAP literal, поскольку quoted-string не допускает
+эти октеты по RFC 9051. Независимый Python imaplib STARTTLS APPEND/FETCH
+проверяет точное значение escaped-NUL host через literal. Полный набор
+domain-literal форм и interoperability с Litterkeep не подтверждены.
 После закрывающей `>` angle-addr parser разрешает только CFWS, включая
 комментарии, и отвергает произвольный хвост или второй angle-addr вместо
 молчаливого усечения адреса. Unit regression проверяет оба отказа и сохранение

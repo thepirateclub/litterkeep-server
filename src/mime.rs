@@ -83,6 +83,8 @@ mod envelope_address_route;
 mod envelope_address_scan;
 #[path = "mime/headers.rs"]
 pub mod header_block;
+#[path = "mime/imap_string.rs"]
+mod imap_string;
 #[path = "mime/language_tag.rs"]
 pub mod language_tag;
 #[path = "mime/parameter_extended.rs"]

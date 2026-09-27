@@ -78,12 +78,15 @@ pub(super) fn encode_list(entries: &[AddressEntry]) -> Result<String, &'static s
         let encoded = match entry {
             AddressEntry::Mailbox(address) => format!(
                 "({} NIL {} {})",
-                nstring(address.name.clone())?,
-                nstring(Some(address.mailbox.clone()))?,
-                nstring(Some(address.host.clone()))?
+                super::imap_string::encode_nstring(address.name.clone()),
+                super::imap_string::encode_nstring(Some(address.mailbox.clone())),
+                super::imap_string::encode_nstring(Some(address.host.clone()))
             ),
             AddressEntry::GroupStart(name) => {
-                format!("(NIL NIL {} NIL)", nstring(Some(name.clone()))?)
+                format!(
+                    "(NIL NIL {} NIL)",
+                    super::imap_string::encode_nstring(Some(name.clone()))
+                )
             }
             AddressEntry::GroupEnd => "(NIL NIL NIL NIL)".to_owned(),
         };
@@ -260,25 +263,6 @@ fn normalize_phrase(value: &str) -> String {
         }
     }
     phrase
-}
-
-fn nstring(value: Option<String>) -> Result<String, &'static str> {
-    let Some(value) = value else {
-        return Ok("NIL".to_owned());
-    };
-    let mut output = String::from("\"");
-    for character in value.chars() {
-        match character {
-            '\r' | '\n' => return Err("newline in ENVELOPE value"),
-            '\\' | '"' => {
-                output.push('\\');
-                output.push(character);
-            }
-            _ => output.push(character),
-        }
-    }
-    output.push('"');
-    Ok(output)
 }
 
 #[cfg(test)]
