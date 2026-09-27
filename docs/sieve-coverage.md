@@ -259,7 +259,11 @@ RFC 5322 parser: допустим один `addr-spec` либо quoted phrase п
 `<addr-spec>`. Mailbox lists, source routes, groups и некорректные адреса
 отвергаются при static validation. Unit tests и отдельный независимый
 ManageSieve CHECKSCRIPT `tests/blackbox/managesieve_redirect_validation.py`
-проверяют принятие и отказ. Исходящая SMTP-доставка redirect не проверена.
+проверяют принятие и отказ. Сквозная доставка redirect после завершения source
+Store через durable queue к независимому SMTP peer проверена в T119:
+сравниваются envelope, полные RFC822 octets с локальной implicit-keep копией и
+байты MIME-вложения. Это не подтверждает взаимодействие с Litterkeep или
+произвольным внешним MTA.
 
 Sieve `header` декодирует RFC 2047 encoded-word общей MIME-декодировкой до
 сравнения в UTF-8 и игнорирует ведущие/завершающие SP и HTAB по RFC 5228 §5.7.

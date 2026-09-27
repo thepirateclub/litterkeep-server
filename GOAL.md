@@ -4,6 +4,18 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 reconcile Sieve redirect coverage matrix with T119
+
+- Исправлено устаревшее утверждение в `docs/sieve-coverage.md`, будто redirect
+  SMTP delivery не проверялась. Текущий `tests/blackbox/sieve_redirect_copy_peer.py`
+  и зарегистрированный T119 покрывают ManageSieve activation, local implicit
+  keep, остановку source Store, durable queue drain, independent SMTP peer,
+  сравнение envelope/RFC822 и decoded attachment bytes.
+- Текущий acceptance harness не запускался повторно: Docker fixture и image
+  T119 уже удалены. Запись ограничена аудитом согласованности по проверяемому
+  исходнику и сохранённому acceptance evidence; Litterkeep и произвольный
+  внешний MTA остаются непроверенными. Корневая цель и G17 остаются ACTIVE.
+
 ### 2026-09-27: G17 Sieve ASCII-casemap contains linear-time matching
 
 - `:contains` с `i;ascii-casemap` заменён с перебора всех окон на KMP:
