@@ -1026,10 +1026,12 @@ default, некорректные значения отклоняются при
 Unit-тест сверяет таблицу фаз и валидирует partial overrides/ошибки; тестовый
 transport может задать короткий единый предел, а wire-тест подтверждает timeout
 зависшего greeting. Дополнительный независимый TCP peer с короткими phase-specific
-overrides удерживает соединение открытым до timeout для greeting, ожидания `354`
-на DATA и финального ответа после фактически полученного DATA terminator. Это
-проверяет реальное поведение трёх фаз, но не все command/reply deadlines и не
-нормативные минуты ожидания на wall clock; Litterkeep app не проверялось.
+overrides удерживает соединение открытым до timeout для greeting, команд EHLO,
+MAIL и RCPT, ожидания `354` на DATA и финального ответа после фактически
+полученного DATA terminator. Это проверяет шесть реальных точек ожидания. QUIT,
+BDAT и нормативные минуты ожидания на wall clock не проверялись; Litterkeep app
+не проверялось. Отдельный rustls unit peer проверяет переход greeting -> EHLO
+для implicit TLS при различающихся greeting/command deadlines.
 DATA передаётся потоково без дополнительной копии полного message: RFC-ограниченная
 строка формирует bounded fragment, dot-stuffing применяется до записи, а каждый
 фрагмент отправляется через `write_all`. Unit writer с partial writes проверяет

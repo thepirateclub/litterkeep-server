@@ -14,8 +14,20 @@ class Phase(Enum):
     """Фазы исходящего SMTP, где peer намеренно не отвечает."""
 
     GREETING = "greeting"
+    EHLO = "ehlo"
+    MAIL = "mail"
+    RCPT = "rcpt"
     DATA_START = "data-start"
     DATA_FINAL = "data-final"
+
+
+class Command(Enum):
+    """SMTP-команды, получение которых отдельно фиксирует peer."""
+
+    EHLO = "EHLO"
+    MAIL = "MAIL"
+    RCPT = "RCPT"
+    DATA = "DATA"
 
 
 class Peer(socketserver.ThreadingTCPServer):
@@ -27,7 +39,7 @@ class Peer(socketserver.ThreadingTCPServer):
     def __init__(self, address: tuple[str, int], phase: Phase):
         super().__init__(address, Handler)
         self.phase = phase
-        self.observed_data_command = False
+        self.observed_commands: set[Command] = set()
         self.observed_terminator = False
 
 
@@ -46,15 +58,26 @@ class Handler(socketserver.StreamRequestHandler):
         while line := self.rfile.readline():
             upper = line.upper()
             command = next(iter(upper.split(maxsplit=1)), b"")
-            match command:
-                case b"EHLO":
+            parsed = parse_command(command)
+            if parsed is not None:
+                peer.observed_commands.add(parsed)
+            match (parsed, peer.phase):
+                case (Command.EHLO, Phase.EHLO):
+                    self.wait_for_client_timeout()
+                    return
+                case (Command.EHLO, _):
                     self.wfile.write(b"250 peer.test\r\n")
-                case b"MAIL":
+                case (Command.MAIL, Phase.MAIL):
+                    self.wait_for_client_timeout()
+                    return
+                case (Command.MAIL, _):
                     self.wfile.write(b"250 sender accepted\r\n")
-                case b"RCPT":
+                case (Command.RCPT, Phase.RCPT):
+                    self.wait_for_client_timeout()
+                    return
+                case (Command.RCPT, _):
                     self.wfile.write(b"250 recipient accepted\r\n")
-                case b"DATA":
-                    peer.observed_data_command = True
+                case (Command.DATA, _):
                     if peer.phase is Phase.DATA_START:
                         self.wait_for_client_timeout()
                         return
@@ -65,9 +88,8 @@ class Handler(socketserver.StreamRequestHandler):
                         self.wait_for_client_timeout()
                         return
                     self.wfile.write(b"250 queued\r\n")
-                case b"QUIT":
-                    self.wfile.write(b"221 bye\r\n")
-                    return
+                case (None, _):
+                    self.wfile.write(b"500 unsupported\r\n")
                 case _:
                     self.wfile.write(b"500 unsupported\r\n")
             self.wfile.flush()
@@ -123,11 +145,7 @@ def run_case(
     message.write_bytes(b"Subject: timeout probe\r\n\r\nbody\r\n")
     relative = message.resolve().relative_to(data_root).as_posix()
     mount = f"type=bind,source={data_root},target=/data"
-    timeout_setting = {
-        Phase.GREETING: "LITTERKEEP_SMTP_GREETING_TIMEOUT_SECONDS",
-        Phase.DATA_START: "LITTERKEEP_SMTP_DATA_START_TIMEOUT_SECONDS",
-        Phase.DATA_FINAL: "LITTERKEEP_SMTP_DATA_FINAL_TIMEOUT_SECONDS",
-    }[phase]
+    timeout_setting = timeout_setting_for(phase)
     started = time.monotonic()
     with Peer(("0.0.0.0", 0), phase) as peer:
         _, port = peer.server_address
@@ -157,18 +175,58 @@ def run_case(
         raise AssertionError(f"{phase.value} timeout was not bounded: {elapsed:.2f}s")
     match phase:
         case Phase.GREETING:
-            if peer.observed_data_command:
+            if Command.DATA in peer.observed_commands:
                 raise AssertionError("greeting timeout reached DATA")
+        case Phase.EHLO:
+            require_command(peer, Command.EHLO)
+        case Phase.MAIL:
+            require_command(peer, Command.MAIL)
+        case Phase.RCPT:
+            require_command(peer, Command.RCPT)
         case Phase.DATA_START:
-            if not peer.observed_data_command or peer.observed_terminator:
+            if Command.DATA not in peer.observed_commands or peer.observed_terminator:
                 raise AssertionError("DATA initiation timeout phase was not isolated")
         case Phase.DATA_FINAL:
             if not peer.observed_terminator:
                 raise AssertionError("final timeout happened before DATA terminator")
 
 
+def require_command(peer: Peer, command: Command) -> None:
+    """Подтверждает, что timeout наступил только после нужной SMTP-команды."""
+    if command not in peer.observed_commands:
+        raise AssertionError(f"peer did not observe {command.value} before timeout")
+
+
+def timeout_setting_for(phase: Phase) -> str:
+    """Выбирает именованную process setting без сырых строковых условий."""
+    match phase:
+        case Phase.GREETING:
+            return "LITTERKEEP_SMTP_GREETING_TIMEOUT_SECONDS"
+        case Phase.DATA_START:
+            return "LITTERKEEP_SMTP_DATA_START_TIMEOUT_SECONDS"
+        case Phase.DATA_FINAL:
+            return "LITTERKEEP_SMTP_DATA_FINAL_TIMEOUT_SECONDS"
+        case Phase.EHLO | Phase.MAIL | Phase.RCPT:
+            return "LITTERKEEP_SMTP_COMMAND_TIMEOUT_SECONDS"
+
+
+def parse_command(value: bytes) -> Command | None:
+    """Преобразует SMTP verb в enum до выбора тестовой ветви."""
+    match value:
+        case b"EHLO":
+            return Command.EHLO
+        case b"MAIL":
+            return Command.MAIL
+        case b"RCPT":
+            return Command.RCPT
+        case b"DATA":
+            return Command.DATA
+        case _:
+            return None
+
+
 def main() -> None:
-    """Проверяет greeting и оба DATA reply deadline в независимых сессиях."""
+    """Проверяет три command и три выделенных greeting/DATA deadline."""
     options = arguments()
     repository = Path(__file__).resolve().parent.parent.parent
     data_root = (repository / "data").resolve()

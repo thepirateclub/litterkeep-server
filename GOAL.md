@@ -1,5 +1,32 @@
 # Goal ledger
 
+### 2026-09-27: G17 EHLO timeout defect discovered, checkpoint T201 FAIL
+
+- Расширенный независимый peer первоначально прошёл greeting, затем завис на
+  EHLO дольше 15 секунд, хотя `LITTERKEEP_SMTP_COMMAND_TIMEOUT_SECONDS=1`.
+  Проверка остановилась по внешнему watchdog до MAIL/RCPT/DATA. Причина была в
+  том, что оба outbound client сохраняли greeting read timeout при чтении EHLO.
+- T201 намеренно оставлен FAIL в матрице как диагностический результат, а не
+  переименован в PASS после исправления. Production fix и повторный полный прогон
+  зарегистрированы отдельно в T202.
+
+### 2026-09-27: G17 outbound SMTP EHLO command deadline, scoped PASS T202
+
+- Plaintext и implicit-TLS transports переключают socket read timeout на обычный
+  command deadline после greeting и до отправки EHLO. Создание plaintext channel
+  вынесено в отдельный `src/outbound_connect.rs`; `src/outbound.rs` теперь 290
+  строк. Добавлен отдельный implicit-TLS rustls peer, который при greeting limit
+  2 s и command limit 100 ms удерживает TLS канал открытым: тест получил timeout
+  после 0,11 s.
+- Linux Rust 1.97 project Docker test stage прошёл strict Clippy, 772 library +
+  1 CLI test, один внешний Unicode corpus ignored без файла. Runtime wire suite
+  прошёл greeting, EHLO, MAIL, RCPT, DATA 354 и final DATA wait, каждый peer
+  удерживал соединение открытым до выбранного timeout. Python `py_compile` и
+  `cargo fmt --check` прошли. Уникальные Docker images удалены, containers
+  запускались с `--rm`; fixture `./data/acceptance-outbound-timeout-20260927`.
+- Независимый peer не является Litterkeep app; QUIT, BDAT и реальные минуты RFC
+  на wall clock не проверялись. T202 scoped PASS; G17/root остаются ACTIVE.
+
 ### 2026-09-27: G17 outbound SMTP phase timeout wire checks, scoped PASS T200
 
 - Добавлен отдельный независимый peer `tests/blackbox/smtp_outbound_phase_timeout.py`.

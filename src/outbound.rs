@@ -7,6 +7,8 @@ use std::{
 
 #[path = "outbound_bdat.rs"]
 pub(crate) mod bdat;
+#[path = "outbound_connect.rs"]
+mod connect;
 #[path = "outbound_data.rs"]
 mod data;
 #[path = "outbound_ehlo.rs"]
@@ -104,24 +106,7 @@ impl Connection {
     }
 
     fn connect_addr_with_limits(address: SocketAddr, limits: TransportLimits) -> io::Result<Self> {
-        let stream = connect_bounded_addr(address, limits)?;
-        let mut result = Self {
-            reader: BufReader::new(stream.try_clone()?),
-            writer: stream,
-            capabilities: EhloCapabilities::default(),
-            close_after_response: false,
-            timeouts: limits.timeouts,
-        };
-        expect_success(&mut result.reader, ReplyExpectation::Greeting)?;
-        result.command("EHLO litterkeep.test\r\n")?;
-        match negotiate_ehlo(&mut result.reader)? {
-            EhloNegotiation::Extended(capabilities) => result.capabilities = capabilities,
-            EhloNegotiation::Basic => {
-                result.command("HELO litterkeep.test\r\n")?;
-                expect_success(&mut result.reader, ReplyExpectation::Helo)?;
-            }
-        }
-        Ok(result)
+        connect::connect_addr_with_limits(address, limits)
     }
 
     /// Выполняет ровно одну SMTP envelope transaction на уже проверенном канале.

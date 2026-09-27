@@ -26,6 +26,16 @@ impl SmtpTimeouts {
         }
     }
 
+    /// Создаёт тестовую пару с длинным greeting и коротким обычным deadline.
+    #[cfg(test)]
+    pub(crate) fn greeting_and_command(greeting: Duration, command: Duration) -> Self {
+        Self {
+            greeting,
+            command,
+            ..Self::default()
+        }
+    }
+
     /// Выбирает ожидание ответа по текущей SMTP-команде.
     pub(crate) fn response(self, expectation: ReplyExpectation) -> Duration {
         match expectation {

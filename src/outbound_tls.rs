@@ -25,6 +25,15 @@ impl Connection {
     /// Устанавливает TCP/TLS канал и проверяет SMTP greeting с EHLO.
     pub fn connect(address: &str, server_name: &str, ca_der: &[u8]) -> io::Result<Self> {
         let timeouts = outbound::SmtpTimeouts::from_environment()?;
+        Self::connect_with_timeouts(address, server_name, ca_der, timeouts)
+    }
+
+    fn connect_with_timeouts(
+        address: &str,
+        server_name: &str,
+        ca_der: &[u8],
+        timeouts: outbound::SmtpTimeouts,
+    ) -> io::Result<Self> {
         let config = client_config(ca_der)?;
         let name = ServerName::try_from(server_name.to_owned())
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid TLS server name"))?;
@@ -37,6 +46,12 @@ impl Connection {
             timeouts,
         };
         expect_success(&mut result.stream, outbound::ReplyExpectation::Greeting)?;
+        // TLS EHLO является обычной командой после отдельного greeting deadline.
+        result
+            .stream
+            .get_ref()
+            .sock
+            .set_read_timeout(Some(result.timeouts.command()))?;
         result.command("EHLO litterkeep.test\r\n")?;
         match outbound::negotiate_ehlo(&mut result.stream)? {
             outbound::EhloNegotiation::Extended(capabilities) => result.capabilities = capabilities,
@@ -46,6 +61,16 @@ impl Connection {
             }
         }
         Ok(result)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn connect_for_timeout_test(
+        address: &str,
+        server_name: &str,
+        ca_der: &[u8],
+        timeouts: outbound::SmtpTimeouts,
+    ) -> io::Result<Self> {
+        Self::connect_with_timeouts(address, server_name, ca_der, timeouts)
     }
 
     /// Выполняет одну SMTP transaction, не меняя TLS identity соединения.

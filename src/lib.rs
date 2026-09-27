@@ -48,6 +48,9 @@ pub mod outbound_tls_pool;
 #[cfg(test)]
 #[path = "outbound_tls_tests.rs"]
 mod outbound_tls_tests;
+#[cfg(test)]
+#[path = "outbound_tls_timeout_tests.rs"]
+mod outbound_tls_timeout_tests;
 #[cfg(target_os = "linux")]
 pub mod outbound_wakeup;
 pub mod outbound_worker;
