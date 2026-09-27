@@ -845,6 +845,9 @@ Comment removal также сохраняет скобки и содержимо
 проверены и balanced, и unbalanced dtext, а obsolete quoted-pair может защитить
 закрывающий `]`. Это unit-only покрытие отдельных байтов, не полного набора
 `dtext`.
+`normalize_dot_cfws` сохраняет escaped `]` внутри obsolete literal и не сворачивает
+следующий ` . ` как адресный CFWS; проверены точные bytes ENVELOPE. Wire-сценарий
+для этого obsolete form не выполнялся.
 Полный набор допустимых `dtext` и domain-literal форм ещё не покрыт.
 После закрывающей `>` angle-addr parser разрешает только CFWS, включая
 комментарии, и отвергает произвольный хвост или второй angle-addr вместо

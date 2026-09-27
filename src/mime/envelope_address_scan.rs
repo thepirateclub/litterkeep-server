@@ -76,6 +76,10 @@ pub(super) fn normalize_dot_cfws(value: &str) -> String {
                 normalized.push(value);
                 escaped = false;
             }
+            (false, true, true, value) => {
+                normalized.push(value);
+                escaped = false;
+            }
             (true, false, _, '\\') => {
                 normalized.push(character);
                 escaped = true;
@@ -85,6 +89,10 @@ pub(super) fn normalize_dot_cfws(value: &str) -> String {
                 quoted = false;
             }
             (true, false, _, _) => normalized.push(character),
+            (false, false, true, '\\') => {
+                normalized.push(character);
+                escaped = true;
+            }
             (false, _, true, ']') => {
                 normalized.push(character);
                 domain_literal = false;

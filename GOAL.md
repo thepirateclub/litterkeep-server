@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 5322 escaped domain-literal closer, scoped PASS T290
+
+- `normalize_dot_cfws` tracked quoted-pairs inside quoted local-parts but not
+  inside obsolete domain-literals. An escaped `]` therefore ended literal mode
+  early and whitespace around a later dot could be rewritten as obsolete CFWS.
+  The normalizer now preserves escape state in bracketed literals.
+- A regression first reproduced the byte change and now verifies exact
+  ENVELOPE preservation of the escaped closer and following ` . ` sequence.
+  Windows Rust 1.97.1 formatting, strict Clippy and all-target tests passed
+  (812 library + 1 CLI, 3 ignored). Fresh Linux Rust 1.97 Docker test stage
+  passed strict Clippy, 921 library + 1 CLI tests (3 ignored), and doc-tests.
+  The created image was removed and absence verified.
+- This is focused parser/unit evidence for obsolete domain-literal escaping,
+  not full domain-literal syntax or independent wire/app interoperability; G18
+  remains ACTIVE.
+
 ### 2026-09-28: G18 RFC 5322 dtext inside domain-literal, scoped PASS T289
 
 - The shared address scanner still treated parentheses inside square-bracket
