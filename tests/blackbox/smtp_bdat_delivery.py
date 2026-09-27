@@ -20,6 +20,7 @@ class ReplyCode(IntEnum):
 
     ACCEPTED = 250
     REJECTED = 552
+    BAD_SEQUENCE = 503
 
 
 class ImapStatus(Enum):
@@ -98,6 +99,10 @@ def submit(host: str, port: int, context: ssl.SSLContext, secret: str) -> None:
         client.putcmd("BDAT", f"{len(final)} LAST")
         client.send(final)
         require_accepted(client, "BDAT LAST")
+        expect_rejected(
+            client, b"x", "BDAT after LAST", ReplyCode.BAD_SEQUENCE
+        )
+        verify_recovery(client, "BDAT after LAST")
 
 
 def begin_transaction(client: smtplib.SMTP) -> None:
@@ -108,12 +113,17 @@ def begin_transaction(client: smtplib.SMTP) -> None:
     require_accepted(client, "rejected-test RCPT")
 
 
-def expect_rejected(client: smtplib.SMTP, payload: bytes, phase: str) -> None:
+def expect_rejected(
+    client: smtplib.SMTP,
+    payload: bytes,
+    phase: str,
+    expected: ReplyCode = ReplyCode.REJECTED,
+) -> None:
     """Передаёт ровно заявленное тело и проверяет ответ только после drain."""
     client.putcmd("BDAT", f"{len(payload)} LAST")
     client.send(payload)
     code, response = client.getreply()
-    if code != ReplyCode.REJECTED:
+    if code != expected:
         raise AssertionError(f"{phase}: SMTP {code} {response!r}")
 
 

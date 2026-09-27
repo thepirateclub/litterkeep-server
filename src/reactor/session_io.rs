@@ -92,6 +92,7 @@ pub(super) fn read_session(
         SmtpState::Command(_)
         | SmtpState::BdatDiscard { .. }
         | SmtpState::BdatReady(_)
+        | SmtpState::BdatFailed
         | SmtpState::BdatReceiving(_) => {}
     }
     if session.input_limit_exceeded() {

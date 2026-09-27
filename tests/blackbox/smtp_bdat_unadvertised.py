@@ -13,6 +13,7 @@ class ReplyCode(IntEnum):
     GREETING = 220
     OK = 250
     BAD_SEQUENCE = 503
+    RESET_REQUIRED = 503
     BYE = 221
 
 
@@ -92,8 +93,19 @@ def main():
 
         payload = b"\x00\r\nX!!"
         size = str(len(payload)).encode("ascii")
-        stream.write(b"BDAT " + size + b" LAST\r\n" + payload + b"NOOP\r\n")
+        stream.write(
+            b"BDAT "
+            + size
+            + b" LAST\r\n"
+            + payload
+            + b"BDAT 3 LAST\r\nXYZNOOP\r\n"
+        )
         expect_reply(stream, ReplyCode.BAD_SEQUENCE)
+        expect_reply(stream, ReplyCode.BAD_SEQUENCE)
+        expect_reply(stream, ReplyCode.RESET_REQUIRED)
+        stream.write(b"RSET\r\n")
+        expect_reply(stream, ReplyCode.OK)
+        stream.write(b"NOOP\r\n")
         expect_reply(stream, ReplyCode.OK)
         stream.write(b"QUIT\r\n")
         expect_reply(stream, ReplyCode.BYE)

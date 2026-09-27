@@ -58,8 +58,22 @@ pub(super) fn start(
         ),
         state => {
             session.smtp = state;
-            super::smtp_bdat_chunk::reject_unadvertised(session, command.chunk_size)
+            super::smtp_bdat_chunk::reject_sequence(session, command.chunk_size)
         }
+    }
+}
+
+/// После ошибки разрешает только RSET и дренирует already-pipelined chunks.
+pub(super) fn after_failure(session: &mut Session, line: &[u8]) -> io::Result<()> {
+    match smtp::parse(std::str::from_utf8(line).unwrap_or_default()) {
+        Ok(smtp::Command::Rset) => super::smtp_bdat_completion::reset(session),
+        Ok(smtp::Command::Bdat(command)) => {
+            session.smtp = SmtpState::BdatDiscard {
+                receiver: super::smtp_bdat_chunk::Receiver::discard(command.chunk_size),
+            };
+            super::smtp_bdat_chunk::discard_received(session)
+        }
+        _ => session.push(b"503 5.5.1 failed BDAT requires RSET\r\n"),
     }
 }
 
@@ -92,7 +106,7 @@ fn fail_sequence(session: &mut Session) -> io::Result<()> {
         SmtpState::BdatReady(mut transaction) => {
             transaction.fail();
             session.smtp = SmtpState::BdatReady(transaction);
-            session.push(b"503 5.5.1 BDAT sequence requires BDAT or RSET\\r\\n")
+            session.push(b"503 5.5.1 BDAT sequence requires BDAT or RSET\r\n")
         }
         state => {
             session.smtp = state;

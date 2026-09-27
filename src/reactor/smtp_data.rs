@@ -43,6 +43,7 @@ pub(super) fn data_line(
             SmtpState::Command(_)
             | SmtpState::BdatDiscard { .. }
             | SmtpState::BdatReady(_)
+            | SmtpState::BdatFailed
             | SmtpState::BdatReceiving(_) => false,
         };
         return finish_data(

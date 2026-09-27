@@ -26,6 +26,9 @@ pub(super) fn smtp_line(
             session, line, slot, generation, worker, owners, request_id,
         );
     }
+    if matches!(session.smtp, SmtpState::BdatFailed) {
+        return super::smtp_bdat::after_failure(session, &line);
+    }
     if line.len() > smtp::command_line_limit(&line) {
         // Превышение лимита завершает текущий SASL exchange до ответа SMTP.
         if session.smtp_auth == SmtpAuthState::AwaitingPlainResponse {
@@ -146,6 +149,7 @@ fn mail_can_start_transaction(state: &SmtpState) -> bool {
         SmtpState::Data { .. }
         | SmtpState::BdatDiscard { .. }
         | SmtpState::BdatReady(_)
+        | SmtpState::BdatFailed
         | SmtpState::BdatReceiving(_) => false,
     }
 }
@@ -273,6 +277,7 @@ fn apply_mail_transaction(
                 SmtpState::Data { .. }
                 | SmtpState::BdatDiscard { .. }
                 | SmtpState::BdatReady(_)
+                | SmtpState::BdatFailed
                 | SmtpState::BdatReceiving(_) => {
                     return session.push(b"503 5.5.1 bad sequence\r\n");
                 }

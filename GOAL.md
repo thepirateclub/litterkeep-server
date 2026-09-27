@@ -7363,7 +7363,7 @@ ManageSieve до заявленного набора современных фо
   независимый TLS IMAP клиент. Содержимое attachment совпало побайтно;
   SHA-256: `34eb0bb669ce15c7df8cb3769c0a0d6ca91494fc041ab9de4e65cbf4ce696596`.
   Отдельный raw TLS peer подтвердил capability, exact drain при BDAT без
-  MAIL/RCPT и успешный NOOP после payload. Клиент Litterkeep не проверялся.
+  MAIL/RCPT и сохранение границы после payload. Клиент Litterkeep не проверялся.
 - Acceptance fixture `./data/acceptance-rfc3030-bdat-final-20260927` использует
   локальный bind mount; тестовые аккаунты созданы штатной командой init.
   Runtime и test containers/images удалены после acceptance. Docker Rust 1.97
@@ -7385,3 +7385,19 @@ ManageSieve до заявленного набора современных фо
   и raw socket peer независимы от серверного Rust parser. Litterkeep клиент не
   проверялся.
 - Runtime container и image удалены; fixture `./data/acceptance-rfc3030-bdat-negative-20260927` сохранена. Этот дополнительный прогон не менял Rust source и не заменяет полный RFC 3030 conformance suite.
+
+### 2026-09-27: G17 RFC 3030 mandatory RSET after failed BDAT, PARTIAL
+
+- RFC 3030 §2 audit выявил неверную семантику в предыдущем negative acceptance:
+  оно считало немедленный NOOP после отказа BDAT допустимым. Этот ожидаемый ответ
+  был неверен, поэтому тот acceptance не засчитывается как корректный recovery.
+- Reactor получил отдельные failed/discard states. После отказа он дренирует
+  chunks, уже стоящие в pipeline, отвергает команды до RSET и только после RSET
+  возвращается к command state. Независимый TLS raw peer подтвердил два
+  последовательных rejected BDAT chunks, отказ NOOP до RSET, затем RSET/NOOP;
+  delivery acceptance повторно подтвердил invalid-LAST и 26 214 401-октетный
+  over-limit drain с восстановлением.
+- На Linux Rust 1.97 Docker gate прошли strict Clippy, 705 unit tests, 1 CLI
+  test и doc-tests; один UCD corpus test ignored из-за отсутствующего файла.
+  Runtime/test images и контейнер удалены. G17 остаётся ACTIVE; BINARYMIME и
+  полный RFC 3030 conformance suite не проверялись.
