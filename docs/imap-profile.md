@@ -21,7 +21,7 @@ CAPABILITY не выдаёт за более широкое расширение
 | Extension negotiation | ENABLE | PARTIAL | Atom and quoted-string token forms are distinguished; unquoted arguments are validated against the IMAP atom production, invalid atom-special characters receive tagged BAD, and valid unsupported capability atoms remain ignored; authenticated `ENABLE UTF8=ACCEPT` activates a connection-local mode and returns `ENABLED UTF8=ACCEPT`; extension remains hidden from CAPABILITY until the full profile gate passes |
 | Mailbox mutation | CREATE, DELETE, RENAME | PASS | Durable journal, subtree rename, retired folder IDs |
 | Subscription | SUBSCRIBE, UNSUBSCRIBE | PASS | Durable subscription независимо от существования папки |
-| Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS, PERMANENTFLAGS, включая `\\*` для создания пользовательских keywords только в read-write selection; EXAMINE reports `PERMANENTFLAGS ()`; повторный SELECT/EXAMINE закрывает прежнюю папку с `OK [CLOSED]` до новых ответов, успешный выбор включает LIST с каноническим именем и имеющимся special-use атрибутом mailbox, а failed select оставляет authenticated state без выбранной папки |
+| Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS включает системные flags и keywords, существующие в mailbox; PERMANENTFLAGS включает `\\*` для новых keywords только в read-write selection; EXAMINE reports `PERMANENTFLAGS ()`; повторный SELECT/EXAMINE закрывает прежнюю папку с `OK [CLOSED]` до новых ответов, успешный выбор включает LIST с каноническим именем и имеющимся special-use атрибутом mailbox, а failed select оставляет authenticated state без выбранной папки |
 | Message insertion | APPEND | PARTIAL | Bounded synchronizing literal and RFC 7888 `LITERAL-` non-synchronizing literals до 4096 octets; strict parenthesized system flags/keywords, quoted-string-only RFC date-time INTERNALDATE, APPENDUID после fsync; zero-length literal returns tagged `NO` without a mailbox mutation and the session accepts a subsequent command; oversized non-synchronizing payload gets `BYE [TOOBIG]` and connection closure; global 25 MiB limit is advertised through APPENDLIMIT and oversized synchronizing APPEND is rejected with tagged TOOBIG before payload; RFC 3502 MULTIAPPEND parses and stores ordered messages in one atomic batch, preserves per-message flags/keywords/date, advertises MULTIAPPEND and returns ordered APPENDUID; independent STARTTLS acceptance checks distinct flags and exact RFC822 bytes including NUL and 0xFF; LITERAL+ is not advertised |
 | Reading | FETCH, UID FETCH | PARTIAL | Сгруппированные items, ALL/FAST/FULL с RFC-совместимым раскрытием FULL через BODY, BODY и BODYSTRUCTURE, UID, RFC822/RFC822.HEADER/RFC822.TEXT legacy items с правильными wire labels, BODY sections/partial и BINARY/BINARY.PEEK/BINARY.SIZE; decoded MIME leaf parts, Base64/QP, literal8 для NUL, decoded partial, UNKNOWN-CTE и Seen effects проверены. RFC 3516 BINARY объявлен в CAPABILITY до STARTTLS, после TLS и после LOGIN. RFC 6532 message/global принимает identity, Base64 и quoted-printable CTE с отдельным source для decoded вложенных ranges; неизвестный CTE сохраняет opaque octet-stream fallback. Полная rev2 grammar остаётся |
 
@@ -159,6 +159,12 @@ G18 EXAMINE permissions checkpoint (2026-09-27): read-only selection now sends
 Independent Linux STARTTLS wire acceptance asserts the empty list on EXAMINE
 and confirms read-write SELECT retains its writable PERMANENTFLAGS. This does
 not imply other mailbox ACL profiles.
+
+G18 SELECT defined keywords checkpoint (2026-09-27): the FLAGS response unions
+the mailbox snapshot's existing persistent keywords with system flags. A Store
+unit vector checks keyword union/deduplication; independent Linux STARTTLS wire
+acceptance APPENDs a unique keyword and verifies it in FLAGS after both SELECT
+and EXAMINE. Other optional mailbox flag namespaces remain unsupported.
 
 G17 astring checkpoint (2026-09-26): LOGIN and SELECT/EXAMINE now validate raw
 atom tokens against `ASTRING-CHAR`; special characters require quoted form,

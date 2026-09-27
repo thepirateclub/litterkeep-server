@@ -90,14 +90,27 @@ def require_no_selected_mailbox(client: imaplib.IMAP4) -> None:
         raise AssertionError(f"failed SELECT retained a mailbox: {responses!r}")
 
 
-def add_deleted_message(client: imaplib.IMAP4) -> str:
-    """Создаёт уникальное письмо с флагом, который SELECT не должен удалять."""
+def add_deleted_message(client: imaplib.IMAP4) -> tuple[str, str]:
+    """Создаёт письмо с Deleted и persistent keyword для SELECT acceptance."""
     marker = uuid.uuid4().hex
+    keyword = "ClientLabel" + marker
     message = f"Subject: {marker}\r\n\r\nselection boundary\r\n".encode("ascii")
-    status, detail = client.append("INBOX", "(\\Deleted)", None, message)
+    status, detail = client.append("INBOX", f"(\\Deleted {keyword})", None, message)
     if ImapStatus(status) is not ImapStatus.OK:
         raise AssertionError(f"APPEND deleted fixture failed: {status} {detail!r}")
-    return marker
+    return marker, keyword
+
+
+def require_mailbox_keyword(responses: list[bytes], keyword: str) -> None:
+    """Проверяет, что SELECT/EXAMINE объявили сохранённый mailbox keyword."""
+    flags = next(
+        (line for line in responses if line.startswith(b"* FLAGS (")),
+        b"",
+    )
+    _, separator, values = flags.partition(b"(")
+    flag_values = values.removesuffix(b")").split()
+    if not separator or keyword.upper().encode("ascii") not in flag_values:
+        raise AssertionError(f"FLAGS omitted existing keyword: {responses!r}")
 
 
 def require_deleted_message(client: imaplib.IMAP4, marker: str) -> None:
@@ -125,13 +138,14 @@ def verify(host: str, port: int, ca_file: Path, credentials: Path) -> None:
     status, detail = client.login("bob", password_for(credentials, "bob"))
     if ImapStatus(status) is not ImapStatus.OK:
         raise AssertionError(f"LOGIN failed: {status} {detail!r}")
-    marker = add_deleted_message(client)
+    marker, keyword = add_deleted_message(client)
     status, detail = client.select("INBOX")
     if ImapStatus(status) is not ImapStatus.OK:
         raise AssertionError(f"initial SELECT failed: {status} {detail!r}")
     try:
         switched = command_lines(client, b"R1", b"SELECT INBOX")
         require_closed_first(switched, b"R1", ImapStatus.OK, b"INBOX")
+        require_mailbox_keyword(switched, keyword)
         if not any(
             line.startswith(b"* OK [PERMANENTFLAGS (\\Answered") for line in switched
         ):
@@ -145,6 +159,7 @@ def verify(host: str, port: int, ca_file: Path, credentials: Path) -> None:
         require_closed_first(named, b"R4", ImapStatus.OK, folder_name.encode("ascii"))
         examined = command_lines(client, b"R5", b"EXAMINE INBOX")
         require_closed_first(examined, b"R5", ImapStatus.OK, b"INBOX")
+        require_mailbox_keyword(examined, keyword)
         completion = next(reversed(examined), b"")
         if not completion.startswith(b"R5 OK [READ-ONLY]"):
             raise AssertionError(f"EXAMINE was not read-only: {examined!r}")

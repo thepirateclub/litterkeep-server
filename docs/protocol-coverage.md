@@ -365,6 +365,9 @@ READ-ONLY completion. Для default Archive это LIST также сообща
 EXAMINE также возвращает `PERMANENTFLAGS ()`, тогда как read-write SELECT
 сохраняет допустимые системные flags и `\\*`; независимый wire peer проверяет
 обе ветви, чтобы read-only режим не рекламировал постоянные изменения.
+`FLAGS` selection response объединяет system flags и реально сохранённые
+mailbox keywords; acceptance создаёт уникальный keyword через APPEND и видит его
+после SELECT и EXAMINE.
 
 Implicit-TLS IMAP отвечает на peer-инициированный `close_notify` после
 успешного tagged NOOP reply. Независимый Linux TLS peer завершил `unwrap()`;

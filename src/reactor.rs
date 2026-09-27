@@ -59,6 +59,8 @@ mod imap_search;
 mod imap_search_literal;
 #[path = "reactor/imap_select.rs"]
 mod imap_select;
+#[path = "reactor/imap_select_flags.rs"]
+mod imap_select_flags;
 #[path = "reactor/imap_selected.rs"]
 mod imap_selected;
 #[path = "reactor/imap_starttls.rs"]

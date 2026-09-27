@@ -1,5 +1,16 @@
 # Goal ledger
 
+### 2026-09-27: G18 RFC 9051 SELECT FLAGS existing keywords, scoped PASS T270
+
+- The selected-mailbox `FLAGS` response now unions system flags with the
+  persistent keyword atoms present in the same Store snapshot. Unit coverage
+  verifies normalization and deduplication. An independent Linux STARTTLS peer
+  APPENDs a unique keyword and confirms it after both SELECT and EXAMINE.
+- Rust 1.97.1 Windows tests passed (807 library + 1 CLI, 3 ignored), together
+  with format and strict Clippy. The Linux release wire scenario passed. This
+  closes only existing keyword reporting for SELECT/EXAMINE, not full IMAP4rev2
+  flag semantics. Temporary Docker image and container are removed.
+
 ### 2026-09-27: G18 RFC 9051 EXAMINE PERMANENTFLAGS, scoped PASS T269
 
 - EXAMINE uses the shared selection response path but is read-only. It now
