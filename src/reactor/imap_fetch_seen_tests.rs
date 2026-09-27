@@ -72,3 +72,30 @@ fn peek_and_read_only_body_do_not_mutate_seen() {
     assert!(follow_up(&pending(false, true), &response, &mut next_id).is_none());
     assert_eq!(next_id, 2);
 }
+
+/// Ошибка любого FETCH item не должна оставлять durable Seen побочным эффектом.
+#[test]
+fn failed_combined_fetch_does_not_queue_seen_mutation() {
+    let mut message = snapshot();
+    if let Some(stored) = message.messages.first_mut() {
+        stored.bytes =
+            b"Content-Type: text/plain\r\nContent-Transfer-Encoding: x-unknown\r\n\r\nbody"
+                .to_vec();
+    }
+    let response = Response::Read {
+        request_id: 1,
+        result: Ok(message),
+    };
+    let mut request = pending(false, false);
+    if let Pending::ReadForFetch { attributes, .. } = &mut request {
+        attributes.push(imap::FetchAttribute::Binary {
+            section: vec![1],
+            peek: false,
+            partial: None,
+        });
+    }
+    let mut next_id = 2;
+
+    assert!(follow_up(&request, &response, &mut next_id).is_none());
+    assert_eq!(next_id, 2);
+}

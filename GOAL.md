@@ -6893,3 +6893,10 @@ ManageSieve до заявленного набора современных фо
 - Full BINARY.SIZE[1.1] для section остаётся 12. Python acceptance script прошёл py_compile, 264 строки. Rust source не менялся; Rust suite в этом black-box checkpoint не запускался. Cargo fmt и diff-check прошли.
 - Исправлена оценка T145 в acceptance.tsv: <2.4> сам по себе не отличал decoded octets от одинакового начального QP source prefix, поэтому checkpoint теперь PARTIAL; его ограничение явно отражено в protocol matrix.
 - Fixture ./data/g33-binary-ranges-wire оставлен; bootstrap init с --rm, runtime container и image удалены и отсутствие проверено. Клиент Litterkeep не проверялся. Полный IMAP/MIME профиль и G17 остаются ACTIVE.
+
+### 2026-09-27: G17 IMAP failed multi-item FETCH Seen isolation, scoped PASS
+
+- Подтверждён дефект порядка побочных эффектов: reactor durable-ставил `\Seen` до того, как сериализовал все items одного FETCH. Для `FETCH (BODY[] BINARY[1])` с неизвестным Content-Transfer-Encoding успешный BODY мог сопровождаться ошибкой `NO [UNKNOWN-CTE]`, оставляя сообщение отмеченным как прочитанное.
+- Reactor теперь сначала подготавливает полный ответ для каждого выбранного сообщения и только после успешной проверки всех items планирует durable mutation `\Seen`. Добавлен regression test с обычным BODY и BINARY item с неизвестным CTE; тест доказывает, что UpdateFlags не ставится в очередь при ответной ошибке.
+- Linux Rust 1.97 Docker test stage: strict Clippy прошёл; 681 library + 1 CLI tests прошли, 1 UCD normalization corpus test ignored, doc-tests прошли. Windows `cargo test --lib`: 615 passed, 1 ignored; Windows target не включает Linux reactor. `cargo fmt` и `git diff --check` прошли.
+- Это unit/regression подтверждение, отдельный SMTP/IMAP wire сценарий для смешанного ошибочного FETCH пока не запускался. Временный Docker test image удалён. Полные IMAP/MIME профили и G17 остаются ACTIVE.

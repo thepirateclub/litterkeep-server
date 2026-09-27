@@ -15,6 +15,28 @@ pub(super) fn write(
     attributes: &[imap::FetchAttribute],
     addressing: imap::Addressing,
 ) -> io::Result<Result<(), crate::imap_fetch::FetchError>> {
+    let response = match prepare(
+        number,
+        message,
+        attributes,
+        addressing,
+        &session.selected_recent,
+    ) {
+        Ok(response) => response,
+        Err(reason) => return Ok(Err(reason)),
+    };
+    session.push(&response)?;
+    Ok(Ok(()))
+}
+
+/// Подготавливает целый ответ без побочных эффектов на session output.
+pub(super) fn prepare(
+    number: usize,
+    message: &crate::store::Message,
+    attributes: &[imap::FetchAttribute],
+    addressing: imap::Addressing,
+    selected_recent: &std::collections::BTreeSet<u64>,
+) -> Result<Vec<u8>, crate::imap_fetch::FetchError> {
     let mut response = format!("* {number} FETCH (").into_bytes();
     let mut first = true;
     let mut uid_written = false;
@@ -34,24 +56,25 @@ pub(super) fn write(
         if matches!(attribute, imap::FetchAttribute::Uid) {
             uid_written = true;
         }
-        if let Err(reason) =
-            append_attribute(&mut response, &mut first, session, message, attribute)
-        {
-            return Ok(Err(reason));
-        }
+        append_attribute(
+            &mut response,
+            &mut first,
+            selected_recent,
+            message,
+            attribute,
+        )?;
         if response.len() > super::MAX_OUTPUT {
-            return Ok(Err(crate::imap_fetch::FetchError::InvalidSection));
+            return Err(crate::imap_fetch::FetchError::InvalidSection);
         }
     }
     response.extend_from_slice(b")\r\n");
-    session.push(&response)?;
-    Ok(Ok(()))
+    Ok(response)
 }
 
 fn append_attribute(
     response: &mut Vec<u8>,
     first: &mut bool,
-    session: &Session,
+    selected_recent: &std::collections::BTreeSet<u64>,
     message: &crate::store::Message,
     attribute: &imap::FetchAttribute,
 ) -> Result<(), crate::imap_fetch::FetchError> {
@@ -141,7 +164,7 @@ fn append_attribute(
             let flags = imap::flags::encode_stored(
                 message.flags,
                 &message.keywords,
-                session.selected_recent.contains(&message.uid),
+                selected_recent.contains(&message.uid),
             );
             append_item(response, first, "FLAGS", format!("({flags})").as_bytes());
             Ok(())

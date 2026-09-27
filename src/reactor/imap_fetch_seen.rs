@@ -30,6 +30,9 @@ pub(super) fn follow_up(
     if *read_only || !sets_seen(attributes) {
         return None;
     }
+    if !fetch_responses_are_valid(*addressing, sequence_set, attributes, snapshot, saved_uids) {
+        return None;
+    }
     let uids = unseen_uids(*addressing, sequence_set, snapshot, saved_uids);
     if uids.is_empty() {
         return None;
@@ -57,6 +60,52 @@ pub(super) fn follow_up(
             saved_uids: saved_uids.clone(),
         },
     ))
+}
+
+/// Не меняет Seen, если хотя бы один запрошенный FETCH item завершится NO.
+fn fetch_responses_are_valid(
+    addressing: imap::Addressing,
+    sequence_set: &imap::sequence_set::MessageSet,
+    attributes: &[imap::FetchAttribute],
+    snapshot: &crate::store::MailboxSnapshot,
+    saved_uids: &std::collections::BTreeSet<u64>,
+) -> bool {
+    let maximum = match addressing {
+        imap::Addressing::Sequence => snapshot.messages.len() as u64,
+        imap::Addressing::Uid => snapshot
+            .messages
+            .last()
+            .map(|message| message.uid)
+            .unwrap_or(0),
+    };
+    snapshot
+        .messages
+        .iter()
+        .enumerate()
+        .filter(|(offset, message)| {
+            let sequence = offset.saturating_add(1) as u64;
+            let candidate = match addressing {
+                imap::Addressing::Sequence => sequence,
+                imap::Addressing::Uid => message.uid,
+            };
+            imap_fetch_completion::matches(
+                sequence_set,
+                candidate,
+                message.uid,
+                maximum,
+                saved_uids,
+            )
+        })
+        .all(|(offset, message)| {
+            imap_fetch_response::prepare(
+                offset.saturating_add(1),
+                message,
+                attributes,
+                addressing,
+                &std::collections::BTreeSet::new(),
+            )
+            .is_ok()
+        })
 }
 
 fn sets_seen(attributes: &[imap::FetchAttribute]) -> bool {
