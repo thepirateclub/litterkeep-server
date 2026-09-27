@@ -8972,3 +8972,23 @@ ManageSieve до заявленного набора современных фо
   созданные runtime container и image удалены, отсутствие подтверждено.
   Обязательный SCRAM-SHA-1 и полный RFC 5804 профиль остаются незакрытыми,
   G17 остаётся ACTIVE.
+
+### 2026-09-27: G17 implicit TLS composition for all mail listeners, scoped PASS T272
+
+- Выделена именованная композиция TLS listener-ов в
+  `src/reactor/server_entry.rs`; `src/reactor.rs` сокращён ниже ограничения
+  300 строк. Linux CLI `serve-all-mail-tls` включает SMTP, IMAP, POP3 и
+  ManageSieve в одном reactor-е и с общим владельцем Store.
+- Независимый TLS peer проверил CA/SAN и handshake перед greeting-ом на каждом
+  listener-е. SMTP EHLO/AUTH PLAIN, IMAP CAPABILITY/AUTHENTICATE PLAIN, POP3
+  CAPA/AUTH PLAIN и ManageSieve greeting/AUTHENTICATE PLAIN прошли; plaintext
+  upgrade-команды внутри TLS не рекламировались.
+- Windows Rust 1.97.1: 807 library + 1 CLI tests passed, 3 ignored; fmt и
+  strict Clippy прошли. Свежая Linux Rust 1.97.1 Docker-сборка из изменённого
+  source: strict Clippy, 907 library + 1 CLI tests passed, 3 ignored. Новый
+  независимый black-box скрипт прошёл py_compile и Linux wire acceptance.
+- Fixture `./data/acceptance-all-implicit-tls-20260927` сохранена. Временный
+  Docker runtime container и созданный image удалены, отсутствие проверено.
+  Это не тест Litterkeep app. RFC 8314 применим здесь к submission, IMAP и
+  POP3; ManageSieve implicit TLS является дополнительным режимом сервера, не
+  заявлением о норме RFC. Полные протоколы и G17 остаются ACTIVE.

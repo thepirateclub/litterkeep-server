@@ -59,6 +59,7 @@ fn main() -> ExitCode {
         Some("serve-all-starttls") => pop3_cli::serve_all_starttls(),
         Some("serve-managesieve-starttls") => managesieve_cli::serve_starttls(),
         Some("serve-all-mail-starttls") => managesieve_cli::serve_all_starttls(),
+        Some("serve-all-mail-tls") => managesieve_cli::serve_all_implicit_tls(),
         Some("serve-all-mail-outbound-starttls") => outbound_server_cli::serve(),
         Some("serve-all-mail-outbound-tls-starttls") => outbound_tls_server_cli::serve(),
         Some(command) => {

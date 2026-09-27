@@ -38,6 +38,27 @@ cargo run --locked -- help
 cargo tree --locked -e normal
 ```
 
+## Один процесс с implicit TLS для входящих протоколов
+
+На Linux команда `serve-all-mail-tls` запускает SMTP submission, IMAP, POP3
+и ManageSieve в одном reactor-е и с одним владельцем файлового Store. TLS
+handshake завершается до выдачи любого протокольного greeting-а. Порты по
+умолчанию привязаны к loopback; сертификат и ключ задаются DER-файлами:
+
+```sh
+cargo run --locked -- serve-all-mail-tls \
+  127.0.0.1:1465 127.0.0.1:1993 127.0.0.1:1995 127.0.0.1:14190 \
+  ./data ./data/pki/server.der ./data/pki/server.key.der
+```
+
+При использовании клиентом имени `litterkeep.test` сертификат должен содержать
+соответствующий SAN, а клиент должен доверять выдавшему его CA. Команда не
+заменяет существующие STARTTLS listener-ы и сама по себе не означает полной
+совместимости протоколов. [RFC 8314](https://www.rfc-editor.org/rfc/rfc8314.html)
+описывает implicit TLS для SMTP submission, IMAP и POP3; implicit TLS для
+ManageSieve здесь является дополнительным режимом запуска сервера, а не
+утверждением о нормативном порте или требовании RFC 8314.
+
 ## Linux outbound queue drain
 
 ```sh

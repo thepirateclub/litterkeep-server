@@ -1,5 +1,19 @@
 # Покрытие протоколов
 
+## TLS listener composition
+
+Linux-команда `serve-all-mail-tls` обслуживает SMTP submission, IMAP, POP3 и
+ManageSieve одним reactor-ом с общим владельцем Store и выполняет TLS handshake
+до выдачи каждого greeting-а. Независимый Linux TLS wire acceptance проверил
+сертификат, greeting, протокольные capabilities и SASL PLAIN для всех четырёх
+listener-ов; STARTTLS/STLS не рекламируются внутри уже защищённого канала.
+Это подтверждает только этот режим запуска. Внешняя совместимость с клиентом
+Litterkeep и полнота RFC-профилей остаются отдельными непроверенными вопросами.
+
+[RFC 8314](https://www.rfc-editor.org/rfc/rfc8314.html) рассматривает SMTP
+submission, IMAP и POP3; ManageSieve включён в общую команду как локальное
+архитектурное удобство, но это не расширение утверждений о сфере RFC 8314.
+
 ## SMTP
 
 Submission поддерживает implicit TLS и STARTTLS, EHLO, AUTH PLAIN, MAIL SIZE,

@@ -40,6 +40,9 @@ pub(crate) fn print() {
         "  litterkeep-server serve-all-mail-starttls [smtp] [imap] [pop3] [sieve] [data-dir] <certificate.der> <key.der>"
     );
     println!(
+        "  litterkeep-server serve-all-mail-tls [smtp] [imap] [pop3] [sieve] [data-dir] <certificate.der> <key.der>"
+    );
+    println!(
         "  litterkeep-server serve-all-mail-outbound-starttls [smtp] [imap] [pop3] [sieve] [peer] [data-dir] <certificate.der> <key.der>"
     );
     println!(

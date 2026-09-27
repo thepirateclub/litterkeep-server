@@ -115,6 +115,8 @@ mod scheduler_ids;
 mod scheduler_lifecycle;
 #[path = "reactor/server_all_starttls.rs"]
 mod server_all_starttls;
+#[path = "reactor/server_entry.rs"]
+mod server_entry;
 #[path = "reactor/server_loop.rs"]
 mod server_loop;
 #[path = "reactor/session.rs"]
@@ -154,6 +156,11 @@ use pending::{AuthenticationCommand, Pending, SubscriptionResponse};
 use protocol::process_input;
 use reactor_control::service_control;
 pub use server_all_starttls::serve_all_starttls;
+pub(super) use server_entry::TlsMode;
+pub use server_entry::{
+    serve, serve_all_mail_implicit_tls, serve_all_mail_starttls, serve_managesieve_starttls,
+    serve_pop3_starttls, serve_pop3_tls, serve_starttls, serve_tls,
+};
 use session::{Session, SmtpAuthState, SmtpState};
 use session_io::{flush, read_session};
 type SessionLease = ResourceLease<Session>;
@@ -182,134 +189,4 @@ enum Target {
     OutboundWake,
     Session(usize, u64),
     ControlSession(usize),
-}
-#[derive(Clone)]
-enum TlsMode {
-    Plain,
-    Implicit(Arc<ServerConfig>),
-    StartTls(Arc<ServerConfig>),
-}
-
-/// Запускает plaintext SMTP и IMAP для локального peer-теста без паролей.
-pub fn serve(smtp_address: &str, imap_address: &str, root: impl AsRef<Path>) -> io::Result<()> {
-    serve_with_tls(smtp_address, imap_address, root, TlsMode::Plain)
-}
-
-/// Запускает implicit-TLS SMTP submission и IMAP с одним material для listener-ов.
-pub fn serve_tls(
-    smtp_address: &str,
-    imap_address: &str,
-    root: impl AsRef<Path>,
-    tls_config: Arc<ServerConfig>,
-) -> io::Result<()> {
-    serve_with_tls(
-        smtp_address,
-        imap_address,
-        root,
-        TlsMode::Implicit(tls_config),
-    )
-}
-
-/// Запускает plaintext listener с доступным SMTP STARTTLS upgrade.
-pub fn serve_starttls(
-    smtp_address: &str,
-    imap_address: &str,
-    root: impl AsRef<Path>,
-    tls_config: Arc<ServerConfig>,
-) -> io::Result<()> {
-    serve_with_tls(
-        smtp_address,
-        imap_address,
-        root,
-        TlsMode::StartTls(tls_config),
-    )
-}
-
-/// Владеет listener-ами, worker-ом и состоянием TLS каждого session.
-fn serve_with_tls(
-    smtp_address: &str,
-    imap_address: &str,
-    root: impl AsRef<Path>,
-    tls_mode: TlsMode,
-) -> io::Result<()> {
-    server_loop::serve(
-        Some(smtp_address),
-        Some(imap_address),
-        None,
-        None,
-        None,
-        root,
-        tls_mode,
-    )
-}
-
-/// Запускает POP3 с обязательным STLS перед передачей password.
-pub fn serve_pop3_starttls(
-    pop3_address: &str,
-    root: impl AsRef<Path>,
-    tls_config: Arc<ServerConfig>,
-) -> io::Result<()> {
-    server_loop::serve(
-        None,
-        None,
-        Some(pop3_address),
-        None,
-        None,
-        root,
-        TlsMode::StartTls(tls_config),
-    )
-}
-
-/// Запускает отдельный ManageSieve STARTTLS listener с общим Store owner.
-pub fn serve_managesieve_starttls(
-    address: &str,
-    root: impl AsRef<Path>,
-    tls_config: Arc<ServerConfig>,
-) -> io::Result<()> {
-    server_loop::serve(
-        None,
-        None,
-        None,
-        Some(address),
-        None,
-        root,
-        TlsMode::StartTls(tls_config),
-    )
-}
-
-/// Запускает POP3 с implicit TLS, не выдавая greeting до handshake.
-pub fn serve_pop3_tls(
-    pop3_address: &str,
-    root: impl AsRef<Path>,
-    tls_config: Arc<ServerConfig>,
-) -> io::Result<()> {
-    server_loop::serve(
-        None,
-        None,
-        Some(pop3_address),
-        None,
-        None,
-        root,
-        TlsMode::Implicit(tls_config),
-    )
-}
-
-/// Запускает все входящие протоколы в одном reactor-е и с одним Store owner.
-pub fn serve_all_mail_starttls(
-    smtp_address: &str,
-    imap_address: &str,
-    pop3_address: &str,
-    managesieve_address: &str,
-    root: impl AsRef<Path>,
-    tls_config: Arc<ServerConfig>,
-) -> io::Result<()> {
-    server_loop::serve(
-        Some(smtp_address),
-        Some(imap_address),
-        Some(pop3_address),
-        Some(managesieve_address),
-        None,
-        root,
-        TlsMode::StartTls(tls_config),
-    )
 }
