@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 RFC 5321 MAIL ordering precedes sender policy
+
+- `MAIL` внутри открытой транзакции теперь проверяет командный порядок раньше
+  sender authorization и возвращает `503 5.5.1`, сохраняя состояние. Раньше
+  чужой sender ошибочно получал `550` из-за policy-проверки, которая должна
+  применяться только после проверки допустимой последовательности команд.
+- Независимый implicit-TLS тест отправил MAIL Alice, RCPT Bob, затем чужой MAIL
+  и получил 503. В той же сессии DATA успешно завершился; Bob прочитал письмо
+  через IMAP и подтвердил `Return-Path: <alice@litterkeep.test>`, то есть исходный
+  envelope пережил отказ. Linux Docker Rust 1.97 gate: strict Clippy, 698
+  library pass, 1 внешний UCD ignored, 1 CLI pass и doctests pass. `cargo fmt
+  --check`, Python `py_compile`, `git diff --check` прошли.
+- Fixture `./data/acceptance-smtp-mail-order-20260927` сохранена. Это независимый
+  wire peer, не клиент Litterkeep. Runtime/test images и container удалены,
+  отсутствие будет проверено перед коммитом. G17 остаётся ACTIVE.
+
 ### 2026-09-27: G17 RFC 6409 sender-rights rejection code
 
 - Sender mismatch was returning `553 5.7.1`. RFC 6409 §6.1 specifies `550`

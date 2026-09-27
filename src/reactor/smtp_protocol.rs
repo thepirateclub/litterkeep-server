@@ -113,6 +113,10 @@ pub(super) fn auth_plain_response(
 
 /// Принимает MAIL только от аутентифицированного владельца локального адреса.
 fn mail(session: &mut Session, mail: smtp::MailFrom) -> io::Result<()> {
+    match mail_can_start_transaction(&session.smtp) {
+        true => {}
+        false => return session.push(b"503 5.5.1 mail transaction already open\r\n"),
+    }
     let sender_is_authorized = match (
         session.tls.is_some(),
         session.authenticated_account.as_deref(),
@@ -124,6 +128,14 @@ fn mail(session: &mut Session, mail: smtp::MailFrom) -> io::Result<()> {
     match sender_is_authorized {
         false => session.push(b"550 5.7.1 sender not authorized\r\n"),
         true => apply_mail(session, mail),
+    }
+}
+
+/// Проверяет командный порядок до policy checks и не меняет открытый envelope.
+fn mail_can_start_transaction(state: &SmtpState) -> bool {
+    match state {
+        SmtpState::Command(transaction) => transaction.can_start_mail(),
+        SmtpState::Data { .. } => false,
     }
 }
 
@@ -227,13 +239,6 @@ fn apply_transaction(session: &mut Session, command: smtp::Command) -> io::Resul
 /// Применяет принятую typed MAIL-команду через обычную transaction FSM.
 fn apply_mail(session: &mut Session, mail: smtp::MailFrom) -> io::Result<()> {
     let body_mode = mail.body_mode;
-    match &session.smtp {
-        SmtpState::Command(transaction) if !transaction.can_start_mail() => {
-            return session.push(b"503 5.5.1 mail transaction already open\r\n");
-        }
-        SmtpState::Command(_) => {}
-        SmtpState::Data { .. } => return session.push(b"503 5.5.1 bad sequence\r\n"),
-    }
     match mail.declared_size {
         Some(size) if size > smtp::MAX_MESSAGE_SIZE as u128 => {
             session.push(b"552 5.3.4 message size exceeds fixed maximum\r\n")
