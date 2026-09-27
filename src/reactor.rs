@@ -75,6 +75,8 @@ mod listener;
 mod maildrop_lease;
 #[path = "reactor/managesieve_completion.rs"]
 mod managesieve_completion;
+#[path = "reactor/managesieve_havespace_literal.rs"]
+mod managesieve_havespace_literal;
 #[path = "reactor/managesieve_literal.rs"]
 mod managesieve_literal;
 #[path = "reactor/managesieve_protocol.rs"]

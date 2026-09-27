@@ -88,8 +88,11 @@ non-sync source with a pipelined NOOP. RENAMESCRIPT accepts literal names in
 either position, including two sync literals; unit tests cover mixed forms,
 empty quoted old name and pipeline preservation. Independent wire coverage
 reaches parser/state handling before authentication and confirms pipeline
-preservation, not successful Store mutation through literal arguments. Literal
-string positions in the remaining commands are still unsupported.
+preservation, not successful Store mutation through literal arguments.
+HAVESPACE accepts a literal name plus one strict decimal size; independent wire
+coverage confirms parser/state handling before authentication and pipeline
+preservation, not the authenticated quota response. Literal string positions
+in the remaining commands are still unsupported.
 
 ManageSieve script count, per-script byte size and serialized account catalog
 are bounded in the Store. RFC 5804 §1.5 requires a `NO` response containing

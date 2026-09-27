@@ -100,6 +100,11 @@ def main() -> None:
             raise AssertionError(f"RENAMESCRIPT literal pair was not parsed: {rename_reply!r}")
         if read_line(connection) != b'OK "noop"\r\n':
             raise AssertionError("command pipelined after RENAMESCRIPT literal was consumed")
+        connection.sendall(b"HAVESPACE {3+}\r\nbox 5\r\nNOOP\r\n")
+        if read_line(connection) != b'NO "invalid command for state"\r\n':
+            raise AssertionError("HAVESPACE literal name was not parsed")
+        if read_line(connection) != b'OK "noop"\r\n':
+            raise AssertionError("command pipelined after HAVESPACE was consumed")
         exchange(
             connection,
             b'NOOP "a \\\"b\\\\c"\r\n',

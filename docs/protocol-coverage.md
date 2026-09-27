@@ -1016,6 +1016,8 @@ PUTSCRIPT accepts a literal name followed by quoted or literal source, with
 sync/non-sync framing and a following pipelined NOOP covered. RENAMESCRIPT
 accepts either name as a sync or non-sync literal independently; receiver tests
 cover two sync names, mixed quoted/literal names, UTF-8 and pipeline retention.
+HAVESPACE accepts a bounded literal name followed by one decimal size; receiver
+tests check split input, strict numeric arity and pipeline preservation.
 Independent wire checks reach the pre-auth state rejection, not successful
 Store mutation through literal arguments. Other uncovered string positions
 remain unsupported.

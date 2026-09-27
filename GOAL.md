@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-27: G18 ManageSieve HAVESPACE literal-name framing, scoped PASS T259
+
+- HAVESPACE accepts the RFC 5804 string name as a bounded synchronizing or
+  non-synchronizing literal, then requires one decimal script-size number.
+  UTF-8 name validation, strict numeric syntax, tail bounds, and following
+  pipeline preservation are enforced by the Linux reactor receiver.
+- Linux tests cover split reads, numeric conversion, malformed/extra numeric
+  arguments, and a pipelined command. Independent STARTTLS wire acceptance
+  confirms literal-name parsing, the expected unauthenticated state refusal,
+  and following NOOP. It does not prove successful authenticated quota logic.
+- Windows Rust 1.97.1 fmt, strict Clippy and all-target tests passed (802
+  library + 1 CLI, 3 ignored; reactor tests are excluded on Windows). Linux
+  Docker Rust 1.97.1 fmt, strict Clippy, 898 library + 1 CLI passed, 3 ignored,
+  release build and independent wire scenario passed. Temporary container
+  removed; existing Rust image retained.
+
 ### 2026-09-27: G18 ManageSieve RENAMESCRIPT literal argument framing, scoped PASS T258
 
 - RENAMESCRIPT now accepts either script name as a bounded synchronizing or

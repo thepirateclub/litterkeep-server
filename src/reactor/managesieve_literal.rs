@@ -7,6 +7,7 @@
 
 use crate::managesieve::Command;
 
+use super::managesieve_havespace_literal as havespace_literal;
 use super::managesieve_rename_literal as rename_literal;
 
 const MAX_LITERAL_BYTES: usize = 65_536;
@@ -32,6 +33,7 @@ enum Operation {
     DeleteScript,
     SetActive,
     Rename(rename_literal::Receiver),
+    HaveSpace(havespace_literal::Receiver),
 }
 
 #[path = "managesieve_literal_putscript.rs"]
@@ -77,6 +79,14 @@ impl LiteralReceiver {
                 rename_literal::Progress::InvalidUtf8 => Progress::InvalidUtf8,
             };
         }
+        if let Operation::HaveSpace(receiver) = &mut self.operation {
+            return match receiver.consume(input) {
+                havespace_literal::Progress::Complete(command) => Progress::Complete(command),
+                havespace_literal::Progress::Waiting => Progress::Waiting,
+                havespace_literal::Progress::Invalid => Progress::Invalid,
+                havespace_literal::Progress::InvalidUtf8 => Progress::InvalidUtf8,
+            };
+        }
         if matches!(&self.operation, Operation::PutNameTail(_)) {
             return putscript::consume_tail(self, input);
         }
@@ -96,6 +106,7 @@ impl LiteralReceiver {
             Operation::PutNameTail(_) => Progress::Invalid,
             Operation::PutSource(name) => Progress::Complete(Command::PutScript { name, source }),
             Operation::Rename(_) => Progress::Invalid,
+            Operation::HaveSpace(_) => Progress::Invalid,
             Operation::Check => Progress::Complete(Command::CheckScript(source)),
             Operation::Noop => Progress::Complete(Command::Noop(Some(source))),
             Operation::GetScript => Progress::Complete(Command::GetScript(source)),
@@ -139,6 +150,18 @@ pub(super) fn start(line: &[u8]) -> Start {
                 continuation: sync,
             },
         },
+        Verb::HaveSpace => match havespace_literal::start(tail) {
+            havespace_literal::Start::NotLiteral => Start::NotLiteral,
+            havespace_literal::Start::Invalid => Start::Invalid,
+            havespace_literal::Start::Begin { receiver, sync } => Start::Begin {
+                receiver: LiteralReceiver {
+                    operation: Operation::HaveSpace(receiver),
+                    expected: 0,
+                    bytes: Vec::new(),
+                },
+                continuation: sync,
+            },
+        },
         Verb::Other => Start::NotLiteral,
     }
 }
@@ -151,6 +174,7 @@ enum Verb {
     DeleteScript,
     SetActive,
     Rename,
+    HaveSpace,
     Other,
 }
 
@@ -164,6 +188,7 @@ impl Verb {
             _ if value.eq_ignore_ascii_case("DELETESCRIPT") => Self::DeleteScript,
             _ if value.eq_ignore_ascii_case("SETACTIVE") => Self::SetActive,
             _ if value.eq_ignore_ascii_case("RENAMESCRIPT") => Self::Rename,
+            _ if value.eq_ignore_ascii_case("HAVESPACE") => Self::HaveSpace,
             _ => Self::Other,
         }
     }
