@@ -100,6 +100,11 @@ fn capability_advertises_supported_sieve_extensions() {
     );
     assert!(
         response
+            .windows(b"\"VERSION\" \"1.0\"".len())
+            .any(|part| part == b"\"VERSION\" \"1.0\"")
+    );
+    assert!(
+        response
             .windows(b"\"SASL\" \"\"".len())
             .any(|part| part == b"\"SASL\" \"\"")
     );
@@ -137,5 +142,10 @@ fn capability_advertises_supported_sieve_extensions() {
         !implicit_tls
             .windows(b"\"STARTTLS\"".len())
             .any(|part| part == b"\"STARTTLS\"")
+    );
+    assert!(
+        implicit_tls
+            .windows(b"\"VERSION\" \"1.0\"".len())
+            .any(|part| part == b"\"VERSION\" \"1.0\"")
     );
 }

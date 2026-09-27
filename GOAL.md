@@ -1,5 +1,19 @@
 # Goal ledger
 
+### 2026-09-27: G18 ManageSieve VERSION 1.0 mandatory capability, scoped PASS T248
+
+- Общий capability builder теперь всегда рекламирует `VERSION "1.0"` вместе с
+  `IMPLEMENTATION` и `SIEVE`, включая начальный и post-auth capability block.
+  Исправлена также ожидаемая в существующем независимом TLS тесте строка SIEVE,
+  чтобы она совпадала с фактически рекламируемой `vacation-seconds` extension.
+- Unit cases проверяют VERSION после greeting и в implicit-TLS greeting.
+  Независимые Linux socket tests проверяют VERSION в открытом greeting; общий
+  TLS-transition peer проверяет VERSION в greeting, после STARTTLS, после
+  AUTHENTICATE и при явном CAPABILITY. Windows Rust 1.97.1: fmt, strict Clippy,
+  796 library + 1 CLI прошли; 3 fixture-dependent tests ignored. Linux Docker
+  Rust 1.97.1: 880 library + 1 CLI прошли, 3 ignored; оба независимых
+  ManageSieve socket acceptance прошли. Контейнеры одноразовые и удалены.
+
 ### 2026-09-27: G18 ManageSieve SETACTIVE required argument and deactivation, scoped PASS T247
 
 - `SETACTIVE` теперь требует аргумент по RFC 5804 §2.8. Переданная пустая

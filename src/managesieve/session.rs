@@ -129,6 +129,7 @@ fn capability_lines(
     output.extend_from_slice(
         b"\"SIEVE\" \"fileinto subaddress envelope copy vacation vacation-seconds\"\r\n",
     );
+    output.extend_from_slice(b"\"VERSION\" \"1.0\"\r\n");
     if let Some(owner) = owner {
         append_owner(&mut output, owner);
     }

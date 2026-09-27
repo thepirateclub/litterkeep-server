@@ -14,7 +14,10 @@ authenticated and unauthenticated encrypted sessions. Independent Linux
 socket acceptance verifies greeting, explicit CAPABILITY, TLS transition,
 PLAIN authentication and the post-auth transition. Implicit-TLS greeting is
 unit-tested; separate implicit-TLS network acceptance and Litterkeep client
-interoperability remain unverified. RFC 5804 §2.13 NOOP is accepted before
+interoperability remain unverified. Capability generation always returns
+`VERSION "1.0"` with `IMPLEMENTATION` and `SIEVE`, as required for a server
+implementing this RFC version; unit and Linux socket tests check the greeting
+and common post-transition capability path. RFC 5804 §2.13 NOOP is accepted before
 authentication; an optional quoted tag is returned in the required `(TAG
 "...")` response code with quoted-string escaping. Unit tests and the
 independent `tests/blackbox/managesieve_noop_tag.py` Linux socket acceptance

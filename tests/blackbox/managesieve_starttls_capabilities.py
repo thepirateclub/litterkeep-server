@@ -31,8 +31,12 @@ def require_capabilities(
 ) -> None:
     """Проверяет SASL list, STARTTLS и заключительную response line."""
     require_line(block, b'"IMPLEMENTATION" "litterkeep-server"\r\n')
+    require_line(block, b'"VERSION" "1.0"\r\n')
     require_line(block, b'"SASL" "' + sasl + b'"\r\n')
-    require_line(block, b'"SIEVE" "fileinto subaddress envelope copy vacation"\r\n')
+    require_line(
+        block,
+        b'"SIEVE" "fileinto subaddress envelope copy vacation vacation-seconds"\r\n',
+    )
     if owner is not None:
         require_line(block, b'"OWNER" "' + owner + b'"\r\n')
     has_starttls = b'"STARTTLS"\r\n' in block

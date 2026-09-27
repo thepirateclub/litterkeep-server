@@ -47,7 +47,9 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=4191)
     options = parser.parse_args()
     with socket.create_connection((options.host, options.port), timeout=10) as connection:
-        read_greeting(connection)
+        greeting = read_greeting(connection)
+        if greeting.count(b'"VERSION" "1.0"\r\n') != 1:
+            raise AssertionError(f"RFC 5804 VERSION capability missing or repeated: {greeting!r}")
         exchange(connection, b"NOOP\r\n", b'OK "noop"\r\n')
         exchange(
             connection,
