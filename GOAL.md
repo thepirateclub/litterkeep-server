@@ -8953,7 +8953,7 @@ ManageSieve до заявленного набора современных фо
   Docker gate и свежие raw/SMTP-to-IMAP acceptance пройдены повторно. Этот
   fallback case отдельно не достигался клиентом и не заявляется как wire-tested.
 
-### 2026-09-27: G17 ManageSieve literal Store mutations and reopen, scoped PASS
+### 2026-09-27: G17 ManageSieve literal Store mutations and reopen, scoped PASS T271
 
 - Независимый TLS-клиент аутентифицировал Bob и отправил `PUTSCRIPT` с
   non-synchronizing literal-именем и synchronizing literal-исходником. Затем
@@ -8968,7 +8968,7 @@ ManageSieve до заявленного набора современных фо
   `cargo fmt --check` и `git diff --check` прошли. Rust source не менялся;
   Linux runtime image собран из актуального source через cache hit, поэтому
   свежий Linux Rust suite не заявляется.
-- T261 добавлен в acceptance matrix как scoped PASS. Test fixture оставлен;
+- T271 добавлен в acceptance matrix как scoped PASS. Test fixture оставлен;
   созданные runtime container и image удалены, отсутствие подтверждено.
   Обязательный SCRAM-SHA-1 и полный RFC 5804 профиль остаются незакрытыми,
   G17 остаётся ACTIVE.

@@ -108,11 +108,14 @@ empty string. Linux unit and wire checks cover command conversion and framing.
 PUTSCRIPT accepts a literal script name followed by quoted or literal source;
 both synchronization modes are covered by Linux unit tests and independent
 wire coverage exercises sync name plus quoted source and non-sync name plus
-non-sync source with a pipelined NOOP. RENAMESCRIPT accepts literal names in
-either position, including two sync literals; unit tests cover mixed forms,
-empty quoted old name and pipeline preservation. Independent wire coverage
-reaches parser/state handling before authentication and confirms pipeline
-preservation, not successful Store mutation through literal arguments.
+non-sync source with a pipelined NOOP. An additional independent TLS acceptance
+uses a non-sync literal name plus sync source, then performs successful
+RENAMESCRIPT with two non-sync literal names and activates the result. After a
+server restart against the same Store, LISTSCRIPTS preserves the renamed ACTIVE
+entry and GETSCRIPT returns byte-identical source. This proves the tested
+literal mutation and persistence paths, not every command string position or
+Litterkeep application interoperability. RENAMESCRIPT receiver unit tests also
+cover mixed forms, empty quoted old name and pipeline preservation.
 HAVESPACE accepts a literal name plus one strict decimal size; independent wire
 coverage confirms parser/state handling before authentication and pipeline
 preservation, not the authenticated quota response. Literal string positions
