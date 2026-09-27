@@ -1,5 +1,20 @@
 # Goal ledger
 
+### 2026-09-27: G17 outbound SMTP phase timeout wire checks, scoped PASS T200
+
+- Добавлен отдельный независимый peer `tests/blackbox/smtp_outbound_phase_timeout.py`.
+  С короткими environment overrides он удерживает TCP соединение открытым и
+  проверяет завершение клиента на greeting, ожидании `354` и финальном ответе
+  после DATA terminator. Для последней фазы peer отдельно подтвердил получение
+  terminator до начала молчания; ожидание FIN/ошибки вместо timeout не засчитывается.
+- Python `py_compile` и три wire cases прошли. Runtime собран из текущего source
+  существующим `docker/Dockerfile.linux-test`, контекст 24.94 KiB содержит только
+  заявленные Dockerfile пути; уникальный image tag удалён после проверки, все
+  контейнеры использовали `--rm`. Fixture: `./data/acceptance-outbound-timeout-20260927`.
+- Rust source не менялся в этом checkpoint, Rust gates не перезапускались. Проверен
+  только outbound runtime на независимом TCP peer, не Litterkeep app и не все SMTP
+  timeout фазы. T200 scoped PASS; G17 и root остаются ACTIVE.
+
 ### 2026-09-27: G17 RFC 5321 DATA line boundary for 7BIT and 8BITMIME, scoped PASS T199
 
 - Расширен independent STARTTLS wire acceptance точной границы RFC 5321
