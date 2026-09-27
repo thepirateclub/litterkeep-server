@@ -59,6 +59,38 @@ class ImapPeer:
                         raise AssertionError(f"invalid tagged completion: {line!r}")
                 return completion, bytes(response)
 
+    def id_literal(self, prefix: bytes, literal: bytes, suffix: bytes) -> bytes:
+        """Отправляет один synchronizing literal и завершает ID-команду."""
+        self.counter += 1
+        tag = f"I{self.counter:03}".encode("ascii")
+        marker = b"{" + str(len(literal)).encode("ascii") + b"}\r\n"
+        self.socket.sendall(tag + b" ID (" + prefix + marker)
+        continuation = self.stream.readline()
+        if not continuation.startswith(b"+"):
+            raise AssertionError(f"ID literal continuation missing: {continuation!r}")
+        self.socket.sendall(literal + suffix + b")\r\n")
+        response = bytearray()
+        while True:
+            line = self.stream.readline()
+            if not line:
+                raise AssertionError("server closed during literal ID response")
+            response.extend(line)
+            if line.startswith(tag + b" "):
+                match line.split(maxsplit=2):
+                    case [_tag, atom, *_rest]:
+                        try:
+                            completion = Completion(atom.decode("ascii"))
+                        except (UnicodeDecodeError, ValueError) as error:
+                            raise AssertionError(
+                                f"invalid tagged completion: {line!r}"
+                            ) from error
+                    case _:
+                        raise AssertionError(f"invalid tagged completion: {line!r}")
+                require(completion, Completion.OK, "ID synchronizing literal")
+                if b"* ID NIL\r\n" not in response:
+                    raise AssertionError(f"privacy ID response missing: {response!r}")
+                return bytes(response)
+
     def starttls(self) -> None:
         """Продолжает ту же IMAP-сессию поверх TLS после tagged OK."""
         completion, _response = self.command(b"STARTTLS")
@@ -112,6 +144,8 @@ def main() -> None:
         require_advertised(peer, "pre-STARTTLS")
         verify_id(peer, b"ID NIL", Completion.OK)
         verify_id(peer, b'ID ("name" "independent-client" "vendor" NIL)', Completion.OK)
+        peer.id_literal(b"", b"name", b' "client"')
+        peer.id_literal(b'"name" ', b"client", b"")
         verify_id(peer, b'ID ("name" NIL "NAME" NIL)', Completion.BAD)
         noop_status, _noop_response = peer.command(b"NOOP")
         require(noop_status, Completion.OK, "NOOP after invalid ID")

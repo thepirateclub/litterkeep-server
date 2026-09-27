@@ -219,9 +219,11 @@ validates `NIL` or a field/value list, enforces the 30-pair, 30-octet field,
 1024-octet value and unique-name limits, then discards client-supplied identity
 data. The response is always `* ID NIL`, avoiding host/build fingerprinting.
 Independent Linux STARTTLS wire acceptance covers the capability before and
-after TLS, NIL/list requests, duplicate-name rejection, privacy response and
-NOOP recovery. This implements the identification extension only; it does not
-claim full IMAP4rev2 or all registered extensions.
+after TLS, NIL/list requests, synchronizing literals in both field and value
+positions, duplicate-name rejection, privacy response and NOOP recovery. The
+shared bounded literal receiver recognizes the RFC list-opening `(` directly
+before the first literal marker. This implements the identification extension
+only; it does not claim full IMAP4rev2 or all registered extensions.
 
 RFC 7888 `LITERAL-` включён в CAPABILITY. Synchronizing literal-ы сохраняют
 continuation; non-synchronizing `{n+}` не вызывает continuation и ограничен

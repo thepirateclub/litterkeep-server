@@ -61,9 +61,10 @@ impl Receiver {
     ) -> Option<Self> {
         let initial_size = match command {
             LiteralCommand::Append => prefix.len(),
-            LiteralCommand::Login | LiteralCommand::Search | LiteralCommand::Mailbox => {
-                prefix.len().checked_add(marker.size)?
-            }
+            LiteralCommand::Id
+            | LiteralCommand::Login
+            | LiteralCommand::Search
+            | LiteralCommand::Mailbox => prefix.len().checked_add(marker.size)?,
         };
         if initial_size > super::super::MAX_INPUT {
             return None;
@@ -175,9 +176,10 @@ impl Receiver {
         let maximum_literal = literal_limit(self.command);
         let total_within_limit = match self.command {
             LiteralCommand::Append => total <= maximum_literal,
-            LiteralCommand::Login | LiteralCommand::Search | LiteralCommand::Mailbox => {
-                command_size <= super::super::MAX_INPUT
-            }
+            LiteralCommand::Id
+            | LiteralCommand::Login
+            | LiteralCommand::Search
+            | LiteralCommand::Mailbox => command_size <= super::super::MAX_INPUT,
         };
         match (
             marker.size <= maximum_literal,
@@ -210,9 +212,10 @@ impl Receiver {
 fn literal_limit(command: LiteralCommand) -> usize {
     match command {
         LiteralCommand::Append => crate::smtp::MAX_MESSAGE_SIZE as usize,
-        LiteralCommand::Login | LiteralCommand::Search | LiteralCommand::Mailbox => {
-            MAX_IMAP_LITERAL
-        }
+        LiteralCommand::Id
+        | LiteralCommand::Login
+        | LiteralCommand::Search
+        | LiteralCommand::Mailbox => MAX_IMAP_LITERAL,
     }
 }
 

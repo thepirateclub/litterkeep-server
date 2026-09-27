@@ -32,6 +32,7 @@ const MAX_NON_SYNCHRONIZING_LITERAL: usize = 4 * 1024;
 /// Семейство команды определяет, допустим ли literal в последнем аргументе.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum LiteralCommand {
+    Id,
     Login,
     Search,
     Mailbox,
@@ -89,11 +90,18 @@ pub(super) fn start(line: &[u8]) -> Start {
     }
 }
 
+/// Первый элемент списка разрешает marker сразу после открывающей скобки.
 fn initial_marker(command: &str) -> Option<(&str, &str, LiteralMarker, LiteralCommand)> {
     let boundary = command.rfind(|character: char| character.is_ascii_whitespace())?;
     let prefix_end = boundary.checked_add(1)?;
-    let prefix = command.get(..prefix_end)?;
-    let marker = command.get(boundary..)?.trim();
+    let raw_marker = command.get(boundary..)?.trim();
+    let (prefix, marker) = match raw_marker.strip_prefix('(') {
+        Some(marker) => {
+            let prefix_end = prefix_end.checked_add(1)?;
+            (command.get(..prefix_end)?, marker)
+        }
+        None => (command.get(..prefix_end)?, raw_marker),
+    };
     let (tag, command_kind) = literal_tag(prefix)?;
     Some((prefix, tag, literal::parse(marker)?, command_kind))
 }
@@ -104,6 +112,7 @@ fn literal_tag(prefix: &str) -> Option<(&str, LiteralCommand)> {
     let first = parse_verb(words.next()?);
     let _recognized_command = match first {
         Verb::Login => LiteralCommand::Login,
+        Verb::Id => LiteralCommand::Id,
         Verb::Search => LiteralCommand::Search,
         Verb::Append => LiteralCommand::Append,
         Verb::Uid => match words.next().map(parse_verb) {

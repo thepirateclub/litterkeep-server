@@ -17,8 +17,16 @@ fn new_receiver(prefix: &[u8], size: usize) -> Receiver {
 }
 
 #[test]
+/// ID string literal может начинаться сразу после круглой скобки списка.
 fn detects_login_search_and_uid_search_synchronizing_literals() {
     assert!(matches!(start(b"a LOGIN {3}\r\n"), Start::Begin { .. }));
+    assert!(matches!(
+        start(b"a ID ({4}\r\n"),
+        Start::Begin {
+            command: LiteralCommand::Id,
+            ..
+        }
+    ));
     assert!(matches!(start(b"a LOGIN bob {8}\r\n"), Start::Begin { .. }));
     assert!(matches!(
         start(b"a SEARCH BODY {5}\r\n"),

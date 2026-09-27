@@ -6922,3 +6922,10 @@ ManageSieve до заявленного набора современных фо
 - Сервер объявляет ID во всех вариантах CAPABILITY и на запрос всегда отвечает `* ID NIL`, не сохраняя и не раскрывая client/build/host данные. Unit tests проверили форму/лимиты; независимый Linux STARTTLS peer проверил NIL, list, duplicate rejection, отсутствие untagged ID при BAD, NOOP recovery и capability transition.
 - Rust 1.97 Docker strict Clippy прошёл; 686 library + 1 CLI tests прошли, один UCD normalization corpus test ignored, doc-tests прошли. Четыре целевых Windows tests, cargo fmt --check, git diff --check и Python py_compile прошли; acceptance client 127 строк.
 - Fixture ./data/g38-imap-id-extension оставлена; временный init/runtime containers и оба созданных Docker images удалены, отсутствие проверено. Независимое wire acceptance не проверяло Litterkeep app; IMAP4rev2 и цель G17 остаются ACTIVE.
+
+### 2026-09-27: G17 RFC 2971 ID synchronizing literal acceptance, scoped PASS
+
+- RFC 2971 `string`/`nstring` допускает literal. Независимый wire-test выявил отказ общего receiver-а: он не допускал ID и считал marker только после пробела, хотя первый элемент ID-списка может начинаться сразу после `(`.
+- Добавлен типизированный ID literal admission с теми же bounded limits; receiver выделяет открывающую скобку до marker и затем передаёт собранные octets typed parser-у. Unit regression проверяет marker у `(`. Независимый Linux STARTTLS acceptance теперь отправляет synchronizing literal отдельно в позиции поля и значения, проверяя `* ID NIL`.
+- Rust 1.97 Docker test target: strict Clippy, 686 library + 1 CLI tests passed, 1 UCD corpus test ignored, doc-tests passed. `cargo fmt --check`, Python `py_compile` и `git diff --check` passed; acceptance client 161 строк.
+- Fixture ./data/g38-imap-id-extension сохранена. Неудачная проверка до фикса оставила чистыми свои ресурсы; итоговые runtime/test containers и images удалены, отсутствие подтверждено. Linux-only reactor wire-path не тестировался на Windows; Litterkeep app не запускалось. Полный IMAP4rev2 и G17 остаются ACTIVE.
