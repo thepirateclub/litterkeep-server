@@ -199,8 +199,10 @@ conversion не реализованы. Дополнительно `smtp::idna17
 проверяет leading/trailing/reserved hyphens и 63-октетный encoded label limit.
 CONTEXTO для U+00B7/U+0375/U+05F3/U+05F4/U+30FB и двух Arabic digit sets
 проверяется по Unicode 17 Scripts таблице и соседним символам; невалидный
-контекст получает отдельную ошибку. CONTEXTJ пока отклоняется до реализации
-joining/virama правил. Bidi пока не проверяется. Функция не подключена к SMTP
+контекст получает отдельную ошибку. CONTEXTJ использует Unicode 17
+Canonical_Combining_Class=Virama и DerivedJoiningType: ZWJ требует предыдущий
+virama, ZWNJ допускает virama или RFC joining context с пропуском Transparent.
+Ошибочный контекст отклоняется. Bidi пока не проверяется. Функция не подключена к SMTP
 parser-у, DNS conversion и
 capability SMTPUTF8 также не реализованы, поэтому сервер её не рекламирует.
 См. [RFC 3492](https://www.rfc-editor.org/rfc/rfc3492.html) и

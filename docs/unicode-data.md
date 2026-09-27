@@ -107,9 +107,23 @@ SHA-256: `9F5E50D3ABAEE7D6CE09480F325C706F485AE3240912527E651954D2D6B035BF`.
 Копия лежит в `./data/g40-idna17/Scripts.txt` и нужна только для повторной
 генерации; runtime от неё не зависит.
 
-ContextJ (ZWJ/ZWNJ) пока возвращает `ContextRuleRequired`; это закрытая часть
-IDNA-профиля, а не полный валидатор. Проверка bidi и входящих A-label не
-сделана. SMTP parser эту функцию пока не вызывает и SMTPUTF8 не рекламирует.
+ContextJ (ZWJ/ZWNJ) использует `DerivedJoiningType.txt` и canonical combining
+class 9 из `UnicodeData.txt`. ZWNJ принимает непосредственно предшествующий
+virama либо L/D + Transparent* + ZWNJ + Transparent* + R/D; ZWJ требует
+непосредственно предшествующий virama. Генератор `tools/generate_idna17_joining.ps1`
+закрепляет обе версии SHA-256, создаёт joining ranges shards не более 300 строк
+и сжатую virama таблицу.
+
+Источники Unicode 17.0.0:
+`https://www.unicode.org/Public/17.0.0/ucd/extracted/DerivedJoiningType.txt`
+с SHA-256 `F39EBE974825D6736AEE15582250307AA532B2CFAB3CAF3F86BD23FDDC9C5C4D`,
+и `https://www.unicode.org/Public/17.0.0/ucd/UnicodeData.txt` с SHA-256
+`2E1EFC1DCB59C575EEDF5CCAE60F95229F706EE6D031835247D843C11D96470C`.
+Fixture файлы лежат в `./data/g40-idna17/`; они не требуются во время работы
+сервера и служат только воспроизводимой генерации.
+
+Проверка bidi и входящих A-label не сделана. SMTP parser эту функцию пока не
+вызывает и SMTPUTF8 не рекламирует.
 
 ## Unicode License V3
 

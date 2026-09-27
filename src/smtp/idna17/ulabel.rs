@@ -15,7 +15,7 @@ pub enum UlabelError {
     HyphenRestriction,
     /// Кодовая точка имеет свойство, отличное от PVALID.
     NonPValidCodePoint,
-    /// Кодовая точка требует контекстной проверки, отсутствующей на этом этапе.
+    /// Для кодовой точки требуется контекстное правило, которое ещё не реализовано.
     ContextRuleRequired,
     /// Контекстное правило известно, но условие для этой кодовой точки нарушено.
     InvalidContext,
@@ -27,8 +27,7 @@ pub enum UlabelError {
 
 /// Проверяет U-label только из PVALID-символов и возвращает IDNA ACE-форму.
 ///
-/// Контекстные правила IDNA и общий DNS-предел домена остаются ответственностью
-/// вызывающего слоя. CONTEXTJ/CONTEXTO отклоняются до реализации их правил.
+/// Общий DNS-предел домена остаётся ответственностью вызывающего слоя.
 pub fn to_alabel(label: &str) -> Result<String, UlabelError> {
     validate_input(label)?;
     let punycode = super::super::punycode::encode(label).map_err(|_| UlabelError::Punycode)?;
@@ -77,7 +76,7 @@ fn validate_input(label: &str) -> Result<(), UlabelError> {
     Ok(())
 }
 
-/// Применяет реализованные CONTEXTO правила и пока явно закрывает CONTEXTJ.
+/// Проверяет contextual code point по установленному RFC правилу.
 fn validate_contextual(
     characters: &[char],
     position: usize,
@@ -101,7 +100,9 @@ fn validate_contextual(
         '\u{30fb}' if has_japanese_script => Ok(()),
         '\u{0660}'..='\u{0669}' if !has_extended_arabic_digits => Ok(()),
         '\u{06f0}'..='\u{06f9}' if !has_arabic_indic_digits => Ok(()),
-        '\u{200c}' | '\u{200d}' => Err(UlabelError::ContextRuleRequired),
+        '\u{200c}' if valid_zwnj_context(characters, position) => Ok(()),
+        '\u{200d}' if previous_is_virama(characters, position) => Ok(()),
+        '\u{200c}' | '\u{200d}' => Err(UlabelError::InvalidContext),
         '\u{00b7}'
         | '\u{0375}'
         | '\u{05f3}'
@@ -111,6 +112,62 @@ fn validate_contextual(
         | '\u{06f0}'..='\u{06f9}' => Err(UlabelError::InvalidContext),
         _ => Err(UlabelError::ContextRuleRequired),
     }
+}
+
+/// Применяет правила U+200C: virama либо допустимая пара joining types.
+fn valid_zwnj_context(characters: &[char], position: usize) -> bool {
+    previous_is_virama(characters, position)
+        || matches!(
+            (
+                joining_before(characters, position),
+                joining_after(characters, position)
+            ),
+            (
+                Some(
+                    super::joining_property::JoiningType::Left
+                        | super::joining_property::JoiningType::Dual
+                ),
+                Some(
+                    super::joining_property::JoiningType::Right
+                        | super::joining_property::JoiningType::Dual
+                )
+            )
+        )
+}
+
+/// Проверяет непосредственно предшествующую code point на Unicode Virama.
+fn previous_is_virama(characters: &[char], position: usize) -> bool {
+    position
+        .checked_sub(1)
+        .and_then(|index| characters.get(index))
+        .is_some_and(|character| super::virama::is_virama(*character))
+}
+
+/// Находит ближайший joining type слева, пропуская Transparent символы.
+fn joining_before(
+    characters: &[char],
+    position: usize,
+) -> Option<super::joining_property::JoiningType> {
+    characters
+        .iter()
+        .take(position)
+        .rev()
+        .copied()
+        .map(super::joining_property::joining_type)
+        .find(|joining| *joining != super::joining_property::JoiningType::Transparent)
+}
+
+/// Находит ближайший joining type справа, пропуская Transparent символы.
+fn joining_after(
+    characters: &[char],
+    position: usize,
+) -> Option<super::joining_property::JoiningType> {
+    characters
+        .iter()
+        .skip(position.saturating_add(1))
+        .copied()
+        .map(super::joining_property::joining_type)
+        .find(|joining| *joining != super::joining_property::JoiningType::Transparent)
 }
 
 /// Проверяет, что U+00B7 расположен ровно между двумя латинскими `l`.

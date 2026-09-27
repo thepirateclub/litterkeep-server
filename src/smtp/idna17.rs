@@ -1,11 +1,15 @@
 //! Derived IDNA2008 code point properties for the pinned Unicode 17.0.0 release.
 
+#[path = "idna17/joining_property.rs"]
+mod joining_property;
 #[path = "idna17/ranges.rs"]
 mod ranges;
 #[path = "idna17/script_property.rs"]
 mod script_property;
 #[path = "idna17/ulabel.rs"]
 mod ulabel;
+#[path = "idna17/virama.rs"]
+mod virama;
 
 /// Класс символа по таблице IDNA2008 Derived Property Unicode 17.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

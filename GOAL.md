@@ -4,6 +4,25 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 Unicode 17 IDNA CONTEXTJ rules
+
+- Завершены RFC 5892 Appendix A.1/A.2 правила Join Controls: U+200D требует
+  непосредственно предшествующий Canonical_Combining_Class=Virama; U+200C
+  допускает тот же virama либо `(L|D) T* U+200C T* (R|D)`. Unicode 17
+  `DerivedJoiningType.txt` и `UnicodeData.txt` закреплены SHA-256; генератор
+  создаёт 542 joining ranges в трёх shards по 255/255/47 строк и 58 virama
+  ranges в 61-строчном source table.
+- Семь CONTEXTJ U-label vectors покрывают virama-based ZWNJ/ZWJ, Arabic
+  joining context, пропуск Transparent mark и неверные контексты. Отдельные
+  тесты проверяют joining lookup и virama классы. Windows Rust 1.97 targeted
+  IDNA tests (12), strict Clippy и fmt прошли. Linux Docker Rust 1.97 release
+  build, strict Clippy, full suite (746 library pass, 1 внешний NFC corpus
+  ignored без fixture, 1 CLI и doctests) и отдельные 12 IDNA tests прошли.
+  `git diff --check` пройден, созданный image удалён и tag отсутствует.
+- Bidi, входящие A-label, whole-domain conversion и SMTP parser integration
+  остаются незавершёнными. SMTPUTF8 не рекламируется.
+  T192 является scoped PASS; G17 и корневая цель остаются ACTIVE.
+
 ### 2026-09-27: G17 Unicode 17 IDNA CONTEXTO rules
 
 - U-label converter теперь применяет все шесть RFC 5891 §4.2.3.1 CONTEXTO

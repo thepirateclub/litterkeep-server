@@ -3,6 +3,10 @@
 #[path = "script_ranges.rs"]
 mod ranges;
 
+#[cfg(test)]
+#[path = "script_property_tests.rs"]
+mod tests;
+
 /// Unicode Script, используемый правилами CONTEXTO.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum Script {
@@ -33,7 +37,3 @@ fn compare_code_point(code_point: u32, start: u32, end: u32) -> std::cmp::Orderi
         _ => Ordering::Equal,
     }
 }
-
-#[cfg(test)]
-#[path = "script_property_tests.rs"]
-mod tests;

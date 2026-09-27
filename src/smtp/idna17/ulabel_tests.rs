@@ -24,13 +24,19 @@ fn rejects_non_nfc_and_structurally_invalid_labels() {
     assert_eq!(to_alabel("例_"), Err(UlabelError::NonPValidCodePoint));
 }
 
-/// Join controls остаются запрещены до реализации всех правил CONTEXTJ.
+/// CONTEXTJ принимает virama и допустимый cursive joining-контекст.
 #[test]
-fn reports_contextual_rules_as_unimplemented() {
-    assert_eq!(
-        to_alabel("a\u{200c}b"),
-        Err(UlabelError::ContextRuleRequired)
-    );
+fn applies_contextj_rules_to_join_controls() {
+    for label in ["क्\u{200c}ष", "क्\u{200d}ष", "ب\u{200c}ت", "بَ\u{200c}ت"] {
+        assert!(to_alabel(label).is_ok(), "{label:?}");
+    }
+    for label in ["a\u{200c}b", "a\u{200d}b", "ب\u{200d}ت"] {
+        assert_eq!(
+            to_alabel(label),
+            Err(UlabelError::InvalidContext),
+            "{label:?}"
+        );
+    }
 }
 
 /// CONTEXTO проверяется по соседним символам и всей доменной метке.
