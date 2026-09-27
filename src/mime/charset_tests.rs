@@ -71,9 +71,15 @@ fn iso_8859_7_uses_registered_name_and_decodes_greek() {
 }
 
 #[test]
+fn iso_8859_8_uses_registered_name_and_decodes_hebrew() {
+    let charset = Charset::parse("ISO-8859-8").expect("registered MIME charset");
+    assert_eq!(charset.decode(b"\xf9\xec\xe5\xed"), Ok("שלום".to_owned()));
+    assert!(charset.decode(b"\xfb").is_err());
+}
+
+#[test]
 fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     for label in [
-        "iso-8859-8",
         "iso-8859-9",
         "iso-8859-10",
         "iso-8859-11",
@@ -92,8 +98,8 @@ fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     }
     assert!(Charset::parse("iso-8859-12").is_err());
     assert!(
-        Charset::parse("iso-8859-8")
-            .expect("ISO-8859-8 ASCII subset")
+        Charset::parse("iso-8859-9")
+            .expect("ISO-8859-9 ASCII subset")
             .decode(b"caf\xe9")
             .is_err()
     );

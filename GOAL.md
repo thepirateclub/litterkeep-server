@@ -1,5 +1,22 @@
 # Goal ledger
 
+### 2026-09-27: G17 full ISO-8859-8 MIME charset, scoped PASS T212
+
+- Реализован отдельный typed MIME decoder ISO-8859-8 для базового visual-order
+  профиля. Проверены Hebrew text, LRM/RLM, ASCII/C1, все назначенные старшие
+  байты и строгий отказ на undefined positions. RFC 1556 -i/-e не aliases:
+  эти отдельные directionality-профили остаются вне реализации.
+- Windows Rust 1.97: 723 library tests и 1 CLI test прошли; 1 внешний Unicode
+  corpus test пропущен, потому что fixture path не задан. fmt, strict Clippy,
+  diff checks прошли.
+- Linux Docker Rust 1.97: release build, strict Clippy, 807 library tests и
+  1 CLI test прошли; 1 внешний Unicode corpus test ignored без fixture path.
+  Временный image `litterkeep-iso8859-8-20260927:gate` удалён и его отсутствию
+  выполнена проверка. Протокольный wire acceptance и подключение приложения
+  Litterkeep этим изменением не проверялись.
+- G17 остаётся активной: следующие зарегистрированные таблицы ISO-8859 и
+  прочие оставшиеся пункты протокольной полноты ещё не реализованы.
+
 ### 2026-09-27: G17 full ISO-8859-7 MIME charset, scoped PASS T211
 
 - Добавлена отдельная таблица modern ISO-8859-7 и typed вариант `Charset`.
