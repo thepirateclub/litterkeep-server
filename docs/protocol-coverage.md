@@ -1056,7 +1056,12 @@ MAIL и RCPT, ожидания `354` на DATA и финального отве�
 использует отдельный 5-минутный command timeout, а BDAT LAST - 10-минутный
 DATA-termination timeout; 3-минутный write timeout сохраняется на каждый chunk.
 Unit-тесты проверяют выбор фазы и LAST-маркер, но socket-level применение этих
-интервалов и задержки на wall clock пока не проверялись. Отдельный rustls unit peer проверяет переход greeting -> EHLO
+интервалов дополнены локальным TCP peer: delayed intermediate ACK переживает
+отсутствие ответа дольше короткого command timeout и приводит к timeout, тогда
+как delayed LAST ACK успешно приходит позже command timeout, но до termination
+timeout. Это проверяет plaintext socket с короткими тестовыми интервалами, а не
+нормативные минуты на wall clock; отдельный TLS peer для BDAT не запускался.
+Отдельный rustls unit peer проверяет переход greeting -> EHLO
 для implicit TLS при различающихся greeting/command deadlines.
 DATA передаётся потоково без дополнительной копии полного message: RFC-ограниченная
 строка формирует bounded fragment, dot-stuffing применяется до записи, а каждый

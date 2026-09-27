@@ -36,6 +36,16 @@ impl SmtpTimeouts {
         }
     }
 
+    /// Задаёт короткие интервалы для socket-тестов промежуточного BDAT и LAST.
+    #[cfg(test)]
+    pub(crate) fn bdat_phases(command: Duration, termination: Duration) -> Self {
+        Self {
+            command,
+            data_termination: termination,
+            ..Self::default()
+        }
+    }
+
     /// Выбирает ожидание ответа по текущей SMTP-команде.
     pub(crate) fn response(self, expectation: ReplyExpectation) -> Duration {
         match expectation {

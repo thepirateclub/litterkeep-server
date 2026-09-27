@@ -1,5 +1,20 @@
 # Goal ledger
 
+### 2026-09-27: G18 outbound BDAT socket timeout phase verification, scoped PASS T242
+
+- К предыдущему изменению добавлены два локальных TCP peer-сценария с короткими
+  overrides: промежуточный BDAT без ACK обрывается через 100 ms, а delayed
+  BDAT LAST успешно получает ACK через 250 ms при 700-ms termination timeout.
+  Тем самым проверено socket-level применение разных timeout в plaintext
+  transport; TLS transport проходит общие сборку и тесты, но отдельный TLS
+  peer-сценарий здесь не запускался.
+- Windows Rust 1.97.1: fmt, strict Clippy, 793 library + 1 CLI прошли;
+  3 fixture-dependent теста ignored. Linux Rust 1.97: оба socket-теста прошли
+  в контейнере с `--rm`; полные Linux тесты для предыдущей версии production
+  изменения прошли как 875 library + 1 CLI, 3 ignored.
+- Это не проверка нормативных минут wall-clock задержки, QUIT timeout или
+  интеграции с внешним MTA.
+
 ### 2026-09-27: G18 outbound SMTP per-chunk BDAT response timers, scoped PASS T241
 
 - Разделены ожидания ответов на промежуточный `BDAT` и `BDAT LAST`: первый
@@ -11,8 +26,8 @@
   Windows Rust 1.97.1: fmt, strict Clippy, 791 library + 1 CLI прошли;
   3 fixture-dependent теста ignored. Linux Rust 1.97: 875 library + 1 CLI
   прошли, 3 ignored. Контейнер удалён через `--rm`.
-- Нет независимого SMTP peer-теста с короткими реальными timeout overrides;
-  wire-level применение фаз и задержки на wall clock остаются непроверенными.
+- Отдельный короткий socket-level peer-тест добавлен в T242. Нормативные
+  минуты wall-clock ожидания и внешний MTA по-прежнему не проверялись.
 
 ### 2026-09-27: G17 RFC 2231 duplicate and continuation rejection vectors, scoped PASS T240
 

@@ -37,6 +37,9 @@ pub(crate) use reply::{ReplyExpectation, ReplyResult, expect, expect_success};
 pub(crate) use reply::{parse_reply, read_reply_line};
 pub(crate) use timeouts::SmtpTimeouts;
 #[cfg(test)]
+#[path = "outbound_bdat_timeout_tests.rs"]
+mod bdat_timeout_tests;
+#[cfg(test)]
 #[path = "outbound_binarymime_tests.rs"]
 mod binarymime_tests;
 #[cfg(test)]
@@ -64,6 +67,14 @@ impl TransportLimits {
         Self {
             connect,
             timeouts: SmtpTimeouts::uniform(io),
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn bdat_phases(connect: Duration, command: Duration, termination: Duration) -> Self {
+        Self {
+            connect,
+            timeouts: SmtpTimeouts::bdat_phases(command, termination),
         }
     }
 }
