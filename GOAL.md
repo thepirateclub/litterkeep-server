@@ -1,5 +1,24 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 2047 UTF-16/UTF-32 IMAP SEARCH wire acceptance, scoped PASS T281
+
+- MIME decoder unit coverage already included UTF-16/UTF-32 encoded-words, but
+  the SMTP -> persistent message -> IMAP SEARCH path had no independent wire
+  evidence for these encodings.
+- A new independent STARTTLS peer sent six unique Subject fixtures through
+  SMTP: generic, BE and LE variants for UTF-16 and UTF-32. Bob then searched
+  each decoded Unicode value using RFC 9051 UTF-8 synchronizing literals.
+  Acceptance requires exactly one matching message for every charset. The
+  generic UTF-32 vector includes its registered big-endian BOM.
+- Python compilation and the Linux wire acceptance passed. The Linux Rust
+  1.97 release runtime image used the existing Docker Rust image and cached
+  source build. TLS was negotiated, but the independent client deliberately
+  disabled certificate validation; this does not verify client trust setup.
+  Fixture ./data/acceptance-rfc2047-utf16-utf32-20260928 is retained.
+  The created server container and runtime image are removed and absence
+  verified. This is not Litterkeep-app interoperability or complete charset
+  coverage; G18 remains ACTIVE.
+
 ### 2026-09-28: G18 RFC 3516 BINARY Seen/FLAGS response, scoped PASS T280
 
 - RFC 3516 §4.2 distinguishes BINARY from BINARY.PEEK: the former implicitly

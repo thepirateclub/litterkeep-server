@@ -853,7 +853,12 @@ STARTTLS SMTP -> IMAP acceptance дополнительно доставил 8BI
 `charset=windows-874`, после чего Bob запросил `SEARCH CHARSET UTF-8 BODY` со
 synchronizing literal `ภาษาไทย`; результат включил доставленное сообщение.
 Это доказывает Windows-874 decoding в IMAP MIME text projection и его передачу
-в evaluator, но не wire-покрытие остальных charset. SEARCH поддерживает
+в evaluator, но не wire-покрытие остальных charset. Отдельная SMTP -> IMAP
+wire-проверка доставила RFC 2047 Subject encoded-word варианты UTF-16,
+UTF-16BE/LE и UTF-32 с generic BE BOM, UTF-32BE/LE; UTF-8 SEARCH literal
+нашёл ровно одно соответствующее письмо для каждого label. Это подтверждает
+данный набор encoded-word -> ENVELOPE SEARCH сценариев, а не все MIME charset,
+поля заголовков или Litterkeep interoperability. SEARCH поддерживает
 ASCII quoted strings и synchronizing literals до 64 KiB; независимый STARTTLS
 тест проверил BODY, UID, UTF-8, пустой literal и два последовательных literals
 в HEADER с отдельным continuation для каждого; pipelined command после literal
