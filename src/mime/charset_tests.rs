@@ -51,9 +51,18 @@ fn iso_8859_5_uses_registered_name_and_preserves_cyrillic_controls() {
 }
 
 #[test]
+fn iso_8859_6_uses_registered_name_and_rejects_undefined_positions() {
+    let charset = Charset::parse("ISO-8859-6").expect("registered MIME charset");
+    assert_eq!(
+        charset.decode(b"\xc7\xe4\xc7\xd3\xe4\xc7\xe5"),
+        Ok("الاسلام".to_owned())
+    );
+    assert!(charset.decode(b"\xa1").is_err());
+}
+
+#[test]
 fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     for label in [
-        "iso-8859-6",
         "iso-8859-7",
         "iso-8859-8",
         "iso-8859-9",
@@ -74,8 +83,8 @@ fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     }
     assert!(Charset::parse("iso-8859-12").is_err());
     assert!(
-        Charset::parse("iso-8859-6")
-            .expect("ISO-8859-6 ASCII subset")
+        Charset::parse("iso-8859-7")
+            .expect("ISO-8859-7 ASCII subset")
             .decode(b"caf\xe9")
             .is_err()
     );
