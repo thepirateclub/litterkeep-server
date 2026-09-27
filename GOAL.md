@@ -13,8 +13,9 @@ Current subgoal: G17
   strict Clippy, 727 library tests passed, 1 внешний Unicode UCD test ignored,
   1 CLI test passed, doctests без тестов. `cargo fmt --check` и
   `git diff --check` также проверены.
-- Определение UTF-8 заголовков выделено в отдельный модульный файл; затронутые
-  Rust-файлы не превышают 300 строк.
+- Определение UTF-8 заголовков выделено в отдельный модульный файл.
+  `src/outbound.rs` содержит 305 строк и уже превышал лимит 300 до этого этапа;
+  нарушение остаётся открытым и не считается выполненным критерием.
 - Это не отдельная wire acceptance, не полная inbound SMTPUTF8/EAI реализация,
   не проверка внешнего MTA или Litterkeep app. G17 и корневая цель остаются
   ACTIVE. Созданный для gate Docker image удалён, отсутствие проверено.
