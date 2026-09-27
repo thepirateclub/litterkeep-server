@@ -1,8 +1,9 @@
-"""Проверяет RFC 6856 UTF8 только в POP3 AUTHORIZATION до USER."""
+"""Проверяет RFC 6856 UTF8 в POP3 AUTHORIZATION до и после USER."""
 
 from __future__ import annotations
 
 import argparse
+import base64
 import os
 import socket
 import ssl
@@ -27,7 +28,7 @@ def exchange(stream: socket.SocketIO, command: bytes, expected: bytes) -> bytes:
 
 
 def verify(host: str, port: int, password: str) -> None:
-    """Проверяет STLS, USER, запрещённый UTF8, PASS и TRANSACTION."""
+    """Проверяет UTF8 после USER, PASS и SASL retry в той же сессии."""
     with socket.create_connection((host, port), timeout=10) as connection:
         stream = connection.makefile("rwb", buffering=0)
         greeting = read_line(stream, "greeting")
@@ -42,8 +43,12 @@ def verify(host: str, port: int, password: str) -> None:
         with context.wrap_socket(connection, server_hostname=host) as tls:
             tls_stream = tls.makefile("rwb", buffering=0)
             exchange(tls_stream, b"USER bob", b"+OK")
-            exchange(tls_stream, b"UTF8", b"-ERR")
-            exchange(tls_stream, f"PASS {password}".encode("ascii"), b"+OK")
+            exchange(tls_stream, b"UTF8", b"+OK")
+            failed_password = exchange(tls_stream, b"PASS " + b"p" * 40, b"-ERR")
+            if not failed_password.startswith(b"-ERR authentication failed"):
+                raise AssertionError(f"USER не сохранился после UTF8: {failed_password!r}")
+            sasl = base64.b64encode(b"\x00bob\x00" + password.encode("ascii"))
+            exchange(tls_stream, b"AUTH PLAIN " + sasl, b"+OK")
             exchange(tls_stream, b"STAT", b"+OK")
             exchange(tls_stream, b"QUIT", b"+OK")
 
@@ -58,7 +63,7 @@ def main() -> None:
     if options.password is None:
         raise SystemExit("укажите --password или LITTERKEEP_BOB_PASSWORD")
     verify(options.host, options.port, options.password)
-    print("PASS POP3 RFC 6856: UTF8 after USER rejected, PASS state preserved")
+    print("PASS POP3 RFC 6856: UTF8 valid after USER; PASS exchange preserved")
 
 
 if __name__ == "__main__":

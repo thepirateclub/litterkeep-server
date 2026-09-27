@@ -1,16 +1,16 @@
-//! RFC 6856 UTF8-команда разрешена только до USER/AUTH.
+//! RFC 6856 UTF8 действует на всю POP3 AUTHORIZATION state.
 
 use super::{Reply, Session, parse};
 
-/// Отказ на поздний UTF8 не сбрасывает ожидающий USER парольный обмен.
+/// USERAccepted остаётся AUTHORIZATION, поэтому UTF8 не отменяет PASS.
 #[test]
-fn rejects_utf8_after_user_without_losing_authorization_state() {
+fn accepts_utf8_after_user_and_preserves_pass_exchange() {
     let mut session = Session::default();
 
     assert!(matches!(session.apply(parse("USER bob\r\n")), Reply::Ok(_)));
     assert!(matches!(
         session.apply(parse("UTF8\r\n")),
-        Reply::Error("invalid command for state")
+        Reply::Ok(text) if text == "UTF-8 mode enabled"
     ));
     assert!(matches!(
         session.apply(parse("PASS test-password\r\n")),

@@ -78,13 +78,14 @@ impl Session {
                 true => Reply::Error("STLS must precede UTF8"),
                 false => Reply::StartTls,
             },
-            (Phase::Authorization, Command::Utf8) => {
+            (Phase::Authorization | Phase::UserAccepted, Command::Utf8) => {
                 self.utf8_active = true;
                 Reply::Ok("UTF-8 mode enabled".into())
             }
-            (Phase::Authorization | Phase::Transaction, Command::Lang(language)) => {
-                lang_reply(language)
-            }
+            (
+                Phase::Authorization | Phase::UserAccepted | Phase::Transaction,
+                Command::Lang(language),
+            ) => lang_reply(language),
             (Phase::Transaction, Command::Stat) => self.stat(),
             (Phase::Transaction, Command::List(number)) => self.list(number),
             (Phase::Transaction, Command::Uidl(number)) => self.uidl(number),

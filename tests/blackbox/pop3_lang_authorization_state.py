@@ -1,8 +1,9 @@
-"""Проверяет RFC 6856 LANG только в AUTHORIZATION и TRANSACTION."""
+"""Проверяет RFC 6856 LANG в AUTHORIZATION, включая USERAccepted."""
 
 from __future__ import annotations
 
 import argparse
+import base64
 import os
 import socket
 import ssl
@@ -27,7 +28,7 @@ def exchange(stream: socket.SocketIO, command: bytes, expected: bytes) -> bytes:
 
 
 def verify(host: str, port: int, password: str) -> None:
-    """Проверяет LANG до USER, отказ после USER и успех в TRANSACTION."""
+    """Проверяет LANG до и после USER, PASS и повторный вход через SASL."""
     with socket.create_connection((host, port), timeout=10) as connection:
         stream = connection.makefile("rwb", buffering=0)
         greeting = read_line(stream, "greeting")
@@ -43,8 +44,12 @@ def verify(host: str, port: int, password: str) -> None:
             tls_stream = tls.makefile("rwb", buffering=0)
             exchange(tls_stream, b"LANG EN", b"+OK en ")
             exchange(tls_stream, b"USER bob", b"+OK")
-            exchange(tls_stream, b"LANG EN", b"-ERR")
-            exchange(tls_stream, f"PASS {password}".encode("ascii"), b"+OK")
+            exchange(tls_stream, b"LANG EN", b"+OK en ")
+            failed_password = exchange(tls_stream, b"PASS " + b"p" * 40, b"-ERR")
+            if not failed_password.startswith(b"-ERR authentication failed"):
+                raise AssertionError(f"USER не сохранился после LANG: {failed_password!r}")
+            sasl = base64.b64encode(b"\x00bob\x00" + password.encode("ascii"))
+            exchange(tls_stream, b"AUTH PLAIN " + sasl, b"+OK")
             exchange(tls_stream, b"STAT", b"+OK")
             exchange(tls_stream, b"LANG EN", b"+OK en ")
             exchange(tls_stream, b"QUIT", b"+OK")
@@ -60,7 +65,7 @@ def main() -> None:
     if options.password is None:
         raise SystemExit("укажите --password или LITTERKEEP_BOB_PASSWORD")
     verify(options.host, options.port, options.password)
-    print("PASS POP3 RFC 6856: LANG state restrictions and USER/PASS preservation")
+    print("PASS POP3 RFC 6856: LANG accepted throughout AUTHORIZATION and TRANSACTION")
 
 
 if __name__ == "__main__":

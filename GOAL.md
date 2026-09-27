@@ -4,6 +4,28 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-27: G17 RFC 6856 USERAccepted is still AUTHORIZATION, correction
+
+- Повторная сверка RFC 1939 §§3-4 и RFC 6856 §§2.1, 3.1 показала, что успешный
+  `USER` не переводит POP3-сессию в новое протокольное состояние: до успешного
+  PASS/AUTH она остаётся в AUTHORIZATION. Внутренняя фаза `UserAccepted` не
+  является дополнительным RFC state. Прежние T160/T161 ошибочно исключали в ней
+  `UTF8` и `LANG`; код и их acceptance были скорректированы.
+- `UTF8` теперь разрешена в AUTHORIZATION до/после USER, а `LANG` в
+  AUTHORIZATION до/после USER и в TRANSACTION. `NOOP` не меняется, поскольку
+  RFC 1939 §5 ограничивает именно эту команду состоянием TRANSACTION.
+- Unit regressions и независимые Linux STARTTLS peers проверяют обе команды
+  после USER, credential-backend отказ от синтаксически корректного PASS,
+  разрешённый SASL retry после неудачного PASS и завершение POP3-сеанса.
+- Windows Rust 1.97.1: 629 library tests + 1 CLI test прошли, 1 внешний UCD
+  test ignored без корпуса; strict Clippy, rustfmt, Python `py_compile` и
+  `git diff --check` прошли. Linux Docker Rust 1.97 test-stage: strict Clippy,
+  695 library tests + 1 CLI test прошли, 1 UCD test ignored, doc-tests прошли.
+  Два независимых Linux STARTTLS peer acceptance-сценария прошли. Fixture
+  `./data/acceptance-pop3-rfc6856-useraccepted-20260927` сохранена; точные
+  временные Docker container/image удалены и их отсутствие проверено. Только
+  независимый peer, не приложение Litterkeep. G17 остаётся ACTIVE.
+
 ### 2026-09-27: G17 RFC 1939 POP3 NOOP transaction-only state, PASS checkpoint
 
 - RFC 1939 §5 разрешает `NOOP` только в TRANSACTION. POP3 FSM ошибочно
@@ -42,13 +64,14 @@ Current subgoal: G17
   container и test image удалены, отсутствие проверено. Проверялся независимый
   peer, не Litterkeep app; общий POP3 профиль и G17 остаются ACTIVE.
 
-### 2026-09-27: G17 RFC 6856 LANG authorization and transaction states, PASS checkpoint
+### 2026-09-27: G17 RFC 6856 LANG authorization and transaction states, SUPERSEDED BY T164
 
-- RFC 6856 §3.1 разрешает LANG только в AUTHORIZATION и TRANSACTION. POP3 FSM
-  ошибочно принимала LANG в промежуточном USERAccepted состоянии; теперь сервер
-  отвергает команду там и сохраняет возможность завершить PASS.
-- Unit regression и независимый Linux STARTTLS peer проверили LANG до USER,
-  отказ между USER/PASS, успешный PASS, LANG после входа, STAT и QUIT.
+- Первоначальный вывод считал USERAccepted отдельным wire-state и ошибочно
+  применял RFC6856 таблицу LANG без учёта состояний RFC1939. T164 исправляет
+  разбор: USERAccepted остаётся частью AUTHORIZATION.
+- Ранее выполненные тесты точно фиксируют прежнее поведение, но не являются
+  подтверждением актуального RFC-поведения; исправленный unit/wire acceptance
+  приведён в T164.
 - Windows Rust 1.97.1: 626 library tests и 1 CLI test прошли, 1 внешний UCD
   test ignored без корпуса; strict Clippy, rustfmt, Python `py_compile` и
   `git diff --check` прошли. Linux Docker test stage: strict Clippy, 692 library
@@ -57,14 +80,13 @@ Current subgoal: G17
   container/image удалён, отсутствие проверено. Независимый peer, не приложение
   Litterkeep; полный POP3 профиль и G17 остаются ACTIVE.
 
-### 2026-09-27: G17 RFC 6856 UTF8 command authorization state, PASS checkpoint
+### 2026-09-27: G17 RFC 6856 UTF8 command authorization state, SUPERSEDED BY T164
 
-- RFC 6856 §2.1 указывает AUTHORIZATION как единственное состояние, в котором
-  допустима команда `UTF8`. POP3 FSM ранее принимала её и после `USER`; теперь
-  команда включается только до перехода в USERAccepted.
-- Unit regression подтверждает отказ на поздний `UTF8` и сохранение ожидающего
-  `PASS`. Независимый Linux STARTTLS peer проверил `USER`, `UTF8` (`-ERR`),
-  корректный `PASS`, `STAT` и `QUIT` в той же сессии.
+- Первоначальный вывод ошибочно трактовал внутреннюю фазу USERAccepted как
+  отдельное состояние протокола. RFC 1939 оставляет сессию в AUTHORIZATION до
+  завершения authentication; T164 разрешает UTF8 во всей этой фазе.
+- Ранее собранное доказательство отражает старое поведение и не подтверждает
+  RFC-конформность; исправленные state/unit/wire проверки перечислены в T164.
 - Windows Rust 1.97.1: 625 library tests и 1 CLI test прошли, 1 внешний UCD
   test ignored без корпуса; strict Clippy, rustfmt, Python `py_compile` и
   `git diff --check` прошли. Linux Docker test stage: strict Clippy, 691 library
