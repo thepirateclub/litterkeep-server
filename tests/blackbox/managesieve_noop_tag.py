@@ -68,6 +68,21 @@ def main() -> None:
         connection.sendall(b"NOOP {1+}\r\n\xff")
         if read_line(connection) != b'NO "literal must be UTF-8"\r\n':
             raise AssertionError("invalid UTF-8 literal did not get rejected")
+        connection.sendall(b"GETSCRIPT {3}\r\n")
+        if read_line(connection) != b'OK "ready for literal data"\r\n':
+            raise AssertionError("synchronizing script-name literal was not accepted")
+        connection.sendall(b"box")
+        if read_line(connection) != b'NO "invalid command for state"\r\n':
+            raise AssertionError("GETSCRIPT literal did not reach the state check")
+        for wire in (
+            b"GETSCRIPT {3+}\r\nbox",
+            b"DELETESCRIPT {3+}\r\nbox",
+            b"SETACTIVE {3+}\r\nbox",
+            b"SETACTIVE {0+}\r\n",
+        ):
+            connection.sendall(wire)
+            if read_line(connection) != b'NO "invalid command for state"\r\n':
+                raise AssertionError(f"literal command was not parsed: {wire!r}")
         exchange(
             connection,
             b'NOOP "a \\\"b\\\\c"\r\n',

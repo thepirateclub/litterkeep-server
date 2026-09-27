@@ -77,9 +77,12 @@ the SHA-1/HMAC primitives needed for a compliant implementation.
 RFC 5804 §1.2 and §4 define command string values as quoted or literal. The
 NOOP optional tag accepts bounded sync and non-sync literal-c2s forms;
 independent Linux wire acceptance checks the continuation exchange, direct
-non-sync payload, exact TAG echoes and pipeline preservation. Other ManageSieve
-string arguments still require a separate literal-coverage audit and are not
-claimed as covered by this change.
+non-sync payload, exact TAG echoes and pipeline preservation. GETSCRIPT,
+DELETESCRIPT and SETACTIVE also accept final sync/non-sync literal-c2s values.
+The zero-octet SETACTIVE literal maps to the same disable state as a quoted
+empty string. Linux unit and wire checks cover command conversion and framing.
+Literal forms for remaining string positions, including script names in
+PUTSCRIPT and RENAMESCRIPT, remain unsupported.
 
 ManageSieve script count, per-script byte size and serialized account catalog
 are bounded in the Store. RFC 5804 §1.5 requires a `NO` response containing

@@ -1008,7 +1008,11 @@ NOOP accepts an optional RFC 5804 string as either quoted text or synchronizing
 and non-synchronizing client literals. Linux reactor tests cover literal
 consumption and pipeline boundaries; independent wire acceptance confirms the
 continuation and exact TAG responses. This does not establish literal support
-for other ManageSieve command arguments.
+for other ManageSieve command arguments. GETSCRIPT, DELETESCRIPT and SETACTIVE
+also accept a final synchronizing or non-synchronizing literal string, including
+the zero-length SETACTIVE disable form. Linux reactor tests verify typed command
+conversion; independent wire acceptance checks continuation and state handling.
+Literal script-name positions in PUTSCRIPT and RENAMESCRIPT remain unsupported.
 
 ## Outbound SMTP
 

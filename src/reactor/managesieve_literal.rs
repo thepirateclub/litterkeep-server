@@ -1,4 +1,4 @@
-//! Отдельный RFC 5804 framing для bounded ManageSieve script literal.
+//! Отдельный RFC 5804 framing для bounded ManageSieve literal arguments.
 //!
 //! В отличие от IMAP, marker `\{n+\}\r\n` завершает командную строку, а
 //! непосредственно после n байтов может следовать новый pipeline command.
@@ -23,6 +23,9 @@ enum Operation {
     Put(String),
     Check,
     Noop,
+    GetScript,
+    DeleteScript,
+    SetActive,
 }
 
 /// Единственный bounded владелец байтов literal между TCP reads.
@@ -64,11 +67,20 @@ impl LiteralReceiver {
             Operation::Put(name) => Progress::Complete(Command::PutScript { name, source }),
             Operation::Check => Progress::Complete(Command::CheckScript(source)),
             Operation::Noop => Progress::Complete(Command::Noop(Some(source))),
+            Operation::GetScript => Progress::Complete(Command::GetScript(source)),
+            Operation::DeleteScript => Progress::Complete(Command::DeleteScript(source)),
+            Operation::SetActive => {
+                let name = match source.is_empty() {
+                    true => None,
+                    false => Some(source),
+                };
+                Progress::Complete(Command::SetActive(name))
+            }
         }
     }
 }
 
-/// Разбирает лишь две команды, у которых последний аргумент является literal.
+/// Выбирает framing для команд с поддерживаемой literal-позицией.
 pub(super) fn start(line: &[u8]) -> Start {
     let Ok(text) = std::str::from_utf8(line) else {
         return Start::NotLiteral;
@@ -81,6 +93,9 @@ pub(super) fn start(line: &[u8]) -> Start {
         Verb::Put => put(tail),
         Verb::Check => check(tail),
         Verb::Noop => noop(tail),
+        Verb::GetScript => string_argument(Operation::GetScript, tail),
+        Verb::DeleteScript => string_argument(Operation::DeleteScript, tail),
+        Verb::SetActive => string_argument(Operation::SetActive, tail),
         Verb::Other => Start::NotLiteral,
     }
 }
@@ -89,6 +104,9 @@ enum Verb {
     Put,
     Check,
     Noop,
+    GetScript,
+    DeleteScript,
+    SetActive,
     Other,
 }
 
@@ -98,6 +116,9 @@ impl Verb {
             _ if value.eq_ignore_ascii_case("PUTSCRIPT") => Self::Put,
             _ if value.eq_ignore_ascii_case("CHECKSCRIPT") => Self::Check,
             _ if value.eq_ignore_ascii_case("NOOP") => Self::Noop,
+            _ if value.eq_ignore_ascii_case("GETSCRIPT") => Self::GetScript,
+            _ if value.eq_ignore_ascii_case("DELETESCRIPT") => Self::DeleteScript,
+            _ if value.eq_ignore_ascii_case("SETACTIVE") => Self::SetActive,
             _ => Self::Other,
         }
     }
@@ -117,6 +138,11 @@ fn check(tail: &str) -> Start {
 /// Распознаёт одиночный literal-тег NOOP; любые лишние аргументы отвергаются.
 fn noop(tail: &str) -> Start {
     literal(Operation::Noop, tail.trim())
+}
+
+/// Обрабатывает команды с одним строковым финальным аргументом.
+fn string_argument(operation: Operation, tail: &str) -> Start {
+    literal(operation, tail.trim())
 }
 
 fn literal(operation: Operation, marker: &str) -> Start {
@@ -176,68 +202,5 @@ fn quoted_then_tail(text: &str) -> Option<(String, &str)> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Любая TCP-граница даёт тот же PUTSCRIPT и не съедает pipeline command.
-    #[test]
-    fn preserves_all_two_chunk_boundaries_and_pipeline() {
-        let Start::Begin { .. } = start(b"PUTSCRIPT \"box\" {5+}\r\n") else {
-            panic!("literal command was not recognized");
-        };
-        let wire = b"keep;NOOP\r\n";
-        for split in 0..=wire.len() {
-            let mut receiver = LiteralReceiver::new(Operation::Put("box".into()), 5);
-            let mut input = wire.get(..split).expect("prefix").to_vec();
-            let first_progress = receiver.consume(&mut input);
-            input.extend_from_slice(wire.get(split..).expect("suffix"));
-            let progress = match first_progress {
-                Progress::Waiting => receiver.consume(&mut input),
-                complete => complete,
-            };
-            let Progress::Complete(Command::PutScript { name, source }) = progress else {
-                panic!("literal did not complete at split {split}");
-            };
-            assert_eq!(name, "box");
-            assert_eq!(source, "keep;");
-            assert_eq!(input, b"NOOP\r\n");
-        }
-    }
-
-    #[test]
-    fn recognizes_sync_literal_and_rejects_oversized_body() {
-        assert!(matches!(
-            start(b"CHECKSCRIPT {4}\r\n"),
-            Start::Begin {
-                continuation: true,
-                ..
-            }
-        ));
-        assert!(matches!(start(b"CHECKSCRIPT {65537+}\r\n"), Start::Invalid));
-    }
-
-    #[test]
-    fn noop_literal_keeps_sync_mode_and_pipeline_boundary() {
-        let Start::Begin {
-            mut receiver,
-            continuation,
-        } = start(b"NOOP {7}\r\n")
-        else {
-            panic!("synchronizing NOOP literal was not recognized");
-        };
-        assert!(continuation);
-        let mut input = b"sync-42NOOP\r\n".to_vec();
-        let Progress::Complete(Command::Noop(Some(tag))) = receiver.consume(&mut input) else {
-            panic!("NOOP literal tag did not complete");
-        };
-        assert_eq!(tag, "sync-42");
-        assert_eq!(input, b"NOOP\r\n");
-        assert!(matches!(
-            start(b"NOOP {7+}\r\n"),
-            Start::Begin {
-                continuation: false,
-                ..
-            }
-        ));
-    }
-}
+#[path = "managesieve_literal_tests.rs"]
+mod tests;

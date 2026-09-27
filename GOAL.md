@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-27: G18 ManageSieve script-name literal arguments, scoped PASS T256
+
+- The bounded RFC 5804 literal receiver now also handles final string values
+  for GETSCRIPT, DELETESCRIPT and SETACTIVE. Literal bytes are converted to the
+  typed command only after complete UTF-8 validation; an empty SETACTIVE literal
+  maps to the protocol's disable-active-script value. Existing PUTSCRIPT and
+  CHECKSCRIPT body handling is unchanged.
+- Linux unit tests confirm typed command conversion. The independent
+  `tests/blackbox/managesieve_noop_tag.py` checks synchronizing GETSCRIPT,
+  non-synchronizing GETSCRIPT/DELETESCRIPT/SETACTIVE, zero-length deactivation,
+  invalid UTF-8 handling, continuation bytes and the server's unauthenticated
+  state rejection. Windows Rust 1.97.1 fmt, strict Clippy and all-target tests
+  passed: 802 library + 1 CLI, 3 fixture-dependent ignored; reactor literal
+  tests are Linux-only. Linux Docker Rust 1.97.1 fmt, strict Clippy, 889 library
+  + 1 CLI passed, 3 Unicode fixtures ignored, release build passed. Container
+  removed; Rust image preserved. Literal arguments in PUTSCRIPT/RENAMESCRIPT
+  name positions and remaining string positions are still uncovered.
+
 ### 2026-09-27: G18 ManageSieve NOOP literal tag forms, scoped PASS T255
 
 - RFC 5804 §1.2 and §4 allow command strings as quoted or literal values. The
