@@ -670,6 +670,12 @@ printable ASCII и одиночные пробелы; лимит команды 
 при занятом другим POP3-сеансом maildrop сервер отвечает `-ERR [IN-USE]`.
 Независимая проверка удерживала первую lease и подтвердила код для PASS второго
 клиента в AUTHORIZATION; capability проверена в обоих состояниях.
+Новый независимый Linux STARTTLS peer прочитал полный CAPA multiline frame в
+AUTHORIZATION до TLS, после TLS, после успешного USER и в TRANSACTION. Теги
+`USER`, `UIDL`, `TOP`, `RESP-CODES`, `UTF8` и `LANG` сохранялись во всех
+четырёх состояниях; `STLS` заменялся на `SASL PLAIN` после TLS. Это подтверждает
+эту таблицу CAPA-состояний, но не полный профиль RFC 2449/5034 и не клиента
+Litterkeep.
 `LIST n` и `UIDL n` возвращают одиночный `+OK` с номером и данными; без аргумента
 обе команды используют multiline frame. LIST octet size считает CRLF-представление
 сообщения и не включает дублированные dot-stuffing октеты. Независимый Linux

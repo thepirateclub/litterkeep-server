@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-27: G17 POP3 CAPA state matrix, PASS evidence checkpoint
+
+- Добавлен независимый STARTTLS wire-клиент, который полностью считывает CAPA
+  multiline response в AUTHORIZATION до TLS, AUTHORIZATION после TLS, после
+  USER и в TRANSACTION. Все четыре сетевых состояния прошли: общие capability
+  теги сохраняются, `STLS` доступен только до TLS, `SASL PLAIN` объявляется
+  после TLS.
+- Python `py_compile` и сеточная проверка прошли на Linux test image с Rust
+  1.97. Docker test-stage был cache hit для неизменённых Rust-исходников, поэтому
+  новый полный Rust test run этим этапом не заявляется. Fixture
+  `./data/acceptance-pop3-capa-states-20260927` сохранена; точные Docker
+  container/image удалены, отсутствие проверено. Клиент независимый, не
+  приложение Litterkeep; это CAPA-only coverage и не полный RFC PASS. G17 остаётся
+  ACTIVE.
+
 ### 2026-09-27: G17 POP3 and Sieve source responsibility split
 
 - Свойства POP3 сообщения вынесены в отдельный `message_profile.rs`; maildrop
