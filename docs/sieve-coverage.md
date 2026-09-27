@@ -414,10 +414,14 @@ scalars в RFC 2047 encoded-word и RFC 2231 extended values. Generic UTF-32 п�
 IANA использует big-endian при отсутствии BOM и снимает только BE BOM; invalid
 surrogates и scalars выше U+10FFFF отвергаются. Эти labels не допускаются для
 MIME `text/*` decoding, поскольку IANA помечает их неподходящими для MIME text.
-Доказательства ограничены unit-тестами decoder-а и parser integration.
+Unit-тесты проверяют decoder, RFC 2047 и RFC 2231 parser integration.
+Независимый STARTTLS SMTP -> файловое хранилище -> IMAP acceptance также
+подтверждает сохранение encoded Subject и выдачу decoded attachment filename
+`😀` в BODYSTRUCTURE. Проверка выполнена скриптом
+`tests/blackbox/smtp_imap_utf32_charset.py`; POP3, Sieve, ManageSieve и
+приложение Litterkeep в этом сценарии не участвовали.
 
 Отдельная интеграционная регрессия проверяет IBM866 не только decoder-ом:
 RFC 2047 Base64 encoded-word темы `Привет` декодируется из CP866 octets, а
 RFC 2231 `filename*` возвращает `Привет.txt`. Это parser unit acceptance;
 отправка такого сообщения через SMTP и просмотр через IMAP/POP3 не проверены.
-#

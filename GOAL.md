@@ -12,7 +12,13 @@
   один внешний Unicode corpus ignored без fixture.
 - Linux Docker Rust 1.97: release build, strict Clippy, 868 library + 1 CLI
   passed; один внешний Unicode corpus ignored без fixture. Временный image
-  удалён, отсутствие проверено. Network/client acceptance не запускался.
+  после wire acceptance удалён, отсутствие проверено.
+- Независимый Python-клиент выполнил SMTP STARTTLS login Alice, передачу и
+  доставку письма, затем IMAP STARTTLS login Bob и FETCH. Сверены неизменённый
+  RFC 2047 Subject и UTF-32BE RFC 2231 filename `😀` в BODYSTRUCTURE.
+  Запускался `python tests/blackbox/smtp_imap_utf32_charset.py --credentials
+  ./data/g17-utf32-wire/test-accounts.tsv`; это не проверка приложения
+  Litterkeep, POP3 или Sieve.
 
 ### 2026-09-27: G17 IBM866 MIME integration, scoped PASS T230
 
