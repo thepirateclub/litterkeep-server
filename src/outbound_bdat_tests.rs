@@ -1,5 +1,6 @@
 //! Unit проверки bounded RFC 3030 chunk boundaries и MIME validation.
-use super::{MAX_CHUNK_SIZE, binary_chunks, has_binary_transfer, validate_binary};
+use super::{MAX_CHUNK_SIZE, binary_chunks, has_binary_transfer, send, validate_binary};
+use std::io::Cursor;
 
 /// Размер chunks ограничен, а LAST выставляется ровно на последнем участке.
 #[test]
@@ -25,6 +26,22 @@ fn empty_message_has_one_zero_length_last_chunk() {
     assert_eq!(chunks.len(), 1);
     assert_eq!(chunk.map(|chunk| chunk.bytes.len()), Some(0));
     assert_eq!(chunk.map(|chunk| chunk.last), Some(true));
+}
+
+/// Отправитель различает каждый chunk reply и отдельный ответ последнего.
+#[test]
+fn sender_marks_intermediate_and_last_bdat_replies() {
+    let message = vec![0xA5; MAX_CHUNK_SIZE.saturating_add(1)];
+    let mut replies = Cursor::new(b"250 chunk\r\n250 final\r\n");
+    let mut last_markers = Vec::new();
+    let result = send(&mut replies, &message, |_, _, _, last| {
+        last_markers.push(last);
+        Ok(())
+    })
+    .expect("all BDAT replies");
+
+    assert_eq!(result, crate::outbound::ReplyResult::Accepted);
+    assert_eq!(last_markers, [false, true]);
 }
 
 /// Нулевой и high-bit octets остаются непрозрачными внутри application leaf.

@@ -1,5 +1,19 @@
 # Goal ledger
 
+### 2026-09-27: G18 outbound SMTP per-chunk BDAT response timers, scoped PASS T241
+
+- Разделены ожидания ответов на промежуточный `BDAT` и `BDAT LAST`: первый
+  использует 300-секундный command timeout, последний 600-секундный
+  DATA-termination timeout. Лимит записи каждого чанка остался 180 секунд.
+  Plain TCP и implicit TLS устанавливают read timeout отдельно перед каждым
+  чанком; маркер LAST передаётся из chunk iterator в транспорт.
+- Добавлены unit checks выбора фазового интервала и последовательности маркеров.
+  Windows Rust 1.97.1: fmt, strict Clippy, 791 library + 1 CLI прошли;
+  3 fixture-dependent теста ignored. Linux Rust 1.97: 875 library + 1 CLI
+  прошли, 3 ignored. Контейнер удалён через `--rm`.
+- Нет независимого SMTP peer-теста с короткими реальными timeout overrides;
+  wire-level применение фаз и задержки на wall clock остаются непроверенными.
+
 ### 2026-09-27: G17 RFC 2231 duplicate and continuation rejection vectors, scoped PASS T240
 
 - Добавлен corpus для повторных MIME параметров, повторных continuation

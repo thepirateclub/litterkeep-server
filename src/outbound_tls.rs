@@ -138,16 +138,25 @@ impl Connection {
                 .get_ref()
                 .sock
                 .set_write_timeout(Some(self.timeouts.data_block()))?;
-            self.stream.get_ref().sock.set_read_timeout(Some(
-                self.timeouts.response(outbound::ReplyExpectation::Bdat),
-            ))?;
-            let reply =
-                outbound::bdat::send(&mut self.stream, message, |reader, command, payload| {
+            let timeouts = self.timeouts;
+            let reply = outbound::bdat::send(
+                &mut self.stream,
+                message,
+                |reader, command, payload, last| {
+                    let phase = match last {
+                        true => outbound::ReplyExpectation::BdatLast,
+                        false => outbound::ReplyExpectation::Bdat,
+                    };
+                    reader
+                        .get_ref()
+                        .sock
+                        .set_read_timeout(Some(timeouts.response(phase)))?;
                     let stream = reader.get_mut();
                     stream.write_all(command)?;
                     stream.write_all(payload)?;
                     stream.flush()
-                })?;
+                },
+            )?;
             return Ok(outbound::bdat::delivery_outcome(
                 reply,
                 &mut self.close_after_response,

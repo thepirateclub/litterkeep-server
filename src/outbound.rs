@@ -146,10 +146,23 @@ impl Connection {
         if binary_transfer {
             self.writer
                 .set_write_timeout(Some(self.timeouts.data_block()))?;
-            self.reader
-                .get_ref()
-                .set_read_timeout(Some(self.timeouts.response(ReplyExpectation::Bdat)))?;
-            let reply = bdat::send_plain(&mut self.reader, &mut self.writer, message)?;
+            let timeouts = self.timeouts;
+            let reply = bdat::send(
+                &mut self.reader,
+                message,
+                |reader, command, payload, last| {
+                    let phase = match last {
+                        true => ReplyExpectation::BdatLast,
+                        false => ReplyExpectation::Bdat,
+                    };
+                    reader
+                        .get_ref()
+                        .set_read_timeout(Some(timeouts.response(phase)))?;
+                    self.writer.write_all(command)?;
+                    self.writer.write_all(payload)?;
+                    self.writer.flush()
+                },
+            )?;
             return Ok(bdat::delivery_outcome(
                 reply,
                 &mut self.close_after_response,

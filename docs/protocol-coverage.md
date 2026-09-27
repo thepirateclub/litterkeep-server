@@ -1050,9 +1050,13 @@ transport может задать короткий единый предел, а
 зависшего greeting. Дополнительный независимый TCP peer с короткими phase-specific
 overrides удерживает соединение открытым до timeout для greeting, команд EHLO,
 MAIL и RCPT, ожидания `354` на DATA и финального ответа после фактически
-полученного DATA terminator. Это проверяет шесть реальных точек ожидания. QUIT,
-BDAT и нормативные минуты ожидания на wall clock не проверялись; Litterkeep app
-не проверялось. Отдельный rustls unit peer проверяет переход greeting -> EHLO
+полученного DATA terminator. Это проверяет шесть реальных точек ожидания. QUIT
+и нормативные минуты ожидания на wall clock не проверялись; Litterkeep app
+не проверялось. Для исходящего BDAT промежуточный ответ на каждый chunk теперь
+использует отдельный 5-минутный command timeout, а BDAT LAST - 10-минутный
+DATA-termination timeout; 3-минутный write timeout сохраняется на каждый chunk.
+Unit-тесты проверяют выбор фазы и LAST-маркер, но socket-level применение этих
+интервалов и задержки на wall clock пока не проверялись. Отдельный rustls unit peer проверяет переход greeting -> EHLO
 для implicit TLS при различающихся greeting/command deadlines.
 DATA передаётся потоково без дополнительной копии полного message: RFC-ограниченная
 строка формирует bounded fragment, dot-stuffing применяется до записи, а каждый

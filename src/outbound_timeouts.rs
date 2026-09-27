@@ -41,7 +41,8 @@ impl SmtpTimeouts {
         match expectation {
             ReplyExpectation::Greeting => self.greeting,
             ReplyExpectation::Data => self.data_initiation,
-            ReplyExpectation::Message | ReplyExpectation::Bdat => self.data_termination,
+            ReplyExpectation::Message | ReplyExpectation::BdatLast => self.data_termination,
+            ReplyExpectation::Bdat => self.command,
             _ => self.command,
         }
     }
@@ -177,6 +178,14 @@ mod tests {
         assert_eq!(timeouts.data_block(), Duration::from_secs(180));
         assert_eq!(
             timeouts.response(ReplyExpectation::Message),
+            Duration::from_secs(600)
+        );
+        assert_eq!(
+            timeouts.response(ReplyExpectation::Bdat),
+            Duration::from_secs(300)
+        );
+        assert_eq!(
+            timeouts.response(ReplyExpectation::BdatLast),
             Duration::from_secs(600)
         );
     }

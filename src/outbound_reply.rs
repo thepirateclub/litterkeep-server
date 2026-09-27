@@ -12,6 +12,7 @@ pub(crate) enum ReplyExpectation {
     Recipient,
     Data,
     Bdat,
+    BdatLast,
     Message,
     Quit,
     Reset,
@@ -42,7 +43,7 @@ impl ReplyExpectation {
             Self::Greeting => code == 220,
             Self::Helo => code == 250,
             Self::Data => code == 354,
-            Self::Bdat => code == 250,
+            Self::Bdat | Self::BdatLast => code == 250,
             Self::Quit => code == 221,
             Self::Authentication => code == 235,
             Self::Mail | Self::Recipient | Self::Message | Self::Reset => {

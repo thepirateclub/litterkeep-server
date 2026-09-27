@@ -1,7 +1,7 @@
 //! Проверка BINARYMIME и bounded-разбиение сообщения на RFC 3030 BDAT chunks.
 use crate::mime::{parameters::MediaType, tree::Entity};
 use std::{
-    io::{self, BufRead, Write},
+    io::{self, BufRead},
     iter::Peekable,
 };
 
@@ -92,7 +92,7 @@ pub(crate) fn send<R, F>(
 ) -> io::Result<super::ReplyResult>
 where
     R: BufRead,
-    F: FnMut(&mut R, &[u8], &[u8]) -> io::Result<()>,
+    F: FnMut(&mut R, &[u8], &[u8], bool) -> io::Result<()>,
 {
     for chunk in binary_chunks(message) {
         let marker = match chunk.last {
@@ -100,8 +100,12 @@ where
             false => "",
         };
         let command = format!("BDAT {}{}\r\n", chunk.bytes.len(), marker);
-        write_chunk(reader, command.as_bytes(), chunk.bytes)?;
-        match super::expect(reader, super::ReplyExpectation::Bdat)? {
+        write_chunk(reader, command.as_bytes(), chunk.bytes, chunk.last)?;
+        let expectation = match chunk.last {
+            true => super::ReplyExpectation::BdatLast,
+            false => super::ReplyExpectation::Bdat,
+        };
+        match super::expect(reader, expectation)? {
             super::ReplyResult::Accepted if chunk.last => {
                 return Ok(super::ReplyResult::Accepted);
             }
@@ -110,23 +114,6 @@ where
         }
     }
     Err(io::Error::other("BDAT chunk iterator ended without LAST"))
-}
-
-/// Адаптирует общий BDAT sender к plain TCP с отдельными reader/writer handles.
-pub(crate) fn send_plain<R, W>(
-    reader: &mut R,
-    writer: &mut W,
-    message: &[u8],
-) -> io::Result<super::ReplyResult>
-where
-    R: BufRead,
-    W: Write,
-{
-    send(reader, message, |_, command, payload| {
-        writer.write_all(command)?;
-        writer.write_all(payload)?;
-        writer.flush()
-    })
 }
 
 /// Преобразует BDAT reply в queue result и помечает закрывающийся socket.
