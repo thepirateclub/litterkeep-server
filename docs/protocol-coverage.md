@@ -460,7 +460,10 @@ Content-Type по-прежнему даёт `text/plain`. Типизация и 
 сохраняются как body. Unit-проверка BODYSTRUCTURE подтверждает вложенные
 `MESSAGE/RFC822`, ENVELOPE, `TEXT/PLAIN` и размеры исходных octets для digest
 part. Парсер и протокольная проекция проверены unit-тестами; socket acceptance
-не запускался.
+также выполнен независимым STARTTLS `imaplib` peer: после APPEND BODYSTRUCTURE
+содержит `DIGEST` и вложенные `MESSAGE/RFC822`/`TEXT/PLAIN`, а RFC822 FETCH
+побайтно совпадает с headerless digest source. Это проверка независимым
+клиентом, не приложением Litterkeep.
 Отсутствующий или синтаксически повреждённый `Content-Type` получает
 рекомендуемый RFC 2045 §5.2 fallback `text/plain`/US-ASCII; сырой MIME header
 не переписывается. Независимый STARTTLS клиент отправил оба варианта через SMTP

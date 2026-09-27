@@ -6838,3 +6838,10 @@ ManageSieve до заявленного набора современных фо
   созданные контейнер и два image tags удалены и отсутствие проверено.
 - Это закрывает только сетевую границу preamble/epilogue и multipart delimiter
   handling; общий MIME и протокольные профили остаются неполными, G17 ACTIVE.
+
+### 2026-09-27: G17 RFC 2046 multipart/digest default wire acceptance, scoped PASS
+
+- Проверен RFC 2046 §5.1.5 default для дочерней части multipart/digest без MIME-заголовков. Независимый STARTTLS imaplib peer выполнил IMAP APPEND, затем BODYSTRUCTURE подтвердил DIGEST с вложенными MESSAGE/RFC822 и TEXT/PLAIN; RFC822 FETCH совпал с исходными октетами.
+- Это независимый IMAP wire-клиент. Сквозной SMTP transport и приложение Litterkeep в этом сценарии не проверялись. Python acceptance script прошёл py_compile и содержит 139 строк.
+- Linux Rust 1.97 Docker test image был собран с повторным использованием cached неизменённых Rust layers; нового запуска Rust test suite этим checkpoint не подтверждается. Runtime wire acceptance выполнен в Linux контейнере. Fixture ./data/g30-mime-multipart-digest сохранён; созданный runtime container и оба image tags удалены, отсутствие проверено.
+- Закрыта только wire-проверка default multipart/digest; полные RFC 2045/2046/MIME и остальные протокольные профили остаются неполными, G17 остаётся ACTIVE.
