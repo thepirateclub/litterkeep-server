@@ -1,5 +1,20 @@
 # Goal ledger
 
+### 2026-09-27: G17 MIME quoted-printable encoder octet matrix and allocation path, scoped PASS T238
+
+- Vacation QP encoder no longer builds a temporary formatted heap string for
+  each escaped octet; it constructs `=HH` using a fixed 3-byte stack token.
+- New tests verify the independently expected wire form for each of 256 octets,
+  byte-exact decoder round-trip, hard CRLF versus isolated CR/LF, combined
+  full-range folding and the 76-octet line bound. Production dependencies do
+  not change.
+- Windows Rust 1.97.1: fmt, strict Clippy, 789 library + 1 CLI passed; 3
+  fixture-dependent tests ignored. Linux Rust 1.97 container: 873 library + 1
+  CLI passed, 3 ignored. The targeted encoder tests passed all four cases.
+  Container used `--rm`; no persistent image was built.
+- This does not prove external MTA or client interoperability, nor full RFC
+  2045 conformance.
+
 ### 2026-09-27: G17 MIME quoted-printable complete octet mapping, scoped PASS T237
 
 - RFC 2045 §6.7 unit coverage now iterates all 256 octet values encoded as

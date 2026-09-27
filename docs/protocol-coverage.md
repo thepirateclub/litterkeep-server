@@ -651,7 +651,11 @@ RFC 2045 §6.7 decoder boundary теперь также проверяет вс�
 `=HH` и как robust lowercase `=hh`, а также все 93 literal-safe ASCII значения
 из диапазонов 33..60 и 62..126. Это exhaustive octet mapping, не полное
 покрытие line-length, transport, malformed-input и MIME interoperability
-профиля.
+профиля. Внутренний QP encoder для vacation-response также сверяется со всеми
+256 отдельными входными октетами и смешанным полным диапазоном: round-trip,
+hard CRLF и предел 76 символов проверены. Escape token теперь собирается в
+фиксированные stack bytes вместо форматирования временной heap-строки для
+каждого байта; output Vec при необходимости всё ещё может перераспределяться.
 `7bit` и `8bit` CTE проверяют профиль RFC 2045 §§2.7-2.8: не более 998
 октетов между CRLF, отсутствие NUL и одиночных CR/LF; `7bit` дополнительно
 отвергает high-bit octets, `8bit` их сохраняет. `binary` остаётся прозрачным.
