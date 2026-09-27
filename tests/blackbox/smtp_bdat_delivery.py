@@ -19,6 +19,7 @@ class ReplyCode(IntEnum):
     """Коды SMTP, нужные тесту последовательности BDAT."""
 
     ACCEPTED = 250
+    REJECTED = 552
 
 
 class ImapStatus(Enum):
@@ -99,6 +100,53 @@ def submit(host: str, port: int, context: ssl.SSLContext, secret: str) -> None:
         require_accepted(client, "BDAT LAST")
 
 
+def begin_transaction(client: smtplib.SMTP) -> None:
+    """Открывает owner envelope для одного rejected BDAT теста."""
+    client.putcmd("MAIL", "FROM:<alice@litterkeep.test>")
+    require_accepted(client, "rejected-test MAIL")
+    client.putcmd("RCPT", "TO:<bob@litterkeep.test>")
+    require_accepted(client, "rejected-test RCPT")
+
+
+def expect_rejected(client: smtplib.SMTP, payload: bytes, phase: str) -> None:
+    """Передаёт ровно заявленное тело и проверяет ответ только после drain."""
+    client.putcmd("BDAT", f"{len(payload)} LAST")
+    client.send(payload)
+    code, response = client.getreply()
+    if code != ReplyCode.REJECTED:
+        raise AssertionError(f"{phase}: SMTP {code} {response!r}")
+
+
+def verify_recovery(client: smtplib.SMTP, phase: str) -> None:
+    """Требует RSET и следующую SMTP команду после отказа BDAT."""
+    code, response = client.rset()
+    if code != ReplyCode.ACCEPTED:
+        raise AssertionError(f"{phase} RSET: SMTP {code} {response!r}")
+    code, response = client.noop()
+    if code != ReplyCode.ACCEPTED:
+        raise AssertionError(f"{phase} NOOP: SMTP {code} {response!r}")
+
+
+def verify_rejections(
+    host: str, port: int, context: ssl.SSLContext, secret: str
+) -> None:
+    """Проверяет rejected LAST и over-limit chunk вместе с recovery."""
+    with smtplib.SMTP_SSL(host, port, context=context, timeout=30) as client:
+        client.login("alice", secret)
+        begin_transaction(client)
+        invalid_message = b"From: a@b\r\nSubject: invalid\r\n\r\nbody\nline\r\n"
+        expect_rejected(client, invalid_message, "invalid LAST content")
+        verify_recovery(client, "invalid LAST content")
+        begin_transaction(client)
+        excessive = b"x" * (26_214_400 + 1)
+        client.putcmd("BDAT", str(len(excessive)))
+        client.send(excessive)
+        code, response = client.getreply()
+        if code != ReplyCode.REJECTED:
+            raise AssertionError(f"oversized BDAT: SMTP {code} {response!r}")
+        verify_recovery(client, "oversized BDAT")
+
+
 def delivered_attachment(
     host: str, port: int, context: ssl.SSLContext, secret: str
 ) -> bytes:
@@ -139,6 +187,7 @@ def main() -> None:
     bob_password = credentials.get("bob")
     if alice_password is None or bob_password is None:
         raise AssertionError("bootstrap credentials must contain Alice and Bob")
+    verify_rejections(options.host, options.smtp_port, context, alice_password)
     submit(options.host, options.smtp_port, context, alice_password)
     actual = delivered_attachment(
         options.host, options.imap_port, context, bob_password

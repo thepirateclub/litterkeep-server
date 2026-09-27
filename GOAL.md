@@ -7369,6 +7369,19 @@ ManageSieve до заявленного набора современных фо
   Runtime и test containers/images удалены после acceptance. Docker Rust 1.97
   strict Clippy прошёл; 705 library tests и 1 CLI test прошли, один официальный
   UCD corpus test ignored из-за отсутствующего файла, doc-tests прошли. Также
-  остаются отдельными непокрытые ошибочные cases для oversized chunk, отказа
-  LAST content и явного RSET recovery; `BINARYMIME` не реализован. G17 остаётся
-  ACTIVE, этот этап не является полным RFC 3030 acceptance.
+  остаётся отдельный interoperability audit для прочих RFC 3030 failure codes;
+  `BINARYMIME` не реализован. G17 остаётся ACTIVE, этот этап не является
+  полным RFC 3030 acceptance.
+
+### 2026-09-27: G17 RFC 3030 rejected chunk drain and RSET recovery, PARTIAL
+
+- Независимый TLS acceptance отправил malformed message body с bare LF как
+  `BDAT ... LAST`, получил 552 только после payload drain, затем успешно выполнил
+  RSET и NOOP. Отдельная передача 26 214 401 октета подтвердила точный drain
+  oversized chunk, 552 и такое же восстановление состояния.
+- На одном свежем Linux runtime build прошли оба acceptance: positive
+  Alice-SMTP-BDAT -> Bob-IMAP attachment byte comparison и negative
+  rejected-content/oversize recovery. Python стандартные TLS SMTP/IMAP библиотеки
+  и raw socket peer независимы от серверного Rust parser. Litterkeep клиент не
+  проверялся.
+- Runtime container и image удалены; fixture `./data/acceptance-rfc3030-bdat-negative-20260927` сохранена. Этот дополнительный прогон не менял Rust source и не заменяет полный RFC 3030 conformance suite.

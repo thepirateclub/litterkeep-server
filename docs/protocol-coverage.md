@@ -27,9 +27,12 @@ RSET, а отвергнутый payload точно дренируется без
 Независимый Linux TLS peer проверил zero-length и два message chunks, успешную
 доставку Alice -> Bob и точное совпадение декодированных MIME attachment bytes;
 второй raw peer проверил capability, отказную BDAT без MAIL/RCPT и сохранение
-границы перед pipelined NOOP. Перезапуск Store между отправкой и IMAP чтением в
-этом acceptance не выполнялся. `BINARYMIME`/`BODY=BINARYMIME` не реализован и
-не объявляется: BDAT bytes всё ещё валидируются по RFC 5321 7BIT либо 8BITMIME.
+границы перед pipelined NOOP. Отдельно проверены отказ invalid content на LAST
+и chunk размера 26 214 401 октет: в обоих случаях ответ отправлен только после
+drain, затем RSET и NOOP успешно восстановили сессию. Перезапуск Store между
+отправкой и IMAP чтением не выполнялся. `BINARYMIME`/`BODY=BINARYMIME` не
+реализован и не объявляется: BDAT bytes всё ещё валидируются по RFC 5321 7BIT
+либо 8BITMIME.
 См. [RFC 3030 §§2-3](https://www.rfc-editor.org/rfc/rfc3030.html#section-2).
 
 По рекомендации RFC 8314 §3.4 implicit-TLS SMTP-сессия отвечает на
