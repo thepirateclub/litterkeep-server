@@ -1,5 +1,18 @@
 # Goal ledger
 
+### 2026-09-27: G18 ManageSieve quota response code, scoped PASS T250
+
+- RFC 5804 §1.5 requires an imposed quota rejection to carry response code
+  `QUOTA`. Store size, script-count and account-catalog quota errors now carry
+  a typed source marker; mutation formatting maps only that marker to
+  `NO (QUOTA)`, leaving filesystem `StorageFull` failures distinct.
+- Store test reaches the seventeenth script boundary; Linux reactor formatter
+  tests cover success, quota and ordinary I/O failure. Windows Rust 1.97.1:
+  798 library + 1 CLI passed, 3 fixture-dependent ignored; formatting passed.
+  Linux Docker Rust 1.97.1: strict Clippy, 883 library + 1 CLI passed,
+  3 ignored, release build passed. Live listener quota exchange remains
+  unverified. Disposable container removed; preexisting Rust image retained.
+
 ### 2026-09-27: G18 ManageSieve UNAUTHENTICATE state reset, scoped PASS T249
 
 - Реализована рекомендованная RFC 5804 `UNAUTHENTICATE` extension: capability

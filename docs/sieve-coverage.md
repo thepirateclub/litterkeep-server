@@ -40,6 +40,16 @@ arguments; the independent NOOP wire scenario also asserts that missing
 `SETACTIVE` is rejected as a syntax error. A TLS-authenticated store-level wire
 test for deactivating an actually active script remains unverified.
 
+ManageSieve script count, per-script byte size and serialized account catalog
+are bounded in the Store. RFC 5804 §1.5 requires a `NO` response containing
+the `QUOTA` response code when an imposed quota rejects a command. Store quota
+failures now retain a typed source marker across the owner boundary, and
+mutation completion maps only that marker to `NO (QUOTA)`; even a filesystem
+`StorageFull` error retains the generic failure response. Store tests exercise the
+script-count boundary and reactor response tests distinguish quota from disk
+errors. The exact ManageSieve quota response has not yet been exercised against
+a live listener.
+
 При runtime error частичный план доставки отбрасывается атомарно и применяется
 только implicit keep; committed diagnostic хранит account, версию скрипта,
 transaction ID и тип ошибки. Offline-команда `sieve-errors <data-dir>

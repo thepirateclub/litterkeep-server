@@ -135,6 +135,18 @@ use std::io;
 use std::path::{Path, PathBuf};
 pub use subscriptions::{SubscribedFolder, SubscriptionSnapshot};
 pub use vacation_access::{VacationResponseRequest, VacationResponseResult};
+
+/// Проверяет типизированную причину отказа, не классифицируя общий ENOSPC как квоту.
+#[cfg(target_os = "linux")]
+pub(crate) fn is_sieve_quota_error(error: &io::Error) -> bool {
+    sieve_scripts::is_quota_error(error)
+}
+
+#[cfg(all(test, target_os = "linux"))]
+pub(crate) fn sieve_quota_test_error() -> io::Error {
+    sieve_scripts::quota_test_error()
+}
+
 pub(super) const DEFAULT_BLOB_QUOTA: u64 = 25 * 1024 * 1024;
 #[derive(Debug)]
 pub struct Store {

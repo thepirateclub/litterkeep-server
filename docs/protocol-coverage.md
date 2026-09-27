@@ -979,6 +979,9 @@ Implicit-TLS проверен unit-тестом, а совместимость �
 непроверенной. RFC 5804 §2.1 требует SCRAM-SHA-1 и PLAIN;
 сервер реализует и объявляет только PLAIN, поэтому обязательный SCRAM-SHA-1
 остаётся conformance gap.
+ManageSieve mutation quota failures now use the RFC 5804 `NO (QUOTA)` response
+code; Store boundary and response-mapping unit tests verify that ordinary disk
+errors do not become quota responses. Live wire behavior remains unverified.
 
 ## Outbound SMTP
 

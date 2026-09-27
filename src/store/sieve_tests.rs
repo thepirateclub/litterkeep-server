@@ -57,3 +57,20 @@ fn active_script_survives_restart_and_invalid_update_keeps_old_version() {
     drop(store);
     fs::remove_dir_all(root).expect("cleanup");
 }
+
+#[test]
+fn script_count_limit_preserves_typed_quota_error() {
+    let root = directory();
+    let mut store = Store::open(&root).expect("open");
+    for number in 0..16 {
+        store
+            .put_sieve_script("bob", &format!("script-{number}"), "keep;".into())
+            .expect("script within quota");
+    }
+    let error = store
+        .put_sieve_script("bob", "script-over-limit", "keep;".into())
+        .expect_err("seventeenth script exceeds quota");
+    assert!(sieve_scripts::is_quota_error(&error));
+    drop(store);
+    fs::remove_dir_all(root).expect("cleanup");
+}

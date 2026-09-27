@@ -70,14 +70,14 @@ impl SieveCatalog {
         valid_name(name)?;
         sieve::parse(&source).map_err(invalid)?;
         if source.len() > MAX_SCRIPT_BYTES {
-            return Err(invalid("sieve script quota exceeded"));
+            return Err(quota_exceeded("sieve script quota exceeded"));
         }
         let candidate = self.candidate(account, |state| {
             if let (false, true) = (
                 state.scripts.contains_key(name),
                 state.scripts.len() >= MAX_SCRIPTS,
             ) {
-                return Err(invalid("sieve script count exceeded"));
+                return Err(quota_exceeded("sieve script count exceeded"));
             }
             state.next_version = state
                 .next_version
@@ -184,7 +184,7 @@ impl SieveCatalog {
         let mut state = self.accounts.get(account).cloned().unwrap_or_default();
         change(&mut state)?;
         if codec::encoded(&state).len() > MAX_ACCOUNT_BYTES {
-            return Err(invalid("sieve account quota exceeded"));
+            return Err(quota_exceeded("sieve account quota exceeded"));
         }
         Ok(state)
     }
@@ -244,3 +244,29 @@ fn missing() -> io::Error {
 fn invalid(message: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message)
 }
+fn quota_exceeded(message: &'static str) -> io::Error {
+    io::Error::other(QuotaExceeded(message))
+}
+
+#[cfg(any(test, target_os = "linux"))]
+pub(super) fn is_quota_error(error: &io::Error) -> bool {
+    error
+        .get_ref()
+        .is_some_and(|source| source.is::<QuotaExceeded>())
+}
+
+#[cfg(all(test, target_os = "linux"))]
+pub(super) fn quota_test_error() -> io::Error {
+    quota_exceeded("test quota")
+}
+
+#[derive(Debug)]
+struct QuotaExceeded(&'static str);
+
+impl std::fmt::Display for QuotaExceeded {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.0)
+    }
+}
+
+impl std::error::Error for QuotaExceeded {}
