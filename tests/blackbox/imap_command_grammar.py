@@ -51,6 +51,7 @@ def main() -> None:
     require_append_limit(client)
     require_bad(client, "IDLE")
     require(client.select("INBOX"), ImapStatus.OK)
+    require_bad_fetch_sequence_set(client)
     require_bad_store_flag_lists(client)
     require_bad(client, "EXPUNGE")
     require(client.noop(), ImapStatus.OK)
@@ -196,14 +197,28 @@ def require_bad_store_flag_lists(client: imaplib.IMAP4) -> None:
             raise AssertionError(f"malformed STORE flag list: {response!r}")
     client.send(b'A27 APPEND INBOX ("\\\\Seen") {0}\r\n')
     response = client.readline()
+    if response.startswith(b"+ "):
+        client.send(b"\r\n")
+        response = client.readline()
     if not response.startswith(b"A27 BAD "):
         raise AssertionError(f"quoted APPEND flag must be rejected: {response!r}")
+
+
+def require_bad_fetch_sequence_set(client: imaplib.IMAP4) -> None:
+    """Не допускает скобку вместо обязательного FETCH sequence-set atom."""
+    tag = client._command("FETCH", b"(1 FLAGS")
+    status, detail = client._get_tagged_response(tag)
+    if ImapStatus(status) is not ImapStatus.BAD:
+        raise AssertionError(f"malformed FETCH sequence-set status: {status} {detail!r}")
 
 
 def require_append_internal_date_grammar(client: imaplib.IMAP4) -> None:
     """RFC 9051 APPEND date-time должен быть quoted-string."""
     client.send(b"A28 APPEND INBOX 19-Sep-2026 12:34:56 +0300 {0}\r\n")
     response = client.readline()
+    if response.startswith(b"+ "):
+        client.send(b"\r\n")
+        response = client.readline()
     if not response.startswith(b"A28 BAD "):
         raise AssertionError(f"unquoted APPEND date response: {response!r}")
     client.send(b'A29 APPEND INBOX "19-Sep-2026 12:34:56 +0300" {0}\r\n')
@@ -212,7 +227,7 @@ def require_append_internal_date_grammar(client: imaplib.IMAP4) -> None:
         raise AssertionError(f"quoted APPEND date continuation: {continuation!r}")
     client.send(b"\r\n")
     completion = client.readline()
-    if not completion.startswith(b"A29 OK "):
+    if not completion.startswith(b"A29 NO APPEND cancelled"):
         raise AssertionError(f"quoted APPEND date completion: {completion!r}")
 
 

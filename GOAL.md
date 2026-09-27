@@ -1,5 +1,25 @@
 # Goal ledger
 
+### 2026-09-27: G18 IMAP FETCH sequence-set framing, scoped PASS T264
+
+- FETCH now consumes exactly the next token for its mandatory sequence-set;
+  it no longer searches past list delimiters. This rejects the malformed wire
+  form `FETCH (1 FLAGS` instead of accepting `1` after discarding the opening
+  parenthesis. The change is limited to this FETCH grammar boundary and does not
+  claim IMAP4rev2 conformance.
+- The parser regression rejects the malformed form while existing FETCH/UID
+  FETCH cases remain covered. Independent Linux STARTTLS grammar acceptance
+  passed and verified NOOP recovery. Its two stale APPEND expectations were
+  corrected to account for the legal literal continuation and the established
+  `NO APPEND cancelled` result for an empty literal.
+- Windows Rust 1.97.1 fmt, strict Clippy, and full tests passed (806 library,
+  1 CLI, 3 ignored). Linux Docker Rust 1.97.1 tests passed (905 library,
+  1 CLI, 3 ignored); strict Clippy and fmt passed after installing those
+  toolchain components in a disposable container. The STARTTLS wire test and
+  Python compile passed. Stage containers were removed; the existing Rust
+  image was retained and no image was created. Fixture remains under
+  `./data/acceptance-imap-fetch-grammar-20260927`.
+
 ### 2026-09-27: G18 ManageSieve SCRAM-SHA-1 dependency audit, GAP T263
 
 - RFC 5804 §2.1 makes SCRAM-SHA-1 mandatory, and current capability lists omit

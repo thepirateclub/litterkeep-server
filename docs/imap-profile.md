@@ -125,6 +125,12 @@ tokens, so parenthesized or quoted `NOOP` cannot be accepted as a command.
 Parser tests and independent STARTTLS acceptance verify tagged BAD and session
 recovery. This does not yet make the generic lexer enforce every atom-special.
 
+G18 FETCH sequence-set checkpoint (2026-09-27): FETCH consumes only its next
+token for the mandatory sequence-set instead of searching past list delimiters.
+The malformed command `FETCH (1 FLAGS` is rejected with tagged BAD; the
+independent STARTTLS grammar scenario also verifies NOOP recovery. This closes
+only this FETCH boundary, not the remaining atom productions or IMAP4rev2.
+
 G17 astring checkpoint (2026-09-26): LOGIN and SELECT/EXAMINE now validate raw
 atom tokens against `ASTRING-CHAR`; special characters require quoted form,
 except the permitted `]` response-special. LOGIN rejects excess arguments.

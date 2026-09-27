@@ -16,6 +16,12 @@ fn fetch_attribute_is_typed() {
     );
 }
 
+/// FETCH sequence-set не пропускает ошибочную открывающую скобку.
+#[test]
+fn fetch_rejects_unclosed_list_before_sequence_set() {
+    assert_eq!(parse("a FETCH (1 FLAGS\r\n").command, Command::Unsupported);
+}
+
 /// RFC822.HEADER и RFC822.TEXT остаются различимыми legacy FETCH items.
 #[test]
 fn legacy_rfc822_sections_are_typed() {
