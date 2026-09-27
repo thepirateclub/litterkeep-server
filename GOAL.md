@@ -1,5 +1,16 @@
 # Goal ledger
 
+### 2026-09-27: G17 RFC 2231 duplicate and continuation rejection vectors, scoped PASS T240
+
+- Добавлен corpus для повторных MIME параметров, повторных continuation
+  индексов, разрывов и продолжения без начального сегмента. Он фиксирует
+  строгую политику отказа парсера; production behavior не менялся.
+- Windows Rust 1.97.1: fmt, strict Clippy, 790 library + 1 CLI прошли;
+  3 fixture-dependent теста ignored. Linux Rust 1.97: все 21 тест параметров
+  прошли. Контейнер запускался с `--rm`, постоянный образ не создавался.
+- Это unit coverage MIME parameter parsing, не независимая клиентская
+  совместимость и не полное подтверждение RFC 2231.
+
 ### 2026-09-27: G17 MIME quoted-printable encoder escape-path completion, scoped PASS T239
 
 - Закрыт оставшийся одиночный CR/LF путь: он теперь использует тот же

@@ -23,6 +23,20 @@ fn rejects_gapped_continuation_and_unknown_charset() {
     assert!(parameters::parse("text/plain; name*=koi8-r''text").is_err());
 }
 
+/// RFC 2231 continuation должна иметь уникальные имена и непрерывные индексы.
+#[test]
+fn rejects_duplicate_or_noncontiguous_rfc2231_segments() {
+    for value in [
+        "text/plain; name=x; name=y",
+        "text/plain; name*0=x; name*0=y",
+        "text/plain; name*0*=UTF-8''a; name*0*=UTF-8''b",
+        "text/plain; name*0=a; name*2=c",
+        "text/plain; name*1=a; name*2=b",
+    ] {
+        assert!(parameters::parse(value).is_err(), "accepted {value}");
+    }
+}
+
 #[test]
 fn parses_nested_comments_around_media_type_tokens() {
     let parsed = parameters::parse("multipart (outer(inner))/related; boundary=\"x(y)\"")
