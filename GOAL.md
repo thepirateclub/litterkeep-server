@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 outbound MIME binary transfer is not sent via DATA
+
+- Исходящая ESMTP-команда теперь проверяет валидное MIME-дерево перед MAIL.
+  Если дерево содержит `Content-Transfer-Encoding: binary`, transport завершает
+  попытку permanent failure вместо неверной передачи этих octets через DATA.
+- Windows Rust 1.97 проверка целевого outbound builder прошла: все 7 его тестов,
+  включая новый binary CTE case; strict Clippy прошёл. Независимый plain SMTP
+  peer принял EHLO с `CHUNKING` и `8BITMIME` без `BINARYMIME`, затем подтвердил
+  EOF без MAIL. Этот checkpoint проверяет только запрет некорректного DATA
+  relay; outbound BINARYMIME+BDAT не реализован и не проверен.
+- `cargo fmt --check` и `git diff --check` прошли. Тесты выполнены через
+  независимый peer, не через приложение Litterkeep. Корневая цель и G17
+  остаются ACTIVE.
+
 ### 2026-09-27: G17 RFC 3030 typed BODY=BINARYMIME refusal boundary
 
 - RFC 3030 допускает `BINARYMIME` как значение параметра `BODY`; парсер больше

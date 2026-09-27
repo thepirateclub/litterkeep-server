@@ -32,6 +32,10 @@ pub(crate) use reply::{ReplyExpectation, ReplyResult, expect, expect_success};
 pub(crate) use reply::{parse_reply, read_reply_line};
 pub(crate) use timeouts::SmtpTimeouts;
 
+#[cfg(test)]
+#[path = "outbound_binarymime_tests.rs"]
+mod binarymime_tests;
+
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const GENERIC_IO_TIMEOUT: Duration = Duration::from_secs(10);
 

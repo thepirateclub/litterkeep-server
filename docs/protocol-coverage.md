@@ -880,6 +880,13 @@ terminator и dot-stuffing; без объявления параметр не о
 выше фиксированного maximum отвергается до `MAIL`. Независимый peer проверяет
 wire command и все три исхода. Implicit-TLS unit peer проверяет совместное
 использование `SIZE` и `BODY=8BITMIME`.
+Для валидного MIME-дерева с `Content-Transfer-Encoding: binary` relay пока
+завершает доставку permanent failure до отправки `MAIL`; он не маскирует такой
+part под DATA/8BITMIME. Независимый plain SMTP peer с `CHUNKING` и `8BITMIME`,
+но без `BINARYMIME`, подтвердил отсутствие MAIL после EHLO. Передача такого
+сообщения через BDAT к peer-у с согласованным BINARYMIME ещё не реализована.
+Это один из разрешённых [RFC 3030 §3](https://www.rfc-editor.org/rfc/rfc3030.html#section-3) исходов при отсутствии подходящего
+binary transport; преобразование в Base64 пока не выполняется.
 По RFC 1870 EHLO numeric `SIZE` не ограничен 20 цифрами; это ограничение
 применяется к value команды MAIL. Peer limit выше диапазона `u64` сохраняется
 отдельным typed случаем, поэтому корректное capability не теряется. Rust и

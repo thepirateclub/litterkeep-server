@@ -17,6 +17,13 @@ pub(crate) fn build_mail_command(
     message: &[u8],
     capabilities: &EhloCapabilities,
 ) -> MailCommand {
+    let contains_binary_transfer = crate::mime::tree::parse(message)
+        .is_ok_and(|tree| tree.contains_binary_transfer_encoding());
+    if contains_binary_transfer {
+        // DATA не сохраняет двоичную семантику CTE `binary`; до BDAT
+        // BINARYMIME такая очередь должна завершаться permanent failure.
+        return MailCommand::PermanentFailure;
+    }
     let declared_octets = transmitted_message_size(message);
     let declared_size = u64::try_from(declared_octets).unwrap_or(u64::MAX);
     let size_parameter = match capabilities.size_advertisement() {
@@ -121,6 +128,18 @@ mod tests {
             build_mail_command("alice@test", b"body", &peer),
             MailCommand::Ready(command)
                 if command == "MAIL FROM:<alice@test> SIZE=6\r\n"
+        ));
+    }
+
+    /// MIME `binary` не должен случайно уйти как 7BIT/8BIT через DATA.
+    #[test]
+    fn binary_transfer_encoding_is_refused_before_mail_command() {
+        let peer = capabilities(b"250-peer.test\r\n250-8BITMIME\r\n250 CHUNKING\r\n");
+        let message = b"MIME-Version: 1.0\r\nContent-Type: application/octet-stream\r\nContent-Transfer-Encoding: binary\r\n\r\n\0\xffpayload";
+
+        assert!(matches!(
+            build_mail_command("alice@test", message, &peer),
+            MailCommand::PermanentFailure
         ));
     }
 }
