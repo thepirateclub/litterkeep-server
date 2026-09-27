@@ -181,7 +181,8 @@ percent-encoded octets, а hexadecimal digits в escapes принимаются 
 общем parser-е и в Sieve vacation `:mime` validator; независимый IMAP wire test
 подтверждает decoded filename в BODYSTRUCTURE. Проверяются mixed encoded и
 unencoded continuation segments. Charset декодируется явным allowlist известных
-профилей: US-ASCII, UTF-8, ISO-8859-1, ISO-8859-2, ISO-8859-3, Windows-1251, Windows-1252,
+профилей: US-ASCII, UTF-8, ISO-8859-1, ISO-8859-2, ISO-8859-3, ISO-8859-4,
+Windows-1251, Windows-1252,
 UTF-16, UTF-16BE и UTF-16LE. Три UTF-16 профиля используются в RFC 2047 и
 RFC 2231, но исключены из декодирования MIME `text/*` при поиске согласно
 RFC 2781. RFC 2231 начальная секция может опускать charset и language:
@@ -277,7 +278,8 @@ Unit покрывает полное преобразование ISO-8859-1 и 
 encoded-word и краевые пробелы. Для ISO-8859-2 тестируется полный диапазон
 A0..FF и польский текст. ISO-8859-3 декодирует назначенные позиции и отвергает
 undefined octets A5, AE, BE, C3, D0, E3 и F0; прочие неподдержанные high-bit
-таблицы не преобразуются.
+таблицы не преобразуются. ISO-8859-4 проверяет все assigned позиции и
+отвергает undefined octets A5, AE, BE, C3, D0, E3 и F0.
 Это реализует обязательный ASCII-subset минимум
 [RFC 5228 §2.7.2](https://www.rfc-editor.org/rfc/rfc5228.html#section-2.7.2),
 не полный набор конвертеров. Независимая

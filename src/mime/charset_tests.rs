@@ -37,9 +37,15 @@ fn iso_8859_3_uses_registered_name_and_rejects_undefined_octets() {
 }
 
 #[test]
+fn iso_8859_4_uses_registered_name_and_decodes_baltic_text() {
+    let charset = Charset::parse("ISO-8859-4").expect("registered MIME charset");
+    assert_eq!(charset.decode(b"Riga\xa1"), Ok("RigaĄ".to_owned()));
+    assert!(charset.decode(b"\xa5").is_err());
+}
+
+#[test]
 fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     for label in [
-        "iso-8859-4",
         "iso-8859-5",
         "iso-8859-6",
         "iso-8859-7",
@@ -62,8 +68,8 @@ fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     }
     assert!(Charset::parse("iso-8859-12").is_err());
     assert!(
-        Charset::parse("iso-8859-4")
-            .expect("ISO-8859-4 ASCII subset")
+        Charset::parse("iso-8859-5")
+            .expect("ISO-8859-5 ASCII subset")
             .decode(b"caf\xe9")
             .is_err()
     );

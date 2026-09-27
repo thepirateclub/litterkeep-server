@@ -12,6 +12,8 @@ pub mod charset;
 mod charset_iso8859_2;
 #[path = "mime/charset_iso8859_3.rs"]
 mod charset_iso8859_3;
+#[path = "mime/charset_iso8859_4.rs"]
+mod charset_iso8859_4;
 #[path = "mime/content_id.rs"]
 mod content_id;
 #[path = "mime/content_metadata.rs"]
