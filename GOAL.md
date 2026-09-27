@@ -2,6 +2,11 @@
 
 ### 2026-09-28: G18 RFC 5322 obsolete quoted-pair in IMAP ENVELOPE, scoped PASS T292
 
+- Audit correction: the prior independent wire test covered an address without
+  comments only. A parser regression is added for a trailing comment plus an
+  escaped domain-literal closer. Wire interoperability for this combined form
+  remains unverified, so T292 remains scoped to the isolated wire case.
+
 - RFC 5322 §4.1 obs-qp includes NUL, CR, LF and ASCII control bytes, so
   domain-literal parsing now accepts those octets when protected by a quoted
   pair. Shared IMAP nstring encoding uses a synchronizing literal when data
@@ -44,6 +49,11 @@
   the quoting backslash during semantic projection.
 - A regression verifies decoded `]` and exact following ` . ` dtext, without
   preserving the semantically invisible backslash.
+- Follow-up audit found that the initial assertion exercised only the
+  no-comment path. A new parser regression also covers a trailing comment;
+  both forms assert that the escape protects `]` during scanning and the final
+  semantic projection removes its quoting backslash. The new assertion still
+  was verified by the focused unit test and full Linux/Windows test gates below.
   Windows Rust 1.97.1 formatting, strict Clippy and all-target tests passed
   (812 library + 1 CLI, 3 ignored). Fresh Linux Rust 1.97 Docker test stage
   passed strict Clippy, 921 library + 1 CLI tests (3 ignored), and doc-tests.

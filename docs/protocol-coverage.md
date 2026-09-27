@@ -846,16 +846,16 @@ Comment removal также сохраняет скобки и содержимо
 закрывающий `]`. Это unit-only покрытие отдельных байтов, не полного набора
 `dtext`.
 `normalize_dot_cfws` распознаёт escaped `]` внутри obsolete literal и не сворачивает
-следующий ` . ` как адресный CFWS. При семантической проекции quoting backslash
-удаляется по RFC 5322, а `]` и исходные whitespace/dot остаются данными. Unit
-сценарий wire-уровня для этого obsolete form не выполнялся.
+следующий ` . ` как адресный CFWS. `strip_comments` проверяет dtext и сохраняет
+исходную quoted-pair до этой нормализации. Parser regression покрывает форму с
+trailing comment; независимое wire-подтверждение этого сочетания отсутствует.
 Проверка `dtext` принимает видимые ASCII-символы, разрешённые пробелы,
 obs-NO-WS-CTL и UTF-8 non-ASCII по RFC 6532; неэкранированный NUL отвергается.
 RFC 5322 obs-qp допускает quoted NUL/CR/LF в исходном поле, но quoting
-backslash семантически невидим. Для ENVELOPE такие строки кодируются
-synchronizing IMAP literal, поскольку quoted-string не допускает эти октеты по
-RFC 9051. Независимый Python imaplib STARTTLS APPEND/FETCH проверяет 11-октетный
-decoded host без backslash в literal. Полный набор
+backslash семантически невидим. Независимый Python imaplib STARTTLS APPEND/FETCH
+для формы без comments наблюдал synchronizing literal с 11 октетами и без
+backslash; parser regression также проверяет escaped closer после comment
+stripping. Это не полный набор interoperability сценариев. Полный набор
 domain-literal форм и interoperability с Litterkeep не подтверждены.
 После закрывающей `>` angle-addr parser разрешает только CFWS, включая
 комментарии, и отвергает произвольный хвост или второй angle-addr вместо

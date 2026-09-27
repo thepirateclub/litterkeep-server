@@ -50,7 +50,9 @@ T292 проверяет RFC 5322 obs-qp в domain-literal: независимы�
 Ответ использует IMAP synchronizing literal; его 11 октетов содержат decoded
 host без семантически невидимого quoting backslash. Первоначальная проверка
 ошибочно считала backslash частью адреса и была исправлена. Это один контрольный
-символ и один ENVELOPE путь, не полный набор RFC 5322/9051.
+символ и один ENVELOPE путь без комментариев. Дополнительная parser regression
+проверяет escaped closer в адресе с trailing comment. Это не полное
+interoperability доказательство RFC 5322/9051.
 
 ## Чистый G12 прогон
 

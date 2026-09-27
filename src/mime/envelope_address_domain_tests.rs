@@ -38,6 +38,12 @@ fn preserves_domain_literal_separators_inside_angle_address() {
     assert!(envelope.contains("[node] . mail]"));
     assert!(!envelope.contains(r"[node\\] . mail]"));
 
+    let commented = to_field(r"Literal <host@[node\] . mail](note)>");
+    let parsed = super::parse(vec![&commented]).expect("commented escaped domain-literal");
+    let envelope = super::encode_list(&parsed).expect("commented domain-literal ENVELOPE");
+    assert!(envelope.contains("[node] . mail]"));
+    assert!(!envelope.contains(r"[node\\] . mail]"));
+
     let nul = to_field("Literal <host@[bad\0literal]>");
     assert!(super::parse(vec![&nul]).is_err());
 
