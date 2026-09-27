@@ -1,5 +1,22 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 9051 UID STORE implicit UID item, scoped PASS T278
+
+- RFC 9051 requires UID in FETCH updates caused by UID STORE. The existing
+  completion path already included UID, but previous black-box coverage only
+  checked the persisted flags with a later FETCH. A new independent Linux
+  STARTTLS scenario APPENDs two messages, removes the first by UID, then
+  applies UID STORE to the second. It verifies the immediate response carries
+  UID 2 exactly once while the response number remains sequence number 1.
+- Python `py_compile` and the wire acceptance passed. Rust 1.97.1 Windows
+  `cargo fmt --check`, strict Clippy and all-target tests passed (807 library
+  + 1 CLI, 3 ignored). The Linux runtime image reused cached release
+  compilation because no Rust source changed. This is independent protocol
+  peer evidence, not Litterkeep app interoperability or full IMAP4rev2 proof.
+- Fixture `./data/acceptance-imap-uid-store-implicit-20260928` is retained.
+  The created container and runtime image are removed and absence verified;
+  G18 remains ACTIVE.
+
 ### 2026-09-28: G18 RFC 9051 UID FETCH implicit UID item, scoped PASS T277
 
 - RFC 9051 §6.4.8 requires UID in every FETCH response caused by UID FETCH,

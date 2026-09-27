@@ -481,6 +481,9 @@ STATUS, LIST STATUS и отклонение размера `26214401`; полн�
 FETCH не получает UID автоматически. Отдельный независимый STARTTLS тест
 проверяет обе границы, а Rust unit tests проверяют автоматическое включение и
 подавление дубликатов.
+RFC 9051 также требует UID в FETCH updates, вызванных UID STORE. Независимый
+STARTTLS тест удаляет первое из двух писем и проверяет прямой ответ UID STORE
+для второго: wire содержит sequence number 1, UID 2, FLAGS и ровно один UID.
 `BODY` и `BODYSTRUCTURE` поддерживаются как отдельные запросы; FULL раскрывается
 в BODY согласно RFC 9051, а не в BODYSTRUCTURE.
 `BODYSTRUCTURE` включает RFC 9051 body-MD5 slot и корректный RFC 2183
