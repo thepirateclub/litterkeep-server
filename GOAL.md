@@ -1,5 +1,27 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 2231 language-tagged filename continuation, scoped PASS T282
+
+- RFC 2231 extended-parameter parser tests already covered segmented filename
+  decoding and BCP 47 language metadata, while prior SMTP-to-IMAP acceptance
+  covered other filename encodings. The language-tagged continuation had no
+  end-to-end SMTP delivery and IMAP BODYSTRUCTURE evidence.
+- A new independent STARTTLS peer delivered a MIME attachment from Alice to Bob
+  with `filename*0*` carrying `UTF-8'en-US'` and `filename*1*` carrying the
+  remaining percent-encoded name. IMAP SEARCH found the unique message;
+  BODYSTRUCTURE returned the joined Unicode filename while RFC822.HEADER kept
+  both original extended parameter segments and the language tag byte-exact.
+- Python compilation and the Linux wire acceptance passed. The Linux Rust
+  1.97 release runtime image reused the existing Rust base and cached source
+  build; Rust sources were unchanged, so no new Linux Rust suite result is
+  claimed. Windows Rust 1.97.1 `cargo fmt --check`, strict Clippy and all-target
+  tests passed (807 library + 1 CLI, 3 ignored). TLS was negotiated with peer
+  certificate verification disabled.
+  Fixture `./data/acceptance-rfc2231-filename-20260928` is retained. The
+  created container and runtime image were removed and absence verified. This
+  is an independent peer check, not Litterkeep-app interoperability or full
+  RFC 2231 charset/language registry coverage; G18 remains ACTIVE.
+
 ### 2026-09-28: G18 RFC 2047 UTF-16/UTF-32 IMAP SEARCH wire acceptance, scoped PASS T281
 
 - MIME decoder unit coverage already included UTF-16/UTF-32 encoded-words, but

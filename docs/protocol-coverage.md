@@ -496,6 +496,11 @@ RFC 2231 UTF-8 filename, содержащим lowercase и uppercase escapes, и
 UTF-8 в quoted MIME-параметре `name`; BODYSTRUCTURE вернул оба Unicode значения
 и подтвердил сохранность исходных RFC822 октетов. Прямая форма использует
 RFC 6532 quoted-string extension и не заявляет SMTPUTF8 transfer.
+Отдельный независимый SMTP STARTTLS -> IMAP STARTTLS сценарий проверяет
+segmented RFC 2231 `filename*0*`/`filename*1*` с `UTF-8'en-US'`: BODYSTRUCTURE
+возвращает объединённое Unicode имя `😀 résumé.txt`, а RFC822.HEADER сохраняет
+исходные сегменты и language tag byte-exact. Это подтверждает данный wire
+вектор, но не актуальную registry validity BCP 47 и не Litterkeep app.
 Внешняя whitespace-обрезка structured MIME значений ограничена ASCII SP/HTAB:
 Unicode NBSP перед media type, параметром, unquoted value и disposition token
 отвергается, а NBSP внутри quoted parameter сохраняется как данные. Регрессия
