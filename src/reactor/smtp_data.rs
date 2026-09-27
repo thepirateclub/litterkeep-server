@@ -40,7 +40,7 @@ pub(super) fn data_line(
     if line.as_slice() == b".\r\n" {
         let oversized = match &session.smtp {
             SmtpState::Data { oversized, .. } => *oversized,
-            SmtpState::Command(_) => false,
+            SmtpState::Command(_) | SmtpState::BdatDiscard { .. } => false,
         };
         return finish_data(
             session, slot, generation, worker, owners, request_id, oversized,

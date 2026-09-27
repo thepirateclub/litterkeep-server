@@ -7330,3 +7330,23 @@ ManageSieve до заявленного набора современных фо
 - Расширен независимый STARTTLS сценарий ID с `LITERAL-`: проверены допустимые границы field=30 и value=1024 октета, затем отказы field=31/value=1025 без untagged ID response. Две следующие NOOP команды подтвердили восстановление session state после обоих отказов.
 - Production runtime image собран из неизменённого Rust source и удалён после PASS wire acceptance. Python `py_compile`, 210-строчный лимит acceptance и `git diff --check` проверены. Rust suite не перезапускался, так как в этом checkpoint менялся только независимый peer и документы.
 - Fixture ./data/g38-imap-id-extension сохранена; временный runtime container и image удалены. Это не клиент Litterkeep и не полное IMAP4rev2 acceptance; G17 остаётся ACTIVE.
+
+### 2026-09-27: G17 RFC 3030 typed BDAT syntax and unadvertised drain, PARTIAL
+
+- Добавлена typed grammar `BDAT n [LAST]` с decimal size, zero-length chunk,
+  case-insensitive LAST и overflow/malformed rejection. Bounded raw receiver
+  тестирует partial TCP reads, произвольные binary octets, zero-size framing,
+  over-budget discard и сохранение следующей pipelined command.
+- Полноценные CHUNKING transaction, per-chunk acknowledgement, error recovery
+  и взаимодействие с PIPELINING ещё не реализованы, поэтому capability в EHLO
+  не менялась. Peer, приславший не объявленный BDAT, получает после exact-size
+  drain ответ 502, а следующий NOOP получает 250. Независимый Linux wire
+  acceptance прошёл на STARTTLS listener до TLS negotiation.
+- Linux Docker Rust 1.97 strict Clippy прошёл; 705 library tests passed, один
+  внешний UCD corpus test ignored, один CLI test и doc-tests passed. Python
+  acceptance прошёл py_compile; `cargo fmt --check` и `git diff --check` прошли.
+  Fixture `./data/acceptance-rfc3030-unadvertised-20260927` сохранена.
+- Созданные для прогона container и test image удалены, отсутствие проверено.
+  Это проверка typed parser и безопасного отказа, не реализация RFC 3030
+  CHUNKING/BDAT, не BINARYMIME и не проверка клиента Litterkeep; G17 остаётся
+  ACTIVE.

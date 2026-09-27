@@ -6,6 +6,8 @@ mod address;
 mod address_literal;
 #[path = "auth_command.rs"]
 mod auth_command;
+#[path = "bdat_command.rs"]
+mod bdat_command;
 #[path = "command_error.rs"]
 mod command_error;
 #[path = "greeting.rs"]
@@ -20,6 +22,7 @@ mod verify_command_tests;
 pub(crate) use address::canonical_parts;
 #[cfg(target_os = "linux")]
 pub(crate) use address::requires_smtp_utf8;
+pub use bdat_command::BdatCommand;
 pub use verify_command::{ReplyEncoding, VerifyRequest};
 
 /// Команда SMTP после разбора wire-строки без потери ESMTP параметров.
@@ -30,6 +33,8 @@ pub enum Command {
     Mail(MailFrom),
     Rcpt(String),
     Data,
+    /// Один octet-counted chunk согласно RFC 3030.
+    Bdat(BdatCommand),
     /// SASL PLAIN с optional initial response в base64-представлении.
     AuthPlain(Option<String>),
     /// Проверка имени, не раскрывающая наличие локального пользователя.
@@ -86,6 +91,7 @@ pub fn parse(line: &str) -> Result<Command, ParseError> {
         "HELO" => greeting::helo(argument).map(Command::Helo),
         "MAIL" => mail_path::parse_mail_from(argument).map(Command::Mail),
         "RCPT" => mail_path::parse_recipient(argument).map(Command::Rcpt),
+        "BDAT" => bdat_command::parse(argument).map(Command::Bdat),
         "DATA" => match argument.is_empty() {
             true => Ok(Command::Data),
             false => Err(ParseError::Syntax),

@@ -18,6 +18,18 @@ authenticated owner. RFC 6409 §3.2 разрешённый `MAIL FROM:<>` не �
 проверяет также, что чужой ненулевой sender получает `550 5.7.1` согласно
 RFC 6409 §6.1. Local route не является open relay.
 
+RFC 3030 CHUNKING/BDAT пока не поддержан для доставки и не объявляется в EHLO.
+Typed parser проверяет `BDAT n [LAST]`; если клиент всё же послал не объявленный
+BDAT, Linux reactor ограниченно читает ровно `n` octets, отвечает `502` и
+сохраняет следующий pipelined command за границей chunk. Unit boundary tests и
+независимый Linux wire peer подтвердили binary NUL/CRLF payload и следующий
+NOOP. Это отказной путь, а не chunk delivery или подтверждение успешного BDAT.
+`BINARYMIME` также не реализован, поэтому этот профиль нельзя подразумевать из
+поддержки 8BITMIME или сохранения бинарных octets через IMAP. До объявления
+CHUNKING требуются chunk-by-chunk delivery/acknowledgement, LAST handling,
+ошибки и RSET recovery, а также совместное поведение с объявленным PIPELINING.
+См. [RFC 3030 §§2-3](https://www.rfc-editor.org/rfc/rfc3030.html#section-2).
+
 По рекомендации RFC 8314 §3.4 implicit-TLS SMTP-сессия отвечает на
 peer-инициированный `close_notify` после обычного NOOP reply. Независимый Linux
 TLS peer подтверждает SMTP reply и завершает TLS `unwrap()` без SMTP QUIT.

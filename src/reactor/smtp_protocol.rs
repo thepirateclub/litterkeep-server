@@ -63,6 +63,9 @@ pub(super) fn smtp_line(
             session, response, slot, generation, worker, owners, request_id,
         ),
         smtp::Command::Mail(sender) => mail(session, sender),
+        smtp::Command::Bdat(chunk) => {
+            super::smtp_bdat_chunk::reject_unadvertised(session, chunk.chunk_size)
+        }
         smtp::Command::Rcpt(address) => recipient(
             session, address, slot, generation, worker, owners, request_id,
         ),
@@ -135,7 +138,7 @@ fn mail(session: &mut Session, mail: smtp::MailFrom) -> io::Result<()> {
 fn mail_can_start_transaction(state: &SmtpState) -> bool {
     match state {
         SmtpState::Command(transaction) => transaction.can_start_mail(),
-        SmtpState::Data { .. } => false,
+        SmtpState::Data { .. } | SmtpState::BdatDiscard { .. } => false,
     }
 }
 
@@ -259,7 +262,7 @@ fn apply_mail_transaction(
         Ok(()) => {
             match &session.smtp {
                 SmtpState::Command(_) => session.smtp_body_mode = body_mode,
-                SmtpState::Data { .. } => {
+                SmtpState::Data { .. } | SmtpState::BdatDiscard { .. } => {
                     return session.push(b"503 5.5.1 bad sequence\r\n");
                 }
             }

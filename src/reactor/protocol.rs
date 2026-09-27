@@ -53,6 +53,13 @@ pub(super) fn process_input(
         if session.pending_submit.is_some() {
             break;
         }
+        if matches!(session.smtp, SmtpState::BdatDiscard { .. }) {
+            super::smtp_bdat_chunk::discard_received(session)?;
+            if matches!(session.smtp, SmtpState::BdatDiscard { .. }) {
+                break;
+            }
+            continue;
+        }
         if session.imap_search_literal.is_some() {
             let progress = session
                 .imap_search_literal

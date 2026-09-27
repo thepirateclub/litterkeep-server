@@ -24,6 +24,11 @@ pub(super) enum SmtpState {
         body_mode: crate::smtp::BodyMode,
         smtp_utf8: bool,
     },
+    /// Дренирует BDAT от peer-а, которому сервер не объявлял CHUNKING.
+    BdatDiscard {
+        transaction: smtp::Transaction,
+        receiver: super::smtp_bdat_chunk::Receiver,
+    },
 }
 
 /// Стриминговое состояние DATA-парсера до и после пустой строки заголовков.

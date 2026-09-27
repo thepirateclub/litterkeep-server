@@ -120,6 +120,8 @@ mod session_close;
 #[path = "reactor/session_io.rs"]
 mod session_io;
 mod smtp_auth;
+#[path = "reactor/smtp_bdat_chunk.rs"]
+mod smtp_bdat_chunk;
 #[path = "reactor/smtp_completion.rs"]
 mod smtp_completion;
 #[path = "reactor/smtp_data.rs"]

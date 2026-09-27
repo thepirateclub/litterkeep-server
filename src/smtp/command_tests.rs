@@ -1,6 +1,18 @@
 //! Изолированные проверки грамматики SMTP-команд и параметров MAIL.
 use super::*;
 
+/// Сохраняет BDAT byte count и LAST marker в typed protocol command.
+#[test]
+fn parses_rfc3030_bdat_command() {
+    assert_eq!(
+        parse("BDAT 4096 LAST\r\n"),
+        Ok(Command::Bdat(BdatCommand {
+            chunk_size: 4096,
+            last: true,
+        }))
+    );
+}
+
 #[test]
 fn parses_size_parameter_as_typed_mail_metadata() {
     assert_eq!(

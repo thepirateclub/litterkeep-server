@@ -83,7 +83,7 @@ pub(super) fn read_session(
         SmtpState::Data { oversized, .. } => {
             super::smtp_data::discard_overlong_incomplete_line(&mut session.input, oversized)
         }
-        SmtpState::Command(_) => {}
+        SmtpState::Command(_) | SmtpState::BdatDiscard { .. } => {}
     }
     if session.input_limit_exceeded() {
         return Ok(true);
