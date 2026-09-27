@@ -1,5 +1,16 @@
 # Goal ledger
 
+### 2026-09-27: G17 MIME quoted-printable encoder escape-path completion, scoped PASS T239
+
+- Закрыт оставшийся одиночный CR/LF путь: он теперь использует тот же
+  фиксированный трёхбайтовый стековый `=HH` token, без временного `String`.
+- Проверены fmt, строгий Clippy и полный набор Windows Rust 1.97.1: 789
+  library + 1 CLI тест прошли, 3 fixture-dependent теста ignored. Целевые
+  encoder-тесты: 4 прошли. Linux Rust 1.97 в одноразовом Docker-контейнере:
+  873 library + 1 CLI прошли, 3 ignored; контейнер удалён через `--rm`.
+- Этот узкий результат не подтверждает полную RFC 2045 conformance или
+  внешнюю совместимость.
+
 ### 2026-09-27: G17 MIME quoted-printable encoder octet matrix and allocation path, scoped PASS T238
 
 - Vacation QP encoder no longer builds a temporary formatted heap string for

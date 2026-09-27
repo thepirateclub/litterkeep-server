@@ -13,11 +13,8 @@ pub(crate) fn encode(input: &[u8]) -> Vec<u8> {
                 cursor = cursor.saturating_add(2);
             }
             b'\r' | b'\n' => {
-                append_token(
-                    &mut output,
-                    &mut line_length,
-                    format!("={byte:02X}").as_bytes(),
-                );
+                let token = escaped_octet(byte);
+                append_token(&mut output, &mut line_length, &token);
                 cursor = cursor.saturating_add(1);
             }
             b'!'..=b'<' | b'>'..=b'~' => {
