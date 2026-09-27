@@ -841,6 +841,10 @@ domain-literal вне addr-spec и angle-разделителей. Unit regressi
 Comment removal также сохраняет скобки и содержимое внутри domain-literal, где
 они являются `dtext`, и отвергает unmatched closing bracket. Это покрыто unit
 тестом совместно с `@` и `>`; полный допустимый набор `dtext` не проверен.
+Внутри domain-literal scanner не интерпретирует круглые скобки как comments;
+проверены и balanced, и unbalanced dtext, а obsolete quoted-pair может защитить
+закрывающий `]`. Это unit-only покрытие отдельных байтов, не полного набора
+`dtext`.
 Полный набор допустимых `dtext` и domain-literal форм ещё не покрыт.
 После закрывающей `>` angle-addr parser разрешает только CFWS, включая
 комментарии, и отвергает произвольный хвост или второй angle-addr вместо

@@ -255,6 +255,16 @@ fn advance(mut state: ScanState, character: char) -> Result<ScanState, &'static 
         state.escaped = false;
         return Ok(state);
     }
+    if state.domain_literal {
+        // В domain-literal круглые скобки являются dtext, а obsolete quoted-pair защищает следующий знак.
+        match character {
+            '\\' => state.escaped = true,
+            ']' => state.domain_literal = false,
+            '[' => return Err("nested domain literal"),
+            _ => {}
+        }
+        return Ok(state);
+    }
     match (character, state.quoted, state.comments, state.angle) {
         ('\\', true, _, _) | ('\\', _, 1.., _) => state.escaped = true,
         ('"', false, 0, _) => state.quoted = true,

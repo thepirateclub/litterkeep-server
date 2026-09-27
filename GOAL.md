@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 5322 dtext inside domain-literal, scoped PASS T289
+
+- The shared address scanner still treated parentheses inside square-bracket
+  domain-literals as comment nesting. RFC 5322 §3.4.1 allows these bytes as
+  `dtext`, so a lone parenthesis incorrectly made a valid literal appear
+  unterminated. Scanner state now treats the complete bracketed body as data;
+  it also keeps obsolete quoted-pair escapes from closing the literal early.
+- Unit regressions verify balanced and unbalanced parentheses, an escaped `]`,
+  and existing `@`/`>` cases through ENVELOPE projection. Windows Rust 1.97.1
+  formatting, strict Clippy and all-target tests passed (812 library + 1 CLI,
+  3 ignored). Fresh Linux Rust 1.97 Docker test stage passed strict Clippy,
+  921 library + 1 CLI tests (3 ignored), and doc-tests. The image was removed
+  and absence verified.
+- This remains parser/unit evidence, not full dtext conformance or independent
+  IMAP wire/app interoperability. G18 stays ACTIVE.
+
 ### 2026-09-28: G18 RFC 5322 domain-literal comment data, scoped PASS T288
 
 - `strip_comments` previously treated parentheses inside `[...]` as comment
