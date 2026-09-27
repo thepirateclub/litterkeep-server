@@ -48,6 +48,33 @@ fn command_parser_retains_quoted_script_and_rejects_extra_argument() {
         Command::CheckScript("require [\"fileinto\"]; keep;".into())
     );
     assert_eq!(parse("LISTSCRIPTS extra"), Command::Invalid);
+    assert_eq!(parse("NOOP"), Command::Noop(None));
+    assert_eq!(
+        parse("NOOP \"sync-42\""),
+        Command::Noop(Some("sync-42".into()))
+    );
+    assert_eq!(
+        parse("NOOP \"a \\\"b\\\\c\""),
+        Command::Noop(Some("a \"b\\c".into()))
+    );
+    assert_eq!(parse("NOOP \"tag\" extra"), Command::Invalid);
+}
+
+#[test]
+fn noop_is_allowed_before_authentication_and_echoes_quoted_tag() {
+    let mut session = Session::default();
+    assert!(matches!(
+        session.apply(parse("NOOP"), false, true),
+        Reply::Text(response) if response == b"OK \"noop\"\r\n"
+    ));
+    assert!(matches!(
+        session.apply(parse("NOOP \"sync-42\""), false, true),
+        Reply::Text(response) if response == b"OK (TAG \"sync-42\") \"noop\"\r\n"
+    ));
+    assert!(matches!(
+        session.apply(parse("NOOP \"a \\\"b\\\\c\""), false, true),
+        Reply::Text(response) if response == b"OK (TAG \"a \\\"b\\\\c\") \"noop\"\r\n"
+    ));
 }
 
 #[test]

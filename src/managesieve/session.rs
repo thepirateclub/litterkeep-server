@@ -70,7 +70,8 @@ impl Session {
                 Reply::Rename { old, new }
             }
             (Phase::Authenticated { .. }, Command::CheckScript(source)) => Reply::Check(source),
-            (Phase::Authenticated { .. }, Command::Noop) => ok("noop"),
+            (Phase::Plain, Command::Noop(tag))
+            | (Phase::Authenticated { .. }, Command::Noop(tag)) => noop(tag),
             (_, Command::Invalid) => no("syntax error"),
             _ => no("invalid command for state"),
         }
@@ -152,4 +153,25 @@ fn ok(message: &str) -> Reply {
 }
 fn no(message: &'static str) -> Reply {
     Reply::Text(format!("NO \"{message}\"\r\n").into_bytes())
+}
+
+/// Возвращает RFC 5804 NOOP completion и при наличии эхо-tag response code.
+fn noop(tag: Option<String>) -> Reply {
+    let response = match tag {
+        None => b"OK \"noop\"\r\n".to_vec(),
+        Some(tag) => {
+            let mut response = b"OK (TAG \"".to_vec();
+            for character in tag.chars() {
+                match character {
+                    '"' | '\\' => response.push(b'\\'),
+                    _ => {}
+                }
+                let mut encoded = [0; 4];
+                response.extend_from_slice(character.encode_utf8(&mut encoded).as_bytes());
+            }
+            response.extend_from_slice(b"\") \"noop\"\r\n");
+            response
+        }
+    };
+    Reply::Text(response)
 }

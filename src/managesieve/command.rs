@@ -15,7 +15,7 @@ pub enum Command {
     DeleteScript(String),
     RenameScript { old: String, new: String },
     CheckScript(String),
-    Noop,
+    Noop(Option<String>),
     Invalid,
 }
 
@@ -30,7 +30,7 @@ pub fn parse(line: &str) -> Command {
         "STARTTLS" => empty(words, Command::StartTls),
         "LOGOUT" => empty(words, Command::Logout),
         "LISTSCRIPTS" => empty(words, Command::ListScripts),
-        "NOOP" => empty(words, Command::Noop),
+        "NOOP" => optional(words, Command::Noop),
         "AUTHENTICATE" => authenticate(words),
         "HAVESPACE" => havespace(words),
         "PUTSCRIPT" => pair(words, |name, source| Command::PutScript { name, source }),

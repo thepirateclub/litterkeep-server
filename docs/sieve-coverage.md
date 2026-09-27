@@ -14,7 +14,14 @@ authenticated and unauthenticated encrypted sessions. Independent Linux
 socket acceptance verifies greeting, explicit CAPABILITY, TLS transition,
 PLAIN authentication and the post-auth transition. Implicit-TLS greeting is
 unit-tested; separate implicit-TLS network acceptance and Litterkeep client
-interoperability remain unverified.
+interoperability remain unverified. RFC 5804 §2.13 NOOP is accepted before
+authentication; an optional quoted tag is returned in the required `(TAG
+"...")` response code with quoted-string escaping. Unit tests and the
+independent `tests/blackbox/managesieve_noop_tag.py` Linux socket acceptance
+verify untagged/tagged NOOP, escaping and LOGOUT. NOOP literal tags are not
+verified. RFC 5804 §2.1 requires both SCRAM-SHA-1 and PLAIN; only PLAIN is
+implemented and advertised, so mandatory SCRAM-SHA-1 interoperability remains
+an explicit conformance gap.
 
 При runtime error частичный план доставки отбрасывается атомарно и применяется
 только implicit keep; committed diagnostic хранит account, версию скрипта,

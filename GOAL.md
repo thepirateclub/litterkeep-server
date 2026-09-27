@@ -1,5 +1,20 @@
 # Goal ledger
 
+### 2026-09-27: G18 ManageSieve NOOP pre-auth and TAG response, scoped PASS T246
+
+- ManageSieve теперь принимает `NOOP` в неаутентифицированном состоянии,
+  принимает необязательный quoted-string tag и возвращает его в response code
+  `(TAG "...")`, экранируя кавычки и обратную косую черту. Без tag прежняя
+  строка ответа сохранена. Неизвестные дополнительные аргументы отвергаются.
+- Unit tests проверяют синтаксис, escaping и оба состояния протокола.
+  Независимый `tests/blackbox/managesieve_noop_tag.py` прошёл на Linux Rust
+  1.97.1 against живой STARTTLS listener: pre-auth NOOP без tag, обычный tag,
+  escaping, LOGOUT. Контейнер был `--rm`; данные теста оставлены в отдельной
+  `./data/g43-managesieve-noop`. SCRAM-SHA-1 по RFC 5804 §2.1 не реализован и
+  остаётся явным обязательным пробелом; эта работа его не закрывает. Windows:
+  fmt, strict Clippy, 796 library + 1 CLI прошли; 3 fixture-dependent tests
+  ignored. Linux Docker: 880 library + 1 CLI прошли; 3 ignored.
+
 ### 2026-09-27: G18 graceful SMTP pool shutdown, scoped PASS T245
 
 - Исходящий SMTP worker теперь явно закрывает свои idle plaintext/implicit-TLS

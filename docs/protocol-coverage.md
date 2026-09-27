@@ -971,8 +971,12 @@ TRANSACTION, обе выдачи CAPA, listing, `EN`, `*`, отказ `de` и в
 [sieve-coverage.md](sieve-coverage.md), чтобы сохранять компактность этой
 матрицы.
 В частности, независимый Linux socket acceptance проверяет RFC 5804
-capability transitions ManageSieve вокруг STARTTLS и AUTHENTICATE; implicit-TLS
-проверен unit-тестом, а совместимость с Litterkeep остаётся непроверенной.
+capability transitions ManageSieve вокруг STARTTLS и AUTHENTICATE, а отдельный
+peer проверяет NOOP до аутентификации и обязательный echo response code `TAG`
+для quoted string. Implicit-TLS проверен unit-тестом, а совместимость с
+Litterkeep остаётся непроверенной. RFC 5804 §2.1 требует SCRAM-SHA-1 и PLAIN;
+сервер реализует и объявляет только PLAIN, поэтому обязательный SCRAM-SHA-1
+остаётся conformance gap.
 
 ## Outbound SMTP
 
