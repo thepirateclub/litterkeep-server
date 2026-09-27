@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 5322 obsolete route element validation, scoped PASS T285
+
+- RFC 5322 §4.4 `obs-domain-list` permits empty comma positions after its
+  required `@domain`, but each non-empty optional element must also be `@domain`.
+  Route parsing previously ignored later non-empty elements without `@` and
+  could accept malformed route text. Validation now checks each element while
+  retaining the RFC's optional empty positions; route handling has its own
+  module to keep source files within the 300-line limit.
+- Windows Rust 1.97.1 format check, strict Clippy and all-target tests passed
+  (810 library + 1 CLI, 3 ignored). Fresh Linux Rust 1.97 Docker test stage
+  passed strict Clippy, 919 library + 1 CLI tests (3 ignored), and doc-tests.
+  The created test image was removed and absence verified.
+- Evidence is unit/parser-only, with no independent wire client or app
+  interoperability claim. Broader RFC 5322 forms remain incomplete and G18
+  stays ACTIVE.
+
 ### 2026-09-28: G18 RFC 5322 angle-addr suffix validation, scoped PASS T284
 
 - `parse_mailbox` previously extracted the substring inside `<...>` and silently

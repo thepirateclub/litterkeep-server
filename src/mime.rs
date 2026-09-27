@@ -73,6 +73,8 @@ pub mod encoded_word;
 pub mod envelope;
 #[path = "mime/envelope_address.rs"]
 pub(crate) mod envelope_address;
+#[path = "mime/envelope_address_route.rs"]
+mod envelope_address_route;
 #[path = "mime/envelope_address_scan.rs"]
 mod envelope_address_scan;
 #[path = "mime/headers.rs"]

@@ -226,6 +226,10 @@ fn accepts_optional_empty_tail_in_obsolete_source_route() {
         encode_list(&parsed).expect("routed ENVELOPE"),
         "((\"Legacy\" NIL \"alice\" \"example.test\"))"
     );
+
+    let empty_positions =
+        to_field("Legacy <, ,@old.example,, @older.example, :alice@example.test>");
+    assert!(parse(vec![&empty_positions]).is_ok());
 }
 
 /// Не принимает пустой маршрут или отсутствие адреса после route delimiter.
@@ -233,8 +237,14 @@ fn accepts_optional_empty_tail_in_obsolete_source_route() {
 fn rejects_malformed_obsolete_source_route() {
     let empty_domain = to_field("Legacy <@,:alice@example.test>");
     let empty_target = to_field("Legacy <@old.example:>");
+    let route_element_without_at_sign =
+        to_field("Legacy <@old.example,forged.example:alice@example.test>");
+    let non_empty_route_element_without_at_sign =
+        to_field("Legacy <@old.example,forged:alice@example.test>");
     assert!(parse(vec![&empty_domain]).is_err());
     assert!(parse(vec![&empty_target]).is_err());
+    assert!(parse(vec![&route_element_without_at_sign]).is_err());
+    assert!(parse(vec![&non_empty_route_element_without_at_sign]).is_err());
 }
 
 /// Удаляет obsolete CFWS вокруг dot separators local-part и domain.

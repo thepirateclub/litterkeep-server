@@ -820,8 +820,12 @@ domain-literal: независимый STARTTLS acceptance подтвердил 
 адрес. Завершающий CFWS после `;` группы допускает комментарий и не включает
 его в ENVELOPE; тест также отвергает mailbox после уже закрытой группы.
 Obsolete source-route в угловом адресе игнорируется по RFC 5322 §4.4:
-ENVELOPE и SEARCH используют только route destination. Другие obsolete address
-forms и остальные RFC 5322 несовпадения по-прежнему ограничивают parser.
+ENVELOPE и SEARCH используют только route destination. `obs-domain-list`
+сохраняет допустимые пустые позиции после запятой и требует `@domain` у каждого
+непустого route-элемента; посторонний токен без `@` отклоняется. Unit tests
+проверяют несколько route domains, пустые позиции и ошибочные элементы.
+Независимый wire-клиент для отрицательных случаев не запускался. Другие obsolete
+address forms и несовпадения RFC 5322 по-прежнему ограничивают parser.
 Там же поддержан CFWS вокруг точек в obsolete local-part/domain: wire
 ENVELOPE и SEARCH сворачивают `first (comment) . last @ example . test` к
 `first.last@example.test`. Quoted local-part и domain-literal из этой

@@ -128,48 +128,6 @@ pub(super) fn normalize_dot_cfws(value: &str) -> String {
     normalized
 }
 
-/// Удаляет obsolete source-route из angle-addr, сохраняя конечный addr-spec.
-pub(super) fn strip_source_route(value: &str) -> Result<&str, &'static str> {
-    match value.trim_start().starts_with('@') {
-        false => Ok(value),
-        true => {
-            let (route, destination) = split_optional(value, ':')?;
-            let destination = destination.ok_or("obsolete source-route has no terminator")?;
-            validate_source_route(route)?;
-            match destination.trim().is_empty() {
-                true => Err("obsolete source-route has no destination"),
-                false => Ok(destination.trim()),
-            }
-        }
-    }
-}
-
-/// Проверяет обязательный первый домен; хвостовой route-domain по RFC optional.
-fn validate_source_route(route: &str) -> Result<(), &'static str> {
-    let route = route.trim().trim_start_matches(',').trim();
-    let mut domains = split_commas(route)?.into_iter();
-    let first = domains
-        .next()
-        .ok_or("obsolete source-route must start with a domain")?;
-    let first_domain = first
-        .trim()
-        .strip_prefix('@')
-        .ok_or("obsolete source-route must start with a domain")?;
-    if first_domain.trim().is_empty() {
-        return Err("obsolete source-route contains an empty first domain");
-    }
-    for domain in domains {
-        let domain = domain.trim();
-        match domain.strip_prefix('@') {
-            Some(value) if value.trim().is_empty() => {
-                return Err("obsolete source-route contains an empty domain");
-            }
-            _ => {}
-        }
-    }
-    Ok(())
-}
-
 /// Удаляет семантически невидимые RFC 5322 comments, сохраняя quoted strings.
 pub(super) fn strip_comments(value: &str) -> Result<String, &'static str> {
     let mut output = String::with_capacity(value.len());
