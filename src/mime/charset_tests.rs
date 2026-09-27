@@ -20,9 +20,18 @@ fn profiles_are_explicit_and_strict() {
 }
 
 #[test]
+fn iso_8859_2_uses_its_complete_registered_mapping() {
+    let charset = Charset::parse("ISO-8859-2").expect("registered MIME charset");
+    assert_eq!(
+        charset.decode(b"Za\xbf\xf3\xb3\xe6 g\xea\xb6l\xb1 ja\xbc\xf1"),
+        Ok("Zażółć gęślą jaźń".to_owned())
+    );
+    assert!(charset.decode(b"\x80").is_ok());
+}
+
+#[test]
 fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     for label in [
-        "iso-8859-2",
         "iso-8859-3",
         "iso-8859-4",
         "iso-8859-5",
@@ -47,8 +56,8 @@ fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     }
     assert!(Charset::parse("iso-8859-12").is_err());
     assert!(
-        Charset::parse("iso-8859-2")
-            .expect("ISO-8859-2 ASCII subset")
+        Charset::parse("iso-8859-3")
+            .expect("ISO-8859-3 ASCII subset")
             .decode(b"caf\xe9")
             .is_err()
     );

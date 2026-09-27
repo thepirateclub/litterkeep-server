@@ -1,5 +1,18 @@
 # Goal ledger
 
+### 2026-09-27: G17 full ISO-8859-2 MIME charset, scoped PASS T206
+
+- Добавлена отдельная полная таблица ISO-8859-2 и typed вариант `Charset`;
+  тестируется весь диапазон A0..FF и польская строка. RFC 2047 Sieve `header`
+  также сравнивает ASCII key с декодированным high-bit байтом `ł`.
+- Windows Rust 1.97: 699 library passed, 1 внешний Unicode fixture ignored,
+  1 CLI passed, doctests; targeted charset/Sieve tests, strict Clippy, fmt и
+  diff check прошли. Linux Docker Rust 1.97: release build, strict Clippy,
+  783 library passed, 1 ignored, 1 CLI passed и doctests.
+- Созданный test image удалён, отсутствие image tag проверено. Нет нового
+  socket acceptance или проверки с приложением Litterkeep; другие ISO-8859
+  high-bit таблицы всё ещё отсутствуют. T206 scoped PASS; G17/root ACTIVE.
+
 ### 2026-09-27: G17 Sieve RFC 5228 ISO-8859 ASCII subset, scoped PASS T205
 
 - RFC 5228 §2.7.2 требует conversion capability для US-ASCII subset ISO-8859-*.

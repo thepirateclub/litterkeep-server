@@ -129,6 +129,16 @@ fn header_test_converts_ascii_subset_of_iso_8859_encoded_word() {
 }
 
 #[test]
+fn header_test_decodes_non_ascii_iso_8859_2_encoded_word() {
+    let script =
+        parse("if header :is \"subject\" \"l\" { discard; }").expect("parse octet header matcher");
+    let encoded = "=?ISO-8859-2?Q?l?=";
+    let plan = execute(&script, &[("Subject".into(), encoded.into())], 10)
+        .expect("execute ISO-8859-2 header matcher");
+    assert!(plan.discard);
+}
+
+#[test]
 fn header_test_ignores_leading_and_trailing_space_and_tab() {
     let script = parse("if header :is \"subject\" \"invoice\" { discard; }")
         .expect("parse whitespace matcher");
