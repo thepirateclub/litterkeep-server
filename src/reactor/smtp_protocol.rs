@@ -122,7 +122,7 @@ fn mail(session: &mut Session, mail: smtp::MailFrom) -> io::Result<()> {
         (true, Some(account)) => sender_is_authorized(&mail.reverse_path, account),
     };
     match sender_is_authorized {
-        false => session.push(b"553 5.7.1 sender not authorized\r\n"),
+        false => session.push(b"550 5.7.1 sender not authorized\r\n"),
         true => apply_mail(session, mail),
     }
 }

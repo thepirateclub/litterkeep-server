@@ -15,8 +15,8 @@ dot terminator. `BODY=7BIT` и режим без BODY ограничивают �
 authenticated owner. RFC 6409 §3.2 разрешённый `MAIL FROM:<>` не отклоняется
 только из-за пустого reverse-path: authenticated identity даёт MSA return path;
 локальная доставка сохраняет `Return-Path: <>`. Независимый implicit-TLS peer
-проверяет также, что чужой ненулевой sender по-прежнему получает 553. Local
-route не является open relay.
+проверяет также, что чужой ненулевой sender получает `550 5.7.1` согласно
+RFC 6409 §6.1. Local route не является open relay.
 
 По рекомендации RFC 8314 §3.4 implicit-TLS SMTP-сессия отвечает на
 peer-инициированный `close_notify` после обычного NOOP reply. Независимый Linux

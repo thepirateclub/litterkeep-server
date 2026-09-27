@@ -13,7 +13,7 @@ class Reply(IntEnum):
     AUTHENTICATION_FAILED = 535
     ENCRYPTION_REQUIRED = 538
     AUTHENTICATION_REQUIRED = 530
-    SENDER_FORBIDDEN = 553
+    SENDER_UNAUTHORIZED = 550
 
 
 def arguments() -> argparse.Namespace:
@@ -60,7 +60,7 @@ def reject_foreign_sender(host: str, port: int, context: ssl.SSLContext) -> None
     with smtplib.SMTP_SSL(host, port, context=context, timeout=10) as client:
         client.login("alice", "alice-password")
         code, _ = client.mail("bob@test")
-        require(code, Reply.SENDER_FORBIDDEN, "foreign sender")
+        require(code, Reply.SENDER_UNAUTHORIZED, "foreign sender")
 
 
 def reject_plaintext_auth(host: str, port: int) -> None:

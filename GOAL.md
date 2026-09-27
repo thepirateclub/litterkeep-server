@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 RFC 6409 sender-rights rejection code
+
+- Sender mismatch was returning `553 5.7.1`. RFC 6409 §6.1 specifies `550`
+  with an appropriate enhanced status for authorization failures. The MSA now
+  returns `550 5.7.1`; the negative black-box oracle and null-sender regression
+  both enforce that exact response. The null-path acceptance behavior is kept.
+- Linux Docker Rust 1.97 test stage passed strict Clippy, 698 library tests
+  (1 external Unicode corpus ignored), 1 CLI test, and doctests. The fresh
+  implicit-TLS runtime wire test confirmed foreign MAIL rejection with 550,
+  null MAIL acceptance, Bob delivery, and `Return-Path: <>`. `cargo fmt --check`,
+  Python `py_compile`, and `git diff --check` passed.
+- Fixture `./data/acceptance-smtp-null-reverse-20260927` remains. No Litterkeep
+  app interoperability is claimed. The created container and images are
+  removed, absence confirmed. G17 remains ACTIVE.
+
 ### 2026-09-27: G17 RFC 6409 null reverse-path in authenticated SMTP submission
 
 - RFC 6409 §3.2 требует не отклонять submission только из-за `MAIL FROM:<>`,

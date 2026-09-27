@@ -14,7 +14,7 @@ class ReplyCode(IntEnum):
 
     ACCEPTED = 250
     DATA = 354
-    SENDER_DENIED = 553
+    SENDER_DENIED = 550
 
 
 class Account(Enum):
