@@ -126,20 +126,30 @@ fn iso_8859_14_decodes_celtic_text_and_registered_aliases() {
 }
 
 #[test]
+fn iso_8859_15_decodes_latin9_replacements_and_registered_aliases() {
+    let charset = Charset::parse("ISO-8859-15").expect("registered MIME charset");
+    assert_eq!(charset.decode(b"Prix: \xa4"), Ok("Prix: €".to_owned()));
+    assert_eq!(
+        charset.decode(b"\xa6\xa8 \xbc\xbd\xbe"),
+        Ok("Šš ŒœŸ".to_owned())
+    );
+    assert_eq!(Charset::parse("latin-9"), Ok(Charset::Iso8859_15));
+    assert_eq!(Charset::parse("ISO_8859-15"), Ok(Charset::Iso8859_15));
+    assert_eq!(Charset::parse("csISO885915"), Ok(Charset::Iso8859_15));
+}
+
+#[test]
 fn iso_8859_profiles_support_only_the_required_ascii_subset() {
-    for label in ["iso-8859-15", "iso-8859-16"] {
-        assert_eq!(
-            Charset::parse(label)
-                .expect("registered ISO-8859 profile")
-                .decode(b"ASCII header"),
-            Ok("ASCII header".to_owned()),
-            "wrong ASCII subset behavior for {label}"
-        );
-    }
+    assert_eq!(
+        Charset::parse("iso-8859-16")
+            .expect("registered ISO-8859 profile")
+            .decode(b"ASCII header"),
+        Ok("ASCII header".to_owned())
+    );
     assert!(Charset::parse("iso-8859-12").is_err());
     assert!(
-        Charset::parse("iso-8859-15")
-            .expect("ISO-8859-15 ASCII subset")
+        Charset::parse("iso-8859-16")
+            .expect("ISO-8859-16 ASCII subset")
             .decode(b"caf\xe9")
             .is_err()
     );
