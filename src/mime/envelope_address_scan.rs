@@ -133,6 +133,7 @@ pub(super) fn strip_comments(value: &str) -> Result<String, &'static str> {
     let mut output = String::with_capacity(value.len());
     let mut quoted = false;
     let mut escaped = false;
+    let mut domain_literal = false;
     let mut depth = 0_usize;
     for character in value.chars() {
         if escaped {
@@ -140,6 +141,16 @@ pub(super) fn strip_comments(value: &str) -> Result<String, &'static str> {
                 output.push(character);
             }
             escaped = false;
+            continue;
+        }
+        if domain_literal {
+            output.push(character);
+            match character {
+                '\\' => escaped = true,
+                ']' => domain_literal = false,
+                '[' => return Err("nested domain literal"),
+                _ => {}
+            }
             continue;
         }
         match (character, quoted, depth) {
@@ -157,6 +168,11 @@ pub(super) fn strip_comments(value: &str) -> Result<String, &'static str> {
                 quoted = false;
                 output.push(character);
             }
+            ('[', false, 0) => {
+                domain_literal = true;
+                output.push(character);
+            }
+            (']', false, 0) => return Err("unmatched domain literal terminator"),
             ('(', false, 0) => {
                 depth = 1;
                 output.push(' ');
@@ -168,9 +184,11 @@ pub(super) fn strip_comments(value: &str) -> Result<String, &'static str> {
             (_, _, 0) => output.push(character),
         }
     }
-    match (quoted, escaped, depth) {
-        (true, _, _) | (_, true, _) | (_, _, 1..) => Err("unterminated address comment or quote"),
-        (false, false, 0) => Ok(output),
+    match (quoted, escaped, depth, domain_literal) {
+        (true, _, _, _) | (_, true, _, _) | (_, _, 1.., _) | (_, _, _, true) => {
+            Err("unterminated address comment, quote, or domain literal")
+        }
+        (false, false, 0, false) => Ok(output),
     }
 }
 
@@ -256,6 +274,7 @@ fn advance(mut state: ScanState, character: char) -> Result<ScanState, &'static 
         }
         ('[', false, 0, _) if !state.domain_literal => state.domain_literal = true,
         (']', false, 0, _) if state.domain_literal => state.domain_literal = false,
+        (']', false, 0, _) => return Err("unmatched domain literal terminator"),
         _ => {}
     }
     Ok(state)

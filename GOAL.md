@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 5322 domain-literal comment data, scoped PASS T288
+
+- `strip_comments` previously treated parentheses inside `[...]` as comment
+  syntax and removed their contents from domain-literal data. It now tracks the
+  bracketed literal before comment delimiters, preserves its contents, handles
+  quoted-pair boundaries, and rejects malformed unmatched/nested brackets.
+- The domain-literal unit fixture verifies preservation of parentheses as well
+  as `@` and `>`, and rejection of an unmatched `]`. Windows Rust 1.97.1
+  formatting, strict Clippy and all-target tests passed (812 library + 1 CLI,
+  3 ignored). Fresh Linux Rust 1.97 Docker test stage passed strict Clippy,
+  921 library + 1 CLI tests (3 ignored), and doc-tests. The test image was
+  removed and absence verified.
+- This is parser/unit evidence only. It does not establish complete dtext,
+  obsolete domain-literal, independent IMAP wire or app interoperability; G18
+  remains ACTIVE.
+
 ### 2026-09-28: G18 RFC 5322 domain-literal separators in angle-addr, scoped PASS T287
 
 - The address scanner recognized square-bracket domain literals only outside

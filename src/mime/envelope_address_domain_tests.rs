@@ -16,10 +16,14 @@ fn preserves_domain_literal_separators_inside_angle_address() {
     for (address, expected_domain) in [
         ("host@[mail@node]", "[mail@node]"),
         ("host@[node>mail]", "[node>mail]"),
+        ("host@[mail(box)@node]", "[mail(box)@node]"),
     ] {
         let field = to_field(&format!("Literal <{address}>"));
         let parsed = super::parse(vec![&field]).expect("domain-literal address");
         let envelope = super::encode_list(&parsed).expect("domain-literal ENVELOPE");
         assert!(envelope.contains(expected_domain));
     }
+
+    let malformed = to_field("Literal <host@node]>");
+    assert!(super::parse(vec![&malformed]).is_err());
 }
