@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-28: G18 POP3 UIDL wire stability across server restart, scoped PASS T295
+
+- Independent Python STARTTLS acceptance delivered two messages through SMTP,
+  obtained their POP3 UIDLs and closed without `QUIT`. The Linux server
+  container was restarted against the same `./data/acceptance-pop3-uidl-20260928`
+  bind mount; the second phase verified byte-derived UIDL values were unchanged.
+- The peer then committed `DELE`/`QUIT` for the first entry, delivered a third
+  message over SMTP and verified POP3 retained the second message's ID while
+  assigning a distinct ID to the new message. Both acceptance phases and Python
+  3.14 syntax compilation passed. Runtime used the current Rust release layer
+  previously validated by T294; this checkpoint does not claim a fresh Rust
+  suite run or Litterkeep app interoperability.
+- The created container and runtime image were removed and absence verified.
+  The per-stage fixture and its generated UIDL state remain in `./data` for
+  reproducibility; unrelated resources were untouched. G18 remains ACTIVE.
+
 ### 2026-09-28: G18 RFC 1939 durable UIDL stability, scoped PASS T294
 
 - POP3 UIDL uses the Store mailbox-entry UID. Added a file-backed regression
