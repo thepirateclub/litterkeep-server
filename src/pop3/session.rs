@@ -196,11 +196,13 @@ impl Session {
     fn retrieval_policy(&self, number: u32) -> Result<(), Reply> {
         match self.drop() {
             Some(drop) => match drop.transfer_policy(number) {
-                Ok(super::maildrop::MimeTransferPolicy::Binary) => Err(Reply::Error(
+                Ok(super::message_profile::MimeTransferPolicy::Binary) => Err(Reply::Error(
                     "MIME binary transfer encoding is not permitted",
                 )),
-                Ok(super::maildrop::MimeTransferPolicy::Allowed) => self.utf8_policy(Some(number)),
-                Ok(super::maildrop::MimeTransferPolicy::Unverifiable) => {
+                Ok(super::message_profile::MimeTransferPolicy::Allowed) => {
+                    self.utf8_policy(Some(number))
+                }
+                Ok(super::message_profile::MimeTransferPolicy::Unverifiable) => {
                     Err(Reply::Error("MIME structure cannot be verified for POP3"))
                 }
                 Err(error) => Err(Reply::Error(error)),

@@ -1,6 +1,7 @@
 //! Политика POP3-кодировок для LIST, TOP и RETR.
 
-use super::maildrop::{Maildrop, MessageEncoding};
+use super::maildrop::Maildrop;
+use super::message_profile::MessageEncoding;
 use super::session::{Reply, ResponseCode};
 
 /// Проверяет, можно ли безопасно представить выбранные сообщения текущему peer.

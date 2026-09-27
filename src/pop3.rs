@@ -11,6 +11,8 @@ mod language;
 mod listing_reply;
 #[path = "pop3/maildrop.rs"]
 mod maildrop;
+#[path = "pop3/message_profile.rs"]
+mod message_profile;
 #[cfg(any(target_os = "linux", test))]
 #[path = "pop3/reply_wire.rs"]
 pub(crate) mod reply_wire;
@@ -27,6 +29,9 @@ pub use session::{Reply, ResponseCode, Session};
 #[cfg(test)]
 #[path = "pop3/lang_state_tests.rs"]
 mod lang_state_tests;
+#[cfg(test)]
+#[path = "pop3/message_tests.rs"]
+mod message_tests;
 #[cfg(test)]
 #[path = "pop3/noop_state_tests.rs"]
 mod noop_state_tests;

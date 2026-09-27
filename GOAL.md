@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-27: G17 POP3 and Sieve source responsibility split
+
+- Свойства POP3 сообщения вынесены в отдельный `message_profile.rs`; maildrop
+  теперь отвечает за snapshot, команды и отложенные удаления. UTF8/maildrop
+  проверки вынесены из общего тестового файла в `message_tests.rs`, а Sieve
+  grammar regressions отделены в `parser_tests.rs`.
+- Поведение не менялось. Windows Rust 1.97.1: 629 library tests + 1 CLI test
+  прошли, 1 внешний UCD test ignored; strict Clippy, rustfmt и diff-check прошли.
+  Linux Docker Rust 1.97 test-stage: strict Clippy, 695 library tests + 1 CLI
+  test прошли, 1 UCD test ignored, doc-tests прошли. Все Rust-файлы в `src`
+  не превышают 300 строк; `mod.rs` отсутствует. Точный тестовый Docker image
+  удалён, контейнер для этапа не создавался. Это структурная работа, она не
+  добавляет RFC-покрытие; G17 и корневая цель остаются ACTIVE.
+
 ### 2026-09-27: G17 RFC 6856 USERAccepted is still AUTHORIZATION, correction
 
 - Повторная сверка RFC 1939 §§3-4 и RFC 6856 §§2.1, 3.1 показала, что успешный

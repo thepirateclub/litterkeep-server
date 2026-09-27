@@ -1,0 +1,60 @@
+//! RFC 5228 parser rejection and list grammar regressions.
+
+use super::*;
+
+/// Некорректные команды, options и списки не становятся DeliveryPlan.
+#[test]
+fn invalid_script_does_not_become_a_delivery_plan() {
+    for source in [
+        "require [\"unknown-extension\"]; keep;",
+        "fileinto \"Invoices\";",
+        "fileinto \"../Invoices\";",
+        "if header :comparator \"i;unicode-casemap\" \"subject\" \"x\" { keep; }",
+        "if size :over 1T { keep; }",
+        "if allof [true, false] { keep; }",
+        "if allof () { keep; }",
+        "if allof (true false) { keep; }",
+        "if anyof (true,) { keep; }",
+        "if exists [] { keep; }",
+        "if exists [\"Subject\" \"From\"] { keep; }",
+        "if exists [\"Subject\",] { keep; }",
+        "if exists [,\"Subject\"] { keep; }",
+        "if address :detail :is \"to\" \"sales\" { keep; }",
+        "if address :user :is \"to\" \"alice\" { keep; }",
+        "if address :detail :localpart \"to\" \"alice\" { keep; }",
+        "if address :is :contains \"to\" \"alice\" { keep; }",
+    ] {
+        assert!(parse(source).is_err(), "accepted invalid script: {source}");
+    }
+}
+
+/// RFC 5228 требует объявления subaddress до использования address :user.
+#[test]
+fn subaddress_projection_requires_and_accepts_its_capability() {
+    assert!(
+        parse("require \"subaddress\"; if address :user :is \"to\" \"alice\" { keep; }").is_ok()
+    );
+}
+
+/// RFC 5228 test-list использует круглые скобки и запятые.
+#[test]
+fn allof_and_anyof_parse_parenthesized_comma_separated_tests() {
+    let script = parse("if anyof (false, allof (true, true)) { keep; }").expect("parse");
+    let plan = execute(&script, &[], 0).expect("execute");
+    assert!(plan.keep);
+}
+
+/// RFC 5228 string-list требует непустые строки между одиночными запятыми.
+#[test]
+fn string_list_requires_nonempty_comma_separated_values() {
+    let script = parse("if exists [\"Subject\", \"From\"] { keep; }").expect("parse");
+    assert!(execute(&script, &[("Subject".into(), "x".into())], 0).is_ok());
+}
+
+/// Require declarations остаются перед каждой командой расширения.
+#[test]
+fn require_declarations_must_precede_every_command() {
+    assert!(parse("require \"fileinto\"; require [\"fileinto\"]; keep;").is_ok());
+    assert!(parse("keep; require \"fileinto\";").is_err());
+    assert!(parse("if true { keep; } require \"fileinto\";").is_err());
+}
