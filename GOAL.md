@@ -1,5 +1,20 @@
 # Goal ledger
 
+### 2026-09-27: G17 RFC 5321 DATA line boundary for 7BIT and 8BITMIME, scoped PASS T199
+
+- Расширен independent STARTTLS wire acceptance точной границы RFC 5321
+  §4.5.3.1.6 для обоих BODY-профилей. После снятия transparency сервер
+  принимает 1000 октетов вместе с CRLF и сохраняет точные байты; 8BITMIME
+  fixture содержит high-bit octet. 1001 октет отклоняется кодом 552.
+- IMAP read-back подтвердил точные unstuffed bytes обоих принятых граничных
+  сообщений и отсутствие обоих overlong сообщений. `NOOP` вернул 250 после
+  каждого отказа. Скрипт прошёл `py_compile` и содержит 220 строк.
+- Rust source не менялся после T198: полный Rust suite и Clippy в этом
+  wire-only checkpoint не перезапускались. Использованы ранее gate-verified
+  Rust 1.97 и существующий `rust:1.97-bookworm` image. Fixture
+  `./data/acceptance-rfc5321-line-bound-20260927`; runtime container удалён,
+  новый image не создавался. T199 scoped PASS; G17/root ACTIVE.
+
 ### 2026-09-27: G17 RFC 2045 canonical CRLF in SMTP DATA, scoped PASS T198
 
 - DATA validator теперь отвергает NUL и непарные CR/LF отдельной причиной
