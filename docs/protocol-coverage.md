@@ -785,7 +785,12 @@ ALL/COUNT/MIN/MAX. Пустой result set сохраняет запрошенн
 не выводятся, COUNT выводится как 0 только если запрошен, ESEARCH response
 при этом остаётся. Пустой `RETURN ()` эквивалентен ALL. Legacy SEARCH остаётся
 для текущего IMAP4rev1 профиля. MIME
-charset вне проверенного набора остаются непроверенными. SEARCH поддерживает
+charset вне проверенного набора остаются непроверенными. Независимый Linux
+STARTTLS SMTP -> IMAP acceptance дополнительно доставил 8BITMIME text body с
+`charset=windows-874`, после чего Bob запросил `SEARCH CHARSET UTF-8 BODY` со
+synchronizing literal `ภาษาไทย`; результат включил доставленное сообщение.
+Это доказывает Windows-874 decoding в IMAP MIME text projection и его передачу
+в evaluator, но не wire-покрытие остальных charset. SEARCH поддерживает
 ASCII quoted strings и synchronizing literals до 64 KiB; независимый STARTTLS
 тест проверил BODY, UID, UTF-8, пустой literal и два последовательных literals
 в HEADER с отдельным continuation для каждого; pipelined command после literal

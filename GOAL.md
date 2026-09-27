@@ -1,5 +1,18 @@
 # Goal ledger
 
+### 2026-09-27: G18 IMAP SEARCH Windows-874 body decoding, scoped PASS T232
+
+- Профиль SEARCH MIME projection использует charset decoder, но независимая
+  wire проверка конкретно для charset текста ещё отсутствовала.
+- Независимый клиент передал Alice Thai 8BITMIME body с charset Windows-874,
+  затем Bob выполнил `SEARCH CHARSET UTF-8 BODY {n}` со synchronizing UTF-8
+  literal и получил совпадение. Это подтверждает MIME charset -> Unicode
+  projection -> IMAP SEARCH на реальном Linux listener, а не decoder unit test.
+- Сценарий: `python tests/blackbox/smtp_imap_charset_search.py --credentials
+  ./data/g17-search-windows874/test-accounts.tsv`; release runtime собран в
+  Docker Rust 1.97. Временные контейнер и image удалены. Приложение Litterkeep
+  и остальные SEARCH charset не проверялись.
+
 ### 2026-09-27: G17 UTF-32 MIME charset support, scoped PASS T231
 
 - Добавляются только зарегистрированные UTF-32, UTF-32BE и UTF-32LE labels;
