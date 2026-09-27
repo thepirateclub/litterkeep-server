@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 implicit-TLS SMTP delivery followed by peer close
+
+- Независимый SMTP-клиент подключился к implicit-TLS listener, прошёл AUTH
+  PLAIN, отправил DATA и получил `250`; затем инициировал TLS `close_notify`
+  без SMTP QUIT. После закрытия Bob вошёл по implicit-TLS IMAP и нашёл письмо
+  с уникальным Subject в INBOX. Это подтверждает сохранённую локальную доставку.
+- `tests/blackbox/rfc8314_smtp_data_peer_close.py` прошёл на Linux Docker
+  runtime. Runtime build использовал cached Rust 1.97 release layer, исходники
+  Rust не менялись, поэтому новый Rust compilation/test gate не заявляется.
+  `py_compile`, `cargo fmt --check` и `git diff --check` прошли.
+- Fixture `./data/acceptance-rfc8314-peer-close-20260927` сохранена. Независимый
+  peer доказывает SMTP-to-IMAP доставку и последующий TLS close, не клиент
+  Litterkeep. Закрытие до получения SMTP DATA acknowledgement отдельно не
+  проверено. G17 и корневая цель остаются ACTIVE.
+- Созданные для acceptance runtime container и image удалены, отсутствие
+  подтверждено.
+
 ### 2026-09-27: G17 RFC 8314 implicit TLS peer closure, SMTP and IMAP wire evidence
 
 - На том же runtime бинарнике независимые TLS peers проверили implicit SMTP

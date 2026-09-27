@@ -17,6 +17,10 @@ Local route не является open relay.
 По рекомендации RFC 8314 §3.4 implicit-TLS SMTP-сессия отвечает на
 peer-инициированный `close_notify` после обычного NOOP reply. Независимый Linux
 TLS peer подтверждает SMTP reply и завершает TLS `unwrap()` без SMTP QUIT.
+Отдельный сквозной acceptance проходит SMTP AUTH и DATA через implicit TLS,
+читает успешный `250`, отправляет `close_notify` без QUIT и находит доставленное
+письмо в Bob INBOX через IMAP. Peer close до получения DATA acknowledgement
+отдельно не проверен.
 Отдельное acceptance проверяет тот же lifecycle для IMAP; POP3 проверяется
 отдельно ниже. Это closure coverage, не полный SMTP/TLS профиль.
 
