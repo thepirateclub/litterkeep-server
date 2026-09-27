@@ -14,6 +14,12 @@ dot terminator. `BODY=7BIT` и режим без BODY ограничивают �
 До TLS AUTH запрещён. Envelope sender должен принадлежать authenticated owner.
 Local route не является open relay.
 
+Дополнительный RFC 2920 §3.2 STARTTLS peer отправил MAIL, единственный
+несуществующий RCPT и DATA одним write. Получены упорядоченные `250`, `550`,
+`503`: DATA не открыл content state без принятого адресата, а следующий NOOP
+и QUIT прошли без потери синхронизации. Это проверка поведения all-rejected
+pipeline, а не общее доказательство всего SMTP расширения.
+
 SMTP AUTH PLAIN поддерживает оба RFC 4954 варианта: initial response в команде
 и отдельный ответ после пустого `334 `. SASL cancel `*` и недекодируемый ответ
 получают 501; после отмены или ошибки command stream восстанавливается. После

@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-27: G17 SMTP PIPELINING all-rejected recipients, PASS checkpoint
+
+- RFC 2920 §3.2 network coverage дополнена противоположным сценарием: MAIL,
+  несуществующий RCPT и DATA переданы одним socket write. Сервер по порядку
+  ответил 250, 550 и 503, не входя в DATA; последующий NOOP/QUIT подтвердил
+  синхронизацию. Существующий успешный pipeline по-прежнему доставил письмо,
+  найденное независимым IMAP peer.
+- Python `py_compile` и оба Linux STARTTLS SMTP/IMAP wire-сценария прошли.
+  Rust исходники не менялись; Docker Rust test-stage был cache hit, поэтому
+  свежий полный unit suite не заявляется. Fixture
+  `./data/acceptance-smtp-pipelining-all-rejected-20260927` сохранена; точный
+  временный контейнер и образ удалены, отсутствие проверено. Проверялся
+  независимый peer, не Litterkeep app; это ограниченное RFC 2920 acceptance,
+  G17 остаётся ACTIVE.
+
 ### 2026-09-27: G17 POP3 CAPA state matrix, PASS evidence checkpoint
 
 - Добавлен независимый STARTTLS wire-клиент, который полностью считывает CAPA

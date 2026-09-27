@@ -108,6 +108,29 @@ def verify_delivery(subject):
             raise AssertionError(f"pipelined delivery missing in IMAP: {status} {results!r}")
 
 
+def reject_data_after_all_recipients_fail():
+    """DATA не становится положительным после полностью отклонённых RCPT."""
+    connection = socket.create_connection((HOST, SMTP_PORT), timeout=15)
+    stream = connection.makefile("rwb", buffering=0)
+    require_code(read_reply(stream), 220, "all-rejected SMTP greeting")
+    connection, stream = starttls(connection, stream)
+    stream.write(
+        b"MAIL FROM:<alice@test>\r\n"
+        b"RCPT TO:<missing@test>\r\n"
+        b"DATA\r\n"
+    )
+    stream.flush()
+    require_code(read_reply(stream), 250, "pipelined MAIL before rejected DATA")
+    require_code(read_reply(stream), 550, "pipelined invalid recipient")
+    require_code(read_reply(stream), 503, "DATA without an accepted recipient")
+    stream.write(b"NOOP\r\n")
+    require_code(read_reply(stream), 250, "command after rejected pipelined DATA")
+    stream.write(b"QUIT\r\n")
+    require_code(read_reply(stream), 221, "QUIT after rejected pipelined DATA")
+    stream.close()
+    connection.close()
+
+
 def main():
     """Проверяет capability и полный DATA/IMAP путь с pipeline."""
     subject = "RFC2920 " + uuid.uuid4().hex
@@ -131,7 +154,11 @@ def main():
     stream.close()
     connection.close()
     verify_delivery(subject)
-    print("PASS smtp-pipelining: RFC 2920 capability, ordered MAIL/RCPT/DATA and IMAP delivery")
+    reject_data_after_all_recipients_fail()
+    print(
+        "PASS smtp-pipelining: ordered valid/invalid RCPT, "
+        "DATA gating and durable IMAP delivery"
+    )
 
 
 if __name__ == "__main__":
