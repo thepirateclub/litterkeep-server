@@ -3,15 +3,38 @@
 use super::*;
 use std::collections::BTreeSet;
 
-pub(super) fn write(
+pub(super) struct Completion<'a> {
+    pub(super) addressing: imap::Addressing,
+    pub(super) sequence_set: imap::sequence_set::MessageSet,
+    pub(super) attributes: Vec<imap::FetchAttribute>,
+    pub(super) tag: String,
+    pub(super) saved_uids: &'a BTreeSet<u64>,
+    pub(super) messages: Vec<crate::store::Message>,
+    pub(super) changed_uids: Option<BTreeSet<u64>>,
+}
+
+pub(super) fn write(session: &mut Session, completion: Completion<'_>) -> io::Result<()> {
+    write_internal(session, completion)
+}
+
+/// Завершает BODY FETCH с FLAGS из успешного durable Seen update.
+pub(super) fn write_seen_update(
     session: &mut Session,
-    addressing: imap::Addressing,
-    sequence_set: imap::sequence_set::MessageSet,
-    attributes: Vec<imap::FetchAttribute>,
-    tag: String,
-    saved_uids: &BTreeSet<u64>,
-    messages: Vec<crate::store::Message>,
+    completion: Completion<'_>,
 ) -> io::Result<()> {
+    write_internal(session, completion)
+}
+
+fn write_internal(session: &mut Session, completion: Completion<'_>) -> io::Result<()> {
+    let Completion {
+        addressing,
+        sequence_set,
+        attributes,
+        tag,
+        saved_uids,
+        messages,
+        changed_uids,
+    } = completion;
     let maximum = match addressing {
         imap::Addressing::Sequence => messages.len() as u64,
         imap::Addressing::Uid => messages.last().map(|message| message.uid).unwrap_or(0),
@@ -25,9 +48,13 @@ pub(super) fn write(
         if !matches(&sequence_set, candidate, message.uid, maximum, saved_uids) {
             continue;
         }
-        if let Err(reason) =
-            imap_fetch_response::write(session, number, message, &attributes, addressing)?
-        {
+        let response = match &changed_uids {
+            Some(uids) if uids.contains(&message.uid) => {
+                imap_fetch_seen_response::write(session, number, message, &attributes, addressing)?
+            }
+            _ => imap_fetch_response::write(session, number, message, &attributes, addressing)?,
+        };
+        if let Err(reason) = response {
             let response = match reason {
                 crate::imap_fetch::FetchError::UnknownContentTransferEncoding => {
                     format!("{tag} NO [UNKNOWN-CTE] unsupported MIME encoding\r\n")

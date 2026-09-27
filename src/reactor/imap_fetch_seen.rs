@@ -97,14 +97,25 @@ fn fetch_responses_are_valid(
             )
         })
         .all(|(offset, message)| {
-            imap_fetch_response::prepare(
-                offset.saturating_add(1),
-                message,
-                attributes,
-                addressing,
-                &std::collections::BTreeSet::new(),
-            )
-            .is_ok()
+            let sequence = offset.saturating_add(1);
+            let unseen = !message.flags.contains(crate::mail_flags::SystemFlag::Seen);
+            let response = match (sets_seen(attributes), unseen) {
+                (true, true) => imap_fetch_seen_response::prepare(
+                    sequence,
+                    message,
+                    attributes,
+                    addressing,
+                    &std::collections::BTreeSet::new(),
+                ),
+                _ => imap_fetch_response::prepare(
+                    sequence,
+                    message,
+                    attributes,
+                    addressing,
+                    &std::collections::BTreeSet::new(),
+                ),
+            };
+            response.is_ok()
         })
 }
 
@@ -166,6 +177,7 @@ pub(super) fn write(session: &mut Session, pending: Pending, response: Response)
         attributes,
         tag,
         saved_uids,
+        uids,
         ..
     } = pending
     else {
@@ -178,15 +190,16 @@ pub(super) fn write(session: &mut Session, pending: Pending, response: Response)
         Ok(snapshot) => snapshot,
         Err(_) => return session.push(format!("{tag} NO FETCH failed\r\n").as_bytes()),
     };
-    imap_fetch_completion::write(
-        session,
+    let completion = imap_fetch_completion::Completion {
         addressing,
         sequence_set,
         attributes,
         tag,
-        &saved_uids,
-        snapshot.messages,
-    )
+        saved_uids: &saved_uids,
+        messages: snapshot.messages,
+        changed_uids: Some(uids.into_iter().collect()),
+    };
+    imap_fetch_completion::write_seen_update(session, completion)
 }
 
 /// Публикует durable FLAGS изменения прочим ожидающим IDLE-сессиям.

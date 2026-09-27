@@ -15,12 +15,13 @@ pub(super) fn write(
     attributes: &[imap::FetchAttribute],
     addressing: imap::Addressing,
 ) -> io::Result<Result<(), crate::imap_fetch::FetchError>> {
-    let response = match prepare(
+    let response = match prepare_internal(
         number,
         message,
         attributes,
         addressing,
         &session.selected_recent,
+        false,
     ) {
         Ok(response) => response,
         Err(reason) => return Ok(Err(reason)),
@@ -36,6 +37,24 @@ pub(super) fn prepare(
     attributes: &[imap::FetchAttribute],
     addressing: imap::Addressing,
     selected_recent: &std::collections::BTreeSet<u64>,
+) -> Result<Vec<u8>, crate::imap_fetch::FetchError> {
+    prepare_internal(
+        number,
+        message,
+        attributes,
+        addressing,
+        selected_recent,
+        false,
+    )
+}
+
+pub(super) fn prepare_internal(
+    number: usize,
+    message: &crate::store::Message,
+    attributes: &[imap::FetchAttribute],
+    addressing: imap::Addressing,
+    selected_recent: &std::collections::BTreeSet<u64>,
+    seen_changed: bool,
 ) -> Result<Vec<u8>, crate::imap_fetch::FetchError> {
     let mut response = format!("* {number} FETCH (").into_bytes();
     let mut first = true;
@@ -62,6 +81,18 @@ pub(super) fn prepare(
             selected_recent,
             message,
             attribute,
+        )?;
+        if response.len() > super::MAX_OUTPUT {
+            return Err(crate::imap_fetch::FetchError::InvalidSection);
+        }
+    }
+    if seen_changed && !attributes.contains(&imap::FetchAttribute::Flags) {
+        append_attribute(
+            &mut response,
+            &mut first,
+            selected_recent,
+            message,
+            &imap::FetchAttribute::Flags,
         )?;
         if response.len() > super::MAX_OUTPUT {
             return Err(crate::imap_fetch::FetchError::InvalidSection);

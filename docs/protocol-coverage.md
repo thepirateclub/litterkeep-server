@@ -774,6 +774,11 @@ reactor записывал `\Seen` перед вычислением всех it
 получил NO [UNKNOWN-CTE], выполнил NOOP и затем подтвердил по FLAGS, что
 \Seen остался unset. Это acceptance независимого клиента, не приложения
 Litterkeep.
+RFC 9051 §6.4.5 рекомендует включать FLAGS в FETCH-ответ, если BODY fetch
+изменил флаги сообщения. После durable Seen update сервер теперь добавляет
+актуальный FLAGS item, только если клиент сам его не запросил. Независимый
+STARTTLS тест подтверждает, что BODY.PEEK не добавляет FLAGS, первый BODY
+возвращает FLAGS с \Seen, а повторный BODY без нового перехода не добавляет их.
 Для RFC 9051 §6.4.5 partial диапазоны у HEADER.FIELDS и HEADER.FIELDS.NOT
 применяются после формирования подмножества header. Независимый STARTTLS тест
 проверяет оба selector-а на fixtures с разным порядком полей: offset 0 возвращает

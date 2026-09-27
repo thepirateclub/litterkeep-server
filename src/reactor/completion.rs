@@ -161,12 +161,15 @@ pub(super) fn write_completion(
             },
         ) => imap_fetch_completion::write(
             session,
-            addressing,
-            sequence_set,
-            attributes,
-            tag,
-            &saved_uids,
-            snapshot.messages,
+            imap_fetch_completion::Completion {
+                addressing,
+                sequence_set,
+                attributes,
+                tag,
+                saved_uids: &saved_uids,
+                messages: snapshot.messages,
+                changed_uids: None,
+            },
         ),
         (Pending::FetchReadForSeen { tag, .. }, Response::Read { .. }) => {
             session.push(format!("{tag} NO FETCH failed\r\n").as_bytes())

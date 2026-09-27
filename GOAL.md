@@ -1,5 +1,22 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 9051 FETCH FLAGS after Seen transition, scoped PASS T279
+
+- RFC 9051 §6.4.5 says a FETCH response SHOULD include FLAGS if reading the
+  body changes message flags. The server durably transitioned `\Seen` but
+  omitted the updated FLAGS unless the client had asked for them. Completion
+  now includes the updated item only for messages changed to Seen and avoids
+  duplicates when FLAGS was explicitly requested.
+- Two Rust unit tests verify implicit insertion and duplicate suppression.
+  Independent Linux STARTTLS acceptance confirms BODY.PEEK does not receive
+  implicit FLAGS, the first BODY returns FLAGS with `\Seen`, and repeated BODY
+  without a new transition omits them. Fresh Linux Rust 1.97.1 Docker strict
+  Clippy and tests passed (916 library + 1 CLI, 3 ignored). Windows fmt,
+  strict Clippy and all-target tests passed (807 library + 1 CLI, 3 ignored).
+- Fixture `./data/acceptance-imap-fetch-seen-flags-20260928` is retained.
+  Created runtime container and test image are removed and absence verified.
+  Acceptance used an independent peer, not Litterkeep app; G18 remains ACTIVE.
+
 ### 2026-09-28: G18 RFC 9051 UID STORE implicit UID item, scoped PASS T278
 
 - RFC 9051 requires UID in FETCH updates caused by UID STORE. The existing
