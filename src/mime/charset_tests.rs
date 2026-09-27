@@ -20,6 +20,41 @@ fn profiles_are_explicit_and_strict() {
 }
 
 #[test]
+fn iso_8859_profiles_support_only_the_required_ascii_subset() {
+    for label in [
+        "iso-8859-2",
+        "iso-8859-3",
+        "iso-8859-4",
+        "iso-8859-5",
+        "iso-8859-6",
+        "iso-8859-7",
+        "iso-8859-8",
+        "iso-8859-9",
+        "iso-8859-10",
+        "iso-8859-11",
+        "iso-8859-13",
+        "iso-8859-14",
+        "iso-8859-15",
+        "iso-8859-16",
+    ] {
+        assert_eq!(
+            Charset::parse(label)
+                .expect("registered ISO-8859 profile")
+                .decode(b"ASCII header"),
+            Ok("ASCII header".to_owned()),
+            "wrong ASCII subset behavior for {label}"
+        );
+    }
+    assert!(Charset::parse("iso-8859-12").is_err());
+    assert!(
+        Charset::parse("iso-8859-2")
+            .expect("ISO-8859-2 ASCII subset")
+            .decode(b"caf\xe9")
+            .is_err()
+    );
+}
+
+#[test]
 fn windows_1252_decodes_typographic_range_and_c1_controls() {
     let decoded = Charset::parse("WINDOWS-1252")
         .expect("registered MIME charset")

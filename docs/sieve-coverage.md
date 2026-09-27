@@ -272,7 +272,12 @@ Store через durable queue к независимому SMTP peer прове�
 
 Sieve `header` декодирует RFC 2047 encoded-word общей MIME-декодировкой до
 сравнения в UTF-8 и игнорирует ведущие/завершающие SP и HTAB по RFC 5228 §5.7.
-Unit покрывает ISO-8859-1 и UTF-8 encoded-word и краевые пробелы; независимая
+Unit покрывает ISO-8859-1, ASCII subsets остальных зарегистрированных
+предпочитаемых ISO-8859 MIME labels и UTF-8 encoded-word, а также краевые пробелы; bytes
+выше ASCII в неподдержанных ISO-8859 таблицах по-прежнему не преобразуются.
+Это реализует обязательный ASCII-subset минимум
+[RFC 5228 §2.7.2](https://www.rfc-editor.org/rfc/rfc5228.html#section-2.7.2),
+не полный набор конвертеров. Независимая
 ManageSieve -> SMTP -> IMAP acceptance отправляет encoded UTF-8 Subject и
 проверяет его Unicode-сопоставление при выборе папки. RFC 2047 decoder также
 требует непустой `encoded-text` из печатных ASCII octets без SP

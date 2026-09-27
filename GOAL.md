@@ -1,5 +1,20 @@
 # Goal ledger
 
+### 2026-09-27: G17 Sieve RFC 5228 ISO-8859 ASCII subset, scoped PASS T205
+
+- RFC 5228 §2.7.2 требует conversion capability для US-ASCII subset ISO-8859-*.
+  `Charset` теперь распознаёт зарегистрированные preferred MIME labels
+  ISO-8859-2..11 и 13..16, декодируя только ASCII bytes; high-bit bytes остаются
+  ошибкой, без предположения о неизвестной code table. RFC 2047 `header` test
+  подтверждает ASCII Q-word сравнение с обычным Sieve ключом.
+- Windows: 695 library passed, 1 отсутствующий внешний Unicode fixture ignored,
+  1 CLI passed, doc-tests, targeted charset/Sieve tests, strict Clippy и fmt.
+  Linux Docker Rust 1.97: 779 library passed, 1 external Unicode fixture ignored,
+  1 CLI passed, doc-tests, strict Clippy и release build. Временный test image
+  удалён, отсутствие проверено; runtime container не создавался.
+- High-bit части большинства ISO-8859 charset, полная конверсия, wire-клиент и
+  Litterkeep acceptance этим не подтверждены. T205 scoped PASS; G17/root ACTIVE.
+
 ### 2026-09-27: G17 RFC 6532 SMTPUTF8 coverage wording reconciled, scoped PASS T204
 
 - Уточнена текущая матрица: старый T84 forced-extension delivery был до T195 и
