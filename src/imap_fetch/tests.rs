@@ -119,6 +119,48 @@ fn excludes_named_header_fields() {
     assert_eq!(selected.bytes.as_ref(), b"X-Trace: id\r\n\r\n");
 }
 
+/// HEADER.FIELDS partial применяется после отбора, а не к исходному header.
+#[test]
+fn header_fields_partial_slices_the_filtered_subset() {
+    let inclusion = b"X-Ignored: before selected field\r\nSubject: report\r\n\r\nbody";
+    let exclusion =
+        b"Subject: report\r\nFrom: bob@example.test\r\nX-Ignored: later field\r\n\r\nbody";
+    let cases = [
+        (
+            inclusion.as_slice(),
+            BodySection::HeaderFields {
+                path: Vec::new(),
+                names: vec!["subject".into()],
+                excluded: false,
+            },
+            b"Subject:".as_slice(),
+        ),
+        (
+            exclusion.as_slice(),
+            BodySection::HeaderFields {
+                path: Vec::new(),
+                names: vec!["SUBJECT".into()],
+                excluded: true,
+            },
+            b"From: bo".as_slice(),
+        ),
+    ];
+
+    for (message, section, expected) in cases {
+        let attribute = FetchAttribute::Body {
+            peek: true,
+            section,
+            partial: Some(Partial {
+                offset: 0,
+                count: expected.len(),
+            }),
+        };
+        let result = select(message, &attribute).expect("partial header subset");
+        assert_eq!(result.bytes.as_ref(), expected);
+        assert!(result.label.ends_with("<0>"));
+    }
+}
+
 /// Вложенное message/rfc822 адресуется частью 1 и возвращает его заголовок.
 #[test]
 fn selects_encapsulated_message_headers() {

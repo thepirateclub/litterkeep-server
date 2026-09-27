@@ -6901,3 +6901,10 @@ ManageSieve до заявленного набора современных фо
 - Linux Rust 1.97 Docker test stage: strict Clippy прошёл; 681 library + 1 CLI tests прошли, 1 UCD normalization corpus test ignored, doc-tests прошли. Windows `cargo test --lib`: 615 passed, 1 ignored; Windows target не включает Linux reactor. `cargo fmt` и `git diff --check` прошли.
 - Независимый Linux STARTTLS acceptance APPEND-ит сообщение с неизвестным CTE, получает NO [UNKNOWN-CTE] на FETCH (BODY[] BINARY[1]), после NOOP читает FLAGS и подтверждает отсутствие \Seen. Acceptance script прошёл py_compile и содержит 114 строк; fixture ./data/g35-imap-fetch-error-seen оставлен. Проверялся независимый peer, не приложение Litterkeep.
 - Временные runtime container и runtime/test image удалены после acceptance, отсутствие проверено. Полные IMAP/MIME профили и G17 остаются ACTIVE.
+
+### 2026-09-27: G17 IMAP partial HEADER.FIELDS after subset, scoped PASS
+
+- По RFC 9051 §6.4.5 partial octet ranges для HEADER.FIELDS/HEADER.FIELDS.NOT вычисляются после subsetting. Добавлен unit test: невыбранное поле стоит до Subject в inclusion fixture, а исключённый Subject стоит до From в NOT fixture; offset 0 должен начинаться с первого октета уже отфильтрованного header.
+- Независимый Linux STARTTLS peer проверил оба варианта по wire, включая exact literal и origin label <0>. Acceptance script прошёл py_compile и содержит 174 строки.
+- Linux Rust 1.97 Docker test stage: strict Clippy, 682 library + 1 CLI test прошли, 1 UCD normalization corpus test ignored, doc-tests прошли. Адресный Windows unit test, cargo fmt --check и git diff --check прошли.
+- Fixture ./data/g36-imap-header-partial сохранён; init/runtime containers и созданный test image удалены, отсутствие проверено. Это независимый IMAP-клиент, не Litterkeep app; остальные FETCH cases и полный IMAP4rev2 профиль остаются неполными, G17 ACTIVE.

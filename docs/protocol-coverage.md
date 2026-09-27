@@ -507,6 +507,12 @@ reactor записывал `\Seen` перед вычислением всех it
 получил NO [UNKNOWN-CTE], выполнил NOOP и затем подтвердил по FLAGS, что
 \Seen остался unset. Это acceptance независимого клиента, не приложения
 Litterkeep.
+Для RFC 9051 §6.4.5 partial диапазоны у HEADER.FIELDS и HEADER.FIELDS.NOT
+применяются после формирования подмножества header. Независимый STARTTLS тест
+проверяет оба selector-а на fixtures с разным порядком полей: offset 0 возвращает
+Subject после предшествующего невыбранного поля для HEADER.FIELDS и From после
+исключённого Subject для HEADER.FIELDS.NOT. Проверены exact bytes и response
+origin <0>; тест не заменяет остальные FETCH cases или полную rev2 совместимость.
 Отсутствующий или синтаксически повреждённый `Content-Type` получает
 рекомендуемый RFC 2045 §5.2 fallback `text/plain`/US-ASCII; сырой MIME header
 не переписывается. Независимый STARTTLS клиент отправил оба варианта через SMTP
