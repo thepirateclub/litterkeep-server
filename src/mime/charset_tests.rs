@@ -61,9 +61,18 @@ fn iso_8859_6_uses_registered_name_and_rejects_undefined_positions() {
 }
 
 #[test]
+fn iso_8859_7_uses_registered_name_and_decodes_greek() {
+    let charset = Charset::parse("ISO-8859-7").expect("registered MIME charset");
+    assert_eq!(
+        charset.decode(b"\xc5\xeb\xeb\xdc\xe4\xe1"),
+        Ok("Ελλάδα".to_owned())
+    );
+    assert!(charset.decode(b"\xd2").is_err());
+}
+
+#[test]
 fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     for label in [
-        "iso-8859-7",
         "iso-8859-8",
         "iso-8859-9",
         "iso-8859-10",
@@ -83,8 +92,8 @@ fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     }
     assert!(Charset::parse("iso-8859-12").is_err());
     assert!(
-        Charset::parse("iso-8859-7")
-            .expect("ISO-8859-7 ASCII subset")
+        Charset::parse("iso-8859-8")
+            .expect("ISO-8859-8 ASCII subset")
             .decode(b"caf\xe9")
             .is_err()
     );
