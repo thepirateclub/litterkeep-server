@@ -137,6 +137,22 @@ def literal(response: object, operation: str) -> bytes:
     raise AssertionError(f"{operation}: literal is absent")
 
 
+def fetch_metadata(response: object, operation: str) -> bytes:
+    """Собирает FETCH-имя из tuple и нетипизированных response records."""
+    if not isinstance(response, list):
+        raise AssertionError(f"{operation}: invalid response {response!r}")
+    fields = []
+    for record in response:
+        match record:
+            case (metadata, _payload) if isinstance(metadata, bytes):
+                fields.append(metadata)
+            case raw if isinstance(raw, bytes):
+                fields.append(raw)
+            case _:
+                continue
+    return b" ".join(fields)
+
+
 def find_message(client: imaplib.IMAP4, subject: bytes) -> str:
     """Находит ровно письмо данного уникального profile run."""
     query = f'"{subject.decode("ascii")}"'
@@ -179,6 +195,17 @@ def verify_fetch(client: imaplib.IMAP4, number: str, profile: MultipartProfile) 
     metadata = b" ".join(value for value in size if isinstance(value, bytes))
     if b"BINARY.SIZE[1.1] 12" not in metadata:
         raise AssertionError(f"decoded size mismatch: {metadata!r}")
+
+    partial = require_ok(
+        client.fetch(number, "(BINARY.PEEK[1.1]<2.4>)"),
+        "BINARY.PEEK[1.1]<2.4>",
+    )
+    partial_bytes = literal(partial, "BINARY.PEEK[1.1]<2.4>")
+    if partial_bytes != b"ssag":
+        raise AssertionError(f"decoded partial range mismatch: {partial_bytes!r}")
+    partial_metadata = fetch_metadata(partial, "BINARY partial FETCH")
+    if b"BINARY[1.1]<2>" not in partial_metadata:
+        raise AssertionError(f"partial origin label mismatch: {partial_metadata!r}")
 
 
 def options() -> argparse.Namespace:

@@ -484,6 +484,11 @@ quoted-printable decode и совпадающий `BINARY.SIZE[1.1]`. Вариа
 `message/rfc822`, а digest child остаётся headerless. Это покрытие именно этих
 numeric paths, не полная MIME или IMAP rev2 interoperability и не приложение
 Litterkeep.
+По RFC 9051 §6.4.5 partial offset/count для `BINARY` применяются к уже
+декодированным section octets. Тот же независимый STARTTLS peer проверил для
+всех пяти fixtures `BINARY.PEEK[1.1]<2.4>`: возвращены `ssag`, а FETCH item
+сохранил response origin `<2>`. Это проверяет slicing после quoted-printable
+decode и не меняет полный размер, который сообщает `BINARY.SIZE`.
 Отсутствующий или синтаксически повреждённый `Content-Type` получает
 рекомендуемый RFC 2045 §5.2 fallback `text/plain`/US-ASCII; сырой MIME header
 не переписывается. Независимый STARTTLS клиент отправил оба варианта через SMTP

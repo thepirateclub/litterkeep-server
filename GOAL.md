@@ -6872,3 +6872,10 @@ ManageSieve до заявленного набора современных фо
 - Acceptance script прошёл python -m py_compile, 218 строк, Rust production source не менялся. Linux runtime image Rust 1.97 собран из текущего source; отдельный Rust suite в этом black-box-only checkpoint не запускался.
 - Fixture сохранён в ./data/g31-binary-multipart-profile-wire. Bootstrap init контейнер завершился с --rm; временные runtime container и image удалены и отсутствие проверено. Проверялся независимый wire-клиент, не приложение Litterkeep.
 - Это закрывает перечисленные IMAP BINARY nested multipart paths, не полный MIME/IMAP4rev2 профиль; G17 остаётся ACTIVE.
+
+### 2026-09-27: G17 IMAP nested BINARY partial decoded offsets, scoped PASS
+
+- Независимый Linux STARTTLS peer продолжил проверку пяти multipart fixtures из T144 и проверил RFC 9051 §6.4.5 partial semantics: BINARY.PEEK[1.1]<2.4> вернул точные decoded octets ssag; wire response сохранил origin offset <2>, а полный BINARY.SIZE[1.1] остался 12.
+- Подтверждены slicing после quoted-printable decode, selector label и full decoded size. Скрипт прошёл python -m py_compile и остаётся меньше 300 строк. Rust production code не менялся; runtime image использовал cached build, Rust suite заново не запускался.
+- Отдельный fixture сохранён в ./data/g32-binary-partial-wire. Bootstrap init container с --rm, runtime container и image удалены, отсутствие проверено. Тестировал независимый IMAP peer, не приложение Litterkeep.
+- Частичный FETCH проверен только для nested BINARY leaf и указанных профилей; полный IMAP/MIME профиль и G17 остаются ACTIVE.
