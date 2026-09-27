@@ -180,22 +180,19 @@ parser-ом. Невалидный IP и незарегистрированный
 текущий IPv4/IPv6 синтаксис и не утверждает, что произвольные будущие tags
 поддержаны. Проверенный набор стандартизованных tags сверяется с
 [реестром IANA](https://www.iana.org/assignments/smtp/#smtp-address-literal-tags).
-Полный inbound SMTPUTF8/EAI пока не поддержан и capability не рекламируется:
-SMTP grammar теперь принимает UTF-8 local-part в dot-atom и quoted-string при
-ASCII domain; IDNA U-label validation и DNS conversion не реализованы.
+Полная inbound SMTPUTF8/EAI интеграция пока не заявляется и capability не
+рекламируется: SMTP grammar принимает UTF-8 local-part при ASCII domain, а
+отдельный IDNA domain API ещё не разрешает U-label внутри SMTP path.
 В `smtp::punycode` добавлен самостоятельный RFC 3492 Bootstring encoder/decoder
 с overflow checks и bounded input; официальные multilingual vectors проверены
-unit-тестами. Это только переносная кодировка code points: по RFC 3492 правила
-допустимых IDNA labels остаются задачей верхнего слоя. SMTP address parser её
-пока не вызывает, U-label/A-label validation, contextual/bidi rules и DNS
-conversion не реализованы. Дополнительно `smtp::idna17` классифицирует Unicode
+unit-тестами. Это только переносная кодировка code points. Дополнительно
+`smtp::idna17` классифицирует Unicode
 17 code points по сгенерированному официальному RFC 5892 Derived Property
 набору: PVALID, CONTEXTJ и CONTEXTO остаются разными typed результатами;
 прочие значения дают `DisallowedOrUnassigned`. Тесты проверяют представительные
 символы и каждый класс, а не весь IDNA conformance corpus. RFC 5892 прямо
-отделяет свойство code point от валидности label. Классификатор ещё не подключён
-к parser-у и не выполняет bidi или проверку входных A-label. Новый
-`to_alabel` переводит только NFC PVALID-only U-label в Punycode A-label и
+отделяет свойство code point от валидности label. `to_alabel` переводит
+проверенную NFC U-label в Punycode A-label и
 проверяет leading/trailing/reserved hyphens и 63-октетный encoded label limit.
 CONTEXTO для U+00B7/U+0375/U+05F3/U+05F4/U+30FB и двух Arabic digit sets
 проверяется по Unicode 17 Scripts таблице и соседним символам; невалидный
@@ -203,12 +200,12 @@ CONTEXTO для U+00B7/U+0375/U+05F3/U+05F4/U+30FB и двух Arabic digit sets
 Canonical_Combining_Class=Virama и DerivedJoiningType: ZWJ требует предыдущий
 virama, ZWNJ допускает virama или RFC joining context с пропуском Transparent.
 Ошибочный контекст отклоняется. RFC 5893 Bidi Rule использует Unicode 17
-DerivedBidiClass ranges и проверяет U-label начальный класс, разрешённые классы,
-финальный значимый класс и смешение EN/AN для RTL labels. Проверка вызывается
-пока только для отдельной метки, не распространяется на ASCII/LTR siblings в
-RTL domain и не выполняет domain-level активацию. Функция не подключена к SMTP
-parser-у, DNS conversion и capability SMTPUTF8 также не реализованы, поэтому
-сервер её не рекламирует.
+DerivedBidiClass и активируется для всех labels домена, если хотя бы одна
+содержит R, AL или AN. ASCII SMTP address parser использует проверку LDH и
+полный round-trip для входных A-label. `to_alabel_domain` преобразует U-label
+домен в A-label DNS form; однако SMTP path пока остаётся ASCII-only, а SMTPUTF8
+capability не рекламируется. Полный официальный IDNA conformance corpus не
+пройден.
 См. [RFC 3492](https://www.rfc-editor.org/rfc/rfc3492.html) и
 [RFC 5890](https://www.rfc-editor.org/rfc/rfc5890.html),
 [RFC 5891](https://www.rfc-editor.org/rfc/rfc5891.html) и

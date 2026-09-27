@@ -4,6 +4,26 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 IDNA domain validation and A-label round-trip, scoped PASS T194
+
+- Входящие SMTP ASCII домены теперь валидируют `xn--` как A-label, а не как
+  непрозрачный LDH-текст: метка lower-case нормализуется, декодируется,
+  проверяется как U-label и повторно кодируется с обязательным совпадением.
+  `to_alabel_domain` преобразует смешанные Unicode/ASCII домены в DNS A-label
+  form и ограничивает encoded имя 253 октетами.
+- RFC 5893 activation учитывает R/AL/AN и, когда одна метка делает домен Bidi,
+  проверяет каждую соседнюю метку, включая ASCII LTR labels. Исправлен прежний
+  acceptance ошибочного standalone U-label `١٢`: AN сам делает label RTL.
+  RFC 5891 leading combining-mark запрет проверяется по Unicode 17 Mn/Mc/Me;
+  закреплённый UnicodeData.txt генератор создаёт 327 ranges в двух shards.
+- Windows: 27 IDNA и 13 SMTP address тестов, full suite 684 library + 1 CLI
+  passed, 1 внешний NFC corpus ignored без fixture, strict Clippy и fmt прошли.
+  Linux Docker Rust 1.97 release + strict Clippy + 762 library + 1 CLI passed,
+  1 внешний NFC corpus ignored, doctests прошли. Созданный image удалён и tag
+  отсутствует. SMTP parser принимает только ASCII wire-домены; U-label mailbox
+  parsing/SMTPUTF8 и DNS resolution не входят в эту проверку. T194 scoped PASS;
+  G17 и root остаются ACTIVE.
+
 ### 2026-09-27: G17 Unicode 17 IDNA Bidi Rule, scoped PASS T193
 
 - U-label validation применяет RFC 5893 §2 к меткам, содержащим классы R или

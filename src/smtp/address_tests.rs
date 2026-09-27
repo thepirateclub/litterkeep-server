@@ -28,9 +28,20 @@ fn rejects_invalid_domain_labels_and_non_ascii() {
         "alice@bad-.test",
         "alice@a..test",
         "alice@тест",
+        "alice@xn--",
+        "alice@xn--abc",
+        "alice@123.xn--mgbh0fb",
     ] {
         assert_eq!(classify_mailbox(mailbox), MailboxForm::Invalid, "{mailbox}");
     }
+}
+
+#[test]
+fn accepts_only_valid_idna_a_labels_in_ascii_domains() {
+    assert_eq!(
+        classify_mailbox("alice@xn--bcher-kva.example"),
+        MailboxForm::DotAtom
+    );
 }
 
 #[test]

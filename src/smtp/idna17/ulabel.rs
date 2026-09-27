@@ -9,8 +9,16 @@ pub enum UlabelError {
     InputTooLong,
     /// Вход уже содержит A-label prefix и требует отдельного lookup-процесса.
     AlreadyAscii,
+    /// DNS-метка не соответствует допустимой ASCII LDH-форме.
+    InvalidAsciiLabel,
+    /// Входящая метка с ACE-префиксом не прошла Punycode round-trip validation.
+    InvalidALabel,
+    /// Длина домена превышает DNS-предел с учётом разделителей и root octet.
+    DomainTooLong,
     /// U-label не находится в Unicode NFC.
     NotNormalized,
+    /// Первый scalar является Unicode combining mark по General_Category.
+    LeadingCombiningMark,
     /// Метка начинается/заканчивается дефисом или использует зарезервированные дефисы.
     HyphenRestriction,
     /// Кодовая точка имеет свойство, отличное от PVALID.
@@ -52,6 +60,9 @@ fn validate_input(label: &str) -> Result<(), UlabelError> {
         true => {}
         false => return Err(UlabelError::NotNormalized),
     }
+    if characters_start_with_mark(label) {
+        return Err(UlabelError::LeadingCombiningMark);
+    }
     validate_hyphens(label)?;
     let characters = label.chars().collect::<Vec<_>>();
     let has_japanese_script = contains_japanese_script(&characters);
@@ -79,6 +90,14 @@ fn validate_input(label: &str) -> Result<(), UlabelError> {
         true => Ok(()),
         false => Err(UlabelError::BidiRule),
     }
+}
+
+/// Проверяет Unicode General_Category первого scalar, а не только canonical class.
+fn characters_start_with_mark(label: &str) -> bool {
+    label
+        .chars()
+        .next()
+        .is_some_and(super::mark_property::is_mark)
 }
 
 /// Проверяет contextual code point по установленному RFC правилу.

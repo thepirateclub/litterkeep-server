@@ -122,13 +122,17 @@ virama либо L/D + Transparent* + ZWNJ + Transparent* + R/D; ZWJ требуе
 Fixture файлы лежат в `./data/g40-idna17/`; они не требуются во время работы
 сервера и служат только воспроизводимой генерации.
 
-U-label-local проверка RFC 5893 добавлена по Unicode 17
-DerivedBidiClass.txt (SHA-256
-`4867B4B7F0731ED1BFCD34CC6251211FF1542541FCE0734B6FBDA139EE80B3A4`). Она
-проверяет начальный/разрешённый/финальный классы и запрет смешения EN/AN в RTL
-метке. Domain-level активация для соседних ASCII/LTR labels и входящие A-label
-пока не реализованы. SMTP parser эту функцию пока не вызывает и SMTPUTF8 не
-рекламирует.
+RFC 5893 применяется на уровне домена: наличие R, AL или AN активирует правило
+для всех labels, включая соседние ASCII/LTR. Входящие ASCII `xn--` labels
+декодируются, проверяются как U-label и обязаны совпасть с повторным
+Punycode-кодированием. `to_alabel_domain` также преобразует U-label домены в
+ASCII DNS form. RFC 5891 запрет ведущих combining marks обеспечен таблицей
+General_Category Mn/Mc/Me из Unicode 17 `UnicodeData.txt` (тот же закреплённый
+SHA-256 источника NFC/virama). Генератор
+`tools/generate_idna17_marks.ps1` воспроизводит 327 ranges в двух source shards.
+SMTP path parser использует IDNA validation для ASCII domains; Unicode U-label
+в path и SMTPUTF8 capability пока не подключены. Официальная полная IDNA
+conformance suite ещё не выполнена.
 
 ## Unicode License V3
 

@@ -198,27 +198,7 @@ fn valid_atext(octet: u8) -> bool {
 
 /// Проверяет DNS labels и общий предел длины ASCII domain.
 pub(super) fn valid_domain(domain: &str) -> bool {
-    !domain.is_empty()
-        && domain.len() <= 255
-        && domain.is_ascii()
-        && domain.split('.').all(valid_domain_label)
-}
-
-/// Проверяет одну DNS-метку без Unicode или завершающей пустой метки.
-fn valid_domain_label(label: &str) -> bool {
-    let bytes = label.as_bytes();
-    match bytes {
-        [only] => only.is_ascii_alphanumeric(),
-        [first, middle @ .., last] => {
-            bytes.len() <= 63
-                && first.is_ascii_alphanumeric()
-                && last.is_ascii_alphanumeric()
-                && middle
-                    .iter()
-                    .all(|octet| octet.is_ascii_alphanumeric() || *octet == b'-')
-        }
-        [] => false,
-    }
+    crate::smtp::idna17::is_valid_ascii_domain(domain)
 }
 
 #[cfg(test)]

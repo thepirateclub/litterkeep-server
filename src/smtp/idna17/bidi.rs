@@ -2,22 +2,49 @@
 
 use super::bidi_property::BidiClass;
 
-/// Проверяет label, если Unicode Bidi_Class делает её частью Bidi domain.
+/// Проверяет label, если её классы сами образуют Bidi domain.
 pub(super) fn validate_label(label: &[char]) -> bool {
     let classes = label
         .iter()
         .copied()
         .map(super::bidi_property::bidi_class)
         .collect::<Vec<_>>();
-    // Arabic digits alone do not activate the label-local RFC 5893 check.
-    // Whole-domain activation requires the caller to consider sibling labels.
-    let is_bidi_domain_label = classes
-        .iter()
-        .any(|class| matches!(class, BidiClass::RightToLeft | BidiClass::ArabicLetter));
-    match is_bidi_domain_label {
+    match contains_rtl_class(&classes) {
         false => true,
         true => validate_bidi_domain_label(&classes),
     }
+}
+
+/// Определяет RTL label по наличию R, AL или AN согласно RFC 5893 §1.4.
+pub(super) fn is_rtl_label(label: &[char]) -> bool {
+    label
+        .iter()
+        .copied()
+        .map(super::bidi_property::bidi_class)
+        .any(class_is_rtl)
+}
+
+/// Классифицирует bidi-класс, задающий RTL label.
+fn class_is_rtl(class: BidiClass) -> bool {
+    matches!(
+        class,
+        BidiClass::RightToLeft | BidiClass::ArabicLetter | BidiClass::ArabicNumber
+    )
+}
+
+/// Определяет RTL label по уже вычисленным Unicode bidi-классам.
+fn contains_rtl_class(classes: &[BidiClass]) -> bool {
+    classes.iter().copied().any(class_is_rtl)
+}
+
+/// Проверяет любую label после активации Bidi Rule доменом-соседом.
+pub(super) fn validate_in_bidi_domain(label: &[char]) -> bool {
+    let classes = label
+        .iter()
+        .copied()
+        .map(super::bidi_property::bidi_class)
+        .collect::<Vec<_>>();
+    validate_bidi_domain_label(&classes)
 }
 
 /// Применяет initial, allowed-set, ending и mixed-number условия RFC.

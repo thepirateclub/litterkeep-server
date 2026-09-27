@@ -26,6 +26,14 @@ fn applies_bidi_rule_to_rtl_ulabels() {
 #[test]
 fn rejects_non_nfc_and_structurally_invalid_labels() {
     assert_eq!(to_alabel("e\u{301}"), Err(UlabelError::NotNormalized));
+    assert_eq!(
+        to_alabel("\u{0301}a"),
+        Err(UlabelError::LeadingCombiningMark)
+    );
+    assert_eq!(
+        to_alabel("\u{093e}क"),
+        Err(UlabelError::LeadingCombiningMark)
+    );
     assert_eq!(to_alabel("-例"), Err(UlabelError::HyphenRestriction));
     assert_eq!(to_alabel("例-"), Err(UlabelError::HyphenRestriction));
     assert_eq!(to_alabel("ab--例"), Err(UlabelError::HyphenRestriction));
@@ -50,7 +58,7 @@ fn applies_contextj_rules_to_join_controls() {
 /// CONTEXTO проверяется по соседним символам и всей доменной метке.
 #[test]
 fn applies_contexto_rules_to_the_whole_label() {
-    for label in ["l\u{00b7}l", "\u{0375}α", "א\u{05f3}", "カ\u{30fb}", "١٢"] {
+    for label in ["l\u{00b7}l", "\u{0375}α", "א\u{05f3}", "カ\u{30fb}"] {
         assert!(to_alabel(label).is_ok(), "{label:?}");
     }
     for label in ["a\u{00b7}b", "\u{0375}a", "\u{05f3}א", "a\u{30fb}", "١۲"] {
@@ -60,6 +68,12 @@ fn applies_contexto_rules_to_the_whole_label() {
             "{label:?}"
         );
     }
+}
+
+/// AN активирует RFC 5893 даже без R/AL букв в текущей метке.
+#[test]
+fn rejects_arabic_number_only_bidi_label() {
+    assert_eq!(to_alabel("١٢"), Err(UlabelError::BidiRule));
 }
 
 /// Предел DNS label проверяется после Punycode и добавления ACE-префикса.

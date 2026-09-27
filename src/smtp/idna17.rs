@@ -1,11 +1,19 @@
 //! Derived IDNA2008 code point properties for the pinned Unicode 17.0.0 release.
 
+#[path = "idna17/alabel.rs"]
+mod alabel;
 #[path = "idna17/bidi.rs"]
 mod bidi;
 #[path = "idna17/bidi_property.rs"]
 mod bidi_property;
+#[path = "idna17/domain.rs"]
+mod domain;
 #[path = "idna17/joining_property.rs"]
 mod joining_property;
+#[path = "idna17/mark_property.rs"]
+mod mark_property;
+#[path = "idna17/mark_ranges.rs"]
+mod mark_ranges;
 #[path = "idna17/ranges.rs"]
 mod ranges;
 #[path = "idna17/script_property.rs"]
@@ -28,6 +36,7 @@ pub enum DerivedProperty {
     DisallowedOrUnassigned,
 }
 
+pub use domain::{is_valid_ascii_domain, to_alabel_domain};
 pub use ulabel::{UlabelError, to_alabel};
 
 /// Возвращает производное свойство символа без принятия решения о валидности label.
