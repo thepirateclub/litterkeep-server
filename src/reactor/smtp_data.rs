@@ -1,4 +1,5 @@
 //! SMTP DATA octet handling and durable local-delivery handoff.
+use super::session::DataSection;
 use super::*;
 use crate::local_route::local_mailboxes;
 
@@ -30,6 +31,7 @@ pub(super) fn data_line(
     }
     let SmtpState::Data {
         bytes,
+        section,
         oversized,
         body_mode,
         smtp_utf8,
@@ -40,7 +42,7 @@ pub(super) fn data_line(
     };
     match *oversized {
         true => Ok(()),
-        false => append_data_line(bytes, oversized, *body_mode, *smtp_utf8, &line),
+        false => append_data_line(bytes, section, oversized, *body_mode, *smtp_utf8, &line),
     }
 }
 
@@ -135,6 +137,7 @@ fn take_data(session: &mut Session) -> (Vec<u8>, String, Vec<String>) {
 /// Добавляет unstuffed octets только пока DATA соблюдает лимиты профиля.
 fn append_data_line(
     bytes: &mut Vec<u8>,
+    section: &mut DataSection,
     oversized: &mut bool,
     mode: smtp::BodyMode,
     smtp_utf8: bool,
@@ -144,22 +147,24 @@ fn append_data_line(
         Some(unstuffed) => unstuffed,
         None => line,
     };
-    let headers = in_header_section(bytes);
+    let headers = matches!(*section, DataSection::Headers);
     match data_line_accepts(mode, smtp_utf8, headers, content) {
         Err(()) => *oversized = true,
         Ok(()) => match bytes.len().saturating_add(content.len()) > MAX_MESSAGE {
             true => *oversized = true,
-            false => bytes.extend_from_slice(content),
+            false => {
+                bytes.extend_from_slice(content);
+                advance_section(section, content);
+            }
         },
     }
     Ok(())
 }
 
-/// Учитывает как обычный разделитель, так и сообщение с пустым заголовком.
-fn in_header_section(bytes: &[u8]) -> bool {
-    match bytes.starts_with(b"\r\n") {
-        true => false,
-        false => !bytes.windows(4).any(|window| window == b"\r\n\r\n"),
+/// Переключает профиль в body при пустой DATA-строке CRLF.
+fn advance_section(section: &mut DataSection, content: &[u8]) {
+    if let (DataSection::Headers, b"\r\n") = (*section, content) {
+        *section = DataSection::Body;
     }
 }
 

@@ -2,6 +2,7 @@
 //!
 //! Модуль не обращается к файловому хранилищу напрямую. Проверка учётных
 //! данных и получателей всегда передаётся единственному владельцу store.
+use super::session::DataSection;
 use super::*;
 use crate::local_route::{local_mailbox, local_recipient};
 
@@ -201,6 +202,7 @@ fn apply_transaction(session: &mut Session, command: smtp::Command) -> io::Resul
             session.smtp_data_activity = std::time::Instant::now();
             session.smtp = SmtpState::Data {
                 bytes: Vec::new(),
+                section: DataSection::Headers,
                 recipients: envelope.recipients,
                 reverse_path: envelope.reverse_path,
                 oversized: false,

@@ -125,6 +125,7 @@ fn timeout_until(now: Instant, deadline: Instant) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::reactor::session::DataSection;
     use crate::reactor::{Kind, Pending, Session, SmtpState};
     use crate::runtime::Orchestrator;
     use crate::storage_worker::WakingStorageWorker;
@@ -148,6 +149,7 @@ mod tests {
         session.smtp_data_activity = started;
         session.smtp = SmtpState::Data {
             bytes: Vec::new(),
+            section: DataSection::Headers,
             recipients: vec!["bob@litterkeep.test".into()],
             reverse_path: "alice@litterkeep.test".into(),
             oversized: false,

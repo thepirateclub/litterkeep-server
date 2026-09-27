@@ -2,7 +2,24 @@
 
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
-Current subgoal: G17  
+Current subgoal: G17
+
+### 2026-09-27: G17 инкрементальная классификация SMTP DATA, PASS checkpoint
+
+- Linux strict Clippy и `cargo test --locked` внутри `docker/Dockerfile.linux-test`
+  прошли: 695 library tests, 1 CLI test и doc-tests; 1 внешний Unicode corpus
+  test ignored из-за отсутствия UCD файла. Linux reactor включён в этот прогон.
+- DATA state теперь один раз переключается из заголовков в тело на пустой CRLF
+  строке. Удалён повторный просмотр накопленного сообщения на каждой строке,
+  который давал квадратичный профиль работы на сообщениях с короткими строками.
+  Unit regression проверяет границу и независимые SMTPUTF8/8BITMIME политики.
+- Независимый Linux STARTTLS PIPELINING -> DATA -> Store -> IMAP smoke повторно
+  прошёл на изменённом бинарнике. Это не замер производительности и не проверка
+  Litterkeep app. Fixture `./data/acceptance-smtp-data-streaming-20260927`
+  сохранена; тестовые учётные данные лежат только в локальной папке.
+- Созданный для прогона Docker container и image подлежат удалению после проверки
+  отсутствия. Это ограниченный parser/performance checkpoint, не полный SMTP RFC
+  acceptance; G17 и корневая цель остаются ACTIVE.
 
 ### 2026-09-27: G17 SMTP PIPELINING all-rejected recipients, PASS checkpoint
 

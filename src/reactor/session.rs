@@ -17,12 +17,20 @@ pub(super) enum SmtpState {
     Command(smtp::Transaction),
     Data {
         bytes: Vec<u8>,
+        section: DataSection,
         recipients: Vec<String>,
         reverse_path: String,
         oversized: bool,
         body_mode: crate::smtp::BodyMode,
         smtp_utf8: bool,
     },
+}
+
+/// Стриминговое состояние DATA-парсера до и после пустой строки заголовков.
+#[derive(Clone, Copy)]
+pub(super) enum DataSection {
+    Headers,
+    Body,
 }
 
 /// Явно хранит PLAIN challenge до ответа или отмены со стороны клиента.
