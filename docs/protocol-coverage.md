@@ -14,6 +14,12 @@ dot terminator. `BODY=7BIT` и режим без BODY ограничивают �
 До TLS AUTH запрещён. Envelope sender должен принадлежать authenticated owner.
 Local route не является open relay.
 
+По рекомендации RFC 8314 §3.4 implicit-TLS SMTP-сессия отвечает на
+peer-инициированный `close_notify` после обычного NOOP reply. Независимый Linux
+TLS peer подтверждает SMTP reply и завершает TLS `unwrap()` без SMTP QUIT.
+Отдельное acceptance проверяет тот же lifecycle для IMAP; POP3 проверяется
+отдельно ниже. Это closure coverage, не полный SMTP/TLS профиль.
+
 Дополнительный RFC 2920 §3.2 STARTTLS peer отправил MAIL, единственный
 несуществующий RCPT и DATA одним write. Получены упорядоченные `250`, `550`,
 `503`: DATA не открыл content state без принятого адресата, а следующий NOOP
@@ -210,6 +216,10 @@ octets вместе с CRLF (dot-stuffing octet не считается): нез
 LSUB, CREATE/RENAME/DELETE, SELECT/EXAMINE, STATUS, APPEND, SEARCH, FETCH,
 BODYSTRUCTURE, MIME sections/partial, STORE, COPY, MOVE, EXPUNGE, UID EXPUNGE,
 IDLE/DONE и durable Recent. UIDVALIDITY и UID переживают restart.
+
+Implicit-TLS IMAP отвечает на peer-инициированный `close_notify` после
+успешного tagged NOOP reply. Независимый Linux TLS peer завершил `unwrap()`;
+это подтверждает TLS closure для этого сценария, не полный IMAP4rev2 профиль.
 
 `AUTHENTICATE PLAIN` принимает механизм и SASL-IR как IMAP `astring`: atom и
 quoted string; маркер `=` переводится в пустой initial response, отличный от

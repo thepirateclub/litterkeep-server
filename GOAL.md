@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 RFC 8314 implicit TLS peer closure, SMTP and IMAP wire evidence
+
+- На том же runtime бинарнике независимые TLS peers проверили implicit SMTP
+  и IMAP: каждый прочитал greeting, выполнил NOOP, получил обычный protocol
+  reply, инициировал `close_notify` и завершил `unwrap()` после ответного alert.
+- Runtime использует release build с источниками этапа `85fd9bd`; Docker build
+  переиспользовал готовый release layer, поэтому это новый wire acceptance, но
+  не новый Rust compilation/test gate. `py_compile`, `cargo fmt --check` и
+  `git diff --check` прошли.
+- Fixture `./data/acceptance-rfc8314-peer-close-20260927` сохранена. Проверены
+  только closure сценарии implicit-TLS SMTP/IMAP, не полный protocol profile и
+  не клиент Litterkeep. G17 и корневая цель остаются ACTIVE.
+- Созданные runtime container/image удалены, отсутствие подтверждено.
+
 ### 2026-09-27: G17 RFC 8314 peer-initiated POP3 TLS closure, scoped PASS
 
 - `ServerTls` сохраняет `peer_has_closed()` от rustls. Reactor обрабатывает
