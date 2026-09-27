@@ -1,5 +1,16 @@
 # Goal ledger
 
+### 2026-09-27: G17 IBM866 MIME charset, scoped PASS T229
+
+- Добавлен отдельный typed decoder IBM866/CP866 без внешнего codec dependency;
+  ASCII, Cyrillic, украинские буквы, знаки и CP866 псевдографика сохранены.
+- Unicode CP866 table покрыта ожиданиями для всех 256 октетов; unit-тесты
+  проверяют основные кириллические и хвостовые назначения. IANA labels
+  IBM866, CP866, csIBM866 и 866 распознаются через enum Charset.
+- Сетевой MIME/client acceptance не запускался и не заявляется. Следующие
+  многобайтовые charset из IANA (например GB18030, GBK, Shift_JIS) остаются
+  отдельными крупными задачами G17.
+
 ### 2026-09-27: G17 Windows-874 Thai MIME charset, scoped PASS T228
 
 - По Microsoft CP874 table и IANA registration добавлен отдельный typed

@@ -398,3 +398,12 @@ FETCH возвращает исходный байтовый заголовок 
 регрессионная замеренная конфигурация, не production benchmark. `i;octet`
 `:contains` и glob `:matches` этой оптимизацией не затронуты; полный профиль
 RFC 5228 и acceptance через приложение Litterkeep не подтверждены.
+
+IANA charset [IBM866](https://www.iana.org/assignments/charset-reg/ibm866)
+декодируется по опубликованной [таблице Unicode CP866](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/PC/CP866.TXT).
+Все 256 октетов сверяются с отдельным ожидаемым mapping; проверены русские
+буквы, Ё/ё, украинские Є/є, псевдографика, знак валюты и NBSP. Принимаются
+зарегистрированные имена IBM866, CP866, csIBM866 и 866. Проверка покрывает
+MIME charset decoder unit-тестами; сетевое использование и клиентское
+подключение отдельно не проверялись.
+#

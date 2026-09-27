@@ -34,6 +34,7 @@ pub enum Charset {
     Windows1257,
     Windows1258,
     Windows874,
+    Ibm866,
     Utf16,
     Utf16Be,
     Utf16Le,
@@ -73,6 +74,7 @@ impl Charset {
             "windows-1257" | "cswindows1257" => Ok(Self::Windows1257),
             "windows-1258" | "cswindows1258" => Ok(Self::Windows1258),
             "windows-874" | "cswindows874" => Ok(Self::Windows874),
+            "ibm866" | "cp866" | "csibm866" | "866" => Ok(Self::Ibm866),
             "utf-16" => Ok(Self::Utf16),
             "utf-16be" => Ok(Self::Utf16Be),
             "utf-16le" => Ok(Self::Utf16Le),
@@ -122,62 +124,17 @@ impl Charset {
             Self::Windows1257 => super::charset_windows1257::decode(bytes),
             Self::Windows1258 => super::charset_windows1258::decode(bytes),
             Self::Windows874 => super::charset_windows874::decode(bytes),
-            Self::Utf16 => decode_utf16(bytes, Utf16ByteOrder::DetectBom),
-            Self::Utf16Be => decode_utf16(bytes, Utf16ByteOrder::BigEndian),
-            Self::Utf16Le => decode_utf16(bytes, Utf16ByteOrder::LittleEndian),
+            Self::Ibm866 => Ok(super::charset_ibm866::decode(bytes)),
+            Self::Utf16 => {
+                super::charset_utf16::decode(bytes, super::charset_utf16::ByteOrder::DetectBom)
+            }
+            Self::Utf16Be => {
+                super::charset_utf16::decode(bytes, super::charset_utf16::ByteOrder::BigEndian)
+            }
+            Self::Utf16Le => {
+                super::charset_utf16::decode(bytes, super::charset_utf16::ByteOrder::LittleEndian)
+            }
         }
-    }
-}
-
-/// Порядок байтов UTF-16, заданный меткой или начальной сигнатурой.
-#[derive(Clone, Copy)]
-enum Utf16ByteOrder {
-    DetectBom,
-    BigEndian,
-    LittleEndian,
-}
-
-/// Декодирует UTF-16 с проверкой длины, surrogate pairs и невозможного U+FFFE.
-fn decode_utf16(bytes: &[u8], requested_order: Utf16ByteOrder) -> Result<String, &'static str> {
-    let (order, payload) = match (requested_order, bytes.get(..2)) {
-        (Utf16ByteOrder::DetectBom, None) => {
-            return Err("UTF-16 requires two octets to determine byte order");
-        }
-        (Utf16ByteOrder::DetectBom, Some([0xfe, 0xff])) => (
-            Utf16ByteOrder::BigEndian,
-            bytes.get(2..).ok_or("invalid UTF-16 BOM")?,
-        ),
-        (Utf16ByteOrder::DetectBom, Some([0xff, 0xfe])) => (
-            Utf16ByteOrder::LittleEndian,
-            bytes.get(2..).ok_or("invalid UTF-16 BOM")?,
-        ),
-        (Utf16ByteOrder::DetectBom, _) => (Utf16ByteOrder::BigEndian, bytes),
-        (order, _) => (order, bytes),
-    };
-    if !payload.chunks_exact(2).remainder().is_empty() {
-        return Err("odd UTF-16 octet count");
-    }
-    let units = payload
-        .chunks_exact(2)
-        .map(|pair| utf16_unit(pair, order))
-        .collect::<Result<Vec<_>, _>>()?;
-    let mut output = String::with_capacity(payload.len());
-    for decoded in char::decode_utf16(units) {
-        output.push(decoded.map_err(|_| "invalid UTF-16 surrogate pair")?);
-    }
-    Ok(output)
-}
-
-/// Собирает один 16-битный unit из пары октетов без прямой индексации.
-fn utf16_unit(pair: &[u8], order: Utf16ByteOrder) -> Result<u16, &'static str> {
-    let octets: [u8; 2] = pair.try_into().map_err(|_| "invalid UTF-16 pair")?;
-    let value = match order {
-        Utf16ByteOrder::DetectBom | Utf16ByteOrder::BigEndian => u16::from_be_bytes(octets),
-        Utf16ByteOrder::LittleEndian => u16::from_le_bytes(octets),
-    };
-    match value {
-        0xfffe => Err("UTF-16 contains the invalid U+FFFE value"),
-        _ => Ok(value),
     }
 }
 

@@ -8,6 +8,8 @@ pub use base64::{decode_base64, decode_mime_base64};
 pub mod bodystructure;
 #[path = "mime/charset.rs"]
 pub mod charset;
+#[path = "mime/charset_ibm866.rs"]
+mod charset_ibm866;
 #[path = "mime/charset_iso8859_10.rs"]
 mod charset_iso8859_10;
 #[path = "mime/charset_iso8859_13.rs"]
@@ -36,6 +38,8 @@ mod charset_iso8859_8;
 mod charset_iso8859_9;
 #[path = "mime/charset_tis620.rs"]
 mod charset_tis620;
+#[path = "mime/charset_utf16.rs"]
+mod charset_utf16;
 #[path = "mime/charset_windows1250.rs"]
 mod charset_windows1250;
 #[path = "mime/charset_windows1253.rs"]
