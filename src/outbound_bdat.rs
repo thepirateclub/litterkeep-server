@@ -1,5 +1,5 @@
 //! Проверка BINARYMIME и bounded-разбиение сообщения на RFC 3030 BDAT chunks.
-use crate::mime::{parameters::MediaType, transfer::TransferEncoding, tree::Entity};
+use crate::mime::{parameters::MediaType, tree::Entity};
 use std::{
     io::{self, BufRead, Write},
     iter::Peekable,
@@ -55,7 +55,7 @@ pub(crate) fn has_binary_transfer(message: &[u8]) -> bool {
     crate::mime::tree::parse(message).is_ok_and(|root| root.contains_binary_transfer_encoding())
 }
 
-/// Проверяет заголовки и канонические text parts, оставляя binary leaves opaque.
+/// Проверяет структуру и канонические text parts, оставляя остальные тела opaque.
 pub(crate) fn validate_binary(message: &[u8]) -> bool {
     let Ok(root) = crate::mime::tree::parse(message) else {
         return false;
@@ -134,12 +134,14 @@ fn validate_entity(entity: &Entity, message: &[u8]) -> bool {
     if !headers_valid {
         return false;
     }
+    let preamble_valid = validate_optional_text_range(&entity.preamble_range, entity, message);
+    let epilogue_valid = validate_optional_text_range(&entity.epilogue_range, entity, message);
     let children_valid = entity
         .children
         .iter()
         .all(|child| validate_entity(child, message));
     match (entity.children.is_empty(), children_valid) {
-        (false, valid) => valid,
+        (false, valid) => valid && preamble_valid && epilogue_valid,
         (true, false) => false,
         (true, true) => validate_leaf(entity, message),
     }
@@ -150,13 +152,23 @@ fn validate_leaf(entity: &Entity, message: &[u8]) -> bool {
     let Some(body) = entity.source_range(message, entity.body_range.clone()) else {
         return false;
     };
-    match (
-        is_text(&entity.media_type),
-        matches!(entity.transfer_encoding, TransferEncoding::Binary),
-    ) {
-        (true, _) => canonical_text(body),
-        (false, true) => true,
-        (false, false) => crate::outbound::validate_data(body).is_ok(),
+    match is_text(&entity.media_type) {
+        true => canonical_text(body),
+        false => true,
+    }
+}
+
+/// Multipart delimiter-ы отделяют текстовые preamble/epilogue от opaque parts.
+fn validate_optional_text_range(
+    range: &Option<std::ops::Range<usize>>,
+    entity: &Entity,
+    message: &[u8],
+) -> bool {
+    match range {
+        Some(range) => entity
+            .source_range(message, range.clone())
+            .is_some_and(has_only_canonical_line_breaks),
+        None => true,
     }
 }
 
@@ -164,8 +176,23 @@ fn validate_leaf(entity: &Entity, message: &[u8]) -> bool {
 fn canonical_text(body: &[u8]) -> bool {
     match body.is_empty() {
         true => true,
-        false => body.ends_with(b"\r\n") && crate::outbound::validate_data(body).is_ok(),
+        false => body.ends_with(b"\r\n") && has_only_canonical_line_breaks(body),
     }
+}
+
+/// BINARYMIME не переносит DATA limit 1000 октетов на text/* bodies.
+fn has_only_canonical_line_breaks(body: &[u8]) -> bool {
+    let mut previous_was_cr = false;
+    for octet in body.iter().copied() {
+        match (previous_was_cr, octet) {
+            (true, b'\n') => previous_was_cr = false,
+            (true, _) => return false,
+            (false, b'\r') => previous_was_cr = true,
+            (false, b'\n') => return false,
+            (false, _) => {}
+        }
+    }
+    !previous_was_cr
 }
 
 /// MIME-категория уже разобрана, поэтому text-family выбирается через enum.

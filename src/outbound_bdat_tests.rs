@@ -43,3 +43,26 @@ fn binary_mime_validation_rejects_noncanonical_text_part_lines() {
 
     assert!(!validate_binary(message));
 }
+
+/// RFC 3030 canonical CRLF не наследует DATA-командный предел в 1000 октетов.
+#[test]
+fn binary_mime_allows_canonical_text_lines_above_data_line_limit() {
+    let mut message =
+        b"Content-Type: text/plain\r\nContent-Transfer-Encoding: binary\r\n\r\n".to_vec();
+    message.extend(std::iter::repeat_n(b'x', 1_200));
+    message.extend_from_slice(b"\r\n");
+
+    assert!(validate_binary(&message));
+}
+
+/// Даже при BINARYMIME текст multipart preamble и epilogue используют CRLF.
+#[test]
+fn binary_mime_checks_multipart_text_outside_leaf_parts() {
+    let prefix = b"Content-Type: multipart/mixed; boundary=part\r\n\r\n";
+    let suffix = b"--part\r\nContent-Type: application/octet-stream\r\nContent-Transfer-Encoding: binary\r\n\r\n\0\xff\r\n--part--\r\nepilogue\r\n";
+    let invalid = [prefix.as_slice(), b"preamble\n", suffix.as_slice()].concat();
+    let valid = [prefix.as_slice(), b"preamble\r\n", suffix.as_slice()].concat();
+
+    assert!(!validate_binary(&invalid));
+    assert!(validate_binary(&valid));
+}

@@ -41,7 +41,10 @@ RSET, а отвергнутый payload точно дренируется без
 для MIME binary parts: требует одновременно peer capabilities `BINARYMIME` и
 `CHUNKING`, валидирует MIME headers и canonical CRLF текстовых частей, объявляет
 точный BDAT payload size и посылает последовательные bounded chunks с ожиданием
-отдельного `250` после каждого. После 4xx/5xx следующий chunk не отправляется.
+отдельного `250` после каждого. DATA-ограничение 1000 октетов не переносится на
+`text/*` в BINARYMIME: требуется только canonical CRLF; multipart preamble и
+epilogue проверяются без изменения binary body parts. После 4xx/5xx следующий
+chunk не отправляется.
 Plain TCP и implicit TLS independent peers подтвердили точные байты, включая
 NUL/high-bit octets и нетекстовые bare CR/LF; отдельные тесты подтвердили отказ
 без capability и остановку после 451. RFC 5321 MAIL line limit включает

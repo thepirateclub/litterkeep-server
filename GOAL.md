@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 RFC 3030 BINARYMIME canonical text correction
+
+- RFC 3030 требует canonical CRLF в `text/*`, но это BDAT transfer profile,
+  поэтому SMTP DATA line cap в 1000 октетов не должен отбрасывать длинную,
+  корректно оформленную текстовую строку. Валидатор теперь отдельно проверяет
+  наличие только CRLF в text body и проверяет multipart preamble/epilogue,
+  оставляя non-text MIME bodies октетно прозрачными.
+- Добавлены регрессии на длинную text line и bare LF в multipart preamble;
+  Linux Docker Rust 1.97 gate прошёл: strict Clippy, 722 library tests passed,
+  1 внешний Unicode UCD test ignored, 1 CLI test passed, doctests без тестов.
+  Windows шесть targeted outbound BDAT тестов и strict Clippy прошли.
+- Только independent unit peers/локальные тесты; interoperability с внешним
+  MTA или Litterkeep app не проверялась. Это узкая коррекция outbound profile,
+  inbound BINARYMIME и сквозная внешняя доставка остаются не реализованными /
+  непроверенными. Цель и G17 остаются ACTIVE.
+- Временный Docker image `litterkeep-linux-test:g17-binarymime-crlf-20260927`
+  будет удалён перед завершением этапа.
+
 ### 2026-09-27: G17 outbound RFC 3030 BINARYMIME over BDAT
 
 - Исходящий plain TCP и implicit-TLS SMTP transport теперь передаёт MIME
