@@ -96,10 +96,20 @@ cargo test --locked smtp::idna17::tests
 label соответствует RFC 5891: NFC, ограничения дефиса, контекстные правила,
 bidi и A-label round-trip должны выполняться верхним IDNA-слоем.
 `smtp::idna17::to_alabel` применяет NFC, hyphen rules, PVALID lookup, RFC 3492
-кодирование и 63-октетный предел кодированного label. CONTEXTJ/CONTEXTO пока
-возвращают `ContextRuleRequired`; это закрытый PVALID-only профиль, а не полный
-валидатор. Проверка bidi и входящих A-label не сделана. SMTP parser эту функцию
-пока не вызывает и SMTPUTF8 не рекламирует.
+кодирование и 63-октетный предел кодированного label. ContextO использует
+Unicode 17 Scripts.txt: Greek, Hebrew, Hiragana, Katakana и Han ranges нужны
+для проверок U+0375/U+05F3/U+05F4/U+30FB. Middle dot и взаимоисключающие
+Arabic digit sets проверяются непосредственно по RFC условиям. Генератор
+`tools/generate_idna17_scripts.ps1` закрепляет SHA-256 источника и создаёт
+отсортированную таблицу из 124 диапазонов не более 300 строк.
+Официальный источник: `https://www.unicode.org/Public/17.0.0/ucd/Scripts.txt`.
+SHA-256: `9F5E50D3ABAEE7D6CE09480F325C706F485AE3240912527E651954D2D6B035BF`.
+Копия лежит в `./data/g40-idna17/Scripts.txt` и нужна только для повторной
+генерации; runtime от неё не зависит.
+
+ContextJ (ZWJ/ZWNJ) пока возвращает `ContextRuleRequired`; это закрытая часть
+IDNA-профиля, а не полный валидатор. Проверка bidi и входящих A-label не
+сделана. SMTP parser эту функцию пока не вызывает и SMTPUTF8 не рекламирует.
 
 ## Unicode License V3
 

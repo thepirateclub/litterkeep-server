@@ -197,8 +197,11 @@ conversion не реализованы. Дополнительно `smtp::idna17
 к parser-у и не выполняет bidi или проверку входных A-label. Новый
 `to_alabel` переводит только NFC PVALID-only U-label в Punycode A-label и
 проверяет leading/trailing/reserved hyphens и 63-октетный encoded label limit.
-CONTEXTJ/CONTEXTO получают явную ошибку, так как их контекстные правила пока
-не выполнены. Функция не подключена к SMTP parser-у, DNS conversion и
+CONTEXTO для U+00B7/U+0375/U+05F3/U+05F4/U+30FB и двух Arabic digit sets
+проверяется по Unicode 17 Scripts таблице и соседним символам; невалидный
+контекст получает отдельную ошибку. CONTEXTJ пока отклоняется до реализации
+joining/virama правил. Bidi пока не проверяется. Функция не подключена к SMTP
+parser-у, DNS conversion и
 capability SMTPUTF8 также не реализованы, поэтому сервер её не рекламирует.
 См. [RFC 3492](https://www.rfc-editor.org/rfc/rfc3492.html) и
 [RFC 5890](https://www.rfc-editor.org/rfc/rfc5890.html),

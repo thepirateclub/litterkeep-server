@@ -5,6 +5,8 @@
 pub enum UlabelError {
     /// Пустая строка не является доменной меткой.
     Empty,
+    /// Вход превышает локальную границу контекстного сканера.
+    InputTooLong,
     /// Вход уже содержит A-label prefix и требует отдельного lookup-процесса.
     AlreadyAscii,
     /// U-label не находится в Unicode NFC.
@@ -15,6 +17,8 @@ pub enum UlabelError {
     NonPValidCodePoint,
     /// Кодовая точка требует контекстной проверки, отсутствующей на этом этапе.
     ContextRuleRequired,
+    /// Контекстное правило известно, но условие для этой кодовой точки нарушено.
+    InvalidContext,
     /// Получившаяся ASCII-метка превышает DNS-предел в 63 октета.
     EncodedLabelTooLong,
     /// Низкоуровневый кодек Punycode не смог выполнить преобразование.
@@ -37,21 +41,33 @@ pub fn to_alabel(label: &str) -> Result<String, UlabelError> {
 
 /// Проверяет свойства U-label и структурные ограничения перед кодированием.
 fn validate_input(label: &str) -> Result<(), UlabelError> {
-    match (label.is_empty(), label.is_ascii()) {
-        (true, _) => return Err(UlabelError::Empty),
-        (false, true) => return Err(UlabelError::AlreadyAscii),
-        (false, false) => {}
+    match (label.is_empty(), label.len() > 1024, label.is_ascii()) {
+        (true, _, _) => return Err(UlabelError::Empty),
+        (false, true, _) => return Err(UlabelError::InputTooLong),
+        (false, false, true) => return Err(UlabelError::AlreadyAscii),
+        (false, false, false) => {}
     }
     match crate::unicode::nfc::normalize(label) == label {
         true => {}
         false => return Err(UlabelError::NotNormalized),
     }
     validate_hyphens(label)?;
-    for character in label.chars() {
+    let characters = label.chars().collect::<Vec<_>>();
+    let has_japanese_script = contains_japanese_script(&characters);
+    let has_arabic_indic_digits = contains_arabic_indic_digits(&characters);
+    let has_extended_arabic_digits = contains_extended_arabic_digits(&characters);
+    for (position, character) in characters.iter().copied().enumerate() {
         match super::derived_property(character) {
             super::DerivedProperty::PValid => {}
             super::DerivedProperty::ContextJ | super::DerivedProperty::ContextO => {
-                return Err(UlabelError::ContextRuleRequired);
+                validate_contextual(
+                    &characters,
+                    position,
+                    character,
+                    has_japanese_script,
+                    has_arabic_indic_digits,
+                    has_extended_arabic_digits,
+                )?;
             }
             super::DerivedProperty::DisallowedOrUnassigned => {
                 return Err(UlabelError::NonPValidCodePoint);
@@ -59,6 +75,108 @@ fn validate_input(label: &str) -> Result<(), UlabelError> {
         }
     }
     Ok(())
+}
+
+/// Применяет реализованные CONTEXTO правила и пока явно закрывает CONTEXTJ.
+fn validate_contextual(
+    characters: &[char],
+    position: usize,
+    character: char,
+    has_japanese_script: bool,
+    has_arabic_indic_digits: bool,
+    has_extended_arabic_digits: bool,
+) -> Result<(), UlabelError> {
+    match character {
+        '\u{00b7}' if between_l(characters, position) => Ok(()),
+        '\u{0375}'
+            if followed_by_script(characters, position, super::script_property::Script::Greek) =>
+        {
+            Ok(())
+        }
+        '\u{05f3}' | '\u{05f4}'
+            if preceded_by_script(characters, position, super::script_property::Script::Hebrew) =>
+        {
+            Ok(())
+        }
+        '\u{30fb}' if has_japanese_script => Ok(()),
+        '\u{0660}'..='\u{0669}' if !has_extended_arabic_digits => Ok(()),
+        '\u{06f0}'..='\u{06f9}' if !has_arabic_indic_digits => Ok(()),
+        '\u{200c}' | '\u{200d}' => Err(UlabelError::ContextRuleRequired),
+        '\u{00b7}'
+        | '\u{0375}'
+        | '\u{05f3}'
+        | '\u{05f4}'
+        | '\u{30fb}'
+        | '\u{0660}'..='\u{0669}'
+        | '\u{06f0}'..='\u{06f9}' => Err(UlabelError::InvalidContext),
+        _ => Err(UlabelError::ContextRuleRequired),
+    }
+}
+
+/// Проверяет, что U+00B7 расположен ровно между двумя латинскими `l`.
+fn between_l(characters: &[char], position: usize) -> bool {
+    matches!(
+        (
+            position
+                .checked_sub(1)
+                .and_then(|index| characters.get(index)),
+            characters.get(position.saturating_add(1))
+        ),
+        (Some('l'), Some('l'))
+    )
+}
+
+/// Проверяет Script следующего символа без обращения по индексу массива.
+fn followed_by_script(
+    characters: &[char],
+    position: usize,
+    expected: super::script_property::Script,
+) -> bool {
+    characters
+        .get(position.saturating_add(1))
+        .and_then(|character| super::script_property::script_of(*character))
+        == Some(expected)
+}
+
+/// Проверяет Script предыдущего символа без обращения по индексу массива.
+fn preceded_by_script(
+    characters: &[char],
+    position: usize,
+    expected: super::script_property::Script,
+) -> bool {
+    position
+        .checked_sub(1)
+        .and_then(|index| characters.get(index))
+        .and_then(|character| super::script_property::script_of(*character))
+        == Some(expected)
+}
+
+/// Проверяет наличие Hiragana, Katakana или Han в метке для U+30FB.
+fn contains_japanese_script(characters: &[char]) -> bool {
+    characters.iter().copied().any(|character| {
+        matches!(
+            super::script_property::script_of(character),
+            Some(
+                super::script_property::Script::Hiragana
+                    | super::script_property::Script::Katakana
+                    | super::script_property::Script::Han
+            )
+        )
+    })
+}
+
+/// Ищет в метке цифры арабского набора U+0660..U+0669.
+fn contains_arabic_indic_digits(characters: &[char]) -> bool {
+    characters
+        .iter()
+        .any(|character| matches!(character, '\u{0660}'..='\u{0669}'))
+}
+
+/// Ищет в метке цифры восточно-арабского набора U+06F0..U+06F9.
+fn contains_extended_arabic_digits(characters: &[char]) -> bool {
+    characters
+        .iter()
+        .any(|character| matches!(character, '\u{06f0}'..='\u{06f9}'))
 }
 
 /// Проверяет начальный/конечный дефис и зарезервированные позиции 3 и 4.

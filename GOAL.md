@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 Unicode 17 IDNA CONTEXTO rules
+
+- U-label converter теперь применяет все шесть RFC 5891 §4.2.3.1 CONTEXTO
+  условий: Catalan middle dot, Greek lower numeral sign, Hebrew punctuation,
+  Japanese middle dot и запрет смешения Arabic-Indic наборов цифр. Script
+  ranges для Greek/Hebrew/Hiragana/Katakana/Han собраны из официального
+  Unicode 17 Scripts.txt (SHA-256 закреплён генератором), отсортированы для
+  binary search и занимают 129 строк.
+- Пять тестов U-label и два теста Script проверяют допустимые/запрещённые
+  контексты и распознавание скриптов. Windows Rust 1.97 targeted IDNA tests
+  (10), strict Clippy и fmt прошли. Linux Docker Rust 1.97 release build,
+  strict Clippy, полный набор (744 library pass, 1 внешний NFC corpus ignored
+  без fixture, 1 CLI и doctests) и отдельные 10 IDNA tests прошли.
+  `git diff --check` пройден, созданный image удалён и его tag отсутствует.
+- CONTEXTJ, bidi, входные A-label validation, whole-domain conversion и
+  SMTP parser integration остаются открытыми; SMTPUTF8 не рекламируется.
+  T191 зарегистрирован как scoped PASS, G17 и корневая цель остаются ACTIVE.
+
 ### 2026-09-27: G17 scoped PVALID-only U-label to A-label conversion
 
 - Реализована отдельная `smtp::idna17::to_alabel`: проверяет NFC, свойства

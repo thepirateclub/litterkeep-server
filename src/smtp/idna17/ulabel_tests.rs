@@ -1,4 +1,4 @@
-//! Проверки RFC 5891 U-label, которым не нужны контекстные или bidi-таблицы.
+//! Проверки RFC 5891 U-label и контекстных правил с Unicode 17 таблицами.
 
 use super::{UlabelError, to_alabel};
 
@@ -24,17 +24,28 @@ fn rejects_non_nfc_and_structurally_invalid_labels() {
     assert_eq!(to_alabel("例_"), Err(UlabelError::NonPValidCodePoint));
 }
 
-/// Контекстные символы остаются запрещены до реализации правил RFC.
+/// Join controls остаются запрещены до реализации всех правил CONTEXTJ.
 #[test]
 fn reports_contextual_rules_as_unimplemented() {
     assert_eq!(
         to_alabel("a\u{200c}b"),
         Err(UlabelError::ContextRuleRequired)
     );
-    assert_eq!(
-        to_alabel("l\u{00b7}l"),
-        Err(UlabelError::ContextRuleRequired)
-    );
+}
+
+/// CONTEXTO проверяется по соседним символам и всей доменной метке.
+#[test]
+fn applies_contexto_rules_to_the_whole_label() {
+    for label in ["l\u{00b7}l", "\u{0375}α", "א\u{05f3}", "カ\u{30fb}", "١٢"] {
+        assert!(to_alabel(label).is_ok(), "{label:?}");
+    }
+    for label in ["a\u{00b7}b", "\u{0375}a", "\u{05f3}א", "a\u{30fb}", "١۲"] {
+        assert_eq!(
+            to_alabel(label),
+            Err(UlabelError::InvalidContext),
+            "{label:?}"
+        );
+    }
 }
 
 /// Предел DNS label проверяется после Punycode и добавления ACE-префикса.

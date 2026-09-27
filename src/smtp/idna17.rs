@@ -2,6 +2,8 @@
 
 #[path = "idna17/ranges.rs"]
 mod ranges;
+#[path = "idna17/script_property.rs"]
+mod script_property;
 #[path = "idna17/ulabel.rs"]
 mod ulabel;
 
