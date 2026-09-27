@@ -46,6 +46,10 @@ def fixtures(token: str) -> dict[bytes, bytes]:
         b"Malformed-" + token_bytes: base + b"Malformed-" + token_bytes
         + b"\r\nContent-Type: text/plain; charset=\"unterminated\r\n\r\nplain body "
         + token_bytes + b"\r\n",
+        b"Duplicate-" + token_bytes: base + b"Duplicate-" + token_bytes
+        + b"\r\nContent-Type: text/plain\r\n"
+        + b"Content-Type: application/octet-stream\r\n\r\nbody "
+        + token_bytes + b"\r\n",
     }
 
 
@@ -61,7 +65,9 @@ def send_messages(settings: argparse.Namespace, messages: dict[bytes, bytes]) ->
             client.sendmail("alice@litterkeep.test", "bob@litterkeep.test", message)
 
 
-def fetch_messages(settings: argparse.Namespace) -> list[tuple[bytes, bytes]]:
+def fetch_messages(
+    settings: argparse.Namespace, expected_count: int, token: str
+) -> list[tuple[bytes, bytes]]:
     """Возвращает пару wire BODYSTRUCTURE и исходных RFC822 bytes на каждый UID."""
     context = ssl.create_default_context(cafile=settings.ca)
     output = []
@@ -69,10 +75,14 @@ def fetch_messages(settings: argparse.Namespace) -> list[tuple[bytes, bytes]]:
         client.starttls(ssl_context=context)
         client.login("bob", settings.bob_password)
         require_ok(client.select("INBOX", readonly=True), "INBOX SELECT")
-        records = require_ok(client.uid("SEARCH", None, "ALL"), "UID SEARCH")
+        records = require_ok(
+            client.uid("SEARCH", None, "SUBJECT", token), "UID SEARCH by run token"
+        )
         identifiers = b" ".join(item for item in records if isinstance(item, bytes)).split()
-        if len(identifiers) != 2:
-            raise AssertionError(f"expected exactly two delivered messages, got {identifiers!r}")
+        if len(identifiers) != expected_count:
+            raise AssertionError(
+                f"expected {expected_count} delivered messages, got {identifiers!r}"
+            )
         for identifier in identifiers:
             structure = require_ok(
                 client.uid("FETCH", identifier, "(BODYSTRUCTURE)"),
@@ -107,7 +117,15 @@ def verify(messages: list[tuple[bytes, bytes]], expected: dict[bytes, bytes]) ->
         malformed = subject.startswith(b"Malformed-")
         if malformed and b"Content-Type: text/plain; charset=\"unterminated" not in source:
             raise AssertionError(f"malformed source Content-Type was not preserved: {source!r}")
-        if not malformed and b"Content-Type:" in source:
+        if subject.startswith(b"Duplicate-") and not all(
+            header in source
+            for header in (
+                b"Content-Type: text/plain",
+                b"Content-Type: application/octet-stream",
+            )
+        ):
+            raise AssertionError(f"duplicate source Content-Type was changed: {source!r}")
+        if subject.startswith(b"Missing-") and b"Content-Type:" in source:
             raise AssertionError(f"headerless fixture unexpectedly gained Content-Type: {source!r}")
     if seen_subjects != expected_subjects:
         raise AssertionError(f"missing delivered fixtures: {expected_subjects - seen_subjects!r}")
@@ -115,9 +133,10 @@ def verify(messages: list[tuple[bytes, bytes]], expected: dict[bytes, bytes]) ->
 
 def main() -> None:
     settings = options()
-    expected = fixtures(uuid.uuid4().hex)
+    token = uuid.uuid4().hex
+    expected = fixtures(token)
     send_messages(settings, expected)
-    verify(fetch_messages(settings), expected)
+    verify(fetch_messages(settings, len(expected), token), expected)
     print("PASS mime-default-content-type: SMTP delivery and IMAP fallback projection")
 
 

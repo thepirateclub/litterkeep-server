@@ -143,9 +143,14 @@ fn malformed_content_type_falls_back_to_plain_text_and_keeps_header() {
 }
 
 #[test]
-fn duplicate_content_type_fields_are_rejected_as_ambiguous() {
+fn duplicate_content_type_fields_use_plain_text_fallback_and_keep_originals() {
     let raw = b"Content-Type: text/plain\r\nContent-Type: application/octet-stream\r\n\r\nbody";
-    assert!(parse(raw).is_err());
+    let entity = parse(raw).expect("invalid Content-Type uses RFC 2045 fallback");
+
+    assert_eq!(entity.media_type, MediaType::TextPlain);
+    assert!(entity.parameters.is_empty());
+    assert_eq!(raw.get(entity.body_range), Some(b"body".as_slice()));
+    assert_eq!(entity.headers.len(), 2);
 }
 
 #[test]

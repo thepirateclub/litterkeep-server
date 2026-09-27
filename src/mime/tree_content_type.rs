@@ -10,7 +10,7 @@ pub(super) enum DefaultMediaType {
     MessageRfc822,
 }
 
-/// Применяет RFC 2045 §5.2 fallback, отвергая повторные поля.
+/// Применяет RFC 2045 §5.2 fallback к отсутствующему или неверному полю.
 pub(super) fn parse(
     fields: &[HeaderField],
     default: DefaultMediaType,
@@ -21,7 +21,7 @@ pub(super) fn parse(
     match values.next() {
         None => Ok(default_value(default)),
         Some(field) => match values.next() {
-            Some(_) => Err("duplicate Content-Type field"),
+            Some(_) => Ok(default_value(DefaultMediaType::PlainText)),
             None => parse_single(&field.value),
         },
     }

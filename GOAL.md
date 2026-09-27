@@ -6797,3 +6797,25 @@ ManageSieve до заявленного набора современных фо
 - Это не закрывает полный APPEND или RFC 9051 профиль: APPENDLIMIT максимум,
   другие literal production, LITERAL+ и client interoperability остаются
   отдельными границами. G17 остаётся ACTIVE.
+
+### 2026-09-27: G17 MIME duplicate Content-Type fallback, scoped PASS
+
+- Устранён конкретный MIME read-path разрыв: два поля `Content-Type` раньше
+  отвергали всё MIME-дерево, хотя RFC 2045 §5.2 рекомендует считать
+  синтаксически неверное значение `text/plain`/US-ASCII. Теперь неоднозначный
+  повтор использует этот fallback, не выбирает произвольное поле и не меняет
+  исходный RFC822.
+- Unit-тест проверяет тип MIME-проекции, сохранённые два заголовка и точный body.
+  Независимый STARTTLS SMTP-клиент доставляет headerless, malformed и duplicate
+  fixtures; IMAP BODYSTRUCTURE для всех показывает `TEXT/PLAIN`, а RFC822 FETCH
+  совпадает с исходными bytes. Это независимый протокольный клиент, не Litterkeep.
+- Linux Rust 1.97 Docker: release build, strict Clippy, 678 library tests,
+  1 CLI test и doc-tests прошли; один внешний Unicode corpus test ignored из-за
+  отсутствующего UCD-файла. Windows Rust 1.97.1: `cargo test --all-targets`
+  прошёл (613 library tests, 1 CLI test), strict Clippy и fmt прошли. Python
+  acceptance script 121 строка. Fixture сохранён в
+  `./data/g28-mime-duplicate-content-type`; test container и оба созданных
+  image tags удалены, точечная проверка Docker подтвердила их отсутствие.
+- Ограничение относится к MIME projection, а не к отправке/валидации всей
+  RFC 2045 грамматики; другие RFC 2045/2046 gaps остаются в матрице, цель G17
+  остаётся ACTIVE.

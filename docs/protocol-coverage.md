@@ -465,9 +465,8 @@ part. Парсер и протокольная проекция проверен
 рекомендуемый RFC 2045 §5.2 fallback `text/plain`/US-ASCII; сырой MIME header
 не переписывается. Независимый STARTTLS клиент отправил оба варианта через SMTP
 и проверил по IMAP BODYSTRUCTURE effective `TEXT/PLAIN`, исходный RFC822 и
-сохранение malformed header без нормализации. Duplicate Content-Type
-отклоняется как неоднозначный ввод, это пока unit-only проверка; US-ASCII
-декодирование body также подтверждено unit-тестом, не отдельным wire случаем.
+сохранение malformed header без нормализации. Для двух полей Content-Type
+применяется рекомендуемый [RFC 2045 §5.2 fallback](https://www.rfc-editor.org/rfc/rfc2045.html#section-5.2): MIME-проекция становится `TEXT/PLAIN`, оригинальные поля остаются в RFC822. Независимый STARTTLS SMTP→IMAP сценарий подтвердил BODYSTRUCTURE и точный RFC822 round-trip; US-ASCII декодирование body остаётся unit-only.
 RFC 5322 address groups разбираются в типизированные start/member/end элементы:
 FETCH ENVELOPE выдаёт group marker (`NIL NIL group NIL`), mailbox участников
 и end marker (`NIL NIL NIL NIL`), включая пустую группу. SEARCH FROM/TO/CC/BCC
