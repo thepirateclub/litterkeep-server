@@ -1,5 +1,18 @@
 # Goal ledger
 
+### 2026-09-27: G17 MIME quoted-printable complete octet mapping, scoped PASS T237
+
+- RFC 2045 §6.7 unit coverage now iterates all 256 octet values encoded as
+  uppercase `=HH` and robust lowercase `=hh`; all 93 printable safe literal
+  ASCII octets from ranges 33..60 and 62..126 are also checked.
+- Only decoder mapping coverage was expanded; production code is unchanged.
+  Targeted QP suite passed 6 tests. Windows Rust 1.97.1 fmt, strict Clippy,
+  786 library + 1 CLI passed with 3 fixture-dependent tests ignored. Linux
+  Rust 1.97 container: 870 library + 1 CLI passed, 3 ignored. Container ran
+  with `--rm`; no persistent image was built.
+- This is not complete QP line-length, transport-padding, malformed-input,
+  encoder conformance, MIME interoperability, or RFC 2045 conformance.
+
 ### 2026-09-27: G17 IDNA2008 strict overlap against Unicode 17 IdnaTestV2, scoped PASS T236
 
 - Сохранён официальный Unicode 17 `IdnaTestV2.txt` в

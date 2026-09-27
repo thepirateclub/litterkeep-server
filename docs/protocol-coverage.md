@@ -647,7 +647,11 @@ DATA. Проверка существующего Litterkeep клиента и �
 точные декодированные octets с сохранёнными escape. Независимый ManageSieve
 CHECKSCRIPT принял корректный quoted-printable soft break, включая SP перед
 `=CRLF`, и отверг malformed hex escape и незакодированные завершающие SP/HTAB.
-Полный список RFC-векторов пока не покрыт.
+RFC 2045 §6.7 decoder boundary теперь также проверяет все 256 октетов как
+`=HH` и как robust lowercase `=hh`, а также все 93 literal-safe ASCII значения
+из диапазонов 33..60 и 62..126. Это exhaustive octet mapping, не полное
+покрытие line-length, transport, malformed-input и MIME interoperability
+профиля.
 `7bit` и `8bit` CTE проверяют профиль RFC 2045 §§2.7-2.8: не более 998
 октетов между CRLF, отсутствие NUL и одиночных CR/LF; `7bit` дополнительно
 отвергает high-bit octets, `8bit` их сохраняет. `binary` остаётся прозрачным.

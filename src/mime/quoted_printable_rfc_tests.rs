@@ -47,3 +47,25 @@ fn decodes_safe_octets_and_case_insensitive_hex_from_real_world_mail() {
         expected
     );
 }
+
+/// Проверяет каждый возможный октет через uppercase и robust lowercase hex.
+#[test]
+fn decodes_the_complete_octet_range_in_both_hex_cases() {
+    for octet in 0_u8..=u8::MAX {
+        for encoded in [format!("={octet:02X}"), format!("={octet:02x}")] {
+            assert_eq!(
+                decode(encoded.as_bytes()),
+                Ok(vec![octet]),
+                "decoded octet {octet:02X} from {encoded}"
+            );
+        }
+    }
+}
+
+/// Проверяет весь RFC 2045 §6.7 диапазон допустимого literal US-ASCII.
+#[test]
+fn accepts_every_rfc_literal_printable_octet() {
+    for octet in (33_u8..=60).chain(62_u8..=126) {
+        assert_eq!(decode(&[octet]), Ok(vec![octet]), "literal octet {octet}");
+    }
+}
