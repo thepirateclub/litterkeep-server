@@ -58,6 +58,13 @@ fn command_parser_retains_quoted_script_and_rejects_extra_argument() {
         Command::Noop(Some("a \"b\\c".into()))
     );
     assert_eq!(parse("NOOP \"tag\" extra"), Command::Invalid);
+    assert_eq!(parse("SETACTIVE"), Command::Invalid);
+    assert_eq!(parse("SETACTIVE \"\""), Command::SetActive(None));
+    assert_eq!(
+        parse("SETACTIVE \"invoices\""),
+        Command::SetActive(Some("invoices".into()))
+    );
+    assert_eq!(parse("SETACTIVE \"\" extra"), Command::Invalid);
 }
 
 #[test]

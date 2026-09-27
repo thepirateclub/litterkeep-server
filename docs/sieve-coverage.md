@@ -23,6 +23,14 @@ verified. RFC 5804 §2.1 requires both SCRAM-SHA-1 and PLAIN; only PLAIN is
 implemented and advertised, so mandatory SCRAM-SHA-1 interoperability remains
 an explicit conformance gap.
 
+RFC 5804 §2.8 requires `SETACTIVE` to carry an `active-sieve-name`; the empty
+string disables active filtering. The parser now rejects a missing argument and
+maps `""` to the store's `None` deactivation value, while non-empty script names
+remain unchanged. Parser tests cover missing, empty, ordinary and extra
+arguments; the independent NOOP wire scenario also asserts that missing
+`SETACTIVE` is rejected as a syntax error. A TLS-authenticated store-level wire
+test for deactivating an actually active script remains unverified.
+
 При runtime error частичный план доставки отбрасывается атомарно и применяется
 только implicit keep; committed diagnostic хранит account, версию скрипта,
 transaction ID и тип ошибки. Offline-команда `sieve-errors <data-dir>

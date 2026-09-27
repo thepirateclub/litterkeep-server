@@ -34,7 +34,7 @@ pub fn parse(line: &str) -> Command {
         "AUTHENTICATE" => authenticate(words),
         "HAVESPACE" => havespace(words),
         "PUTSCRIPT" => pair(words, |name, source| Command::PutScript { name, source }),
-        "SETACTIVE" => optional(words, Command::SetActive),
+        "SETACTIVE" => set_active(words),
         "GETSCRIPT" => one(words, Command::GetScript),
         "DELETESCRIPT" => one(words, Command::DeleteScript),
         "CHECKSCRIPT" => one(words, Command::CheckScript),
@@ -65,6 +65,18 @@ fn optional(
         _ => Command::Invalid,
     }
 }
+
+/// Различает обязательную строку SETACTIVE и пустую строку-сигнал деактивации.
+fn set_active(mut words: impl Iterator<Item = String>) -> Command {
+    match (words.next(), words.next()) {
+        (Some(name), None) => match name.is_empty() {
+            true => Command::SetActive(None),
+            false => Command::SetActive(Some(name)),
+        },
+        _ => Command::Invalid,
+    }
+}
+
 fn pair(mut words: impl Iterator<Item = String>, make: fn(String, String) -> Command) -> Command {
     match (words.next(), words.next(), words.next()) {
         (Some(first), Some(second), None) => make(first, second),

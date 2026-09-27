@@ -1,5 +1,19 @@
 # Goal ledger
 
+### 2026-09-27: G18 ManageSieve SETACTIVE required argument and deactivation, scoped PASS T247
+
+- `SETACTIVE` теперь требует аргумент по RFC 5804 §2.8. Переданная пустая
+  строка `""` преобразуется в `None`, то есть в команду отключения активного
+  скрипта; отсутствующий параметр и лишние аргументы parser отвергает.
+- Unit cases проверяют отсутствующее, пустое, обычное имя и лишний параметр.
+  Независимый black-box сценарий также проверяет wire-отказ для команды без
+  параметра; проверка отключения реально активного script через
+  аутентифицированный Store path пока не выполнена. Windows Rust 1.97.1:
+  fmt, strict Clippy, 796 library + 1 CLI прошли; 3 fixture-dependent tests
+  ignored. Linux Docker Rust 1.97.1: 880 library + 1 CLI прошли, 3 ignored;
+  independent NOOP/SETACTIVE parser wire scenario прошёл. Оба контейнера
+  одноразовые и удалены после проверок.
+
 ### 2026-09-27: G18 ManageSieve NOOP pre-auth and TAG response, scoped PASS T246
 
 - ManageSieve теперь принимает `NOOP` в неаутентифицированном состоянии,

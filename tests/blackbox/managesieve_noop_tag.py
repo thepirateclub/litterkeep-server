@@ -59,6 +59,7 @@ def main() -> None:
             b'NOOP "a \\\"b\\\\c"\r\n',
             b'OK (TAG "a \\\"b\\\\c") "noop"\r\n',
         )
+        exchange(connection, b"SETACTIVE\r\n", b'NO "syntax error"\r\n')
         exchange(connection, b"LOGOUT\r\n", b'OK "bye"\r\n')
     print("PASS ManageSieve RFC 5804 unauthenticated NOOP TAG echo")
 
