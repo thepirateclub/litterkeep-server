@@ -6915,3 +6915,10 @@ ManageSieve до заявленного набора современных фо
 - Новый независимый wire acceptance до STARTTLS, после переключения и после AUTHENTICATE PLAIN подтверждает BINARY во всех состояниях. Bob успешно вошёл по отдельному Linux runtime серверу; проверялись только протокол и независимый клиент, приложение Litterkeep не проверялось.
 - Docker strict Clippy прошёл; 682 library + 1 CLI tests прошли, 1 UCD normalization corpus test ignored, doc-tests прошли. Windows cargo test --lib: 616 прошли, 1 ignored. Python acceptance py_compile, cargo fmt --check и git diff --check прошли; файл клиента 122 строки. Добавлен именованный runtime stage в docker/Dockerfile.linux-test, чтобы runtime acceptance действительно запускал production binary.
 - Fixture ./data/g37-imap-binary-capability сохранена. Временный init/runtime container и все три созданных image tags удалены, отсутствие проверено. Исправлена только публикация уже поддерживаемой возможности; IMAP4rev2 и G17 остаются ACTIVE.
+
+### 2026-09-27: G17 RFC 2971 IMAP ID extension, scoped PASS
+
+- Добавлена типизированная RFC 2971 ID команда. Parser принимает NIL или список string/nstring пар, отвергает malformed list, дубликаты без учёта ASCII-регистра, более 30 пар, поле длиннее 30 октетов и значение длиннее 1024 октетов.
+- Сервер объявляет ID во всех вариантах CAPABILITY и на запрос всегда отвечает `* ID NIL`, не сохраняя и не раскрывая client/build/host данные. Unit tests проверили форму/лимиты; независимый Linux STARTTLS peer проверил NIL, list, duplicate rejection, отсутствие untagged ID при BAD, NOOP recovery и capability transition.
+- Rust 1.97 Docker strict Clippy прошёл; 686 library + 1 CLI tests прошли, один UCD normalization corpus test ignored, doc-tests прошли. Четыре целевых Windows tests, cargo fmt --check, git diff --check и Python py_compile прошли; acceptance client 127 строк.
+- Fixture ./data/g38-imap-id-extension оставлена; временный init/runtime containers и оба созданных Docker images удалены, отсутствие проверено. Независимое wire acceptance не проверяло Litterkeep app; IMAP4rev2 и цель G17 остаются ACTIVE.

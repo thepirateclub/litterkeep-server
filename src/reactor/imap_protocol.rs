@@ -44,6 +44,7 @@ pub(super) fn line(
     }
     match parsed.command {
         imap::Command::Capability => imap_capability::write(session, &parsed.tag)?,
+        imap::Command::Id => imap_id::write(session, &parsed.tag)?,
         imap::Command::Namespace => imap_namespace::write(session, &parsed.tag)?,
         imap::Command::Enable { capabilities } => {
             imap_enable::execute(session, &parsed.tag, capabilities)?

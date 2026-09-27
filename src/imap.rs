@@ -24,6 +24,7 @@ mod fetch_tests;
 mod flag_grammar_tests;
 pub mod flags;
 pub mod folder;
+pub mod id;
 pub mod idle;
 #[cfg(any(target_os = "linux", test))]
 #[path = "imap/invalid_utf8_tag.rs"]
@@ -74,6 +75,7 @@ pub struct TaggedCommand {
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
     Capability,
+    Id,
     Namespace,
     Enable {
         capabilities: Vec<enable::Capability>,

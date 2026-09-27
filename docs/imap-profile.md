@@ -12,7 +12,7 @@ CAPABILITY не выдаёт за более широкое расширение
 
 | Состояние или раздел | Команды и свойства | Статус | Проверяемая граница |
 |---|---|---|---|
-| Any | CAPABILITY, NOOP, LOGOUT | PASS | Tagged/untagged ответы, bounded line decoder; безаргументные команды отвергают лишние аргументы |
+| Any | CAPABILITY, ID, NOOP, LOGOUT | PARTIAL | RFC 2971 ID command is typed, validated, and answered `* ID NIL` to avoid implementation fingerprinting; client parameters are discarded and never affect operations. CAPABILITY advertisement, NIL/list forms, malformed duplicate rejection, privacy response, and post-error NOOP recovery pass independent Linux STARTTLS wire acceptance; other unlisted IMAP extensions remain unsupported |
 | TLS | STARTTLS | PASS | Сброс plaintext state и пошаговый rustls handshake |
 | Authentication | LOGIN | PASS | Только TLS, общий Argon2 worker, повторный вход запрещён; username/password принимают atom, quoted-string, synchronizing literals до 64 KiB и `LITERAL-` non-synchronizing literals до 4096 octets; независимая STARTTLS acceptance проверяет обе формы |
 | Authentication | AUTHENTICATE PLAIN | PASS | Continuation, cancel, atom/quoted astring, пустой SASL-IR marker, authzid policy, только TLS; прочие механизмы не рекламируются |
@@ -151,7 +151,8 @@ does not close remaining APPEND grammar or the IMAP4rev2 profile.
 
 CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-USE`,
 `BINARY` по RFC 3516, `NAMESPACE`, `UNSELECT`, `ENABLE`, `ESEARCH` и `SEARCHRES`.
-ENABLE игнорирует неизвестные и пока не поддерживаемые расширения по RFC. В authenticated state
+Он также объявляет RFC 2971 `ID`; сервер возвращает `* ID NIL` и не раскрывает
+build или host fingerprint. ENABLE игнорирует неизвестные и пока не поддерживаемые расширения по RFC. В authenticated state
 `ENABLE UTF8=ACCEPT` активирует режим на текущем соединении и возвращает
 `ENABLED UTF8=ACCEPT`; capability намеренно скрыта, пока не пройдёт весь
 профиль RFC 9755. `APPENDLIMIT=26214400` объявляет единый предельный размер

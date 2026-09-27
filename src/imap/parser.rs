@@ -57,6 +57,7 @@ fn parse_tokens(
         .map(parse_verb)
     {
         Some(Verb::Capability) => parse_empty(tokens, Command::Capability),
+        Some(Verb::Id) => parse_id(tokens),
         Some(Verb::Namespace) => parse_empty(tokens, Command::Namespace),
         Some(Verb::Enable) => super::enable::parse(tokens),
         Some(Verb::StartTls) => parse_empty(tokens, Command::StartTls),
@@ -112,6 +113,14 @@ fn parse_login(mut tokens: impl Iterator<Item = Token>) -> Command {
     ) {
         (Some(username), Some(password), None) => Command::Login { username, password },
         _ => Command::Unsupported,
+    }
+}
+
+/// RFC 2971 ID принимает только полностью проверенный NIL или список пар.
+fn parse_id(tokens: impl Iterator<Item = Token>) -> Command {
+    match super::id::parse(tokens) {
+        true => Command::Id,
+        false => Command::Unsupported,
     }
 }
 

@@ -214,6 +214,15 @@ CAPABILITY объявляет `LIST-EXTENDED` по RFC 5258 и `LIST-STATUS` п�
 используют один session-owned recent UID набор. Это не снимает ограничения
 частичного IMAP4rev1 профиля.
 
+RFC 2971 `ID` is advertised and accepted in every IMAP state. The parser
+validates `NIL` or a field/value list, enforces the 30-pair, 30-octet field,
+1024-octet value and unique-name limits, then discards client-supplied identity
+data. The response is always `* ID NIL`, avoiding host/build fingerprinting.
+Independent Linux STARTTLS wire acceptance covers the capability before and
+after TLS, NIL/list requests, duplicate-name rejection, privacy response and
+NOOP recovery. This implements the identification extension only; it does not
+claim full IMAP4rev2 or all registered extensions.
+
 RFC 7888 `LITERAL-` включён в CAPABILITY. Synchronizing literal-ы сохраняют
 continuation; non-synchronizing `{n+}` не вызывает continuation и ограничен
 4096 octets. Независимый STARTTLS клиент проверяет эту форму для LOGIN, SEARCH

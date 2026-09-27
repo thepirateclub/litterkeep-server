@@ -4,6 +4,7 @@
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Verb {
     Capability,
+    Id,
     Namespace,
     Enable,
     StartTls,
@@ -40,6 +41,7 @@ pub(crate) enum Verb {
 pub(crate) fn parse_verb(text: &str) -> Verb {
     match text.to_ascii_uppercase().as_str() {
         "CAPABILITY" => Verb::Capability,
+        "ID" => Verb::Id,
         "NAMESPACE" => Verb::Namespace,
         "ENABLE" => Verb::Enable,
         "STARTTLS" => Verb::StartTls,
