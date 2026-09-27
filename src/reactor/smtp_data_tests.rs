@@ -1,5 +1,5 @@
 //! Регрессии SMTP DATA transparency, лимитов и SMTPUTF8 octet policy.
-use super::append_data_line;
+use super::{append_data_line, discard_overlong_incomplete_line};
 use crate::reactor::session::DataSection;
 use crate::smtp::BodyMode;
 
@@ -13,6 +13,36 @@ fn append_line(
     wire: &[u8],
 ) {
     append_data_line(bytes, section, oversized, mode, smtp_utf8, wire).expect("DATA line");
+}
+
+/// Длинный фрагмент DATA освобождает входной буфер до получения CRLF.
+#[test]
+fn overlong_incomplete_data_line_is_discarded_without_losing_terminator_sync() {
+    let mut incomplete = vec![b'x'; 1001];
+    let mut oversized = false;
+    discard_overlong_incomplete_line(&mut incomplete, &mut oversized);
+    assert!(oversized);
+    assert!(incomplete.is_empty());
+
+    let mut bounded_fragment = vec![b'x'; 1000];
+    let mut still_valid = false;
+    discard_overlong_incomplete_line(&mut bounded_fragment, &mut still_valid);
+    assert!(!still_valid);
+    assert_eq!(bounded_fragment.len(), 1000);
+
+    let mut complete_line = vec![b'x'; 1001];
+    complete_line.extend_from_slice(b"\r\n");
+    let mut complete_oversized = false;
+    discard_overlong_incomplete_line(&mut complete_line, &mut complete_oversized);
+    assert!(!complete_oversized);
+    assert_eq!(complete_line.len(), 1003);
+
+    let mut trailing_fragment = b"valid\r\n".to_vec();
+    trailing_fragment.extend(vec![b'x'; 1001]);
+    let mut trailing_oversized = false;
+    discard_overlong_incomplete_line(&mut trailing_fragment, &mut trailing_oversized);
+    assert!(trailing_oversized);
+    assert_eq!(trailing_fragment, b"valid\r\n");
 }
 
 /// Каждая DATA wire-строка снимает ровно один transparency dot.

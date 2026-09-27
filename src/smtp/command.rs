@@ -66,6 +66,8 @@ pub use command_error::ParseError;
 
 /// Локальный предел совпадает с числом, передаваемым в EHLO SIZE.
 pub const MAX_MESSAGE_SIZE: u64 = 25 * 1024 * 1024;
+/// Максимальная DATA-строка после dot-unstuffing вместе с завершающим CRLF.
+pub const MAX_DATA_LINE_SIZE: usize = 1000;
 /// Базовый предел SMTP-командной строки, включая завершающие CRLF октеты.
 pub const MAX_COMMAND_LINE_SIZE: usize = 512;
 /// RFC 6531 добавляет десять октетов для ESMTP MAIL с SMTPUTF8.

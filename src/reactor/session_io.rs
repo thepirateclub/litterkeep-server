@@ -76,6 +76,12 @@ pub(super) fn read_session(
         Err(error) if error.kind() == io::ErrorKind::WouldBlock => return Ok(false),
         Err(_) => return Ok(true),
     }
+    match &mut session.smtp {
+        SmtpState::Data { oversized, .. } => {
+            super::smtp_data::discard_overlong_incomplete_line(&mut session.input, oversized)
+        }
+        SmtpState::Command(_) => {}
+    }
     if session.input_limit_exceeded() {
         return Ok(true);
     }

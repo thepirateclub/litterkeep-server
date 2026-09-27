@@ -5,8 +5,9 @@ pub(crate) use command::canonical_parts;
 #[cfg(target_os = "linux")]
 pub(crate) use command::requires_smtp_utf8;
 pub use command::{
-    BodyMode, Command, MAX_COMMAND_LINE_SIZE, MAX_LOCAL_PART_SIZE, MAX_MESSAGE_SIZE, MAX_PATH_SIZE,
-    MailFrom, ParseError, ReplyEncoding, VerifyRequest, command_line_limit, parse,
+    BodyMode, Command, MAX_COMMAND_LINE_SIZE, MAX_DATA_LINE_SIZE, MAX_LOCAL_PART_SIZE,
+    MAX_MESSAGE_SIZE, MAX_PATH_SIZE, MailFrom, ParseError, ReplyEncoding, VerifyRequest,
+    command_line_limit, parse,
 };
 
 /// Уровень SMTP greeting, определяющий допустимость ESMTP extensions.

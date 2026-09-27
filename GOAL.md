@@ -4,6 +4,25 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 bounded SMTP DATA line buffering, PASS checkpoint
+
+- DATA сессия больше не удерживает неполную строку без CRLF до общего лимита
+  размера письма. При получении 1001-го октета без CRLF fragment сбрасывается,
+  DATA помечается oversized, последующие octets потоково отбрасываются до
+  завершающей точки; затем сервер отвечает 552 и принимает NOOP.
+- Linux Docker 1.97 test gate: strict Clippy, 696 library tests, 1 CLI test,
+  doc-tests прошли; 1 внешний Unicode corpus test ignored из-за отсутствия
+  UCD файла. Independent STARTTLS peer отправил DATA fragment размером больше
+  прежнего общего session input cap, проверил 552 и последующий NOOP 250.
+  Проверка доказывает wire-синхронизацию и отсутствие старого общего-cap
+  disconnect, не является измерением RSS.
+- Python acceptance `tests/blackbox/smtp_data_line_bound.py` проходит
+  `py_compile` и Linux runtime сценарий. Fixture
+  `./data/acceptance-smtp-data-line-bound-20260927` сохранена локально. Это
+  ограниченная защита DATA line buffering, не полный SMTP RFC PASS и не тест
+  Litterkeep app. Временные image/container удалены после прогона; G17 и корневая
+  цель остаются ACTIVE.
+
 ### 2026-09-27: G17 инкрементальная классификация SMTP DATA, PASS checkpoint
 
 - Linux strict Clippy и `cargo test --locked` внутри `docker/Dockerfile.linux-test`

@@ -10,6 +10,23 @@ struct Delivery {
     recipients: Vec<String>,
 }
 
+/// Отбрасывает заведомо слишком длинный незавершённый DATA-фрагмент.
+///
+/// RFC 5321 ограничивает строку после снятия transparency до 1000 октетов
+/// вместе с CRLF. До появления CRLF допустимый wire-фрагмент не длиннее этого
+/// предела, включая возможный transparency dot.
+pub(super) fn discard_overlong_incomplete_line(input: &mut Vec<u8>, oversized: &mut bool) {
+    let incomplete_start = input
+        .windows(2)
+        .rposition(|pair| pair == b"\r\n")
+        .map_or(0, |end| end + 2);
+    let incomplete_size = input.len().saturating_sub(incomplete_start);
+    if incomplete_size > smtp::MAX_DATA_LINE_SIZE {
+        *oversized = true;
+        input.truncate(incomplete_start);
+    }
+}
+
 /// Принимает одну DATA-строку, ограничивая память и сохраняя границу команды.
 pub(super) fn data_line(
     session: &mut Session,
@@ -175,7 +192,7 @@ fn data_line_accepts(
     headers: bool,
     content: &[u8],
 ) -> Result<(), ()> {
-    let line_limit_exceeded = content.len() > 1000;
+    let line_limit_exceeded = content.len() > smtp::MAX_DATA_LINE_SIZE;
     let non_ascii = content.iter().any(|octet| !octet.is_ascii());
     let non_ascii_without_extension = match (headers, non_ascii, smtp_utf8, mode) {
         (_, false, _, _) => false,
