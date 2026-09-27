@@ -4,6 +4,19 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 SMTP HELP command inventory
+
+- Исправлен неполный ответ HELP: в многострочный список добавлены уже
+  реализованные `AUTH`, `STARTTLS` и `BDAT`. Новый отдельный Linux reactor unit
+  test проверяет эти команды в сформированном ответе.
+- Docker test stage Rust 1.97 прошёл strict Clippy, 726 library tests,
+  1 внешний Unicode corpus test ignored из-за отсутствующей fixture, 1 CLI test
+  и doctests. Новый точечный тест повторно прошёл в готовом test image.
+- `cargo fmt --check` и `git diff --check` прошли; test image удалён и отсутствие
+  подтверждено. Это локальное HELP покрытие, не широкая SMTP interoperability
+  проверка; Litterkeep app не тестировался. T184 зарегистрирован как scoped PASS;
+  G17 и корневая цель остаются ACTIVE.
+
 ### 2026-09-27: G17 RFC 5321 DATA block timeout refresh, wall-clock verification
 
 - T183 проверил фактический reset срока на новом body read. Независимый Linux

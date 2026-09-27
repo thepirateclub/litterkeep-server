@@ -86,7 +86,7 @@ fn help(session: &mut Session, topic: Option<String>) -> io::Result<()> {
     match topic {
         Some(_) => session.push(b"214 2.0.0 use HELP for the command list\r\n"),
         None => session.push(
-            b"214-2.0.0 Commands: EHLO HELO MAIL RCPT DATA RSET NOOP VRFY EXPN HELP QUIT\r\n214 2.0.0 End of HELP\r\n",
+            b"214-2.0.0 Commands: EHLO HELO MAIL RCPT DATA BDAT RSET NOOP VRFY EXPN AUTH STARTTLS HELP QUIT\r\n214 2.0.0 End of HELP\r\n",
         ),
     }
 }
@@ -309,5 +309,5 @@ pub(super) fn next_request(request_id: &mut u64) -> u64 {
 }
 
 #[cfg(test)]
-#[path = "smtp_protocol_tests.rs"]
+#[path = "smtp_help_tests.rs"]
 mod tests;
