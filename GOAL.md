@@ -9049,3 +9049,23 @@ ManageSieve до заявленного набора современных фо
   проверено. Acceptance использовал независимый протокольный peer, а не
   Litterkeep app. SCRAM-SHA-1 остаётся обязательным незакрытым пробелом;
   полный профиль G17 остаётся ACTIVE.
+
+### 2026-09-28: G18 POP3 RFC 5034 AUTH failure state restoration, scoped PASS T276
+
+- Независимый Linux STARTTLS peer выбрал `USER bob` и проверил, что после
+  отказных AUTH состояний он сохраняется: неподдерживаемый механизм, пустой и
+  некорректный initial response, cancellation, некорректный continuation,
+  неверные credentials и отсутствующий account. После этого валидный по
+  RFC 1939 40-октетный неверный `PASS` получил `authentication failed`, а не
+  `USER required`; затем новый `USER` и контрольный PLAIN вход завершились
+  успешно. Секрет читался из fixture-файла и не передавался в argv.
+- Добавлен отдельный 104-строчный black-box сценарий и обновлена матрица
+  `docs/protocol-coverage.md`. Windows Rust 1.97.1 fmt, strict Clippy и тесты
+  прошли: 807 library + 1 CLI, 3 ignored. Python `py_compile` и независимый
+  wire acceptance прошли. Linux Rust layers в Docker были cache hits, поэтому
+  новый Linux Rust test run не заявляется; Linux runtime peer использовал
+  release binary из неизменённого Rust source.
+- Fixture `./data/acceptance-pop3-sasl-prior-user-20260927` сохранена.
+  Созданные runtime container и test image удалены, отсутствие проверено.
+  Это независимый POP3 peer, не Litterkeep app и не закрытие других SASL
+  механизмов; полный G18 остаётся ACTIVE.
