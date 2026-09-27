@@ -1,17 +1,21 @@
 # Goal ledger
 
-### 2026-09-27: G17 RFC 2045 rejects NUL in SMTP DATA, PARTIAL T197
+### 2026-09-27: G17 RFC 2045 rejects NUL in SMTP DATA, scoped PASS T197
 
 - SMTP DATA отдельно помечает NUL как запрещённый content octet в режимах
   7BIT и 8BITMIME. После dot terminator сервер отвечает `554 5.6.0`; превышение
   размера остаётся самостоятельным `552 5.3.4`. Причины отказа разделены enum.
 - Linux Rust 1.97 проверки: целевой parser unit test прошёл; полный набор
   `cargo test --locked`: 765 library + 1 CLI прошли, 1 внешний Unicode corpus
-  ignored без fixture; строгий Clippy и `cargo fmt --check` прошли. Linux
-  wire-level SMTP ответ, RSET recovery и Litterkeep app не проверялись.
+  ignored без fixture; строгий Clippy и `cargo fmt --check` прошли. Независимый
+  Python STARTTLS peer отправил DATA с NUL и без BODY/с `BODY=8BITMIME`; обе
+  транзакции получили `554 5.6.0`, после каждой `NOOP` получил 250. Следующее
+  корректное письмо доставлено, IMAP подтвердил его наличие и отсутствие обеих
+  отвергнутых копий. Litterkeep app не проверялось.
 - Кэш сборки использовал `./data/acceptance-rfc2045-nul-20260927`. Временные
-  Docker containers были запущены с `--rm` и отсутствие проверено; образ не
-  создавался, использован существующий `rust:1.97-bookworm`. T197 PARTIAL;
+  Docker containers удалены и отсутствие проверено; новый образ не создавался,
+  использован существующий `rust:1.97-bookworm`. Скрипт
+  `tests/blackbox/smtp_data_nul_rejection.py` прошёл. T197 scoped PASS;
   G17 и root остаются ACTIVE.
 
 ### 2026-09-27: G17 BINARYMIME acceptance aligned with SMTPUTF8 capability, scoped PASS T196
