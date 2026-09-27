@@ -90,9 +90,19 @@ fn iso_8859_9_decodes_turkish_letters_and_latin5_aliases() {
 }
 
 #[test]
+fn iso_8859_10_decodes_nordic_text_and_registered_aliases() {
+    let charset = Charset::parse("ISO-8859-10").expect("registered MIME charset");
+    assert_eq!(
+        charset.decode(b"Isl\xe1nd er fallegt"),
+        Ok("Islánd er fallegt".to_owned())
+    );
+    assert_eq!(Charset::parse("latin6"), Ok(Charset::Iso8859_10));
+    assert_eq!(Charset::parse("l6"), Ok(Charset::Iso8859_10));
+}
+
+#[test]
 fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     for label in [
-        "iso-8859-10",
         "iso-8859-11",
         "iso-8859-13",
         "iso-8859-14",
@@ -109,8 +119,8 @@ fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     }
     assert!(Charset::parse("iso-8859-12").is_err());
     assert!(
-        Charset::parse("iso-8859-10")
-            .expect("ISO-8859-10 ASCII subset")
+        Charset::parse("iso-8859-11")
+            .expect("ISO-8859-11 ASCII subset")
             .decode(b"caf\xe9")
             .is_err()
     );

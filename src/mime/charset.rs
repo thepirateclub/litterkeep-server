@@ -18,6 +18,7 @@ pub enum Charset {
     Iso8859_7,
     Iso8859_8,
     Iso8859_9,
+    Iso8859_10,
     Iso8859Ascii,
     Windows1251,
     Windows1252,
@@ -41,10 +42,14 @@ impl Charset {
             "iso-8859-7" => Ok(Self::Iso8859_7),
             "iso-8859-8" => Ok(Self::Iso8859_8),
             "iso-8859-9" | "latin5" | "l5" => Ok(Self::Iso8859_9),
+            "iso-8859-10" | "iso_8859-10" | "iso_8859-10:1992" | "latin6" | "l6" => {
+                Ok(Self::Iso8859_10)
+            }
             // Остальные зарегистрированные предпочитаемые MIME labels имеют
             // общий ASCII mapping, но отдельные high-bit таблицы не реализованы.
-            "iso-8859-10" | "iso-8859-11" | "iso-8859-13" | "iso-8859-14" | "iso-8859-15"
-            | "iso-8859-16" => Ok(Self::Iso8859Ascii),
+            "iso-8859-11" | "iso-8859-13" | "iso-8859-14" | "iso-8859-15" | "iso-8859-16" => {
+                Ok(Self::Iso8859Ascii)
+            }
             "windows-1251" | "cp1251" => Ok(Self::Windows1251),
             "windows-1252" => Ok(Self::Windows1252),
             "utf-16" => Ok(Self::Utf16),
@@ -80,6 +85,7 @@ impl Charset {
             Self::Iso8859_7 => super::charset_iso8859_7::decode(bytes),
             Self::Iso8859_8 => super::charset_iso8859_8::decode(bytes),
             Self::Iso8859_9 => Ok(super::charset_iso8859_9::decode(bytes)),
+            Self::Iso8859_10 => super::charset_iso8859_10::decode(bytes),
             // Не угадываем национальную таблицу: преобразуем только общий ASCII subset.
             Self::Iso8859Ascii => {
                 if !bytes.is_ascii() {
