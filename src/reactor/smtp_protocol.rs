@@ -177,11 +177,16 @@ fn recipient(
 
 /// Применяет команды DATA/RSET к уже проверенной транзакции.
 fn transaction_command(session: &mut Session, command: smtp::Command) -> io::Result<()> {
-    if let (true, true) = (
+    match (
+        &command,
         session.tls.is_some(),
-        session.authenticated_account.is_none(),
+        session.authenticated_account.is_some(),
     ) {
-        return session.push(b"530 5.7.0 authentication required\r\n");
+        (smtp::Command::Data, true, false) => {
+            return session.push(b"530 5.7.0 authentication required\r\n");
+        }
+        (smtp::Command::Data, _, _) | (smtp::Command::Rset, _, _) => {}
+        _ => return session.push(b"503 5.5.1 bad sequence\r\n"),
     }
     apply_transaction(session, command)
 }

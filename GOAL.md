@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-27: G17 RFC 5321 RSET before SMTP authentication, PASS checkpoint
+
+- RFC 5321 §4.1.4 разрешает RSET в любой момент и рекомендует отвечать на
+  session-control commands до EHLO. После STARTTLS `RSET` ошибочно проходил
+  через guard, который требует authentication для DATA, и получал `530`.
+  Guard теперь защищает только DATA; RSET сбрасывает транзакцию и до AUTH.
+- Независимый Linux TCP/TLS acceptance проверил STARTTLS, затем RSET до нового
+  EHLO и AUTH с ответом `250`; последующие EHLO, NOOP и QUIT подтвердили
+  корректное состояние session. Сценарий не подменяет проверку клиента
+  Litterkeep.
+- Windows Rust 1.97.1: 624 library tests и 1 CLI test прошли, 1 внешний UCD
+  test ignored без корпуса; strict Clippy, rustfmt, Python `py_compile` и
+  `git diff --check` прошли. Linux Docker test stage: strict Clippy, 690 library
+  tests и 1 CLI test прошли, 1 UCD test ignored, doc-tests прошли. Fixture
+  `./data/acceptance-smtp-rset-before-auth-20260927` сохранён. Временный Docker
+  container/image удалён, отсутствие проверено.
+
 ### 2026-09-27: G17 RFC 6531 VRFY/EXPN request syntax, PARTIAL
 
 - RFC 6531 §3.7.4.2 задаёт optional valueless `SMTPUTF8` для VRFY/EXPN и

@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import argparse
 import socket
+import ssl
 from enum import Enum, IntEnum
 
 
 class ReplyCode(IntEnum):
     """Коды ответов, различающие синтаксис, capability и route policy."""
 
+    TLS_READY = 220
     GREETING = 220
     SUCCESS = 250
     QUIT = 221
@@ -147,6 +149,33 @@ def verify_policy(host: str, port: int) -> None:
         expect_reply(stream, b"QUIT", ReplyCode.QUIT)
 
 
+def verify_unauthenticated_rset(host: str, port: int) -> None:
+    """Проверяет RSET сразу после TLS до EHLO и AUTH пользователя."""
+    with socket.create_connection((host, port), timeout=10) as connection:
+        stream = connection.makefile("rwb", buffering=0)
+        greeting, banner = read_reply(stream)
+        if greeting != ReplyCode.GREETING:
+            raise AssertionError(f"неожиданный SMTP greeting: {banner!r}")
+        capabilities = expect_reply(
+            stream, b"EHLO independent-peer.test", ReplyCode.SUCCESS
+        )
+        if b"STARTTLS" not in capabilities.upper():
+            raise AssertionError("listener не объявил STARTTLS")
+        expect_reply(stream, b"STARTTLS", ReplyCode.TLS_READY)
+
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        with context.wrap_socket(connection, server_hostname=host) as tls_connection:
+            tls_stream = tls_connection.makefile("rwb", buffering=0)
+            expect_reply(tls_stream, b"RSET", ReplyCode.SUCCESS)
+            expect_reply(
+                tls_stream, b"EHLO independent-peer.test", ReplyCode.SUCCESS
+            )
+            expect_reply(tls_stream, b"NOOP", ReplyCode.SUCCESS)
+            expect_reply(tls_stream, b"QUIT", ReplyCode.QUIT)
+
+
 def main() -> None:
     """Разбирает адрес тестового listener и запускает socket acceptance."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -154,7 +183,8 @@ def main() -> None:
     parser.add_argument("--port", type=int, required=True)
     options = parser.parse_args()
     verify_policy(options.host, options.port)
-    print("PASS smtp-smtputf8-recipient-policy: UTF-8 MAIL/RCPT guards over TCP")
+    verify_unauthenticated_rset(options.host, options.port)
+    print("PASS smtp-policy: UTF-8 guards and unauthenticated RSET over TCP/TLS")
 
 
 if __name__ == "__main__":
