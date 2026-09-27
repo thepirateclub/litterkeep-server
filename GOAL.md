@@ -1,5 +1,24 @@
 # Goal ledger
 
+### 2026-09-27: G18 ManageSieve final-literal line framing, scoped PASS T260
+
+- Final ManageSieve string literals now require the RFC 5804 command-line CRLF
+  after exactly the declared octets; a following pipelined command remains
+  buffered until that terminator arrives. PUTSCRIPT's literal name is excluded
+  from final-argument handling because its body argument follows; RENAMESCRIPT
+  validates the terminator after its second name, while HAVESPACE parses its
+  numeric tail and line terminator in its dedicated receiver.
+- Unit regressions cover split terminator arrival, pipeline preservation,
+  final argument forms and literal-name/body combinations. Independent Linux
+  STARTTLS socket acceptance passed against the release binary. This is a
+  protocol-framing result only, not Litterkeep interoperability.
+- Windows Rust 1.97.1 fmt, strict Clippy and all-target tests passed (802
+  library + 1 CLI, 3 ignored). Linux Docker Rust 1.97.1 fmt, strict Clippy,
+  899 library + 1 CLI passed, 3 ignored, release build and independent wire
+  scenario passed. Stage containers removed; existing Rust image preserved.
+
+### 2026-09-27: G18 ManageSieve HAVESPACE literal-name framing, scoped PASS T259
+
 ### 2026-09-27: G18 ManageSieve HAVESPACE literal-name framing, scoped PASS T259
 
 - HAVESPACE accepts the RFC 5804 string name as a bounded synchronizing or

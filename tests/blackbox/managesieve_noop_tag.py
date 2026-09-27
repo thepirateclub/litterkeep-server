@@ -59,26 +59,26 @@ def main() -> None:
         connection.sendall(b"NOOP {7}\r\n")
         if read_line(connection) != b'OK "ready for literal data"\r\n':
             raise AssertionError("synchronizing NOOP literal was not accepted")
-        connection.sendall(b"sync-42")
+        connection.sendall(b"sync-42\r\n")
         if read_line(connection) != b'OK (TAG "sync-42") "noop"\r\n':
             raise AssertionError("synchronizing NOOP literal tag was not echoed")
-        connection.sendall(b"NOOP {7+}\r\nsync-42")
+        connection.sendall(b"NOOP {7+}\r\nsync-42\r\n")
         if read_line(connection) != b'OK (TAG "sync-42") "noop"\r\n':
             raise AssertionError("non-synchronizing NOOP literal tag was not echoed")
-        connection.sendall(b"NOOP {1+}\r\n\xff")
+        connection.sendall(b"NOOP {1+}\r\n\xff\r\n")
         if read_line(connection) != b'NO "literal must be UTF-8"\r\n':
             raise AssertionError("invalid UTF-8 literal did not get rejected")
         connection.sendall(b"GETSCRIPT {3}\r\n")
         if read_line(connection) != b'OK "ready for literal data"\r\n':
             raise AssertionError("synchronizing script-name literal was not accepted")
-        connection.sendall(b"box")
+        connection.sendall(b"box\r\n")
         if read_line(connection) != b'NO "invalid command for state"\r\n':
             raise AssertionError("GETSCRIPT literal did not reach the state check")
         for wire in (
-            b"GETSCRIPT {3+}\r\nbox",
-            b"DELETESCRIPT {3+}\r\nbox",
-            b"SETACTIVE {3+}\r\nbox",
-            b"SETACTIVE {0+}\r\n",
+            b"GETSCRIPT {3+}\r\nbox\r\n",
+            b"DELETESCRIPT {3+}\r\nbox\r\n",
+            b"SETACTIVE {3+}\r\nbox\r\n",
+            b"SETACTIVE {0+}\r\n\r\n",
         ):
             connection.sendall(wire)
             if read_line(connection) != b'NO "invalid command for state"\r\n':
@@ -89,12 +89,12 @@ def main() -> None:
         connection.sendall(b'box "keep;"\r\n')
         if read_line(connection) != b'NO "invalid command for state"\r\n':
             raise AssertionError("PUTSCRIPT quoted body after literal name was not parsed")
-        connection.sendall(b"PUTSCRIPT {3+}\r\nbox {5+}\r\nkeep;NOOP\r\n")
+        connection.sendall(b"PUTSCRIPT {3+}\r\nbox {5+}\r\nkeep;\r\nNOOP\r\n")
         if read_line(connection) != b'NO "invalid command for state"\r\n':
             raise AssertionError("PUTSCRIPT literal body after literal name was not parsed")
         if read_line(connection) != b'OK "noop"\r\n':
             raise AssertionError("command pipelined after PUTSCRIPT literal was consumed")
-        connection.sendall(b"RENAMESCRIPT {3+}\r\nold {3+}\r\nnewNOOP\r\n")
+        connection.sendall(b"RENAMESCRIPT {3+}\r\nold {3+}\r\nnew\r\nNOOP\r\n")
         rename_reply = read_line(connection)
         if rename_reply != b'NO "invalid command for state"\r\n':
             raise AssertionError(f"RENAMESCRIPT literal pair was not parsed: {rename_reply!r}")

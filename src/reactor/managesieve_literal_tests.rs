@@ -8,7 +8,7 @@ fn preserves_all_two_chunk_boundaries_and_pipeline() {
     let Start::Begin { .. } = start(b"PUTSCRIPT \"box\" {5+}\r\n") else {
         panic!("literal command was not recognized");
     };
-    let wire = b"keep;NOOP\r\n";
+    let wire = b"keep;\r\nNOOP\r\n";
     for split in 0..=wire.len() {
         let mut receiver = LiteralReceiver::new(Operation::Put("box".into()), 5);
         let mut input = wire.get(..split).expect("prefix").to_vec();
@@ -49,7 +49,7 @@ fn noop_literal_keeps_sync_mode_and_pipeline_boundary() {
         panic!("synchronizing NOOP literal was not recognized");
     };
     assert!(continuation);
-    let mut input = b"sync-42NOOP\r\n".to_vec();
+    let mut input = b"sync-42\r\nNOOP\r\n".to_vec();
     let Progress::Complete(Command::Noop(Some(tag))) = receiver.consume(&mut input) else {
         panic!("NOOP literal tag did not complete");
     };
@@ -65,21 +65,36 @@ fn noop_literal_keeps_sync_mode_and_pipeline_boundary() {
 }
 
 #[test]
+fn final_literal_requires_crlf_before_the_next_command() {
+    let Start::Begin { mut receiver, .. } = start(b"NOOP {3+}\r\n") else {
+        panic!("NOOP literal was not recognized");
+    };
+    let mut payload = b"tag\r".to_vec();
+    assert!(matches!(receiver.consume(&mut payload), Progress::Waiting));
+    let mut terminator_and_pipeline = b"\nNOOP\r\n".to_vec();
+    assert!(matches!(
+        receiver.consume(&mut terminator_and_pipeline),
+        Progress::Complete(Command::Noop(Some(tag))) if tag == "tag"
+    ));
+    assert_eq!(terminator_and_pipeline, b"NOOP\r\n");
+}
+
+#[test]
 fn literal_script_names_preserve_command_types_and_empty_deactivation() {
     assert_eq!(
-        complete(b"GETSCRIPT {3+}\r\n", b"box"),
+        complete(b"GETSCRIPT {3+}\r\n", b"box\r\n"),
         Command::GetScript("box".into())
     );
     assert_eq!(
-        complete(b"DELETESCRIPT {3+}\r\n", b"box"),
+        complete(b"DELETESCRIPT {3+}\r\n", b"box\r\n"),
         Command::DeleteScript("box".into())
     );
     assert_eq!(
-        complete(b"SETACTIVE {3+}\r\n", b"box"),
+        complete(b"SETACTIVE {3+}\r\n", b"box\r\n"),
         Command::SetActive(Some("box".into()))
     );
     assert_eq!(
-        complete(b"SETACTIVE {0+}\r\n", b""),
+        complete(b"SETACTIVE {0+}\r\n", b"\r\n"),
         Command::SetActive(None)
     );
 }
@@ -94,14 +109,14 @@ fn putscript_literal_name_accepts_quoted_or_literal_body() {
         }
     );
     assert_eq!(
-        complete_put(b"PUTSCRIPT {3+}\r\n", b"box {5+}\r\nkeep;"),
+        complete_put(b"PUTSCRIPT {3+}\r\n", b"box {5+}\r\nkeep;\r\n"),
         Command::PutScript {
             name: "box".into(),
             source: "keep;".into(),
         }
     );
     assert_eq!(
-        complete_put(b"PUTSCRIPT {3+}\r\n", b"box {5+}\r\nkeep;NOOP\r\n"),
+        complete_put(b"PUTSCRIPT {3+}\r\n", b"box {5+}\r\nkeep;\r\nNOOP\r\n"),
         Command::PutScript {
             name: "box".into(),
             source: "keep;".into(),
@@ -124,7 +139,7 @@ fn putscript_literal_name_and_body_keep_sync_continuations() {
         receiver.consume(&mut name_and_body),
         Progress::NeedContinuation
     ));
-    let mut source = b"keep;".to_vec();
+    let mut source = b"keep;\r\n".to_vec();
     assert!(matches!(
         receiver.consume(&mut source),
         Progress::Complete(Command::PutScript { name, source })

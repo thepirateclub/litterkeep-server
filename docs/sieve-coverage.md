@@ -5,6 +5,14 @@ keep/discard, header/address/size tests и diagnostics. ManageSieve поддер
 STARTTLS, SASL PLAIN, literals, CHECKSCRIPT, PUTSCRIPT, LISTSCRIPTS, GETSCRIPT,
 SETACTIVE, DELETESCRIPT и RENAMESCRIPT.
 
+Для client-to-server literals receiver сначала читает ровно объявленное число
+octets, затем обязательный CRLF конца command line; только после него начинает
+разбор следующей pipelined команды. Это соответствует framing из RFC 5804
+§§1.1 и 4. Конечный string argument не считается завершённым сразу после
+payload. Независимый Linux STARTTLS wire-тест подтвердил ожидание разделителя и
+сохранение следующей команды; интеграция с клиентом Litterkeep этим тестом не
+проверялась. См. [RFC 5804](https://www.rfc-editor.org/rfc/rfc5804.html).
+
 ManageSieve TLS negotiation follows RFC 5804 §§1.7, 2.2: before STARTTLS the
 server advertises an empty SASL mechanism list, then after TLS it reissues the
 capability block with SASL PLAIN and without STARTTLS. The same refreshed block

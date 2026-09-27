@@ -10,12 +10,15 @@ pub(super) struct Receiver {
     expected: usize,
     bytes: Vec<u8>,
     phase: Phase,
+    new_name: String,
+    terminator: Vec<u8>,
 }
 
 enum Phase {
     Old,
     Tail,
     New,
+    NewTerminator,
 }
 
 pub(super) enum Start {
@@ -60,6 +63,8 @@ fn begin(old: String, marker: &str, old_is_literal: bool) -> Start {
                 expected,
                 bytes: Vec::with_capacity(expected),
                 phase,
+                new_name: String::new(),
+                terminator: Vec::with_capacity(2),
             },
             sync,
         },
@@ -72,6 +77,7 @@ impl Receiver {
     pub(super) fn consume(&mut self, input: &mut Vec<u8>) -> Progress {
         match self.phase {
             Phase::Tail => self.consume_tail(input),
+            Phase::NewTerminator => self.consume_new_terminator(input),
             Phase::Old | Phase::New => self.consume_literal(input),
         }
     }
@@ -93,11 +99,23 @@ impl Receiver {
                 self.phase = Phase::Tail;
                 self.consume_tail(input)
             }
-            Phase::New => Progress::Complete(Command::RenameScript {
+            Phase::New => {
+                self.new_name = value;
+                self.phase = Phase::NewTerminator;
+                self.consume_new_terminator(input)
+            }
+            Phase::Tail | Phase::NewTerminator => Progress::Invalid,
+        }
+    }
+
+    fn consume_new_terminator(&mut self, input: &mut Vec<u8>) -> Progress {
+        match super::managesieve_literal_terminator::consume(&mut self.terminator, input) {
+            Some(false) => Progress::Waiting,
+            None => Progress::Invalid,
+            Some(true) => Progress::Complete(Command::RenameScript {
                 old: std::mem::take(&mut self.old),
-                new: value,
+                new: std::mem::take(&mut self.new_name),
             }),
-            Phase::Tail => Progress::Invalid,
         }
     }
 

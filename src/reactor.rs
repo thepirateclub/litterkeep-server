@@ -79,6 +79,8 @@ mod managesieve_completion;
 mod managesieve_havespace_literal;
 #[path = "reactor/managesieve_literal.rs"]
 mod managesieve_literal;
+#[path = "reactor/managesieve_literal_terminator.rs"]
+mod managesieve_literal_terminator;
 #[path = "reactor/managesieve_protocol.rs"]
 mod managesieve_protocol;
 #[path = "reactor/managesieve_rename_literal.rs"]

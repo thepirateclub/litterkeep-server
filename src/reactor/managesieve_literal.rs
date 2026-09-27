@@ -1,13 +1,12 @@
 //! Отдельный RFC 5804 framing для bounded ManageSieve literal arguments.
 //!
-//! В отличие от IMAP, marker `\{n+\}\r\n` завершает командную строку, а
-//! непосредственно после n байтов может следовать новый pipeline command.
-//! Поэтому receiver не ждёт фиктивный завершающий CRLF и не смешивает правила
-//! двух разных wire-протоколов.
+//! После declared octets receiver отдельно читает завершающий CRLF строки и
+//! оставляет последующую команду в pipeline buffer.
 
 use crate::managesieve::Command;
 
 use super::managesieve_havespace_literal as havespace_literal;
+use super::managesieve_literal_terminator as literal_terminator;
 use super::managesieve_rename_literal as rename_literal;
 
 const MAX_LITERAL_BYTES: usize = 65_536;
@@ -44,6 +43,7 @@ pub(super) struct LiteralReceiver {
     operation: Operation,
     expected: usize,
     bytes: Vec<u8>,
+    terminator: Vec<u8>,
 }
 
 /// Один неблокирующий шаг получения source, без чтения из TCP.
@@ -65,6 +65,7 @@ impl LiteralReceiver {
             operation,
             expected,
             bytes: Vec::with_capacity(expected),
+            terminator: Vec::with_capacity(2),
         }
     }
 
@@ -95,6 +96,13 @@ impl LiteralReceiver {
         self.bytes.extend(input.drain(..consumed));
         if self.bytes.len() < self.expected {
             return Progress::Waiting;
+        }
+        if !matches!(&self.operation, Operation::PutName) {
+            match literal_terminator::consume(&mut self.terminator, input) {
+                Some(true) => {}
+                Some(false) => return Progress::Waiting,
+                None => return Progress::Invalid,
+            }
         }
         let source = match String::from_utf8(std::mem::take(&mut self.bytes)) {
             Ok(source) => source,
@@ -146,6 +154,7 @@ pub(super) fn start(line: &[u8]) -> Start {
                     operation: Operation::Rename(receiver),
                     expected: 0,
                     bytes: Vec::new(),
+                    terminator: Vec::with_capacity(2),
                 },
                 continuation: sync,
             },
@@ -158,6 +167,7 @@ pub(super) fn start(line: &[u8]) -> Start {
                     operation: Operation::HaveSpace(receiver),
                     expected: 0,
                     bytes: Vec::new(),
+                    terminator: Vec::with_capacity(2),
                 },
                 continuation: sync,
             },

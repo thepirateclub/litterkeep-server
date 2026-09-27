@@ -28,7 +28,7 @@ fn literal_names_preserve_two_sync_continuations() {
         receiver.consume(&mut old_and_new_marker),
         Progress::Continue
     ));
-    let mut new = b"newNOOP\r\n".to_vec();
+    let mut new = b"new\r\nNOOP\r\n".to_vec();
     assert!(matches!(
         receiver.consume(&mut new),
         Progress::Complete(Command::RenameScript { old, new: name })
@@ -43,7 +43,7 @@ fn quoted_old_name_accepts_non_sync_new_literal() {
         panic!("new-name literal was not recognized");
     };
     assert!(!sync);
-    let mut input = b"newNOOP\r\n".to_vec();
+    let mut input = b"new\r\nNOOP\r\n".to_vec();
     assert!(matches!(
         receiver.consume(&mut input),
         Progress::Complete(Command::RenameScript { old, new })
@@ -58,7 +58,7 @@ fn empty_quoted_old_name_still_enters_new_name_literal_phase() {
         panic!("empty old name with literal new name was not recognized");
     };
     assert!(!sync);
-    let mut input = b"new".to_vec();
+    let mut input = b"new\r\n".to_vec();
     assert!(matches!(
         receiver.consume(&mut input),
         Progress::Complete(Command::RenameScript { old, new })
