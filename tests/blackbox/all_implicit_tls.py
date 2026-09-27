@@ -165,9 +165,14 @@ def check_sieve(context: ssl.SSLContext, host: str, port: int, secret: str) -> N
         if line(peer) != b'OK "noop"\r\n':
             raise AssertionError("ManageSieve did not recover after mechanism rejection")
         payload = sasl_plain("bob", secret)
-        peer.sendall(b"AUTHENTICATE {5+}\r\n")
-        response_marker = b"PLAIN {" + str(len(payload)).encode() + b"+}\r\n"
-        peer.sendall(response_marker + payload + b"\r\n")
+        peer.sendall(b"AUTHENTICATE {5}\r\n")
+        if line(peer) != b'OK "ready for literal data"\r\n':
+            raise AssertionError("mechanism literal continuation was not requested")
+        response_marker = b"PLAIN {" + str(len(payload)).encode() + b"}\r\n"
+        peer.sendall(response_marker)
+        if line(peer) != b'OK "ready for literal data"\r\n':
+            raise AssertionError("SASL response literal continuation was not requested")
+        peer.sendall(payload + b"\r\n")
         authenticated = block(peer, b'OK "authenticated"\r\n')
         if not authenticated.endswith(b'OK "authenticated"\r\n'):
             raise AssertionError(f"ManageSieve AUTHENTICATE failed: {authenticated!r}")

@@ -125,8 +125,11 @@ literal PLAIN mechanism followed by no response, a quoted response, or a
 sync/non-sync literal response. It consumes the complete command before
 returning the typed unsupported-mechanism result, preserving a pipelined NOOP.
 Linux unit coverage exercises a synchronizing mechanism, and independent TLS
-wire acceptance authenticates Bob with non-synchronizing literal mechanism and
-response; a literal CRAM response is rejected and followed by successful NOOP.
+wire acceptance now separately checks synchronizing literal mechanism and
+response: the server sends a continuation after each marker, then authenticates
+Bob. The same peer rejects a literal CRAM response and successfully executes
+the following NOOP. The previous non-synchronizing literal/literal combination
+also passed independent wire acceptance.
 Other command string positions not listed above remain unverified or unsupported.
 This does not close the mandatory SCRAM-SHA-1 gap.
 

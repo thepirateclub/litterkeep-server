@@ -9013,3 +9013,21 @@ ManageSieve до заявленного набора современных фо
   временные container и test image удалены, отсутствие подтверждено. Этот
   checkpoint закрывает только literal форму механизма; обязательный
   SCRAM-SHA-1 и прочие открытые protocol gaps остаются, G17 ACTIVE.
+
+### 2026-09-27: G17 RFC 5804 synchronizing AUTHENTICATE literals, scoped PASS T274
+
+- Усилено именно wire-доказательство RFC 5804 §1.2: independent TLS client
+  передал mechanism как synchronizing literal и получил continuation, затем
+  передал PLAIN response вторым synchronizing literal и получил отдельный
+  continuation перед payload. После этого Bob успешно аутентифицировался.
+- В том же запуске CRAM с non-synchronizing literal response получил отказ,
+  а следующий NOOP успешно завершился. SMTP, IMAP и POP3 проверки общего
+  acceptance script также прошли.
+- Rust source/tests не менялись с T273. Linux runtime image собран с cache hit
+  на release source layer, поэтому новый Linux Rust suite не заявляется;
+  авторитетный свежий Linux strict-Clippy/full-suite результат остаётся T273:
+  911 library + 1 CLI tests, 3 ignored. Для этого acceptance прошли Python
+  `py_compile`, `cargo fmt --check` и `git diff --check`.
+- Fixture `./data/acceptance-managesieve-auth-sync-20260927` сохранена;
+  временные runtime container и созданный image удалены. Peer независимый,
+  Litterkeep app не проверялось; SCRAM-SHA-1 и общий G17 остаются открытыми.
