@@ -91,6 +91,34 @@ class ImapPeer:
                     raise AssertionError(f"privacy ID response missing: {response!r}")
                 return bytes(response)
 
+    def id_non_sync_literal(self, prefix: bytes, literal: bytes, suffix: bytes) -> bytes:
+        """Передаёт LITERAL- без continuation до получения байтов payload."""
+        self.counter += 1
+        tag = f"I{self.counter:03}".encode("ascii")
+        marker = b"{" + str(len(literal)).encode("ascii") + b"+}\r\n"
+        self.socket.sendall(tag + b" ID (" + prefix + marker + literal + suffix + b")\r\n")
+        response = bytearray()
+        while True:
+            line = self.stream.readline()
+            if not line:
+                raise AssertionError("server closed during non-sync ID literal")
+            response.extend(line)
+            if line.startswith(tag + b" "):
+                match line.split(maxsplit=2):
+                    case [_tag, atom, *_rest]:
+                        try:
+                            completion = Completion(atom.decode("ascii"))
+                        except (UnicodeDecodeError, ValueError) as error:
+                            raise AssertionError(
+                                f"invalid tagged completion: {line!r}"
+                            ) from error
+                    case _:
+                        raise AssertionError(f"invalid tagged completion: {line!r}")
+                require(completion, Completion.OK, "ID LITERAL-")
+                if b"* ID NIL\r\n" not in response:
+                    raise AssertionError(f"privacy ID response missing: {response!r}")
+                return bytes(response)
+
     def starttls(self) -> None:
         """Продолжает ту же IMAP-сессию поверх TLS после tagged OK."""
         completion, _response = self.command(b"STARTTLS")
@@ -131,8 +159,9 @@ def require_advertised(peer: ImapPeer, phase: str) -> None:
     require(status, Completion.OK, f"{phase} CAPABILITY")
     records = [line for line in response.splitlines() if line.startswith(b"* CAPABILITY ")]
     tokens = b" ".join(records).upper().split()
-    if b"ID" not in tokens:
-        raise AssertionError(f"{phase} CAPABILITY omitted ID: {tokens!r}")
+    for capability in (b"ID", b"LITERAL-"):
+        if capability not in tokens:
+            raise AssertionError(f"{phase} CAPABILITY omitted {capability!r}: {tokens!r}")
 
 
 def main() -> None:
@@ -146,6 +175,8 @@ def main() -> None:
         verify_id(peer, b'ID ("name" "independent-client" "vendor" NIL)', Completion.OK)
         peer.id_literal(b"", b"name", b' "client"')
         peer.id_literal(b'"name" ', b"client", b"")
+        peer.id_non_sync_literal(b"", b"name", b' "client"')
+        peer.id_non_sync_literal(b'"name" ', b"client", b"")
         verify_id(peer, b'ID ("name" NIL "NAME" NIL)', Completion.BAD)
         noop_status, _noop_response = peer.command(b"NOOP")
         require(noop_status, Completion.OK, "NOOP after invalid ID")

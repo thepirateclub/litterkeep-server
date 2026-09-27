@@ -224,6 +224,11 @@ positions, duplicate-name rejection, privacy response and NOOP recovery. The
 shared bounded literal receiver recognizes the RFC list-opening `(` directly
 before the first literal marker. This implements the identification extension
 only; it does not claim full IMAP4rev2 or all registered extensions.
+The same acceptance sends `LITERAL-` forms for both fields and values without
+waiting for continuations, after checking the advertised capability. RFC 7888
+allows non-synchronizing literals in any IMAP command and caps them at 4096
+octets for `LITERAL-`; this ID test covers small payloads, not the global
+oversize boundary.
 
 RFC 7888 `LITERAL-` включён в CAPABILITY. Synchronizing literal-ы сохраняют
 continuation; non-synchronizing `{n+}` не вызывает continuation и ограничен
