@@ -4,6 +4,20 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 RFC 5321 SMTP command idle timeout, wall-clock verification
+
+- Закрыт wall-clock пробел T96. Независимый Linux STARTTLS peer прошёл EHLO,
+  TLS upgrade и AUTH Alice, затем не отправлял SMTP commands. Сервер завершил
+  TCP session через 300.1 секунды; acceptance требует диапазон 285-330 секунд.
+- `tests/blackbox/smtp_command_idle_timeout.py` прошёл `py_compile`, 111 строк.
+  Docker test-stage image собран от текущего source с кэшированными Rust gate
+  layers; Rust suite для этого wire-only acceptance не rerun-ился.
+- Fixture `./data/acceptance-smtp-command-timeout-wallclock-20260927` сохранена.
+  Bootstrap был `--rm`; runtime container и image удалены, отсутствие проверено.
+  Клиент Litterkeep не тестировался. T182 внесён как scoped PASS; вместе с T181
+  это подтверждает реальные пятиминутный command и трёхминутный DATA deadlines.
+  G17 и корневая цель остаются ACTIVE.
+
 ### 2026-09-27: G17 RFC 5321 inbound DATA block timeout, wall-clock verification
 
 - Закрыт оставшийся в T97 пробел реального elapsed-time acceptance. Независимый
