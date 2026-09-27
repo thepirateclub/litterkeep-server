@@ -18,6 +18,8 @@ mod reply;
 #[path = "outbound_timeouts.rs"]
 mod timeouts;
 
+#[cfg(target_os = "linux")]
+pub(crate) use bdat::validate_bdat_binary;
 pub(crate) use bdat::{has_binary_transfer, validate_binary};
 #[cfg(test)]
 pub(crate) use data::DataValidationError;

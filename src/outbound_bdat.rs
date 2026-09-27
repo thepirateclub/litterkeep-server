@@ -57,12 +57,26 @@ pub(crate) fn has_binary_transfer(message: &[u8]) -> bool {
 
 /// Проверяет структуру и канонические text parts, оставляя остальные тела opaque.
 pub(crate) fn validate_binary(message: &[u8]) -> bool {
+    validate_binary_profile(message, true)
+}
+
+/// Проверяет BINARYMIME сообщение, включая письма без CTE `binary` parts.
+#[cfg(target_os = "linux")]
+pub(crate) fn validate_bdat_binary(message: &[u8]) -> bool {
+    validate_binary_profile(message, false)
+}
+
+/// Разбирает MIME и, при необходимости, требует хотя бы один binary transfer.
+fn validate_binary_profile(message: &[u8], require_binary_transfer: bool) -> bool {
     let Ok(root) = crate::mime::tree::parse(message) else {
         return false;
     };
-    match root.contains_binary_transfer_encoding() {
-        true => validate_entity(&root, message),
-        false => false,
+    match (
+        root.contains_binary_transfer_encoding(),
+        require_binary_transfer,
+    ) {
+        (true, _) | (false, false) => validate_entity(&root, message),
+        (false, true) => false,
     }
 }
 

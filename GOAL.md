@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 RFC 3030 inbound BINARYMIME durable delivery
+
+- SMTP теперь объявляет `BINARYMIME` вместе с `CHUNKING`, принимает typed
+  `BODY=BINARYMIME` и валидирует его по RFC profile: `text/*` и multipart
+  preamble/epilogue сохраняют canonical CRLF без DATA limit в 1000 октетов,
+  non-text body octets остаются opaque. `DATA` после BINARYMIME MAIL получает
+  503 и требует RSET.
+- Linux Docker Rust 1.97 full gate прошёл: strict Clippy, 726 library tests
+  passed, 1 внешний Unicode UCD test ignored, 1 CLI test passed, doctests без
+  тестов. Независимый implicit-TLS peer прошёл SMTP AUTH, MAIL/RCPT/BDAT,
+  noncanonical-text отказ, DATA refusal/RSET и чтение exact raw payload Bob
+  через IMAP. После restart того же контейнера/Store прежние octets повторно
+  прочитаны через IMAP. Проверялся собственный peer-клиент, не Litterkeep app.
+- `cargo fmt --check`, `git diff --check`, Python source compilation прошли;
+  Rust файлы остаются <=300 строк. Fixture `./data/acceptance-smtp-binarymime-20260927`
+  сохранена. Тестовый контейнер и image удаляются и проверяются на отсутствие.
+  G17 и корневая цель остаются ACTIVE.
+
 ### 2026-09-27: G17 RFC 6531 outbound Unicode envelope requires SMTPUTF8
 
 - Исходящий builder ранее ставил `SMTPUTF8` только для UTF-8 header fields,

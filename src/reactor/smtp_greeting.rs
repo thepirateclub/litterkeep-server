@@ -20,13 +20,6 @@ pub(super) fn requirement(
             smtp::GreetingMode::Basic,
             smtp::Command::AuthPlain(_) | smtp::Command::StartTls | smtp::Command::Bdat(_),
         ) => Some(session.push(b"503 5.5.1 EHLO required for this extension\r\n")),
-        (
-            smtp::GreetingMode::Extended,
-            smtp::Command::Mail(smtp::MailFrom {
-                body_mode: smtp::BodyMode::BinaryMime,
-                ..
-            }),
-        ) => Some(session.push(b"555 5.5.4 BINARYMIME is not supported\r\n")),
         (smtp::GreetingMode::Basic, smtp::Command::Mail(mail)) => {
             match (mail.declared_size.is_some(), mail.body_mode, mail.smtp_utf8) {
                 (true, _, _)
@@ -54,13 +47,13 @@ pub(super) fn helo(session: &mut Session) -> io::Result<()> {
 pub(super) fn ehlo(session: &mut Session) -> io::Result<()> {
     let response: &[u8] = match (session.tls.is_some(), session.can_starttls()) {
         (true, _) => {
-            b"250-litterkeep.test\r\n250-PIPELINING\r\n250-CHUNKING\r\n250-ENHANCEDSTATUSCODES\r\n250-AUTH PLAIN\r\n250-8BITMIME\r\n250 SIZE 26214400\r\n"
+            b"250-litterkeep.test\r\n250-PIPELINING\r\n250-CHUNKING\r\n250-BINARYMIME\r\n250-ENHANCEDSTATUSCODES\r\n250-AUTH PLAIN\r\n250-8BITMIME\r\n250 SIZE 26214400\r\n"
         }
         (false, true) => {
-            b"250-litterkeep.test\r\n250-PIPELINING\r\n250-STARTTLS\r\n250-CHUNKING\r\n250-ENHANCEDSTATUSCODES\r\n250-8BITMIME\r\n250 SIZE 26214400\r\n"
+            b"250-litterkeep.test\r\n250-PIPELINING\r\n250-STARTTLS\r\n250-CHUNKING\r\n250-BINARYMIME\r\n250-ENHANCEDSTATUSCODES\r\n250-8BITMIME\r\n250 SIZE 26214400\r\n"
         }
         (false, false) => {
-            b"250-litterkeep.test\r\n250-PIPELINING\r\n250-CHUNKING\r\n250-ENHANCEDSTATUSCODES\r\n250-8BITMIME\r\n250 SIZE 26214400\r\n"
+            b"250-litterkeep.test\r\n250-PIPELINING\r\n250-CHUNKING\r\n250-BINARYMIME\r\n250-ENHANCEDSTATUSCODES\r\n250-8BITMIME\r\n250 SIZE 26214400\r\n"
         }
     };
     establish(session, smtp::GreetingMode::Extended, response)

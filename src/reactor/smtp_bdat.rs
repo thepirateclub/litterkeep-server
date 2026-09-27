@@ -73,7 +73,7 @@ pub(super) fn after_failure(session: &mut Session, line: &[u8]) -> io::Result<()
             };
             super::smtp_bdat_chunk::discard_received(session)
         }
-        _ => session.push(b"503 5.5.1 failed BDAT requires RSET\r\n"),
+        _ => session.push(b"503 5.5.1 failed chunked transaction requires RSET\r\n"),
     }
 }
 

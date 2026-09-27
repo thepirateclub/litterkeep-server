@@ -1,30 +1,24 @@
-//! Проверки рекламирования SMTP extensions и отказа неподдержанного BINARYMIME.
+//! Проверки рекламирования SMTP extensions и поддержки BINARYMIME.
 use super::*;
 
-/// EHLO не рекламирует BINARYMIME до завершения всего RFC 3030 профиля.
+/// BINARYMIME рекламируется вместе с уже реализованным CHUNKING.
 #[test]
-fn ehlo_keeps_binarymime_capability_hidden() {
+fn ehlo_advertises_binarymime_with_chunking() {
     let mut session = smtp_session();
     ehlo(&mut session).expect("EHLO reply");
-    assert!(!session.output.windows(10).any(|part| part == b"BINARYMIME"));
+    assert!(session.output.windows(10).any(|part| part == b"BINARYMIME"));
+    assert!(session.output.windows(8).any(|part| part == b"CHUNKING"));
 }
 
-/// Допустимый RFC 3030 параметр отклоняется как неподдержанный без envelope.
+/// Поддержанный RFC 3030 параметр проходит greeting gate без мутации envelope.
 #[test]
-fn binarymime_mail_is_rejected_without_opening_transaction() {
+fn binarymime_mail_is_accepted_after_ehlo() {
     let mut session = smtp_session();
     session.smtp_greeting = smtp::GreetingMode::Extended;
     let command =
         smtp::parse("MAIL FROM:<alice@test> BODY=BINARYMIME\r\n").expect("RFC 3030 MAIL syntax");
 
-    requirement(&mut session, &command)
-        .expect("unsupported BINARYMIME response")
-        .expect("write SMTP reply");
-
-    assert_eq!(
-        session.output,
-        b"220 litterkeep.test ESMTP litterkeep-server\r\n555 5.5.4 BINARYMIME is not supported\r\n"
-    );
+    assert!(requirement(&mut session, &command).is_none());
     assert!(matches!(session.smtp, SmtpState::Command(_)));
 }
 

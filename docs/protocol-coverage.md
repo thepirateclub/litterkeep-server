@@ -21,7 +21,8 @@ RFC 6409 §6.1. Local route не является open relay.
 RFC 3030 `CHUNKING` объявляется через EHLO во всех режимах SMTP и принимает
 `BDAT n [LAST]` с точным octet framing, нулевыми и промежуточными chunks.
 Промежуточные chunks получают отдельный 250; `LAST` проверяет согласованный
-7BIT/8BITMIME профиль и передаёт message единственному durable Store owner.
+7BIT/8BITMIME/BINARYMIME профиль и передаёт message единственному durable
+Store owner.
 Ошибка размера или последовательности переводит envelope в failed state до
 RSET, а отвергнутый payload точно дренируется без потери следующей команды.
 Независимый Linux TLS peer проверил zero-length и два message chunks, успешную
@@ -33,12 +34,17 @@ RSET, а отвергнутый payload точно дренируется без
 получает 250. Отдельно проверены invalid content на LAST и chunk размера
 26 214 401 октет: ответы 552 отправлены только после drain, затем RSET и NOOP
 успешно восстановили сессию. Перезапуск Store между отправкой и IMAP чтением не
-выполнялся. Inbound `BINARYMIME`/`BODY=BINARYMIME` пока не реализован и не
-объявляется: принятые BDAT bytes всё ещё валидируются как 7BIT либо 8BITMIME.
-Допустимый RFC 3030 параметр `BODY=BINARYMIME` теперь разбирается в отдельный
-типизированный режим, но inbound EHLO capability намеренно скрыта, а MAIL
-получает `555 5.5.4` до изменения envelope. Outbound relay реализует RFC 3030
-для MIME binary parts: требует одновременно peer capabilities `BINARYMIME` и
+выполнялся. Inbound объявляет `BINARYMIME` вместе с `CHUNKING`, принимает
+`MAIL ... BODY=BINARYMIME` и завершает только BDAT-транзакции. RFC 3030 text
+parts и multipart preamble/epilogue проверяются на canonical CRLF без DATA
+ограничения строки в 1000 октетов; non-text bodies сохраняются непрозрачно.
+`DATA` после такого MAIL получает 503 и переводит сессию в режим, требующий
+RSET. Independent Linux implicit-TLS peer подтвердил полный SMTP -> файловый
+Store -> IMAP сценарий для NUL, high-bit, bare LF/CR bytes, запрет DATA,
+отказ на noncanonical text, восстановление через RSET, точное чтение Bob и
+повторное чтение после рестарта сервера. Это локальный independent peer, не
+Litterkeep app. Outbound relay реализует RFC 3030 для MIME binary parts:
+требует одновременно peer capabilities `BINARYMIME` и
 `CHUNKING`, валидирует MIME headers и canonical CRLF текстовых частей, объявляет
 точный BDAT payload size и посылает последовательные bounded chunks с ожиданием
 отдельного `250` после каждого. DATA-ограничение 1000 октетов не переносится на

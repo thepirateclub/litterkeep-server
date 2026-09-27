@@ -84,8 +84,14 @@ pub(super) fn finish_accepted_chunk(
     Ok(true)
 }
 
-/// Проверяет canonical CRLF, line bounds и объявленный 7/8-bit режим сообщения.
+/// Проверяет canonical MIME и объявленный 7/8-bit либо binary body profile.
 fn valid_message(transaction: &Transaction) -> bool {
+    match transaction.body_mode {
+        smtp::BodyMode::BinaryMime => {
+            return crate::outbound::validate_bdat_binary(&transaction.bytes);
+        }
+        smtp::BodyMode::SevenBit | smtp::BodyMode::EightBitMime => {}
+    }
     let mut section = DataSection::Headers;
     let mut remaining = transaction.bytes.as_slice();
     while !remaining.is_empty() {
@@ -130,3 +136,7 @@ pub(super) fn reset(session: &mut Session) -> io::Result<()> {
     session.smtp_utf8 = false;
     session.push(b"250 2.0.0 reset\r\n")
 }
+
+#[cfg(test)]
+#[path = "smtp_bdat_completion_tests.rs"]
+mod tests;

@@ -213,6 +213,18 @@ fn recipient(
 
 /// Применяет команды DATA/RSET к уже проверенной транзакции.
 fn transaction_command(session: &mut Session, command: smtp::Command) -> io::Result<()> {
+    let data_for_binary_message = matches!(
+        (&command, session.smtp_body_mode, &session.smtp),
+        (
+            smtp::Command::Data,
+            smtp::BodyMode::BinaryMime,
+            SmtpState::Command(transaction)
+        ) if transaction.has_sender()
+    );
+    if data_for_binary_message {
+        session.smtp = SmtpState::BdatFailed;
+        return session.push(b"503 5.5.1 BINARYMIME requires BDAT; send RSET\r\n");
+    }
     match (
         &command,
         session.tls.is_some(),
