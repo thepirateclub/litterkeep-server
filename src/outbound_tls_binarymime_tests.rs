@@ -65,6 +65,8 @@ fn verify_binary_peer(listener: TcpListener, certificate: Vec<u8>, key: Vec<u8>,
     expect_line(&mut reader, "RCPT TO:<remote@test>\r\n");
     write_line(&mut reader, b"250 recipient\r\n");
     verify_chunks(&mut reader, message);
+    expect_line(&mut reader, "QUIT\r\n");
+    write_line(&mut reader, b"221 closing\r\n");
 }
 
 /// Сверяет каждую команду, принимает только её exact octet count и отвечает 250.

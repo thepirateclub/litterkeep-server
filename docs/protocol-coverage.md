@@ -1050,12 +1050,19 @@ transport может задать короткий единый предел, а
 зависшего greeting. Дополнительный независимый TCP peer с короткими phase-specific
 overrides удерживает соединение открытым до timeout для greeting, команд EHLO,
 MAIL и RCPT, ожидания `354` на DATA и финального ответа после фактически
-полученного DATA terminator. Это проверяет шесть реальных точек ожидания. Для
-исходящего QUIT добавлен plaintext TCP peer, который не отвечает `221`: клиент
-ограничивает ожидание коротким тестовым command timeout, а уже подтверждённый
-`250` результат DATA остаётся успешным. Нормативный 5-минутный wall-clock
-timeout, отдельный QUIT peer для implicit TLS и интеграция с Litterkeep app не
-проверялись. Для исходящего BDAT промежуточный ответ на каждый chunk теперь
+полученного DATA terminator. Это проверяет шесть реальных точек ожидания.
+[RFC 5321 §3.8](https://www.rfc-editor.org/rfc/rfc5321.html#section-3.8) и
+[§4.1.1.10](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.1.1.10)
+требуют завершать SMTP session командой QUIT, а sender SHOULD ждать reply.
+Standalone plaintext и implicit-TLS пути отправляют QUIT после завершённого
+SMTP-level результата, если peer не прислал 421 и сам не закрывает канал.
+Проверки локальными peers подтверждают `QUIT/221` после успеха; plaintext
+также проверяет QUIT после RCPT 450/550. При timeout ответа на QUIT уже
+подтверждённый результат DATA сохраняется. TLS peer-тест с 100-ms коротким
+timeout проверяет реальный socket; pooled TLS соединение не отправляет QUIT
+между повторными транзакциями. Нормативный 5-минутный wall-clock timeout,
+graceful QUIT при уничтожении TLS pool и интеграция с внешним MTA не проверялись.
+Для исходящего BDAT промежуточный ответ на каждый chunk теперь
 использует отдельный 5-минутный command timeout, а BDAT LAST - 10-минутный
 DATA-termination timeout; 3-минутный write timeout сохраняется на каждый chunk.
 Unit-тесты проверяют выбор фазы и LAST-маркер. Socket-level применение этих

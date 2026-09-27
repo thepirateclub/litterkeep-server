@@ -261,6 +261,8 @@ fn run_rejecting_peer(reply: &str) -> DeliveryOutcome {
         stream.write_all(b"250 ok\r\n").expect("mail");
         read_command(&mut reader, "RCPT TO:");
         stream.write_all(reply.as_bytes()).expect("reject");
+        read_command_exact(&mut reader, "QUIT\r\n");
+        stream.write_all(b"221 closing\r\n").expect("quit reply");
     });
     let outcome = outbound::deliver(&address.to_string(), "alice@test", "remote@test", b"body")
         .expect("transport");

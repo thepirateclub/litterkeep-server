@@ -42,9 +42,15 @@ mod outbound_smtputf8_tests;
 mod outbound_tests;
 pub mod outbound_tls;
 #[cfg(test)]
+#[path = "outbound_tls_421_tests.rs"]
+mod outbound_tls_421_tests;
+#[cfg(test)]
 #[path = "outbound_tls_binarymime_tests.rs"]
 mod outbound_tls_binarymime_tests;
 pub mod outbound_tls_pool;
+#[cfg(test)]
+#[path = "outbound_tls_quit_tests.rs"]
+mod outbound_tls_quit_tests;
 #[cfg(test)]
 #[path = "outbound_tls_tests.rs"]
 mod outbound_tls_tests;

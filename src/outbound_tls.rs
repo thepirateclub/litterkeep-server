@@ -191,6 +191,12 @@ impl Connection {
         self.expect_success(outbound::ReplyExpectation::Reset)
     }
 
+    /// Завершает отдельную TLS SMTP session командой QUIT.
+    pub fn quit(&mut self) -> io::Result<()> {
+        self.command("QUIT\r\n")?;
+        self.expect_success(outbound::ReplyExpectation::Quit)
+    }
+
     fn command(&mut self, wire: &str) -> io::Result<()> {
         self.stream
             .get_ref()
@@ -234,7 +240,10 @@ impl Connection {
     }
 }
 
-/// Выполняет одну implicit-TLS SMTP transaction, проверяя CA и server name.
+/// Выполняет одну implicit-TLS транзакцию, проверяет CA/SNI и завершает session командой QUIT.
+///
+/// Ошибка QUIT не отменяет уже подтверждённый SMTP результат; канал, закрываемый
+/// peer ответом 421, не получает дополнительной команды.
 pub fn deliver(
     address: &str,
     server_name: &str,
@@ -243,7 +252,12 @@ pub fn deliver(
     recipient: &str,
     message: &[u8],
 ) -> io::Result<DeliveryOutcome> {
-    Connection::connect(address, server_name, ca_der)?.deliver(sender, recipient, message)
+    let mut connection = Connection::connect(address, server_name, ca_der)?;
+    let outcome = connection.deliver(sender, recipient, message)?;
+    if !connection.should_close() {
+        let _ = connection.quit();
+    }
+    Ok(outcome)
 }
 
 pub(crate) fn client_config(ca_der: &[u8]) -> io::Result<Arc<ClientConfig>> {

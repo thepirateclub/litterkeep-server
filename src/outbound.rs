@@ -301,13 +301,10 @@ pub fn deliver(
 ) -> io::Result<DeliveryOutcome> {
     let mut connection = Connection::connect(address)?;
     let outcome = connection.deliver(sender, recipient, message)?;
-    match outcome {
-        DeliveryOutcome::Delivered => {
-            let _ = connection.quit();
-            Ok(DeliveryOutcome::Delivered)
-        }
-        DeliveryOutcome::Deferred | DeliveryOutcome::PermanentFailure => Ok(outcome),
+    if !connection.should_close() {
+        let _ = connection.quit();
     }
+    Ok(outcome)
 }
 
 /// Записывает одну SMTP command без скрытого буферизованного ownership.

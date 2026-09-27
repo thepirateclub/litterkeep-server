@@ -21,7 +21,15 @@ fn trusted_tls_peer_receives_smtp_message() {
     let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
     let address = listener.local_addr().expect("address");
     let peer = thread::spawn(move || {
-        serve_peer(listener, certificate, key, 1, b"250 peer\r\n", "MAIL FROM:")
+        serve_peer(
+            listener,
+            certificate,
+            key,
+            1,
+            b"250 peer\r\n",
+            "MAIL FROM:",
+            true,
+        )
     });
     let outcome = outbound_tls::deliver(
         &address.to_string(),
@@ -80,6 +88,7 @@ Content-Transfer-Encoding: 8bit\r\n\r\nПривет")
             1,
             b"250-peer.test\r\n250-SIZE 1024\r\n250 8BITMIME\r\n",
             &format!("MAIL FROM:<alice@test> SIZE={size} BODY=8BITMIME"),
+            true,
         )
     });
     assert_eq!(
@@ -103,7 +112,15 @@ fn tls_pool_reuses_only_its_bound_identity_context() {
     let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
     let address = listener.local_addr().expect("address");
     let peer = thread::spawn(move || {
-        serve_peer(listener, certificate, key, 2, b"250 peer\r\n", "MAIL FROM:")
+        serve_peer(
+            listener,
+            certificate,
+            key,
+            2,
+            b"250 peer\r\n",
+            "MAIL FROM:",
+            false,
+        )
     });
     let mut pool =
         crate::outbound_tls_pool::ConnectionPool::new(address.to_string(), "peer.test", ca, 1)
@@ -115,30 +132,6 @@ fn tls_pool_reuses_only_its_bound_identity_context() {
             DeliveryOutcome::Delivered
         );
     }
-    assert_eq!(pool.idle_count(), 1);
-    peer.join().expect("peer");
-}
-
-#[test]
-fn tls_pool_discards_421_channel_and_reconnects_for_the_next_delivery() {
-    let (ca, certificate, key) = certificate_chain();
-    let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
-    let address = listener.local_addr().expect("address");
-    let peer = thread::spawn(move || serve_421_peer(listener, certificate, key));
-    let mut pool =
-        crate::outbound_tls_pool::ConnectionPool::new(address.to_string(), "peer.test", ca, 1)
-            .expect("pool");
-    assert_eq!(
-        pool.deliver("alice@test", "first@test", b"first")
-            .expect("deferred result"),
-        DeliveryOutcome::Deferred
-    );
-    assert_eq!(pool.idle_count(), 0);
-    assert_eq!(
-        pool.deliver("alice@test", "second@test", b"second")
-            .expect("delivery after reconnect"),
-        DeliveryOutcome::Delivered
-    );
     assert_eq!(pool.idle_count(), 1);
     peer.join().expect("peer");
 }
@@ -164,6 +157,7 @@ fn serve_peer(
     transactions: usize,
     ehlo_reply: &[u8],
     mail_prefix: &str,
+    quit_after_delivery: bool,
 ) {
     let config = server_config(certificate, key);
     let mut reader = accept_tls_peer(&listener, &config);
@@ -175,27 +169,10 @@ fn serve_peer(
         write_line(&mut reader, b"250 sender\r\n");
         serve_transaction(&mut reader);
     }
-}
-
-fn serve_421_peer(listener: TcpListener, certificate: Vec<u8>, key: Vec<u8>) {
-    let config = server_config(certificate, key);
-    let mut closing = accept_tls_peer(&listener, &config);
-    write_line(&mut closing, b"220 peer ready\r\n");
-    read_line(&mut closing, "EHLO");
-    write_line(&mut closing, b"250 peer\r\n");
-    read_line(&mut closing, "MAIL FROM:");
-    write_line(&mut closing, b"250 sender\r\n");
-    read_line(&mut closing, "RCPT TO:");
-    write_line(&mut closing, b"421 peer shutting down\r\n");
-    assert_channel_closes_without_reset(&mut closing);
-
-    let mut replacement = accept_tls_peer(&listener, &config);
-    write_line(&mut replacement, b"220 peer ready\r\n");
-    read_line(&mut replacement, "EHLO");
-    write_line(&mut replacement, b"250 peer\r\n");
-    read_line(&mut replacement, "MAIL FROM:");
-    write_line(&mut replacement, b"250 sender\r\n");
-    serve_transaction(&mut replacement);
+    if quit_after_delivery {
+        read_line_exact(&mut reader, "QUIT\r\n");
+        write_line(&mut reader, b"221 closing\r\n");
+    }
 }
 
 fn serve_helo_fallback_peer(listener: TcpListener, certificate: Vec<u8>, key: Vec<u8>) {
@@ -209,6 +186,8 @@ fn serve_helo_fallback_peer(listener: TcpListener, certificate: Vec<u8>, key: Ve
     read_line_exact(&mut reader, "MAIL FROM:<alice@test>\r\n");
     write_line(&mut reader, b"250 sender\r\n");
     serve_transaction(&mut reader);
+    read_line_exact(&mut reader, "QUIT\r\n");
+    write_line(&mut reader, b"221 closing\r\n");
 }
 
 fn server_config(certificate: Vec<u8>, key: Vec<u8>) -> Arc<ServerConfig> {
@@ -259,17 +238,6 @@ fn read_line_exact(
     let mut line = String::new();
     reader.read_line(&mut line).expect("command");
     assert_eq!(line, expected);
-}
-
-fn assert_channel_closes_without_reset(
-    reader: &mut BufReader<StreamOwned<ServerConnection, TcpStream>>,
-) {
-    let mut unexpected_command = String::new();
-    let result = reader.read_line(&mut unexpected_command);
-    assert!(
-        matches!(result, Ok(0) | Err(_)),
-        "TLS client must not send RSET after 421: {unexpected_command}"
-    );
 }
 
 fn read_message(reader: &mut BufReader<StreamOwned<ServerConnection, TcpStream>>) {

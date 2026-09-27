@@ -1,5 +1,22 @@
 # Goal ledger
 
+### 2026-09-27: G18 outbound SMTP QUIT semantics for plaintext and implicit TLS, scoped PASS T244
+
+- Исправлен standalone implicit-TLS `deliver`: после завершённого SMTP результата
+  отправляется `QUIT` и ожидается ответ с command timeout, кроме канала, который
+  peer уже закрыл через `421`. Plaintext one-shot путь также теперь отправляет
+  QUIT после прочитанного SMTP-level 4xx/5xx; pooled TLS соединения не получают
+  QUIT между повторно используемыми транзакциями.
+- TLS peer-тесты проверяют `QUIT/221`, timeout на реальном TLS socket после
+  100-ms тестового command timeout при сохранении предыдущего `Delivered`, а
+  также отсутствие лишнего QUIT при reuse pool. Plaintext wire-тесты проверяют
+  QUIT после 450/550 ответов. Windows Rust 1.97.1: fmt, strict Clippy, 795
+  library + 1 CLI прошли; 3 fixture-dependent теста ignored. Linux Rust 1.97:
+  879 library + 1 CLI прошли, 3 ignored; контейнер удалён через `--rm`.
+- Это локальные peers, не внешний MTA. Нормативные 5-минутные задержки на
+  wall clock не запускались; graceful QUIT при уничтожении всего TLS pool
+  остаётся отдельным открытым вопросом.
+
 ### 2026-09-27: G18 outbound SMTP QUIT response timeout, scoped PASS T243
 
 - Добавлен локальный plaintext TCP peer: он принимает DATA, отвечает `250`,
@@ -9,8 +26,8 @@
 - Windows Rust 1.97.1: fmt, strict Clippy, 794 library + 1 CLI прошли;
   3 fixture-dependent теста ignored. Linux Rust 1.97: новый socket-тест прошёл
   отдельно в одноразовом контейнере с `--rm`.
-- Не запускались нормативный 5-минутный wall-clock timeout и внешний MTA;
-  implicit-TLS QUIT не имеет отдельного peer-сценария.
+- T244 добавил implicit-TLS QUIT peer и применяет graceful завершение к
+  plaintext SMTP-level rejection; нормативный wall-clock timeout не проверялся.
 
 ### 2026-09-27: G18 outbound BDAT socket timeout phase verification, scoped PASS T242
 
