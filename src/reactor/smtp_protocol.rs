@@ -119,13 +119,21 @@ fn mail(session: &mut Session, mail: smtp::MailFrom) -> io::Result<()> {
     ) {
         (true, None) => return session.push(b"530 5.7.0 authentication required\r\n"),
         (false, _) => true,
-        (true, Some(account)) => {
-            matches!(local_mailbox(&mail.reverse_path).as_deref(), Some(mailbox) if mailbox == account)
-        }
+        (true, Some(account)) => sender_is_authorized(&mail.reverse_path, account),
     };
     match sender_is_authorized {
         false => session.push(b"553 5.7.1 sender not authorized\r\n"),
         true => apply_mail(session, mail),
+    }
+}
+
+/// Проверяет envelope sender, сохраняя разрешённый RFC 6409 null reverse-path.
+fn sender_is_authorized(reverse_path: &str, account: &str) -> bool {
+    match reverse_path.is_empty() {
+        true => true,
+        false => {
+            matches!(local_mailbox(reverse_path).as_deref(), Some(mailbox) if mailbox == account)
+        }
     }
 }
 
@@ -263,3 +271,7 @@ pub(super) fn next_request(request_id: &mut u64) -> u64 {
     *request_id = request_id.wrapping_add(1).max(1);
     current
 }
+
+#[cfg(test)]
+#[path = "smtp_protocol_tests.rs"]
+mod tests;

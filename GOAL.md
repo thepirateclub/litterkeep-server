@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 RFC 6409 null reverse-path in authenticated SMTP submission
+
+- RFC 6409 §3.2 требует не отклонять submission только из-за `MAIL FROM:<>`,
+  если MSA может определить return path из authenticated identity. Политика
+  sender ownership теперь допускает только этот пустой reverse-path в TLS
+  authenticated session; проверка чужого ненулевого sender остаётся строгой.
+- Linux Docker Rust 1.97 test stage прошёл strict Clippy, 698 library tests
+  (697 passed, 1 внешний Unicode corpus ignored), 1 CLI test и doctests.
+  Отдельно прошли обе новые unit tests. Независимый implicit-TLS SMTP peer
+  проверил 553 для чужого sender, acceptance `MAIL FROM:<>`, DATA delivery
+  Bob и сохранённый `Return-Path: <>` через IMAP. Python `py_compile`,
+  `cargo fmt --check` и `git diff --check` прошли.
+- Fixture `./data/acceptance-smtp-null-reverse-20260927` сохранена. Проверен
+  локальный AUTH submission и mailbox, не MTA relay наружу и не клиент
+  Litterkeep. G17 и корневая цель остаются ACTIVE.
+- Созданные для проверки Docker runtime/test images и runtime container
+  удаляются после acceptance; отсутствие будет подтверждено перед коммитом.
+
 ### 2026-09-27: G17 implicit-TLS SMTP delivery followed by peer close
 
 - Независимый SMTP-клиент подключился к implicit-TLS listener, прошёл AUTH
