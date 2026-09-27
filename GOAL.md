@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 SMTP RFC 2034 enhanced status codes, scoped PASS
+
+- EHLO теперь публикует `ENHANCEDSTATUSCODES` в plaintext, pre-TLS и TLS
+  вариантах. Обычные SMTP 2xx/4xx/5xx ответы, включая ошибки получателя,
+  очередь, HELP и QUIT, содержат согласованный enhanced status code; greeting,
+  HELO/EHLO и 3xx continuation остаются исключениями RFC.
+- Linux Docker Rust 1.97 test gate: strict Clippy, 696 library tests, 1 CLI test
+  и doc-tests прошли; 1 внешний Unicode corpus test ignored из-за отсутствия
+  UCD файла. Независимый STARTTLS peer проверил capability до/после TLS,
+  AUTH, multiline HELP, ошибки/успех envelope, DATA принятие, NOOP и QUIT.
+- Отдельный сценарий `tests/blackbox/smtp_enhanced_status_codes.py` сохраняет
+  границу ответственности теста DATA line. Fixture
+  `./data/acceptance-smtp-enhanced-status-20260927` сохранена; проверялись
+  независимый wire peer и Linux runtime, не Litterkeep app. RFC 2034 coverage
+  ограничена описанными ответами; G17 и корневая цель остаются ACTIVE.
+- Созданные для проверки Docker image и runtime container удалены, их отсутствие
+  подтверждено; fixture сохранена. Этап закоммичен отдельно.
+
 ### 2026-09-27: G17 bounded SMTP DATA line buffering, PASS checkpoint
 
 - DATA сессия больше не удерживает неполную строку без CRLF до общего лимита

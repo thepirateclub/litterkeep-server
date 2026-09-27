@@ -226,7 +226,11 @@ pub(super) fn submit(
             session.pending_submit = Some((request, pending));
         }
         Err(std::sync::mpsc::TrySendError::Disconnected(_)) => {
-            let _ = session.push(b"451 storage unavailable\r\n");
+            let response: &[u8] = match session.kind {
+                Kind::Smtp => b"451 4.3.0 storage unavailable\r\n",
+                Kind::Imap | Kind::Pop3 | Kind::ManageSieve => b"451 storage unavailable\r\n",
+            };
+            let _ = session.push(response);
         }
     }
 }

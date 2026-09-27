@@ -49,7 +49,7 @@ pub(super) fn smtp_line(
         return reply;
     }
     match command {
-        smtp::Command::Quit => session.push(b"221 bye\r\n"),
+        smtp::Command::Quit => session.push(b"221 2.0.0 bye\r\n"),
         smtp::Command::Ehlo(_) => super::smtp_greeting::ehlo(session),
         smtp::Command::Helo(_) => super::smtp_greeting::helo(session),
         smtp::Command::Noop(_) => session.push(b"250 2.0.0 ok\r\n"),
@@ -75,7 +75,7 @@ fn help(session: &mut Session, topic: Option<String>) -> io::Result<()> {
     match topic {
         Some(_) => session.push(b"214 2.0.0 use HELP for the command list\r\n"),
         None => session.push(
-            b"214-Commands: EHLO HELO MAIL RCPT DATA RSET NOOP VRFY EXPN HELP QUIT\r\n214 End of HELP\r\n",
+            b"214-2.0.0 Commands: EHLO HELO MAIL RCPT DATA RSET NOOP VRFY EXPN HELP QUIT\r\n214 2.0.0 End of HELP\r\n",
         ),
     }
 }
@@ -146,10 +146,10 @@ fn recipient(
         return session.push(b"530 5.7.0 authentication required\r\n");
     }
     let SmtpState::Command(transaction) = &session.smtp else {
-        return session.push(b"503 bad sequence\r\n");
+        return session.push(b"503 5.5.1 bad sequence\r\n");
     };
     if !transaction.can_accept_recipient() {
-        return session.push(b"503 bad sequence\r\n");
+        return session.push(b"503 5.5.1 bad sequence\r\n");
     }
     if !transaction.has_recipient_capacity() {
         return session.push(b"452 4.5.3 too many recipients\r\n");
@@ -158,7 +158,7 @@ fn recipient(
         return session.push(b"553 5.6.7 SMTPUTF8 required for recipient address\r\n");
     }
     let Some(mailbox) = local_recipient(&address) else {
-        return session.push(b"550 unknown local recipient\r\n");
+        return session.push(b"550 5.1.1 unknown local recipient\r\n");
     };
     let id = next_request(request_id);
     super::protocol::submit(
@@ -194,7 +194,7 @@ fn transaction_command(session: &mut Session, command: smtp::Command) -> io::Res
 
 fn apply_transaction(session: &mut Session, command: smtp::Command) -> io::Result<()> {
     let SmtpState::Command(transaction) = &mut session.smtp else {
-        return session.push(b"503 bad sequence\r\n");
+        return session.push(b"503 5.5.1 bad sequence\r\n");
     };
     match transaction.apply(&command) {
         Ok(true) => {
@@ -211,8 +211,8 @@ fn apply_transaction(session: &mut Session, command: smtp::Command) -> io::Resul
             };
             session.push(b"354 end with <CRLF>.<CRLF>\r\n")
         }
-        Ok(false) => session.push(b"250 ok\r\n"),
-        Err(_) => session.push(b"503 bad sequence\r\n"),
+        Ok(false) => session.push(b"250 2.0.0 ok\r\n"),
+        Err(_) => session.push(b"503 5.5.1 bad sequence\r\n"),
     }
 }
 
@@ -246,7 +246,9 @@ fn apply_mail_transaction(
         Ok(()) => {
             match &session.smtp {
                 SmtpState::Command(_) => session.smtp_body_mode = body_mode,
-                SmtpState::Data { .. } => return session.push(b"503 bad sequence\r\n"),
+                SmtpState::Data { .. } => {
+                    return session.push(b"503 5.5.1 bad sequence\r\n");
+                }
             }
             session.smtp_utf8 = smtp_utf8;
             Ok(())

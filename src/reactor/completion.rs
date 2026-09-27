@@ -60,12 +60,12 @@ pub(super) fn write_completion(
             Response::RecipientValidated {
                 accepted: false, ..
             },
-        ) => session.push(b"550 unknown local recipient\r\n"),
+        ) => session.push(b"550 5.1.1 unknown local recipient\r\n"),
         (Pending::Append { .. }, Response::Appended { result: Ok(_), .. }) => {
-            session.push(b"250 queued\r\n")
+            session.push(b"250 2.0.0 queued\r\n")
         }
         (Pending::Append { .. }, Response::Appended { result: Err(_), .. }) => {
-            session.push(b"451 storage failure\r\n")
+            session.push(b"451 4.3.0 storage failure\r\n")
         }
         (
             Pending::ImapAppend { tag, .. },
