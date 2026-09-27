@@ -236,6 +236,23 @@ fn windows_1254_decodes_turkish_and_rejects_undefined_octets() {
 }
 
 #[test]
+fn windows_1255_decodes_hebrew_and_rejects_undefined_octets() {
+    let charset = Charset::parse("WINDOWS-1255").expect("registered MIME charset");
+    assert_eq!(charset.decode(b"\xf9\xec\xe5\xed"), Ok("שלום".to_owned()));
+    assert_eq!(Charset::parse("csWindows1255"), Ok(Charset::Windows1255));
+    assert!(Charset::parse("cp1255").is_err());
+    for byte in [
+        0x81, 0x8a, 0x8c, 0x8d, 0x8e, 0x8f, 0x90, 0x9a, 0x9c, 0x9d, 0x9e, 0x9f, 0xca, 0xd9, 0xda,
+        0xdb, 0xdc, 0xdd, 0xde, 0xdf, 0xfb, 0xfc, 0xff,
+    ] {
+        assert!(
+            charset.decode(&[byte]).is_err(),
+            "undefined octet {byte:#04x}"
+        );
+    }
+}
+
+#[test]
 fn utf16_handles_registered_byte_orders_bom_and_supplementary_characters() {
     assert_eq!(
         Charset::parse("UTF-16")
