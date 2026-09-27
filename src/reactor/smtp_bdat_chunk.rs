@@ -14,6 +14,13 @@ pub(super) enum Progress {
     TooLarge,
 }
 
+/// Сохраняет причину ответа после точного drain rejected BDAT payload.
+#[derive(Clone, Copy)]
+pub(super) enum RejectReply {
+    Unsupported,
+    BadSequence,
+}
+
 /// Состояние точного octet-counted framing одной BDAT команды.
 pub(super) struct Receiver {
     remaining: u64,
@@ -28,6 +35,14 @@ impl Receiver {
         Self {
             remaining: chunk_size,
             oversized,
+        }
+    }
+
+    /// Создаёт receiver, который только дренирует chunk после прежней ошибки.
+    pub(super) fn discard(chunk_size: u64) -> Self {
+        Self {
+            remaining: chunk_size,
+            oversized: true,
         }
     }
 
@@ -52,6 +67,16 @@ impl Receiver {
 
 /// Точно дренирует тело недоговорённого BDAT, не интерпретируя его как команды.
 pub(super) fn reject_unadvertised(session: &mut Session, chunk_size: u64) -> std::io::Result<()> {
+    reject(session, chunk_size, RejectReply::Unsupported)
+}
+
+/// Дренирует payload последовательностной ошибки и затем отвечает 503.
+pub(super) fn reject_sequence(session: &mut Session, chunk_size: u64) -> std::io::Result<()> {
+    reject(session, chunk_size, RejectReply::BadSequence)
+}
+
+/// Переносит обычный transaction во временное exact-size drain state.
+fn reject(session: &mut Session, chunk_size: u64, reply: RejectReply) -> std::io::Result<()> {
     let previous = std::mem::replace(
         &mut session.smtp,
         SmtpState::Command(crate::smtp::Transaction::default()),
@@ -61,6 +86,7 @@ pub(super) fn reject_unadvertised(session: &mut Session, chunk_size: u64) -> std
             session.smtp = SmtpState::BdatDiscard {
                 transaction,
                 receiver: Receiver::new(chunk_size, 0, 0),
+                reply,
             };
             discard_received(session)
         }
@@ -87,9 +113,15 @@ pub(super) fn discard_received(session: &mut Session) -> std::io::Result<()> {
                 SmtpState::Command(crate::smtp::Transaction::default()),
             );
             match previous {
-                SmtpState::BdatDiscard { transaction, .. } => {
+                SmtpState::BdatDiscard {
+                    transaction, reply, ..
+                } => {
                     session.smtp = SmtpState::Command(transaction);
-                    session.push(b"502 5.5.1 CHUNKING not supported\r\n")
+                    let response: &[u8] = match reply {
+                        RejectReply::Unsupported => b"502 5.5.1 CHUNKING not supported\r\n",
+                        RejectReply::BadSequence => b"503 5.5.1 bad sequence\r\n",
+                    };
+                    session.push(response)
                 }
                 state => {
                     session.smtp = state;

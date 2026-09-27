@@ -21,6 +21,11 @@ pub(super) fn smtp_line(
             session, line, slot, generation, worker, owners, request_id,
         );
     }
+    if matches!(session.smtp, SmtpState::BdatReady(_)) {
+        return super::smtp_bdat::between_chunks(
+            session, line, slot, generation, worker, owners, request_id,
+        );
+    }
     if line.len() > smtp::command_line_limit(&line) {
         // Превышение лимита завершает текущий SASL exchange до ответа SMTP.
         if session.smtp_auth == SmtpAuthState::AwaitingPlainResponse {
@@ -64,7 +69,7 @@ pub(super) fn smtp_line(
         ),
         smtp::Command::Mail(sender) => mail(session, sender),
         smtp::Command::Bdat(chunk) => {
-            super::smtp_bdat_chunk::reject_unadvertised(session, chunk.chunk_size)
+            super::smtp_bdat::start(session, chunk, slot, generation, worker, owners, request_id)
         }
         smtp::Command::Rcpt(address) => recipient(
             session, address, slot, generation, worker, owners, request_id,
@@ -138,7 +143,10 @@ fn mail(session: &mut Session, mail: smtp::MailFrom) -> io::Result<()> {
 fn mail_can_start_transaction(state: &SmtpState) -> bool {
     match state {
         SmtpState::Command(transaction) => transaction.can_start_mail(),
-        SmtpState::Data { .. } | SmtpState::BdatDiscard { .. } => false,
+        SmtpState::Data { .. }
+        | SmtpState::BdatDiscard { .. }
+        | SmtpState::BdatReady(_)
+        | SmtpState::BdatReceiving(_) => false,
     }
 }
 
@@ -262,7 +270,10 @@ fn apply_mail_transaction(
         Ok(()) => {
             match &session.smtp {
                 SmtpState::Command(_) => session.smtp_body_mode = body_mode,
-                SmtpState::Data { .. } | SmtpState::BdatDiscard { .. } => {
+                SmtpState::Data { .. }
+                | SmtpState::BdatDiscard { .. }
+                | SmtpState::BdatReady(_)
+                | SmtpState::BdatReceiving(_) => {
                     return session.push(b"503 5.5.1 bad sequence\r\n");
                 }
             }

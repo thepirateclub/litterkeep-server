@@ -60,6 +60,12 @@ pub(super) fn process_input(
             }
             continue;
         }
+        if matches!(session.smtp, SmtpState::BdatReceiving(_)) {
+            if super::smtp_bdat::receive(session, slot, generation, worker, owners, request_id)? {
+                continue;
+            }
+            break;
+        }
         if session.imap_search_literal.is_some() {
             let progress = session
                 .imap_search_literal

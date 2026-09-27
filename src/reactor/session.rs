@@ -28,7 +28,12 @@ pub(super) enum SmtpState {
     BdatDiscard {
         transaction: smtp::Transaction,
         receiver: super::smtp_bdat_chunk::Receiver,
+        reply: super::smtp_bdat_chunk::RejectReply,
     },
+    /// Между чанками сохраняет один envelope и накопленные message octets.
+    BdatReady(super::smtp_bdat::Transaction),
+    /// Получает следующий BDAT payload ровно по объявленному размеру.
+    BdatReceiving(super::smtp_bdat::Chunk),
 }
 
 /// Стриминговое состояние DATA-парсера до и после пустой строки заголовков.

@@ -25,7 +25,10 @@ pub(super) fn flush(session: &mut Option<SessionLease>) -> io::Result<bool> {
                 session.last_activity = flushed_at;
                 if matches!(
                     (session.kind, &session.smtp),
-                    (Kind::Smtp, SmtpState::Data { .. })
+                    (
+                        Kind::Smtp,
+                        SmtpState::Data { .. } | SmtpState::BdatReceiving(_)
+                    )
                 ) {
                     session.smtp_data_activity = flushed_at;
                 }
@@ -61,7 +64,10 @@ pub(super) fn read_session(
             session.last_activity = received_at;
             if matches!(
                 (session.kind, &session.smtp),
-                (Kind::Smtp, SmtpState::Data { .. })
+                (
+                    Kind::Smtp,
+                    SmtpState::Data { .. } | SmtpState::BdatReceiving(_)
+                )
             ) {
                 session.smtp_data_activity = received_at;
             }
@@ -83,7 +89,10 @@ pub(super) fn read_session(
         SmtpState::Data { oversized, .. } => {
             super::smtp_data::discard_overlong_incomplete_line(&mut session.input, oversized)
         }
-        SmtpState::Command(_) | SmtpState::BdatDiscard { .. } => {}
+        SmtpState::Command(_)
+        | SmtpState::BdatDiscard { .. }
+        | SmtpState::BdatReady(_)
+        | SmtpState::BdatReceiving(_) => {}
     }
     if session.input_limit_exceeded() {
         return Ok(true);

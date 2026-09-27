@@ -5,7 +5,7 @@ pub(crate) use command::canonical_parts;
 #[cfg(target_os = "linux")]
 pub(crate) use command::requires_smtp_utf8;
 pub use command::{
-    BodyMode, Command, MAX_COMMAND_LINE_SIZE, MAX_DATA_LINE_SIZE, MAX_LOCAL_PART_SIZE,
+    BdatCommand, BodyMode, Command, MAX_COMMAND_LINE_SIZE, MAX_DATA_LINE_SIZE, MAX_LOCAL_PART_SIZE,
     MAX_MESSAGE_SIZE, MAX_PATH_SIZE, MailFrom, ParseError, ReplyEncoding, VerifyRequest,
     command_line_limit, parse,
 };
@@ -77,6 +77,14 @@ impl Transaction {
     /// Сообщает, начата ли envelope-транзакция командой MAIL.
     pub fn has_sender(&self) -> bool {
         self.sender.is_some()
+    }
+
+    /// Разрешает DATA/BDAT только после MAIL и хотя бы одного принятого RCPT.
+    pub fn can_start_data(&self) -> bool {
+        matches!(
+            (self.sender.is_some(), self.recipients.is_empty()),
+            (true, false)
+        )
     }
 
     /// Разрешает MAIL только после завершения или сброса прежнего конверта.

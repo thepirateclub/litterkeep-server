@@ -1,9 +1,10 @@
-"""Проверяет exact-byte отказ на BDAT без объявленного CHUNKING."""
+"""Проверяет CHUNKING capability и drain некорректной BDAT sequence."""
 
 from enum import Enum, IntEnum
 import argparse
 import re
 import socket
+import ssl
 
 
 class ReplyCode(IntEnum):
@@ -11,7 +12,7 @@ class ReplyCode(IntEnum):
 
     GREETING = 220
     OK = 250
-    BAD_SEQUENCE = 502
+    BAD_SEQUENCE = 503
     BYE = 221
 
 
@@ -23,7 +24,7 @@ class ReplySeparator(Enum):
 
 
 class Capability(Enum):
-    """SMTP EHLO capability atom, который пока нельзя рекламировать."""
+    """SMTP EHLO capability atom, объявляемый при рабочем BDAT."""
 
     CHUNKING = "CHUNKING"
 
@@ -70,17 +71,20 @@ def verify_capability(lines):
         Capability.__members__.get(atom)
         for atom in atoms
     }
-    if Capability.CHUNKING in known_capabilities:
-        raise AssertionError("server advertised CHUNKING before implementing BDAT")
+    if Capability.CHUNKING not in known_capabilities:
+        raise AssertionError("server omitted its implemented CHUNKING capability")
 
 
 def main():
-    """Проверяет raw chunk drain, command boundary и session recovery."""
+    """Проверяет capability, raw payload drain и command synchronization."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=1587)
+    parser.add_argument("--port", type=int, default=1465)
+    parser.add_argument("--ca-file", default="data/pki/ca.pem")
     options = parser.parse_args()
-    with socket.create_connection((options.host, options.port), timeout=10) as peer:
+    context = ssl.create_default_context(cafile=options.ca_file)
+    connection = socket.create_connection((options.host, options.port), timeout=10)
+    with context.wrap_socket(connection, server_hostname=options.host) as peer:
         stream = peer.makefile("rwb", buffering=0)
         expect_reply(stream, ReplyCode.GREETING)
         stream.write(b"EHLO bdat-probe.test\r\n")
@@ -94,7 +98,7 @@ def main():
         stream.write(b"QUIT\r\n")
         expect_reply(stream, ReplyCode.BYE)
         stream.close()
-    print("PASS smtp-bdat-unadvertised: exact drain and NOOP synchronization")
+    print("PASS smtp-bdat-sequence: capability and exact drain synchronization")
 
 
 if __name__ == "__main__":

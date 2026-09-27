@@ -18,16 +18,18 @@ authenticated owner. RFC 6409 §3.2 разрешённый `MAIL FROM:<>` не �
 проверяет также, что чужой ненулевой sender получает `550 5.7.1` согласно
 RFC 6409 §6.1. Local route не является open relay.
 
-RFC 3030 CHUNKING/BDAT пока не поддержан для доставки и не объявляется в EHLO.
-Typed parser проверяет `BDAT n [LAST]`; если клиент всё же послал не объявленный
-BDAT, Linux reactor ограниченно читает ровно `n` octets, отвечает `502` и
-сохраняет следующий pipelined command за границей chunk. Unit boundary tests и
-независимый Linux wire peer подтвердили binary NUL/CRLF payload и следующий
-NOOP. Это отказной путь, а не chunk delivery или подтверждение успешного BDAT.
-`BINARYMIME` также не реализован, поэтому этот профиль нельзя подразумевать из
-поддержки 8BITMIME или сохранения бинарных octets через IMAP. До объявления
-CHUNKING требуются chunk-by-chunk delivery/acknowledgement, LAST handling,
-ошибки и RSET recovery, а также совместное поведение с объявленным PIPELINING.
+RFC 3030 `CHUNKING` объявляется через EHLO во всех режимах SMTP и принимает
+`BDAT n [LAST]` с точным octet framing, нулевыми и промежуточными chunks.
+Промежуточные chunks получают отдельный 250; `LAST` проверяет согласованный
+7BIT/8BITMIME профиль и передаёт message единственному durable Store owner.
+Ошибка размера или последовательности переводит envelope в failed state до
+RSET, а отвергнутый payload точно дренируется без потери следующей команды.
+Независимый Linux TLS peer проверил zero-length и два message chunks, успешную
+доставку Alice -> Bob и точное совпадение декодированных MIME attachment bytes;
+второй raw peer проверил capability, отказную BDAT без MAIL/RCPT и сохранение
+границы перед pipelined NOOP. Перезапуск Store между отправкой и IMAP чтением в
+этом acceptance не выполнялся. `BINARYMIME`/`BODY=BINARYMIME` не реализован и
+не объявляется: BDAT bytes всё ещё валидируются по RFC 5321 7BIT либо 8BITMIME.
 См. [RFC 3030 §§2-3](https://www.rfc-editor.org/rfc/rfc3030.html#section-2).
 
 По рекомендации RFC 8314 §3.4 implicit-TLS SMTP-сессия отвечает на

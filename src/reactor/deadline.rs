@@ -77,7 +77,10 @@ fn smtp_deadline(session: &Session) -> Option<Instant> {
             .tls
             .as_ref()
             .is_some_and(super::ServerTls::wants_write),
-        matches!(session.smtp, super::SmtpState::Data { .. }),
+        matches!(
+            session.smtp,
+            super::SmtpState::Data { .. } | super::SmtpState::BdatReceiving(_)
+        ),
     ) {
         (super::Kind::Smtp, false, false, true, true, false, false, true) => {
             Some((session.smtp_data_activity, SMTP_DATA_BLOCK_TIMEOUT))

@@ -7350,3 +7350,25 @@ ManageSieve до заявленного набора современных фо
   Это проверка typed parser и безопасного отказа, не реализация RFC 3030
   CHUNKING/BDAT, не BINARYMIME и не проверка клиента Litterkeep; G17 остаётся
   ACTIVE.
+
+### 2026-09-27: G17 RFC 3030 CHUNKING message transaction, PARTIAL
+
+- Reactor теперь владеет BDAT message transaction между chunks, принимает
+  zero-length и промежуточные chunks с отдельным 250, сохраняет точную octet
+  границу и передаёт message в существующий durable AppendMany путь только на
+  LAST. Неуспешная команда или превышение размера дренирует объявленный payload,
+  очищает накопленные message bytes и требует RSET до новой транзакции.
+- EHLO теперь объявляет RFC 3030 CHUNKING. Независимый TLS SMTP клиент
+  отправил нулевой chunk, два MIME message chunks и прочитал вложение через
+  независимый TLS IMAP клиент. Содержимое attachment совпало побайтно;
+  SHA-256: `34eb0bb669ce15c7df8cb3769c0a0d6ca91494fc041ab9de4e65cbf4ce696596`.
+  Отдельный raw TLS peer подтвердил capability, exact drain при BDAT без
+  MAIL/RCPT и успешный NOOP после payload. Клиент Litterkeep не проверялся.
+- Acceptance fixture `./data/acceptance-rfc3030-bdat-final-20260927` использует
+  локальный bind mount; тестовые аккаунты созданы штатной командой init.
+  Runtime и test containers/images удалены после acceptance. Docker Rust 1.97
+  strict Clippy прошёл; 705 library tests и 1 CLI test прошли, один официальный
+  UCD corpus test ignored из-за отсутствующего файла, doc-tests прошли. Также
+  остаются отдельными непокрытые ошибочные cases для oversized chunk, отказа
+  LAST content и явного RSET recovery; `BINARYMIME` не реализован. G17 остаётся
+  ACTIVE, этот этап не является полным RFC 3030 acceptance.

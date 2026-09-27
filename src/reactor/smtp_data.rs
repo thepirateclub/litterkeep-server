@@ -4,10 +4,10 @@ use super::*;
 use crate::local_route::local_mailboxes;
 
 /// Завершённое MIME-сообщение с SMTP envelope для bounded Store request.
-struct Delivery {
-    bytes: Vec<u8>,
-    reverse_path: String,
-    recipients: Vec<String>,
+pub(super) struct Delivery {
+    pub(super) bytes: Vec<u8>,
+    pub(super) reverse_path: String,
+    pub(super) recipients: Vec<String>,
 }
 
 /// Отбрасывает заведомо слишком длинный незавершённый DATA-фрагмент.
@@ -40,7 +40,10 @@ pub(super) fn data_line(
     if line.as_slice() == b".\r\n" {
         let oversized = match &session.smtp {
             SmtpState::Data { oversized, .. } => *oversized,
-            SmtpState::Command(_) | SmtpState::BdatDiscard { .. } => false,
+            SmtpState::Command(_)
+            | SmtpState::BdatDiscard { .. }
+            | SmtpState::BdatReady(_)
+            | SmtpState::BdatReceiving(_) => false,
         };
         return finish_data(
             session, slot, generation, worker, owners, request_id, oversized,
@@ -133,6 +136,26 @@ fn submit_delivery(
     Ok(())
 }
 
+/// Подготавливает BDAT сообщение для того же durable AppendMany владельца.
+pub(super) fn submit_bdat(
+    session: &mut Session,
+    mut delivery: Delivery,
+    slot: usize,
+    generation: u64,
+    worker: &mut WakingStorageWorker,
+    owners: &mut HashMap<u64, (usize, u64, Pending)>,
+    request_id: &mut u64,
+) -> io::Result<()> {
+    delivery.bytes = crate::smtp_trace::prepend(
+        &delivery.bytes,
+        &delivery.reverse_path,
+        std::time::SystemTime::now(),
+    )?;
+    submit_delivery(
+        session, delivery, slot, generation, worker, owners, request_id,
+    )
+}
+
 /// Переносит поля завершённого DATA состояния без копирования body bytes.
 fn take_data(session: &mut Session) -> (Vec<u8>, String, Vec<String>) {
     let SmtpState::Data {
@@ -179,14 +202,14 @@ fn append_data_line(
 }
 
 /// Переключает профиль в body при пустой DATA-строке CRLF.
-fn advance_section(section: &mut DataSection, content: &[u8]) {
+pub(super) fn advance_section(section: &mut DataSection, content: &[u8]) {
     if let (DataSection::Headers, b"\r\n") = (*section, content) {
         *section = DataSection::Body;
     }
 }
 
 /// Соблюдает минимум RFC 5321 и 7BIT/8BITMIME octet mode.
-fn data_line_accepts(
+pub(super) fn data_line_accepts(
     mode: smtp::BodyMode,
     smtp_utf8: bool,
     headers: bool,
