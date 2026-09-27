@@ -20,6 +20,7 @@ pub enum Charset {
     Iso8859_9,
     Iso8859_10,
     Tis620,
+    Iso8859_13,
     Iso8859Ascii,
     Windows1251,
     Windows1252,
@@ -47,9 +48,10 @@ impl Charset {
                 Ok(Self::Iso8859_10)
             }
             "tis-620" | "iso-8859-11" => Ok(Self::Tis620),
+            "iso-8859-13" | "csiso885913" => Ok(Self::Iso8859_13),
             // Остальные зарегистрированные предпочитаемые MIME labels имеют
             // общий ASCII mapping, но отдельные high-bit таблицы не реализованы.
-            "iso-8859-13" | "iso-8859-14" | "iso-8859-15" | "iso-8859-16" => Ok(Self::Iso8859Ascii),
+            "iso-8859-14" | "iso-8859-15" | "iso-8859-16" => Ok(Self::Iso8859Ascii),
             "windows-1251" | "cp1251" => Ok(Self::Windows1251),
             "windows-1252" => Ok(Self::Windows1252),
             "utf-16" => Ok(Self::Utf16),
@@ -87,6 +89,7 @@ impl Charset {
             Self::Iso8859_9 => Ok(super::charset_iso8859_9::decode(bytes)),
             Self::Iso8859_10 => super::charset_iso8859_10::decode(bytes),
             Self::Tis620 => super::charset_tis620::decode(bytes),
+            Self::Iso8859_13 => super::charset_iso8859_13::decode(bytes),
             // Не угадываем национальную таблицу: преобразуем только общий ASCII subset.
             Self::Iso8859Ascii => {
                 if !bytes.is_ascii() {

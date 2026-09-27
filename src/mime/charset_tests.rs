@@ -109,8 +109,15 @@ fn tis_620_decodes_thai_and_rejects_undefined_octets() {
 }
 
 #[test]
+fn iso_8859_13_decodes_baltic_text_and_registered_alias() {
+    let charset = Charset::parse("ISO-8859-13").expect("registered MIME charset");
+    assert_eq!(charset.decode(b"\xd0iauliai"), Ok("Šiauliai".to_owned()));
+    assert_eq!(Charset::parse("csISO885913"), Ok(Charset::Iso8859_13));
+}
+
+#[test]
 fn iso_8859_profiles_support_only_the_required_ascii_subset() {
-    for label in ["iso-8859-13", "iso-8859-14", "iso-8859-15", "iso-8859-16"] {
+    for label in ["iso-8859-14", "iso-8859-15", "iso-8859-16"] {
         assert_eq!(
             Charset::parse(label)
                 .expect("registered ISO-8859 profile")
@@ -121,8 +128,8 @@ fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     }
     assert!(Charset::parse("iso-8859-12").is_err());
     assert!(
-        Charset::parse("iso-8859-13")
-            .expect("ISO-8859-13 ASCII subset")
+        Charset::parse("iso-8859-14")
+            .expect("ISO-8859-14 ASCII subset")
             .decode(b"caf\xe9")
             .is_err()
     );
