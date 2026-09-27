@@ -183,7 +183,7 @@ percent-encoded octets, а hexadecimal digits в escapes принимаются 
 unencoded continuation segments. Charset декодируется явным allowlist известных
 профилей: US-ASCII, UTF-8, ISO-8859-1, ISO-8859-2, ISO-8859-3, ISO-8859-4,
 ISO-8859-5, ISO-8859-6, ISO-8859-7, ISO-8859-8,
-ISO-8859-9, ISO-8859-10, TIS-620 (ISO-8859-11), ISO-8859-13,
+ISO-8859-9, ISO-8859-10, TIS-620 (ISO-8859-11), ISO-8859-13, ISO-8859-14,
 Windows-1251, Windows-1252,
 UTF-16, UTF-16BE и UTF-16LE. Три UTF-16 профиля используются в RFC 2047 и
 RFC 2231, но исключены из декодирования MIME `text/*` при поиске согласно
@@ -300,6 +300,8 @@ Thai sample, C1 range и каждый assigned/undefined octet. Предпочи
 ISO-8859-13 проверяет Baltic Rim Unicode mapping для всех 256 байтов,
 включая C1 controls, Baltic letters и изменённые кавычки/диакритические знаки;
 принимаются IANA preferred label и зарегистрированный `csISO885913`.
+ISO-8859-14 проверяет полный Celtic mapping, отличающиеся от Latin-1 letters,
+C1 range и IANA aliases `latin8`, `l8`, `iso-celtic`, `csISO885914`.
 Это реализует обязательный ASCII-subset минимум
 [RFC 5228 §2.7.2](https://www.rfc-editor.org/rfc/rfc5228.html#section-2.7.2),
 не полный набор конвертеров. Независимая

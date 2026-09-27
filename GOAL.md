@@ -1,5 +1,18 @@
 # Goal ledger
 
+### 2026-09-27: G17 full ISO-8859-14 MIME charset, scoped PASS T217
+
+- Реализована typed ISO-8859-14 Celtic mapping с IANA aliases latin8/l8,
+  iso-celtic и csISO885914. Full-byte oracle проверяет все 256 октетов,
+  включая Celtic letters, обычные Latin-1 позиции и сохранение C1 controls.
+- Windows Rust 1.97: 742 library tests и 1 CLI test прошли; 1 внешний Unicode
+  corpus ignored без fixture path. fmt, strict Clippy и diff check прошли.
+- Linux Docker Rust 1.97: release build, strict Clippy, 826 library tests и
+  1 CLI test прошли; 1 внешний Unicode corpus ignored без fixture path.
+  Временный image удалён, отсутствие проверено; wire acceptance и Litterkeep
+  client compatibility не заявляются.
+- G17 остаётся active: ISO-8859-15/-16 и другие protocol gaps остаются.
+
 ### 2026-09-27: G17 full ISO-8859-13 MIME charset, scoped PASS T216
 
 - Реализована typed таблица ISO-8859-13 с IANA alias `csISO885913`.

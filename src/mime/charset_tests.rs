@@ -116,8 +116,18 @@ fn iso_8859_13_decodes_baltic_text_and_registered_alias() {
 }
 
 #[test]
+fn iso_8859_14_decodes_celtic_text_and_registered_aliases() {
+    let charset = Charset::parse("ISO-8859-14").expect("registered MIME charset");
+    assert_eq!(charset.decode(b"\xa1\xb2 Cymru"), Ok("ḂĠ Cymru".to_owned()));
+    assert_eq!(Charset::parse("latin8"), Ok(Charset::Iso8859_14));
+    assert_eq!(Charset::parse("l8"), Ok(Charset::Iso8859_14));
+    assert_eq!(Charset::parse("iso-celtic"), Ok(Charset::Iso8859_14));
+    assert_eq!(Charset::parse("csISO885914"), Ok(Charset::Iso8859_14));
+}
+
+#[test]
 fn iso_8859_profiles_support_only_the_required_ascii_subset() {
-    for label in ["iso-8859-14", "iso-8859-15", "iso-8859-16"] {
+    for label in ["iso-8859-15", "iso-8859-16"] {
         assert_eq!(
             Charset::parse(label)
                 .expect("registered ISO-8859 profile")
@@ -128,8 +138,8 @@ fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     }
     assert!(Charset::parse("iso-8859-12").is_err());
     assert!(
-        Charset::parse("iso-8859-14")
-            .expect("ISO-8859-14 ASCII subset")
+        Charset::parse("iso-8859-15")
+            .expect("ISO-8859-15 ASCII subset")
             .decode(b"caf\xe9")
             .is_err()
     );
