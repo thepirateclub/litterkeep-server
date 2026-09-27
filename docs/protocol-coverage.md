@@ -469,6 +469,12 @@ part. Парсер и протокольная проекция проверен
 `[1.HEADER]` и `[1.TEXT]` разделяют его заголовок и текст, `[1.1]` адресует
 единственную MIME body-part. Все четыре ответа совпали с точными ожидаемыми
 octets; клиент Litterkeep не запускался.
+Для того же дерева исправлен traversal RFC 9051 `BINARY`: `multipart/digest`
+теперь считается multipart-контейнером, а numeric path после его
+`MESSAGE/RFC822` child продолжается от embedded MIME entity. Независимый STARTTLS
+FETCH подтвердил `BINARY.PEEK[1.1]` декодированный body и `BINARY.SIZE[1.1]` с
+совпадающей длиной. Ранее этот путь завершался `NO`; SMTP и клиент Litterkeep не
+проверялись.
 Отсутствующий или синтаксически повреждённый `Content-Type` получает
 рекомендуемый RFC 2045 §5.2 fallback `text/plain`/US-ASCII; сырой MIME header
 не переписывается. Независимый STARTTLS клиент отправил оба варианта через SMTP

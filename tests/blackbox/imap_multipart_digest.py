@@ -126,6 +126,25 @@ def verify_encapsulated_sections(client: imaplib.IMAP4, number: str) -> None:
             )
 
 
+def verify_digest_binary(client: imaplib.IMAP4, number: str) -> None:
+    """Проверяет decoded BINARY leaf и согласованный BINARY.SIZE."""
+    binary_response = require_ok(
+        client.fetch(number, "(BINARY.PEEK[1.1])"), "FETCH BINARY.PEEK[1.1]"
+    )
+    observed = literal(binary_response, "FETCH BINARY.PEEK[1.1]")
+    if observed != b"message body":
+        raise AssertionError(f"decoded digest leaf mismatch: {observed!r}")
+
+    size_response = require_ok(
+        client.fetch(number, "(BINARY.SIZE[1.1])"), "FETCH BINARY.SIZE[1.1]"
+    )
+    if not isinstance(size_response, list):
+        raise AssertionError(f"BINARY.SIZE returned invalid data: {size_response!r}")
+    metadata = b" ".join(value for value in size_response if isinstance(value, bytes))
+    if b"BINARY.SIZE[1.1] 12" not in metadata:
+        raise AssertionError(f"BINARY.SIZE mismatch: {metadata!r}")
+
+
 def options() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="localhost")
@@ -151,6 +170,7 @@ def main() -> None:
         number = find_message(client, subject)
         verify_digest_structure(client, number)
         verify_encapsulated_sections(client, number)
+        verify_digest_binary(client, number)
         verify_source(client, number, source)
     print("PASS RFC 2046 multipart/digest default and exact RFC822 source")
 

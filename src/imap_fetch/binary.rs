@@ -48,7 +48,7 @@ fn resolve<'a>(root: &'a Entity, path: &[usize]) -> Result<&'a Entity, FetchErro
             let child = root.children.get(index).ok_or(FetchError::InvalidSection)?;
             match remaining.is_empty() {
                 true => Ok(child),
-                false => resolve(child, remaining),
+                false => resolve_multipart_child(child, remaining),
             }
         }
         false => match (*number == 1, remaining.is_empty()) {
@@ -65,10 +65,25 @@ fn resolve<'a>(root: &'a Entity, path: &[usize]) -> Result<&'a Entity, FetchErro
     }
 }
 
+/// Переходит от message/*-части multipart к MIME-дереву вложенного сообщения.
+fn resolve_multipart_child<'a>(
+    child: &'a Entity,
+    remaining: &[usize],
+) -> Result<&'a Entity, FetchError> {
+    match &child.media_type {
+        MediaType::MessageRfc822 | MediaType::MessageGlobal => {
+            let embedded = child.children.first().ok_or(FetchError::InvalidSection)?;
+            resolve(embedded, remaining)
+        }
+        _ => resolve(child, remaining),
+    }
+}
+
 fn ensure_leaf(entity: &Entity) -> Result<(), FetchError> {
     match (&entity.media_type, entity.children.is_empty()) {
         (MediaType::MultipartMixed, _)
         | (MediaType::MultipartAlternative, _)
+        | (MediaType::MultipartDigest, _)
         | (MediaType::MultipartOther(_), _) => Err(FetchError::InvalidSection),
         (MediaType::MultipartRelated, _) | (_, false) => Err(FetchError::InvalidSection),
         (MediaType::MessageRfc822 | MediaType::MessageGlobal, _) => Err(FetchError::InvalidSection),
@@ -116,6 +131,7 @@ fn is_multipart(media_type: &MediaType) -> bool {
         media_type,
         MediaType::MultipartMixed
             | MediaType::MultipartAlternative
+            | MediaType::MultipartDigest
             | MediaType::MultipartRelated
             | MediaType::MultipartOther(_)
     )

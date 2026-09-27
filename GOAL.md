@@ -6852,3 +6852,10 @@ ManageSieve до заявленного набора современных фо
 - python -m py_compile tests/blackbox/imap_multipart_digest.py прошёл; скрипт 159 строк и проверяет также предыдущие BODYSTRUCTURE/RFC822 invariants. Это независимый клиент; Litterkeep app и SMTP delivery не проверялись.
 - Linux Docker runtime acceptance прошёл на Rust 1.97 image; build и test layers были cached, поэтому свежий запуск Rust suite не заявляется. Fixture ./data/g30-mime-multipart-digest оставлен. Созданный runtime container и оба stage image tags удалены, отсутствие перепроверено.
 - Закрыты только перечисленные embedded-message FETCH selectors; полный RFC 3501/9051, MIME, и цель G17 остаются ACTIVE.
+
+### 2026-09-27: G17 IMAP BINARY path through multipart/digest, scoped PASS
+
+- Исправлен подтверждённый отказ BINARY для вложенного MIME leaf в multipart/digest: resolver теперь traverses digest multipart children и для выбранного MESSAGE/RFC822 продолжает путь от embedded MIME entity. BINARY и BINARY.SIZE сохраняют общую проверку leaf-only.
+- Новый unit test проверяет decoded body и точный размер. Независимый STARTTLS IMAP wire acceptance проверяет BINARY.PEEK[1.1], BINARY.SIZE[1.1], предыдущие BODY sections/BODYSTRUCTURE и точные исходные RFC822 bytes.
+- Windows Rust 1.97.1: fmt, strict Clippy, cargo test --all-targets прошли (614 library + 1 CLI; 1 UCD-dependent normalization test ignored). Свежий Linux Rust 1.97 Docker --no-cache test stage: strict Clippy, 679 library + 1 CLI tests и doc-tests прошли; один UCD-dependent normalization test ignored. Независимый Linux STARTTLS wire test прошёл. Fixture ./data/g30-mime-multipart-digest сохранён; runtime container и два созданных image tags удалены, отсутствие проверено.
+- Это закрывает только BINARY traversal для вложения в multipart/digest; полный MIME/IMAP профиль и G17 остаются ACTIVE. Приложение Litterkeep не запускалось.

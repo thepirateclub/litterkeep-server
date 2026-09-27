@@ -82,3 +82,15 @@ fn binary_selects_attachment_inside_base64_global_message() {
     assert_eq!(result.label, "BINARY[1.1]");
     assert_eq!(result.bytes.as_ref(), b"nested\0");
 }
+
+/// BINARY адресует leaf внутри default MESSAGE/RFC822 части digest-контейнера.
+#[test]
+fn binary_selects_digest_embedded_message_body_and_size() {
+    let message = b"Content-Type: multipart/digest; boundary=x\r\n\r\n--x\r\n\r\nSubject: nested\r\n\r\nmessage body\r\n--x--\r\n";
+    let decoded = select(message, &[1, 1], None).expect("digest text body");
+    let size = decoded_size(message, &[1, 1]).expect("digest decoded size");
+
+    assert_eq!(decoded.label, "BINARY[1.1]");
+    assert_eq!(decoded.bytes.as_ref(), b"message body");
+    assert_eq!(size, decoded.bytes.len());
+}
