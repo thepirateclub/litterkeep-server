@@ -6742,12 +6742,15 @@ ManageSieve до заявленного набора современных фо
   Реализован внутренний Store primitive: сообщения получают упорядоченные UID
   и отдельные immutable blob IDs, а mailbox frames используют один durable
   commit transaction. После reopen либо виден весь batch, либо ни одного его
-  сообщения.
-- Windows Rust 1.97.1: 611 library tests и 1 CLI test прошли, fmt и strict
-  Clippy прошли. Linux Rust 1.97 Docker: strict Clippy, 676 library tests,
-  1 CLI test и doc-tests прошли; один внешний Unicode corpus test ignored.
-  Unit failure injection после первой mailbox frame подтверждает пустую видимую
-  папку после recovery. Пустое сообщение отклоняется как APPEND cancellation.
+  сообщения. Регрессионный тест также подтверждает независимые system flags,
+  keywords и INTERNALDATE каждого сообщения после recovery.
+- Windows Rust 1.97.1: fmt, strict Clippy, 612 library tests, 1 CLI test и
+  doc-tests прошли. Linux Rust 1.97 Docker: release build, strict Clippy,
+  677 library tests, 1 CLI test и doc-tests прошли; один внешний Unicode corpus
+  test ignored. Unit failure injection после первой mailbox frame подтверждает
+  пустую видимую папку после recovery. Пустое сообщение отклоняется как APPEND
+  cancellation. Созданный test image удалён и отсутствие тега проверено; runtime
+  container не создавался.
 - Это только storage groundwork: parser, IMAP session framing, APPENDUID UID-set
   serialization и independent wire acceptance ещё не сделаны. MULTIAPPEND не
   объявляется в CAPABILITY; общий G17 остаётся ACTIVE.

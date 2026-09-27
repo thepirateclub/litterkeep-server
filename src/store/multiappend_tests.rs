@@ -119,3 +119,50 @@ fn empty_payload_cannot_be_used_as_an_append_cancellation() {
     drop(store);
     fs::remove_dir_all(root).expect("cleanup");
 }
+
+#[test]
+fn batch_preserves_each_messages_independent_metadata_after_reopen() {
+    let root = directory();
+    let first_date = crate::mail_date::MailDate::from_unix_seconds(1_700_000_000);
+    let second_date = crate::mail_date::MailDate::from_unix_seconds(1_700_000_100);
+    let first_keyword = crate::mail_flags::KeywordFlag::parse("invoice").expect("keyword");
+    let second_keyword = crate::mail_flags::KeywordFlag::parse("receipt").expect("keyword");
+    let messages = vec![
+        (
+            b"first".to_vec(),
+            AppendMetadata {
+                flags: crate::mail_flags::MessageFlags::from_flags([
+                    crate::mail_flags::SystemFlag::Seen,
+                ]),
+                keywords: [first_keyword.clone()].into_iter().collect(),
+                internal_date: first_date,
+            },
+        ),
+        (
+            b"second".to_vec(),
+            AppendMetadata {
+                flags: crate::mail_flags::MessageFlags::from_flags([
+                    crate::mail_flags::SystemFlag::Draft,
+                ]),
+                keywords: [second_keyword.clone()].into_iter().collect(),
+                internal_date: second_date,
+            },
+        ),
+    ];
+    let mut store = Store::open(&root).expect("store");
+    assert_eq!(store.append_batch("bob", &messages).expect("batch"), [1, 2]);
+    drop(store);
+
+    let store = Store::open(&root).expect("reopen");
+    let snapshot = store.snapshot("bob").expect("snapshot");
+    let first = snapshot.messages.first().expect("first message");
+    let second = snapshot.messages.get(1).expect("second message");
+    assert!(first.flags.contains(crate::mail_flags::SystemFlag::Seen));
+    assert_eq!(first.keywords, [first_keyword].into_iter().collect());
+    assert_eq!(first.internal_date, first_date);
+    assert!(second.flags.contains(crate::mail_flags::SystemFlag::Draft));
+    assert_eq!(second.keywords, [second_keyword].into_iter().collect());
+    assert_eq!(second.internal_date, second_date);
+    drop(store);
+    fs::remove_dir_all(root).expect("cleanup");
+}
