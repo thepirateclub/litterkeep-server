@@ -1,5 +1,17 @@
 # Goal ledger
 
+### 2026-09-27: G18 outbound SMTP QUIT response timeout, scoped PASS T243
+
+- Добавлен локальный plaintext TCP peer: он принимает DATA, отвечает `250`,
+  читает `QUIT` и не отправляет `221`. Клиент завершает ожидание по короткому
+  100-ms command timeout; подтверждённый ранее результат доставки остаётся
+  `Delivered`. Peer проверяет закрытие соединения после возврата клиента.
+- Windows Rust 1.97.1: fmt, strict Clippy, 794 library + 1 CLI прошли;
+  3 fixture-dependent теста ignored. Linux Rust 1.97: новый socket-тест прошёл
+  отдельно в одноразовом контейнере с `--rm`.
+- Не запускались нормативный 5-минутный wall-clock timeout и внешний MTA;
+  implicit-TLS QUIT не имеет отдельного peer-сценария.
+
 ### 2026-09-27: G18 outbound BDAT socket timeout phase verification, scoped PASS T242
 
 - К предыдущему изменению добавлены два локальных TCP peer-сценария с короткими

@@ -1050,13 +1050,16 @@ transport может задать короткий единый предел, а
 зависшего greeting. Дополнительный независимый TCP peer с короткими phase-specific
 overrides удерживает соединение открытым до timeout для greeting, команд EHLO,
 MAIL и RCPT, ожидания `354` на DATA и финального ответа после фактически
-полученного DATA terminator. Это проверяет шесть реальных точек ожидания. QUIT
-и нормативные минуты ожидания на wall clock не проверялись; Litterkeep app
-не проверялось. Для исходящего BDAT промежуточный ответ на каждый chunk теперь
+полученного DATA terminator. Это проверяет шесть реальных точек ожидания. Для
+исходящего QUIT добавлен plaintext TCP peer, который не отвечает `221`: клиент
+ограничивает ожидание коротким тестовым command timeout, а уже подтверждённый
+`250` результат DATA остаётся успешным. Нормативный 5-минутный wall-clock
+timeout, отдельный QUIT peer для implicit TLS и интеграция с Litterkeep app не
+проверялись. Для исходящего BDAT промежуточный ответ на каждый chunk теперь
 использует отдельный 5-минутный command timeout, а BDAT LAST - 10-минутный
 DATA-termination timeout; 3-минутный write timeout сохраняется на каждый chunk.
-Unit-тесты проверяют выбор фазы и LAST-маркер, но socket-level применение этих
-интервалов дополнены локальным TCP peer: delayed intermediate ACK переживает
+Unit-тесты проверяют выбор фазы и LAST-маркер. Socket-level применение этих
+интервалов проверяется локальным TCP peer: delayed intermediate ACK переживает
 отсутствие ответа дольше короткого command timeout и приводит к timeout, тогда
 как delayed LAST ACK успешно приходит позже command timeout, но до termination
 timeout. Это проверяет plaintext socket с короткими тестовыми интервалами, а не

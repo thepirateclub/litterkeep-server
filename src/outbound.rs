@@ -43,6 +43,9 @@ mod bdat_timeout_tests;
 #[path = "outbound_binarymime_tests.rs"]
 mod binarymime_tests;
 #[cfg(test)]
+#[path = "outbound_quit_timeout_tests.rs"]
+mod quit_timeout_tests;
+#[cfg(test)]
 pub(crate) use ehlo::read_ehlo;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
