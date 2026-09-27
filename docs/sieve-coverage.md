@@ -118,8 +118,17 @@ Litterkeep application interoperability. RENAMESCRIPT receiver unit tests also
 cover mixed forms, empty quoted old name and pipeline preservation.
 HAVESPACE accepts a literal name plus one strict decimal size; independent wire
 coverage confirms parser/state handling before authentication and pipeline
-preservation, not the authenticated quota response. Literal string positions
-in the remaining commands are still unsupported.
+preservation, not the authenticated quota response. RFC 5804 §2.1 declares both
+AUTHENTICATE mechanism and optional initial response as strings, so either may
+use quoted or literal framing. The receiver now accepts a quoted or sync/non-sync
+literal PLAIN mechanism followed by no response, a quoted response, or a
+sync/non-sync literal response. It consumes the complete command before
+returning the typed unsupported-mechanism result, preserving a pipelined NOOP.
+Linux unit coverage exercises a synchronizing mechanism, and independent TLS
+wire acceptance authenticates Bob with non-synchronizing literal mechanism and
+response; a literal CRAM response is rejected and followed by successful NOOP.
+Other command string positions not listed above remain unverified or unsupported.
+This does not close the mandatory SCRAM-SHA-1 gap.
 
 ManageSieve script count, per-script byte size and serialized account catalog
 are bounded in the Store. RFC 5804 §1.5 requires a `NO` response containing

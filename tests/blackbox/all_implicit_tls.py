@@ -158,8 +158,16 @@ def check_sieve(context: ssl.SSLContext, host: str, port: int, secret: str) -> N
             raise AssertionError(f"unexpected ManageSieve capabilities: {greeting!r}")
         if b'"SASL" "PLAIN"' not in greeting:
             raise AssertionError(f"implicit TLS ManageSieve lacks SASL PLAIN: {greeting!r}")
+        peer.sendall(b"AUTHENTICATE {4+}\r\nCRAM {4+}\r\nAAAA\r\n")
+        if line(peer) != b'NO "syntax error"\r\n':
+            raise AssertionError("unsupported literal mechanism was not rejected")
+        peer.sendall(b"NOOP\r\n")
+        if line(peer) != b'OK "noop"\r\n':
+            raise AssertionError("ManageSieve did not recover after mechanism rejection")
         payload = sasl_plain("bob", secret)
-        peer.sendall(b'AUTHENTICATE "PLAIN" "' + payload + b'"\r\n')
+        peer.sendall(b"AUTHENTICATE {5+}\r\n")
+        response_marker = b"PLAIN {" + str(len(payload)).encode() + b"+}\r\n"
+        peer.sendall(response_marker + payload + b"\r\n")
         authenticated = block(peer, b'OK "authenticated"\r\n')
         if not authenticated.endswith(b'OK "authenticated"\r\n'):
             raise AssertionError(f"ManageSieve AUTHENTICATE failed: {authenticated!r}")

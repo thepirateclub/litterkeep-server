@@ -97,6 +97,89 @@ fn authenticate_plain_accepts_a_literal_initial_response() {
     ));
 }
 
+/// RFC 5804 string mechanism может быть synchronizing literal.
+#[test]
+fn authenticate_plain_mechanism_literal_requests_a_sasl_challenge() {
+    let Start::Begin {
+        mut receiver,
+        continuation,
+    } = start(b"AUTHENTICATE {5}\r\n")
+    else {
+        panic!("synchronizing mechanism literal was not recognized");
+    };
+    assert!(continuation);
+    let mut input = b"PLAIN\r\nNOOP\r\n".to_vec();
+    assert!(matches!(
+        receiver.consume(&mut input),
+        Progress::Complete(Command::AuthenticatePlain(None))
+    ));
+    assert_eq!(input, b"NOOP\r\n");
+}
+
+/// Неизвестный literal SASL mechanism отклоняется как команда, не как framing.
+#[test]
+fn unsupported_authentication_mechanism_literal_preserves_pipeline() {
+    let Start::Begin {
+        mut receiver,
+        continuation,
+    } = start(b"AUTHENTICATE {4+}\r\n")
+    else {
+        panic!("mechanism literal was not recognized");
+    };
+    assert!(!continuation);
+    let mut input = b"CRAM {4+}\r\nAAAA\r\nNOOP\r\n".to_vec();
+    assert!(matches!(
+        receiver.consume(&mut input),
+        Progress::Complete(Command::Invalid)
+    ));
+    assert_eq!(input, b"NOOP\r\n");
+}
+
+/// Literal mechanism продолжает ту же команду quoted SASL response-ом.
+#[test]
+fn authenticate_plain_mechanism_literal_accepts_quoted_initial_response() {
+    let Start::Begin {
+        mut receiver,
+        continuation,
+    } = start(b"AUTHENTICATE {5+}\r\n")
+    else {
+        panic!("non-synchronizing mechanism literal was not recognized");
+    };
+    assert!(!continuation);
+    let mut input = b"PLAIN \"AGFsaWNlAHg=\"\r\nNOOP\r\n".to_vec();
+    assert!(matches!(
+        receiver.consume(&mut input),
+        Progress::Complete(Command::AuthenticatePlain(Some(value)))
+            if value == "AGFsaWNlAHg="
+    ));
+    assert_eq!(input, b"NOOP\r\n");
+}
+
+/// Два последовательных literals сохраняют framing и continuation boundary.
+#[test]
+fn authenticate_plain_mechanism_and_response_accept_literals() {
+    let Start::Begin {
+        mut receiver,
+        continuation,
+    } = start(b"AUTHENTICATE {5+}\r\n")
+    else {
+        panic!("mechanism literal was not recognized");
+    };
+    assert!(!continuation);
+    let mut marker = b"PLAIN {12}\r\n".to_vec();
+    assert!(matches!(
+        receiver.consume(&mut marker),
+        Progress::NeedContinuation
+    ));
+    let mut payload = b"AGFsaWNlAHg=\r\nNOOP\r\n".to_vec();
+    assert!(matches!(
+        receiver.consume(&mut payload),
+        Progress::Complete(Command::AuthenticatePlain(Some(value)))
+            if value == "AGFsaWNlAHg="
+    ));
+    assert_eq!(payload, b"NOOP\r\n");
+}
+
 #[test]
 fn authentication_challenge_response_accepts_a_literal() {
     let Start::Begin {

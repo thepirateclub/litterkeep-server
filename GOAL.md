@@ -8992,3 +8992,24 @@ ManageSieve до заявленного набора современных фо
   Это не тест Litterkeep app. RFC 8314 применим здесь к submission, IMAP и
   POP3; ManageSieve implicit TLS является дополнительным режимом сервера, не
   заявлением о норме RFC. Полные протоколы и G17 остаются ACTIVE.
+
+### 2026-09-27: G17 RFC 5804 AUTHENTICATE mechanism literals, scoped PASS T273
+
+- RFC 5804 §2.1 требует `String` для SASL mechanism и optional initial
+  response. AUTHENTICATE теперь принимает PLAIN mechanism в quoted,
+  synchronizing literal и non-synchronizing literal формах; optional response
+  может отсутствовать либо передаваться quoted/literal. Framing вынесен в
+  отдельные именованные модули, без превышения лимита 300 строк.
+- Независимый TLS peer успешно аутентифицировал Bob, отправив PLAIN mechanism
+  и Base64 response как non-synchronizing literals. Неизвестный CRAM mechanism
+  с literal response был отвергнут; следующий pipelined NOOP получил `OK`.
+  Linux unit tests отдельно проверяют sync mechanism continuation и отказной
+  framing. Litterkeep app не запускалось.
+- Rust 1.97.1 Linux Docker: strict Clippy прошёл, 911 library + 1 CLI tests
+  passed, 3 ignored. Windows fmt, strict Clippy и 807 library + 1 CLI tests
+  passed; Linux-only reactor tests на Windows cfg-исключены. Python `py_compile`
+  и независимый wire acceptance прошли.
+- Fixture `./data/acceptance-managesieve-auth-mechanism-20260927` сохранена;
+  временные container и test image удалены, отсутствие подтверждено. Этот
+  checkpoint закрывает только literal форму механизма; обязательный
+  SCRAM-SHA-1 и прочие открытые protocol gaps остаются, G17 ACTIVE.

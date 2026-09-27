@@ -5,6 +5,7 @@
 
 use crate::managesieve::Command;
 
+use self::managesieve_literal_strings::split_word;
 use super::managesieve_havespace_literal as havespace_literal;
 use super::managesieve_literal_terminator as literal_terminator;
 use super::managesieve_rename_literal as rename_literal;
@@ -32,6 +33,8 @@ enum Operation {
     DeleteScript,
     SetActive,
     AuthenticatePlain,
+    AuthenticateMechanism,
+    AuthenticateRejected,
     AuthenticateResponse,
     Rename(rename_literal::Receiver),
     HaveSpace(havespace_literal::Receiver),
@@ -40,6 +43,10 @@ enum Operation {
 #[path = "managesieve_auth_literal.rs"]
 mod auth_literal;
 pub(super) use auth_literal::start_response as authentication_response;
+#[path = "managesieve_auth_mechanism.rs"]
+mod auth_mechanism;
+#[path = "managesieve_literal_strings.rs"]
+mod managesieve_literal_strings;
 #[path = "managesieve_literal_putscript.rs"]
 mod putscript;
 
@@ -76,6 +83,9 @@ impl LiteralReceiver {
 
     /// Забирает ровно объявленное число байтов, оставляя pipeline в input.
     pub(super) fn consume(&mut self, input: &mut Vec<u8>) -> Progress {
+        if matches!(&self.operation, Operation::AuthenticateMechanism) {
+            return auth_mechanism::consume(self, input);
+        }
         if let Operation::Rename(receiver) = &mut self.operation {
             return match receiver.consume(input) {
                 rename_literal::Progress::Complete(command) => Progress::Complete(command),
@@ -132,6 +142,8 @@ impl LiteralReceiver {
                 Progress::Complete(Command::SetActive(name))
             }
             Operation::AuthenticatePlain => auth_literal::initial_response(source),
+            Operation::AuthenticateMechanism => Progress::Invalid,
+            Operation::AuthenticateRejected => Progress::Complete(Command::Invalid),
             Operation::AuthenticateResponse => auth_literal::challenge_response(source),
         }
     }
@@ -259,21 +271,7 @@ fn size(marker: &str) -> Option<(usize, bool)> {
     }
 }
 
-fn split_word(text: &str) -> (&str, &str) {
-    let trimmed = text.trim_start();
-    match trimmed.find(char::is_whitespace) {
-        Some(position) => match trimmed.get(..position) {
-            Some(verb) => (
-                verb,
-                trimmed.get(position..).unwrap_or_default().trim_start(),
-            ),
-            None => ("", ""),
-        },
-        None => (trimmed, ""),
-    }
-}
-
-fn quoted_then_tail(text: &str) -> Option<(String, &str)> {
+pub(super) fn quoted_then_tail(text: &str) -> Option<(String, &str)> {
     let mut characters = text.trim_start().chars();
     match characters.next() {
         Some('"') => {}

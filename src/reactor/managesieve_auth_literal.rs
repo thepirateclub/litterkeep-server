@@ -1,31 +1,25 @@
 //! Распознавание SASL initial-response literal в ManageSieve AUTHENTICATE.
 
+use super::auth_mechanism::Mechanism;
 use super::{LiteralReceiver, Operation, Progress, Start, literal, quoted_then_tail, size};
 
-/// Поддерживаемые здесь SASL-механизмы после разбора протокольной строки.
-enum Mechanism {
-    Plain,
-    Unsupported,
-}
-
-impl Mechanism {
-    /// Преобразует внешнее имя механизма в типизированный вариант.
-    fn parse(value: &str) -> Self {
-        match value.eq_ignore_ascii_case("PLAIN") {
-            true => Self::Plain,
-            false => Self::Unsupported,
-        }
-    }
-}
-
-/// Возвращает receiver только для quoted PLAIN mechanism и literal response.
+/// Выбирает receiver для quoted либо literal PLAIN mechanism и response.
 pub(super) fn start(tail: &str) -> Start {
-    let Some((mechanism, marker)) = quoted_then_tail(tail) else {
-        return Start::NotLiteral;
-    };
-    match Mechanism::parse(&mechanism) {
-        Mechanism::Plain => literal(Operation::AuthenticatePlain, marker),
-        Mechanism::Unsupported => Start::NotLiteral,
+    match quoted_then_tail(tail) {
+        Some((mechanism, marker)) => match Mechanism::parse(&mechanism) {
+            Mechanism::Plain => literal(Operation::AuthenticatePlain, marker),
+            Mechanism::Unsupported => Start::NotLiteral,
+        },
+        None => match size(tail.trim()) {
+            Some((expected, continuation)) if expected <= super::MAX_LITERAL_BYTES => {
+                Start::Begin {
+                    receiver: LiteralReceiver::new(Operation::AuthenticateMechanism, expected),
+                    continuation,
+                }
+            }
+            Some(_) => Start::Invalid,
+            None => Start::NotLiteral,
+        },
     }
 }
 
