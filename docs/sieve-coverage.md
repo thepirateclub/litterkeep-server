@@ -186,7 +186,7 @@ ISO-8859-5, ISO-8859-6, ISO-8859-7, ISO-8859-8,
 ISO-8859-9, ISO-8859-10, TIS-620 (ISO-8859-11), ISO-8859-13, ISO-8859-14,
 ISO-8859-15, ISO-8859-16,
 Windows-1250, Windows-1251, Windows-1252, Windows-1253, Windows-1254,
-Windows-1255, Windows-1256, Windows-1257, Windows-1258,
+Windows-1255, Windows-1256, Windows-1257, Windows-1258, Windows-874,
 UTF-16, UTF-16BE и UTF-16LE. Три UTF-16 профиля используются в RFC 2047 и
 RFC 2231, но исключены из декодирования MIME `text/*` при поиске согласно
 RFC 2781. RFC 2231 начальная секция может опускать charset и language:
@@ -249,6 +249,13 @@ IANA charset [windows-1258](https://www.iana.org/assignments/charset-reg/windows
 hook, tilde и dot-below; Vietnamese sample сохраняет decomposed scalar order
 без нормализации. `cswindows1258` принимается, `cp1258` по IANA не alias.
 Сетевой client acceptance не выполнялся.
+
+IANA charset [windows-874](https://www.iana.org/assignments/charset-reg/windows-874)
+реализован по [Microsoft/Unicode CP874 table](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP874.TXT)
+отдельно от TIS-620/ISO-8859-11. Полный octet space и 31 undefined positions
+покрыты тестами; Thai sample и baht sign проверяют назначение, отличающееся
+от ISO-8859-11. `cswindows874` принимается как IANA registry alias, `cp874`
+согласно регистрации не alias. Wire acceptance не выполнялся.
 
 Зарегистрированный IANA charset windows-1252 теперь декодируется как отдельный
 профиль, не смешивая его с ISO-8859-1. Проверены все 32 octets диапазона

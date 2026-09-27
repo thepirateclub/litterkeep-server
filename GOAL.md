@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-27: G17 Windows-874 Thai MIME charset, scoped PASS T228
+
+- По Microsoft CP874 table и IANA registration добавлен отдельный typed
+  decoder, не смешанный с TIS-620/ISO-8859-11. Oracle проверяет каждый octet;
+  31 undefined octet отвергается, Thai word и baht назначение подтверждены.
+- IANA charset-registry alias `cswindows874` принимается; `cp874` отвергается,
+  поскольку registration явно говорит, что это не alias.
+- Windows Rust 1.97.1: 772 library tests и 1 CLI test прошли; один внешний
+  Unicode corpus ignored без fixture path. fmt, strict Clippy и diff check
+  прошли. Первый полный запуск имел неповторившийся `AlreadyExists` в
+  несвязанном temp-file test; targeted повтор и полный прогон затем прошли.
+- Linux Docker Rust 1.97: release build, strict Clippy, 856 library tests и
+  1 CLI test прошли; один внешний Unicode corpus ignored без fixture path.
+  Временный image удалён, отсутствие проверено; wire/client acceptance не
+  заявляются. G17 остаётся active.
+
 ### 2026-09-27: G17 Windows-1258 MIME charset, scoped PASS T227
 
 - По Microsoft CP1258 mapping и IANA registry добавлен typed decoder:

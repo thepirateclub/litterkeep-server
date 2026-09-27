@@ -291,6 +291,17 @@ fn windows_1258_preserves_vietnamese_combining_sequences_and_alias_policy() {
 }
 
 #[test]
+fn windows_874_decodes_thai_and_accepts_only_iana_names() {
+    let charset = Charset::parse("WINDOWS-874").expect("registered MIME charset");
+    assert_eq!(
+        charset.decode(b"\xc0\xd2\xc9\xd2\xe4\xb7\xc2"),
+        Ok("ภาษาไทย".to_owned())
+    );
+    assert_eq!(Charset::parse("csWindows874"), Ok(Charset::Windows874));
+    assert!(Charset::parse("cp874").is_err());
+}
+
+#[test]
 fn utf16_handles_registered_byte_orders_bom_and_supplementary_characters() {
     assert_eq!(
         Charset::parse("UTF-16")
