@@ -219,8 +219,12 @@ DerivedBidiClass и активируется для всех labels домена
 содержит R, AL или AN. ASCII SMTP address parser использует проверку LDH и
 полный round-trip для входных A-label. `to_alabel_domain` преобразует U-label
 домен в A-label DNS form; SMTP path использует это преобразование до route
-lookup. Полный официальный IDNA conformance corpus не пройден, DNS MX
-discovery и удалённая доставка U-label доменов здесь не проверены.
+lookup. Встроенная таблица RFC 5892 Derived Property сверена со всеми
+1,112,064 Unicode scalar values из официального Unicode 17 `Idna2008.txt`;
+это exhaustive property comparison, не проверка полной U-label/domain
+conformance suite, RFC 5891 registration workflow или каждой границы Punycode
+и whole-domain алгоритма. DNS MX discovery и удалённая доставка U-label
+доменов здесь не проверены.
 См. [RFC 3492](https://www.rfc-editor.org/rfc/rfc3492.html) и
 [RFC 5890](https://www.rfc-editor.org/rfc/rfc5890.html),
 [RFC 5891](https://www.rfc-editor.org/rfc/rfc5891.html) и

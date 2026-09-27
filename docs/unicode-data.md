@@ -92,6 +92,20 @@ binary search по этим shards. Для повтора нужны файл и
 cargo test --locked smtp::idna17::tests
 ```
 
+Отдельный ignored oracle test читает тот же закреплённый corpus и сверяет
+Derived Property для каждого Unicode scalar, включая ContextJ, ContextO и
+объединённые disallowed/unassigned значения. Его полный повтор:
+
+```powershell
+$env:LITTERKEEP_IDNA2008_FILE = (Resolve-Path data/g40-idna17/Idna2008.txt).Path
+cargo test --locked smtp::idna17::conformance_tests::derived_property_matches_official_unicode_17_corpus -- --ignored --exact
+Remove-Item Env:LITTERKEEP_IDNA2008_FILE
+```
+
+Пройденное сравнение охватывает 1,112,064 scalar values. Оно проверяет только
+таблицу категорий RFC 5892, не полную label/domain conformance для NFC, hyphen,
+ContextO/ContextJ, bidi, Punycode и A-label round-trip.
+
 Это только lookup RFC 5892 Derived Property. PVALID не означает, что полный
 label соответствует RFC 5891: NFC, ограничения дефиса, контекстные правила,
 bidi и A-label round-trip должны выполняться верхним IDNA-слоем.

@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-27: G17 RFC 5892 Unicode 17 Derived Property corpus, scoped PASS T234
+
+- Добавлен отдельный ignored Rust oracle test, который читает официальный
+  Unicode 17 `Idna2008.txt`, проверяет непрерывное покрытие U+0000..U+10FFFF и
+  сравнивает классификацию каждого Unicode scalar с production lookup.
+- Все 1,112,064 scalar values совпали, включая PVALID, CONTEXTJ, CONTEXTO и
+  общий disallowed/unassigned результат. Источник `./data/g40-idna17/Idna2008.txt`,
+  SHA-256 `E4A7526A8A37539C0DEFA4DA25F5DBF77D0212A14D4762D455CADEA608A8921C`.
+- Windows Rust 1.97.1: fmt, strict Clippy, 784 library + 1 CLI passed, 2
+  ignored; corpus oracle прошёл отдельно. Linux Docker Rust 1.97: release,
+  strict Clippy, 868 library + 1 CLI passed, 2 ignored; тот же oracle прошёл.
+  Временный container автоматически удалён и test image удалён с проверкой.
+- Это exhaustive Derived Property comparison, но не полная IDNA2008 label /
+  domain conformance, Punycode corpus, DNS MX и удалённая доставка. Цель G17 и
+  корневая цель остаются ACTIVE.
+
 ### 2026-09-27: G18 IMAP SEARCH single-byte MIME charset matrix, scoped PASS T233
 
 - Независимый Python-клиент отправил Alice одно multipart письмо с 26

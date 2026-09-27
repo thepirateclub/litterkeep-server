@@ -73,3 +73,7 @@ fn compare_code_point(code_point: u32, start: u32, end: u32) -> std::cmp::Orderi
 #[cfg(test)]
 #[path = "idna17/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "idna17/conformance_tests.rs"]
+mod conformance_tests;
