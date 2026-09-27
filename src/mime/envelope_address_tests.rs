@@ -149,6 +149,12 @@ fn decodes_quoted_pairs_in_display_name() {
         r#"(("Team \"North\" and \\ Group" NIL "alice" "example.test"))"#
     );
 }
+/// Запрещает неэкранированную кавычку внутри quoted display-name.
+#[test]
+fn rejects_unescaped_quote_in_quoted_display_name() {
+    let field = to_field("\"Alice\" forged\" <alice@example.test>");
+    assert!(parse(vec![&field]).is_err());
+}
 
 /// Декодирует RFC 2047 слова только в unquoted phrase позиции имени.
 #[test]

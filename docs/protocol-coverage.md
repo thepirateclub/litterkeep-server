@@ -832,6 +832,9 @@ ENVELOPE и SEARCH сворачивают `first (comment) . last @ example . te
 нормализации исключены и проверяются отдельными unit fixtures. Для quoted
 display-name отдельно проверено снятие quoted-pair: `\"` и `\\` в исходном
 header становятся буквальными `"` и `\` в ENVELOPE.
+Quoted display-name отвергает неэкранированную внутреннюю DQUOTE, сохраняя
+decode корректного quoted-pair. Это подтверждено unit regression; независимый
+wire-сценарий для некорректного display-name не запускался.
 После закрывающей `>` angle-addr parser разрешает только CFWS, включая
 комментарии, и отвергает произвольный хвост или второй angle-addr вместо
 молчаливого усечения адреса. Unit regression проверяет оба отказа и сохранение

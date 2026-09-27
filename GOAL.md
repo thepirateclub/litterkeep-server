@@ -1,5 +1,19 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 5322 quoted display-name validation, scoped PASS T286
+
+- Quoted display-name decoding removed valid quoted-pairs but previously let an
+  unescaped inner DQUOTE pass through as ordinary name data. The decoder now
+  rejects an unescaped quote while preserving escaped quotes; unit regressions
+  cover rejection and the existing escaped-quote acceptance.
+- Windows Rust 1.97.1 formatting, strict Clippy and all-target tests passed
+  (811 library + 1 CLI, 3 ignored). Fresh Linux Rust 1.97 Docker test stage
+  passed strict Clippy, 920 library + 1 CLI tests (3 ignored), and doc-tests.
+  The created test image was removed and absence verified.
+- This is quoted-string parser/unit evidence only, not independent IMAP wire or
+  app interoperability. Other RFC 5322 phrase forms remain incomplete and G18
+  stays ACTIVE.
+
 ### 2026-09-28: G18 RFC 5322 obsolete route element validation, scoped PASS T285
 
 - RFC 5322 §4.4 `obs-domain-list` permits empty comma positions after its

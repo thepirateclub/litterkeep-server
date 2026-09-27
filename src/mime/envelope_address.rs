@@ -234,6 +234,7 @@ fn decode_quoted_phrase(value: &str) -> Result<String, &'static str> {
                 Some(quoted) => decoded.push(quoted),
                 None => return Err("dangling quoted-pair in display name"),
             },
+            '"' => return Err("unescaped quote in display name"),
             _ => decoded.push(character),
         }
     }
