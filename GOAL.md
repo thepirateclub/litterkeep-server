@@ -6873,6 +6873,13 @@ ManageSieve до заявленного набора современных фо
 - Fixture сохранён в ./data/g31-binary-multipart-profile-wire. Bootstrap init контейнер завершился с --rm; временные runtime container и image удалены и отсутствие проверено. Проверялся независимый wire-клиент, не приложение Litterkeep.
 - Это закрывает перечисленные IMAP BINARY nested multipart paths, не полный MIME/IMAP4rev2 профиль; G17 остаётся ACTIVE.
 
+### 2026-09-27: G17 IMAP PEEK Seen и zero-count partial rejection wire, scoped PASS
+
+- Независимый Linux STARTTLS imaplib peer выбрал writable INBOX и на пяти nested MIME fixtures проверил, что `BINARY.PEEK[1.1]` и все partial BINARY.PEEK запросы оставили `\Seen` unset.
+- Partial count `0` для `BINARY.PEEK[1.1]<0.0>` и `BODY.PEEK[1.1]<0.0>` получил tagged BAD; NOOP после каждого отказа подтвердил сохранение рабочей IMAP-сессии. Требование non-zero count описано в [RFC 9051 §6.4.5](https://www.rfc-editor.org/rfc/rfc9051.html#section-6.4.5).
+- Python acceptance прошёл `py_compile`, скрипт ровно 300 строк; Rust production source не менялся, Rust suite в этом wire-only checkpoint не запускался. Fixture `./data/g34-imap-fetch-peek-wire` сохранён. Проверялся независимый клиент, приложение Litterkeep не запускалось.
+- Указанные FETCH-семантики подтверждены; полный IMAP/MIME профиль и G17 остаются ACTIVE.
+
 ### 2026-09-27: G17 IMAP nested BINARY partial decoded offsets, PARTIAL checkpoint
 
 - Независимый Linux STARTTLS peer отправил BINARY partial request для пяти multipart fixtures из T144. Команда вернула literal ssag, origin offset <2> и полный BINARY.SIZE 12, но выбранный offset не различал slicing decoded octets и encoded source.

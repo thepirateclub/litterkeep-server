@@ -4,6 +4,7 @@ import argparse
 from enum import Enum
 import imaplib
 import os
+import re
 import ssl
 import uuid
 
@@ -12,6 +13,7 @@ class ImapStatus(Enum):
     """Единственный допустимый успешный статус команд сценария."""
 
     OK = "OK"
+    BAD = "BAD"
 
 
 class MultipartProfile(Enum):
@@ -34,6 +36,18 @@ def require_ok(response: tuple[str, object], command: str) -> object:
     if observed is not ImapStatus.OK:
         raise AssertionError(f"{command}: {status!r} {detail!r}")
     return detail
+
+
+def require_bad_fetch(client: imaplib.IMAP4, number: str, command: str) -> None:
+    """Проверяет tagged BAD после неверного FETCH."""
+    try:
+        client.fetch(number, f"({command})")
+    except imaplib.IMAP4.error as error:
+        status = re.search(r"FETCH command error: ([A-Z]+)", str(error))
+        if status is not None and status.group(1) == ImapStatus.BAD.value:
+            return
+        raise AssertionError(f"{command}: expected tagged BAD, got {error!r}") from error
+    raise AssertionError(f"{command}: invalid zero-count range was accepted")
 
 
 def encapsulated_message() -> str:
@@ -226,6 +240,27 @@ def verify_partial_boundaries(
             raise AssertionError(f"{command}: origin label missing in {metadata!r}")
 
 
+def verify_peek_keeps_unseen(client: imaplib.IMAP4, number: str) -> None:
+    """Подтверждает, что BINARY.PEEK и partial-варианты не ставят Seen."""
+    response = require_ok(client.fetch(number, "(FLAGS)"), "FETCH FLAGS")
+    if not isinstance(response, list):
+        raise AssertionError(f"FLAGS returned invalid data: {response!r}")
+    metadata = b" ".join(value for value in response if isinstance(value, bytes))
+    if b"\\Seen" in metadata:
+        raise AssertionError(f"BINARY.PEEK changed Seen: {metadata!r}")
+
+
+def verify_zero_partial_rejected(client: imaplib.IMAP4, number: str) -> None:
+    """Проверяет nz-number64 и восстановление сессии после tagged BAD."""
+    commands = (
+        "BINARY.PEEK[1.1]<0.0>",
+        "BODY.PEEK[1.1]<0.0>",
+    )
+    for command in commands:
+        require_bad_fetch(client, number, command)
+        require_ok(client.noop(), "NOOP after rejected partial FETCH")
+
+
 def options() -> argparse.Namespace:
     """Читает адрес сервера и секрет из аргумента либо окружения."""
     parser = argparse.ArgumentParser()
@@ -252,13 +287,13 @@ def main() -> None:
         require_ok(client.login("bob", selected.password), "LOGIN")
         for _profile, source, _subject in fixtures:
             require_ok(client.append("INBOX", None, None, source), "APPEND")
-        require_ok(client.select("INBOX", readonly=True), "SELECT")
+        require_ok(client.select("INBOX"), "SELECT")
         for profile, _source, subject in fixtures:
             number = find_message(client, subject)
             verify_fetch(client, number, profile)
             verify_partial_boundaries(client, number)
-    print("PASS IMAP BINARY nested multipart profiles")
-
-
+            verify_peek_keeps_unseen(client, number)
+            verify_zero_partial_rejected(client, number)
+    print("PASS IMAP BINARY PEEK/partial semantics")
 if __name__ == "__main__":
     main()

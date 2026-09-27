@@ -493,6 +493,11 @@ Litterkeep.
 offset `0`, частичное усечение у конца (`dy`), ровно EOF, offset за EOF и count,
 превышающий остаток. Проверка подтвердила декодированные offsets и пустой literal
 в двух EOF-случаях.
+В writable mailbox этот же независимый клиент проверяет, что полный и partial
+`BINARY.PEEK` оставляют `\Seen` unset. Partial count `0` отвергается tagged `BAD`
+как для `BINARY.PEEK`, так и для `BODY.PEEK`; после каждого отказа `NOOP` проходит,
+то есть IMAP-сессия остаётся пригодной. Это подтверждение RFC 9051 §6.4.5 для
+указанных FETCH форм, не проверка клиента Litterkeep.
 Отсутствующий или синтаксически повреждённый `Content-Type` получает
 рекомендуемый RFC 2045 §5.2 fallback `text/plain`/US-ASCII; сырой MIME header
 не переписывается. Независимый STARTTLS клиент отправил оба варианта через SMTP
