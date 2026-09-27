@@ -219,7 +219,9 @@ continuation; non-synchronizing `{n+}` не вызывает continuation и о�
 4096 octets. Независимый STARTTLS клиент проверяет эту форму для LOGIN, SEARCH
 и APPEND, включая byte-exact APPEND round-trip. При превышении 4096 octets
 сервер закрывает соединение с `BYE [TOOBIG]`, не выделяя недопустимый payload.
-LITERAL+ и MULTIAPPEND не рекламируются.
+Нулевой APPEND literal получает tagged `NO APPEND cancelled`; independent peer
+проверяет после него `NOOP` и пустой mailbox через `SELECT`, а затем продолжает
+работу в той же STARTTLS-сессии. LITERAL+ и MULTIAPPEND не рекламируются.
 Для MULTIAPPEND подготовлена только внутренняя атомарная Store-транзакция с
 отдельными blob ID и общим commit ID; APPEND parser/reactor и UID-set response
 ещё не подключены. Это не сетевое покрытие RFC 3502.

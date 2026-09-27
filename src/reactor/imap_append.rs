@@ -122,6 +122,11 @@ pub(super) fn consume(
         }
         imap_literal::LiteralProgress::Complete(completed) => {
             session.imap_literal = None;
+            // RFC 3502 использует пустой literal для отмены и запрещает его публикацию.
+            if completed.bytes.is_empty() {
+                session.push(format!("{} NO APPEND cancelled\r\n", completed.tag).as_bytes())?;
+                return Ok(None);
+            }
             if matches!(
                 session.imap_string_mode,
                 imap::tokenizer::StringMode::Legacy

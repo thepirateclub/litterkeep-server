@@ -108,6 +108,18 @@ def main() -> None:
 
     mailbox = f"LiteralMinus-{uuid.uuid4().hex}"
     require(*client.create(mailbox), ImapCompletion.OK, "CREATE mailbox")
+    status, detail = client.append(mailbox, None, None, b"")
+    if status.upper() != "NO":
+        raise AssertionError(f"empty APPEND must be cancelled with NO: {status} {detail!r}")
+    require(*client.noop(), ImapCompletion.OK, "NOOP after cancelled APPEND")
+    selected = require(
+        *client.select(mailbox), ImapCompletion.OK, "SELECT after cancelled APPEND"
+    )
+    match selected:
+        case [b"0"]:
+            pass
+        case _:
+            raise AssertionError(f"cancelled APPEND changed mailbox contents: {selected!r}")
     require(
         *client.append(mailbox, None, None, b"Subject: seed\r\n\r\nliteral needle\r\n"),
         ImapCompletion.OK,

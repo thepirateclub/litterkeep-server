@@ -6754,3 +6754,22 @@ ManageSieve до заявленного набора современных фо
 - Это только storage groundwork: parser, IMAP session framing, APPENDUID UID-set
   serialization и independent wire acceptance ещё не сделаны. MULTIAPPEND не
   объявляется в CAPABILITY; общий G17 остаётся ACTIVE.
+
+### 2026-09-27: G17 RFC 3502 empty APPEND cancellation, scoped PASS
+
+- IMAP APPEND с literal длины 0 теперь завершается tagged `NO APPEND cancelled`
+  до передачи записи Store owner-у. Это сохраняет состояние mailbox и позволяет
+  использовать пустой literal как cancellation, как определяет RFC 3502.
+- Независимый STARTTLS acceptance проверяет `NO`, последующий `NOOP`, пустой
+  mailbox после `SELECT`, а затем успешные APPEND/SEARCH/FETCH в той же сессии.
+  Проверка расширяет существующий `imap_literal_minus.py`, который остаётся
+  меньше 300 строк.
+- Linux Rust 1.97 Docker: release build, strict Clippy, 677 library tests,
+  1 CLI test и doc-tests прошли; один внешний Unicode corpus test ignored.
+  Windows Rust 1.97.1: fmt, strict Clippy, 612 library tests, 1 CLI test и
+  doc-tests прошли. Fixture сохранён в
+  `./data/acceptance-imap-append-cancel-20260927`; disposable server container и
+  оба созданных image удалены, отсутствие проверено.
+- Этот узкий результат не завершает APPEND/MULTIAPPEND профиль. Пакетный parser,
+  reactor, APPENDUID UID-set и MULTIAPPEND wire acceptance остаются открытыми;
+  G17 остаётся ACTIVE.
