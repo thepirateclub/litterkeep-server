@@ -18,6 +18,7 @@ class Reply(bytes, Enum):
     AUTHENTICATED = b'OK "authenticated"\r\n'
     COMPLETED = b'OK "completed"\r\n'
     NONEXISTENT = b'NO (NONEXISTENT) "script does not exist"\r\n'
+    ACTIVE = b'NO (ACTIVE) "active script cannot be deleted"\r\n'
     LISTED = b'OK "list completed"\r\n'
     LOGOUT = b'OK "bye"\r\n'
 
@@ -96,6 +97,8 @@ def exercise_active_state(connection: socket.socket) -> None:
     if read_line(connection) != Reply.COMPLETED.value:
         raise AssertionError("PUTSCRIPT route failed")
     require_reply(connection, b'SETACTIVE "route"\r\n', Reply.COMPLETED)
+    require_script_listing(connection, active=True)
+    require_reply(connection, b'DELETESCRIPT "route"\r\n', Reply.ACTIVE)
     require_script_listing(connection, active=True)
     require_reply(connection, b'SETACTIVE ""\r\n', Reply.COMPLETED)
     require_script_listing(connection, active=False)

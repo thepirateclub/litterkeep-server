@@ -36,6 +36,9 @@ fn result_response(result: io::Result<()>) -> &'static [u8] {
         Err(error) if crate::store::is_sieve_missing_error(&error) => {
             b"NO (NONEXISTENT) \"script does not exist\"\r\n"
         }
+        Err(error) if crate::store::is_sieve_active_error(&error) => {
+            b"NO (ACTIVE) \"active script cannot be deleted\"\r\n"
+        }
         Err(_) => b"NO \"operation failed\"\r\n",
     }
 }
@@ -84,12 +87,17 @@ mod tests {
     fn mutation_result_distinguishes_quota_from_other_failures() {
         let quota = Err(crate::store::sieve_quota_test_error());
         let missing = Err(crate::store::sieve_missing_test_error());
+        let active = Err(crate::store::sieve_active_test_error());
         let storage = Err(io::Error::new(io::ErrorKind::StorageFull, "disk full"));
         assert_eq!(result_response(Ok(())), b"OK \"completed\"\r\n");
         assert_eq!(result_response(quota), b"NO (QUOTA) \"quota exceeded\"\r\n");
         assert_eq!(
             result_response(missing),
             b"NO (NONEXISTENT) \"script does not exist\"\r\n"
+        );
+        assert_eq!(
+            result_response(active),
+            b"NO (ACTIVE) \"active script cannot be deleted\"\r\n"
         );
         assert_eq!(result_response(storage), b"NO \"operation failed\"\r\n");
     }

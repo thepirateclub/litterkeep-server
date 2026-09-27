@@ -147,6 +147,11 @@ pub(crate) fn is_sieve_missing_error(error: &io::Error) -> bool {
     sieve_scripts::is_missing_error(error)
 }
 
+#[cfg(target_os = "linux")]
+pub(crate) fn is_sieve_active_error(error: &io::Error) -> bool {
+    sieve_scripts::is_active_error(error)
+}
+
 #[cfg(all(test, target_os = "linux"))]
 pub(crate) fn sieve_quota_test_error() -> io::Error {
     sieve_scripts::quota_test_error()
@@ -155,6 +160,11 @@ pub(crate) fn sieve_quota_test_error() -> io::Error {
 #[cfg(all(test, target_os = "linux"))]
 pub(crate) fn sieve_missing_test_error() -> io::Error {
     sieve_scripts::missing_test_error()
+}
+
+#[cfg(all(test, target_os = "linux"))]
+pub(crate) fn sieve_active_test_error() -> io::Error {
+    sieve_scripts::active_test_error()
 }
 
 pub(super) const DEFAULT_BLOB_QUOTA: u64 = 25 * 1024 * 1024;

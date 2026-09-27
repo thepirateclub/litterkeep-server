@@ -5,6 +5,8 @@
 
 #[path = "sieve_script_codec.rs"]
 mod codec;
+#[path = "sieve_script_error.rs"]
+mod error;
 
 use super::folders::validate_account;
 use crate::sieve;
@@ -70,14 +72,14 @@ impl SieveCatalog {
         valid_name(name)?;
         sieve::parse(&source).map_err(invalid)?;
         if source.len() > MAX_SCRIPT_BYTES {
-            return Err(quota_exceeded("sieve script quota exceeded"));
+            return Err(error::quota("sieve script quota exceeded"));
         }
         let candidate = self.candidate(account, |state| {
             if let (false, true) = (
                 state.scripts.contains_key(name),
                 state.scripts.len() >= MAX_SCRIPTS,
             ) {
-                return Err(quota_exceeded("sieve script count exceeded"));
+                return Err(error::quota("sieve script count exceeded"));
             }
             state.next_version = state
                 .next_version
@@ -114,7 +116,7 @@ impl SieveCatalog {
     pub(super) fn delete(&mut self, account: &str, name: &str) -> io::Result<()> {
         let candidate = self.candidate(account, |state| {
             if state.active.as_deref() == Some(name) {
-                return Err(invalid("cannot delete active sieve script"));
+                return Err(error::active());
             }
             match state.scripts.remove(name) {
                 Some(_) => Ok(()),
@@ -184,7 +186,7 @@ impl SieveCatalog {
         let mut state = self.accounts.get(account).cloned().unwrap_or_default();
         change(&mut state)?;
         if codec::encoded(&state).len() > MAX_ACCOUNT_BYTES {
-            return Err(quota_exceeded("sieve account quota exceeded"));
+            return Err(error::quota("sieve account quota exceeded"));
         }
         Ok(state)
     }
@@ -239,32 +241,29 @@ fn valid_name(name: &str) -> io::Result<()> {
     Ok(())
 }
 fn missing() -> io::Error {
-    io::Error::new(io::ErrorKind::NotFound, ScriptMissing)
+    error::missing()
 }
 fn invalid(message: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message)
 }
-fn quota_exceeded(message: &'static str) -> io::Error {
-    io::Error::other(QuotaExceeded(message))
-}
-
 #[cfg(any(test, target_os = "linux"))]
 pub(super) fn is_quota_error(error: &io::Error) -> bool {
-    error
-        .get_ref()
-        .is_some_and(|source| source.is::<QuotaExceeded>())
+    error::is_quota(error)
 }
 
 #[cfg(any(test, target_os = "linux"))]
 pub(super) fn is_missing_error(error: &io::Error) -> bool {
-    error
-        .get_ref()
-        .is_some_and(|source| source.is::<ScriptMissing>())
+    error::is_missing(error)
+}
+
+#[cfg(any(test, target_os = "linux"))]
+pub(super) fn is_active_error(error: &io::Error) -> bool {
+    error::is_active(error)
 }
 
 #[cfg(all(test, target_os = "linux"))]
 pub(super) fn quota_test_error() -> io::Error {
-    quota_exceeded("test quota")
+    error::quota("test quota")
 }
 
 #[cfg(all(test, target_os = "linux"))]
@@ -272,24 +271,7 @@ pub(super) fn missing_test_error() -> io::Error {
     missing()
 }
 
-#[derive(Debug)]
-struct QuotaExceeded(&'static str);
-
-impl std::fmt::Display for QuotaExceeded {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str(self.0)
-    }
+#[cfg(all(test, target_os = "linux"))]
+pub(super) fn active_test_error() -> io::Error {
+    error::active()
 }
-
-impl std::error::Error for QuotaExceeded {}
-
-#[derive(Debug)]
-struct ScriptMissing;
-
-impl std::fmt::Display for ScriptMissing {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("sieve script missing")
-    }
-}
-
-impl std::error::Error for ScriptMissing {}

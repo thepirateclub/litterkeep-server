@@ -87,3 +87,22 @@ fn missing_script_preserves_typed_not_found_cause() {
     drop(store);
     fs::remove_dir_all(root).expect("cleanup");
 }
+
+#[test]
+fn active_script_deletion_preserves_typed_active_cause() {
+    let root = directory();
+    let mut store = Store::open(&root).expect("open");
+    store
+        .put_sieve_script("bob", "route", "keep;".into())
+        .expect("put script");
+    store
+        .activate_sieve_script("bob", Some("route"))
+        .expect("activate script");
+    let error = store
+        .delete_sieve_script("bob", "route")
+        .expect_err("active script cannot be deleted");
+    assert_eq!(error.kind(), std::io::ErrorKind::PermissionDenied);
+    assert!(sieve_scripts::is_active_error(&error));
+    drop(store);
+    fs::remove_dir_all(root).expect("cleanup");
+}

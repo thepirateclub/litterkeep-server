@@ -990,6 +990,9 @@ succeeds with no active script, unknown name gets `NO (NONEXISTENT)`,
 LISTSCRIPTS shows activation and removes ACTIVE after empty-name deactivation,
 and a repeated deactivation succeeds. This is server/store evidence, not
 Litterkeep interoperability.
+The same TLS acceptance attempts DELETESCRIPT on the active script, expects
+`NO (ACTIVE)`, confirms the script remains active, then deletes it successfully
+after deactivation, as specified by RFC 5804 §2.10.
 
 ## Outbound SMTP
 

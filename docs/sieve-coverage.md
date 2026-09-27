@@ -47,6 +47,14 @@ activation, unknown-name rejection, activation in LISTSCRIPTS, deactivation of
 that active script, idempotent empty deactivation, and deletion after disable.
 This checks the server and Store owner, not Litterkeep app interoperability.
 
+RFC 5804 §2.10 forbids deleting the active script and recommends the `ACTIVE`
+response code. The Store now carries a typed active-script failure to the
+ManageSieve completion layer, which replies `NO (ACTIVE)` without mutating the
+catalog. The same independent TLS scenario attempts DELETESCRIPT while the
+script is active, confirms the error and unchanged ACTIVE listing, then
+deactivates and successfully deletes it. This is server/store wire coverage,
+not Litterkeep app interoperability.
+
 ManageSieve script count, per-script byte size and serialized account catalog
 are bounded in the Store. RFC 5804 §1.5 requires a `NO` response containing
 the `QUOTA` response code when an imposed quota rejects a command. Store quota

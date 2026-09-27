@@ -1,5 +1,18 @@
 # Goal ledger
 
+### 2026-09-27: G18 ManageSieve active-delete response code, scoped PASS T252
+
+- RFC 5804 §2.10 requires rejecting DELETESCRIPT on the active script and
+  recommends response code `ACTIVE`. Store errors now carry a typed
+  active-script marker and return `NO (ACTIVE)` without changing the catalogue.
+- The independent Linux TLS ManageSieve acceptance tries deletion while active,
+  verifies exact `NO (ACTIVE)` and the unchanged ACTIVE listing, then disables
+  and deletes the script. Windows Rust 1.97.1 strict Clippy and 800 library +
+  1 CLI pass, 3 fixture-dependent ignored. Linux Docker Rust 1.97.1 strict
+  Clippy, 885 library + 1 CLI pass, 3 ignored, release build and fmt pass.
+  Litterkeep client interoperability is not claimed. Container removed; the
+  existing Rust image is retained.
+
 ### 2026-09-27: G18 SETACTIVE missing-script code and active disable, scoped PASS T251
 
 - RFC 5804 §2.8 recommends `NONEXISTENT` for an unknown active script and
