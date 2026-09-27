@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 9051 UID FETCH implicit UID item, scoped PASS T277
+
+- RFC 9051 §6.4.8 requires UID in every FETCH response caused by UID FETCH,
+  regardless of the requested data items. The production serializer already
+  complied; this checkpoint adds regression evidence rather than changing
+  protocol behavior: UID FETCH inserts a missing UID, suppresses duplicates,
+  and ordinary FETCH does not inject an unrequested UID.
+- An independent Linux STARTTLS peer appended one message, compared ordinary
+  FETCH with `UID FETCH (FLAGS RFC822.SIZE)`, and verified exactly one matching
+  UID in the latter response. Rust 1.97.1 Windows fmt, strict Clippy and all
+  targets passed (807 library + 1 CLI, 3 ignored). A fresh Linux Docker test
+  build after the test-source change passed strict Clippy and 914 library + 1
+  CLI tests, 3 ignored. Python `py_compile` and `git diff --check` passed.
+- Fixture `./data/acceptance-imap-uid-fetch-implicit-20260928` is retained.
+  Created runtime container and both test images were removed and absence
+  verified. Acceptance used an independent protocol peer, not Litterkeep app;
+  broader IMAP4rev2 remains PARTIAL and G18 remains ACTIVE.
+
 ### 2026-09-27: G18 RFC 9051 SELECT FLAGS existing keywords, scoped PASS T270
 
 - The selected-mailbox `FLAGS` response now unions system flags with the

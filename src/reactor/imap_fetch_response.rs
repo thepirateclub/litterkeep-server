@@ -229,3 +229,7 @@ fn append_separator(response: &mut Vec<u8>, first: &mut bool) {
     }
     *first = false;
 }
+
+#[cfg(test)]
+#[path = "imap_fetch_response_tests.rs"]
+mod tests;
