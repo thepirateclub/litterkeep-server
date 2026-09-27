@@ -1,5 +1,19 @@
 # Goal ledger
 
+### 2026-09-27: G17 UTF-32 MIME charset support, scoped PASS T231
+
+- Добавляются только зарегистрированные UTF-32, UTF-32BE и UTF-32LE labels;
+  aliases не угадываются. Generic UTF-32 соблюдает IANA default big-endian и
+  распознаёт зарегистрированный big-endian BOM.
+- Scalar validation отвергает surrogate units и значения выше U+10FFFF.
+  Регистрация IANA помечает UTF-32 как unsuitable для MIME text, поэтому эти
+  labels исключены из `text/*` projection, но используются в RFC 2047/2231.
+- Windows Rust 1.97.1: fmt, strict Clippy, 784 library + 1 CLI passed;
+  один внешний Unicode corpus ignored без fixture.
+- Linux Docker Rust 1.97: release build, strict Clippy, 868 library + 1 CLI
+  passed; один внешний Unicode corpus ignored без fixture. Временный image
+  удалён, отсутствие проверено. Network/client acceptance не запускался.
+
 ### 2026-09-27: G17 IBM866 MIME integration, scoped PASS T230
 
 - В дополнение к таблице charset проверена реальная интеграция в RFC 2047

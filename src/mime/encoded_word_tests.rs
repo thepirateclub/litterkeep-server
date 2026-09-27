@@ -24,6 +24,15 @@ fn decodes_ibm866_encoded_word_from_legacy_russian_header() {
 }
 
 #[test]
+/// Проверяет поддержку UTF-32BE в RFC 2047 header encoded-word.
+fn decodes_utf32be_encoded_word() {
+    assert_eq!(
+        decode("=?UTF-32BE?B?AAH2AA==?=").expect("UTF-32BE encoded-word"),
+        "😀"
+    );
+}
+
+#[test]
 fn decodes_utf16be_encoded_word_without_external_codec() {
     assert_eq!(
         decode("=?UTF-16BE?B?AEgAaQ==?=").expect("UTF-16BE encoded-word"),

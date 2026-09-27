@@ -181,15 +181,17 @@ percent-encoded octets, а hexadecimal digits в escapes принимаются 
 общем parser-е и в Sieve vacation `:mime` validator; независимый IMAP wire test
 подтверждает decoded filename в BODYSTRUCTURE. Проверяются mixed encoded и
 unencoded continuation segments. Charset декодируется явным allowlist известных
-профилей: US-ASCII, UTF-8, ISO-8859-1, ISO-8859-2, ISO-8859-3, ISO-8859-4,
+профилей: US-ASCII, UTF-8, UTF-32, UTF-32BE, UTF-32LE,
+ISO-8859-1, ISO-8859-2, ISO-8859-3, ISO-8859-4,
 ISO-8859-5, ISO-8859-6, ISO-8859-7, ISO-8859-8,
 ISO-8859-9, ISO-8859-10, TIS-620 (ISO-8859-11), ISO-8859-13, ISO-8859-14,
 ISO-8859-15, ISO-8859-16,
 Windows-1250, Windows-1251, Windows-1252, Windows-1253, Windows-1254,
 Windows-1255, Windows-1256, Windows-1257, Windows-1258, Windows-874,
-UTF-16, UTF-16BE и UTF-16LE. Три UTF-16 профиля используются в RFC 2047 и
-RFC 2231, но исключены из декодирования MIME `text/*` при поиске согласно
-RFC 2781. RFC 2231 начальная секция может опускать charset и language:
+UTF-16, UTF-16BE и UTF-16LE. UTF-16 и UTF-32 profiles доступны для RFC 2047
+и RFC 2231, но исключены из MIME `text/*` decoding при поиске: UTF-16 по
+RFC 2781, а UTF-32 из-за IANA suitability registration. RFC 2231 начальная
+секция может опускать charset и language:
 непомеченный ASCII payload принимается, а high-bit octets без charset
 отвергаются, поскольку Unicode API не может безопасно угадать их кодировку.
 Языковой tag проверяется на well-formed BCP 47 структуру RFC 5646 и сохраняется
@@ -406,6 +408,13 @@ IANA charset [IBM866](https://www.iana.org/assignments/charset-reg/ibm866)
 зарегистрированные имена IBM866, CP866, csIBM866 и 866. Проверка покрывает
 MIME charset decoder unit-тестами; сетевое использование и клиентское
 подключение отдельно не проверялись.
+
+UTF-32, UTF-32BE и UTF-32LE зарегистрированные labels декодируются как Unicode
+scalars в RFC 2047 encoded-word и RFC 2231 extended values. Generic UTF-32 по
+IANA использует big-endian при отсутствии BOM и снимает только BE BOM; invalid
+surrogates и scalars выше U+10FFFF отвергаются. Эти labels не допускаются для
+MIME `text/*` decoding, поскольку IANA помечает их неподходящими для MIME text.
+Доказательства ограничены unit-тестами decoder-а и parser integration.
 
 Отдельная интеграционная регрессия проверяет IBM866 не только decoder-ом:
 RFC 2047 Base64 encoded-word темы `Привет` декодируется из CP866 octets, а

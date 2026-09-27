@@ -38,6 +38,9 @@ pub enum Charset {
     Utf16,
     Utf16Be,
     Utf16Le,
+    Utf32,
+    Utf32Be,
+    Utf32Le,
 }
 
 impl Charset {
@@ -78,13 +81,24 @@ impl Charset {
             "utf-16" => Ok(Self::Utf16),
             "utf-16be" => Ok(Self::Utf16Be),
             "utf-16le" => Ok(Self::Utf16Le),
+            "utf-32" => Ok(Self::Utf32),
+            "utf-32be" => Ok(Self::Utf32Be),
+            "utf-32le" => Ok(Self::Utf32Le),
             _ => Err("unsupported MIME charset"),
         }
     }
 
     /// Проверяет допустимость charset именно для MIME-подтипа text.
     pub fn is_suitable_for_text_mime(self) -> bool {
-        !matches!(self, Self::Utf16 | Self::Utf16Be | Self::Utf16Le)
+        !matches!(
+            self,
+            Self::Utf16
+                | Self::Utf16Be
+                | Self::Utf16Le
+                | Self::Utf32
+                | Self::Utf32Be
+                | Self::Utf32Le
+        )
     }
 
     /// Декодирует только известный профиль, сохраняя ошибку неизвестной кодировки.
@@ -133,6 +147,15 @@ impl Charset {
             }
             Self::Utf16Le => {
                 super::charset_utf16::decode(bytes, super::charset_utf16::ByteOrder::LittleEndian)
+            }
+            Self::Utf32 => {
+                super::charset_utf32::decode(bytes, super::charset_utf32::ByteOrder::DetectBom)
+            }
+            Self::Utf32Be => {
+                super::charset_utf32::decode(bytes, super::charset_utf32::ByteOrder::BigEndian)
+            }
+            Self::Utf32Le => {
+                super::charset_utf32::decode(bytes, super::charset_utf32::ByteOrder::LittleEndian)
             }
         }
     }

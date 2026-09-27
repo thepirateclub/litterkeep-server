@@ -40,6 +40,11 @@ mod charset_iso8859_9;
 mod charset_tis620;
 #[path = "mime/charset_utf16.rs"]
 mod charset_utf16;
+#[path = "mime/charset_utf32.rs"]
+mod charset_utf32;
+#[cfg(test)]
+#[path = "mime/charset_utf32_integration_tests.rs"]
+mod charset_utf32_integration_tests;
 #[path = "mime/charset_windows1250.rs"]
 mod charset_windows1250;
 #[path = "mime/charset_windows1253.rs"]
