@@ -27,3 +27,6 @@ pub use session::{Reply, ResponseCode, Session};
 #[cfg(test)]
 #[path = "pop3/tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "pop3/utf8_state_tests.rs"]
+mod utf8_state_tests;

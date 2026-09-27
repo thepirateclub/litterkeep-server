@@ -78,7 +78,7 @@ impl Session {
                 true => Reply::Error("STLS must precede UTF8"),
                 false => Reply::StartTls,
             },
-            (Phase::Authorization | Phase::UserAccepted, Command::Utf8) => {
+            (Phase::Authorization, Command::Utf8) => {
                 self.utf8_active = true;
                 Reply::Ok("UTF-8 mode enabled".into())
             }
