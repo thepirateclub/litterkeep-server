@@ -4,6 +4,26 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 Unicode 17 RFC 5892 derived-property lookup
+
+- Добавлен собственный классификатор Unicode 17 IDNA2008 Derived Property с
+  типами PVALID, CONTEXTJ, CONTEXTO и DisallowedOrUnassigned. Диапазоны
+  сгенерированы из закреплённого официального Idna2008.txt; generator проверяет
+  SHA-256, shards не превышают 300 строк. Три теста покрывают все типы на
+  представительных code points. Таблица содержит 1 244 включительных диапазона.
+- Windows Rust 1.97.1: targeted tests и strict all-target Clippy прошли;
+  Linux Docker Rust 1.97 release build, strict Clippy, 737 library tests,
+  1 CLI test и doctests прошли; один внешний normalization corpus test
+  пропущен без fixture. Linux targeted property tests также прошли. `cargo fmt
+  --check` и `git diff --check` прошли. Созданный image удалён, его tag
+  отсутствует; fixture `./data/g40-idna17/Idna2008.txt` сохранена для
+  воспроизводимой генерации. Источник и лицензия описаны в
+  `docs/unicode-data.md`.
+- Это property lookup, не IDNA label validator. Не реализованы NFC/hyphen/
+  contextual/bidi правила, A-label round-trip, DNS conversion и подключение к
+  SMTP parser; SMTPUTF8 не рекламируется. T189 является scoped PASS; G17 и
+  корневая цель остаются ACTIVE.
+
 ### 2026-09-27: G17 RFC 3492 bounded Punycode codec foundation
 
 - Добавлен собственный encoder/decoder Punycode Bootstring с checked arithmetic,

@@ -72,6 +72,31 @@ journals не переписываются. RFC 5198 формулирует
 Net-Unicode response paths и сама по себе не разрешает рекламировать
 `UTF8=ACCEPT`.
 
+## IDNA2008 derived properties для SMTP
+
+`smtp::idna17` использует официальный Unicode 17.0.0 файл
+`idna/Idna2008.txt`, формирующий производные свойства по RFC 5892. Источник:
+`https://www.unicode.org/Public/17.0.0/idna/Idna2008.txt`.
+SHA-256: `E4A7526A8A37539C0DEFA4DA25F5DBF77D0212A14D4762D455CADEA608A8921C`.
+Локальная копия для воспроизводимой генерации хранится в
+`./data/g40-idna17/Idna2008.txt`, не поставляется в runtime и не включается
+в бинарник.
+
+PowerShell-генератор `tools/generate_idna17_ranges.ps1` проверяет SHA-256,
+извлекает только PVALID/CONTEXTJ/CONTEXTO и делит отсортированные диапазоны
+на Rust shards размером не более 300 строк. Проверка каждого символа выполняет
+binary search по этим shards. Для повтора нужны файл из `./data` и PowerShell:
+
+```powershell
+.\tools\generate_idna17_ranges.ps1
+cargo test --locked smtp::idna17::tests
+```
+
+Это только lookup RFC 5892 Derived Property. PVALID не означает, что полный
+label соответствует RFC 5891: NFC, ограничения дефиса, контекстные правила,
+bidi и A-label round-trip должны выполняться верхним IDNA-слоем. Нынешний
+SMTP-парсер таблицей не пользуется и SMTPUTF8 не рекламирует.
+
 ## Unicode License V3
 
 Copyright © 1991-2026 Unicode, Inc.

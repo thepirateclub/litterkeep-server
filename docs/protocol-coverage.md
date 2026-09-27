@@ -188,9 +188,19 @@ ASCII domain; IDNA U-label validation и DNS conversion не реализова�
 unit-тестами. Это только переносная кодировка code points: по RFC 3492 правила
 допустимых IDNA labels остаются задачей верхнего слоя. SMTP address parser её
 пока не вызывает, U-label/A-label validation, contextual/bidi rules и DNS
-conversion не реализованы, поэтому SMTPUTF8 capability остаётся скрытой.
+conversion не реализованы. Дополнительно `smtp::idna17` классифицирует Unicode
+17 code points по сгенерированному официальному RFC 5892 Derived Property
+набору: PVALID, CONTEXTJ и CONTEXTO остаются разными typed результатами;
+прочие значения дают `DisallowedOrUnassigned`. Тесты проверяют представительные
+символы и каждый класс, а не весь IDNA conformance corpus. RFC 5892 прямо
+отделяет свойство code point от валидности label. Классификатор ещё не подключён
+к parser-у и не выполняет NFC, hyphen, contextual, bidi или A-label round-trip
+проверки. DNS conversion и capability SMTPUTF8 также не реализованы, поэтому
+сервер её не рекламирует.
 См. [RFC 3492](https://www.rfc-editor.org/rfc/rfc3492.html) и
-[RFC 5890](https://www.rfc-editor.org/rfc/rfc5890.html).
+[RFC 5890](https://www.rfc-editor.org/rfc/rfc5890.html),
+[RFC 5891](https://www.rfc-editor.org/rfc/rfc5891.html) и
+[RFC 5892](https://www.rfc-editor.org/rfc/rfc5892.html).
 MAIL с таким reverse-path требует флаг SMTPUTF8; без него parser возвращает
 отдельную typed policy error, сериализуемую как `550 5.6.7` для отправителя
 согласно RFC 6531 §3.5. Reactor guard отклоняет UTF-8 RCPT без флага активного

@@ -1,6 +1,8 @@
 //! SMTP submission transaction state.
 #[path = "smtp/command.rs"]
 mod command;
+#[path = "smtp/idna17.rs"]
+pub mod idna17;
 #[path = "smtp/punycode.rs"]
 pub mod punycode;
 pub(crate) use command::canonical_parts;
