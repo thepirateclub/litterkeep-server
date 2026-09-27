@@ -22,7 +22,10 @@ pub enum Command {
 
 /// Разбирает уже полный ManageSieve frame. Literal читает reactor до вызова.
 pub fn parse(line: &str) -> Command {
-    let mut words = words(line);
+    let mut words = match words(line) {
+        Ok(words) => words.into_iter(),
+        Err(()) => return Command::Invalid,
+    };
     let Some(verb) = words.next() else {
         return Command::Invalid;
     };
@@ -105,7 +108,8 @@ fn havespace(mut words: impl Iterator<Item = String>) -> Command {
 }
 
 /// Quoted strings экранируют только quote и backslash, как RFC 5804 strings.
-fn words(line: &str) -> impl Iterator<Item = String> + '_ {
+/// Разбирает атомы и quoted-string целиком, не теряя ошибочный хвост команды.
+fn words(line: &str) -> Result<Vec<String>, ()> {
     let mut result = Vec::new();
     let mut characters = line.chars().peekable();
     while let Some(character) = characters.next() {
@@ -113,10 +117,7 @@ fn words(line: &str) -> impl Iterator<Item = String> + '_ {
             continue;
         }
         match character {
-            '"' => match quoted(&mut characters) {
-                Ok(value) => result.push(value),
-                Err(_) => return result.into_iter(),
-            },
+            '"' => result.push(quoted(&mut characters)?),
             value => {
                 let mut word = String::from(value);
                 while let Some(next) = characters.peek().copied() {
@@ -130,7 +131,7 @@ fn words(line: &str) -> impl Iterator<Item = String> + '_ {
             }
         }
     }
-    result.into_iter()
+    Ok(result)
 }
 
 fn quoted(characters: &mut std::iter::Peekable<std::str::Chars<'_>>) -> Result<String, ()> {

@@ -70,6 +70,13 @@ fn command_parser_retains_quoted_script_and_rejects_extra_argument() {
 }
 
 #[test]
+fn command_parser_rejects_unterminated_or_invalid_quoted_strings() {
+    assert_eq!(parse("CAPABILITY \"unterminated"), Command::Invalid);
+    assert_eq!(parse("NOOP \"bad\\q\""), Command::Invalid);
+    assert_eq!(parse("NOOP \"dangling\\"), Command::Invalid);
+}
+
+#[test]
 fn noop_is_allowed_before_authentication_and_echoes_quoted_tag() {
     let mut session = Session::default();
     assert!(matches!(

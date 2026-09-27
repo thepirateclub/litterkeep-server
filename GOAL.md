@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-27: G18 ManageSieve malformed quoted-string rejection, scoped PASS T254
+
+- The RFC 5804 token reader previously returned a truncated token list after
+  an unterminated quoted string or invalid escape, allowing a command prefix
+  to be parsed as valid. Tokenization now returns an explicit error and the
+  command is rejected as syntax-invalid; focused parser regression covers
+  both failure forms.
+- Independent `tests/blackbox/managesieve_noop_tag.py` verified exact syntax
+  errors over the Linux release listener while preserving valid NOOP/TAG
+  responses. Windows Rust 1.97.1 fmt, strict Clippy and all-target tests passed:
+  802 library + 1 CLI, 3 external Unicode fixture tests ignored. Linux Docker
+  Rust 1.97.1 fmt, strict Clippy, 887 library + 1 CLI passed, 3 ignored, and
+  release build passed. Container removed and existing Rust image retained.
+  SCRAM-SHA-1 remains an explicit gap because the project production dependency
+  allowlist excludes required SHA-1/HMAC primitives.
+
 ### 2026-09-27: G18 ManageSieve RENAMESCRIPT response and active rename, scoped PASS T253
 
 - RFC 5804 §2.11 recommends `ALREADYEXISTS` for a target-name collision and

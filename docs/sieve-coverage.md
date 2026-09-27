@@ -65,6 +65,14 @@ both original scripts after rejection, then activates and renames one script
 and confirms its bytes and ACTIVE projection. This is not Litterkeep app
 interoperability.
 
+ManageSieve command tokenization now rejects malformed quoted strings instead
+of silently dropping an invalid suffix: unterminated strings and unsupported
+backslash escapes become syntax errors. Parser regression and independent
+Linux wire acceptance in `tests/blackbox/managesieve_noop_tag.py` verify both
+forms while retaining valid NOOP tag behavior. This does not close the
+mandatory SCRAM-SHA-1 gap; the project dependency allowlist currently excludes
+the SHA-1/HMAC primitives needed for a compliant implementation.
+
 ManageSieve script count, per-script byte size and serialized account catalog
 are bounded in the Store. RFC 5804 §1.5 requires a `NO` response containing
 the `QUOTA` response code when an imposed quota rejects a command. Store quota

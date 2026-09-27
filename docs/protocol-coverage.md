@@ -999,6 +999,12 @@ the new name. Store reopen and independent Linux TLS acceptance verify both
 properties, including exact script source bytes. Litterkeep interoperability
 is not verified.
 
+ManageSieve tokenizer rejects unterminated quoted strings and unsupported
+quoted-string escapes as syntax errors instead of accepting a valid command
+prefix. Parser tests and the independent Linux wire scenario verify both
+negative cases. Mandatory SCRAM-SHA-1 remains unimplemented under the current
+production dependency allowlist.
+
 ## Outbound SMTP
 
 Маршрут задаётся явно как IP:port и typed TLS policy. Scheduler durable,
