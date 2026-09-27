@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-27: G17 RFC 6856 LANG authorization and transaction states, PASS checkpoint
+
+- RFC 6856 §3.1 разрешает LANG только в AUTHORIZATION и TRANSACTION. POP3 FSM
+  ошибочно принимала LANG в промежуточном USERAccepted состоянии; теперь сервер
+  отвергает команду там и сохраняет возможность завершить PASS.
+- Unit regression и независимый Linux STARTTLS peer проверили LANG до USER,
+  отказ между USER/PASS, успешный PASS, LANG после входа, STAT и QUIT.
+- Windows Rust 1.97.1: 626 library tests и 1 CLI test прошли, 1 внешний UCD
+  test ignored без корпуса; strict Clippy, rustfmt, Python `py_compile` и
+  `git diff --check` прошли. Linux Docker test stage: strict Clippy, 692 library
+  tests и 1 CLI test прошли, 1 UCD test ignored, doc-tests прошли. Fixture
+  `./data/acceptance-pop3-lang-state-20260927` сохранён. Точный временный Docker
+  container/image удалён, отсутствие проверено. Независимый peer, не приложение
+  Litterkeep; полный POP3 профиль и G17 остаются ACTIVE.
+
 ### 2026-09-27: G17 RFC 6856 UTF8 command authorization state, PASS checkpoint
 
 - RFC 6856 §2.1 указывает AUTHORIZATION как единственное состояние, в котором

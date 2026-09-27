@@ -82,10 +82,9 @@ impl Session {
                 self.utf8_active = true;
                 Reply::Ok("UTF-8 mode enabled".into())
             }
-            (
-                Phase::Authorization | Phase::UserAccepted | Phase::Transaction,
-                Command::Lang(language),
-            ) => lang_reply(language),
+            (Phase::Authorization | Phase::Transaction, Command::Lang(language)) => {
+                lang_reply(language)
+            }
             (Phase::Authorization | Phase::UserAccepted, Command::Noop) => Reply::Ok("noop".into()),
             (Phase::Transaction, Command::Stat) => self.stat(),
             (Phase::Transaction, Command::List(number)) => self.list(number),
