@@ -18,7 +18,7 @@ CAPABILITY не выдаёт за более широкое расширение
 | Authentication | AUTHENTICATE PLAIN | PASS | Continuation, cancel, atom/quoted astring, пустой SASL-IR marker, authzid policy, только TLS; прочие механизмы не рекламируются |
 | Mailbox discovery | LIST, LSUB, STATUS | PARTIAL | CAPABILITY advertises implemented `LIST-EXTENDED` (RFC 5258) and `LIST-STATUS` (RFC 5819); modified UTF-7, `*`/`%`, root discovery, empty selection `()`, slash-delimited relative reference prefix with canonical response names, SUBSCRIBED, RECURSIVEMATCH with CHILDINFO for SUBSCRIBED/SPECIAL-USE, RETURN (CHILDREN), RETURN (SUBSCRIBED), and RETURN STATUS (MESSAGES/RECENT/UIDNEXT/UIDVALIDITY/UNSEEN/DELETED/SIZE/APPENDLIMIT) verified; RECENT reports unclaimed durable messages before SELECT and session-owned recent UIDs after SELECT, consistently in STATUS and LIST STATUS; combined UTF8=ACCEPT LIST/STATUS wire responses preserve Unicode mailbox names; missing names are selected only by SUBSCRIBED and retain `\\NonExistent`; multi-namespace/breakout naming is not implemented |
 | Namespace | NAMESPACE | PASS | Advertised and tested; personal namespace is `""` with `/` delimiter, unavailable classes are NIL |
-| Extension negotiation | ENABLE | PARTIAL | Atom and quoted-string token forms are distinguished; unsupported capability atoms are ignored; authenticated `ENABLE UTF8=ACCEPT` activates a connection-local mode and returns `ENABLED UTF8=ACCEPT`; extension remains hidden from CAPABILITY until the full profile gate passes |
+| Extension negotiation | ENABLE | PARTIAL | Atom and quoted-string token forms are distinguished; unquoted arguments are validated against the IMAP atom production, invalid atom-special characters receive tagged BAD, and valid unsupported capability atoms remain ignored; authenticated `ENABLE UTF8=ACCEPT` activates a connection-local mode and returns `ENABLED UTF8=ACCEPT`; extension remains hidden from CAPABILITY until the full profile gate passes |
 | Mailbox mutation | CREATE, DELETE, RENAME | PASS | Durable journal, subtree rename, retired folder IDs |
 | Subscription | SUBSCRIBE, UNSUBSCRIBE | PASS | Durable subscription независимо от существования папки |
 | Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS, PERMANENTFLAGS, включая `\\*` для создания пользовательских keywords, Recent |
@@ -130,6 +130,12 @@ token for the mandatory sequence-set instead of searching past list delimiters.
 The malformed command `FETCH (1 FLAGS` is rejected with tagged BAD; the
 independent STARTTLS grammar scenario also verifies NOOP recovery. This closes
 only this FETCH boundary, not the remaining atom productions or IMAP4rev2.
+
+G18 ENABLE atom checkpoint (2026-09-27): each unquoted ENABLE capability is
+validated as an IMAP atom before Enum conversion. Independent STARTTLS grammar
+acceptance confirms `ENABLE X%` receives tagged BAD, while valid unknown
+`X-UNKNOWN` is ignored with an empty ENABLED response and tagged OK. The ENABLE
+and UTF8=ACCEPT profile remains PARTIAL; IMAP4rev2 is not claimed.
 
 G17 astring checkpoint (2026-09-26): LOGIN and SELECT/EXAMINE now validate raw
 atom tokens against `ASTRING-CHAR`; special characters require quoted form,

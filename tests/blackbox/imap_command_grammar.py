@@ -46,6 +46,7 @@ def main() -> None:
     else:
         password = os.environ["LITTERKEEP_BOB_PASSWORD"]
     require(client.login("bob", password), ImapStatus.OK)
+    require_enable_atom_grammar(client)
     require_list_mailbox_grammar(client)
     require_append_internal_date_grammar(client)
     require_append_limit(client)
@@ -210,6 +211,21 @@ def require_bad_fetch_sequence_set(client: imaplib.IMAP4) -> None:
     status, detail = client._get_tagged_response(tag)
     if ImapStatus(status) is not ImapStatus.BAD:
         raise AssertionError(f"malformed FETCH sequence-set status: {status} {detail!r}")
+
+
+def require_enable_atom_grammar(client: imaplib.IMAP4) -> None:
+    """Отличает неизвестный capability atom от неверного atom syntax."""
+    client.send(b"A30 ENABLE X%\r\n")
+    response = client.readline()
+    if not response.startswith(b"A30 BAD "):
+        raise AssertionError(f"invalid ENABLE atom response: {response!r}")
+    client.send(b"A31 ENABLE X-UNKNOWN\r\n")
+    enabled = client.readline()
+    completion = client.readline()
+    if not enabled.startswith(b"* ENABLED\r\n"):
+        raise AssertionError(f"unknown ENABLE atom response: {enabled!r}")
+    if not completion.startswith(b"A31 OK "):
+        raise AssertionError(f"unknown ENABLE capability response: {completion!r}")
 
 
 def require_append_internal_date_grammar(client: imaplib.IMAP4) -> None:

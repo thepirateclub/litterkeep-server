@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-27: G18 IMAP ENABLE atom validation, scoped PASS T265
+
+- ENABLE now validates each unquoted capability token as an IMAP atom before
+  mapping it to the capability enum. Invalid atom-special characters produce
+  a syntax error; valid but unknown capability atoms remain typed as
+  `Unsupported` and are ignored as required. ENABLE and UTF8=ACCEPT coverage
+  remain partial; this is not an IMAP4rev2 claim.
+- Unit tests distinguish malformed atoms from valid unknown names.
+  Independent Linux STARTTLS grammar acceptance verifies tagged BAD for
+  `ENABLE X%`, an empty ENABLED response and tagged OK for `ENABLE X-UNKNOWN`,
+  then completes the broader grammar scenario.
+- Windows Rust 1.97.1 fmt, strict Clippy and full tests passed (807 library,
+  1 CLI, 3 ignored). Linux Docker Rust 1.97.1 tests passed (906 library,
+  1 CLI, 3 ignored); rustfmt, strict Clippy and the STARTTLS wire scenario
+  passed. Stage containers were removed; the existing Rust image was retained
+  and no image was created. Fixture remains under
+  `./data/acceptance-imap-enable-atom-20260927`.
+
 ### 2026-09-27: G18 IMAP FETCH sequence-set framing, scoped PASS T264
 
 - FETCH now consumes exactly the next token for its mandatory sequence-set;

@@ -507,6 +507,8 @@ MIME paths, вложенный `message/rfc822` и partial ranges; durable `\\Se
 STARTTLS клиент подтвердил, что ENABLE игнорирует неизвестный capability,
 возвращает пустой `ENABLED` и не меняет CAPABILITY. Сетевая проверка также
 подтвердила отказ от quoted capability и сквозное совпадение байтов вложения;
+отдельная grammar-проверка получает tagged BAD для `ENABLE X%`, сохраняя
+игнорирование корректного неизвестного atom `X-UNKNOWN`;
 проверки BODY/Seen, headers, body, flags и UNSELECT подтверждены отдельно.
 RFC 9051 BINARY, BINARY.PEEK и BINARY.SIZE декодируют MIME CTE до
 partial slicing; BINARY применяет literal8 при NUL, нормализует текст к CRLF
