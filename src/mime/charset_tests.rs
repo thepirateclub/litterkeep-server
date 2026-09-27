@@ -264,6 +264,22 @@ fn windows_1256_decodes_arabic_and_accepts_only_registered_names() {
 }
 
 #[test]
+fn windows_1257_decodes_baltic_text_and_registered_alias() {
+    let charset = Charset::parse("WINDOWS-1257").expect("registered MIME charset");
+    assert_eq!(charset.decode(b"\xc0ietuva"), Ok("Ąietuva".to_owned()));
+    assert_eq!(Charset::parse("csWindows1257"), Ok(Charset::Windows1257));
+    assert!(Charset::parse("cp1257").is_err());
+    for byte in [
+        0x81, 0x83, 0x88, 0x8a, 0x8c, 0x90, 0x98, 0x9a, 0x9c, 0x9f, 0xa1, 0xa5,
+    ] {
+        assert!(
+            charset.decode(&[byte]).is_err(),
+            "undefined octet {byte:#04x}"
+        );
+    }
+}
+
+#[test]
 fn utf16_handles_registered_byte_orders_bom_and_supplementary_characters() {
     assert_eq!(
         Charset::parse("UTF-16")
