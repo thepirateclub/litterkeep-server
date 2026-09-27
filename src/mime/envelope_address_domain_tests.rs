@@ -54,4 +54,39 @@ fn preserves_domain_literal_separators_inside_angle_address() {
     let domain = format!("[bad{}literal]", '\0');
     let literal = format!("{{{}}}\r\n{domain}", domain.len());
     assert!(envelope.contains(&literal));
+
+    // RFC 5322 obs-qp расширяет dtext на NUL, CR, LF и ASCII controls.
+    let quoted_controls = [
+        '\0', '\u{1}', '\u{8}', '\u{11}', '\u{12}', '\u{14}', '\u{1f}', '\u{7f}', '\r', '\n',
+    ];
+    for control in quoted_controls {
+        let source = format!("Literal <host@[left\\{control}right]>");
+        let field = to_field(&source);
+        assert!(
+            super::parse(vec![&field]).is_ok(),
+            "rejected obs-qp {control:?}"
+        );
+    }
+
+    // obs-NO-WS-CTL допустим непосредственно, без quoted-pair.
+    let bare_obs_controls = [
+        '\u{1}', '\u{8}', '\u{11}', '\u{12}', '\u{14}', '\u{1f}', '\u{7f}',
+    ];
+    for control in bare_obs_controls {
+        let source = format!("Literal <host@[left{control}right]>");
+        let field = to_field(&source);
+        assert!(
+            super::parse(vec![&field]).is_ok(),
+            "rejected obs-dtext {control:?}"
+        );
+    }
+
+    for control in ['\0', '\r', '\n'] {
+        let source = format!("Literal <host@[left{control}right]>");
+        let field = to_field(&source);
+        assert!(
+            super::parse(vec![&field]).is_err(),
+            "accepted non-dtext {control:?}"
+        );
+    }
 }

@@ -2,6 +2,13 @@
 
 ### 2026-09-28: G18 RFC 5322 obsolete quoted-pair in IMAP ENVELOPE, scoped PASS T292
 
+- Follow-up parser regression covers all representative `obs-NO-WS-CTL` byte
+  ranges (1-8, 11-12, 14-31, 127), accepts NUL/CR/LF when protected by
+  obsolete quoted-pair, and rejects those three octets unquoted. Focused unit
+  test plus Windows 1.97.1 fmt, all-target tests (814 library + 1 CLI, 3
+  ignored), and strict Clippy passed. A fresh Linux Docker test stage also
+  passed strict Clippy, 923 library + 1 CLI tests (3 ignored), and doc-tests.
+
 - Audit correction: the prior independent wire test covered an address without
   comments only. A parser regression is added for a trailing comment plus an
   escaped domain-literal closer. Wire interoperability for this combined form

@@ -45,7 +45,8 @@ CRLF удаляется. Независимые SMTP STARTTLS -> IMAP STARTTLS B
 ManageSieve STARTTLS CHECKSCRIPT подтвердили точные octets и приём корректной
 MIME-формы. Это тесты независимого клиента, не Litterkeep.
 
-T292 проверяет RFC 5322 obs-qp в domain-literal: независимый imaplib-клиент
+T292 проверяет RFC 5322 obs-qp в domain-literal: unit test покрывает диапазоны
+obs-NO-WS-CTL, quoted/unquoted NUL/CR/LF; независимый imaplib-клиент
 помещает через APPEND тестовое сообщение с quoted NUL и читает ENVELOPE.
 Ответ использует IMAP synchronizing literal; его 11 октетов содержат decoded
 host без семантически невидимого quoting backslash. Первоначальная проверка

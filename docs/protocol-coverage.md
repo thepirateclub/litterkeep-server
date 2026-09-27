@@ -850,7 +850,9 @@ Comment removal также сохраняет скобки и содержимо
 исходную quoted-pair до этой нормализации. Parser regression покрывает форму с
 trailing comment; независимое wire-подтверждение этого сочетания отсутствует.
 Проверка `dtext` принимает видимые ASCII-символы, разрешённые пробелы,
-obs-NO-WS-CTL и UTF-8 non-ASCII по RFC 6532; неэкранированный NUL отвергается.
+obs-NO-WS-CTL и UTF-8 non-ASCII по RFC 6532. Unit regression покрывает все
+диапазоны obs-NO-WS-CTL и отдельно подтверждает, что NUL/CR/LF допускаются
+только через obsolete quoted-pair.
 RFC 5322 obs-qp допускает quoted NUL/CR/LF в исходном поле, но quoting
 backslash семантически невидим. Независимый Python imaplib STARTTLS APPEND/FETCH
 для формы без comments наблюдал synchronizing literal с 11 октетами и без
