@@ -12,9 +12,10 @@ Current subgoal: G17
   соединения. POP3 QUIT сохраняет прежний порядок `+OK`, alert, cleanup.
 - Linux Docker Rust 1.97 gate прошёл: strict Clippy, 696 library tests,
   1 CLI test и doc-tests; 1 внешний Unicode corpus test ignored из-за
-  отсутствующего файла. Независимый POP3 implicit-TLS peer проверил ответный
-  alert после greeting/USER без QUIT, а отдельная сессия проверила AUTH PLAIN,
-  QUIT reply и alert через `unwrap()`.
+  отсутствующего файла. Независимый POP3 implicit-TLS peer захватил maildrop
+  через AUTH PLAIN, отправил alert без QUIT, завершил `unwrap()` и повторно
+  аутентифицировал тот же аккаунт, проверив освобождение maildrop lease.
+  Отдельное соединение проверило QUIT reply и alert через `unwrap()`.
 - Fixture `./data/acceptance-pop3-peer-close-20260927` сохранена. Проверен
   POP3 runtime, не клиент Litterkeep; другие TLS-протоколы и peer close при
   незавершённых Store-командах не являются частью wire acceptance. G17 и

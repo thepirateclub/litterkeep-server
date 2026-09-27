@@ -670,10 +670,12 @@ RSET и QUIT. Maildrop lease исключает двух разрушающих 
 transport сохраняет close state; reactor сначала обрабатывает уже полученные
 POP3-команды и дожидается pending Store completion, затем дренирует ответы,
 инициирует ответный alert и освобождает ресурс через общий lifecycle cleanup.
-Независимый implicit-TLS peer прочитал greeting и ответ на USER, отправил alert
-без QUIT и завершил `unwrap()`; отдельное соединение проверило QUIT reply и
-ответный alert. Это проверка двух POP3 closure путей, не всех причин закрытия
-TLS для остальных протоколов. См. [RFC 8314 §3.4](https://www.rfc-editor.org/rfc/rfc8314.html#section-3.4).
+Независимый implicit-TLS peer аутентифицировался и захватил maildrop, отправил
+alert без QUIT, завершил `unwrap()`, затем второй клиент успешно захватил тот же
+maildrop; отдельное соединение проверило QUIT reply и ответный alert. Это
+проверка двух POP3 closure путей и освобождения maildrop lease, не всех причин
+закрытия TLS для остальных протоколов. См.
+[RFC 8314 §3.4](https://www.rfc-editor.org/rfc/rfc8314.html#section-3.4).
 AUTHORIZATION FSM требует `USER` перед `PASS`, отклоняет повторный `USER`
 после положительного ответа, а после отклонённого USER или failed PASS очищает
 имя и требует новую команду USER. Независимый STLS клиент проверил этот порядок с ошибочным и затем
