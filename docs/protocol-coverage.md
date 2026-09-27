@@ -259,8 +259,9 @@ IMAP STARTTLS/SASL PLAIN;
 совпало побайтно, SHA-256 `7f4e114fb71bb6cf784bda9f0d77d06e3ccb15cfdc667bbad322dcef81da20f8`.
 Это историческая T84 forced-extension проверка, созданная до T195: тогда
 SMTPUTF8 намеренно передавался без advertisement и проверялся только внутренний
-путь доставки, не interoperability. Ее актуальный conforming wire acceptance
-приведён ниже. Сам флаг не требует BODY=8BITMIME: 8-bit тела по-прежнему
+путь доставки, не interoperability; её запись в acceptance.tsv помечена
+SUPERSEDED. Актуальный conforming wire acceptance приведён ниже. Сам флаг не
+требует BODY=8BITMIME: 8-bit тела по-прежнему
 разрешаются только BODY=8BITMIME, а UTF-8 заголовки требуют SMTPUTF8. Отдельный conforming STARTTLS клиент далее
 передаёт U-label `пользователь@bücher.test`, читает MIME вложение по IMAP и
 независимо сравнивает точные octets. Account

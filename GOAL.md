@@ -1,5 +1,20 @@
 # Goal ledger
 
+### 2026-09-28: G18 stale SMTPUTF8 acceptance reconciled, scoped PASS T293
+
+- Current source advertises `8BITMIME` and `SMTPUTF8` in each ESMTP EHLO
+  response variant. T195 already supplies independent STARTTLS acceptance for
+  capability advertisement, the required MAIL flag, U-label routing to the
+  allowlisted local A-label, RSET state reset, and byte-identical IMAP
+  attachment retrieval.
+- The older T84 row still incorrectly claimed SMTPUTF8 was absent and U-label
+  domains unsupported despite T204 having documented the superseding evidence.
+  T84 is now explicitly `SUPERSEDED`; protocol-coverage text points to T195.
+- This is a status/documentation reconciliation based on current source and
+  recorded T195 evidence, not a new wire run. External DNS/MX delivery, broad
+  RFC 6532 structured-field grammar and Litterkeep app compatibility remain
+  unverified; G18 stays ACTIVE.
+
 ### 2026-09-28: G18 RFC 5322 obsolete quoted-pair in IMAP ENVELOPE, scoped PASS T292
 
 - Follow-up parser regression covers all representative `obs-NO-WS-CTL` byte
