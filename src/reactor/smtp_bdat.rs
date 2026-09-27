@@ -110,7 +110,7 @@ fn fail_sequence(session: &mut Session) -> io::Result<()> {
         }
         state => {
             session.smtp = state;
-            session.push(b"503 5.5.1 bad sequence\\r\\n")
+            session.push(b"503 5.5.1 bad sequence\r\n")
         }
     }
 }

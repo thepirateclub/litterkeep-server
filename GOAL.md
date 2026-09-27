@@ -7401,3 +7401,7 @@ ManageSieve до заявленного набора современных фо
   test и doc-tests; один UCD corpus test ignored из-за отсутствующего файла.
   Runtime/test images и контейнер удалены. G17 остаётся ACTIVE; BINARYMIME и
   полный RFC 3030 conformance suite не проверялись.
+- Повторный review обнаружил literal CRLF typo в fallback-ответе sequence error;
+  wire-visible ветка не была достигнута acceptance. Литерал исправлен, strict
+  Docker gate и свежие raw/SMTP-to-IMAP acceptance пройдены повторно. Этот
+  fallback case отдельно не достигался клиентом и не заявляется как wire-tested.
