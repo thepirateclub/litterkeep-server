@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 RFC 2045 quoted-printable linear whitespace scan
+
+- Устранён квадратичный lookahead при декодировании длинных SP/HTAB runs:
+  decoder теперь классифицирует непрерывный участок за один проход. Transport
+  padding у hard CRLF/end-of-object удаляется; пробелы перед `=` soft break
+  сохраняются как encoded content по RFC 2045 §6.7.
+- Добавлен unit-вектор с 8 KiB WSP для обеих позиций. Windows Rust 1.97 targeted
+  test прошёл. Linux Docker Rust 1.97 strict Clippy и полный gate прошли:
+  727 library tests, 1 внешний Unicode corpus test ignored без fixture, 1 CLI
+  test и doctests; новый targeted Linux test также прошёл.
+- `cargo fmt --check` и `git diff --check` пройдены. Test image удалён,
+  отсутствие подтверждено; контейнеры acceptance запускались с `--rm`. Это
+  targeted decoder coverage, не полный RFC-векторный корпус и не проверка
+  Litterkeep app. T185 записан как scoped PASS; G17 и корневая цель остаются
+  ACTIVE.
+
 ### 2026-09-27: G17 SMTP HELP command inventory
 
 - Исправлен неполный ответ HELP: в многострочный список добавлены уже

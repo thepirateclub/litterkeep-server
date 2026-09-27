@@ -562,7 +562,10 @@ STARTTLS -> IMAP STARTTLS BINARY.PEEK подтвердил удаление SP/T
 padding и сохранение decoded `=20`. SP/TAB перед soft break `=CRLF` являются
 содержимым `qp-segment` и сохраняются, тогда как SP/TAB после последнего
 символа hard line удаляются как transport padding. Unit-регрессии проверяют
-обе позиции; отдельные [RFC 2045 §6.7](https://www.rfc-editor.org/rfc/rfc2045.html#section-6.7)
+обе позиции; новый большой-входной вектор проверяет 8 KiB непрерывного WSP
+перед hard CRLF и soft break. Decoder обрабатывает каждый пробельный участок
+одним проходом, избегая квадратичного повторного lookahead. Отдельные
+[RFC 2045 §6.7](https://www.rfc-editor.org/rfc/rfc2045.html#section-6.7)
 векторы проверяют нормативные примеры и полное тело. Для исходящего
 Sieve vacation отдельный
 ManageSieve -> SMTP submission -> durable queue -> независимый SMTP peer

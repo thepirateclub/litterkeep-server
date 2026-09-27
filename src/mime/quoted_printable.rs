@@ -34,8 +34,8 @@ fn decode_with_policy(input: &[u8], policy: InvalidEscapePolicy) -> Result<Vec<u
                 cursor = cursor.saturating_add(2);
             }
             b'\n' => return Err("bare LF in quoted-printable"),
-            b' ' | b'\t' if is_transport_padding(input, cursor) => {
-                cursor = cursor.saturating_add(1);
+            b' ' | b'\t' => {
+                cursor = decode_whitespace_run(input, cursor, &mut output)?;
             }
             _ => {
                 output.push(byte);
@@ -46,16 +46,29 @@ fn decode_with_policy(input: &[u8], policy: InvalidEscapePolicy) -> Result<Vec<u
     Ok(output)
 }
 
-/// Отделяет padding перед hard CRLF от пробелов внутри encoded-текста.
+/// Обрабатывает непрерывную группу SP/HTAB за один линейный проход.
 ///
-/// По RFC 2045 §6.7 пробелы перед финальным `=` soft break входят в qp-segment,
-/// поэтому lookahead останавливается на `=` и декодер сохраняет эти octets.
-fn is_transport_padding(input: &[u8], cursor: usize) -> bool {
-    let mut lookahead = cursor;
-    while matches!(input.get(lookahead), Some(b' ' | b'\t')) {
-        lookahead = lookahead.saturating_add(1);
+/// RFC 2045 §6.7 удаляет transport padding у hard line, но сохраняет WSP перед
+/// `=` soft break, поскольку этот пробел принадлежит encoded содержимому.
+fn decode_whitespace_run(
+    input: &[u8],
+    cursor: usize,
+    output: &mut Vec<u8>,
+) -> Result<usize, &'static str> {
+    let mut end = cursor;
+    while matches!(input.get(end), Some(b' ' | b'\t')) {
+        end = end.saturating_add(1);
     }
-    matches!(input.get(lookahead), None | Some(b'\r' | b'\n'))
+    match input.get(end) {
+        None | Some(b'\r' | b'\n') => Ok(end),
+        Some(_) => {
+            let run = input
+                .get(cursor..end)
+                .ok_or("invalid quoted-printable whitespace range")?;
+            output.extend_from_slice(run);
+            Ok(end)
+        }
+    }
 }
 
 fn decode_escape(
@@ -164,5 +177,24 @@ mod tests {
     fn preserves_content_whitespace_before_soft_line_break() {
         assert_eq!(decode(b"visible \t=\r\nnext").unwrap(), b"visible \tnext");
         assert_eq!(decode(b"visible=20=\r\nnext").unwrap(), b"visible next");
+    }
+
+    /// Длинные WSP runs не требуют повторного сканирования suffix для каждого октета.
+    #[test]
+    fn processes_large_whitespace_runs_without_changing_qp_semantics() {
+        let run_length = 8_192;
+        let whitespace = std::iter::repeat_n(b' ', run_length);
+        let mut padded = vec![b'a'];
+        padded.extend(whitespace.clone());
+        padded.extend_from_slice(b"\r\nb");
+        assert_eq!(decode(&padded).expect("transport padding"), b"a\r\nb");
+
+        let mut soft_break = vec![b'a'];
+        soft_break.extend(whitespace.clone());
+        soft_break.extend_from_slice(b"=\r\nb");
+        let mut expected = vec![b'a'];
+        expected.extend(whitespace);
+        expected.push(b'b');
+        assert_eq!(decode(&soft_break).expect("soft-break content"), expected);
     }
 }
