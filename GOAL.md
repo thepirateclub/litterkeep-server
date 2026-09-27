@@ -1,5 +1,24 @@
 # Goal ledger
 
+### 2026-09-27: G17 RFC 3492 §7.1 complete sample set, scoped PASS T235
+
+- Punycode unit test now verifies all 19 official RFC 3492 §7.1 sample strings
+  in both encode and decode directions. Russian sample I uses the corrected
+  spelling from RFC Editor Erratum 3026; pure-ASCII sample S checks Bootstring,
+  not IDNA label acceptance. Production codec required no changes.
+- Fixed contradictory Unicode documentation: SMTP U-label and SMTPUTF8 are
+  connected in the incoming local route path, while the complete IDNA label /
+  domain conformance corpus and remote MX delivery remain unverified.
+- Rust 1.97.1 Windows: `cargo fmt --check`, strict Clippy, 784 library + 1 CLI
+  tests passed; 2 fixture-dependent corpus tests ignored. Linux Docker Rust
+  1.97: release build passed; Clippy component download stalled, so that build
+  was stopped and its temporary image/container absence verified. A separate
+  disposable `rust:1.97-bookworm` container ran `cargo test --locked`: 868
+  library + 1 CLI passed, 2 fixture-dependent tests ignored; `--rm` removed
+  the container. Linux Clippy is not verified for this stage.
+- This is RFC sample-vector coverage, not a complete Punycode or IDNA
+  conformance suite, no DNS MX test, and no Litterkeep application test.
+
 ### 2026-09-27: G17 RFC 5892 Unicode 17 Derived Property corpus, scoped PASS T234
 
 - Добавлен отдельный ignored Rust oracle test, который читает официальный

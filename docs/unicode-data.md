@@ -144,9 +144,19 @@ ASCII DNS form. RFC 5891 запрет ведущих combining marks обесп�
 General_Category Mn/Mc/Me из Unicode 17 `UnicodeData.txt` (тот же закреплённый
 SHA-256 источника NFC/virama). Генератор
 `tools/generate_idna17_marks.ps1` воспроизводит 327 ranges в двух source shards.
-SMTP path parser использует IDNA validation для ASCII domains; Unicode U-label
-в path и SMTPUTF8 capability пока не подключены. Официальная полная IDNA
-conformance suite ещё не выполнена.
+SMTP path parser применяет проверку домена IDNA2008: Unicode U-label
+преобразуются в ASCII A-label до локальной маршрутизации. SMTPUTF8 capability
+объявляется вместе с 8BITMIME, а MAIL reverse-path с Unicode требует valueless
+параметр SMTPUTF8. Независимый Linux STARTTLS-клиент проверил передачу письма
+на адрес с U-label, доставку и чтение вложения через IMAP; это не проверка
+приложения Litterkeep и не подтверждение удалённой DNS/MX-доставки.
+
+Unit test Punycode codec теперь проверяет все 19 sample strings RFC 3492 §7.1
+в обоих направлениях. Для русского примера I используется написание после
+RFC Editor Erratum 3026. Вектор S проверяет Bootstring для произвольного ASCII
+и не является допустимой IDNA-меткой. Эти sample vectors не заменяют полную
+IDNA2008 label/domain conformance suite: полный официальный corpus всё ещё не
+выполнен.
 
 ## Unicode License V3
 

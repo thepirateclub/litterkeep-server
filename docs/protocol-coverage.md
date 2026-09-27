@@ -199,8 +199,10 @@ A-label перед локальной маршрутизацией. EHLO объ�
 обязательной 8BITMIME. Независимые Rust и raw-TCP проверки покрывают parser,
 capability, отсутствие параметра и сброс маркера транзакции через RSET.
 В `smtp::punycode` добавлен самостоятельный RFC 3492 Bootstring encoder/decoder
-с overflow checks и bounded input; официальные multilingual vectors проверены
-unit-тестами. Это только переносная кодировка code points. Дополнительно
+с overflow checks и bounded input; все 19 примеров RFC 3492 §7.1 проверяются
+unit-тестом в обоих направлениях, включая исправленное RFC Editor написание
+русского примера I. ASCII-пример S относится только к Bootstring и не является
+IDNA-меткой. Это только переносная кодировка code points. Дополнительно
 `smtp::idna17` классифицирует Unicode
 17 code points по сгенерированному официальному RFC 5892 Derived Property
 набору: PVALID, CONTEXTJ и CONTEXTO остаются разными typed результатами;
