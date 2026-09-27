@@ -37,7 +37,7 @@ pub(super) fn parse_mail_from(argument: &str) -> Result<MailFrom, ParseError> {
         }
     }
     if address::requires_smtp_utf8(&reverse_path) && !smtp_utf8 {
-        return Err(ParseError::Syntax);
+        return Err(ParseError::SmtpUtf8Required);
     }
     Ok(MailFrom {
         reverse_path,

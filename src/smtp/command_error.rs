@@ -7,6 +7,8 @@ pub enum ParseError {
     UnrecognizedCommand,
     /// Сервер распознал команду, но её синтаксис или аргумент неверен.
     Syntax,
+    /// MAIL содержит UTF-8 адрес, но не объявляет SMTPUTF8.
+    SmtpUtf8Required,
     /// Клиент запросил неизвестный параметр расширения.
     UnsupportedParameter,
     /// Клиент запросил неподдерживаемый SASL механизм.

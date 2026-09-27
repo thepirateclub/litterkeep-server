@@ -4,6 +4,25 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-27: G17 RFC 6531 MAIL SMTPUTF8 refusal status, PASS checkpoint
+
+- Повторная сверка RFC 6531 §3.5 обнаружила, что UTF-8 reverse-path без
+  `SMTPUTF8` классифицировался как синтаксическая ошибка `501`, хотя отказ
+  отправителю из-за ASCII-only ограничений должен иметь SMTP код `550` и
+  enhanced status `5.6.7`.
+- Ошибка разбора теперь типизирована как `SmtpUtf8Required`; SMTP reactor
+  сериализует `550 5.6.7`. Parser regression и независимый raw-TCP клиент
+  проверяют код ответа, последующее восстановление сессии и успешный MAIL с
+  явным флагом. EHLO capability по-прежнему скрыта: IDNA и остальные условия
+  полной SMTPUTF8 реализации не выполнены.
+- Windows Rust 1.97.1: 620 library tests прошли, 1 внешний Unicode corpus
+  ignored из-за отсутствующего файла; 1 CLI test, doc-tests, strict Clippy,
+  rustfmt и `git diff --check` прошли. Linux Docker: strict Clippy, 686 library
+  tests и 1 CLI test прошли, 1 такой же corpus test ignored, doc-tests прошли.
+  Independent Linux raw-TCP policy test прошёл; это не проверка Litterkeep.
+- Fixture `./data/acceptance-smtp-smtputf8-mail-reply-20260927` сохранён.
+  Проверочный контейнер и image удалены, отсутствие обоих проверено.
+
 ### 2026-09-27: G17 IMAP LIST extension capability advertisement, PASS checkpoint
 
 - Аудит RFC 5258/5819 обнаружил, что сервер исполнял extended LIST и

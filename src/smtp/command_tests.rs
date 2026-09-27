@@ -83,7 +83,7 @@ fn utf8_mailbox_requires_mail_parameter_but_not_eight_bit_body_mode() {
     );
     assert_eq!(
         parse("MAIL FROM:<алиса@litterkeep.test>\r\n"),
-        Err(ParseError::Syntax)
+        Err(ParseError::SmtpUtf8Required)
     );
 }
 

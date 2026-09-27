@@ -33,6 +33,10 @@ pub(super) fn smtp_line(
             return session.push(b"500 5.5.2 command unrecognized\r\n");
         }
         Err(smtp::ParseError::Syntax) => return session.push(b"501 5.5.2 syntax error\r\n"),
+        Err(smtp::ParseError::SmtpUtf8Required) => {
+            return session
+                .push(b"550 5.6.7 internationalized address not permitted for sender\r\n");
+        }
         Err(smtp::ParseError::UnsupportedParameter) => {
             return session.push(b"555 5.5.4 unsupported command parameter\r\n");
         }

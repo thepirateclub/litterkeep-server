@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import socket
-from enum import IntEnum
+from enum import Enum, IntEnum
 
 
 class ReplyCode(IntEnum):
@@ -14,6 +14,7 @@ class ReplyCode(IntEnum):
     SUCCESS = 250
     QUIT = 221
     SYNTAX_ERROR = 501
+    SENDER_UTF8_NOT_PERMITTED = 550
     RCPT_UTF8_REQUIRED = 553
     UNKNOWN_LOCAL_RECIPIENT = 550
 
@@ -24,6 +25,12 @@ class ReplyCode(IntEnum):
             return cls(value)
         except ValueError:
             return value
+
+
+class EnhancedStatusCode(Enum):
+    """RFC 3463 статусы, уточняющие одинаковые трёхзначные SMTP-коды."""
+
+    SENDER_UTF8_NOT_PERMITTED = b"5.6.7"
 
 
 def read_reply(stream: socket.SocketIO) -> tuple[ReplyCode | int, bytes]:
@@ -47,6 +54,7 @@ def expect_reply(
     stream: socket.SocketIO,
     command: bytes,
     expected: ReplyCode,
+    enhanced_status: EnhancedStatusCode | None = None,
 ) -> bytes:
     """Отправляет одну wire-команду и проверяет её итоговый трехзначный код."""
     stream.write(command + b"\r\n")
@@ -55,6 +63,10 @@ def expect_reply(
     if actual != expected:
         raise AssertionError(
             f"{command!r}: ожидался {expected.value}, получен {actual}: {response!r}"
+        )
+    if enhanced_status is not None and enhanced_status.value not in response:
+        raise AssertionError(
+            f"{command!r}: ожидался enhanced status {enhanced_status.name}: {response!r}"
         )
     return response
 
@@ -82,7 +94,8 @@ def verify_policy(host: str, port: int) -> None:
         expect_reply(
             stream,
             "MAIL FROM:<алиса@litterkeep.test>".encode("utf-8"),
-            ReplyCode.SYNTAX_ERROR,
+            ReplyCode.SENDER_UTF8_NOT_PERMITTED,
+            EnhancedStatusCode.SENDER_UTF8_NOT_PERMITTED,
         )
         expect_reply(
             stream,
