@@ -8952,3 +8952,23 @@ ManageSieve до заявленного набора современных фо
   wire-visible ветка не была достигнута acceptance. Литерал исправлен, strict
   Docker gate и свежие raw/SMTP-to-IMAP acceptance пройдены повторно. Этот
   fallback case отдельно не достигался клиентом и не заявляется как wire-tested.
+
+### 2026-09-27: G17 ManageSieve literal Store mutations and reopen, scoped PASS
+
+- Независимый TLS-клиент аутентифицировал Bob и отправил `PUTSCRIPT` с
+  non-synchronizing literal-именем и synchronizing literal-исходником. Затем
+  `RENAMESCRIPT` принял два non-synchronizing literal-имени, а `SETACTIVE`
+  активировал новое имя; `LISTSCRIPTS` показал единственную ожидаемую запись.
+- Тот же production Linux server container был перезапущен с тем же bind-mounted
+  `./data/acceptance-managesieve-literal-store`. После restart `LISTSCRIPTS`
+  сохранил новое активное имя, а `GETSCRIPT` вернул исходные байты без изменений.
+  Это независимый RFC 5804 wire peer, не клиент Litterkeep.
+- Windows Rust 1.97.1 `cargo test --all-targets --locked`: 807 library и 1 CLI
+  test passed, 3 ignored; strict all-target Clippy прошёл. Python `py_compile`,
+  `cargo fmt --check` и `git diff --check` прошли. Rust source не менялся;
+  Linux runtime image собран из актуального source через cache hit, поэтому
+  свежий Linux Rust suite не заявляется.
+- T261 добавлен в acceptance matrix как scoped PASS. Test fixture оставлен;
+  созданные runtime container и image удалены, отсутствие подтверждено.
+  Обязательный SCRAM-SHA-1 и полный RFC 5804 профиль остаются незакрытыми,
+  G17 остаётся ACTIVE.

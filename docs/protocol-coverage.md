@@ -1038,9 +1038,14 @@ accepts either name as a sync or non-sync literal independently; receiver tests
 cover two sync names, mixed quoted/literal names, UTF-8 and pipeline retention.
 HAVESPACE accepts a bounded literal name followed by one decimal size; receiver
 tests check split input, strict numeric arity and pipeline preservation.
-Independent wire checks reach the pre-auth state rejection, not successful
-Store mutation through literal arguments. Other uncovered string positions
-remain unsupported.
+Independent Linux TLS acceptance now verifies successful Store mutation through
+literal arguments: PUTSCRIPT receives a non-synchronizing literal name and a
+synchronizing source literal, RENAMESCRIPT consumes two non-synchronizing
+literal names, and SETACTIVE keeps the renamed script active. After restarting
+the same server against the same data directory, LISTSCRIPTS and GETSCRIPT
+confirm the active name and exact source bytes. This closes only the tested
+literal positions and durable path; other uncovered string positions remain
+unsupported, and Litterkeep application interoperability is not claimed.
 
 ## Outbound SMTP
 
