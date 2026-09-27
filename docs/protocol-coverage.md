@@ -39,8 +39,11 @@ RSET, а отвергнутый payload точно дренируется без
 parts и multipart preamble/epilogue проверяются на canonical CRLF без DATA
 ограничения строки в 1000 октетов; non-text bodies сохраняются непрозрачно.
 `DATA` после такого MAIL получает 503 и переводит сессию в режим, требующий
-RSET. Independent Linux implicit-TLS peer подтвердил полный SMTP -> файловый
-Store -> IMAP сценарий для NUL, high-bit, bare LF/CR bytes, запрет DATA,
+RSET. Если MIME-заголовки содержат UTF-8 field values, BINARYMIME LAST также
+требует установленный в MAIL флаг `SMTPUTF8`; без флага сообщение отклоняется.
+Эта комбинация BINARYMIME/SMTPUTF8 пока покрыта targeted Linux unit test, а не
+отдельным wire acceptance. Independent Linux implicit-TLS peer подтвердил
+полный SMTP -> файловый Store -> IMAP сценарий для NUL, high-bit, bare LF/CR bytes, запрет DATA,
 отказ на noncanonical text, восстановление через RSET, точное чтение Bob и
 повторное чтение после рестарта сервера. Это локальный independent peer, не
 Litterkeep app. Outbound relay реализует RFC 3030 для MIME binary parts:

@@ -23,11 +23,6 @@ pub(crate) fn validate_data(message: &[u8]) -> Result<(), DataValidationError> {
     }
 }
 
-/// Выявляет UTF-8 octets в заголовках, требующие SMTPUTF8 negotiation.
-pub(crate) fn has_utf8_headers(message: &[u8]) -> bool {
-    header_bytes(message).is_some_and(|headers| headers.iter().any(|byte| !byte.is_ascii()))
-}
-
 /// Проверяет ASCII имена полей для строк, в значениях которых есть UTF-8.
 fn valid_utf8_headers(headers: &[u8]) -> bool {
     let Ok(text) = std::str::from_utf8(headers) else {

@@ -4,6 +4,21 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 RFC 6531 SMTPUTF8 required for BINARYMIME headers
+
+- Исправлен входящий BINARYMIME путь: RFC 6532 UTF-8 field values теперь
+  отклоняются, если MAIL не содержал valueless `SMTPUTF8`; с флагом они проходят
+  ту же MIME-проверку. Это следует из требования RFC 6531 §3.1/§3.4.
+- Targeted Linux unit test проверяет оба исхода. Docker Rust 1.97 full gate прошёл:
+  strict Clippy, 727 library tests passed, 1 внешний Unicode UCD test ignored,
+  1 CLI test passed, doctests без тестов. `cargo fmt --check` и
+  `git diff --check` также проверены.
+- Определение UTF-8 заголовков выделено в отдельный модульный файл; затронутые
+  Rust-файлы не превышают 300 строк.
+- Это не отдельная wire acceptance, не полная inbound SMTPUTF8/EAI реализация,
+  не проверка внешнего MTA или Litterkeep app. G17 и корневая цель остаются
+  ACTIVE. Созданный для gate Docker image удалён, отсутствие проверено.
+
 ### 2026-09-27: G17 RFC 3030 inbound BINARYMIME durable delivery
 
 - SMTP теперь объявляет `BINARYMIME` вместе с `CHUNKING`, принимает typed

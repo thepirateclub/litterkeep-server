@@ -2,8 +2,12 @@
 
 use super::{
     EhloCapabilities, EhloExtension, SizeAdvertisement,
-    data::{has_8bit_body, has_utf8_headers, transmitted_message_size},
+    data::{has_8bit_body, transmitted_message_size},
 };
+
+#[path = "outbound_header_profile.rs"]
+pub(crate) mod header_profile;
+use self::header_profile::has_utf8_headers;
 
 /// Исход выбора outbound MAIL: отправить команду либо завершить job permanent.
 pub(crate) enum MailCommand {

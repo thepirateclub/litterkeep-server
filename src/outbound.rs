@@ -25,21 +25,20 @@ pub(crate) use bdat::{has_binary_transfer, validate_binary};
 pub(crate) use data::DataValidationError;
 #[cfg(test)]
 pub(crate) use data::has_8bit_body;
-#[cfg(test)]
-pub(crate) use data::has_utf8_headers;
 pub(crate) use data::{validate_data, write_data};
 pub(crate) use ehlo::negotiate_ehlo;
-#[cfg(test)]
-pub(crate) use ehlo::read_ehlo;
 pub(crate) use ehlo::{EhloCapabilities, EhloExtension, EhloNegotiation, SizeAdvertisement};
+#[cfg(test)]
+pub(crate) use mail::header_profile::has_utf8_headers;
 pub(crate) use mail::{MailCommand, build_mail_command};
 pub(crate) use reply::{ReplyExpectation, ReplyResult, expect, expect_success};
 pub(crate) use reply::{parse_reply, read_reply_line};
 pub(crate) use timeouts::SmtpTimeouts;
-
 #[cfg(test)]
 #[path = "outbound_binarymime_tests.rs"]
 mod binarymime_tests;
+#[cfg(test)]
+pub(crate) use ehlo::read_ehlo;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const GENERIC_IO_TIMEOUT: Duration = Duration::from_secs(10);

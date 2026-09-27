@@ -62,8 +62,12 @@ pub(crate) fn validate_binary(message: &[u8]) -> bool {
 
 /// Проверяет BINARYMIME сообщение, включая письма без CTE `binary` parts.
 #[cfg(target_os = "linux")]
-pub(crate) fn validate_bdat_binary(message: &[u8]) -> bool {
-    validate_binary_profile(message, false)
+pub(crate) fn validate_bdat_binary(message: &[u8], smtp_utf8: bool) -> bool {
+    let utf8_headers = crate::outbound::mail::header_profile::has_utf8_headers(message);
+    match (utf8_headers, smtp_utf8) {
+        (true, false) => false,
+        _ => validate_binary_profile(message, false),
+    }
 }
 
 /// Разбирает MIME и, при необходимости, требует хотя бы один binary transfer.

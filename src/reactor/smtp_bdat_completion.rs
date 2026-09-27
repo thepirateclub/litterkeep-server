@@ -88,7 +88,10 @@ pub(super) fn finish_accepted_chunk(
 fn valid_message(transaction: &Transaction) -> bool {
     match transaction.body_mode {
         smtp::BodyMode::BinaryMime => {
-            return crate::outbound::validate_bdat_binary(&transaction.bytes);
+            return crate::outbound::validate_bdat_binary(
+                &transaction.bytes,
+                transaction.smtp_utf8,
+            );
         }
         smtp::BodyMode::SevenBit | smtp::BodyMode::EightBitMime => {}
     }
