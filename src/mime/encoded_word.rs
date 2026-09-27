@@ -155,11 +155,16 @@ pub fn decode_header(value: &str) -> Result<String, &'static str> {
             .get(cursor..start)
             .ok_or("invalid encoded-word prefix")?;
         let search_start = start.saturating_add(2);
-        let Some(relative_end) = value.get(search_start..).and_then(|tail| tail.find("?=")) else {
-            output.push_str(value.get(cursor..).ok_or("invalid header tail")?);
-            return Ok(output);
+        let Some(end) = encoded_word_end(value, start) else {
+            output.push_str(
+                value
+                    .get(cursor..search_start)
+                    .ok_or("invalid incomplete encoded-word")?,
+            );
+            previous_was_encoded = false;
+            cursor = search_start;
+            continue;
         };
-        let end = search_start.saturating_add(relative_end).saturating_add(2);
         let candidate = value.get(start..end).ok_or("invalid encoded-word range")?;
         let suffix = value.get(end..).ok_or("invalid encoded-word suffix")?;
         match (
@@ -192,6 +197,19 @@ pub fn decode_header(value: &str) -> Result<String, &'static str> {
     }
     output.push_str(value.get(cursor..).ok_or("invalid final header range")?);
     Ok(output)
+}
+
+/// Находит закрывающий marker только в нормативном 75-символьном lookahead.
+///
+/// RFC 2047 §2 ограничивает размер encoded-word, чтобы ограничить работу
+/// header parser-а. Фиксированное окно не позволяет вложенным malformed
+/// starters повторно сканировать длинный остаток поля.
+fn encoded_word_end(value: &str, start: usize) -> Option<usize> {
+    let search_start = start.saturating_add(2);
+    let search_end = start.saturating_add(75).min(value.len());
+    let search = value.as_bytes().get(search_start..search_end)?;
+    let relative_end = search.windows(2).position(|window| window == b"?=")?;
+    Some(search_start.saturating_add(relative_end).saturating_add(2))
 }
 
 /// Возвращает true, если токен начинается в начале поля или после LWS.

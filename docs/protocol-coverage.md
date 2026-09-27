@@ -473,6 +473,11 @@ Windows-1251 или Windows-1252; UTF-16, UTF-16BE и UTF-16LE также реа
 декодируются в outer и
 MIME-part headers только как полные токены в начале field-body или после LWS.
 Embedded и слитные формы остаются raw text; это новое правило пока unit-only.
+По RFC 2047 §2 delimiter lookahead теперь ограничен 75 символами каждого
+encoded-word. Для 32 768 oversized malformed starters debug unit-test ранее
+занимал 5.21 секунды, после исправления 0.04 секунды на той же Windows-среде;
+Linux test-stage повторил сам вектор за 0.04 секунды. Это bounded-lookahead и
+unit coverage, не измерение production throughput или внешнего клиента.
 RFC 2231 `charset*language` suffix encoded-word сохраняется отдельно в typed
 API, тогда как header/phrase projections возвращают decoded text. Новые
 language suffix grammar cases unit-only.

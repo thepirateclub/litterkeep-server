@@ -118,3 +118,18 @@ fn header_recognizes_only_complete_lws_delimited_words() {
     );
     assert_eq!(decode_header(&nested), Ok(nested));
 }
+
+/// Malformed starters не должны заставлять decoder искать delimiter до конца поля.
+#[test]
+fn preserves_large_run_of_oversized_encoded_word_candidates() {
+    let malformed = format!("=?{}tail?=", "x=?".repeat(32_768));
+    assert_eq!(decode_header(&malformed), Ok(malformed));
+}
+
+/// Ограниченный lookahead всё равно находит следующее корректное отдельное слово.
+#[test]
+fn decodes_valid_word_after_oversized_malformed_candidate() {
+    let malformed = format!("=?{}", "x".repeat(80));
+    let value = format!("{malformed} =?UTF-8?Q?ok?=");
+    assert_eq!(decode_header(&value), Ok(format!("{malformed} ok")));
+}

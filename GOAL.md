@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 RFC 2047 encoded-word bounded lookahead
+
+- `decode_header` теперь ищет `?=` только в пределах 75 символов от каждого
+  `=?`, как ограничивает RFC 2047 §2. Oversized malformed token больше не
+  заставляет parser многократно просматривать весь остаток header; поиск
+  продолжает находить последующее самостоятельное корректное encoded-word.
+- Regression на 32 768 malformed starters замерена в том же Windows Rust debug
+  профиле: до изменения 5.21s, после 0.04s. Linux Rust 1.97 targeted tests для
+  большого malformed header и последующего валидного слова прошли (0.04s и
+  0.00s). Полный Linux Docker gate прошёл strict Clippy, 729 library tests,
+  1 внешний Unicode corpus test ignored без fixture, 1 CLI test и doctests.
+- `cargo fmt --check` и `git diff --check` прошли. Временный test image удалён,
+  отсутствие проверено; тестовые контейнеры запускались с `--rm`. Это
+  unit-level decoder coverage и одна локальная performance regression, а не
+  production throughput или acceptance Litterkeep. T186 внесён как scoped PASS;
+  G17 и корневая цель остаются ACTIVE.
+
 ### 2026-09-27: G17 RFC 2045 quoted-printable linear whitespace scan
 
 - Устранён квадратичный lookahead при декодировании длинных SP/HTAB runs:
