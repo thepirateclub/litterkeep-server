@@ -8,7 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 fn vacation_delivers_original_and_suppresses_duplicate_response_after_reopen() {
     let root = directory();
     let mut store = Store::open(&root).expect("open");
-    activate(&mut store);
+    activate_seconds(&mut store);
     store
         .deliver_sieve_many(
             &["bob".into()],
@@ -83,6 +83,21 @@ fn activate(store: &mut Store) {
     store
         .activate_sieve_script("bob", Some("away"))
         .expect("active");
+}
+
+/// Активирует RFC 6131 script для проверки полного Store delivery path.
+fn activate_seconds(store: &mut Store) {
+    store
+        .put_sieve_script(
+            "bob",
+            "away",
+            "require \"vacation-seconds\"; vacation :seconds 60 :subject \"Away\" \"I am away\";"
+                .into(),
+        )
+        .expect("seconds script");
+    store
+        .activate_sieve_script("bob", Some("away"))
+        .expect("active seconds script");
 }
 
 fn pending_reply(store: &Store) -> crate::queue::OwnedDelivery {

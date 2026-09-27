@@ -58,8 +58,11 @@ fn capability_advertises_supported_sieve_extensions() {
     };
     assert!(
         response
-            .windows(b"\"SIEVE\" \"fileinto subaddress envelope copy vacation\"".len())
-            .any(|part| part == b"\"SIEVE\" \"fileinto subaddress envelope copy vacation\"")
+            .windows(
+                b"\"SIEVE\" \"fileinto subaddress envelope copy vacation vacation-seconds\"".len()
+            )
+            .any(|part| part
+                == b"\"SIEVE\" \"fileinto subaddress envelope copy vacation vacation-seconds\"")
     );
     assert!(
         response

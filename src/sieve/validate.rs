@@ -32,7 +32,11 @@ pub(super) fn script(script: &Script) -> Result<(), &'static str> {
     let vacation = script
         .requires
         .iter()
-        .any(|value| matches!(value, Capability::Vacation));
+        .any(|value| matches!(value, Capability::Vacation | Capability::VacationSeconds));
+    let vacation_seconds = script
+        .requires
+        .iter()
+        .any(|value| matches!(value, Capability::VacationSeconds));
     commands(
         &script.commands,
         0,
@@ -42,7 +46,7 @@ pub(super) fn script(script: &Script) -> Result<(), &'static str> {
         subaddress,
         envelope,
     )?;
-    vacation_validation::actions(&script.commands, vacation)
+    vacation_validation::actions(&script.commands, vacation, vacation_seconds)
 }
 
 fn commands(

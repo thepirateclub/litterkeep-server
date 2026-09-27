@@ -90,7 +90,7 @@ fn request<'a>(raw: &'a [u8], now_epoch: u64, identity: &'a str) -> VacationResp
         recipient: "alice@peer.test",
         raw,
         now_epoch,
-        days: 7,
+        interval_seconds: 604_800,
     }
 }
 

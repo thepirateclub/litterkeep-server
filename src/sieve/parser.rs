@@ -41,6 +41,7 @@ fn capability(value: String) -> Capability {
         "subaddress" => Capability::Subaddress,
         "envelope" => Capability::Envelope,
         "vacation" => Capability::Vacation,
+        "vacation-seconds" => Capability::VacationSeconds,
         _ => Capability::Unsupported(value),
     }
 }

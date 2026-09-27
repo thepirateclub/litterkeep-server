@@ -39,6 +39,9 @@ mod parser_values;
 mod tests;
 #[path = "sieve/vacation_identity.rs"]
 mod vacation_identity;
+#[cfg(test)]
+#[path = "sieve/vacation_interval_tests.rs"]
+mod vacation_interval_tests;
 #[path = "sieve/vacation_message.rs"]
 mod vacation_message;
 #[path = "sieve/vacation_mime.rs"]
@@ -53,7 +56,7 @@ mod validate;
 
 pub use ast::{
     Action, AddressPart, Comparator, Condition, EnvelopePart, MatchType, Script, SizeRelation,
-    StringMatch, VacationAction,
+    StringMatch, VacationAction, VacationInterval,
 };
 pub use execution::{DeliveryPlan, ExecutionError, execute, execute_with_envelope};
 
@@ -67,4 +70,4 @@ pub fn parse(source: &str) -> Result<Script, &'static str> {
 
 pub(crate) use vacation_identity::response_identity;
 pub(crate) use vacation_message::build_response as build_vacation_response;
-pub(crate) use vacation_policy::{effective_days, may_respond, personal_message};
+pub(crate) use vacation_policy::{effective_seconds, may_respond, personal_message};

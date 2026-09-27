@@ -21,7 +21,7 @@ pub struct VacationResponseRequest<'a> {
     pub recipient: &'a str,
     pub raw: &'a [u8],
     pub now_epoch: u64,
-    pub days: u64,
+    pub interval_seconds: u64,
 }
 
 impl Store {
@@ -35,18 +35,18 @@ impl Store {
         request: VacationResponseRequest<'_>,
     ) -> io::Result<VacationResponseResult> {
         self.ensure_writable()?;
-        if request.days == 0 {
+        if request.interval_seconds == 0 {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                "vacation days must be positive",
+                "vacation interval must be positive",
             ));
         }
-        let seconds = request.days.checked_mul(86_400).ok_or_else(|| {
-            io::Error::new(io::ErrorKind::InvalidInput, "vacation interval overflow")
-        })?;
-        let expires_at = request.now_epoch.checked_add(seconds).ok_or_else(|| {
-            io::Error::new(io::ErrorKind::InvalidInput, "vacation expiry overflow")
-        })?;
+        let expires_at = request
+            .now_epoch
+            .checked_add(request.interval_seconds)
+            .ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidInput, "vacation expiry overflow")
+            })?;
         let key = VacationKey {
             account: request.account.to_owned(),
             sender: request.sender.to_owned(),

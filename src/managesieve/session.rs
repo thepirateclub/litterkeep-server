@@ -125,7 +125,9 @@ fn capability_lines(
     if starttls_available && !tls_active {
         output.extend_from_slice(b"\"STARTTLS\"\r\n");
     }
-    output.extend_from_slice(b"\"SIEVE\" \"fileinto subaddress envelope copy vacation\"\r\n");
+    output.extend_from_slice(
+        b"\"SIEVE\" \"fileinto subaddress envelope copy vacation vacation-seconds\"\r\n",
+    );
     if let Some(owner) = owner {
         append_owner(&mut output, owner);
     }

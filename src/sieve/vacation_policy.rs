@@ -1,8 +1,8 @@
 //! Безопасность адресата и интервал повторов для RFC 5230 vacation.
 
-const MIN_DAYS: u64 = 1;
-const MAX_DAYS: u64 = 365;
-const DEFAULT_DAYS: u64 = 7;
+const MIN_SECONDS: u64 = 60;
+const MAX_SECONDS: u64 = 365 * 86_400;
+const DEFAULT_SECONDS: u64 = 7 * 86_400;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SuppressionHeader {
@@ -22,9 +22,17 @@ enum RecipientHeader {
     Other,
 }
 
-/// Применяет локальную days policy: min > 0, max > 7 и bounded storage.
-pub(crate) fn effective_days(requested: Option<u64>) -> u64 {
-    requested.unwrap_or(DEFAULT_DAYS).clamp(MIN_DAYS, MAX_DAYS)
+/// Ограничивает интервал локальной политикой и оставляет storage bounded.
+///
+/// RFC 6131 разрешает серверу задавать минимальный интервал; локальный минимум
+/// в одну минуту защищает очередь автоответов от циклов и всплесков нагрузки.
+pub(crate) fn effective_seconds(requested: Option<super::VacationInterval>) -> u64 {
+    let requested_seconds = match requested {
+        Some(super::VacationInterval::Days(days)) => days.saturating_mul(86_400),
+        Some(super::VacationInterval::Seconds(seconds)) => seconds,
+        None => DEFAULT_SECONDS,
+    };
+    requested_seconds.clamp(MIN_SECONDS, MAX_SECONDS)
 }
 
 /// Подавляет ответы на пустой/системный envelope sender и list/auto mail.

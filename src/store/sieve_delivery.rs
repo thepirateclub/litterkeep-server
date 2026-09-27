@@ -14,7 +14,7 @@ struct GeneratedVacation {
     recipient: String,
     payload: Vec<u8>,
     now_epoch: u64,
-    days: u64,
+    interval_seconds: u64,
 }
 
 impl Store {
@@ -92,7 +92,7 @@ impl Store {
                 recipient: &response.recipient,
                 raw: &response.payload,
                 now_epoch: response.now_epoch,
-                days: response.days,
+                interval_seconds: response.interval_seconds,
             });
             let result = match result {
                 Ok(result) => result,
@@ -177,7 +177,7 @@ fn prepare_vacation(
         recipient: envelope_sender.to_owned(),
         payload,
         now_epoch,
-        days: sieve::effective_days(action.days),
+        interval_seconds: sieve::effective_seconds(action.interval),
     }))
 }
 

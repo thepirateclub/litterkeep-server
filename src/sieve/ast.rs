@@ -15,6 +15,7 @@ pub enum Capability {
     Subaddress,
     Envelope,
     Vacation,
+    VacationSeconds,
     Unsupported(String),
 }
 
@@ -52,13 +53,20 @@ pub enum Action {
 /// Параметры RFC 5230, сохранённые без потери исходных Sieve strings.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VacationAction {
-    pub days: Option<u64>,
+    pub interval: Option<VacationInterval>,
     pub subject: Option<String>,
     pub from: Option<String>,
     pub addresses: Vec<String>,
     pub mime: bool,
     pub handle: Option<String>,
     pub reason: String,
+}
+
+/// Интервал RFC 5230 либо уточняющий интервал RFC 6131.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum VacationInterval {
+    Days(u64),
+    Seconds(u64),
 }
 
 /// Предикат, вычисляемый исключительно на MIME headers.

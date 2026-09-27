@@ -15,7 +15,7 @@ fn vacation_requires_capability_and_parses_typed_parameters() {
     assert_eq!(
         action,
         &VacationAction {
-            days: Some(14),
+            interval: Some(super::VacationInterval::Days(14)),
             subject: Some("Gone".into()),
             from: Some("away@test".into()),
             addresses: vec!["bob@test".into(), "bobby@test".into()],

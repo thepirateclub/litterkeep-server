@@ -1,19 +1,33 @@
 //! Script-wide правила RFC 5230 для единственного vacation action.
 
-use super::super::ast::{Action, Command, VacationAction};
+use super::super::ast::{Action, Command, VacationAction, VacationInterval};
 
 /// Проверяет capability, уникальность action и вложенные mailboxes.
-pub(super) fn actions(items: &[Command], required: bool) -> Result<(), &'static str> {
+pub(super) fn actions(
+    items: &[Command],
+    required: bool,
+    seconds_required: bool,
+) -> Result<(), &'static str> {
     let mut count = 0;
-    visit(items, required, &mut count)
+    visit(items, required, seconds_required, &mut count)
 }
 
-fn visit(items: &[Command], required: bool, count: &mut usize) -> Result<(), &'static str> {
+fn visit(
+    items: &[Command],
+    required: bool,
+    seconds_required: bool,
+    count: &mut usize,
+) -> Result<(), &'static str> {
     for command in items {
         match command {
             Command::Action(Action::Vacation(action)) => {
                 if !required {
                     return Err("vacation extension must be required");
+                }
+                if matches!(action.interval, Some(VacationInterval::Seconds(_)))
+                    && !seconds_required
+                {
+                    return Err("vacation-seconds extension must be required");
                 }
                 *count = count.saturating_add(1);
                 if *count > 1 {
@@ -26,8 +40,8 @@ fn visit(items: &[Command], required: bool, count: &mut usize) -> Result<(), &'s
                 else_commands,
                 ..
             } => {
-                visit(then_commands, required, count)?;
-                visit(else_commands, required, count)?;
+                visit(then_commands, required, seconds_required, count)?;
+                visit(else_commands, required, seconds_required, count)?;
             }
             Command::Action(_) => {}
         }

@@ -1,5 +1,24 @@
 # Goal ledger
 
+### 2026-09-27: G17 Sieve RFC 6131 vacation-seconds, scoped PASS T203
+
+- Добавлена typed capability `vacation-seconds`, typed `VacationInterval`, разбор
+  RFC-диапазона `0..2^31-1` и запрет совместного `:days`/`:seconds`. Capability
+  рекламируется в ManageSieve; она может использоваться без явного `vacation`.
+- Store suppression принимает унифицированный интервал секунд. Локальная политика
+  ограничивает значения 60 секундами..365 днями и сохраняет default семь дней;
+  значение `:seconds 0` проходит синтаксис, но clamp-ится до 60 секунд. Сквозной
+  Store test переводит активный script на `:seconds 60` и проверяет durable
+  suppression после reopen.
+- Финальный Linux Docker Rust 1.97 gate прошёл: strict Clippy, 777 library tests,
+  1 CLI test и doc-tests; один внешний Unicode fixture-test ignored, поскольку
+  UCD-файл не предоставлен. Windows полный набор до последних parser guards
+  дал 692 pass + 1 ignored, после guards прошли все 30 vacation tests, strict
+  Clippy и fmt. Docker image удалён, проверка отсутствия тега успешна.
+- Доказательства ограничены unit/Store/CAPABILITY coverage. Независимый сетевой
+  ManageSieve client и Litterkeep app не запускались; T203 scoped PASS, G17/root
+  остаются ACTIVE.
+
 ### 2026-09-27: G17 EHLO timeout defect discovered, checkpoint T201 FAIL
 
 - Расширенный независимый peer первоначально прошёл greeting, затем завис на

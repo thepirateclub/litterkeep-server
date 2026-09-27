@@ -48,10 +48,15 @@ Peer envelope, точные RFC822 bytes, MIME attachment и его decoded octe
 ## RFC 5230 vacation: базовый профиль, оставшиеся RFC-пробелы
 
 Parser/executor поддерживают единственный `vacation` action и его RFC-параметры;
-ManageSieve объявляет capability. Store создаёт отдельный RFC 5322 response с
-`MAIL FROM:<>`, durable suppression claim, loop/list/automated-message guards,
-default `:days 7` с диапазоном 1..365, RFC 2047 Subject и quoted-printable UTF-8
-body. `:mime` валидируется с учётом текущего 7BIT-only SMTP transport. Unit и
+ManageSieve объявляет `vacation` и `vacation-seconds`. Кроме RFC 5230 `:days`,
+поддерживается RFC 6131 `:seconds`; указать оба параметра нельзя, а seconds
+ограничен допустимым RFC диапазоном до локальной политики. Интервалы переводятся
+в общий durable suppression expiry. Локальная политика ограничивает интервал
+от 60 секунд до 365 дней, включая `:seconds 0`, и использует семь дней по
+умолчанию. Store создаёт отдельный RFC 5322 response с `MAIL FROM:<>`, durable
+suppression claim, loop/list/automated-message guards, RFC 2047 Subject и
+quoted-printable UTF-8 body. `:mime` валидируется с учётом текущего 7BIT-only
+SMTP transport. Unit и
 Store tests проверяют generation, safety и durable suppression. Независимый
 Linux acceptance в `./data/g17-sieve-vacation-rfc45` активировал script через
 ManageSieve, доставил три письма через SMTP, передал ровно один из двух
