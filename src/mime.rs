@@ -36,6 +36,8 @@ mod charset_iso8859_8;
 mod charset_iso8859_9;
 #[path = "mime/charset_tis620.rs"]
 mod charset_tis620;
+#[path = "mime/charset_windows1250.rs"]
+mod charset_windows1250;
 #[path = "mime/content_id.rs"]
 mod content_id;
 #[path = "mime/content_metadata.rs"]

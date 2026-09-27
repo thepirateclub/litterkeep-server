@@ -24,7 +24,7 @@ pub enum Charset {
     Iso8859_14,
     Iso8859_15,
     Iso8859_16,
-    Iso8859Ascii,
+    Windows1250,
     Windows1251,
     Windows1252,
     Utf16,
@@ -56,6 +56,7 @@ impl Charset {
             "iso-8859-15" | "iso_8859-15" | "latin-9" | "csiso885915" => Ok(Self::Iso8859_15),
             "iso-8859-16" | "iso_8859-16:2001" | "iso_8859-16" | "latin10" | "l10"
             | "iso-ir-226" | "csiso885916" => Ok(Self::Iso8859_16),
+            "windows-1250" | "cswindows1250" => Ok(Self::Windows1250),
             "windows-1251" | "cp1251" => Ok(Self::Windows1251),
             "windows-1252" => Ok(Self::Windows1252),
             "utf-16" => Ok(Self::Utf16),
@@ -97,13 +98,7 @@ impl Charset {
             Self::Iso8859_14 => super::charset_iso8859_14::decode(bytes),
             Self::Iso8859_15 => Ok(super::charset_iso8859_15::decode(bytes)),
             Self::Iso8859_16 => Ok(super::charset_iso8859_16::decode(bytes)),
-            // Не угадываем национальную таблицу: преобразуем только общий ASCII subset.
-            Self::Iso8859Ascii => {
-                if !bytes.is_ascii() {
-                    return Err("non-ASCII octet in ISO-8859 ASCII subset");
-                }
-                String::from_utf8(bytes.to_vec()).map_err(|_| "invalid ISO-8859 ASCII subset")
-            }
+            Self::Windows1250 => super::charset_windows1250::decode(bytes),
             Self::Windows1251 => decode_windows_1251(bytes),
             Self::Windows1252 => Ok(decode_windows_1252(bytes)),
             Self::Utf16 => decode_utf16(bytes, Utf16ByteOrder::DetectBom),
