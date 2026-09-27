@@ -17,7 +17,13 @@ unit-tested; separate implicit-TLS network acceptance and Litterkeep client
 interoperability remain unverified. Capability generation always returns
 `VERSION "1.0"` with `IMPLEMENTATION` and `SIEVE`, as required for a server
 implementing this RFC version; unit and Linux socket tests check the greeting
-and common post-transition capability path. RFC 5804 §2.13 NOOP is accepted before
+and common post-transition capability path. The recommended RFC 5804
+`UNAUTHENTICATE` extension is advertised in all states. Its command resets the
+ManageSieve FSM and the reactor's separate authenticated-account owner, keeps
+TLS active, and returns the refreshed capabilities without OWNER. Unit tests
+and the independent TLS socket acceptance verify command denial after the
+transition and successful reauthentication on the same TLS session.
+RFC 5804 §2.13 NOOP is accepted before
 authentication; an optional quoted tag is returned in the required `(TAG
 "...")` response code with quoted-string escaping. Unit tests and the
 independent `tests/blackbox/managesieve_noop_tag.py` Linux socket acceptance

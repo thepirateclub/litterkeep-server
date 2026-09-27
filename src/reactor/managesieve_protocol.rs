@@ -81,6 +81,10 @@ fn apply(
             session.request_starttls();
             Ok(())
         }
+        managesieve::Reply::Unauthenticated(capabilities) => {
+            session.authenticated_account = None;
+            session.push(&capabilities)
+        }
         managesieve::Reply::Authenticate { response } => authenticate(
             session, response, slot, generation, worker, owners, request_id,
         ),

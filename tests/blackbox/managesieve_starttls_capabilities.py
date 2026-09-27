@@ -37,6 +37,7 @@ def require_capabilities(
         block,
         b'"SIEVE" "fileinto subaddress envelope copy vacation vacation-seconds"\r\n',
     )
+    require_line(block, b'"UNAUTHENTICATE"\r\n')
     if owner is not None:
         require_line(block, b'"OWNER" "' + owner + b'"\r\n')
     has_starttls = b'"STARTTLS"\r\n' in block
@@ -102,6 +103,35 @@ def main() -> None:
             repeated = read_until(encrypted, b"\r\n")
             if repeated != b'NO "TLS is unavailable or already active"\r\n':
                 raise AssertionError(f"repeated STARTTLS was not rejected: {repeated!r}")
+            encrypted.sendall(b"UNAUTHENTICATE\r\n")
+            unauthenticated = read_until(encrypted, b'OK "unauthenticated"\r\n')
+            require_capabilities(
+                unauthenticated,
+                b"PLAIN",
+                False,
+                b'OK "unauthenticated"\r\n',
+            )
+            encrypted.sendall(b"LISTSCRIPTS\r\n")
+            denied = read_until(encrypted, b"\r\n")
+            if denied != b'NO "invalid command for state"\r\n':
+                raise AssertionError(f"authenticated command survived UNAUTHENTICATE: {denied!r}")
+            encrypted.sendall(b"CAPABILITY\r\n")
+            after_unauthenticate = read_until(encrypted, b'OK "capability"\r\n')
+            require_capabilities(
+                after_unauthenticate,
+                b"PLAIN",
+                False,
+                b'OK "capability"\r\n',
+            )
+            encrypted.sendall(b'AUTHENTICATE "PLAIN" "' + sasl + b'"\r\n')
+            reauthenticated = read_until(encrypted, b'OK "authenticated"\r\n')
+            require_capabilities(
+                reauthenticated,
+                b"PLAIN",
+                False,
+                b'OK "authenticated"\r\n',
+                owner=b"bob",
+            )
             print("PASS ManageSieve SASL/STARTTLS capability transitions")
 
 

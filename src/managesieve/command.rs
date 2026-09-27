@@ -5,6 +5,7 @@
 pub enum Command {
     Capability,
     StartTls,
+    Unauthenticate,
     AuthenticatePlain(String),
     Logout,
     HaveSpace { name: String, size: u64 },
@@ -28,6 +29,7 @@ pub fn parse(line: &str) -> Command {
     match verb.to_ascii_uppercase().as_str() {
         "CAPABILITY" => empty(words, Command::Capability),
         "STARTTLS" => empty(words, Command::StartTls),
+        "UNAUTHENTICATE" => empty(words, Command::Unauthenticate),
         "LOGOUT" => empty(words, Command::Logout),
         "LISTSCRIPTS" => empty(words, Command::ListScripts),
         "NOOP" => optional(words, Command::Noop),

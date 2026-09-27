@@ -17,6 +17,7 @@ pub enum Reply {
     Text(Vec<u8>),
     StartTls,
     Authenticate { response: String },
+    Unauthenticated(Vec<u8>),
     HaveSpace { name: String, size: u64 },
     Put { name: String, source: String },
     List,
@@ -48,6 +49,16 @@ impl Session {
             (Phase::Authenticated { .. }, Command::StartTls) => {
                 no("TLS is unavailable or already active")
             }
+            (Phase::Authenticated { .. }, Command::Unauthenticate) => {
+                self.phase = Phase::Plain;
+                Reply::Unauthenticated(capability_lines(
+                    tls_active,
+                    starttls_available,
+                    None,
+                    b"OK \"unauthenticated\"\r\n",
+                ))
+            }
+            (Phase::Plain, Command::Unauthenticate) => no("invalid command for state"),
             (Phase::Plain, Command::AuthenticatePlain(response)) if tls_active => {
                 Reply::Authenticate { response }
             }
@@ -126,6 +137,7 @@ fn capability_lines(
     if starttls_available && !tls_active {
         output.extend_from_slice(b"\"STARTTLS\"\r\n");
     }
+    output.extend_from_slice(b"\"UNAUTHENTICATE\"\r\n");
     output.extend_from_slice(
         b"\"SIEVE\" \"fileinto subaddress envelope copy vacation vacation-seconds\"\r\n",
     );

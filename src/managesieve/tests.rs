@@ -65,6 +65,8 @@ fn command_parser_retains_quoted_script_and_rejects_extra_argument() {
         Command::SetActive(Some("invoices".into()))
     );
     assert_eq!(parse("SETACTIVE \"\" extra"), Command::Invalid);
+    assert_eq!(parse("UNAUTHENTICATE"), Command::Unauthenticate);
+    assert_eq!(parse("UNAUTHENTICATE extra"), Command::Invalid);
 }
 
 #[test]
@@ -102,6 +104,11 @@ fn capability_advertises_supported_sieve_extensions() {
         response
             .windows(b"\"VERSION\" \"1.0\"".len())
             .any(|part| part == b"\"VERSION\" \"1.0\"")
+    );
+    assert!(
+        response
+            .windows(b"\"UNAUTHENTICATE\"".len())
+            .any(|part| part == b"\"UNAUTHENTICATE\"")
     );
     assert!(
         response
@@ -148,4 +155,33 @@ fn capability_advertises_supported_sieve_extensions() {
             .windows(b"\"VERSION\" \"1.0\"".len())
             .any(|part| part == b"\"VERSION\" \"1.0\"")
     );
+}
+
+#[test]
+fn unauthenticate_clears_owner_keeps_tls_and_allows_authentication_again() {
+    let mut session = Session::default();
+    let _ = session.authenticated("bob".into(), true, true);
+    let Reply::Unauthenticated(capabilities) = session.apply(parse("UNAUTHENTICATE"), true, false)
+    else {
+        panic!("UNAUTHENTICATE должен переиздать capabilities");
+    };
+    assert!(capabilities.ends_with(b"OK \"unauthenticated\"\r\n"));
+    assert!(
+        !capabilities
+            .windows(b"\"OWNER\"".len())
+            .any(|part| part == b"\"OWNER\"")
+    );
+    assert!(
+        capabilities
+            .windows(b"\"SASL\" \"PLAIN\"".len())
+            .any(|part| part == b"\"SASL\" \"PLAIN\"")
+    );
+    assert!(matches!(
+        session.apply(parse("LISTSCRIPTS"), true, false),
+        Reply::Text(response) if response == b"NO \"invalid command for state\"\r\n"
+    ));
+    assert!(matches!(
+        session.apply(parse("AUTHENTICATE \"PLAIN\" \"AGJvYgBw\""), true, false),
+        Reply::Authenticate { .. }
+    ));
 }

@@ -973,8 +973,10 @@ TRANSACTION, обе выдачи CAPA, listing, `EN`, `*`, отказ `de` и в
 В частности, независимый Linux socket acceptance проверяет RFC 5804
 capability transitions ManageSieve вокруг STARTTLS и AUTHENTICATE, а отдельный
 peer проверяет NOOP до аутентификации и обязательный echo response code `TAG`
-для quoted string. Implicit-TLS проверен unit-тестом, а совместимость с
-Litterkeep остаётся непроверенной. RFC 5804 §2.1 требует SCRAM-SHA-1 и PLAIN;
+для quoted string. `UNAUTHENTICATE` сбрасывает состояние и owner, сохраняет TLS
+и допускает повторный AUTHENTICATE; независимый TLS peer это проверяет.
+Implicit-TLS проверен unit-тестом, а совместимость с Litterkeep остаётся
+непроверенной. RFC 5804 §2.1 требует SCRAM-SHA-1 и PLAIN;
 сервер реализует и объявляет только PLAIN, поэтому обязательный SCRAM-SHA-1
 остаётся conformance gap.
 

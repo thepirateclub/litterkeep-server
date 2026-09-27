@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-27: G18 ManageSieve UNAUTHENTICATE state reset, scoped PASS T249
+
+- Реализована рекомендованная RFC 5804 `UNAUTHENTICATE` extension: capability
+  объявляется в обоих состояниях, команда разрешена только после auth и
+  возвращает capabilities без `OWNER`. Сессия и отдельный account context
+  reactor-а очищаются, TLS сохраняется; после reset принимается новый AUTH.
+- Unit-тест проверяет FSM, command denial без owner, сохранение SASL PLAIN/TLS
+  контекста и повторную authentication. `tests/blackbox/managesieve_starttls_capabilities.py`
+  прошёл против Linux STARTTLS server: auth, UNAUTHENTICATE, capability refresh,
+  отказ LISTSCRIPTS, explicit CAPABILITY без owner, повторный auth.
+  Windows Rust 1.97.1: fmt, strict Clippy, 797 library + 1 CLI прошли;
+  3 fixture-dependent tests ignored. Linux Docker Rust 1.97.1: 881 library
+  + 1 CLI прошли, 3 ignored; независимый TLS black-box сценарий прошёл.
+  Контейнер с `--rm` остановлен, созданный Python bytecode удалён; базовый
+  образ Rust сохранён.
+
 ### 2026-09-27: G18 ManageSieve VERSION 1.0 mandatory capability, scoped PASS T248
 
 - Общий capability builder теперь всегда рекламирует `VERSION "1.0"` вместе с
