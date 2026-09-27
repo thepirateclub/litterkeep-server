@@ -107,6 +107,25 @@ def verify_source(client: imaplib.IMAP4, number: str, expected: bytes) -> None:
         raise AssertionError("RFC822 bytes changed while projecting digest default")
 
 
+def verify_encapsulated_sections(client: imaplib.IMAP4, number: str) -> None:
+    """Проверяет IMAP body-part selectors для вложенного RFC822 сообщения."""
+    sections = (
+        ("BODY.PEEK[1]", b"Subject: nested message\r\n\r\nmessage body"),
+        ("BODY.PEEK[1.HEADER]", b"Subject: nested message\r\n\r\n"),
+        ("BODY.PEEK[1.TEXT]", b"message body"),
+        ("BODY.PEEK[1.1]", b"message body"),
+    )
+    for selector, expected in sections:
+        response = require_ok(
+            client.fetch(number, f"({selector})"), f"FETCH {selector}"
+        )
+        observed = literal(response, selector)
+        if observed != expected:
+            raise AssertionError(
+                f"{selector} mismatch: expected {expected!r}, got {observed!r}"
+            )
+
+
 def options() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="localhost")
@@ -131,6 +150,7 @@ def main() -> None:
         require_ok(client.select("INBOX", readonly=True), "SELECT INBOX")
         number = find_message(client, subject)
         verify_digest_structure(client, number)
+        verify_encapsulated_sections(client, number)
         verify_source(client, number, source)
     print("PASS RFC 2046 multipart/digest default and exact RFC822 source")
 

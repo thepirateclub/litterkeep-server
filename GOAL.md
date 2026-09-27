@@ -6845,3 +6845,10 @@ ManageSieve до заявленного набора современных фо
 - Это независимый IMAP wire-клиент. Сквозной SMTP transport и приложение Litterkeep в этом сценарии не проверялись. Python acceptance script прошёл py_compile и содержит 139 строк.
 - Linux Rust 1.97 Docker test image был собран с повторным использованием cached неизменённых Rust layers; нового запуска Rust test suite этим checkpoint не подтверждается. Runtime wire acceptance выполнен в Linux контейнере. Fixture ./data/g30-mime-multipart-digest сохранён; созданный runtime container и оба image tags удалены, отсутствие проверено.
 - Закрыта только wire-проверка default multipart/digest; полные RFC 2045/2046/MIME и остальные протокольные профили остаются неполными, G17 остаётся ACTIVE.
+
+### 2026-09-27: G17 IMAP embedded RFC822 body sections, scoped PASS
+
+- Продолжена wire-проверка headerless multipart/digest child с default MESSAGE/RFC822. Независимый STARTTLS IMAP peer проверил RFC 3501/RFC 9051 body section selectors: BODY.PEEK[1] возвращает вложенное RFC822-содержимое целиком, BODY.PEEK[1.HEADER] заголовки, BODY.PEEK[1.TEXT] текст сообщения, а BODY.PEEK[1.1] дочернюю MIME body-part. Все четыре literal совпали с точными ожидаемыми octets.
+- python -m py_compile tests/blackbox/imap_multipart_digest.py прошёл; скрипт 159 строк и проверяет также предыдущие BODYSTRUCTURE/RFC822 invariants. Это независимый клиент; Litterkeep app и SMTP delivery не проверялись.
+- Linux Docker runtime acceptance прошёл на Rust 1.97 image; build и test layers были cached, поэтому свежий запуск Rust suite не заявляется. Fixture ./data/g30-mime-multipart-digest оставлен. Созданный runtime container и оба stage image tags удалены, отсутствие перепроверено.
+- Закрыты только перечисленные embedded-message FETCH selectors; полный RFC 3501/9051, MIME, и цель G17 остаются ACTIVE.
