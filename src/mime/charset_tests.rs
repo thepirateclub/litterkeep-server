@@ -280,6 +280,17 @@ fn windows_1257_decodes_baltic_text_and_registered_alias() {
 }
 
 #[test]
+fn windows_1258_preserves_vietnamese_combining_sequences_and_alias_policy() {
+    let charset = Charset::parse("WINDOWS-1258").expect("registered MIME charset");
+    assert_eq!(
+        charset.decode(b"Ti\xea\xecng Vi\xea\xf2t"),
+        Ok("Tiê\u{0301}ng Viê\u{0323}t".to_owned())
+    );
+    assert_eq!(Charset::parse("csWindows1258"), Ok(Charset::Windows1258));
+    assert!(Charset::parse("cp1258").is_err());
+}
+
+#[test]
 fn utf16_handles_registered_byte_orders_bom_and_supplementary_characters() {
     assert_eq!(
         Charset::parse("UTF-16")

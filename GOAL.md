@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-27: G17 Windows-1258 MIME charset, scoped PASS T227
+
+- По Microsoft CP1258 mapping и IANA registry добавлен typed decoder:
+  exhaustive oracle сверяет все 256 octets; девять undefined C1 positions
+  отклоняются, а Vietnamese combining marks сохраняются без normalization.
+- `windows-1258` и registered alias `cswindows1258` принимаются;
+  `cp1258` намеренно отклоняется, поскольку регистрация IANA говорит,
+  что это сокращённое название, но не MIME alias.
+- Windows Rust 1.97.1: 769 library tests и 1 CLI test прошли; один внешний
+  Unicode corpus ignored без fixture path. fmt, strict Clippy и diff check
+  прошли.
+- Linux Docker Rust 1.97: release build, strict Clippy, 853 library tests и
+  1 CLI test прошли; один внешний Unicode corpus ignored без fixture path.
+  Временный image удалён, отсутствие проверено; wire/client acceptance не
+  заявляются. G17 остаётся active.
+
 ### 2026-09-27: G17 Windows-1257 MIME charset, scoped PASS T226
 
 - По Microsoft CP1257 mapping и IANA registry добавлен typed decoder для

@@ -48,6 +48,8 @@ mod charset_windows1255;
 mod charset_windows1256;
 #[path = "mime/charset_windows1257.rs"]
 mod charset_windows1257;
+#[path = "mime/charset_windows1258.rs"]
+mod charset_windows1258;
 #[path = "mime/content_id.rs"]
 mod content_id;
 #[path = "mime/content_metadata.rs"]
