@@ -12,7 +12,17 @@ fn append_line(
     smtp_utf8: bool,
     wire: &[u8],
 ) {
-    append_data_line(bytes, section, oversized, mode, smtp_utf8, wire).expect("DATA line");
+    let mut invalid_octets = false;
+    append_data_line(
+        bytes,
+        section,
+        oversized,
+        &mut invalid_octets,
+        mode,
+        smtp_utf8,
+        wire,
+    )
+    .expect("DATA line");
 }
 
 /// Длинный фрагмент DATA освобождает входной буфер до получения CRLF.
@@ -207,4 +217,30 @@ fn header_and_body_octets_require_their_own_mail_extensions() {
         "Привет\r\n".as_bytes(),
     );
     assert!(!rejected_headerless);
+}
+
+/// RFC 2045 запрещает NUL в 7bit и 8bit, но не в BINARYMIME/BDAT.
+#[test]
+fn data_rejects_nul_for_seven_bit_and_eight_bit_mime() {
+    for mode in [BodyMode::SevenBit, BodyMode::EightBitMime] {
+        let mut bytes = Vec::new();
+        let mut section = DataSection::Body;
+        let mut oversized = false;
+        let mut invalid_octets = false;
+
+        append_data_line(
+            &mut bytes,
+            &mut section,
+            &mut oversized,
+            &mut invalid_octets,
+            mode,
+            false,
+            b"body-\0-octet\r\n",
+        )
+        .expect("bounded DATA line");
+
+        assert!(invalid_octets);
+        assert!(!oversized);
+        assert!(bytes.is_empty());
+    }
 }

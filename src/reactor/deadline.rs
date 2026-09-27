@@ -156,6 +156,7 @@ mod tests {
             recipients: vec!["bob@litterkeep.test".into()],
             reverse_path: "alice@litterkeep.test".into(),
             oversized: false,
+            invalid_octets: false,
             body_mode: crate::smtp::BodyMode::SevenBit,
             smtp_utf8: false,
         };

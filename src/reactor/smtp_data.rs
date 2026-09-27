@@ -3,11 +3,20 @@ use super::session::DataSection;
 use super::*;
 use crate::local_route::local_mailboxes;
 
+#[path = "smtp_data_finish.rs"]
+mod finish;
+
 /// Завершённое MIME-сообщение с SMTP envelope для bounded Store request.
 pub(super) struct Delivery {
     pub(super) bytes: Vec<u8>,
     pub(super) reverse_path: String,
     pub(super) recipients: Vec<String>,
+}
+
+/// Причина отказа DATA после полного приёма dot-terminated транзакции.
+pub(super) enum DataFailure {
+    MessageTooLarge,
+    InvalidOctets,
 }
 
 /// Отбрасывает заведомо слишком длинный незавершённый DATA-фрагмент.
@@ -46,14 +55,28 @@ pub(super) fn data_line(
             | SmtpState::BdatFailed
             | SmtpState::BdatReceiving(_) => false,
         };
-        return finish_data(
-            session, slot, generation, worker, owners, request_id, oversized,
+        let invalid_octets = match &session.smtp {
+            SmtpState::Data { invalid_octets, .. } => *invalid_octets,
+            SmtpState::Command(_)
+            | SmtpState::BdatDiscard { .. }
+            | SmtpState::BdatReady(_)
+            | SmtpState::BdatFailed
+            | SmtpState::BdatReceiving(_) => false,
+        };
+        let failure = match (oversized, invalid_octets) {
+            (true, _) => Some(DataFailure::MessageTooLarge),
+            (false, true) => Some(DataFailure::InvalidOctets),
+            (false, false) => None,
+        };
+        return finish::finish_data(
+            session, slot, generation, worker, owners, request_id, failure,
         );
     }
     let SmtpState::Data {
         bytes,
         section,
         oversized,
+        invalid_octets,
         body_mode,
         smtp_utf8,
         ..
@@ -61,46 +84,18 @@ pub(super) fn data_line(
     else {
         return Ok(());
     };
-    match *oversized {
-        true => Ok(()),
-        false => append_data_line(bytes, section, oversized, *body_mode, *smtp_utf8, &line),
+    match (*oversized, *invalid_octets) {
+        (true, _) | (_, true) => Ok(()),
+        (false, false) => append_data_line(
+            bytes,
+            section,
+            oversized,
+            invalid_octets,
+            *body_mode,
+            *smtp_utf8,
+            &line,
+        ),
     }
-}
-
-/// Окончательно принимает DATA либо отвергает её после dot terminator.
-fn finish_data(
-    session: &mut Session,
-    slot: usize,
-    generation: u64,
-    worker: &mut WakingStorageWorker,
-    owners: &mut HashMap<u64, (usize, u64, Pending)>,
-    request_id: &mut u64,
-    oversized: bool,
-) -> io::Result<()> {
-    if oversized {
-        session.smtp = SmtpState::Command(smtp::Transaction::default());
-        session.smtp_body_mode = smtp::BodyMode::SevenBit;
-        session.smtp_utf8 = false;
-        return session.push(b"552 5.3.4 message too large\r\n");
-    }
-    let (bytes, reverse_path, recipients) = take_data(session);
-    session.smtp = SmtpState::Command(smtp::Transaction::default());
-    session.smtp_body_mode = smtp::BodyMode::SevenBit;
-    session.smtp_utf8 = false;
-    let message = crate::smtp_trace::prepend(&bytes, &reverse_path, std::time::SystemTime::now())?;
-    submit_delivery(
-        session,
-        Delivery {
-            bytes: message,
-            reverse_path,
-            recipients,
-        },
-        slot,
-        generation,
-        worker,
-        owners,
-        request_id,
-    )
 }
 
 /// Передаёт принятое сообщение единственному владельцу durable Store.
@@ -158,7 +153,7 @@ pub(super) fn submit_bdat(
 }
 
 /// Переносит поля завершённого DATA состояния без копирования body bytes.
-fn take_data(session: &mut Session) -> (Vec<u8>, String, Vec<String>) {
+pub(super) fn take_data(session: &mut Session) -> (Vec<u8>, String, Vec<String>) {
     let SmtpState::Data {
         bytes,
         reverse_path,
@@ -180,6 +175,7 @@ fn append_data_line(
     bytes: &mut Vec<u8>,
     section: &mut DataSection,
     oversized: &mut bool,
+    invalid_octets: &mut bool,
     mode: smtp::BodyMode,
     smtp_utf8: bool,
     line: &[u8],
@@ -189,6 +185,10 @@ fn append_data_line(
         None => line,
     };
     let headers = matches!(*section, DataSection::Headers);
+    if content.contains(&0) {
+        *invalid_octets = true;
+        return Ok(());
+    }
     match data_line_accepts(mode, smtp_utf8, headers, content) {
         Err(()) => *oversized = true,
         Ok(()) => match bytes.len().saturating_add(content.len()) > MAX_MESSAGE {
@@ -216,6 +216,9 @@ pub(super) fn data_line_accepts(
     headers: bool,
     content: &[u8],
 ) -> Result<(), ()> {
+    if content.contains(&0) {
+        return Err(());
+    }
     let line_limit_exceeded = content.len() > smtp::MAX_DATA_LINE_SIZE;
     let non_ascii = content.iter().any(|octet| !octet.is_ascii());
     let non_ascii_without_extension = match (headers, non_ascii, smtp_utf8, mode) {

@@ -11,6 +11,13 @@ STARTTLS peer подтвердил PIPELINING: один сетевой write с�
 оцениваются отдельно. `BODY=8BITMIME` разрешает high-bit octets,
 которые сохраняются до IMAP, а без него DATA с такими octets отклоняется после
 dot terminator. `BODY=7BIT` и режим без BODY ограничивают содержимое US-ASCII.
+DATA parser отдельно отслеживает NUL и после полного dot terminator отвергает
+его кодом `554 5.6.0`; этот октет запрещён в MIME 7bit и 8bit data. Лимит
+размера сохраняет отдельный ответ `552 5.3.4`. Unit-проверка подтверждает
+отказ NUL в обоих режимах; независимый wire-тест кода ответа и RSET recovery
+ещё не выполнялся. Произвольные NUL octets поддерживаются только
+BINARYMIME/BDAT. См. [RFC 2045 §§2.7-2.9](https://www.rfc-editor.org/rfc/rfc2045.html#section-2.7)
+и [RFC 6152 §3](https://www.rfc-editor.org/rfc/rfc6152.html#section-3).
 До TLS AUTH запрещён. Ненулевой envelope sender должен принадлежать
 authenticated owner. RFC 6409 §3.2 разрешённый `MAIL FROM:<>` не отклоняется
 только из-за пустого reverse-path: authenticated identity даёт MSA return path;

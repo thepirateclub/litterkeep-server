@@ -21,6 +21,7 @@ pub(super) enum SmtpState {
         recipients: Vec<String>,
         reverse_path: String,
         oversized: bool,
+        invalid_octets: bool,
         body_mode: crate::smtp::BodyMode,
         smtp_utf8: bool,
     },

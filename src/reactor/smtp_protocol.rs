@@ -225,6 +225,7 @@ pub(super) fn apply_transaction(session: &mut Session, command: smtp::Command) -
                 recipients: envelope.recipients,
                 reverse_path: envelope.reverse_path,
                 oversized: false,
+                invalid_octets: false,
                 body_mode: session.smtp_body_mode,
                 smtp_utf8: session.smtp_utf8,
             };
