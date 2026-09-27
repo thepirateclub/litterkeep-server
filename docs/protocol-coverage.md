@@ -57,10 +57,10 @@ parts и multipart preamble/epilogue проверяются на canonical CRLF 
 RSET. Если MIME-заголовки содержат UTF-8 field values, BINARYMIME LAST также
 требует установленный в MAIL флаг `SMTPUTF8`; без флага сообщение отклоняется.
 Independent Linux implicit-TLS peer проверил обе ветви: без MAIL SMTPUTF8
-UTF-8 заголовки отклонены на BDAT LAST, с принудительно переданным
-SMTPUTF8-флагом exact payload принят, извлечён через IMAP и пережил restart.
-EHLO при этом не рекламирует SMTPUTF8, поэтому forced flag является внутренней
-проверкой комбинации, а не interoperable RFC 6531 conformance. Independent peer подтвердил
+UTF-8 заголовки отклонены на BDAT LAST, с MAIL SMTPUTF8 exact payload принят,
+извлечён через IMAP и пережил restart. Это ранняя forced-parameter проверка;
+новая проверка объявления capability и conforming U-label пути описана ниже.
+Independent peer подтвердил
 полный SMTP -> файловый Store -> IMAP сценарий для NUL, high-bit, bare LF/CR bytes, запрет DATA,
 отказ на noncanonical text, восстановление через RSET, точное чтение Bob и
 повторное чтение после рестарта сервера. Это локальный independent peer, не
@@ -121,15 +121,14 @@ Unicode-aware `trim`: NBSP не маскирует невалидный байт
 argument. `NOOP ` и `HELP ` возвращают 501; затем NOOP/QUIT в том же TCP
 соединении подтверждают recovery. VRFY/EXPN имеют отдельную RFC 6531 String
 грамматику, которая допускает UTF-8 query даже при отсутствии reply marker-а.
-Сервер не рекламирует SMTPUTF8 и не возвращает UTF-8 identity в ответе.
+Сервер не возвращает UTF-8 identity в ответе.
 Парсер отдельно понимает RFC 6531 §3.7.4.2 запросы VRFY/EXPN с valueless
 `SMTPUTF8` и UTF-8 query, сохраняет режим reply encoding и отвергает параметр
 со значением. Marker обозначает способность клиента принимать UTF-8 в ответе и
-не запрещает UTF-8 в самом query. Сервер отвечает privacy-safe `252`/`502`,
-не выдаёт non-ASCII identity и не рекламирует SMTPUTF8 capability. Независимый
-Linux wire test проверил ASCII/UTF-8 query с marker-ом и без него, malformed
-marker и session recovery. Это не объявленная SMTPUTF8 capability и не
-interoperability-тест клиента.
+не запрещает UTF-8 в самом query. Сервер отвечает privacy-safe `252`/`502` и
+не выдаёт non-ASCII identity. Независимый Linux wire test проверил
+ASCII/UTF-8 query с marker-ом и без него, malformed marker и session recovery.
+Это не interoperability-тест конкретного клиента.
 
 В production `MAIL FROM:` и `RCPT TO:` angle-path начинается сразу после
 двоеточия: пробел и табуляция между delimiter-ом команды и `<` получают 501,
@@ -169,8 +168,9 @@ peer нашёл письмо в INBOX Bob. Устаревший SMTP source-rout
 принимается после проверки каждого элемента и отбрасывается до локальной
 маршрутизации согласно RFC 5321 §4.1.2; независимый SMTP-to-IMAP тест доказал,
 что конечный mailbox получает письмо, а route не включает forwarding.
-Пустые или неверно разделённые dot-atom точки, пустые доменные labels,
-не-ASCII домены и DNS labels длиннее 63 октетов отклоняются как syntax error.
+Пустые или неверно разделённые dot-atom точки, пустые доменные labels и DNS
+labels длиннее 63 октетов отклоняются как syntax error. U-label domain
+обрабатывается отдельно по IDNA/SMTPUTF8 правилам, описанным выше.
 IPv4 address-literals и зарегистрированный `IPv6:` tag проверяются отдельно от
 DNS-domain грамматики: десятичные IPv4 octets ограничены диапазоном 0..255,
 IPv6 включая сжатую и IPv4-embedded форму проверяется стандартным Rust IP
@@ -180,9 +180,11 @@ parser-ом. Невалидный IP и незарегистрированный
 текущий IPv4/IPv6 синтаксис и не утверждает, что произвольные будущие tags
 поддержаны. Проверенный набор стандартизованных tags сверяется с
 [реестром IANA](https://www.iana.org/assignments/smtp/#smtp-address-literal-tags).
-Полная inbound SMTPUTF8/EAI интеграция пока не заявляется и capability не
-рекламируется: SMTP grammar принимает UTF-8 local-part при ASCII domain, а
-отдельный IDNA domain API ещё не разрешает U-label внутри SMTP path.
+Входящий SMTPUTF8 path принимает Unicode local-part и IDNA-valid U-label
+домены, требует valueless MAIL параметр `SMTPUTF8` и канонизирует домен в
+A-label перед локальной маршрутизацией. EHLO объявляет SMTPUTF8 вместе с
+обязательной 8BITMIME. Независимые Rust и raw-TCP проверки покрывают parser,
+capability, отсутствие параметра и сброс маркера транзакции через RSET.
 В `smtp::punycode` добавлен самостоятельный RFC 3492 Bootstring encoder/decoder
 с overflow checks и bounded input; официальные multilingual vectors проверены
 unit-тестами. Это только переносная кодировка code points. Дополнительно
@@ -203,9 +205,9 @@ virama, ZWNJ допускает virama или RFC joining context с пропу�
 DerivedBidiClass и активируется для всех labels домена, если хотя бы одна
 содержит R, AL или AN. ASCII SMTP address parser использует проверку LDH и
 полный round-trip для входных A-label. `to_alabel_domain` преобразует U-label
-домен в A-label DNS form; однако SMTP path пока остаётся ASCII-only, а SMTPUTF8
-capability не рекламируется. Полный официальный IDNA conformance corpus не
-пройден.
+домен в A-label DNS form; SMTP path использует это преобразование до route
+lookup. Полный официальный IDNA conformance corpus не пройден, DNS MX
+discovery и удалённая доставка U-label доменов здесь не проверены.
 См. [RFC 3492](https://www.rfc-editor.org/rfc/rfc3492.html) и
 [RFC 5890](https://www.rfc-editor.org/rfc/rfc5890.html),
 [RFC 5891](https://www.rfc-editor.org/rfc/rfc5891.html) и
@@ -223,9 +225,11 @@ IMAP STARTTLS/SASL PLAIN;
 отдельное чтение после перезапуска подтвердило durable delivery. Вложение
 совпало побайтно, SHA-256 `7f4e114fb71bb6cf784bda9f0d77d06e3ccb15cfdc667bbad322dcef81da20f8`.
 Клиент намеренно отправил `SMTPUTF8`, хотя EHLO его не предлагает, поэтому это
-доказательство реализации пути, а не interoperable conformance test. Сам флаг не требует
+доказательство пути, а не совместимости с Litterkeep app. Сам флаг не требует
 BODY=8BITMIME: 8-bit тела по-прежнему разрешаются только BODY=8BITMIME, а UTF-8
-заголовки требуют SMTPUTF8. Account
+заголовки требуют SMTPUTF8. Отдельный conforming STARTTLS клиент далее
+передаёт U-label `пользователь@bücher.test`, читает MIME вложение по IMAP и
+независимо сравнивает точные octets. Account
 credentials, folder catalog, subscriptions, Sieve snapshots и внутренние
 mailbox keys сохраняют bounded UTF-8 идентификаторы в отдельном hex namespace;
 прямой Store/Accounts restart test проверяет эти слои, а forced-extension
@@ -233,8 +237,9 @@ acceptance выше отдельно проверяет SMTP/IMAP network пут
 DATA/transport checkpoint разбирает MAIL флаг SMTPUTF8, разрешает UTF-8 field values, но
 не ASCII field names, и требует обе peer capabilities на outbound перед MAIL.
 Независимый Linux SMTP peer подтвердил `BODY=8BITMIME SMTPUTF8` и сохранность
-UTF-8 header octets. Этот сценарий не подтверждает локальную EHLO capability,
-UTF-8 envelope адреса, inbound network delivery или совместимость Litterkeep.
+UTF-8 header octets. Conforming U-label SMTP/IMAP delivery проверена отдельным
+клиентом выше. RFC 6532 UTF-8 field names и совместимость с Litterkeep app
+остаются непроверенными.
 RFC 5321 Postmaster принимается как bare `<Postmaster>` без домена и как
 `postmaster@domain` для локально обслуживаемых доменов; регистр reserved local
 name и домена не влияет на route. Независимый STARTTLS тест отправил DATA и
@@ -281,7 +286,8 @@ RFC 1870 SIZE объявляется с фактическим фиксиров�
 через SMTP и сравнил payload octets после IMAP `BODY.PEEK[TEXT]`. Проверены
 также 7BIT rejection, oversized DATA drain и синхронизация последующего NOOP.
 Это проверка конкретного high-bit text сценария, не исчерпывающая сертификация
-RFC 6152 для всех MIME content и SMTP peer комбинаций. SMTPUTF8 не рекламируется.
+RFC 6152 для всех MIME content и SMTP peer комбинаций. SMTPUTF8 отдельно
+рекламируется с 8BITMIME; его U-label acceptance описана выше.
 Строки DATA ограничены 1000 octets вместе с CRLF.
 Граница между заголовками и телом отслеживается инкрементально на каждой
 принятой CRLF-строке. Парсер больше не сканирует накопленное сообщение заново

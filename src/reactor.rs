@@ -133,6 +133,8 @@ mod smtp_data;
 #[path = "reactor/smtp_greeting.rs"]
 mod smtp_greeting;
 mod smtp_protocol;
+#[path = "reactor/smtp_transaction_command.rs"]
+mod smtp_transaction_command;
 #[path = "reactor/submit_id.rs"]
 mod submit_id;
 use completion_dispatch::complete;

@@ -97,6 +97,23 @@ fn utf8_mailbox_requires_mail_parameter_but_not_eight_bit_body_mode() {
         parse("MAIL FROM:<алиса@litterkeep.test>\r\n"),
         Err(ParseError::SmtpUtf8Required)
     );
+    assert_eq!(
+        parse("MAIL FROM:<alice@bücher.example> SMTPUTF8\r\n"),
+        Ok(Command::Mail(MailFrom {
+            reverse_path: "alice@bücher.example".into(),
+            declared_size: None,
+            body_mode: BodyMode::SevenBit,
+            smtp_utf8: true,
+        }))
+    );
+    assert_eq!(
+        parse("MAIL FROM:<alice@bücher.example>\r\n"),
+        Err(ParseError::SmtpUtf8Required)
+    );
+    assert_eq!(
+        parse("RCPT TO:<bob@bücher.example>\r\n"),
+        Ok(Command::Rcpt("bob@bücher.example".into()))
+    );
 }
 
 #[test]

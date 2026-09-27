@@ -1,5 +1,28 @@
 # Goal ledger
 
+### 2026-09-27: G17 inbound SMTPUTF8 with IDNA U-label routing, scoped PASS T195
+
+- SMTP EHLO теперь объявляет `SMTPUTF8` вместе с `8BITMIME`. Входящий parser
+  принимает U-label домен только при корректном MAIL параметре SMTPUTF8,
+  преобразует его в A-label до local-route lookup и сбрасывает SMTPUTF8 marker
+  при RSET. Domain aliases ограничены текущим локальным тестовым route policy.
+- Независимые Rust проверки Windows прошли: SMTP address 14, command 15,
+  локальная маршрутизация 7; полный набор: 685 library passed, 1 ignored
+  внешний Unicode corpus, 1 CLI passed, strict Clippy и fmt. Linux Docker
+  Rust 1.97 образ прошёл strict Clippy, 764 library tests, 1 CLI test и
+  doctests; один внешний Unicode corpus test требует отсутствующий fixture.
+- Conforming Python STARTTLS клиент подтвердил EHLO SMTPUTF8/8BITMIME,
+  SMTP policy/RSET, а затем отправил MIME письмо от Alice на
+  `пользователь@bücher.test`; независимый IMAP STARTTLS клиент прочитал
+  attachment. Исходные и извлечённые байты совпали, SHA-256
+  `7f4e114fb71bb6cf784bda9f0d77d06e3ccb15cfdc667bbad322dcef81da20f8`.
+  Проверялась независимая Python harness, не Litterkeep app.
+- Docker test/runtime images и запущенный контейнер удалены; отсутствие
+  созданных тегов проверено. Данные acceptance сохранены в
+  `./data/acceptance-g17-smtputf8-idna-20260927`. DNS/MX discovery, внешняя
+  доставка и RFC 6532 UTF-8 field names не проверялись. T195 scoped PASS;
+  G17 и root остаются ACTIVE.
+
 Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17

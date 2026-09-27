@@ -77,7 +77,7 @@ pub(super) fn smtp_line(
         smtp::Command::Rcpt(address) => recipient(
             session, address, slot, generation, worker, owners, request_id,
         ),
-        command => transaction_command(session, command),
+        command => super::smtp_transaction_command::transaction_command(session, command),
     }
 }
 
@@ -211,35 +211,7 @@ fn recipient(
     Ok(())
 }
 
-/// Применяет команды DATA/RSET к уже проверенной транзакции.
-fn transaction_command(session: &mut Session, command: smtp::Command) -> io::Result<()> {
-    let data_for_binary_message = matches!(
-        (&command, session.smtp_body_mode, &session.smtp),
-        (
-            smtp::Command::Data,
-            smtp::BodyMode::BinaryMime,
-            SmtpState::Command(transaction)
-        ) if transaction.has_sender()
-    );
-    if data_for_binary_message {
-        session.smtp = SmtpState::BdatFailed;
-        return session.push(b"503 5.5.1 BINARYMIME requires BDAT; send RSET\r\n");
-    }
-    match (
-        &command,
-        session.tls.is_some(),
-        session.authenticated_account.is_some(),
-    ) {
-        (smtp::Command::Data, true, false) => {
-            return session.push(b"530 5.7.0 authentication required\r\n");
-        }
-        (smtp::Command::Data, _, _) | (smtp::Command::Rset, _, _) => {}
-        _ => return session.push(b"503 5.5.1 bad sequence\r\n"),
-    }
-    apply_transaction(session, command)
-}
-
-fn apply_transaction(session: &mut Session, command: smtp::Command) -> io::Result<()> {
+pub(super) fn apply_transaction(session: &mut Session, command: smtp::Command) -> io::Result<()> {
     let SmtpState::Command(transaction) = &mut session.smtp else {
         return session.push(b"503 5.5.1 bad sequence\r\n");
     };

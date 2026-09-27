@@ -1,4 +1,4 @@
-//! Проверки рекламирования SMTP extensions и поддержки BINARYMIME.
+//! Проверки рекламирования SMTP extensions и принятия их MAIL параметров.
 use super::*;
 
 /// BINARYMIME рекламируется вместе с уже реализованным CHUNKING.
@@ -8,6 +8,15 @@ fn ehlo_advertises_binarymime_with_chunking() {
     ehlo(&mut session).expect("EHLO reply");
     assert!(session.output.windows(10).any(|part| part == b"BINARYMIME"));
     assert!(session.output.windows(8).any(|part| part == b"CHUNKING"));
+}
+
+/// SMTPUTF8 рекламируется только вместе с обязательной поддержкой 8BITMIME.
+#[test]
+fn ehlo_advertises_smtputf8_and_8bitmime() {
+    let mut session = smtp_session();
+    ehlo(&mut session).expect("EHLO reply");
+    assert!(session.output.windows(8).any(|part| part == b"SMTPUTF8"));
+    assert!(session.output.windows(8).any(|part| part == b"8BITMIME"));
 }
 
 /// Поддержанный RFC 3030 параметр проходит greeting gate без мутации envelope.

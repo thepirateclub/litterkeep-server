@@ -12,9 +12,9 @@ pub(super) enum MailboxForm {
 }
 
 /// Типизированный результат проверки доменной части SMTP mailbox.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 enum DomainForm {
-    DnsName,
+    DnsName(String),
     AddressLiteral,
     Invalid,
 }
@@ -31,29 +31,22 @@ pub(super) fn classify_mailbox(mailbox: &str) -> MailboxForm {
 /// Разделяет mailbox на эквивалентный local-part и проверенный домен.
 ///
 /// RFC 5321 требует считать quoting эквивалентным при сопоставлении адреса.
-/// Поэтому вызывающий слой получает unescaped local-part, но не изменённый домен.
-pub(crate) fn canonical_parts(mailbox: &str) -> Option<(String, &str)> {
+/// Поэтому вызывающий слой получает unescaped local-part и канонический A-label домена.
+pub(crate) fn canonical_parts(mailbox: &str) -> Option<(String, String)> {
     let separator = at_separator(mailbox)?;
     let (local_part, suffix) = mailbox.split_at(separator);
     let domain = suffix.strip_prefix('@')?;
     let canonical_local = canonical_local_part(local_part)?;
     match domain_form(domain) {
-        DomainForm::DnsName | DomainForm::AddressLiteral => Some((canonical_local, domain)),
+        DomainForm::DnsName(canonical_domain) => Some((canonical_local, canonical_domain)),
+        DomainForm::AddressLiteral => Some((canonical_local, domain.to_owned())),
         DomainForm::Invalid => None,
     }
 }
 
-/// Определяет, требует ли mailbox параметр SMTPUTF8 из-за UTF-8 local-part.
-///
-/// Домены здесь намеренно остаются ASCII: без IDNA проверки нельзя считать
-/// Unicode domain допустимым SMTP адресом или безопасно выполнять его lookup.
+/// Определяет, требует ли полный mailbox параметр SMTPUTF8.
 pub(crate) fn requires_smtp_utf8(mailbox: &str) -> bool {
-    let Some(separator) = at_separator(mailbox) else {
-        return false;
-    };
-    mailbox
-        .get(..separator)
-        .is_some_and(|local_part| !local_part.is_ascii())
+    !mailbox.is_ascii()
 }
 
 /// Удаляет устаревший source route после строгой проверки его RFC-грамматики.
@@ -157,7 +150,7 @@ fn mailbox_form(mailbox: &str) -> Option<MailboxForm> {
         None => valid_local_part(local_part).then_some(MailboxForm::DotAtom),
     }?;
     match domain_form(domain) {
-        DomainForm::DnsName => Some(local_form),
+        DomainForm::DnsName(_) => Some(local_form),
         DomainForm::AddressLiteral => Some(MailboxForm::AddressLiteral),
         DomainForm::Invalid => None,
     }
@@ -165,9 +158,9 @@ fn mailbox_form(mailbox: &str) -> Option<MailboxForm> {
 
 /// Разбирает имя или address-literal и возвращает typed protocol form.
 fn domain_form(domain: &str) -> DomainForm {
-    match valid_domain(domain) {
-        true => DomainForm::DnsName,
-        false => match super::address_literal::parse_domain(domain) {
+    match crate::smtp::idna17::to_alabel_domain(domain) {
+        Ok(canonical_domain) => DomainForm::DnsName(canonical_domain),
+        Err(_) => match super::address_literal::parse_domain(domain) {
             super::address_literal::LiteralForm::Valid => DomainForm::AddressLiteral,
             super::address_literal::LiteralForm::Invalid => DomainForm::Invalid,
         },

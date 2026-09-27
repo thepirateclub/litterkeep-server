@@ -38,7 +38,7 @@ fn classify_recipient_mailbox(mailbox: &str) -> LocalRecipient<'_> {
 /// Отделяет local-part от домена только для разрешённого локального маршрута.
 pub fn local_mailbox(address: &str) -> Option<String> {
     let (mailbox, domain) = crate::smtp::canonical_parts(address)?;
-    match LocalRoute::parse(domain) {
+    match LocalRoute::parse(&domain) {
         LocalRoute::Accepted => Some(mailbox),
         LocalRoute::Rejected => None,
     }
@@ -82,7 +82,7 @@ impl LocalRoute {
     /// Локальные домены первого профиля без DNS/MX discovery.
     fn parse(domain: &str) -> Self {
         match domain.to_ascii_lowercase().as_str() {
-            "test" | "litterkeep.test" | "peer.test" => Self::Accepted,
+            "test" | "litterkeep.test" | "peer.test" | "xn--bcher-kva.test" => Self::Accepted,
             _ => Self::Rejected,
         }
     }
@@ -99,6 +99,7 @@ mod tests {
             local_mailbox("\"alice\"@litterkeep.test"),
             Some("alice".into())
         );
+        assert_eq!(local_mailbox("alice@bücher.test"), Some("alice".into()));
     }
 
     #[test]

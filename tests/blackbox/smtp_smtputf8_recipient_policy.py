@@ -91,8 +91,10 @@ def verify_policy(host: str, port: int) -> None:
             raise AssertionError(f"неожиданный SMTP greeting: {banner!r}")
 
         capabilities = expect_reply(stream, b"EHLO independent-peer.test", ReplyCode.SUCCESS)
-        if b"SMTPUTF8" in capabilities.upper():
-            raise AssertionError("сервер преждевременно рекламирует неполную SMTPUTF8")
+        if b"SMTPUTF8" not in capabilities.upper():
+            raise AssertionError("сервер не объявил SMTPUTF8 capability")
+        if b"8BITMIME" not in capabilities.upper():
+            raise AssertionError("SMTPUTF8 объявлена без обязательной 8BITMIME")
 
         ascii_verify = expect_reply(
             stream, b"VRFY alice@example.test SMTPUTF8", ReplyCode.VERIFICATION_UNAVAILABLE
@@ -125,6 +127,48 @@ def verify_policy(host: str, port: int) -> None:
         expect_reply(
             stream,
             "RCPT TO:<получатель@litterkeep.test>".encode("utf-8"),
+            ReplyCode.RCPT_UTF8_REQUIRED,
+            EnhancedStatusCode.RECIPIENT_UTF8_NOT_PERMITTED,
+        )
+        expect_reply(stream, b"RSET", ReplyCode.SUCCESS)
+
+        expect_reply(
+            stream,
+            "MAIL FROM:<alice@bücher.test>".encode("utf-8"),
+            ReplyCode.SENDER_UTF8_NOT_PERMITTED,
+            EnhancedStatusCode.SENDER_UTF8_NOT_PERMITTED,
+        )
+        expect_reply(stream, b"MAIL FROM:<alice@test>", ReplyCode.SUCCESS)
+        expect_reply(
+            stream,
+            "RCPT TO:<bob@bücher.test>".encode("utf-8"),
+            ReplyCode.RCPT_UTF8_REQUIRED,
+            EnhancedStatusCode.RECIPIENT_UTF8_NOT_PERMITTED,
+        )
+        expect_reply(stream, b"RSET", ReplyCode.SUCCESS)
+
+        expect_reply(
+            stream,
+            b"MAIL FROM:<alice@test> SMTPUTF8",
+            ReplyCode.SUCCESS,
+        )
+        expect_reply(
+            stream,
+            "RCPT TO:<bob@bücher.test>".encode("utf-8"),
+            ReplyCode.SUCCESS,
+        )
+        expect_reply(stream, b"RSET", ReplyCode.SUCCESS)
+
+        expect_reply(
+            stream,
+            b"MAIL FROM:<alice@test> SMTPUTF8",
+            ReplyCode.SUCCESS,
+        )
+        expect_reply(stream, b"RSET", ReplyCode.SUCCESS)
+        expect_reply(stream, b"MAIL FROM:<alice@test>", ReplyCode.SUCCESS)
+        expect_reply(
+            stream,
+            "RCPT TO:<bob@bücher.test>".encode("utf-8"),
             ReplyCode.RCPT_UTF8_REQUIRED,
             EnhancedStatusCode.RECIPIENT_UTF8_NOT_PERMITTED,
         )

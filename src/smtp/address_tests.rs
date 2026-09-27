@@ -22,12 +22,11 @@ fn rejects_empty_or_malformed_dot_atoms() {
 }
 
 #[test]
-fn rejects_invalid_domain_labels_and_non_ascii() {
+fn rejects_invalid_domain_labels_and_invalid_idna_names() {
     for mailbox in [
         "alice@-bad.test",
         "alice@bad-.test",
         "alice@a..test",
-        "alice@тест",
         "alice@xn--",
         "alice@xn--abc",
         "alice@123.xn--mgbh0fb",
@@ -45,14 +44,15 @@ fn accepts_only_valid_idna_a_labels_in_ascii_domains() {
 }
 
 #[test]
-fn accepts_utf8_local_parts_but_keeps_domains_ascii_only() {
+fn requires_smtputf8_for_utf8_local_parts_or_u_label_domains() {
     for mailbox in ["алиса@test", "δοκιμή@example.test", "\"почта\"@test"] {
         assert_ne!(classify_mailbox(mailbox), MailboxForm::Invalid, "{mailbox}");
         assert!(requires_smtp_utf8(mailbox));
     }
-    for mailbox in ["alice@тест", "alice@例え.test"] {
-        assert_eq!(classify_mailbox(mailbox), MailboxForm::Invalid, "{mailbox}");
-    }
+    assert_ne!(classify_mailbox("alice@тест"), MailboxForm::Invalid);
+    assert_ne!(classify_mailbox("alice@例え.test"), MailboxForm::Invalid);
+    assert!(requires_smtp_utf8("alice@тест"));
+    assert!(requires_smtp_utf8("alice@例え.test"));
     assert!(!requires_smtp_utf8("alice@test"));
 }
 
@@ -79,19 +79,19 @@ fn accepts_and_canonicalizes_rfc_quoted_local_parts() {
     }
     assert_eq!(
         canonical_parts("\"alice\"@LITTERKEEP.TEST"),
-        Some(("alice".to_owned(), "LITTERKEEP.TEST"))
+        Some(("alice".to_owned(), "litterkeep.test".to_owned()))
     );
     assert_eq!(
         canonical_parts("\"a\\@b\"@test"),
-        Some(("a@b".to_owned(), "test"))
+        Some(("a@b".to_owned(), "test".to_owned()))
     );
     assert_eq!(
         canonical_parts("\"a\\\"b\"@test"),
-        Some(("a\"b".to_owned(), "test"))
+        Some(("a\"b".to_owned(), "test".to_owned()))
     );
     assert_eq!(
         canonical_parts("\"a>b\"@test"),
-        Some(("a>b".to_owned(), "test"))
+        Some(("a>b".to_owned(), "test".to_owned()))
     );
 }
 
@@ -114,8 +114,17 @@ fn accepts_rfc_ipv4_and_tagged_ipv6_address_literals() {
     }
     assert_eq!(
         canonical_parts("\"alice\"@[IPv6:2001:db8::1]"),
-        Some(("alice".to_owned(), "[IPv6:2001:db8::1]"))
+        Some(("alice".to_owned(), "[IPv6:2001:db8::1]".to_owned()))
     );
+}
+
+#[test]
+fn canonicalizes_u_label_domain_to_a_label_for_local_route_lookup() {
+    assert_eq!(
+        canonical_parts("alice@bücher.example"),
+        Some(("alice".to_owned(), "xn--bcher-kva.example".to_owned()))
+    );
+    assert!(requires_smtp_utf8("alice@bücher.example"));
 }
 
 #[test]

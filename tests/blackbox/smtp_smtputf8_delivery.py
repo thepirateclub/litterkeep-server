@@ -91,17 +91,16 @@ def submit_message(
         client.ehlo()
         client.starttls(context=context)
         client.ehlo()
-        if "smtputf8" in client.esmtp_features:
-            raise AssertionError("сервер не должен рекламировать неполную SMTPUTF8")
+        if "smtputf8" not in client.esmtp_features:
+            raise AssertionError("сервер не объявил реализованную SMTPUTF8 capability")
         client.login("alice", alice_password)
 
-        # EHLO намеренно не предлагает SMTPUTF8: это принудительный probe
-        # внутреннего пути сервера, а не поведение соответствующего RFC клиента.
+        # RFC-клиент передаёт флаг после объявления capability в EHLO.
         client.send(b"MAIL FROM:<alice@litterkeep.test> SMTPUTF8\r\n")
         code, response = client.getreply()
         require_smtp_reply(code, SmtpReply.ACCEPTED, response)
 
-        recipient = "RCPT TO:<пользователь@litterkeep.test>\r\n".encode("utf-8")
+        recipient = "RCPT TO:<пользователь@bücher.test>\r\n".encode("utf-8")
         client.send(recipient)
         code, response = client.getreply()
         require_smtp_reply(code, SmtpReply.ACCEPTED, response)
