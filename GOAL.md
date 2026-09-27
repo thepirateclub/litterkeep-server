@@ -10,18 +10,37 @@ Current subgoal: G17
   разрешает UTF-8 query; marker относится к формату возможного ответа, а не к
   параметрам MAIL. Parser теперь сохраняет query и enum `ReplyEncoding`,
   проверяет controls и отвергает `SMTPUTF8=value`.
-- SMTP capability остаётся не объявленной. В текущем ASCII-only advertisement
-  непомеченный Unicode VRFY получает `501`; forced marker принимает Unicode
-  query. Ответы не раскрывают mailbox: VRFY остаётся `252`, EXPN `502`, весь
-  ответ ASCII. Независимый Linux TCP peer проверил marker absence, ASCII/UTF-8
-  query, неправильное значение marker, коды ответов и восстановление через
-  NOOP. Это parser/fallback checkpoint, не SMTPUTF8 interoperability.
+- SMTP capability остаётся не объявленной. Независимый Linux TCP peer проверил
+  ASCII/UTF-8 query с marker и без него, неправильное значение marker, коды
+  ответов и восстановление через NOOP. Ответы не раскрывают mailbox: VRFY
+  остаётся `252`, EXPN `502`, весь ответ ASCII. Первоначальная проверка ошибочно
+  связывала UTF-8 query с marker-ом; это исправлено в T158. Это parser/fallback
+  checkpoint, не SMTPUTF8 interoperability.
 - Windows Rust 1.97.1: 623 library и 1 CLI test прошли, один внешний UCD test
   ignored из-за отсутствующего корпуса; strict Clippy и rustfmt прошли.
   Linux Docker: strict Clippy, 689 library и 1 CLI test прошли, один UCD test
   ignored; doc-tests прошли. Python `py_compile` и независимый wire acceptance
   прошли. Fixture `./data/acceptance-smtp-smtputf8-verify-query-20260927`
   сохранён; временные Docker image и контейнер удалены.
+
+### 2026-09-27: G17 RFC 6531 VRFY/EXPN query semantics correction, PASS
+
+- Повторная сверка RFC 6531 §3.7.4.2 выявила ошибочную связь между UTF-8
+  символами в query и valueless `SMTPUTF8`: marker сообщает о способности
+  клиента читать UTF-8 в ответе, но не является разрешением UTF-8 в запросе.
+  Парсер теперь независимо валидирует query и сохраняет reply capability.
+- Независимый Linux raw-TCP сценарий прошёл для ASCII VRFY, Unicode VRFY без
+  marker-а, Unicode VRFY/EXPN с marker-ом, ASCII-only ответов, отсутствующей
+  SMTPUTF8 advertisement, отказа от `SMTPUTF8=YES` и восстановления через
+  NOOP. При этом сервер намеренно не возвращает UTF-8 identity в ответе.
+- Windows Rust 1.97.1: 624 library tests и 1 CLI test прошли, 1 внешний UCD
+  test ignored без корпуса; strict Clippy, rustfmt и diff-check прошли. Linux
+  Docker test stage: strict Clippy, 690 library tests и 1 CLI test прошли,
+  1 UCD test ignored, doc-tests прошли. Python wire acceptance прошёл.
+  Fixture `./data/acceptance-smtp-smtputf8-vrfy-query-semantics-20260927`
+  сохранён. Созданный контейнер и image удалены, отсутствие проверено.
+- Это независимый parser/wire test; capability остаётся не объявленной и
+  подключение клиента Litterkeep не проверялось.
 
 ### 2026-09-27: G17 RFC 6531 sender/recipient enhanced-status wire evidence, PASS
 
@@ -6229,21 +6248,22 @@ ManageSieve до заявленного набора современных фо
 
 ### 2026-09-26: G17 RFC 5321 SMTP ASCII command-string checkpoint
 
-- `VRFY`/`EXPN` string и optional строки `HELP`/`NOOP` больше не очищают
-  Unicode whitespace через `str::trim`. После удаления только ASCII SP все
-  аргументы проверяются на printable ASCII; Unicode bytes не превращают
-  ошибочный аргумент в корректное имя либо отсутствующий optional value.
+- `HELP`/`NOOP` optional строки больше не очищают Unicode whitespace через
+  `str::trim`. После удаления только ASCII SP аргументы проверяются на
+  printable ASCII; Unicode bytes не превращают ошибочный аргумент в
+  отсутствующий optional value. VRFY/EXPN используют отдельную RFC 6531 String
+  grammar и допускают UTF-8 query, как подтверждено позже в T158.
 - Регрессия до изменения воспроизвела принятие `VRFY NBSP alice`. Windows
   `cargo test --locked`: 575 library + 1 binary; fmt и strict Clippy прошли.
   Linux Docker release build, strict Clippy и test gate: 626 library + 1 binary
-  и doc-tests. Независимый raw-TCP клиент проверил VRFY/NOOP/HELP с NBSP
+  и doc-tests. Независимый raw-TCP клиент проверил HELP/NOOP с NBSP
   (501), затем NOOP (250) и QUIT (221) в той же сессии. Acceptance T102.
 - Контейнер `litterkeep-smtp-ascii-string-wsp` и образы
   `litterkeep-smtp-ascii-string-wsp-runtime:20260926`,
   `litterkeep-smtp-ascii-string-wsp-check:20260926` удалены; отсутствие
   проверено после acceptance. TLS/accounts сохранены в
-  `./data/g17-smtp-ascii-string-wsp`. Сервер не рекламирует SMTPUTF8, поэтому
-  Unicode VRFY/EXPN profile RFC 6531 не заявляется; G17 остаётся RUNNING.
+  `./data/g17-smtp-ascii-string-wsp`. Сервер не рекламирует SMTPUTF8 и не
+  возвращает UTF-8 VRFY identity; G17 остаётся RUNNING.
 
 ### 2026-09-26: G17 RFC 5322 Date header WSP in IMAP SENT search
 

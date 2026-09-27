@@ -47,7 +47,7 @@ fn parameter_kind(parameter: &str) -> ParameterKind {
 
 /// Проверяет непустую SMTP String и сохраняет её UTF-8 без Unicode trim.
 fn request(query: &str, reply_encoding: ReplyEncoding) -> Result<VerifyRequest, ParseError> {
-    match valid_string(query, reply_encoding) {
+    match valid_string(query) {
         true => Ok(VerifyRequest {
             query: query.to_owned(),
             reply_encoding,
@@ -57,27 +57,22 @@ fn request(query: &str, reply_encoding: ReplyEncoding) -> Result<VerifyRequest, 
 }
 
 /// Принимает printable ASCII и корректные UTF-8 scalar values без controls.
-fn valid_string(query: &str, reply_encoding: ReplyEncoding) -> bool {
+fn valid_string(query: &str) -> bool {
     match (
         query.is_empty(),
         query.starts_with(' '),
         query.ends_with(' '),
     ) {
-        (false, false, false) => query
-            .chars()
-            .all(|character| valid_character(character, reply_encoding)),
+        (false, false, false) => query.chars().all(valid_character),
         _ => false,
     }
 }
 
 /// RFC String не пропускает управляющие ASCII/Unicode scalar values.
-fn valid_character(character: char, reply_encoding: ReplyEncoding) -> bool {
+fn valid_character(character: char) -> bool {
     match character {
         ' '..='~' => true,
-        _ => match reply_encoding {
-            ReplyEncoding::AsciiOnly => false,
-            ReplyEncoding::Utf8Allowed => valid_utf8_scalar(character),
-        },
+        _ => valid_utf8_scalar(character),
     }
 }
 

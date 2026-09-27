@@ -92,13 +92,13 @@ def verify_policy(host: str, port: int) -> None:
         if b"SMTPUTF8" in capabilities.upper():
             raise AssertionError("сервер преждевременно рекламирует неполную SMTPUTF8")
 
-        expect_reply(
-            stream,
-            "VRFY почта@example.test".encode("utf-8"),
-            ReplyCode.SYNTAX_ERROR,
-        )
         ascii_verify = expect_reply(
             stream, b"VRFY alice@example.test SMTPUTF8", ReplyCode.VERIFICATION_UNAVAILABLE
+        )
+        unmarked_utf8_verify = expect_reply(
+            stream,
+            "VRFY почта@example.test".encode("utf-8"),
+            ReplyCode.VERIFICATION_UNAVAILABLE,
         )
         utf8_verify = expect_reply(
             stream,
@@ -110,7 +110,7 @@ def verify_policy(host: str, port: int) -> None:
             "EXPN список@example.test SMTPUTF8".encode("utf-8"),
             ReplyCode.EXPANSION_UNSUPPORTED,
         )
-        for response in (ascii_verify, utf8_verify, utf8_expn):
+        for response in (ascii_verify, unmarked_utf8_verify, utf8_verify, utf8_expn):
             require_ascii_response(response)
         expect_reply(
             stream,

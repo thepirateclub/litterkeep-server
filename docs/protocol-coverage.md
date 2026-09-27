@@ -35,18 +35,20 @@ Python `smtplib` на STARTTLS проверил continuation, initial-response �
 воспроизводимым Linux raw-TCP сценарием
 [`smtp_unknown_command.py`](../tests/blackbox/smtp_unknown_command.py); тест не
 использует клиент Litterkeep.
-Аргумент ASCII-only SMTP-команд VRFY/EXPN/HELP/NOOP не проходит Unicode-aware
-`trim`: NBSP не маскирует невалидный байт как пустой optional argument или
-ASCII имя. `VRFY alice@example.test`, `NOOP ` и `HELP ` возвращают 501; затем
-NOOP/QUIT в том же TCP соединении подтверждают recovery. Сервер не рекламирует
-SMTPUTF8, поэтому этот тест не заявляет RFC 6531 Unicode VRFY/EXPN support.
+Аргументы HELP/NOOP, где grammar допускает только ASCII, не проходят
+Unicode-aware `trim`: NBSP не маскирует невалидный байт как пустой optional
+argument. `NOOP ` и `HELP ` возвращают 501; затем NOOP/QUIT в том же TCP
+соединении подтверждают recovery. VRFY/EXPN имеют отдельную RFC 6531 String
+грамматику, которая допускает UTF-8 query даже при отсутствии reply marker-а.
+Сервер не рекламирует SMTPUTF8 и не возвращает UTF-8 identity в ответе.
 Парсер отдельно понимает RFC 6531 §3.7.4.2 запросы VRFY/EXPN с valueless
 `SMTPUTF8` и UTF-8 query, сохраняет режим reply encoding и отвергает параметр
-со значением. Без capability непомеченный Unicode VRFY остаётся syntax error;
-при принудительно переданном marker сервер отвечает неизменяемыми privacy-safe
-`252`/`502` и не выдаёт non-ASCII reply. Independent Linux wire test проверил
-ASCII/UTF-8 query, отсутствие capability, malformed marker и session recovery.
-Это не объявленная SMTPUTF8 capability и не interoperability-тест клиента.
+со значением. Marker обозначает способность клиента принимать UTF-8 в ответе и
+не запрещает UTF-8 в самом query. Сервер отвечает privacy-safe `252`/`502`,
+не выдаёт non-ASCII identity и не рекламирует SMTPUTF8 capability. Независимый
+Linux wire test проверил ASCII/UTF-8 query с marker-ом и без него, malformed
+marker и session recovery. Это не объявленная SMTPUTF8 capability и не
+interoperability-тест клиента.
 
 В production `MAIL FROM:` и `RCPT TO:` angle-path начинается сразу после
 двоеточия: пробел и табуляция между delimiter-ом команды и `<` получают 501,

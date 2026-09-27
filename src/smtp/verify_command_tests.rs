@@ -35,11 +35,21 @@ fn parses_utf8_query_and_valueless_reply_permission_for_both_commands() {
 }
 
 #[test]
+fn utf8_query_does_not_require_permission_for_utf8_replies() {
+    assert_eq!(
+        parse("VRFY почта@example.test\r\n"),
+        Ok(Command::Vrfy(VerifyRequest {
+            query: "почта@example.test".into(),
+            reply_encoding: ReplyEncoding::AsciiOnly,
+        }))
+    );
+}
+
+#[test]
 fn rejects_smtputf8_parameter_values_and_invalid_strings() {
     for command in [
         "VRFY alice@example.test SMTPUTF8=YES\r\n",
         "EXPN alice@example.test SMTPUTF8=\r\n",
-        "VRFY почта@example.test\r\n",
         "VRFY \r\n",
         "EXPN name\u{0085}with-control\r\n",
     ] {
