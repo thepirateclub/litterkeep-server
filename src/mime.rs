@@ -16,6 +16,8 @@ mod charset_iso8859_13;
 mod charset_iso8859_14;
 #[path = "mime/charset_iso8859_15.rs"]
 mod charset_iso8859_15;
+#[path = "mime/charset_iso8859_16.rs"]
+mod charset_iso8859_16;
 #[path = "mime/charset_iso8859_2.rs"]
 mod charset_iso8859_2;
 #[path = "mime/charset_iso8859_3.rs"]

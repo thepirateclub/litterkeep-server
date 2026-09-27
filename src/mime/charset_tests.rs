@@ -139,19 +139,27 @@ fn iso_8859_15_decodes_latin9_replacements_and_registered_aliases() {
 }
 
 #[test]
-fn iso_8859_profiles_support_only_the_required_ascii_subset() {
+fn iso_8859_16_decodes_latin10_text_and_registered_aliases() {
+    let charset = Charset::parse("ISO-8859-16").expect("registered MIME charset");
+    assert_eq!(charset.decode(b"\xaa\xde \xba\xfe"), Ok("ȘȚ șț".to_owned()));
+    assert_eq!(charset.decode(b"Euro: \xa4"), Ok("Euro: €".to_owned()));
+    for label in [
+        "ISO_8859-16:2001",
+        "ISO_8859-16",
+        "latin10",
+        "l10",
+        "iso-ir-226",
+        "csISO885916",
+    ] {
+        assert_eq!(Charset::parse(label), Ok(Charset::Iso8859_16));
+    }
+}
+
+#[test]
+fn nonexistent_iso_8859_12_is_not_guessed() {
     assert_eq!(
-        Charset::parse("iso-8859-16")
-            .expect("registered ISO-8859 profile")
-            .decode(b"ASCII header"),
-        Ok("ASCII header".to_owned())
-    );
-    assert!(Charset::parse("iso-8859-12").is_err());
-    assert!(
-        Charset::parse("iso-8859-16")
-            .expect("ISO-8859-16 ASCII subset")
-            .decode(b"caf\xe9")
-            .is_err()
+        Charset::parse("iso-8859-12"),
+        Err("unsupported MIME charset")
     );
 }
 
