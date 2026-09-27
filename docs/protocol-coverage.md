@@ -981,7 +981,10 @@ Implicit-TLS проверен unit-тестом, а совместимость �
 остаётся conformance gap.
 ManageSieve mutation quota failures now use the RFC 5804 `NO (QUOTA)` response
 code; Store boundary and response-mapping unit tests verify that ordinary disk
-errors do not become quota responses. Live wire behavior remains unverified.
+errors do not become quota responses. Independent Linux TLS wire acceptance
+reaches the 17-script boundary and confirms the failed PUTSCRIPT leaves the
+16-entry catalog unchanged. Litterkeep client interoperability remains
+unverified.
 
 ## Outbound SMTP
 

@@ -47,8 +47,11 @@ failures now retain a typed source marker across the owner boundary, and
 mutation completion maps only that marker to `NO (QUOTA)`; even a filesystem
 `StorageFull` error retains the generic failure response. Store tests exercise the
 script-count boundary and reactor response tests distinguish quota from disk
-errors. The exact ManageSieve quota response has not yet been exercised against
-a live listener.
+errors. Independent Linux TLS acceptance
+`tests/blackbox/managesieve_quota.py` uploaded 16 scripts, checked that the
+17th receives exact `NO (QUOTA) "quota exceeded"`, and verified LISTSCRIPTS
+still returns exactly the original 16. This does not verify Litterkeep client
+interoperability.
 
 При runtime error частичный план доставки отбрасывается атомарно и применяется
 только implicit keep; committed diagnostic хранит account, версию скрипта,

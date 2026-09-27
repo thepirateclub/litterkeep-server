@@ -10,8 +10,10 @@
   tests cover success, quota and ordinary I/O failure. Windows Rust 1.97.1:
   798 library + 1 CLI passed, 3 fixture-dependent ignored; formatting passed.
   Linux Docker Rust 1.97.1: strict Clippy, 883 library + 1 CLI passed,
-  3 ignored, release build passed. Live listener quota exchange remains
-  unverified. Disposable container removed; preexisting Rust image retained.
+  3 ignored, release build passed. Independent Linux TLS black-box uploads 16
+  scripts, gets exact `NO (QUOTA) "quota exceeded"` on the 17th, and verifies
+  the catalog remains unchanged. Container removed; preexisting Rust image
+  retained. Litterkeep client interoperability remains unverified.
 
 ### 2026-09-27: G18 ManageSieve UNAUTHENTICATE state reset, scoped PASS T249
 
