@@ -355,7 +355,11 @@ IDLE/DONE и durable Recent. UIDVALIDITY и UID переживают restart.
 попытки нового выбора и перед новыми ответами выдают `* OK [CLOSED]`. Если
 новый выбор не удался, session возвращается к authenticated state без выбранной
 mailbox и без expunge. Независимый Linux STARTTLS acceptance проверяет CLOSED
-ordering, отказ FETCH до новой SELECT и последующий NOOP.
+ordering, отказ FETCH до новой SELECT и последующий NOOP. При успешном выборе
+сервер также выдаёт обязательный RFC 9051 §6.3.2 untagged LIST с каноническим
+именем папки перед прочими выбранными-mailbox ответами; acceptance проверяет
+SELECT INBOX, SELECT уникальной пользовательской папки и EXAMINE INBOX с
+READ-ONLY completion. Это не заявляет полный профиль.
 
 Implicit-TLS IMAP отвечает на peer-инициированный `close_notify` после
 успешного tagged NOOP reply. Независимый Linux TLS peer завершил `unwrap()`;

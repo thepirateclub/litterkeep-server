@@ -51,7 +51,10 @@ def command_lines(
 
 
 def require_closed_first(
-    responses: list[bytes], tag: bytes, expected_status: ImapStatus
+    responses: list[bytes],
+    tag: bytes,
+    expected_status: ImapStatus,
+    expected_mailbox: bytes | None,
 ) -> None:
     """Проверяет CLOSED как границу старой и новой mailbox проекций."""
     first = next(iter(responses), b"")
@@ -60,6 +63,20 @@ def require_closed_first(
         raise AssertionError(f"SELECT omitted CLOSED boundary: {responses!r}")
     if not completion.startswith(tag + b" " + expected_status.value.encode("ascii")):
         raise AssertionError(f"unexpected SELECT completion: {responses!r}")
+    if expected_mailbox is not None:
+        expected_list = b'* LIST () "/" "' + expected_mailbox + b'"'
+        if not any(line.startswith(expected_list) for line in responses):
+            raise AssertionError(f"SELECT omitted selected-mailbox LIST: {responses!r}")
+        list_position = next(
+            position for position, line in enumerate(responses)
+            if line.startswith(expected_list)
+        )
+        flags_position = next(
+            position for position, line in enumerate(responses)
+            if line.startswith(b"* FLAGS ")
+        )
+        if list_position > flags_position:
+            raise AssertionError(f"SELECT LIST must precede FLAGS: {responses!r}")
 
 
 def require_no_selected_mailbox(client: imaplib.IMAP4) -> None:
@@ -111,9 +128,21 @@ def verify(host: str, port: int, ca_file: Path, credentials: Path) -> None:
         raise AssertionError(f"initial SELECT failed: {status} {detail!r}")
     try:
         switched = command_lines(client, b"R1", b"SELECT INBOX")
-        require_closed_first(switched, b"R1", ImapStatus.OK)
+        require_closed_first(switched, b"R1", ImapStatus.OK, b"INBOX")
+        folder_name = "Invoices-" + uuid.uuid4().hex
+        status, detail = client.create(folder_name)
+        if ImapStatus(status) is not ImapStatus.OK:
+            raise AssertionError(f"CREATE named mailbox failed: {status} {detail!r}")
+        named_command = f'SELECT "{folder_name}"'.encode("ascii")
+        named = command_lines(client, b"R4", named_command)
+        require_closed_first(named, b"R4", ImapStatus.OK, folder_name.encode("ascii"))
+        examined = command_lines(client, b"R5", b"EXAMINE INBOX")
+        require_closed_first(examined, b"R5", ImapStatus.OK, b"INBOX")
+        completion = next(reversed(examined), b"")
+        if not completion.startswith(b"R5 OK [READ-ONLY]"):
+            raise AssertionError(f"EXAMINE was not read-only: {examined!r}")
         failed = command_lines(client, b"R2", b"SELECT no-such-mailbox")
-        require_closed_first(failed, b"R2", ImapStatus.NO)
+        require_closed_first(failed, b"R2", ImapStatus.NO, None)
         require_no_selected_mailbox(client)
         status, detail = client.noop()
         if ImapStatus(status) is not ImapStatus.OK:

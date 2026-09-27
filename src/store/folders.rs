@@ -110,6 +110,20 @@ impl FolderCatalog {
         Ok(storage_key(account, folder))
     }
 
+    /// Возвращает имя для key без клонирования всего каталога аккаунта.
+    pub(super) fn name_by_storage_key(&mut self, account: &str, key: &str) -> io::Result<String> {
+        self.ensure_defaults(account)?;
+        self.accounts
+            .get(account)
+            .into_iter()
+            .flatten()
+            .find(|folder| storage_key(account, folder) == key)
+            .cloned()
+            .map(names::listed_name)
+            .map(|folder| folder.name)
+            .ok_or_else(missing)
+    }
+
     /// Переименовывает папку и всё её поддерево одним journal-событием.
     pub(super) fn rename(
         &mut self,

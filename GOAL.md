@@ -1,5 +1,20 @@
 # Goal ledger
 
+### 2026-09-27: G18 RFC 9051 successful SELECT LIST response, scoped PASS T267
+
+- RFC 9051 §6.3.2 requires successful SELECT/EXAMINE to include an untagged
+  LIST response naming the selected mailbox. The completion now carries the
+  canonical mailbox display name from the Store-owned catalog and emits that
+  response before FLAGS/EXISTS. Catalog lookup avoids cloning the entire folder
+  list. A Store test checks renamed Unicode names; independent Linux STARTTLS
+  acceptance checks SELECT INBOX, SELECT for a unique user-created mailbox,
+  and EXAMINE INBOX including its READ-ONLY result.
+- Windows Rust 1.97.1 full tests passed (807 library + 1 CLI, 3 ignored), as did
+  format, strict Clippy, and the Linux release runtime wire scenario. This is
+  scoped RFC response coverage only, not full IMAP4rev2 or Litterkeep-app
+  interoperability. The temporary stage image/container are removed after
+  verification; fixture data remains under `./data`.
+
 ### 2026-09-27: G18 IMAP implicit mailbox close on SELECT, scoped PASS T266
 
 - SELECT/EXAMINE now close any previous mailbox before starting the new Store
