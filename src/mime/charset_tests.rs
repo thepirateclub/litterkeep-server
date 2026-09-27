@@ -30,9 +30,15 @@ fn iso_8859_2_uses_its_complete_registered_mapping() {
 }
 
 #[test]
+fn iso_8859_3_uses_registered_name_and_rejects_undefined_octets() {
+    let charset = Charset::parse("ISO-8859-3").expect("registered MIME charset");
+    assert_eq!(charset.decode(b"Afr\xa1ika"), Ok("AfrĦika".to_owned()));
+    assert!(charset.decode(b"\xa5").is_err());
+}
+
+#[test]
 fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     for label in [
-        "iso-8859-3",
         "iso-8859-4",
         "iso-8859-5",
         "iso-8859-6",
@@ -56,8 +62,8 @@ fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     }
     assert!(Charset::parse("iso-8859-12").is_err());
     assert!(
-        Charset::parse("iso-8859-3")
-            .expect("ISO-8859-3 ASCII subset")
+        Charset::parse("iso-8859-4")
+            .expect("ISO-8859-4 ASCII subset")
             .decode(b"caf\xe9")
             .is_err()
     );
