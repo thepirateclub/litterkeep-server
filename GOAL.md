@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-27: G17 RFC 1939 POP3 NOOP transaction-only state, PASS checkpoint
+
+- RFC 1939 §5 разрешает `NOOP` только в TRANSACTION. POP3 FSM ошибочно
+  возвращала `+OK` также в AUTHORIZATION и USERAccepted; теперь обе ранние
+  попытки получают state error, а в TRANSACTION команда продолжает отвечать
+  положительно.
+- Unit regression и независимый Linux STARTTLS peer проверяют NOOP до USER,
+  после USER, восстановление входа через SASL PLAIN, успешный NOOP после входа
+  и QUIT.
+- Windows Rust 1.97.1: 630 library tests (629 passed, 1 внешний UCD test
+  ignored без корпуса) и 1 CLI test прошли; strict Clippy, rustfmt и
+  `git diff --check` и Python `py_compile` прошли. Linux Docker test stage: 696 library tests
+  (695 passed, 1 UCD test ignored), 1 CLI test, doc-tests и strict Clippy
+  прошли. Независимый TLS acceptance прошёл. Fixture
+  `./data/acceptance-pop3-noop-state-20260927` сохранена; временные Docker
+  container и image удалены, отсутствие проверено. Litterkeep app не проверялось; полный
+  POP3 профиль и G17 остаются ACTIVE.
+
 ### 2026-09-27: G17 RFC 1939 POP3 USER/PASS argument bounds, PASS checkpoint
 
 - RFC 1939 §3 ограничивает каждый аргумент 40 символами, тогда как сервер до

@@ -28,6 +28,9 @@ pub use session::{Reply, ResponseCode, Session};
 #[path = "pop3/lang_state_tests.rs"]
 mod lang_state_tests;
 #[cfg(test)]
+#[path = "pop3/noop_state_tests.rs"]
+mod noop_state_tests;
+#[cfg(test)]
 #[path = "pop3/tests.rs"]
 mod tests;
 #[cfg(test)]

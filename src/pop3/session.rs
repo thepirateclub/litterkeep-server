@@ -85,7 +85,6 @@ impl Session {
             (Phase::Authorization | Phase::Transaction, Command::Lang(language)) => {
                 lang_reply(language)
             }
-            (Phase::Authorization | Phase::UserAccepted, Command::Noop) => Reply::Ok("noop".into()),
             (Phase::Transaction, Command::Stat) => self.stat(),
             (Phase::Transaction, Command::List(number)) => self.list(number),
             (Phase::Transaction, Command::Uidl(number)) => self.uidl(number),
