@@ -219,6 +219,23 @@ fn windows_1253_decodes_greek_and_rejects_undefined_octets() {
 }
 
 #[test]
+fn windows_1254_decodes_turkish_and_rejects_undefined_octets() {
+    let charset = Charset::parse("WINDOWS-1254").expect("registered MIME charset");
+    assert_eq!(
+        charset.decode(b"\xddstanbul, \xddzmir, I\xf0d\xfdr"),
+        Ok("İstanbul, İzmir, Iğdır".to_owned())
+    );
+    assert_eq!(Charset::parse("csWindows1254"), Ok(Charset::Windows1254));
+    assert!(Charset::parse("cp1254").is_err());
+    for byte in [0x81, 0x8d, 0x8e, 0x8f, 0x90, 0x9d, 0x9e] {
+        assert!(
+            charset.decode(&[byte]).is_err(),
+            "undefined octet {byte:#04x}"
+        );
+    }
+}
+
+#[test]
 fn utf16_handles_registered_byte_orders_bom_and_supplementary_characters() {
     assert_eq!(
         Charset::parse("UTF-16")

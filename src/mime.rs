@@ -40,6 +40,8 @@ mod charset_tis620;
 mod charset_windows1250;
 #[path = "mime/charset_windows1253.rs"]
 mod charset_windows1253;
+#[path = "mime/charset_windows1254.rs"]
+mod charset_windows1254;
 #[path = "mime/content_id.rs"]
 mod content_id;
 #[path = "mime/content_metadata.rs"]

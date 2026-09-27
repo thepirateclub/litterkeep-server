@@ -185,7 +185,7 @@ unencoded continuation segments. Charset декодируется явным all
 ISO-8859-5, ISO-8859-6, ISO-8859-7, ISO-8859-8,
 ISO-8859-9, ISO-8859-10, TIS-620 (ISO-8859-11), ISO-8859-13, ISO-8859-14,
 ISO-8859-15, ISO-8859-16,
-Windows-1250, Windows-1251, Windows-1252, Windows-1253,
+Windows-1250, Windows-1251, Windows-1252, Windows-1253, Windows-1254,
 UTF-16, UTF-16BE и UTF-16LE. Три UTF-16 профиля используются в RFC 2047 и
 RFC 2231, но исключены из декодирования MIME `text/*` при поиске согласно
 RFC 2781. RFC 2231 начальная секция может опускать charset и language:
@@ -215,6 +215,12 @@ IANA charset `windows-1253` реализуется отдельной Greek mapp
 проверяются по таблице Microsoft/Unicode, 17 undefined octets не подменяются
 replacement character, принимается alias `cswindows1253`, а `cp1253` не
 принимается. Сетевой client acceptance для этой charset не выполнялся.
+
+IANA charset [windows-1254](https://www.iana.org/assignments/charset-reg/windows-1254)
+декодируется по полной [таблице Microsoft/Unicode CP1254](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP1254.TXT).
+Пооктетный oracle проверяет все 256 значений и семь undefined positions;
+турецкие I/Ğ/Ş замены и alias `cswindows1254` проверены, `cp1254` не принимается.
+Сетевой client acceptance для этой charset не выполнялся.
 
 Зарегистрированный IANA charset windows-1252 теперь декодируется как отдельный
 профиль, не смешивая его с ISO-8859-1. Проверены все 32 octets диапазона

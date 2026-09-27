@@ -1,5 +1,18 @@
 # Goal ledger
 
+### 2026-09-27: G17 Windows-1254 MIME charset, scoped PASS T222
+
+- По Microsoft CP1254 mapping и IANA registry добавлен typed decoder: 256
+  octets проверены отдельным oracle, семь undefined позиций отвергаются;
+  принимаются `windows-1254` и `cswindows1254`, но не `cp1254`.
+- Windows Rust 1.97.1: 757 library tests и 1 CLI test прошли; один внешний
+  Unicode corpus ignored без fixture path. fmt, strict Clippy и diff check
+  прошли.
+- Linux Docker Rust 1.97: release build, strict Clippy, 841 library tests и
+  1 CLI test прошли; один внешний Unicode corpus ignored без fixture path.
+  Временный image удалён, отсутствие проверено; network acceptance и
+  Litterkeep client compatibility не заявляются. G17 остаётся active.
+
 ### 2026-09-27: G17 Windows-1253 MIME charset, scoped PASS T221
 
 - По Microsoft CP1253 Unicode table и IANA registry добавлен отдельный typed
