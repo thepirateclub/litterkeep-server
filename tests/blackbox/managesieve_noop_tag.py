@@ -51,6 +51,9 @@ def main() -> None:
         if greeting.count(b'"VERSION" "1.0"\r\n') != 1:
             raise AssertionError(f"RFC 5804 VERSION capability missing or repeated: {greeting!r}")
         exchange(connection, b"NOOP\r\n", b'OK "noop"\r\n')
+        connection.sendall(b'authenticate "plain" {12+}\r\nAGFsaWNlAHg=\r\n')
+        if read_line(connection) != b'NO "encryption required"\r\n':
+            raise AssertionError("literal PLAIN initial response did not reach TLS policy")
         exchange(
             connection,
             b'NOOP "sync-42"\r\n',

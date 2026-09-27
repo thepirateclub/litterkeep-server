@@ -5,6 +5,12 @@ keep/discard, header/address/size tests и diagnostics. ManageSieve поддер
 STARTTLS, SASL PLAIN, literals, CHECKSCRIPT, PUTSCRIPT, LISTSCRIPTS, GETSCRIPT,
 SETACTIVE, DELETESCRIPT и RENAMESCRIPT.
 
+RFC 5804 §2.1 string initial-response для AUTHENTICATE PLAIN теперь принимает
+и в bounded client-to-server literal форме. Literal проходит через ту же
+TLS-before-auth политику; независимая Linux проверка до TLS подтверждает
+разбор аргумента ответом `NO "encryption required"`, но не проверяет пароль.
+Обязательный SCRAM-SHA-1 по-прежнему не реализован.
+
 Для client-to-server literals receiver сначала читает ровно объявленное число
 octets, затем обязательный CRLF конца command line; только после него начинает
 разбор следующей pipelined команды. Это соответствует framing из RFC 5804

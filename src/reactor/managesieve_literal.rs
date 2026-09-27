@@ -31,10 +31,13 @@ enum Operation {
     GetScript,
     DeleteScript,
     SetActive,
+    AuthenticatePlain,
     Rename(rename_literal::Receiver),
     HaveSpace(havespace_literal::Receiver),
 }
 
+#[path = "managesieve_auth_literal.rs"]
+mod auth_literal;
 #[path = "managesieve_literal_putscript.rs"]
 mod putscript;
 
@@ -126,6 +129,7 @@ impl LiteralReceiver {
                 };
                 Progress::Complete(Command::SetActive(name))
             }
+            Operation::AuthenticatePlain => Progress::Complete(Command::AuthenticatePlain(source)),
         }
     }
 }
@@ -146,6 +150,7 @@ pub(super) fn start(line: &[u8]) -> Start {
         Verb::GetScript => string_argument(Operation::GetScript, tail),
         Verb::DeleteScript => string_argument(Operation::DeleteScript, tail),
         Verb::SetActive => string_argument(Operation::SetActive, tail),
+        Verb::Authenticate => auth_literal::start(tail),
         Verb::Rename => match rename_literal::start(tail) {
             rename_literal::Start::NotLiteral => Start::NotLiteral,
             rename_literal::Start::Invalid => Start::Invalid,
@@ -183,6 +188,7 @@ enum Verb {
     GetScript,
     DeleteScript,
     SetActive,
+    Authenticate,
     Rename,
     HaveSpace,
     Other,
@@ -197,6 +203,7 @@ impl Verb {
             _ if value.eq_ignore_ascii_case("GETSCRIPT") => Self::GetScript,
             _ if value.eq_ignore_ascii_case("DELETESCRIPT") => Self::DeleteScript,
             _ if value.eq_ignore_ascii_case("SETACTIVE") => Self::SetActive,
+            _ if value.eq_ignore_ascii_case("AUTHENTICATE") => Self::Authenticate,
             _ if value.eq_ignore_ascii_case("RENAMESCRIPT") => Self::Rename,
             _ if value.eq_ignore_ascii_case("HAVESPACE") => Self::HaveSpace,
             _ => Self::Other,

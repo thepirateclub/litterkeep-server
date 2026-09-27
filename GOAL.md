@@ -1,5 +1,20 @@
 # Goal ledger
 
+### 2026-09-27: G18 ManageSieve AUTHENTICATE PLAIN literal initial response, scoped PASS T261
+
+- RFC 5804 AUTHENTICATE initial responses may use a string literal. The
+  ManageSieve reactor now bounds and collects a PLAIN literal response, checks
+  its UTF-8 form and final CRLF, and routes the typed command through the
+  existing TLS policy and credential owner. This does not add SCRAM-SHA-1.
+- Linux receiver unit coverage verifies exact initial-response bytes. The
+  independent STARTTLS listener test submits a non-synchronizing PLAIN literal
+  before TLS and verifies `NO "encryption required"`, demonstrating command
+  parsing without attempting credential validation over cleartext.
+- Windows Rust 1.97.1 fmt, strict Clippy and all-target tests passed (802
+  library + 1 CLI, 3 ignored). Linux Docker Rust 1.97.1 fmt, strict Clippy,
+  900 library + 1 CLI passed, 3 ignored, release build and independent STARTTLS
+  wire scenario passed. Stage containers removed; pre-existing Rust image kept.
+
 ### 2026-09-27: G18 ManageSieve final-literal line framing, scoped PASS T260
 
 - Final ManageSieve string literals now require the RFC 5804 command-line CRLF

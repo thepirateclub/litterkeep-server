@@ -80,6 +80,23 @@ fn final_literal_requires_crlf_before_the_next_command() {
 }
 
 #[test]
+fn authenticate_plain_accepts_a_literal_initial_response() {
+    let Start::Begin {
+        mut receiver,
+        continuation,
+    } = start(b"AUTHENTICATE \"PLAIN\" {12+}\r\n")
+    else {
+        panic!("PLAIN literal initial response was not recognized");
+    };
+    assert!(!continuation);
+    let mut response = b"AGFsaWNlAHg=\r\n".to_vec();
+    assert!(matches!(
+        receiver.consume(&mut response),
+        Progress::Complete(Command::AuthenticatePlain(value)) if value == "AGFsaWNlAHg="
+    ));
+}
+
+#[test]
 fn literal_script_names_preserve_command_types_and_empty_deactivation() {
     assert_eq!(
         complete(b"GETSCRIPT {3+}\r\n", b"box\r\n"),
