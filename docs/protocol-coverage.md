@@ -228,7 +228,10 @@ The same acceptance sends `LITERAL-` forms for both fields and values without
 waiting for continuations, after checking the advertised capability. RFC 7888
 allows non-synchronizing literals in any IMAP command and caps them at 4096
 octets for `LITERAL-`; this ID test covers small payloads, not the global
-oversize boundary.
+oversize boundary. RFC 2971 ID field/value limits are also checked at their
+wire boundaries: 30-octet field and 1024-octet value are accepted, while 31
+and 1025 octets respectively receive tagged BAD without disclosing ID data;
+subsequent NOOP commands confirm session recovery.
 
 RFC 7888 `LITERAL-` включён в CAPABILITY. Synchronizing literal-ы сохраняют
 continuation; non-synchronizing `{n+}` не вызывает continuation и ограничен

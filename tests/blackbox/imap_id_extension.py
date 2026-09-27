@@ -91,7 +91,13 @@ class ImapPeer:
                     raise AssertionError(f"privacy ID response missing: {response!r}")
                 return bytes(response)
 
-    def id_non_sync_literal(self, prefix: bytes, literal: bytes, suffix: bytes) -> bytes:
+    def id_non_sync_literal(
+        self,
+        prefix: bytes,
+        literal: bytes,
+        suffix: bytes,
+        expected: Completion = Completion.OK,
+    ) -> bytes:
         """Передаёт LITERAL- без continuation до получения байтов payload."""
         self.counter += 1
         tag = f"I{self.counter:03}".encode("ascii")
@@ -114,9 +120,14 @@ class ImapPeer:
                             ) from error
                     case _:
                         raise AssertionError(f"invalid tagged completion: {line!r}")
-                require(completion, Completion.OK, "ID LITERAL-")
-                if b"* ID NIL\r\n" not in response:
-                    raise AssertionError(f"privacy ID response missing: {response!r}")
+                require(completion, expected, "ID LITERAL-")
+                match expected:
+                    case Completion.OK if b"* ID NIL\r\n" not in response:
+                        raise AssertionError(f"privacy ID response missing: {response!r}")
+                    case Completion.BAD if b"* ID " in response:
+                        raise AssertionError(f"invalid ID returned a response: {response!r}")
+                    case _:
+                        pass
                 return bytes(response)
 
     def starttls(self) -> None:
@@ -177,6 +188,13 @@ def main() -> None:
         peer.id_literal(b'"name" ', b"client", b"")
         peer.id_non_sync_literal(b"", b"name", b' "client"')
         peer.id_non_sync_literal(b'"name" ', b"client", b"")
+        peer.id_non_sync_literal(b"", b"f" * 30, b" NIL")
+        peer.id_non_sync_literal(b'"name" ', b"v" * 1024, b"")
+        peer.id_non_sync_literal(b"", b"f" * 31, b" NIL", Completion.BAD)
+        peer.id_non_sync_literal(b'"name" ', b"v" * 1025, b"", Completion.BAD)
+        for _attempt in range(2):
+            status, _response = peer.command(b"NOOP")
+            require(status, Completion.OK, "NOOP after ID size rejection")
         verify_id(peer, b'ID ("name" NIL "NAME" NIL)', Completion.BAD)
         noop_status, _noop_response = peer.command(b"NOOP")
         require(noop_status, Completion.OK, "NOOP after invalid ID")

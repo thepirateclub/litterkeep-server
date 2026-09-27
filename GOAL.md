@@ -6935,3 +6935,9 @@ ManageSieve до заявленного набора современных фо
 - RFC 7888 §3 разрешает non-synchronizing literal во всех IMAP командах, а LITERAL- ограничивает его 4096 октетами. Независимый peer теперь отправляет ID field и ID value в `{n+}` форме, передавая marker вместе с payload без ожидания continuation; проверяются capability ID/LITERAL- и приватный ответ `* ID NIL`.
 - Python acceptance py_compile и git diff-check прошли; файл сценария 192 строки. Production release runtime образ собран на Rust 1.97 из текущего source, wire acceptance прошёл, контейнер и image удалены. Rust tests не повторялись: с T152 изменился только независимый acceptance-клиент; полный Rust suite T152 остаётся актуальным для неизменившегося server source.
 - Fixture ./data/g38-imap-id-extension сохранена. Проверялся независимый peer, не Litterkeep app. Малые payload прошли; граничные 4096/4097 octets этим тестом не проверялись. Полный IMAP4rev2 и G17 остаются ACTIVE.
+
+### 2026-09-27: G17 RFC 2971 ID wire size boundaries, scoped PASS
+
+- Расширен независимый STARTTLS сценарий ID с `LITERAL-`: проверены допустимые границы field=30 и value=1024 октета, затем отказы field=31/value=1025 без untagged ID response. Две следующие NOOP команды подтвердили восстановление session state после обоих отказов.
+- Production runtime image собран из неизменённого Rust source и удалён после PASS wire acceptance. Python `py_compile`, 210-строчный лимит acceptance и `git diff --check` проверены. Rust suite не перезапускался, так как в этом checkpoint менялся только независимый peer и документы.
+- Fixture ./data/g38-imap-id-extension сохранена; временный runtime container и image удалены. Это не клиент Litterkeep и не полное IMAP4rev2 acceptance; G17 остаётся ACTIVE.
