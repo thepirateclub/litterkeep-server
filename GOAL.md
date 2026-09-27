@@ -1,5 +1,18 @@
 # Goal ledger
 
+### 2026-09-27: G17 TIS-620 / ISO-8859-11 MIME mapping, scoped PASS T215
+
+- Реализован typed TIS-620 profile с alias ISO-8859-11, NBSP, Thai characters
+  и строгим отказом для undefined DB..DE и FC..FF. Проверены все assigned
+  старшие позиции и C1 controls.
+- Windows Rust 1.97: 734 library tests и 1 CLI test прошли; 1 внешний Unicode
+  corpus ignored без fixture. fmt, strict Clippy, diff check прошли.
+- Linux Docker Rust 1.97: release build, strict Clippy, 818 library tests и
+  1 CLI test прошли; 1 внешний Unicode corpus ignored без fixture. Временный
+  image удалён, отсутствие проверено; wire acceptance и Litterkeep client
+  compatibility не заявляются.
+- G17 остаётся active: ISO-8859-13..-16 и другие protocol gaps остаются.
+
 ### 2026-09-27: G17 full ISO-8859-10 MIME charset, scoped PASS T214
 
 - Добавлена отдельная таблица ISO-8859-10 и typed `Charset`; распознаются IANA

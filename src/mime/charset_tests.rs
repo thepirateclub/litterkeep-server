@@ -101,14 +101,16 @@ fn iso_8859_10_decodes_nordic_text_and_registered_aliases() {
 }
 
 #[test]
+fn tis_620_decodes_thai_and_rejects_undefined_octets() {
+    let charset = Charset::parse("TIS-620").expect("registered Thai charset");
+    assert_eq!(charset.decode(b"\xa1\xd2\xc2"), Ok("กาย".to_owned()));
+    assert_eq!(Charset::parse("ISO-8859-11"), Ok(Charset::Tis620));
+    assert!(charset.decode(b"\xdb").is_err());
+}
+
+#[test]
 fn iso_8859_profiles_support_only_the_required_ascii_subset() {
-    for label in [
-        "iso-8859-11",
-        "iso-8859-13",
-        "iso-8859-14",
-        "iso-8859-15",
-        "iso-8859-16",
-    ] {
+    for label in ["iso-8859-13", "iso-8859-14", "iso-8859-15", "iso-8859-16"] {
         assert_eq!(
             Charset::parse(label)
                 .expect("registered ISO-8859 profile")
@@ -119,8 +121,8 @@ fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     }
     assert!(Charset::parse("iso-8859-12").is_err());
     assert!(
-        Charset::parse("iso-8859-11")
-            .expect("ISO-8859-11 ASCII subset")
+        Charset::parse("iso-8859-13")
+            .expect("ISO-8859-13 ASCII subset")
             .decode(b"caf\xe9")
             .is_err()
     );
