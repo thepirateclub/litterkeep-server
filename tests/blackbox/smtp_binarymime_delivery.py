@@ -34,6 +34,15 @@ class ImapStatus(Enum):
     OK = "OK"
 
 
+class SmtpCapability(Enum):
+    """Расширения EHLO, необходимые разным частям данного acceptance."""
+
+    CHUNKING = "chunking"
+    BINARYMIME = "binarymime"
+    EIGHT_BIT_MIME = "8bitmime"
+    SMTP_UTF8 = "smtputf8"
+
+
 def arguments() -> argparse.Namespace:
     """Читает listener endpoints и локальные acceptance credentials."""
     parser = argparse.ArgumentParser()
@@ -105,7 +114,7 @@ def transmit_binary_message(client: smtplib.SMTP) -> bytes:
 
 
 def transmit_utf8_header_message(client: smtplib.SMTP) -> bytes:
-    """Проверяет UTF-8 header negotiation в принудительном BINARYMIME пути."""
+    """Проверяет MAIL-параметр SMTPUTF8 в сочетании с BINARYMIME."""
     message = (
         "Subject: Привет\r\n"
         "Content-Type: application/octet-stream\r\n"
@@ -113,13 +122,13 @@ def transmit_utf8_header_message(client: smtplib.SMTP) -> bytes:
     ).encode("utf-8") + UTF8_PAYLOAD
 
     client.putcmd("MAIL", "FROM:<alice@litterkeep.test> BODY=BINARYMIME")
-    require_reply(client, ReplyCode.ACCEPTED, "UTF-8 BINARYMIME MAIL without SMTPUTF8")
+    require_reply(client, ReplyCode.ACCEPTED, "UTF-8 BINARYMIME MAIL without SMTPUTF8 parameter")
     client.putcmd("RCPT", "TO:<bob@litterkeep.test>")
-    require_reply(client, ReplyCode.ACCEPTED, "UTF-8 BINARYMIME RCPT without SMTPUTF8")
+    require_reply(client, ReplyCode.ACCEPTED, "UTF-8 BINARYMIME RCPT without SMTPUTF8 parameter")
     client.putcmd("BDAT", f"{len(message)} LAST")
     client.send(message)
     diagnostic = require_reply(
-        client, ReplyCode.INVALID_CONTENT, "UTF-8 headers without SMTPUTF8"
+        client, ReplyCode.INVALID_CONTENT, "UTF-8 headers without SMTPUTF8 parameter"
     )
     if b"negotiated SMTP body profile" not in diagnostic:
         raise AssertionError(f"wrong SMTPUTF8 rejection diagnostic: {diagnostic!r}")
@@ -128,12 +137,12 @@ def transmit_utf8_header_message(client: smtplib.SMTP) -> bytes:
         raise AssertionError(f"RSET after SMTPUTF8 rejection: SMTP {code} {response!r}")
 
     client.putcmd("MAIL", "FROM:<alice@litterkeep.test> BODY=BINARYMIME SMTPUTF8")
-    require_reply(client, ReplyCode.ACCEPTED, "forced SMTPUTF8 BINARYMIME MAIL")
+    require_reply(client, ReplyCode.ACCEPTED, "SMTPUTF8 BINARYMIME MAIL")
     client.putcmd("RCPT", "TO:<bob@litterkeep.test>")
-    require_reply(client, ReplyCode.ACCEPTED, "forced SMTPUTF8 RCPT")
+    require_reply(client, ReplyCode.ACCEPTED, "SMTPUTF8 RCPT")
     client.putcmd("BDAT", f"{len(message)} LAST")
     client.send(message)
-    require_reply(client, ReplyCode.ACCEPTED, "forced SMTPUTF8 BINARYMIME LAST")
+    require_reply(client, ReplyCode.ACCEPTED, "SMTPUTF8 BINARYMIME LAST")
     return message
 
 
@@ -160,7 +169,9 @@ def stored_message(
                 raise AssertionError("IMAP SEARCH returned malformed identifiers")
         for identifier in identifiers:
             status, fetched = client.fetch(identifier, "(RFC822)")
-            if ImapStatus(status) is not ImapStatus.OK or fetched is None:
+            if ImapStatus(status) is not ImapStatus.OK:
+                continue
+            if fetched is None:
                 continue
             for item in fetched:
                 match item:
@@ -182,10 +193,12 @@ def main() -> None:
         code, response = client.ehlo()
         if code != ReplyCode.ACCEPTED:
             raise AssertionError(f"EHLO failed: SMTP {code} {response!r}")
-        if not client.has_extn("chunking") or not client.has_extn("binarymime"):
-            raise AssertionError(f"EHLO omitted RFC 3030 capabilities: {client.esmtp_features!r}")
-        if client.has_extn("smtputf8"):
-            raise AssertionError("SMTPUTF8 capability is outside this server's advertised profile")
+        for capability in (SmtpCapability.CHUNKING, SmtpCapability.BINARYMIME):
+            if not client.has_extn(capability.value):
+                raise AssertionError(f"EHLO omitted {capability.name}: {client.esmtp_features!r}")
+        for capability in (SmtpCapability.EIGHT_BIT_MIME, SmtpCapability.SMTP_UTF8):
+            if not client.has_extn(capability.value):
+                raise AssertionError(f"EHLO omitted {capability.name}: {client.esmtp_features!r}")
         client.login("alice", alice)
         check_data_is_forbidden(client)
         check_noncanonical_text_is_rejected(client)
@@ -199,7 +212,9 @@ def main() -> None:
         raise AssertionError("payload bytes changed between BDAT and IMAP storage")
     if not sent.endswith(PAYLOAD):
         raise AssertionError("test sender payload construction is inconsistent")
-    if not utf8_received.endswith(UTF8_PAYLOAD) or not utf8_sent.endswith(UTF8_PAYLOAD):
+    if not utf8_received.endswith(UTF8_PAYLOAD):
+        raise AssertionError("received UTF-8 header BINARYMIME payload changed")
+    if not utf8_sent.endswith(UTF8_PAYLOAD):
         raise AssertionError("UTF-8 header BINARYMIME payload changed during delivery")
     print("Inbound SMTP BINARYMIME -> IMAP exact payload and SMTPUTF8 guard passed")
 

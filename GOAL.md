@@ -1,5 +1,24 @@
 # Goal ledger
 
+### 2026-09-27: G17 BINARYMIME acceptance aligned with SMTPUTF8 capability, scoped PASS T196
+
+- Исправлен устаревший independent `smtp_binarymime_delivery.py`: он ошибочно
+  падал при наличии EHLO SMTPUTF8, хотя текущий сервер обязан объявлять эту
+  capability вместе с 8BITMIME. Проверка теперь требует CHUNKING, BINARYMIME,
+  8BITMIME и SMTPUTF8 и всё ещё отдельно доказывает, что UTF-8 headers требуют
+  MAIL-параметр SMTPUTF8, а не одного лишь наличия capability.
+- Скрипт запускается на свежем Rust 1.97 Linux runtime image с implicit TLS:
+  DATA отказ для BODY=BINARYMIME, noncanonical text rejection с RSET recovery,
+  точные binary payload octets через BDAT/IMAP, отказ UTF-8 headers без MAIL
+  SMTPUTF8 и успешная доставка с ним. Результат: `Inbound SMTP BINARYMIME ->
+  IMAP exact payload and SMTPUTF8 guard passed`. Это независимый Python peer,
+  не Litterkeep app.
+- Fixture `./data/acceptance-g17-rfc3030-smtputf8-regression-20260927`
+  сохранена; созданный runtime container и image tag удалены и их отсутствие
+  проверено. Исправлена только acceptance harness, Rust source не менялся.
+  T196 scoped PASS; полный RFC 3030, приложение Litterkeep и G17 остаются
+  непроверенными/ACTIVE.
+
 ### 2026-09-27: G17 inbound SMTPUTF8 with IDNA U-label routing, scoped PASS T195
 
 - SMTP EHLO теперь объявляет `SMTPUTF8` вместе с `8BITMIME`. Входящий parser
