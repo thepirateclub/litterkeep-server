@@ -1,5 +1,18 @@
 # Goal ledger
 
+### 2026-09-27: G17 full ISO-8859-5 MIME charset, scoped PASS T209
+
+- Добавлена отдельная таблица ISO-8859-5 и typed вариант `Charset`. Проверены
+  кириллические байты, отличия от Windows-1251, C1 control mapping и все 256
+  октетов без undefined positions.
+- Windows Rust 1.97: 711 library passed, 1 внешний Unicode fixture ignored,
+  1 CLI passed и doctests; focused charset tests, strict Clippy, fmt и diff check
+  прошли. Linux Docker Rust 1.97: release build, strict Clippy, 795 library
+  passed, 1 ignored, 1 CLI passed и doctests.
+- Созданный Linux test image удалён, отсутствие тега подтверждено. Нового socket
+  acceptance и проверки приложения Litterkeep не проводилось; ISO-8859-6 и
+  последующие таблицы ещё неполны. T209 scoped PASS; G17/root ACTIVE.
+
 ### 2026-09-27: G17 full ISO-8859-4 MIME charset, scoped PASS T208
 
 - Добавлена самостоятельная таблица ISO-8859-4 и typed вариант `Charset`.

@@ -44,9 +44,15 @@ fn iso_8859_4_uses_registered_name_and_decodes_baltic_text() {
 }
 
 #[test]
+fn iso_8859_5_uses_registered_name_and_preserves_cyrillic_controls() {
+    let charset = Charset::parse("ISO-8859-5").expect("registered MIME charset");
+    assert_eq!(charset.decode(b"\xd2\xe5\xf1\xf2"), Ok("вхёђ".to_owned()));
+    assert_eq!(charset.decode(b"\x80"), Ok("\u{0080}".to_owned()));
+}
+
+#[test]
 fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     for label in [
-        "iso-8859-5",
         "iso-8859-6",
         "iso-8859-7",
         "iso-8859-8",
@@ -68,8 +74,8 @@ fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     }
     assert!(Charset::parse("iso-8859-12").is_err());
     assert!(
-        Charset::parse("iso-8859-5")
-            .expect("ISO-8859-5 ASCII subset")
+        Charset::parse("iso-8859-6")
+            .expect("ISO-8859-6 ASCII subset")
             .decode(b"caf\xe9")
             .is_err()
     );

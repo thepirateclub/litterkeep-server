@@ -14,6 +14,8 @@ mod charset_iso8859_2;
 mod charset_iso8859_3;
 #[path = "mime/charset_iso8859_4.rs"]
 mod charset_iso8859_4;
+#[path = "mime/charset_iso8859_5.rs"]
+mod charset_iso8859_5;
 #[path = "mime/content_id.rs"]
 mod content_id;
 #[path = "mime/content_metadata.rs"]
