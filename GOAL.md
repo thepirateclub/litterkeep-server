@@ -1,5 +1,19 @@
 # Goal ledger
 
+### 2026-09-27: G17 full ISO-8859-9 MIME charset, scoped PASS T213
+
+- Добавлена отдельная таблица ISO-8859-9 и typed `Charset`; IANA aliases
+  `latin5`/`l5` распознаются. Проверены все 256 octets, шесть турецких
+  замен и сохранение C1 controls.
+- Windows Rust 1.97: 726 library tests и 1 CLI test прошли; 1 внешний Unicode
+  corpus test ignored без fixture path. fmt, strict Clippy и diff check прошли.
+- Linux Docker Rust 1.97: release build, strict Clippy, 810 library tests и
+  1 CLI test прошли; 1 внешний Unicode corpus test ignored без fixture path.
+  Временный образ удалён, отсутствие проверено; wire acceptance и
+  совместимость с приложением Litterkeep не заявляются.
+- G17 остаётся active: ISO-8859-10, -11, -13..-16 и другие protocol gaps
+  не реализованы.
+
 ### 2026-09-27: G17 full ISO-8859-8 MIME charset, scoped PASS T212
 
 - Реализован отдельный typed MIME decoder ISO-8859-8 для базового visual-order

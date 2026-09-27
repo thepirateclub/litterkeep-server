@@ -78,9 +78,20 @@ fn iso_8859_8_uses_registered_name_and_decodes_hebrew() {
 }
 
 #[test]
+fn iso_8859_9_decodes_turkish_letters_and_latin5_aliases() {
+    let preferred = Charset::parse("ISO-8859-9").expect("registered MIME charset");
+    let turkish = b"\xddstanbul, g\xfcne\xfe ve c\xf6z\xfc";
+    assert_eq!(
+        preferred.decode(turkish),
+        Ok("İstanbul, güneş ve cözü".to_owned())
+    );
+    assert_eq!(Charset::parse("latin5"), Ok(Charset::Iso8859_9));
+    assert_eq!(Charset::parse("l5"), Ok(Charset::Iso8859_9));
+}
+
+#[test]
 fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     for label in [
-        "iso-8859-9",
         "iso-8859-10",
         "iso-8859-11",
         "iso-8859-13",
@@ -98,8 +109,8 @@ fn iso_8859_profiles_support_only_the_required_ascii_subset() {
     }
     assert!(Charset::parse("iso-8859-12").is_err());
     assert!(
-        Charset::parse("iso-8859-9")
-            .expect("ISO-8859-9 ASCII subset")
+        Charset::parse("iso-8859-10")
+            .expect("ISO-8859-10 ASCII subset")
             .decode(b"caf\xe9")
             .is_err()
     );
