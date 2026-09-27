@@ -17,7 +17,7 @@ pub(super) fn finish_data(
         }
         Some(DataFailure::InvalidOctets) => reject_data(
             session,
-            b"554 5.6.0 NUL is not allowed in 7BIT or 8BITMIME DATA\r\n",
+            b"554 5.6.0 invalid octets in 7BIT or 8BITMIME DATA\r\n",
         ),
         None => accept_data(session, slot, generation, worker, owners, request_id),
     }

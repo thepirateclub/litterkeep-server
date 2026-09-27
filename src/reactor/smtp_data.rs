@@ -5,6 +5,8 @@ use crate::local_route::local_mailboxes;
 
 #[path = "smtp_data_finish.rs"]
 mod finish;
+#[path = "smtp_data_octets.rs"]
+mod octets;
 
 /// Завершённое MIME-сообщение с SMTP envelope для bounded Store request.
 pub(super) struct Delivery {
@@ -185,9 +187,12 @@ fn append_data_line(
         None => line,
     };
     let headers = matches!(*section, DataSection::Headers);
-    if content.contains(&0) {
-        *invalid_octets = true;
-        return Ok(());
+    match octets::validate_line_octets(content) {
+        Ok(()) => {}
+        Err(_) => {
+            *invalid_octets = true;
+            return Ok(());
+        }
     }
     match data_line_accepts(mode, smtp_utf8, headers, content) {
         Err(()) => *oversized = true,
@@ -216,9 +221,6 @@ pub(super) fn data_line_accepts(
     headers: bool,
     content: &[u8],
 ) -> Result<(), ()> {
-    if content.contains(&0) {
-        return Err(());
-    }
     let line_limit_exceeded = content.len() > smtp::MAX_DATA_LINE_SIZE;
     let non_ascii = content.iter().any(|octet| !octet.is_ascii());
     let non_ascii_without_extension = match (headers, non_ascii, smtp_utf8, mode) {

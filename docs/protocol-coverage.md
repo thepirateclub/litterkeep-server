@@ -17,8 +17,12 @@ DATA parser отдельно отслеживает NUL и после полно
 STARTTLS wire-тест подтверждают отказ NUL в обоих режимах, enhanced status,
 возврат в command state, последующую валидную доставку и отсутствие отвергнутых
 сообщений в IMAP. В wire-тесте восстановление подтверждено `NOOP`, не `RSET`.
-Произвольные NUL octets поддерживаются только
-BINARYMIME/BDAT. См. [RFC 2045 §§2.7-2.9](https://www.rfc-editor.org/rfc/rfc2045.html#section-2.7)
+Теперь тот же DATA validator отвергает одиночные CR и LF: independent
+STARTTLS peer проверил оба байта при обоих BODY-профилях, ответ `554 5.6.0`,
+последующий NOOP, валидную SMTP delivery и отсутствие четырёх rejected messages
+в IMAP. MIME line endings принимаются только как исходная пара CRLF; отдельный
+BINARYMIME regression сохраняет произвольные NUL/high-bit/bare CR/LF octets в
+BDAT. См. [RFC 2045 §§2.7-2.9](https://www.rfc-editor.org/rfc/rfc2045.html#section-2.7)
 и [RFC 6152 §3](https://www.rfc-editor.org/rfc/rfc6152.html#section-3).
 До TLS AUTH запрещён. Ненулевой envelope sender должен принадлежать
 authenticated owner. RFC 6409 §3.2 разрешённый `MAIL FROM:<>` не отклоняется

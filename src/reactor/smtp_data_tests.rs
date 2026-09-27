@@ -244,3 +244,32 @@ fn data_rejects_nul_for_seven_bit_and_eight_bit_mime() {
         assert!(bytes.is_empty());
     }
 }
+
+/// DATA сохраняет только CRLF-пары в обоих текстовых transport profiles.
+#[test]
+fn data_rejects_bare_cr_and_lf_for_seven_bit_and_eight_bit_mime() {
+    let cases: [&[u8]; 2] = [b"line\rinside\r\n", b"line\ninside\r\n"];
+    for mode in [BodyMode::SevenBit, BodyMode::EightBitMime] {
+        for line in cases {
+            let mut bytes = Vec::new();
+            let mut section = DataSection::Body;
+            let mut oversized = false;
+            let mut invalid_octets = false;
+
+            append_data_line(
+                &mut bytes,
+                &mut section,
+                &mut oversized,
+                &mut invalid_octets,
+                mode,
+                false,
+                line,
+            )
+            .expect("bounded DATA line");
+
+            assert!(invalid_octets);
+            assert!(!oversized);
+            assert!(bytes.is_empty());
+        }
+    }
+}

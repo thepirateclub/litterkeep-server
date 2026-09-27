@@ -1,5 +1,22 @@
 # Goal ledger
 
+### 2026-09-27: G17 RFC 2045 canonical CRLF in SMTP DATA, scoped PASS T198
+
+- DATA validator теперь отвергает NUL и непарные CR/LF отдельной причиной
+  invalid octets; RFC 2045 7bit/8bit требует CRLF-пары. SMTP завершает такое
+  письмо ответом `554 5.6.0`, сохраняя `552 5.3.4` для size limit. Правило
+  действует на headers и body, не нормализует полученные октеты. BINARYMIME
+  остаётся opaque и использует отдельный BDAT путь.
+- Linux Rust 1.97 полный набор: 769 library + 1 CLI прошли, один внешний
+  Unicode corpus-тест ignored без fixture; strict Clippy и rustfmt прошли.
+  Независимый Python STARTTLS peer проверил одиночные CR и LF в DATA для
+  профилей без BODY и `BODY=8BITMIME`: четыре 554 5.6.0, четыре NOOP 250,
+  затем корректная доставка. IMAP подтвердил, что принято только валидное
+  письмо. Отдельный BINARYMIME regression сохранил arbitrary octets.
+- Fixture `./data/acceptance-rfc2045-crlf-20260927`; build cache переиспользован
+  из локального `./data/acceptance-rfc2045-nul-20260927`. Runtime container
+  остановлен и удалён, образ не создавался. T198 scoped PASS; G17 и root ACTIVE.
+
 ### 2026-09-27: G17 RFC 2045 rejects NUL in SMTP DATA, scoped PASS T197
 
 - SMTP DATA отдельно помечает NUL как запрещённый content octet в режимах
