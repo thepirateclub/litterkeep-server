@@ -55,6 +55,16 @@ script is active, confirms the error and unchanged ACTIVE listing, then
 deactivates and successfully deletes it. This is server/store wire coverage,
 not Litterkeep app interoperability.
 
+RFC 5804 §2.11 recommends `ALREADYEXISTS` when RENAMESCRIPT targets an
+existing script and permits renaming the active script while keeping it active
+under its new name. Typed Store collision errors now produce
+`NO (ALREADYEXISTS)`; Store reopen coverage verifies collision atomicity and
+durable active-name transfer. Independent Linux TLS acceptance
+`tests/blackbox/managesieve_rename.py` verifies the exact collision response,
+both original scripts after rejection, then activates and renames one script
+and confirms its bytes and ACTIVE projection. This is not Litterkeep app
+interoperability.
+
 ManageSieve script count, per-script byte size and serialized account catalog
 are bounded in the Store. RFC 5804 §1.5 requires a `NO` response containing
 the `QUOTA` response code when an imposed quota rejects a command. Store quota

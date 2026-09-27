@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-27: G18 ManageSieve RENAMESCRIPT response and active rename, scoped PASS T253
+
+- RFC 5804 §2.11 recommends `ALREADYEXISTS` for a target-name collision and
+  allows renaming an active script while it remains active. Typed Store errors
+  now map only actual name collisions to `NO (ALREADYEXISTS)`; rename preserves
+  the active script identity and source version.
+- Store regression verifies collision atomicity, active rename and persistence
+  after reopen. Independent Linux TLS acceptance
+  `tests/blackbox/managesieve_rename.py` confirms exact response bytes, both
+  scripts survive collision, and active designation plus source bytes survive
+  rename. Windows Rust 1.97.1 fmt, strict Clippy, 801 library + 1 CLI tests
+  passed, 3 fixture-dependent ignored. Linux Docker Rust 1.97.1 strict Clippy,
+  886 library + 1 CLI passed, 3 ignored, release build and fmt passed; TLS
+  black-box passed. No Litterkeep client interoperability claim. Temporary
+  container removed; preexisting Rust image retained.
+
 ### 2026-09-27: G18 ManageSieve active-delete response code, scoped PASS T252
 
 - RFC 5804 §2.10 requires rejecting DELETESCRIPT on the active script and

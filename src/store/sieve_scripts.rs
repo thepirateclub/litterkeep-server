@@ -130,7 +130,7 @@ impl SieveCatalog {
         valid_name(new)?;
         let candidate = self.candidate(account, |state| {
             if state.scripts.contains_key(new) {
-                return Err(invalid("sieve script already exists"));
+                return Err(error::already_exists());
             }
             let record = state.scripts.remove(old).ok_or_else(missing)?;
             if state.active.as_deref() == Some(old) {
@@ -261,6 +261,11 @@ pub(super) fn is_active_error(error: &io::Error) -> bool {
     error::is_active(error)
 }
 
+#[cfg(any(test, target_os = "linux"))]
+pub(super) fn is_already_exists_error(error: &io::Error) -> bool {
+    error::is_already_exists(error)
+}
+
 #[cfg(all(test, target_os = "linux"))]
 pub(super) fn quota_test_error() -> io::Error {
     error::quota("test quota")
@@ -274,4 +279,9 @@ pub(super) fn missing_test_error() -> io::Error {
 #[cfg(all(test, target_os = "linux"))]
 pub(super) fn active_test_error() -> io::Error {
     error::active()
+}
+
+#[cfg(all(test, target_os = "linux"))]
+pub(super) fn already_exists_test_error() -> io::Error {
+    error::already_exists()
 }

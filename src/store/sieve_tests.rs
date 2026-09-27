@@ -106,3 +106,51 @@ fn active_script_deletion_preserves_typed_active_cause() {
     drop(store);
     fs::remove_dir_all(root).expect("cleanup");
 }
+
+#[test]
+fn rename_collision_is_typed_and_active_rename_survives_reopen() {
+    let root = directory();
+    let mut store = Store::open(&root).expect("open");
+    store
+        .put_sieve_script("bob", "route", "keep;".into())
+        .expect("put route");
+    store
+        .put_sieve_script("bob", "target", "discard;".into())
+        .expect("put target");
+    let collision = store
+        .rename_sieve_script("bob", "route", "target")
+        .expect_err("rename must not overwrite existing target");
+    assert_eq!(collision.kind(), std::io::ErrorKind::AlreadyExists);
+    assert!(sieve_scripts::is_already_exists_error(&collision));
+    store
+        .activate_sieve_script("bob", Some("route"))
+        .expect("activate source");
+    store
+        .rename_sieve_script("bob", "route", "route-renamed")
+        .expect("rename active script");
+    assert_eq!(
+        store.sieve_scripts("bob"),
+        vec![
+            ScriptInfo {
+                name: "route-renamed".into(),
+                version: 1,
+                active: true,
+            },
+            ScriptInfo {
+                name: "target".into(),
+                version: 2,
+                active: false,
+            },
+        ]
+    );
+    drop(store);
+    let store = Store::open(&root).expect("reopen");
+    assert!(
+        store
+            .sieve_scripts("bob")
+            .iter()
+            .any(|script| { script.name == "route-renamed" && script.active })
+    );
+    drop(store);
+    fs::remove_dir_all(root).expect("cleanup");
+}

@@ -993,6 +993,11 @@ Litterkeep interoperability.
 The same TLS acceptance attempts DELETESCRIPT on the active script, expects
 `NO (ACTIVE)`, confirms the script remains active, then deletes it successfully
 after deactivation, as specified by RFC 5804 §2.10.
+RFC 5804 §2.11 rename collision returns `NO (ALREADYEXISTS)` without changing
+either script; renaming an active script preserves its ACTIVE designation under
+the new name. Store reopen and independent Linux TLS acceptance verify both
+properties, including exact script source bytes. Litterkeep interoperability
+is not verified.
 
 ## Outbound SMTP
 

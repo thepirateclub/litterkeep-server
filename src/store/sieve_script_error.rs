@@ -8,6 +8,7 @@ enum ScriptStoreError {
     Quota(&'static str),
     Missing,
     Active,
+    AlreadyExists,
 }
 
 impl std::fmt::Display for ScriptStoreError {
@@ -16,6 +17,7 @@ impl std::fmt::Display for ScriptStoreError {
             Self::Quota(message) => formatter.write_str(message),
             Self::Missing => formatter.write_str("sieve script missing"),
             Self::Active => formatter.write_str("active sieve script cannot be deleted"),
+            Self::AlreadyExists => formatter.write_str("sieve script already exists"),
         }
     }
 }
@@ -37,6 +39,14 @@ pub(super) fn active() -> io::Error {
     io::Error::new(io::ErrorKind::PermissionDenied, ScriptStoreError::Active)
 }
 
+/// Сохраняет AlreadyExists kind и причину для ManageSieve response code.
+pub(super) fn already_exists() -> io::Error {
+    io::Error::new(
+        io::ErrorKind::AlreadyExists,
+        ScriptStoreError::AlreadyExists,
+    )
+}
+
 #[cfg(any(test, target_os = "linux"))]
 pub(super) fn is_quota(error: &io::Error) -> bool {
     matches_source(error, |cause| matches!(cause, ScriptStoreError::Quota(_)))
@@ -50,6 +60,13 @@ pub(super) fn is_missing(error: &io::Error) -> bool {
 #[cfg(any(test, target_os = "linux"))]
 pub(super) fn is_active(error: &io::Error) -> bool {
     matches_source(error, |cause| matches!(cause, ScriptStoreError::Active))
+}
+
+#[cfg(any(test, target_os = "linux"))]
+pub(super) fn is_already_exists(error: &io::Error) -> bool {
+    matches_source(error, |cause| {
+        matches!(cause, ScriptStoreError::AlreadyExists)
+    })
 }
 
 #[cfg(any(test, target_os = "linux"))]

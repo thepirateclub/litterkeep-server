@@ -39,6 +39,9 @@ fn result_response(result: io::Result<()>) -> &'static [u8] {
         Err(error) if crate::store::is_sieve_active_error(&error) => {
             b"NO (ACTIVE) \"active script cannot be deleted\"\r\n"
         }
+        Err(error) if crate::store::is_sieve_already_exists_error(&error) => {
+            b"NO (ALREADYEXISTS) \"script already exists\"\r\n"
+        }
         Err(_) => b"NO \"operation failed\"\r\n",
     }
 }
@@ -88,6 +91,7 @@ mod tests {
         let quota = Err(crate::store::sieve_quota_test_error());
         let missing = Err(crate::store::sieve_missing_test_error());
         let active = Err(crate::store::sieve_active_test_error());
+        let already_exists = Err(crate::store::sieve_already_exists_test_error());
         let storage = Err(io::Error::new(io::ErrorKind::StorageFull, "disk full"));
         assert_eq!(result_response(Ok(())), b"OK \"completed\"\r\n");
         assert_eq!(result_response(quota), b"NO (QUOTA) \"quota exceeded\"\r\n");
@@ -98,6 +102,10 @@ mod tests {
         assert_eq!(
             result_response(active),
             b"NO (ACTIVE) \"active script cannot be deleted\"\r\n"
+        );
+        assert_eq!(
+            result_response(already_exists),
+            b"NO (ALREADYEXISTS) \"script already exists\"\r\n"
         );
         assert_eq!(result_response(storage), b"NO \"operation failed\"\r\n");
     }
