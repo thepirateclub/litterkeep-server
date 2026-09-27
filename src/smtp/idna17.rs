@@ -77,3 +77,7 @@ mod tests;
 #[cfg(test)]
 #[path = "idna17/conformance_tests.rs"]
 mod conformance_tests;
+
+#[cfg(test)]
+#[path = "idna17/idna_test_v2.rs"]
+mod idna_test_v2;

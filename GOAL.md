@@ -1,5 +1,22 @@
 # Goal ledger
 
+### 2026-09-27: G17 IDNA2008 strict overlap against Unicode 17 IdnaTestV2, scoped PASS T236
+
+- Сохранён официальный Unicode 17 `IdnaTestV2.txt` в
+  `./data/g41-idna-v2/IdnaTestV2.txt`; SHA-256
+  `BEB5D0BE20E896189B03209A82FDC34F06351502BBD4B8E2523583FC2954D9CF`.
+- Ignored oracle test сверяет только строгий cross-profile overlap: NFC,
+  RFC 5892 PVALID, пустые nontransitional ToUnicode/ToASCII статусы и ASCII
+  результат. Для входных A-label свойства проверяются по decoded U-label.
+  Пройдено 172 записи; две строки с surrogate code units явно пропущены.
+- Это не полная UTS #46 проверка и не полный IDNA2008 corpus: mapping,
+  transitional processing, CONTEXT rules и оставшиеся строки не засчитываются.
+  Windows Rust 1.97.1: fmt, strict Clippy, 784 library + 1 CLI прошли, 3
+  ignored; targeted ignored oracle прошёл. Linux Rust 1.97 container:
+  868 library + 1 CLI прошли, 3 ignored; тот же targeted oracle сверил 172
+  строки и пропустил 2 non-scalar строки. Контейнер автоматически удалён через
+  `--rm`; persistent image для этого этапа не создавался.
+
 ### 2026-09-27: G17 RFC 3492 §7.1 complete sample set, scoped PASS T235
 
 - Punycode unit test now verifies all 19 official RFC 3492 §7.1 sample strings

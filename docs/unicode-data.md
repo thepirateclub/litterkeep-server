@@ -158,6 +158,37 @@ RFC Editor Erratum 3026. Вектор S проверяет Bootstring для п�
 IDNA2008 label/domain conformance suite: полный официальный corpus всё ещё не
 выполнен.
 
+Дополнительно сохранён официальный Unicode 17 `IdnaTestV2.txt` из UTS #46:
+`./data/g41-idna-v2/IdnaTestV2.txt`, SHA-256
+`BEB5D0BE20E896189B03209A82FDC34F06351502BBD4B8E2523583FC2954D9CF`, URL
+`https://www.unicode.org/Public/17.0.0/idna/IdnaTestV2.txt`. Для восстановления
+локального ignored fixture:
+
+```powershell
+New-Item -ItemType Directory -Force data/g41-idna-v2 | Out-Null
+Invoke-WebRequest -Uri 'https://www.unicode.org/Public/17.0.0/idna/IdnaTestV2.txt' -OutFile data/g41-idna-v2/IdnaTestV2.txt
+Get-FileHash data/g41-idna-v2/IdnaTestV2.txt -Algorithm SHA256
+```
+
+Этот
+файл не является чистым IDNA2008 oracle: он включает UTS #46 mappings,
+transitional processing и более широкий набор статусов. Поэтому отдельный
+ignored test сравнивает только пересечение профилей: NFC input, RFC 5892
+PVALID labels (для A-label проверяется decoded U-label), пустые статусы
+nontransitional ToUnicode и ToASCII и те же ASCII результаты. На закреплённом файле прошли
+172 строки; две записи с surrogate code units явно пропущены, остальные
+непринадлежащие strict-пересечению строки не засчитываются. Это не подтверждает
+UTS #46 mappings, CONTEXTJ/CONTEXTO полную conformance, transitional режим или
+полный IDNA2008 label/domain профиль.
+
+Повтор выборочного cross-profile oracle:
+
+```powershell
+$env:LITTERKEEP_IDNA_TEST_V2_FILE = (Resolve-Path data/g41-idna-v2/IdnaTestV2.txt).Path
+cargo test --locked smtp::idna17::idna_test_v2::strict_idna_matches_valid_nfc_pvalid_uts46_rows -- --ignored --exact --nocapture
+Remove-Item Env:LITTERKEEP_IDNA_TEST_V2_FILE
+```
+
 ## Unicode License V3
 
 Copyright © 1991-2026 Unicode, Inc.
