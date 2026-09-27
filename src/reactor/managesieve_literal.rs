@@ -32,12 +32,14 @@ enum Operation {
     DeleteScript,
     SetActive,
     AuthenticatePlain,
+    AuthenticateResponse,
     Rename(rename_literal::Receiver),
     HaveSpace(havespace_literal::Receiver),
 }
 
 #[path = "managesieve_auth_literal.rs"]
 mod auth_literal;
+pub(super) use auth_literal::start_response as authentication_response;
 #[path = "managesieve_literal_putscript.rs"]
 mod putscript;
 
@@ -129,7 +131,8 @@ impl LiteralReceiver {
                 };
                 Progress::Complete(Command::SetActive(name))
             }
-            Operation::AuthenticatePlain => Progress::Complete(Command::AuthenticatePlain(source)),
+            Operation::AuthenticatePlain => auth_literal::initial_response(source),
+            Operation::AuthenticateResponse => auth_literal::challenge_response(source),
         }
     }
 }
@@ -181,6 +184,7 @@ pub(super) fn start(line: &[u8]) -> Start {
     }
 }
 
+/// Начинает чтение string literal, который является SASL client response.
 enum Verb {
     Put,
     Check,

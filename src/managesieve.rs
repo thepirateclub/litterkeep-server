@@ -8,5 +8,5 @@ mod session;
 #[path = "managesieve/tests.rs"]
 mod tests;
 
-pub use command::{Command, parse};
+pub use command::{Command, parse, parse_authentication_response};
 pub use session::{Reply, Session, greeting};

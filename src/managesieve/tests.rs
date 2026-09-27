@@ -42,6 +42,60 @@ fn tls_precedes_plain_auth_and_authenticated_commands() {
 }
 
 #[test]
+fn plain_authentication_without_initial_response_uses_a_challenge() {
+    let mut session = Session::default();
+    assert_eq!(
+        parse("AUTHENTICATE \"PLAIN\""),
+        Command::AuthenticatePlain(None)
+    );
+    assert!(matches!(
+        session.apply(parse("AUTHENTICATE \"PLAIN\""), true, false),
+        Reply::AuthenticateChallenge
+    ));
+    assert!(session.awaiting_plain_response());
+    assert!(matches!(
+        session.apply(
+            Command::AuthenticateResponse("AGJvYgBw".into()),
+            true,
+            false
+        ),
+        Reply::Authenticate { response } if response == "AGJvYgBw"
+    ));
+    assert!(!session.awaiting_plain_response());
+}
+
+#[test]
+fn plain_authentication_challenge_can_be_cancelled_and_retried() {
+    let mut session = Session::default();
+    let _ = session.apply(parse("AUTHENTICATE \"PLAIN\""), true, false);
+    assert!(matches!(
+        session.apply(
+            Command::AuthenticateResponse("*".into()),
+            true,
+            false
+        ),
+        Reply::Text(response) if response == b"NO \"authentication cancelled\"\r\n"
+    ));
+    assert!(!session.awaiting_plain_response());
+    assert!(matches!(
+        session.apply(parse("AUTHENTICATE \"PLAIN\" \"AGJvYgBw\""), true, false),
+        Reply::Authenticate { .. }
+    ));
+}
+
+#[test]
+fn authentication_response_parser_accepts_one_string_only() {
+    assert_eq!(
+        parse_authentication_response("\"AGJvYgBw\""),
+        Some("AGJvYgBw".into())
+    );
+    assert_eq!(parse_authentication_response("\"*\""), Some("*".into()));
+    assert_eq!(parse_authentication_response("\"unterminated"), None);
+    assert_eq!(parse_authentication_response("\"reply\" extra"), None);
+    assert_eq!(parse_authentication_response("reply"), None);
+}
+
+#[test]
 fn command_parser_retains_quoted_script_and_rejects_extra_argument() {
     assert_eq!(
         parse("CHECKSCRIPT \"require [\\\"fileinto\\\"]; keep;\""),

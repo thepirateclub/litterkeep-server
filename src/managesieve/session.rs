@@ -9,6 +9,7 @@ enum Phase {
     Authenticated {
         owner: String,
     },
+    AwaitingPlainResponse,
     Closed,
 }
 
@@ -17,6 +18,7 @@ pub enum Reply {
     Text(Vec<u8>),
     StartTls,
     Authenticate { response: String },
+    AuthenticateChallenge,
     Unauthenticated(Vec<u8>),
     HaveSpace { name: String, size: u64 },
     Put { name: String, source: String },
@@ -59,10 +61,25 @@ impl Session {
                 ))
             }
             (Phase::Plain, Command::Unauthenticate) => no("invalid command for state"),
-            (Phase::Plain, Command::AuthenticatePlain(response)) if tls_active => {
+            (Phase::Plain, Command::AuthenticatePlain(Some(response))) if tls_active => {
                 Reply::Authenticate { response }
             }
+            (Phase::Plain, Command::AuthenticatePlain(None)) if tls_active => {
+                self.phase = Phase::AwaitingPlainResponse;
+                Reply::AuthenticateChallenge
+            }
             (Phase::Plain, Command::AuthenticatePlain(_)) => no("encryption required"),
+            (Phase::AwaitingPlainResponse, Command::AuthenticateResponse(response)) => {
+                self.phase = Phase::Plain;
+                match response.as_str() {
+                    "*" => no("authentication cancelled"),
+                    _ => Reply::Authenticate { response },
+                }
+            }
+            (Phase::AwaitingPlainResponse, Command::Invalid) => {
+                self.phase = Phase::Plain;
+                no("syntax error")
+            }
             (Phase::Plain, Command::Logout) | (Phase::Authenticated { .. }, Command::Logout) => {
                 self.phase = Phase::Closed;
                 ok("bye")
@@ -86,6 +103,11 @@ impl Session {
             (_, Command::Invalid) => no("syntax error"),
             _ => no("invalid command for state"),
         }
+    }
+
+    /// Сообщает reactor-у, что следующая строка принадлежит SASL exchange.
+    pub fn awaiting_plain_response(&self) -> bool {
+        matches!(self.phase, Phase::AwaitingPlainResponse)
     }
 
     pub fn authenticated(&mut self, owner: String, accepted: bool, tls_active: bool) -> Reply {

@@ -6,7 +6,8 @@ pub enum Command {
     Capability,
     StartTls,
     Unauthenticate,
-    AuthenticatePlain(String),
+    AuthenticatePlain(Option<String>),
+    AuthenticateResponse(String),
     Logout,
     HaveSpace { name: String, size: u64 },
     PutScript { name: String, source: String },
@@ -92,9 +93,26 @@ fn pair(mut words: impl Iterator<Item = String>, make: fn(String, String) -> Com
 fn authenticate(mut words: impl Iterator<Item = String>) -> Command {
     match (words.next(), words.next(), words.next()) {
         (Some(mechanism), Some(response), None) if mechanism.eq_ignore_ascii_case("PLAIN") => {
-            Command::AuthenticatePlain(response)
+            Command::AuthenticatePlain(Some(response))
+        }
+        (Some(mechanism), None, None) if mechanism.eq_ignore_ascii_case("PLAIN") => {
+            Command::AuthenticatePlain(None)
         }
         _ => Command::Invalid,
+    }
+}
+
+/// Разбирает отдельную quoted строку-ответ SASL, когда идёт continuation.
+pub fn parse_authentication_response(line: &str) -> Option<String> {
+    let mut characters = line.chars().peekable();
+    match characters.next() {
+        Some('"') => {}
+        _ => return None,
+    }
+    let response = quoted(&mut characters).ok()?;
+    match characters.next() {
+        None => Some(response),
+        Some(_) => None,
     }
 }
 

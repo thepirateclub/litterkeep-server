@@ -1,5 +1,22 @@
 # Goal ledger
 
+### 2026-09-27: G18 ManageSieve PLAIN SASL challenge exchange, scoped PASS T262
+
+- `AUTHENTICATE "PLAIN"` without initial data now emits the SASL empty-string
+  challenge and owns a one-response session phase. Quoted and bounded literal
+  responses are parsed; `*` cancels and returns to unauthenticated command
+  mode. Valid PLAIN data continues through the existing asynchronous account
+  owner and TLS policy. This does not implement SCRAM-SHA-1.
+- Unit tests cover no-initial-response parsing, challenge phase, response,
+  cancellation/retry, malformed response strings and bounded literal
+  conversion. Independent Linux STARTTLS acceptance authenticates Bob using a
+  literal continuation, checks refreshed OWNER capabilities, cancels a second
+  challenge, and then reauthenticates using PLAIN initial-response.
+- Windows Rust 1.97.1 fmt, strict Clippy and all-target tests passed (805
+  library + 1 CLI, 3 ignored). Linux Docker Rust 1.97.1 fmt, strict Clippy,
+  904 library + 1 CLI passed, 3 ignored, release build and TLS wire scenario
+  passed. Stage containers removed; pre-existing Rust image retained.
+
 ### 2026-09-27: G18 ManageSieve AUTHENTICATE PLAIN literal initial response, scoped PASS T261
 
 - RFC 5804 AUTHENTICATE initial responses may use a string literal. The

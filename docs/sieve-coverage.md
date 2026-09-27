@@ -11,6 +11,13 @@ TLS-before-auth политику; независимая Linux проверка 
 разбор аргумента ответом `NO "encryption required"`, но не проверяет пароль.
 Обязательный SCRAM-SHA-1 по-прежнему не реализован.
 
+RFC 5804 §2.1 challenge/response flow для PLAIN тоже поддержан: отсутствие
+initial-response приводит к пустому quoted challenge; ответ может быть quoted
+строкой либо bounded client literal, а `*` отменяет exchange. Независимый Linux
+STARTTLS acceptance прошёл literal continuation до успешной аутентификации и
+проверил повторный вход после отмены. Полное соответствие ManageSieve SASL всё
+ещё не достигнуто: SCRAM-SHA-1 обязателен по RFC и остаётся открытым пробелом.
+
 Для client-to-server literals receiver сначала читает ровно объявленное число
 octets, затем обязательный CRLF конца command line; только после него начинает
 разбор следующей pipelined команды. Это соответствует framing из RFC 5804

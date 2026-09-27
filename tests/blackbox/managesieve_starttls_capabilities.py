@@ -81,10 +81,17 @@ def main() -> None:
             require_capabilities(current, b"PLAIN", False, b'OK "capability"\r\n')
             password = password_for(options.credentials, "bob")
             sasl = base64.b64encode(b"\x00bob\x00" + password.encode("utf-8"))
-            encrypted.sendall(b'AUTHENTICATE "PLAIN" "' + sasl + b'"\r\n')
-            authenticated = read_until(encrypted, b'OK "authenticated"\r\n')
+            encrypted.sendall(b'AUTHENTICATE "PLAIN"\r\n')
+            challenge = read_until(encrypted, b'""\r\n')
+            if challenge != b'""\r\n':
+                raise AssertionError(f"unexpected empty SASL challenge: {challenge!r}")
+            marker = b"{" + str(len(sasl)).encode("ascii") + b"+}\r\n"
+            encrypted.sendall(marker + sasl + b"\r\n")
+            challenged_authentication = read_until(
+                encrypted, b'OK "authenticated"\r\n'
+            )
             require_capabilities(
-                authenticated,
+                challenged_authentication,
                 b"PLAIN",
                 False,
                 b'OK "authenticated"\r\n',
@@ -123,6 +130,13 @@ def main() -> None:
                 False,
                 b'OK "capability"\r\n',
             )
+            encrypted.sendall(b'AUTHENTICATE "PLAIN"\r\n')
+            if read_until(encrypted, b'""\r\n') != b'""\r\n':
+                raise AssertionError("empty SASL challenge was not sent")
+            encrypted.sendall(b'"*"\r\n')
+            cancelled = read_until(encrypted, b"\r\n")
+            if cancelled != b'NO "authentication cancelled"\r\n':
+                raise AssertionError(f"SASL cancellation was not rejected: {cancelled!r}")
             encrypted.sendall(b'AUTHENTICATE "PLAIN" "' + sasl + b'"\r\n')
             reauthenticated = read_until(encrypted, b'OK "authenticated"\r\n')
             require_capabilities(

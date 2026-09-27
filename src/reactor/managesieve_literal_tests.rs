@@ -92,7 +92,25 @@ fn authenticate_plain_accepts_a_literal_initial_response() {
     let mut response = b"AGFsaWNlAHg=\r\n".to_vec();
     assert!(matches!(
         receiver.consume(&mut response),
-        Progress::Complete(Command::AuthenticatePlain(value)) if value == "AGFsaWNlAHg="
+        Progress::Complete(Command::AuthenticatePlain(Some(value)))
+            if value == "AGFsaWNlAHg="
+    ));
+}
+
+#[test]
+fn authentication_challenge_response_accepts_a_literal() {
+    let Start::Begin {
+        mut receiver,
+        continuation,
+    } = authentication_response(b"{12+}\r\n")
+    else {
+        panic!("literal SASL response was not recognized");
+    };
+    assert!(!continuation);
+    let mut response = b"AGFsaWNlAHg=\r\n".to_vec();
+    assert!(matches!(
+        receiver.consume(&mut response),
+        Progress::Complete(Command::AuthenticateResponse(value)) if value == "AGFsaWNlAHg="
     ));
 }
 

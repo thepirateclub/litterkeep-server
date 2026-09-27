@@ -11,6 +11,11 @@ pub(super) fn line(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<()> {
+    if session.managesieve.awaiting_plain_response() {
+        return authentication_response(
+            session, line, slot, generation, worker, owners, request_id,
+        );
+    }
     match managesieve_literal::start(&line) {
         managesieve_literal::Start::NotLiteral => {}
         managesieve_literal::Start::Invalid => return session.push(b"NO \"invalid literal\"\r\n"),
@@ -26,6 +31,51 @@ pub(super) fn line(
         }
     }
     let command = managesieve::parse(std::str::from_utf8(&line).unwrap_or(""));
+    let reply = session
+        .managesieve
+        .apply(command, session.is_encrypted(), session.can_starttls());
+    apply(session, reply, slot, generation, worker, owners, request_id)
+}
+
+/// Обрабатывает единственную строку client response после SASL challenge.
+fn authentication_response(
+    session: &mut Session,
+    line: Vec<u8>,
+    slot: usize,
+    generation: u64,
+    worker: &mut WakingStorageWorker,
+    owners: &mut HashMap<u64, (usize, u64, Pending)>,
+    request_id: &mut u64,
+) -> io::Result<()> {
+    match managesieve_literal::authentication_response(&line) {
+        managesieve_literal::Start::Begin {
+            receiver,
+            continuation,
+        } => {
+            session.managesieve_literal = Some(receiver);
+            if continuation {
+                session.push(b"OK \"ready for literal data\"\r\n")?;
+            }
+            return Ok(());
+        }
+        managesieve_literal::Start::Invalid => {
+            let reply = session.managesieve.apply(
+                managesieve::Command::Invalid,
+                session.is_encrypted(),
+                session.can_starttls(),
+            );
+            return apply(session, reply, slot, generation, worker, owners, request_id);
+        }
+        managesieve_literal::Start::NotLiteral => {}
+    }
+    let response = std::str::from_utf8(&line)
+        .ok()
+        .and_then(|line| line.strip_suffix("\r\n"))
+        .and_then(managesieve::parse_authentication_response);
+    let command = match response {
+        Some(response) => managesieve::Command::AuthenticateResponse(response),
+        None => managesieve::Command::Invalid,
+    };
     let reply = session
         .managesieve
         .apply(command, session.is_encrypted(), session.can_starttls());
@@ -97,6 +147,7 @@ fn apply(
         managesieve::Reply::Authenticate { response } => authenticate(
             session, response, slot, generation, worker, owners, request_id,
         ),
+        managesieve::Reply::AuthenticateChallenge => session.push(b"\"\"\r\n"),
         reply => submit_command(session, reply, slot, generation, worker, owners, request_id),
     }
 }
