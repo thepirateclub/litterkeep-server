@@ -18,6 +18,7 @@ fn preserves_domain_literal_separators_inside_angle_address() {
         ("host@[node>mail]", "[node>mail]"),
         ("host@[mail(box)@node]", "[mail(box)@node]"),
         ("host@[mail(box@node]", "[mail(box@node]"),
+        ("host@[nœde]", "[nœde]"),
     ] {
         let field = to_field(&format!("Literal <{address}>"));
         let parsed = super::parse(vec![&field]).expect("domain-literal address");
@@ -35,4 +36,7 @@ fn preserves_domain_literal_separators_inside_angle_address() {
     let parsed = super::parse(vec![&escaped_dot]).expect("escaped domain-literal byte");
     let envelope = super::encode_list(&parsed).expect("escaped domain-literal ENVELOPE");
     assert!(envelope.contains(r"[node\\] . mail]"));
+
+    let nul = to_field("Literal <host@[bad\0literal]>");
+    assert!(super::parse(vec![&nul]).is_err());
 }

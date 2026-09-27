@@ -1,5 +1,19 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 5322/6532 domain-literal dtext validation, scoped PASS T291
+
+- Domain-literal parsing previously preserved arbitrary characters, including
+  NUL, despite RFC 5322's `dtext` ranges. Validation now accepts RFC 5322
+  visible dtext, whitespace and obsolete control/quoted-pair forms, accepts
+  UTF-8 non-ASCII dtext from RFC 6532, and rejects invalid ASCII controls.
+- Regression covers a UTF-8 literal (`nœde`) and rejects NUL. Windows Rust
+  1.97.1 formatting, strict Clippy and all-target tests passed (812 library +
+  1 CLI, 3 ignored). Fresh Linux Rust 1.97 Docker test stage passed strict
+  Clippy, 921 library + 1 CLI tests (3 ignored), and doc-tests; image removed
+  and absence verified.
+- Evidence is parser/unit-only, not complete domain-literal conformance or
+  independent IMAP wire/app interoperability; G18 remains ACTIVE.
+
 ### 2026-09-28: G18 RFC 5322 escaped domain-literal closer, scoped PASS T290
 
 - `normalize_dot_cfws` tracked quoted-pairs inside quoted local-parts but not

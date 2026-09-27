@@ -848,7 +848,10 @@ Comment removal также сохраняет скобки и содержимо
 `normalize_dot_cfws` сохраняет escaped `]` внутри obsolete literal и не сворачивает
 следующий ` . ` как адресный CFWS; проверены точные bytes ENVELOPE. Wire-сценарий
 для этого obsolete form не выполнялся.
-Полный набор допустимых `dtext` и domain-literal форм ещё не покрыт.
+Проверка `dtext` принимает видимые ASCII-символы, разрешённые пробелы,
+obsolete controls/quoted-pair, а также UTF-8 non-ASCII по RFC 6532; NUL
+отвергается. Unit regression проверяет UTF-8 literal и отказ на NUL. Это не
+полный набор domain-literal форм и не wire/interoperability-проверка.
 После закрывающей `>` angle-addr parser разрешает только CFWS, включая
 комментарии, и отвергает произвольный хвост или второй angle-addr вместо
 молчаливого усечения адреса. Unit regression проверяет оба отказа и сохранение

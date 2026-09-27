@@ -1,9 +1,10 @@
 //! Разбор RFC 5322 address-list и проекция адресных групп в IMAP ENVELOPE.
 
 use super::encoded_word;
+use super::envelope_address_comments::strip_comments;
 use super::envelope_address_route::strip_source_route;
 use super::envelope_address_scan::{
-    normalize_dot_cfws, split_addr_spec, split_commas, split_optional, strip_comments,
+    normalize_dot_cfws, split_addr_spec, split_commas, split_optional,
 };
 use super::header_block::HeaderField;
 
