@@ -872,12 +872,16 @@ single-flight, применяет bounded retry/backoff и DSN. Pool повто�
 После EHLO клиент разбирает multiline reply и typed extension keywords. Для
 сообщения с high-bit octets в MIME body отправляется `BODY=8BITMIME`, если peer
 рекламировал `8BITMIME`; без capability доставка завершается permanent failure
-до `MAIL`. Для валидных UTF-8 header values клиент дополнительно требует от peer
-`SMTPUTF8`, отправляет обе MAIL extensions и сохраняет исходные octets.
-Независимый Linux SMTP peer подтвердил negotiation, параметры и точные DATA
-bytes. Без любого из двух объявлений команда MAIL не начинается. Это не покрывает
-internationalized envelope addresses или входящий network сценарий; Litterkeep
-клиент не проверялся.
+до `MAIL`. Для валидных UTF-8 header values и Unicode local-part в sender или
+recipient envelope клиент требует от peer `SMTPUTF8` вместе с `8BITMIME` и
+добавляет `SMTPUTF8` к MAIL. При нескольких адресатах флаг устанавливается,
+если хотя бы один forward-path интернационализирован. Только UTF-8 заголовки
+дополнительно требуют `BODY=8BITMIME`; ASCII message с Unicode envelope не
+получает ненужный BODY параметр. RFC 6531 extension не отправляется, если peer
+не объявил обе capabilities. Targeted builder tests проверяют envelope-only
+случай и отказ peer без SMTPUTF8; прежний независимый Linux SMTP peer проверял
+wire параметры для UTF-8 headers. Сквозной outbound MTA и Litterkeep app не
+проверялись.
 Outbound SMTP ограничивает каждую строку greeting и reply, включая каждую
 строку multiline EHLO, значением RFC 5321 §4.5.3.1.5: не более 512 октетов с
 CRLF. Reader не накапливает сверх лимита и закрывает соединение при превышении

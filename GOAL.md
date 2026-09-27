@@ -4,6 +4,26 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 RFC 6531 outbound Unicode envelope requires SMTPUTF8
+
+- Исходящий builder ранее ставил `SMTPUTF8` только для UTF-8 header fields,
+  хотя RFC 6531 §3.4 требует его также при Unicode mailbox в SMTP envelope.
+  Plain SMTP учитывает sender и recipient; implicit-TLS transport учитывает
+  sender и все recipients, включая multi-recipient delivery. Если хотя бы один
+  путь требует SMTPUTF8, builder требует peer capabilities `SMTPUTF8` и
+  `8BITMIME`, добавляет MAIL flag и не переносит envelope необходимость в
+  `BODY=8BITMIME` при ASCII body.
+- Targeted Rust 1.97 tests прошли для UTF-8 header path, Unicode envelope и
+  отказа peer без SMTPUTF8; strict Clippy и полный Linux Docker/Rust 1.97 gate
+  прошли: 723 library tests passed, 1 внешний Unicode UCD test ignored, 1 CLI
+  test passed, doctests без тестов. `cargo fmt --check` и `git diff --check`
+  прошли.
+- Пока проверены builder unit tests, не wire acceptance внешнего MTA и не
+  Litterkeep app. Полная SMTPUTF8/EAI поддержка и Unicode домены не заявляются;
+  G17 и корневая цель остаются ACTIVE.
+- Временный Docker image `litterkeep-linux-test:g17-smtputf8-envelope-20260927`
+  будет удалён после проверки.
+
 ### 2026-09-27: G17 RFC 3030 BINARYMIME canonical text correction
 
 - RFC 3030 требует canonical CRLF в `text/*`, но это BDAT transfer profile,

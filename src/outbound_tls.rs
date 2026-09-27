@@ -83,7 +83,16 @@ impl Connection {
         if !valid_message {
             return Ok(DeliveryOutcome::PermanentFailure);
         }
-        let mail_command = match outbound::build_mail_command(sender, message, &self.capabilities) {
+        let envelope_requires_smtp_utf8 = crate::smtp::requires_smtp_utf8(sender)
+            || recipients
+                .iter()
+                .any(|recipient| crate::smtp::requires_smtp_utf8(recipient));
+        let mail_command = match outbound::build_mail_command(
+            sender,
+            envelope_requires_smtp_utf8,
+            message,
+            &self.capabilities,
+        ) {
             outbound::MailCommand::Ready(command) => command,
             outbound::MailCommand::PermanentFailure => {
                 return Ok(DeliveryOutcome::PermanentFailure);

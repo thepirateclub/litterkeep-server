@@ -23,7 +23,6 @@ mod verify_command;
 #[path = "verify_command_tests.rs"]
 mod verify_command_tests;
 pub(crate) use address::canonical_parts;
-#[cfg(target_os = "linux")]
 pub(crate) use address::requires_smtp_utf8;
 pub use bdat_command::BdatCommand;
 pub use verify_command::{ReplyEncoding, VerifyRequest};

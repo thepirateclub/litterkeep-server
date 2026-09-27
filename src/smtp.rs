@@ -2,7 +2,6 @@
 #[path = "smtp/command.rs"]
 mod command;
 pub(crate) use command::canonical_parts;
-#[cfg(target_os = "linux")]
 pub(crate) use command::requires_smtp_utf8;
 pub use command::{
     BdatCommand, BodyMode, Command, MAX_BINARYMIME_MAIL_LINE_SIZE, MAX_COMMAND_LINE_SIZE,
