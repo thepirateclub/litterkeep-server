@@ -249,6 +249,8 @@ RFC 6152 для всех MIME content и SMTP peer комбинаций. SMTPUTF
 transparency dot; RFC line bound проверяется после снятия transparency и
 включает CRLF. Linux unit regression проверяет одну, две и три точки, а также
 граничную строку ровно в 1000 октетов и отказ для 1001.
+Отдельный независимый STARTTLS wire acceptance подтвердил ровно 1000 после
+unstuffing для dot-stuffed строки, отказ на 1001 и успешный NOOP после отказа.
 Незавершённая входная DATA-строка, уже превысившая максимально возможный wire
 размер допустимой строки, удаляется из session input buffer и переводит только
 текущую DATA transaction в oversized state. Reactor продолжает считывать до

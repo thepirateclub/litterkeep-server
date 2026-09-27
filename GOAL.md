@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 RFC 5321 SMTP DATA line boundary, independent wire acceptance
+
+- Новый независимый STARTTLS acceptance отправил dot-stuffed DATA строку,
+  которая после снятия одного transparency dot имеет ровно 1000 октетов вместе
+  с CRLF, и получил 250. Строка в 1001 октет получила 552; последующий NOOP
+  получил 250, подтверждая восстановление SMTP command synchronization.
+- Скрипт `tests/blackbox/smtp_data_line_exact_boundary.py` прошёл
+  `py_compile`, 94 строки. Linux test-stage image Rust 1.97 использован для
+  runtime; слои Rust test gate были кэшированы и свежий Rust suite не запускался,
+  поскольку Rust source не менялся. `cargo fmt --check` и `git diff --check`
+  прошли.
+- Fixture `./data/acceptance-smtp-data-line-exact-20260927` сохранена.
+  Bootstrap контейнер был `--rm`; runtime-контейнер и созданный image удалены,
+  отсутствие проверено. Это независимый SMTP peer, не Litterkeep app.
+  Результат зарегистрирован как T180 PASS в данном scope; G17 и корневая цель
+  остаются ACTIVE.
+
 ### 2026-09-27: G17 RFC 6531 SMTPUTF8 guard in inbound BINARYMIME, wire acceptance
 
 - T179 расширен с targeted validator test до независимого implicit-TLS
