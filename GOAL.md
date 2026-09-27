@@ -4,6 +4,22 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 RFC 5321 DATA block timeout refresh, wall-clock verification
+
+- T183 проверил фактический reset срока на новом body read. Независимый Linux
+  STARTTLS peer оставил DATA незавершённым, через 120 секунд отправил новый
+  частичный блок и наблюдал TCP EOF через 180.1 секунды после него. Acceptance
+  требует 165-205 секунд; таким образом результат отличает refreshed timeout от
+  первоначального срока, который истёк бы примерно через минуту.
+- `tests/blackbox/smtp_data_block_timeout_refresh.py` прошёл `py_compile`,
+  104 строки. Docker test-stage gates и runtime image использовали закэшированные
+  Rust source layers; Rust suite повторно не запускался, так как Rust source не
+  менялся.
+- Fixture `./data/acceptance-smtp-data-timeout-refresh-20260927` сохранена.
+  Временные containers и оба созданных image удалены, отсутствие проверено.
+  Клиент Litterkeep не тестировался. T183 записан как scoped PASS; G17 и
+  корневая цель остаются ACTIVE.
+
 ### 2026-09-27: G17 RFC 5321 SMTP command idle timeout, wall-clock verification
 
 - Закрыт wall-clock пробел T96. Независимый Linux STARTTLS peer прошёл EHLO,
