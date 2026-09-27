@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 1939 durable UIDL stability, scoped PASS T294
+
+- POP3 UIDL uses the Store mailbox-entry UID. Added a file-backed regression
+  that reads the exact multiline UIDL bytes, closes a session without UPDATE,
+  reopens the Store, and verifies that a new session still sees the same ID.
+  After EXPUNGE, a later append receives a distinct UID and the remaining
+  message keeps its previous ID.
+- Windows Rust 1.97.1 `cargo fmt --check`, strict Clippy and all-target tests
+  passed (815 library + 1 CLI, 3 ignored). Fresh Linux Docker test target passed
+  strict Clippy, 924 library + 1 CLI tests (3 ignored), and doc-tests.
+- The created image `litterkeep-linux-test:g18-pop3-uidl-20260928` was removed
+  and its absence verified; no container was created. Existing images and
+  unrelated containers were left untouched. This is file-backed unit evidence,
+  not independent POP3 wire or Litterkeep app interoperability. G18 remains
+  ACTIVE.
+
 ### 2026-09-28: G18 stale SMTPUTF8 acceptance reconciled, scoped PASS T293
 
 - Current source advertises `8BITMIME` and `SMTPUTF8` in each ESMTP EHLO

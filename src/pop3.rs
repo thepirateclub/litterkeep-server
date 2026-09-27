@@ -39,5 +39,8 @@ mod noop_state_tests;
 #[path = "pop3/tests.rs"]
 mod tests;
 #[cfg(test)]
+#[path = "pop3/uidl_persistence_tests.rs"]
+mod uidl_persistence_tests;
+#[cfg(test)]
 #[path = "pop3/utf8_state_tests.rs"]
 mod utf8_state_tests;
