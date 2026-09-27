@@ -6859,3 +6859,9 @@ ManageSieve до заявленного набора современных фо
 - Новый unit test проверяет decoded body и точный размер. Независимый STARTTLS IMAP wire acceptance проверяет BINARY.PEEK[1.1], BINARY.SIZE[1.1], предыдущие BODY sections/BODYSTRUCTURE и точные исходные RFC822 bytes.
 - Windows Rust 1.97.1: fmt, strict Clippy, cargo test --all-targets прошли (614 library + 1 CLI; 1 UCD-dependent normalization test ignored). Свежий Linux Rust 1.97 Docker --no-cache test stage: strict Clippy, 679 library + 1 CLI tests и doc-tests прошли; один UCD-dependent normalization test ignored. Независимый Linux STARTTLS wire test прошёл. Fixture ./data/g30-mime-multipart-digest сохранён; runtime container и два созданных image tags удалены, отсутствие проверено.
 - Это закрывает только BINARY traversal для вложения в multipart/digest; полный MIME/IMAP профиль и G17 остаются ACTIVE. Приложение Litterkeep не запускалось.
+
+### 2026-09-27: G17 IMAP BINARY nested multipart profile unit matrix, scoped PASS
+
+- Добавлена unit matrix проверки numeric path [1.1] через embedded MESSAGE/RFC822 для multipart/mixed, multipart/alternative, multipart/related, multipart/digest и MESSAGE/GLOBAL child. Во всех случаях decoded message body и размер BINARY/SIZE совпадают.
+- Таргетированный Rust test прошёл на Rust 1.97.1; strict Clippy, fmt и diff-check прошли. Это расширение unit-покрытия, не повторный Linux wire acceptance. multipart/digest имеет независимую wire-проверку в T142; остальные перечисленные subtype варианты здесь unit-only.
+- Полные MIME и IMAP профили остаются неполными, G17 остаётся ACTIVE.

@@ -475,6 +475,11 @@ octets; клиент Litterkeep не запускался.
 FETCH подтвердил `BINARY.PEEK[1.1]` декодированный body и `BINARY.SIZE[1.1]` с
 совпадающей длиной. Ранее этот путь завершался `NO`; SMTP и клиент Litterkeep не
 проверялись.
+Unit matrix также проходит embedded `MESSAGE/RFC822`/`MESSAGE/GLOBAL` leaves в
+`multipart/mixed`, `multipart/alternative`, `multipart/related` и
+`multipart/digest`; wire acceptance отдельно подтверждает digest-вариант выше.
+Для трёх остальных subtype variants новых сетевых проверок этим этапом не
+выполнялось.
 Отсутствующий или синтаксически повреждённый `Content-Type` получает
 рекомендуемый RFC 2045 §5.2 fallback `text/plain`/US-ASCII; сырой MIME header
 не переписывается. Независимый STARTTLS клиент отправил оба варианта через SMTP

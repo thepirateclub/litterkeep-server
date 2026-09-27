@@ -94,3 +94,40 @@ fn binary_selects_digest_embedded_message_body_and_size() {
     assert_eq!(decoded.bytes.as_ref(), b"message body");
     assert_eq!(size, decoded.bytes.len());
 }
+
+/// Проверяет одинаковую embedded нумерацию во всех основных multipart-профилях.
+#[test]
+fn binary_traverses_embedded_message_in_each_multipart_profile() {
+    let fixtures = [
+        (
+            MediaType::MultipartMixed,
+            b"Content-Type: multipart/mixed; boundary=x\r\n\r\n--x\r\nContent-Type: message/rfc822\r\n\r\nSubject: nested\r\nContent-Type: text/plain\r\n\r\nmessage body\r\n--x--\r\n".as_slice(),
+        ),
+        (
+            MediaType::MultipartAlternative,
+            b"Content-Type: multipart/alternative; boundary=x\r\n\r\n--x\r\nContent-Type: message/rfc822\r\n\r\nSubject: nested\r\nContent-Type: text/plain\r\n\r\nmessage body\r\n--x\r\nContent-Type: text/plain\r\n\r\nalternative\r\n--x--\r\n".as_slice(),
+        ),
+        (
+            MediaType::MultipartRelated,
+            b"Content-Type: multipart/related; boundary=x; type=\"message/rfc822\"\r\n\r\n--x\r\nContent-Type: message/rfc822\r\n\r\nSubject: nested\r\nContent-Type: text/plain\r\n\r\nmessage body\r\n--x--\r\n".as_slice(),
+        ),
+        (
+            MediaType::MultipartDigest,
+            b"Content-Type: multipart/digest; boundary=x\r\n\r\n--x\r\n\r\nSubject: nested\r\n\r\nmessage body\r\n--x--\r\n".as_slice(),
+        ),
+        (
+            MediaType::MultipartMixed,
+            b"Content-Type: multipart/mixed; boundary=x\r\n\r\n--x\r\nContent-Type: message/global\r\n\r\nSubject: nested\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nmessage body\r\n--x--\r\n".as_slice(),
+        ),
+    ];
+
+    for (expected_type, message) in fixtures {
+        let tree = tree::parse(message).expect("multipart MIME tree");
+        assert_eq!(tree.media_type, expected_type);
+        let decoded = select(message, &[1, 1], None).expect("embedded text leaf");
+        let size = decoded_size(message, &[1, 1]).expect("embedded text size");
+
+        assert_eq!(decoded.bytes.as_ref(), b"message body");
+        assert_eq!(size, decoded.bytes.len());
+    }
+}
