@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-27: G17 RFC 6531 sender/recipient enhanced-status wire evidence, PASS
+
+- RFC 6531 §3.5 требует `550` для отказа по MAIL reverse-path и `553` для
+  отказа по RCPT forward-path; при поддержке enhanced status оба используют
+  `5.6.7`. Независимый TCP acceptance теперь проверяет не только трехзначные
+  ответы, но и контекстные typed значения enhanced status для обеих команд.
+- Linux raw-TCP сценарий прошёл на server image, собранном из текущего source:
+  RCPT без активного SMTPUTF8 получил `553 5.6.7`, MAIL без флага получил
+  `550 5.6.7`, после отказов та же сессия приняла RSET и корректный помеченный
+  MAIL/RCPT flow. Capability по-прежнему не объявляется; это не SMTPUTF8 full
+  conformance и не проверка клиента Litterkeep.
+- Rust source не менялся после полного Windows/Linux suites из T155; в этом
+  checkpoint повторно проверены только Python `py_compile`, формат diff и
+  независимый Linux wire path. Fixture
+  `./data/acceptance-smtp-smtputf8-enhanced-status-20260927` сохранён; точные
+  временные image и контейнер удалены, отсутствие проверено.
+
 ### 2026-09-27: G17 RFC 6531 MAIL SMTPUTF8 refusal status, PASS checkpoint
 
 - Повторная сверка RFC 6531 §3.5 обнаружила, что UTF-8 reverse-path без

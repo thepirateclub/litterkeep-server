@@ -89,8 +89,8 @@ ASCII domain; IDNA U-label validation и DNS conversion не реализова�
 MAIL с таким reverse-path требует флаг SMTPUTF8; без него parser возвращает
 отдельную typed policy error, сериализуемую как `550 5.6.7` для отправителя
 согласно RFC 6531 §3.5. Reactor guard отклоняет UTF-8 RCPT без флага активного
-MAIL кодом 553. Независимый Linux TCP peer подтвердил 553
-без флага, 550 5.6.7 для UTF-8 MAIL без флага и достижение account lookup (550 на
+MAIL кодом 553 5.6.7. Независимый Linux TCP peer проверяет enhanced status
+`5.6.7` отдельно для `553` RCPT и `550` MAIL, а также достижение account lookup (550 на
 намеренно отсутствующий UTF-8 account) при корректном SMTPUTF8. Дополнительный
 forced-extension acceptance создал opt-in Unicode account отдельной командой
 dev bootstrap, доставил ему MIME-вложение по SMTP STARTTLS и извлёк его через

@@ -31,6 +31,7 @@ class EnhancedStatusCode(Enum):
     """RFC 3463 статусы, уточняющие одинаковые трёхзначные SMTP-коды."""
 
     SENDER_UTF8_NOT_PERMITTED = b"5.6.7"
+    RECIPIENT_UTF8_NOT_PERMITTED = b"5.6.7"
 
 
 def read_reply(stream: socket.SocketIO) -> tuple[ReplyCode | int, bytes]:
@@ -88,6 +89,7 @@ def verify_policy(host: str, port: int) -> None:
             stream,
             "RCPT TO:<получатель@litterkeep.test>".encode("utf-8"),
             ReplyCode.RCPT_UTF8_REQUIRED,
+            EnhancedStatusCode.RECIPIENT_UTF8_NOT_PERMITTED,
         )
         expect_reply(stream, b"RSET", ReplyCode.SUCCESS)
 
