@@ -46,6 +46,8 @@ pub enum SaslInitialResponse {
 
 /// RFC 2449 ограничивает команду вместе с CRLF 255 октетами.
 pub const MAX_COMMAND_LINE_SIZE: usize = 255;
+/// RFC 1939 ограничивает аргументы USER/PASS сорока печатными ASCII октетами.
+const MAX_CREDENTIAL_ARGUMENT_SIZE: usize = 40;
 
 /// Единственная граница POP3 command line и её точной arity-проверки.
 pub fn parse(line: &str) -> Command {
@@ -61,7 +63,7 @@ pub fn parse(line: &str) -> Command {
         return Command::Invalid;
     }
     match verb.as_str() {
-        "USER" => text(words.next(), words.next()).map_or(Command::Invalid, Command::User),
+        "USER" => credential(words.next(), words.next()).map_or(Command::Invalid, Command::User),
         "PASS" => pass_argument(command).map_or(Command::Invalid, Command::Pass),
         "STAT" => empty(words.next(), Command::Stat),
         "LIST" => optional_number(words.next(), words.next(), Command::List),
@@ -129,11 +131,20 @@ fn text(value: Option<&str>, extra: Option<&str>) -> Option<String> {
     }
 }
 
+/// Ограничивает единственный ASCII credential аргумент пределом RFC 1939.
+fn credential(value: Option<&str>, extra: Option<&str>) -> Option<String> {
+    text(value, extra).filter(|argument| argument.len() <= MAX_CREDENTIAL_ARGUMENT_SIZE)
+}
+
 /// Сохраняет пробелы в единственном аргументе PASS согласно RFC 1939 §7.3.
 fn pass_argument(command: &str) -> Option<String> {
     let (verb, password) = command.split_once(' ')?;
-    match (verb.eq_ignore_ascii_case("PASS"), password.is_empty()) {
-        (true, false) => Some(password.to_owned()),
+    match (
+        verb.eq_ignore_ascii_case("PASS"),
+        password.is_empty(),
+        password.len() <= MAX_CREDENTIAL_ARGUMENT_SIZE,
+    ) {
+        (true, false, true) => Some(password.to_owned()),
         _ => None,
     }
 }

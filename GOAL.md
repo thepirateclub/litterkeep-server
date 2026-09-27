@@ -4,6 +4,26 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17  
 
+### 2026-09-27: G17 RFC 1939 POP3 USER/PASS argument bounds, PASS checkpoint
+
+- RFC 1939 §3 ограничивает каждый аргумент 40 символами, тогда как сервер до
+  исправления ограничивал только общую строку в 255 октетов по RFC 2449 и
+  принимал username длиной 248. Parser теперь отклоняет USER и PASS длиннее
+  40 ASCII octетов, включая PASS с пробелами; предел 255 для прочих команд
+  сохранён.
+- Unit tests проверяют значения 40/41 и общий размер команды 255/256. Новый
+  независимый Linux POP3 STARTTLS acceptance дополнительно проверяет отказ
+  больших USER/PASS, успешную аутентификацию следующим корректным обменом и
+  STAT/QUIT.
+- Windows Rust 1.97.1: 629 library tests (628 passed, 1 внешний UCD test
+  ignored без корпуса) и 1 CLI test прошли; strict Clippy, rustfmt, Python
+  `py_compile` и `git diff --check` прошли. Linux Docker test stage: 695
+  library tests (694 passed, 1 UCD test ignored), 1 CLI test, doc-tests и strict
+  Clippy прошли. Независимый TLS acceptance прошёл. Fixture
+  `./data/acceptance-pop3-credential-limit-20260927` сохранена; точные runtime
+  container и test image удалены, отсутствие проверено. Проверялся независимый
+  peer, не Litterkeep app; общий POP3 профиль и G17 остаются ACTIVE.
+
 ### 2026-09-27: G17 RFC 6856 LANG authorization and transaction states, PASS checkpoint
 
 - RFC 6856 §3.1 разрешает LANG только в AUTHORIZATION и TRANSACTION. POP3 FSM

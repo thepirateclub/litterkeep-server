@@ -1,18 +1,39 @@
-//! Проверяет POP3 command grammar, printable ASCII и RFC 2449 длины.
+//! Проверяет POP3 command grammar, printable ASCII и RFC argument limits.
 use super::*;
 use crate::pop3::{LanguageRequest, SaslInitialResponse};
 
 #[test]
-fn accepts_command_at_rfc2449_octet_limit() {
-    let username = "u".repeat(248);
+fn accepts_user_argument_at_rfc1939_limit() {
+    let username = "u".repeat(40);
     let wire = format!("USER {username}\r\n");
-    assert_eq!(wire.len(), MAX_COMMAND_LINE_SIZE);
     assert_eq!(parse(&wire), Command::User(username));
+    let password = "p".repeat(40);
+    assert_eq!(
+        parse(&format!("PASS {password}\r\n")),
+        Command::Pass(password)
+    );
+}
+
+#[test]
+fn rejects_user_and_pass_arguments_over_rfc1939_limit() {
+    let username = format!("USER {}\r\n", "u".repeat(41));
+    let password = format!("PASS {}\r\n", "p".repeat(41));
+    assert_eq!(parse(&username), Command::Invalid);
+    assert_eq!(parse(&password), Command::Invalid);
+}
+
+#[test]
+fn accepts_command_at_rfc2449_octet_limit_for_sasl_payload() {
+    let token = "a".repeat(242);
+    let wire = format!("AUTH PLAIN {token}\r\n");
+    assert_eq!(wire.len(), MAX_COMMAND_LINE_SIZE);
+    assert!(matches!(parse(&wire), Command::Auth { .. }));
 }
 
 #[test]
 fn rejects_command_over_rfc2449_octet_limit() {
-    let wire = format!("USER {}\r\n", "u".repeat(249));
+    let token = "a".repeat(243);
+    let wire = format!("AUTH PLAIN {token}\r\n");
     assert_eq!(wire.len(), MAX_COMMAND_LINE_SIZE + 1);
     assert_eq!(parse(&wire), Command::Invalid);
 }
@@ -77,6 +98,10 @@ fn pass_keeps_spaces_inside_its_single_password_argument() {
         Command::Pass(" leading space".into())
     );
     assert_eq!(parse("PASS \r\n"), Command::Invalid);
+    assert_eq!(
+        parse(&format!("PASS {}\r\n", "p".repeat(41))),
+        Command::Invalid
+    );
     assert_eq!(parse("USER \r\n"), Command::Invalid);
     assert_eq!(parse("USER two words\r\n"), Command::Invalid);
 }
