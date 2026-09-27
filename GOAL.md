@@ -1,5 +1,20 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 5322 domain-literal separators in angle-addr, scoped PASS T287
+
+- The address scanner recognized square-bracket domain literals only outside
+  angle addresses. As a result, `@` within dtext could be mistaken for another
+  addr-spec separator and `>` could be mistaken for the end of angle-addr.
+  Scanner state now protects these delimiters while inside a domain literal.
+- Unit coverage exercises both delimiters through address parsing and IMAP
+  ENVELOPE projection. Windows Rust 1.97.1 format check, strict Clippy and
+  all-target tests passed (812 library + 1 CLI, 3 ignored). Fresh Linux Rust
+  1.97 Docker test stage passed strict Clippy, 921 library + 1 CLI tests
+  (3 ignored), and doc-tests. The created image was removed and absence verified.
+- Evidence is parser/unit-only, not an independent IMAP wire or app test. Other
+  domain-literal syntax and broader RFC 5322 forms remain incomplete; G18 stays
+  ACTIVE.
+
 ### 2026-09-28: G18 RFC 5322 quoted display-name validation, scoped PASS T286
 
 - Quoted display-name decoding removed valid quoted-pairs but previously let an

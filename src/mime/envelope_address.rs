@@ -283,3 +283,7 @@ fn nstring(value: Option<String>) -> Result<String, &'static str> {
 #[cfg(test)]
 #[path = "envelope_address_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "envelope_address_domain_tests.rs"]
+mod domain_tests;

@@ -246,11 +246,15 @@ fn advance(mut state: ScanState, character: char) -> Result<ScanState, &'static 
         (')', _, 1, _) => state.comments = 0,
         (')', _, 2.., _) => state.comments = state.comments.saturating_sub(1),
         (')', false, 0, _) => return Err("unmatched address comment"),
-        ('<', false, 0, false) => state.angle = true,
-        ('<', false, 0, true) => return Err("nested angle address"),
-        ('>', false, 0, true) => state.angle = false,
-        ('>', false, 0, false) => return Err("unmatched angle address"),
-        ('[', false, 0, _) if !state.angle => state.domain_literal = true,
+        ('<', false, 0, false) if !state.domain_literal => state.angle = true,
+        ('<', false, 0, true) if !state.domain_literal => {
+            return Err("nested angle address");
+        }
+        ('>', false, 0, true) if !state.domain_literal => state.angle = false,
+        ('>', false, 0, false) if !state.domain_literal => {
+            return Err("unmatched angle address");
+        }
+        ('[', false, 0, _) if !state.domain_literal => state.domain_literal = true,
         (']', false, 0, _) if state.domain_literal => state.domain_literal = false,
         _ => {}
     }

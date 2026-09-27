@@ -1,0 +1,25 @@
+//! Регрессии разделителей внутри RFC 5322 domain-literal.
+
+use crate::mime::header_block::HeaderField;
+
+fn to_field(value: &str) -> HeaderField {
+    HeaderField {
+        name: "to".to_owned(),
+        value: value.as_bytes().to_vec(),
+        raw_range: 0..value.len(),
+    }
+}
+
+/// Символы `@` и `>` внутри литерала не меняют границы angle-addr.
+#[test]
+fn preserves_domain_literal_separators_inside_angle_address() {
+    for (address, expected_domain) in [
+        ("host@[mail@node]", "[mail@node]"),
+        ("host@[node>mail]", "[node>mail]"),
+    ] {
+        let field = to_field(&format!("Literal <{address}>"));
+        let parsed = super::parse(vec![&field]).expect("domain-literal address");
+        let envelope = super::encode_list(&parsed).expect("domain-literal ENVELOPE");
+        assert!(envelope.contains(expected_domain));
+    }
+}
