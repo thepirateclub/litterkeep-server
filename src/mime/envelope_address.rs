@@ -163,6 +163,12 @@ fn parse_mailbox(value: &str) -> Result<Address, &'static str> {
     let value = strip_comments(value)?;
     let (name, addr_spec) = match (value.find('<'), value.rfind('>')) {
         (Some(open), Some(close)) => {
+            let trailing = value
+                .get(close.saturating_add(1)..)
+                .ok_or("invalid angle address suffix")?;
+            if !super::wsp::trim(trailing).is_empty() {
+                return Err("content follows angle address");
+            }
             let name = super::wsp::trim(value.get(..open).ok_or("invalid display name")?);
             let address = value
                 .get(open.saturating_add(1)..close)

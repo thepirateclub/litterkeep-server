@@ -828,6 +828,11 @@ ENVELOPE и SEARCH сворачивают `first (comment) . last @ example . te
 нормализации исключены и проверяются отдельными unit fixtures. Для quoted
 display-name отдельно проверено снятие quoted-pair: `\"` и `\\` в исходном
 header становятся буквальными `"` и `\` в ENVELOPE.
+После закрывающей `>` angle-addr parser разрешает только CFWS, включая
+комментарии, и отвергает произвольный хвост или второй angle-addr вместо
+молчаливого усечения адреса. Unit regression проверяет оба отказа и сохранение
+допустимого trailing comment; независимый wire-клиент для этого случая ещё не
+запускался.
 RFC 2047 encoded-word распознаётся как слово только в unquoted display-name
 phrase. Пробел между соседними encoded-word не выводится; испорченное слово
 остаётся видимым текстом и не блокирует сообщение; quoted display-name не

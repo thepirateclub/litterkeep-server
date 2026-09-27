@@ -1,5 +1,19 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 5322 angle-addr suffix validation, scoped PASS T284
+
+- `parse_mailbox` previously extracted the substring inside `<...>` and silently
+  discarded all text after `>`. It now accepts only trailing CFWS/comments and
+  rejects arbitrary text or a second angle address. Unit regression covers both
+  valid trailing comment and malformed suffixes.
+- Windows Rust 1.97.1 format check, strict Clippy, and all-target tests passed
+  (810 library + 1 CLI, 3 ignored). Fresh Linux Rust 1.97 Docker test stage
+  passed strict Clippy, 919 library + 1 CLI tests (3 ignored), and doc-tests.
+  The created test image was removed and absence verified.
+- Evidence is parser/unit-only for this suffix boundary; no independent IMAP
+  wire client or Litterkeep app scenario was run. Broader RFC 5322 forms remain
+  incomplete, and G18 stays ACTIVE.
+
 ### 2026-09-28: G18 Preserve RFC 2231 language on Content-Disposition, scoped PASS T283
 
 - The shared RFC 2231 parameter parser retained decoded values and BCP 47

@@ -97,6 +97,25 @@ fn rejects_unterminated_address_comment() {
     assert!(parse(vec![&field]).is_err());
 }
 
+/// После angle-addr допустим CFWS, но не произвольное продолжение.
+#[test]
+fn allows_trailing_comment_and_rejects_content_after_angle_address() {
+    let with_comment = to_field("Alice <alice@example.test> (mailbox comment)");
+    let parsed = parse(vec![&with_comment]).expect("trailing CFWS");
+    assert_eq!(
+        encode_list(&parsed).expect("commented mailbox"),
+        "((\"Alice\" NIL \"alice\" \"example.test\"))"
+    );
+
+    for value in [
+        "Alice <alice@example.test> forged",
+        "<alice@example.test> <forged@example.test>",
+    ] {
+        let field = to_field(value);
+        assert!(parse(vec![&field]).is_err(), "accepted {value:?}");
+    }
+}
+
 /// Скобки внутри quoted display name остаются данными, а не comments.
 #[test]
 fn preserves_parentheses_inside_quoted_display_name() {
