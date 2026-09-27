@@ -106,6 +106,19 @@ fn accepts_mixed_rfc2231_continuations_and_encoded_language_value() {
 }
 
 #[test]
+/// Проверяет RFC 2231 filename* с байтами зарегистрированной IBM866 charset.
+fn decodes_ibm866_extended_filename_parameter() {
+    let parsed =
+        parameters::parse("application/octet-stream; filename*=IBM866''%8F%E0%A8%A2%A5%E2.txt")
+            .expect("IBM866 extended filename");
+
+    assert_eq!(
+        parsed.parameters.get("filename").map(String::as_str),
+        Some("Привет.txt")
+    );
+}
+
+#[test]
 fn decodes_windows_1252_rfc2231_filename() {
     let parsed = parameters::parse("application/octet-stream; filename*=windows-1252''%80%96")
         .expect("registered Windows-1252 filename");

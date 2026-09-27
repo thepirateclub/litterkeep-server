@@ -406,4 +406,9 @@ IANA charset [IBM866](https://www.iana.org/assignments/charset-reg/ibm866)
 зарегистрированные имена IBM866, CP866, csIBM866 и 866. Проверка покрывает
 MIME charset decoder unit-тестами; сетевое использование и клиентское
 подключение отдельно не проверялись.
+
+Отдельная интеграционная регрессия проверяет IBM866 не только decoder-ом:
+RFC 2047 Base64 encoded-word темы `Привет` декодируется из CP866 octets, а
+RFC 2231 `filename*` возвращает `Привет.txt`. Это parser unit acceptance;
+отправка такого сообщения через SMTP и просмотр через IMAP/POP3 не проверены.
 #

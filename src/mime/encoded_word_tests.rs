@@ -15,6 +15,15 @@ fn decodes_base64_utf8_and_q_latin1() {
 }
 
 #[test]
+/// Проверяет, что charset IBM866 подключена к декодированию RFC 2047.
+fn decodes_ibm866_encoded_word_from_legacy_russian_header() {
+    assert_eq!(
+        decode("=?IBM866?B?j+CooqXi?=").expect("IBM866 encoded-word"),
+        "Привет"
+    );
+}
+
+#[test]
 fn decodes_utf16be_encoded_word_without_external_codec() {
     assert_eq!(
         decode("=?UTF-16BE?B?AEgAaQ==?=").expect("UTF-16BE encoded-word"),

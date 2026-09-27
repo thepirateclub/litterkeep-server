@@ -1,5 +1,14 @@
 # Goal ledger
 
+### 2026-09-27: G17 IBM866 MIME integration, scoped PASS T230
+
+- В дополнение к таблице charset проверена реальная интеграция в RFC 2047
+  Base64 encoded-word заголовка и RFC 2231 encoded filename parameter.
+- CP866 encoded-word декодируется в «Привет»; RFC 2231 filename с IBM866
+  octets декодируется в «Привет.txt».
+- Проверки являются MIME parser unit tests; сетевой клиент и Litterkeep не
+  запускались, совместимость с ними не заявляется.
+
 ### 2026-09-27: G17 IBM866 MIME charset, scoped PASS T229
 
 - Добавлен отдельный typed decoder IBM866/CP866 без внешнего codec dependency;
