@@ -90,7 +90,6 @@ pub(super) fn normalize_dot_cfws(value: &str) -> String {
             }
             (true, false, _, _) => normalized.push(character),
             (false, false, true, '\\') => {
-                normalized.push(character);
                 escaped = true;
             }
             (false, _, true, ']') => {

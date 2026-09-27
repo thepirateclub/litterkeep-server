@@ -58,7 +58,7 @@ def verify_legacy_quoted_control_literal(client: imaplib.IMAP4) -> None:
     require(client.select(mailbox), "SELECT literal mailbox")
     result = require(client.fetch("1", "(ENVELOPE)"), "FETCH literal ENVELOPE")
     wire = response_bytes(result)
-    domain = b"[host\\\0tail]"
+    domain = b"[host\0tail]"
     # imaplib извлекает synchronizing literal и убирает framing CRLF из chunks.
     literal = b"{" + str(len(domain)).encode("ascii") + b"}" + domain
     if literal not in wire:

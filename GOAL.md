@@ -8,7 +8,8 @@
   contains NUL/CR/LF instead of emitting an invalid quoted-string.
 - An independent Python imaplib STARTTLS client APPENDed a message containing
   an escaped NUL in the From domain-literal and successfully fetched ENVELOPE;
-  the response carried the exact 12-octet host as a parsed literal. Windows
+  the response carried the 11-octet semantic host as a parsed literal, without
+  the semantically invisible quoting backslash. Windows
   Rust 1.97.1 format, all-target tests and strict Clippy passed (814 library +
   1 CLI, 3 ignored). Fresh Linux Rust 1.97 Docker test stage passed strict
   Clippy, 923 library + 1 CLI tests (3 ignored), and doc-tests; the stage's
@@ -16,6 +17,9 @@
 - This verifies one obsolete quoted-pair and IMAP string path, not all
   obs-qp/control combinations or full RFC 5322/9051 interoperability; G18
   remains ACTIVE.
+- Correction to the initial T292 evidence: its first assertion incorrectly
+  counted the quoted-pair backslash as address data. RFC 5322 defines that
+  backslash as semantically invisible; the regression now checks decoded data.
 
 ### 2026-09-28: G18 RFC 5322/6532 domain-literal dtext validation, scoped PASS T291
 
@@ -36,9 +40,10 @@
 - `normalize_dot_cfws` tracked quoted-pairs inside quoted local-parts but not
   inside obsolete domain-literals. An escaped `]` therefore ended literal mode
   early and whitespace around a later dot could be rewritten as obsolete CFWS.
-  The normalizer now preserves escape state in bracketed literals.
-- A regression first reproduced the byte change and now verifies exact
-  ENVELOPE preservation of the escaped closer and following ` . ` sequence.
+  The normalizer now preserves escape state in bracketed literals, then removes
+  the quoting backslash during semantic projection.
+- A regression verifies decoded `]` and exact following ` . ` dtext, without
+  preserving the semantically invisible backslash.
   Windows Rust 1.97.1 formatting, strict Clippy and all-target tests passed
   (812 library + 1 CLI, 3 ignored). Fresh Linux Rust 1.97 Docker test stage
   passed strict Clippy, 921 library + 1 CLI tests (3 ignored), and doc-tests.

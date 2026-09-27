@@ -46,10 +46,11 @@ ManageSieve STARTTLS CHECKSCRIPT подтвердили точные octets и �
 MIME-формы. Это тесты независимого клиента, не Litterkeep.
 
 T292 проверяет RFC 5322 obs-qp в domain-literal: независимый imaplib-клиент
-помещает через APPEND тестовое сообщение с escaped NUL и читает ENVELOPE.
-Ответ использует IMAP synchronizing literal с точной длиной и сохранёнными
-байтами. Это один контрольный символ и один ENVELOPE путь, не полный набор
-RFC 5322/9051.
+помещает через APPEND тестовое сообщение с quoted NUL и читает ENVELOPE.
+Ответ использует IMAP synchronizing literal; его 11 октетов содержат decoded
+host без семантически невидимого quoting backslash. Первоначальная проверка
+ошибочно считала backslash частью адреса и была исправлена. Это один контрольный
+символ и один ENVELOPE путь, не полный набор RFC 5322/9051.
 
 ## Чистый G12 прогон
 
