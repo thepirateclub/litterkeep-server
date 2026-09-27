@@ -6873,9 +6873,16 @@ ManageSieve до заявленного набора современных фо
 - Fixture сохранён в ./data/g31-binary-multipart-profile-wire. Bootstrap init контейнер завершился с --rm; временные runtime container и image удалены и отсутствие проверено. Проверялся независимый wire-клиент, не приложение Litterkeep.
 - Это закрывает перечисленные IMAP BINARY nested multipart paths, не полный MIME/IMAP4rev2 профиль; G17 остаётся ACTIVE.
 
-### 2026-09-27: G17 IMAP nested BINARY partial decoded offsets, scoped PASS
+### 2026-09-27: G17 IMAP nested BINARY partial decoded offsets, PARTIAL checkpoint
 
-- Независимый Linux STARTTLS peer продолжил проверку пяти multipart fixtures из T144 и проверил RFC 9051 §6.4.5 partial semantics: BINARY.PEEK[1.1]<2.4> вернул точные decoded octets ssag; wire response сохранил origin offset <2>, а полный BINARY.SIZE[1.1] остался 12.
-- Подтверждены slicing после quoted-printable decode, selector label и full decoded size. Скрипт прошёл python -m py_compile и остаётся меньше 300 строк. Rust production code не менялся; runtime image использовал cached build, Rust suite заново не запускался.
+- Независимый Linux STARTTLS peer отправил BINARY partial request для пяти multipart fixtures из T144. Команда вернула literal ssag, origin offset <2> и полный BINARY.SIZE 12, но выбранный offset не различал slicing decoded octets и encoded source.
+- Wire probe подтвердил literal `ssag`, origin label и полный размер. Его offset начинался до quoted-printable escape и не отличал decoded slicing от raw source slicing; это не считается доказательством порядка decode/slice. Дискриминирующая проверка и EOF-границы добавлены в T146. Скрипт прошёл `python -m py_compile` и остаётся меньше 300 строк; Rust suite заново не запускался.
 - Отдельный fixture сохранён в ./data/g32-binary-partial-wire. Bootstrap init container с --rm, runtime container и image удалены, отсутствие проверено. Тестировал независимый IMAP peer, не приложение Litterkeep.
 - Частичный FETCH проверен только для nested BINARY leaf и указанных профилей; полный IMAP/MIME профиль и G17 остаются ACTIVE.
+
+### 2026-09-27: G17 IMAP BINARY partial boundaries and decoded offsets, scoped PASS
+
+- Усилен independent Linux STARTTLS acceptance пяти nested MIME fixtures. Offset 8 попадает внутрь encoded `=20`; `BINARY.PEEK[1.1]<8.2>` вернул decoded `bo`, в отличие от raw encoded slice, что различает порядок decode-before-slice. Также проверены offset 0, усечение у конца (`dy`), ровно EOF, offset за EOF и count больше остатка (`ssage body`), плюс FETCH origin label.
+- Full BINARY.SIZE[1.1] для section остаётся 12. Python acceptance script прошёл py_compile, 264 строки. Rust source не менялся; Rust suite в этом black-box checkpoint не запускался. Cargo fmt и diff-check прошли.
+- Исправлена оценка T145 в acceptance.tsv: <2.4> сам по себе не отличал decoded octets от одинакового начального QP source prefix, поэтому checkpoint теперь PARTIAL; его ограничение явно отражено в protocol matrix.
+- Fixture ./data/g33-binary-ranges-wire оставлен; bootstrap init с --rm, runtime container и image удалены и отсутствие проверено. Клиент Litterkeep не проверялся. Полный IMAP/MIME профиль и G17 остаются ACTIVE.

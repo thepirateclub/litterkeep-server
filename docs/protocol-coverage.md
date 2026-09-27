@@ -485,10 +485,14 @@ quoted-printable decode и совпадающий `BINARY.SIZE[1.1]`. Вариа
 numeric paths, не полная MIME или IMAP rev2 interoperability и не приложение
 Litterkeep.
 По RFC 9051 §6.4.5 partial offset/count для `BINARY` применяются к уже
-декодированным section octets. Тот же независимый STARTTLS peer проверил для
-всех пяти fixtures `BINARY.PEEK[1.1]<2.4>`: возвращены `ssag`, а FETCH item
-сохранил response origin `<2>`. Это проверяет slicing после quoted-printable
-decode и не меняет полный размер, который сообщает `BINARY.SIZE`.
+декодированным section octets. Ранний wire probe `<2.4>` вернул `ssag` и origin
+`<2>`, но первые четыре байта совпадают с encoded source prefix и сами по себе
+не отличали порядок decode/slice; этот результат не считается доказательством
+этого порядка. Усиленный probe для всех пяти fixtures запросил offset `8`,
+попадающий внутрь quoted-printable `=20`, и получил `bo`; дополнительно проверены
+offset `0`, частичное усечение у конца (`dy`), ровно EOF, offset за EOF и count,
+превышающий остаток. Проверка подтвердила декодированные offsets и пустой literal
+в двух EOF-случаях.
 Отсутствующий или синтаксически повреждённый `Content-Type` получает
 рекомендуемый RFC 2045 §5.2 fallback `text/plain`/US-ASCII; сырой MIME header
 не переписывается. Независимый STARTTLS клиент отправил оба варианта через SMTP

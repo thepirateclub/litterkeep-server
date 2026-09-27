@@ -196,16 +196,34 @@ def verify_fetch(client: imaplib.IMAP4, number: str, profile: MultipartProfile) 
     if b"BINARY.SIZE[1.1] 12" not in metadata:
         raise AssertionError(f"decoded size mismatch: {metadata!r}")
 
-    partial = require_ok(
-        client.fetch(number, "(BINARY.PEEK[1.1]<2.4>)"),
-        "BINARY.PEEK[1.1]<2.4>",
+
+
+def verify_partial_boundaries(
+    client: imaplib.IMAP4, number: str
+) -> None:
+    """Проверяет decode-before-slice и границы partial BINARY на wire."""
+    ranges = (
+        (0, 4, b"mess"),
+        (8, 2, b"bo"),
+        (10, 4, b"dy"),
+        (12, 4, b""),
+        (40, 4, b""),
+        (2, 99, b"ssage body"),
     )
-    partial_bytes = literal(partial, "BINARY.PEEK[1.1]<2.4>")
-    if partial_bytes != b"ssag":
-        raise AssertionError(f"decoded partial range mismatch: {partial_bytes!r}")
-    partial_metadata = fetch_metadata(partial, "BINARY partial FETCH")
-    if b"BINARY[1.1]<2>" not in partial_metadata:
-        raise AssertionError(f"partial origin label mismatch: {partial_metadata!r}")
+    for offset, count, expected in ranges:
+        command = f"BINARY.PEEK[1.1]<{offset}.{count}>"
+        response = require_ok(
+            client.fetch(number, f"({command})"), command
+        )
+        observed = literal(response, command)
+        if observed != expected:
+            raise AssertionError(
+                f"{command}: expected {expected!r}, got {observed!r}"
+            )
+        metadata = fetch_metadata(response, command)
+        origin = f"BINARY[1.1]<{offset}>".encode("ascii")
+        if origin not in metadata:
+            raise AssertionError(f"{command}: origin label missing in {metadata!r}")
 
 
 def options() -> argparse.Namespace:
@@ -238,6 +256,7 @@ def main() -> None:
         for profile, _source, subject in fixtures:
             number = find_message(client, subject)
             verify_fetch(client, number, profile)
+            verify_partial_boundaries(client, number)
     print("PASS IMAP BINARY nested multipart profiles")
 
 
