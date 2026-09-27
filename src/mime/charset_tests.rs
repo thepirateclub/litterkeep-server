@@ -253,6 +253,17 @@ fn windows_1255_decodes_hebrew_and_rejects_undefined_octets() {
 }
 
 #[test]
+fn windows_1256_decodes_arabic_and_accepts_only_registered_names() {
+    let charset = Charset::parse("WINDOWS-1256").expect("registered MIME charset");
+    assert_eq!(
+        charset.decode(b"\xc7\xe1\xda\xd1\xc8\xed\xc9"),
+        Ok("العربية".to_owned())
+    );
+    assert_eq!(Charset::parse("csWindows1256"), Ok(Charset::Windows1256));
+    assert!(Charset::parse("cp1256").is_err());
+}
+
+#[test]
 fn utf16_handles_registered_byte_orders_bom_and_supplementary_characters() {
     assert_eq!(
         Charset::parse("UTF-16")

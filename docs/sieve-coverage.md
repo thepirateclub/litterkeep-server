@@ -186,7 +186,7 @@ ISO-8859-5, ISO-8859-6, ISO-8859-7, ISO-8859-8,
 ISO-8859-9, ISO-8859-10, TIS-620 (ISO-8859-11), ISO-8859-13, ISO-8859-14,
 ISO-8859-15, ISO-8859-16,
 Windows-1250, Windows-1251, Windows-1252, Windows-1253, Windows-1254,
-Windows-1255,
+Windows-1255, Windows-1256,
 UTF-16, UTF-16BE и UTF-16LE. Три UTF-16 профиля используются в RFC 2047 и
 RFC 2231, но исключены из декодирования MIME `text/*` при поиске согласно
 RFC 2781. RFC 2231 начальная секция может опускать charset и language:
@@ -228,6 +228,13 @@ IANA charset [windows-1255](https://www.iana.org/assignments/charset-reg/windows
 Oracle сверяет все октеты, включая Hebrew points, Yiddish ligatures, RTL marks
 и 23 undefined positions; `cswindows1255` принимается, `cp1255` не считается
 зарегистрированным alias. Сетевой client acceptance не выполнялся.
+
+IANA charset [windows-1256](https://www.iana.org/assignments/charset-reg/windows-1256)
+декодируется по полной [таблице Microsoft/Unicode CP1256](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP1256.TXT).
+Независимый oracle проверяет каждый octet, включая арабские расширенные
+буквы, combining marks, ZWNJ/ZWJ и LRM/RLM; `cswindows1256` принимается,
+`cp1256` не является зарегистрированным alias. Сетевой client acceptance
+не выполнялся.
 
 Зарегистрированный IANA charset windows-1252 теперь декодируется как отдельный
 профиль, не смешивая его с ISO-8859-1. Проверены все 32 octets диапазона

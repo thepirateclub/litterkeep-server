@@ -1,5 +1,20 @@
 # Goal ledger
 
+### 2026-09-27: G17 Windows-1256 MIME charset, scoped PASS T225
+
+- По Microsoft CP1256 mapping и IANA registry добавлен typed decoder для
+  арабского профиля: independent oracle проверяет все 256 octets, включая
+  Persian letters, Arabic punctuation/marks, ZWNJ/ZWJ и LRM/RLM.
+- Принимаются `windows-1256` и IANA alias `cswindows1256`, но не `cp1256`;
+  прогнаны Arabic и Persian joining samples.
+- Windows Rust 1.97.1: 763 library tests и 1 CLI test прошли; один внешний
+  Unicode corpus ignored без fixture path. fmt, strict Clippy и diff check
+  прошли.
+- Linux Docker Rust 1.97: release build, strict Clippy, 847 library tests и
+  1 CLI test прошли; один внешний Unicode corpus ignored без fixture path.
+  Временный image удалён, отсутствие проверено; wire acceptance и Litterkeep
+  client compatibility не заявляются. G17 остаётся active.
+
 ### 2026-09-27: G17 Windows-1255 MIME charset, scoped PASS T223
 
 - По Microsoft CP1255 mapping и IANA registry добавлен typed decoder для
