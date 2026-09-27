@@ -18,6 +18,7 @@ const PLAINTEXT_READ_BLOCK: usize = 16 * 1024;
 pub struct ServerTls {
     connection: ServerConnection,
     encrypted_input: Vec<u8>,
+    peer_closed: bool,
 }
 
 impl ServerTls {
@@ -26,6 +27,7 @@ impl ServerTls {
         Ok(Self {
             connection: ServerConnection::new(config)?,
             encrypted_input: Vec::new(),
+            peer_closed: false,
         })
     }
 
@@ -45,9 +47,11 @@ impl ServerTls {
             let mut source = record.as_slice();
             while !source.is_empty() {
                 let consumed = self.connection.read_tls(&mut source)?;
-                self.connection
+                let state = self
+                    .connection
                     .process_new_packets()
                     .map_err(io::Error::other)?;
+                self.peer_closed |= state.peer_has_closed();
                 self.drain_plaintext(&mut plaintext)?;
                 if consumed == 0 {
                     return Err(io::Error::other("rustls did not consume TLS record"));
@@ -114,6 +118,11 @@ impl ServerTls {
     /// Сообщает reactor-у, ожидается ли дальнейший TLS input.
     pub fn wants_read(&self) -> bool {
         self.connection.wants_read()
+    }
+
+    /// Сообщает, что peer начал TLS shutdown штатным close_notify.
+    pub fn peer_closed(&self) -> bool {
+        self.peer_closed
     }
 }
 

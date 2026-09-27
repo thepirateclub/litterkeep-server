@@ -4,6 +4,24 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 RFC 8314 peer-initiated POP3 TLS closure, scoped PASS
+
+- `ServerTls` сохраняет `peer_has_closed()` от rustls. Reactor обрабатывает
+  уже полученный protocol input, ожидает завершения pending Store request,
+  дренирует обычные ответы и отправляет TLS `close_notify` перед освобождением
+  соединения. POP3 QUIT сохраняет прежний порядок `+OK`, alert, cleanup.
+- Linux Docker Rust 1.97 gate прошёл: strict Clippy, 696 library tests,
+  1 CLI test и doc-tests; 1 внешний Unicode corpus test ignored из-за
+  отсутствующего файла. Независимый POP3 implicit-TLS peer проверил ответный
+  alert после greeting/USER без QUIT, а отдельная сессия проверила AUTH PLAIN,
+  QUIT reply и alert через `unwrap()`.
+- Fixture `./data/acceptance-pop3-peer-close-20260927` сохранена. Проверен
+  POP3 runtime, не клиент Litterkeep; другие TLS-протоколы и peer close при
+  незавершённых Store-командах не являются частью wire acceptance. G17 и
+  корневая цель остаются ACTIVE.
+- Созданные test/runtime images и runtime container очищены после проверки;
+  отсутствие будет сверено перед фиксацией этапа.
+
 ### 2026-09-27: G17 RFC 2034 verifier enforces status-class agreement
 
 - Уточнён independent SMTP peer: теперь каждая строка ответа проверяется не

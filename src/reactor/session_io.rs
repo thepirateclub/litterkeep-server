@@ -67,7 +67,9 @@ pub(super) fn read_session(
             }
             match bytes.get(..count) {
                 Some(received) => match receive_plaintext(session, received) {
-                    Ok(plaintext) => session.input.extend_from_slice(&plaintext),
+                    Ok(plaintext) => {
+                        session.input.extend_from_slice(&plaintext);
+                    }
                     Err(_) => return Ok(true),
                 },
                 None => return Ok(true),
@@ -76,6 +78,7 @@ pub(super) fn read_session(
         Err(error) if error.kind() == io::ErrorKind::WouldBlock => return Ok(false),
         Err(_) => return Ok(true),
     }
+    let peer_close_notify = session.tls.as_ref().is_some_and(ServerTls::peer_closed);
     match &mut session.smtp {
         SmtpState::Data { oversized, .. } => {
             super::smtp_data::discard_overlong_incomplete_line(&mut session.input, oversized)
@@ -89,6 +92,9 @@ pub(super) fn read_session(
         return Ok(false);
     }
     process_input(session, slot, generation, worker, owners, request_id)?;
+    if peer_close_notify && session.termination.is_none() {
+        session.termination = Some(session::SessionTermination::PeerTlsClose);
+    }
     Ok(false)
 }
 

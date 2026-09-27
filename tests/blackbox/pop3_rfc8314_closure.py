@@ -1,5 +1,6 @@
-"""Проверяет RFC 8314 TLS alert после успешного POP3 QUIT."""
+"""Проверяет TLS close_notify по RFC 8314 для POP3 implicit TLS."""
 
+import base64
 import os
 import socket
 import ssl
@@ -23,19 +24,36 @@ def command(connection, stream, value, expected):
         raise AssertionError(f"{value!r}: expected {expected!r}, got {reply!r}")
 
 
+def peer_initiated_close(context):
+    """Проверяет ответный alert без POP3 QUIT и TCP half-close клиента."""
+    transport = socket.create_connection((HOST, PORT), timeout=10)
+    tls = context.wrap_socket(transport, server_hostname="localhost")
+    tls.settimeout(10)
+    stream = tls.makefile("rb")
+    try:
+        if not read_line(stream).startswith(b"+OK"):
+            raise AssertionError("implicit-TLS greeting was not positive")
+        command(tls, stream, b"USER bob", b"+OK")
+    finally:
+        stream.close()
+    raw = tls.unwrap()
+    raw.close()
+
+
 def main():
     context = ssl.create_default_context()
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
+    peer_initiated_close(context)
     transport = socket.create_connection((HOST, PORT), timeout=10)
     tls = context.wrap_socket(transport, server_hostname="localhost")
     stream = tls.makefile("rb")
     try:
         if not read_line(stream).startswith(b"+OK"):
             raise AssertionError("implicit-TLS greeting was not positive")
-        command(tls, stream, b"USER bob", b"+OK")
         password = os.environ["LITTERKEEP_BOB_PASSWORD"].encode("ascii")
-        command(tls, stream, b"PASS " + password, b"+OK")
+        credentials = base64.b64encode(b"\x00bob\x00" + password)
+        command(tls, stream, b"AUTH PLAIN " + credentials, b"+OK")
         command(tls, stream, b"QUIT", b"+OK")
         stream.close()
         raw = tls.unwrap()
@@ -45,7 +63,7 @@ def main():
     finally:
         stream.close()
         tls.close()
-    print("PASS POP3 implicit TLS: QUIT reply precedes graceful close_notify")
+    print("PASS POP3 implicit TLS: peer alert is answered; QUIT reply precedes close_notify")
 
 
 if __name__ == "__main__":

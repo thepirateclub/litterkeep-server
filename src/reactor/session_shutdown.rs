@@ -6,6 +6,8 @@ use super::Session;
 pub enum SessionTermination {
     /// POP3 QUIT завершён; ответ и TLS close_notify должны уйти до cleanup.
     Pop3Quit,
+    /// TLS peer начал shutdown и ожидает ответный close_notify сервера.
+    PeerTlsClose,
     /// Отстающий IDLE-подписчик превысил жёсткую границу выходной очереди.
     NotificationOverflow,
     /// Некорректный IMAP literal нарушил синтаксис текущей команды.
