@@ -848,13 +848,14 @@ ALL/COUNT/MIN/MAX. Пустой result set сохраняет запрошенн
 не выводятся, COUNT выводится как 0 только если запрошен, ESEARCH response
 при этом остаётся. Пустой `RETURN ()` эквивалентен ALL. Legacy SEARCH остаётся
 для текущего IMAP4rev1 профиля. MIME
-charset вне проверенного набора остаются непроверенными. Независимый Linux
+charset вне проверенного набора остаются непроверенными. Независимые Linux
 STARTTLS SMTP -> IMAP acceptance дополнительно доставил 8BITMIME text body с
 `charset=windows-874`, после чего Bob запросил `SEARCH CHARSET UTF-8 BODY` со
 synchronizing literal `ภาษาไทย`; результат включил доставленное сообщение.
 Это доказывает Windows-874 decoding в IMAP MIME text projection и его передачу
-в evaluator, но не wire-покрытие остальных charset. Отдельная SMTP -> IMAP
-wire-проверка доставила RFC 2047 Subject encoded-word варианты UTF-16,
+в evaluator. Другой сценарий проверил 26 однобайтовых body charset: ISO-8859-1..10
+и 13..16, TIS-620, IBM866, Windows-874 и Windows-1250..1258. Это не доказывает
+остальные charset. Отдельная SMTP -> IMAP wire-проверка доставила RFC 2047 Subject encoded-word варианты UTF-16,
 UTF-16BE/LE и UTF-32 с generic BE BOM, UTF-32BE/LE; UTF-8 SEARCH literal
 нашёл ровно одно соответствующее письмо для каждого label. Это подтверждает
 данный набор encoded-word -> ENVELOPE SEARCH сценариев, а не все MIME charset,
