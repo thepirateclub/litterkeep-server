@@ -183,6 +183,14 @@ parser-ом. Невалидный IP и незарегистрированный
 Полный inbound SMTPUTF8/EAI пока не поддержан и capability не рекламируется:
 SMTP grammar теперь принимает UTF-8 local-part в dot-atom и quoted-string при
 ASCII domain; IDNA U-label validation и DNS conversion не реализованы.
+В `smtp::punycode` добавлен самостоятельный RFC 3492 Bootstring encoder/decoder
+с overflow checks и bounded input; официальные multilingual vectors проверены
+unit-тестами. Это только переносная кодировка code points: по RFC 3492 правила
+допустимых IDNA labels остаются задачей верхнего слоя. SMTP address parser её
+пока не вызывает, U-label/A-label validation, contextual/bidi rules и DNS
+conversion не реализованы, поэтому SMTPUTF8 capability остаётся скрытой.
+См. [RFC 3492](https://www.rfc-editor.org/rfc/rfc3492.html) и
+[RFC 5890](https://www.rfc-editor.org/rfc/rfc5890.html).
 MAIL с таким reverse-path требует флаг SMTPUTF8; без него parser возвращает
 отдельную typed policy error, сериализуемую как `550 5.6.7` для отправителя
 согласно RFC 6531 §3.5. Reactor guard отклоняет UTF-8 RCPT без флага активного

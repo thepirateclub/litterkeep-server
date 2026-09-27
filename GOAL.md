@@ -4,6 +4,23 @@ Root Goal ID: `01a0ba65-3922-7d21-ac75-0963ef79819a`
 Root status: ACTIVE  
 Current subgoal: G17
 
+### 2026-09-27: G17 RFC 3492 bounded Punycode codec foundation
+
+- Добавлен собственный encoder/decoder Punycode Bootstring с checked arithmetic,
+  входным лимитом 1024 bytes, декодированием ASCII digits без учёта регистра,
+  правильным delimiter после basic code points и отдельным типом ошибок.
+  RFC 3492 §7.1 Chinese/Japanese vectors, round-trip multilingual strings,
+  malformed input и size boundary проверяются unit-тестами.
+- Windows Rust 1.97.1: strict Clippy, fmt, 656 library + 1 CLI test pass,
+  1 официальный Unicode normalization corpus test ignored без fixture. Linux
+  Docker Rust 1.97: release build, strict Clippy, 734 library + 1 CLI tests,
+  doctests и exact Punycode test group pass. Test image удалён, отсутствие
+  проверено; runtime containers не создавались.
+- Codec реализует RFC 3492 encoding, а не IDNA2008 profile. Он пока не соединён
+  с SMTP address parser: U-label/A-label checks, RFC 5890/5891/5893 validity,
+  DNS conversion, SMTPUTF8 EHLO и Litterkeep acceptance остаются открытыми.
+  T188 зарегистрирован как scoped PASS; G17 и корневая цель остаются ACTIVE.
+
 ### 2026-09-27: G17 reconcile Sieve redirect coverage matrix with T119
 
 - Исправлено устаревшее утверждение в `docs/sieve-coverage.md`, будто redirect

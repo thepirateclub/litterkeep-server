@@ -1,6 +1,8 @@
 //! SMTP submission transaction state.
 #[path = "smtp/command.rs"]
 mod command;
+#[path = "smtp/punycode.rs"]
+pub mod punycode;
 pub(crate) use command::canonical_parts;
 pub(crate) use command::requires_smtp_utf8;
 pub use command::{
