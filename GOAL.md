@@ -6865,3 +6865,10 @@ ManageSieve до заявленного набора современных фо
 - Добавлена unit matrix проверки numeric path [1.1] через embedded MESSAGE/RFC822 для multipart/mixed, multipart/alternative, multipart/related, multipart/digest и MESSAGE/GLOBAL child. Во всех случаях decoded message body и размер BINARY/SIZE совпадают.
 - Таргетированный Rust test прошёл на Rust 1.97.1; strict Clippy, fmt и diff-check прошли. Это расширение unit-покрытия, не повторный Linux wire acceptance. multipart/digest имеет независимую wire-проверку в T142; остальные перечисленные subtype варианты здесь unit-only.
 - Полные MIME и IMAP профили остаются неполными, G17 остаётся ACTIVE.
+
+### 2026-09-27: G17 IMAP BINARY nested multipart profiles wire matrix, scoped PASS
+
+- Независимый Linux STARTTLS imaplib peer проверил BINARY numeric path [1.1] для multipart/mixed, multipart/alternative, multipart/related, multipart/digest и multipart/mixed с вложенным message/global. Для каждого APPEND проверены фактический BODYSTRUCTURE root subtype и тип embedded message, exact quoted-printable decode через BINARY.PEEK и совпадающий BINARY.SIZE (12 octets).
+- Acceptance script прошёл python -m py_compile, 218 строк, Rust production source не менялся. Linux runtime image Rust 1.97 собран из текущего source; отдельный Rust suite в этом black-box-only checkpoint не запускался.
+- Fixture сохранён в ./data/g31-binary-multipart-profile-wire. Bootstrap init контейнер завершился с --rm; временные runtime container и image удалены и отсутствие проверено. Проверялся независимый wire-клиент, не приложение Litterkeep.
+- Это закрывает перечисленные IMAP BINARY nested multipart paths, не полный MIME/IMAP4rev2 профиль; G17 остаётся ACTIVE.

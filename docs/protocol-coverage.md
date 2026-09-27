@@ -477,9 +477,13 @@ FETCH подтвердил `BINARY.PEEK[1.1]` декодированный body 
 проверялись.
 Unit matrix также проходит embedded `MESSAGE/RFC822`/`MESSAGE/GLOBAL` leaves в
 `multipart/mixed`, `multipart/alternative`, `multipart/related` и
-`multipart/digest`; wire acceptance отдельно подтверждает digest-вариант выше.
-Для трёх остальных subtype variants новых сетевых проверок этим этапом не
-выполнялось.
+`multipart/digest`. Дополнительный независимый Linux STARTTLS peer APPEND-ит все
+эти subtype variants и проверяет BODYSTRUCTURE, `BINARY.PEEK[1.1]` после
+quoted-printable decode и совпадающий `BINARY.SIZE[1.1]`. Вариант
+`message/global` проверяется как child `multipart/mixed`; остальные используют
+`message/rfc822`, а digest child остаётся headerless. Это покрытие именно этих
+numeric paths, не полная MIME или IMAP rev2 interoperability и не приложение
+Litterkeep.
 Отсутствующий или синтаксически повреждённый `Content-Type` получает
 рекомендуемый RFC 2045 §5.2 fallback `text/plain`/US-ASCII; сырой MIME header
 не переписывается. Независимый STARTTLS клиент отправил оба варианта через SMTP
