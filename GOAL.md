@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 3516 BINARY Seen/FLAGS response, scoped PASS T280
+
+- RFC 3516 §4.2 distinguishes BINARY from BINARY.PEEK: the former implicitly
+  sets Seen, while PEEK does not. The T279 completion path already shares
+  durable Seen and updated-FLAGS behavior with BINARY. This checkpoint adds
+  independent wire evidence for that path rather than changing Rust logic.
+- Linux STARTTLS acceptance used a fresh mailbox and Base64 MIME leaf. It
+  verified BINARY.PEEK omits FLAGS, BINARY returns decoded octets `01 02 62`
+  and FLAGS containing `\Seen`, and repeated BINARY without a new transition
+  omits the implicit FLAGS item. Python `py_compile` passed. Rust sources are
+  unchanged from the T279 Linux gate: strict Clippy and 916 library + 1 CLI
+  tests passed, 3 ignored. Runtime image reused cached release compilation.
+- Fixture `./data/acceptance-imap-fetch-seen-flags-20260928` is retained.
+  The created container and image are removed and absence verified. Acceptance
+  used an independent peer, not Litterkeep app; G18 remains ACTIVE.
+
 ### 2026-09-28: G18 RFC 9051 FETCH FLAGS after Seen transition, scoped PASS T279
 
 - RFC 9051 §6.4.5 says a FETCH response SHOULD include FLAGS if reading the

@@ -22,6 +22,13 @@ class ImapCompletion(Enum):
 
 
 MESSAGE = b"From: alice@litterkeep.test\r\nSubject: Seen response\r\n\r\nbody\r\n"
+BINARY_MESSAGE = (
+    b"From: alice@litterkeep.test\r\n"
+    b"Subject: Binary Seen response\r\n"
+    b"Content-Type: application/octet-stream\r\n"
+    b"Content-Transfer-Encoding: base64\r\n"
+    b"\r\nAQJi\r\n"
+)
 FLAGS_ITEM = re.compile(rb"(?:^| )FLAGS \(([^)]*)\)")
 
 
@@ -67,13 +74,25 @@ def response_header(data: list[object]) -> bytes:
     return b" ".join(parts)
 
 
+def response_literals(data: list[object]) -> list[bytes]:
+    """Извлекает decoded literal payload без прямого доступа по индексу."""
+    literals: list[bytes] = []
+    for value in data:
+        match value:
+            case (_header, literal) if isinstance(literal, bytes):
+                literals.append(literal)
+            case _:
+                continue
+    return literals
+
+
 def flags_items(header: bytes) -> list[bytes]:
     """Извлекает FLAGS items из FETCH framing."""
     return [match.group(1) for match in FLAGS_ITEM.finditer(header)]
 
 
 def verify(host: str, port: int, ca: str, password: str) -> None:
-    """Сравнивает BODY.PEEK, Seen-changing BODY и повторный BODY."""
+    """Проверяет Seen и FLAGS для BODY и RFC 3516 BINARY items."""
     context = ssl.create_default_context(cafile=ca)
     mailbox = f"SeenFlags{uuid.uuid4().hex}"
     client = imaplib.IMAP4(host, port)
@@ -81,7 +100,8 @@ def verify(host: str, port: int, ca: str, password: str) -> None:
         require_ok(client.starttls(ssl_context=context), "STARTTLS")
         require_ok(client.login("bob", password), "LOGIN")
         require_ok(client.create(mailbox), "CREATE")
-        require_ok(client.append(mailbox, None, None, MESSAGE), "APPEND")
+        require_ok(client.append(mailbox, None, None, MESSAGE), "APPEND BODY")
+        require_ok(client.append(mailbox, None, None, BINARY_MESSAGE), "APPEND BINARY")
         require_ok(client.select(mailbox), "SELECT")
         peek = require_ok(client.fetch("1", "(BODY.PEEK[])"), "BODY.PEEK")
         if flags_items(response_header(peek)):
@@ -95,6 +115,24 @@ def verify(host: str, port: int, ca: str, password: str) -> None:
         repeated_read = require_ok(client.fetch("1", "(BODY[])"), "repeated BODY")
         if flags_items(response_header(repeated_read)):
             raise AssertionError("повторный BODY не менял FLAGS, но добавил их")
+        binary_peek = require_ok(
+            client.fetch("2", "(BINARY.PEEK[1])"), "BINARY.PEEK"
+        )
+        if flags_items(response_header(binary_peek)):
+            raise AssertionError("BINARY.PEEK не должен менять FLAGS")
+        binary_read = require_ok(client.fetch("2", "(BINARY[1])"), "BINARY")
+        if response_literals(binary_read) != [b"\x01\x02b"]:
+            raise AssertionError(f"BINARY decoded payload differs: {binary_read!r}")
+        binary_flags = flags_items(response_header(binary_read))
+        if len(binary_flags) != 1:
+            raise AssertionError(f"BINARY должен вернуть FLAGS один раз: {binary_read!r}")
+        if b"\\Seen" not in next(iter(binary_flags), b""):
+            raise AssertionError(f"BINARY FLAGS не отражает Seen: {binary_flags!r}")
+        repeated_binary = require_ok(
+            client.fetch("2", "(BINARY[1])"), "repeated BINARY"
+        )
+        if flags_items(response_header(repeated_binary)):
+            raise AssertionError("повторный BINARY без перехода добавил FLAGS")
     finally:
         client.logout()
 
@@ -108,7 +146,7 @@ def main() -> None:
     parser.add_argument("--credentials", type=Path, required=True)
     options = parser.parse_args()
     verify(options.host, options.port, options.ca, read_password(options.credentials))
-    print("PASS RFC 9051: BODY FETCH reports FLAGS changed to Seen")
+    print("PASS RFC 9051 and RFC 3516: BODY/BINARY report changed Seen FLAGS")
 
 
 if __name__ == "__main__":

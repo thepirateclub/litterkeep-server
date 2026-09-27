@@ -779,6 +779,9 @@ RFC 9051 §6.4.5 рекомендует включать FLAGS в FETCH-отве
 актуальный FLAGS item, только если клиент сам его не запросил. Независимый
 STARTTLS тест подтверждает, что BODY.PEEK не добавляет FLAGS, первый BODY
 возвращает FLAGS с \Seen, а повторный BODY без нового перехода не добавляет их.
+Отдельный BINARY acceptance по RFC 3516 проверяет тот же FLAGS transition для
+decoded leaf data: BINARY.PEEK не ставит Seen, BINARY возвращает точные decoded
+октеты и FLAGS с Seen, повторный BINARY не добавляет FLAGS без нового изменения.
 Для RFC 9051 §6.4.5 partial диапазоны у HEADER.FIELDS и HEADER.FIELDS.NOT
 применяются после формирования подмножества header. Независимый STARTTLS тест
 проверяет оба selector-а на fixtures с разным порядком полей: offset 0 возвращает
