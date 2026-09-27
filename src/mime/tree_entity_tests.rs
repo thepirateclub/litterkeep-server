@@ -166,6 +166,25 @@ fn malformed_or_duplicate_disposition_is_not_published_to_mime_tree() {
 }
 
 #[test]
+fn mime_tree_keeps_rfc2231_language_tag_for_disposition_parameter() {
+    let raw = b"Content-Disposition: attachment; filename*=UTF-8'en-US'%E2%9C%93.txt\r\n\r\nbody";
+    let entity = parse(raw).expect("MIME entity with language-tagged disposition");
+    let disposition = entity.disposition.as_ref().expect("valid disposition");
+
+    assert_eq!(
+        disposition
+            .parameter_languages
+            .get("filename")
+            .map(|tag| tag.as_str()),
+        Some("en-US")
+    );
+    assert_eq!(
+        disposition.parameters.get("filename").map(String::as_str),
+        Some("✓.txt")
+    );
+}
+
+#[test]
 fn multipart_rejects_a_boundary_longer_than_seventy_octets() {
     let boundary = "a".repeat(71);
     let raw = format!(

@@ -501,6 +501,13 @@ segmented RFC 2231 `filename*0*`/`filename*1*` с `UTF-8'en-US'`: BODYSTRUCTURE
 возвращает объединённое Unicode имя `😀 résumé.txt`, а RFC822.HEADER сохраняет
 исходные сегменты и language tag byte-exact. Это подтверждает данный wire
 вектор, но не актуальную registry validity BCP 47 и не Litterkeep app.
+RFC 2231 §4.1 допускает charset/language metadata в начале первой encoded
+continuation секции. Ранее `Content-Disposition` parser терял language hint
+после общего параметрического разбора; `Disposition` теперь сохраняет typed
+BCP 47 tag рядом с декодированным значением, включая при построении MIME tree.
+Unit-регрессии проверяют оба уровня. IMAP BODYSTRUCTURE намеренно не расширен
+нестандартным полем и продолжает сериализовать только декодированное значение
+параметра согласно своему wire-профилю.
 Внешняя whitespace-обрезка structured MIME значений ограничена ASCII SP/HTAB:
 Unicode NBSP перед media type, параметром, unquoted value и disposition token
 отвергается, а NBSP внутри quoted parameter сохраняется как данные. Регрессия

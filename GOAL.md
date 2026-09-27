@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-28: G18 Preserve RFC 2231 language on Content-Disposition, scoped PASS T283
+
+- The shared RFC 2231 parameter parser retained decoded values and BCP 47
+  language hints, but `Disposition::parse` copied only the decoded parameter
+  map. A language-qualified attachment filename therefore lost its language
+  metadata between header parsing and the MIME entity model.
+- `Disposition` now owns a typed `parameter_languages` map alongside decoded
+  parameters. Regression tests cover direct parsing and full MIME-tree
+  construction. The IMAP BODYSTRUCTURE encoder deliberately keeps its existing
+  RFC wire shape; the language hint remains parser metadata, not an extra
+  unstandardized BODYSTRUCTURE field.
+- Windows Rust 1.97.1 format check, strict Clippy and all-target tests passed
+  (809 library + 1 CLI, 3 ignored). A fresh Linux Rust 1.97 Docker test stage
+  passed strict Clippy and 918 library + 1 CLI tests, 3 ignored, plus doc-tests.
+  The created test image was removed and absence verified. This closes the
+  disposition metadata loss only; registry validation and wider MIME profiles
+  remain incomplete, and G18 stays ACTIVE.
+
 ### 2026-09-28: G18 RFC 2231 language-tagged filename continuation, scoped PASS T282
 
 - RFC 2231 extended-parameter parser tests already covered segmented filename

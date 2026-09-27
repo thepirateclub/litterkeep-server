@@ -25,6 +25,28 @@ fn decodes_rfc2231_filename_before_bodystructure_encoding() {
 }
 
 #[test]
+fn preserves_rfc2231_language_hint_without_changing_bodystructure() {
+    let value = parse("attachment; filename*=UTF-8'ru'%D1%84%D0%B0%D0%B9%D0%BB.txt")
+        .expect("language-tagged extended filename");
+
+    assert_eq!(
+        value
+            .parameter_languages
+            .get("filename")
+            .map(|tag| tag.as_str()),
+        Some("ru")
+    );
+    assert_eq!(
+        value.parameters.get("filename").map(String::as_str),
+        Some("файл.txt")
+    );
+    assert_eq!(
+        encode_bodystructure(&value).expect("IMAP disposition"),
+        "(\"attachment\" (\"FILENAME\" \"файл.txt\"))"
+    );
+}
+
+#[test]
 fn rejects_invalid_disposition_tokens_and_parameters() {
     for raw in ["attachment extra", "attachment; filename=\"unfinished"] {
         assert!(parse(raw).is_err(), "accepted {raw}");

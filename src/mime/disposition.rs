@@ -1,5 +1,6 @@
 //! Типизированная модель MIME Content-Disposition для BODYSTRUCTURE.
 
+use super::language_tag::LanguageTag;
 use super::parameters;
 use std::collections::BTreeMap;
 
@@ -41,6 +42,8 @@ impl DispositionKind {
 pub struct Disposition {
     pub kind: DispositionKind,
     pub parameters: BTreeMap<String, String>,
+    /// Языковая подсказка RFC 2231 остаётся при декодированном MIME-параметре.
+    pub parameter_languages: BTreeMap<String, LanguageTag>,
 }
 
 /// Разбирает одно поле Content-Disposition, сохраняя расширения RFC 2231.
@@ -49,14 +52,18 @@ pub fn parse(value: &str) -> Result<Disposition, &'static str> {
     let mut sections = normalized.splitn(2, ';');
     let raw_kind = sections.next().ok_or("missing MIME disposition token")?;
     let kind = DispositionKind::parse(super::wsp::trim(raw_kind))?;
-    let parameters = match sections.next() {
+    let (parameters, parameter_languages) = match sections.next() {
         Some(tail) => {
             let parsed = parameters::parse(&format!("application/x;{tail}"))?;
-            parsed.parameters
+            (parsed.parameters, parsed.parameter_languages)
         }
-        None => BTreeMap::new(),
+        None => (BTreeMap::new(), BTreeMap::new()),
     };
-    Ok(Disposition { kind, parameters })
+    Ok(Disposition {
+        kind,
+        parameters,
+        parameter_languages,
+    })
 }
 
 /// Сериализует disposition extension как IMAP list и string values.
