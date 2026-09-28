@@ -1,5 +1,26 @@
 # Goal ledger
 
+### 2026-09-28: G18 SMTP DSN refusal wire check, GAP T339
+
+- RFC 3461 is intentionally not advertised because recipient DSN preferences,
+  original-recipient identity, MAIL envelope identifiers, and return-content
+  policy do not survive the SMTP transaction and durable delivery path. Merely
+  accepting `NOTIFY`/`ORCPT` would silently discard a sender's request.
+- Added an independent Python wire peer that confirms EHLO omits `DSN`, a
+  syntactically valid `NOTIFY=SUCCESS` receives `555 5.5.4`, and the SMTP
+  session remains usable for NOOP after refusal. This is behavior verification
+  for the unsupported-extension boundary, not RFC 3461 implementation.
+- Windows Rust 1.97.1 `cargo fmt --check` passes; `cargo test --all-targets`
+  passes (944 library tests and 1 CLI test, 4 ignored). Linux release server
+  build passes in the existing `rust:1.97-bookworm` image; the independent
+  Linux wire peer passes and its Python syntax compiles.
+- The temporary runtime container was stopped and verified absent. No image was
+  created; test output remains isolated in `./data/g18-dsn-wire`. Other Docker
+  containers and images were left untouched. No Litterkeep client interop is
+  claimed.
+- G18 remains ACTIVE; T339 remains GAP pending end-to-end durable RFC 3461
+  semantics and acceptance.
+
 ### 2026-09-28: G18 POP3 SCRAM-SHA-1 TLS wire profile, scoped PASS T343
 
 - POP3 AUTH теперь имеет отдельный SCRAM-SHA-1 state machine: mechanism
