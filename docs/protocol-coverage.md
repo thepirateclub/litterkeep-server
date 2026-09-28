@@ -137,6 +137,15 @@ Python `smtplib` на STARTTLS проверил continuation, initial-response �
 получают 500, после чего клиентская сессия возвращается в command state.
 Проверено независимым STARTTLS black-box. См. [RFC 5321 §4.5.3.1.4](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.1.4).
 
+Legacy Argon2 migration имеет отдельный независимый implicit-TLS acceptance:
+fixture переносит bootstrap `.phc2` в `.phc`, затем стандартный Python SMTP
+клиент выполняет AUTH PLAIN. После входа `.phc2` появился, а байты `.phc`
+совпали с исходными. Для проверки приоритета второй вход проходит, пока
+legacy-файл временно переименован; тест восстанавливает его даже при ошибке.
+Сценарий `tests/blackbox/smtp_legacy_phc_migration.py` использует отдельное
+`./data/g18-legacy-phc-20260928` и подтверждает только SMTP wire/auth/storage,
+не IMAP/POP3/ManageSieve или Litterkeep app.
+
 Аргумент HELO проверяется как единственный RFC 5321 Domain. EHLO принимает
 единственный Domain либо валидный IPv4/IPv6 address-literal; пустой аргумент,
 лишние слова, лишние пробелы и ошибочные DNS labels получают 501. Валидные

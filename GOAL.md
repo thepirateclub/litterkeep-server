@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-28: G18 independent SMTP wire acceptance for legacy PHC, scoped PASS T317
+
+- Новый `tests/blackbox/smtp_legacy_phc_migration.py` использует Python
+  `smtplib` как независимый клиент. На одноразовом Linux сервере стандартный
+  bootstrap `.phc2` перенесён в legacy `.phc`; SMTP TLS AUTH PLAIN прошёл,
+  новая запись опубликована, оригинальные байты `.phc` сохранились.
+- Повторный wire-вход был выполнен с временно переименованным `.phc`, поэтому
+  подтверждено чтение нового формата, а не fallback. Исходный legacy файл
+  восстановлен тестом. Это закрывает wire-пробел T316 только для SMTP; другие
+  протоколы и Litterkeep app не проверялись.
+- Linux использовал уже существующий `rust:1.97-bookworm`; новый image не
+  создавался. Одноразовый сервис остановлен, контейнер исчез,
+  `./data/g18-legacy-phc-20260928` оставлен как acceptance fixture.
+  `smtp_data_line_bound.py`
+  пользователя не менялся.
+- G18 остаётся активной. В следующем этапе продолжить RFC-gap аудит других
+  протоколов; SCRAM-SHA-1 обмен ManageSieve пока отсутствует и не рекламируется.
+
 ### 2026-09-28: G18 безопасная миграция legacy PHC, scoped PASS T316
 
 - Успешная аутентификация старого `.phc` теперь создаёт отдельную Argon2
