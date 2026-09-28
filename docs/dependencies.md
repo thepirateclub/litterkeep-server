@@ -27,17 +27,24 @@ SHA-1 применяется только как legacy совместимост
 Тип `ScramSha1Verifier` связывает PBKDF2, ClientKey/StoredKey и ServerKey,
 проверяет непустой salt длиной до 64 октетов и ограничивает iteration count
 диапазоном 4096..=200000. Сквозной тест воспроизводит client proof и server
-signature из полного RFC 5802 §5.1 примера. Эти операции используют уже
-SASLprep-normalized password; нормализация пока не реализована, поэтому этот
-тип ещё нельзя вызывать из account или протокольного workflow.
+signature из полного RFC 5802 §5.1 примера. RFC 4013 SASLprep уже реализован;
+новые Argon2 credentials сохраняют нормализованный `.phc2`, а успешный вход
+по legacy `.phc` публикует `.phc2` с сохранением старого файла. SMTP TLS
+black-box acceptance отдельно подтвердил wire-аутентификацию и приоритет
+новой записи.
 
-Это только криптографическая основа, а не реализация SCRAM. Account-файл пока
-содержит только Argon2id PHC verifier, из которого нельзя восстановить пароль
-или SCRAM salted password. Следующие обязательные работы: versioned SCRAM
-verifier при регистрации/смене пароля, безопасный формат миграции существующих
-аккаунтов, bounded iteration policy, SASL state machine, constant-time proof
-validation и независимый ManageSieve/POP3 wire acceptance. Пока они не готовы,
-сервер не рекламирует SCRAM и матрица считает его незакрытым RFC-пробелом.
+Это пока не реализация SCRAM. Account storage не содержит versioned
+SCRAM-SHA-1 salted-password verifier; его нельзя получить из Argon2 PHC без
+исходного пароля. Требуются versioned verifier при создании/входе и переходе
+старых аккаунтов, ManageSieve SCRAM state machine с SASL continuation,
+constant-time proof validation и независимый ManageSieve wire acceptance.
+[`RFC 5804 §2.1`](https://www.rfc-editor.org/rfc/rfc5804.html#section-2.1)
+прямо требует SCRAM-SHA-1 вместе с PLAIN over TLS; этот механизм не
+рекламируется до завершения verifier и exchange. [RFC 7677](https://www.rfc-editor.org/rfc/rfc7677.html) регистрирует
+SCRAM-SHA-256, более сильный алгоритм семейства, и отмечает связанные с
+SHA-1 и TLS channel binding требования безопасности. SHA-256 SCRAM и PLUS
+варианты также не реализованы; security-профиль следует закрывать прежде
+рекламы соответствующих механизмов.
 
 IMAP mailbox validation использует собственные generated ranges Unicode
 17.0.0, а не crate. Официальный источник, версия toolchain, SHA-256 и лицензия

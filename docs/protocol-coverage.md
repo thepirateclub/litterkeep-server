@@ -1215,9 +1215,13 @@ peer проверяет NOOP до аутентификации и обязате
 Implicit-TLS проверен unit-тестом, а совместимость с Litterkeep остаётся
 непроверенной. RFC 5804 §2.1 требует SCRAM-SHA-1 и PLAIN; сервер реализует и
 объявляет только PLAIN, поэтому SCRAM остаётся conformance gap. Собственная
-SHA-1/HMAC-SHA-1/PBKDF2 реализация теперь проходит полный RFC 5802 §5.1 crypto
-пример, но account verifier и authentication exchange отсутствуют;
-см. [Sieve/ManageSieve coverage](sieve-coverage.md) и
+SHA-1/HMAC-SHA-1/PBKDF2 реализация проходит полный RFC 5802 §5.1 crypto пример.
+RFC 4013 SASLprep и Argon2 PHC2/legacy migration уже интегрированы в общий
+account path, однако SCRAM-SHA-1 verifier persistence и ManageSieve
+authentication exchange ещё отсутствуют; более современный SCRAM-SHA-256 по
+RFC 7677 тоже не поддержан.
+
+См. [Sieve/ManageSieve coverage](sieve-coverage.md) и
 [dependency/security notes](dependencies.md).
 ManageSieve mutation quota failures now use the RFC 5804 `NO (QUOTA)` response
 code; Store boundary and response-mapping unit tests verify that ordinary disk

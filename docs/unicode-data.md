@@ -202,8 +202,9 @@ The context is an enum so callers must choose the correct stored/query policy.
 `StoredValue`, and feeds only the normalized bytes to PBKDF2-HMAC-SHA-1.
 The API bounds the UTF-8 input at 4096 octets before normalization. Invalid
 UTF-8 and profile errors fail before the KDF. This is verifier
-derivation only: account persistence/migration and the SCRAM protocol exchange
-are not implemented, and the server does not advertise SCRAM mechanisms.
+derivation only: Argon2 account persistence and legacy credential migration do
+not create a SCRAM verifier, the SCRAM protocol exchange is not implemented,
+and the server does not advertise SCRAM mechanisms.
 
 The shared Argon2 account verifier also uses this profile. New credentials are
 written to the typed `SaslPrepCredentials` `.phc2` file kind after strict

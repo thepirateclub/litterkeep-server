@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-28: G18 ManageSieve SCRAM gap inventory reconciliation, scoped PASS T318
+
+- Сверила текущее состояние кода с `docs/dependencies.md`,
+  `docs/sieve-coverage.md`, `docs/protocol-coverage.md`, `docs/unicode-data.md`
+  и RFC 5804/5802/7677. Устаревшие формулировки, будто SASLprep и Argon2
+  migration отсутствуют, заменены на точный статус T314-T317.
+- Подтвердила по RFC 5804 §2.1 обязательность SCRAM-SHA-1 для ManageSieve.
+  Существующие SHA-1/PBKDF2 verifier primitives не являются SCRAM protocol;
+  credential persistence, ManageSieve state machine и wire acceptance ещё
+  отсутствуют. RFC 7677 SCRAM-SHA-256 записан как более сильный, но тоже
+  неподдерживаемый дополнительный механизм. Ни один SCRAM mechanism не объявлен.
+- T263 в `docs/acceptance.tsv` помечен SUPERSEDED как исторический audit;
+  актуальный пробел не закрыт. Это документационная сверка, код и тесты не
+  менялись. Источники: [RFC 5804 §2.1](https://www.rfc-editor.org/rfc/rfc5804.html#section-2.1),
+  [RFC 7677](https://www.rfc-editor.org/rfc/rfc7677.html).
+- G18 остаётся активной; следующий этап требует verifier format и полного
+  ManageSieve SASL exchange, не преждевременной рекламы capability.
+
 ### 2026-09-28: G18 independent SMTP wire acceptance for legacy PHC, scoped PASS T317
 
 - Новый `tests/blackbox/smtp_legacy_phc_migration.py` использует Python

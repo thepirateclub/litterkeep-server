@@ -23,7 +23,13 @@ continuation до отправки payload и затем успешно ауте
 ServerKey derivation. Полный пример RFC 5802 §5.1 подтверждает client proof и
 server signature, а iteration/salt границы ограничены до дорогого KDF вызова.
 Это всё ещё не authentication: account store хранит только Argon2id verifier,
-SASLprep, versioned SCRAM verifier/migration и протокольный exchange отсутствуют.
+поэтому Argon2 verifier сам по себе не является SCRAM verifier. SASLprep,
+Argon2 `.phc2` account storage и безопасная legacy `.phc` миграция реализованы;
+T317 подтверждает legacy-переход независимым SMTP TLS клиентом, но это не
+проверка ManageSieve SASL. Versioned SCRAM verifier, state machine, proof
+validation и independent ManageSieve wire exchange всё ещё отсутствуют.
+T318 сверил контракт с RFC 5804 §2.1 и RFC 7677: обязательный ManageSieve
+SCRAM-SHA-1 не реализован, более современный SCRAM-SHA-256 также не реализован.
 Детали записаны в [учёте зависимостей](dependencies.md). SCRAM не рекламируется.
 
 Для client-to-server literals receiver сначала читает ровно объявленное число
