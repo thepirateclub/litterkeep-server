@@ -64,6 +64,10 @@ AuthMessage из исходных SCRAM transcript строк; полный RFC 
 known-answer проходит через StoredKey verifier и совпадает с published
 ServerSignature. SASL outcome/state machine и ManageSieve integration всё ещё
 отсутствуют.
+`scram_server_final` завершает тот же crypto transcript типизированным
+`v=<signature>` или `e=invalid-proof`; все RFC 5802 §7 server-error значения
+закрыты enum. Это не кодирует ManageSieve SASL outcome (который должен
+совместить final data с protocol-level success) и не включает reactor state.
 Crypto API проверяет proof с постоянновременным сравнением StoredKey и строит
 server signature; это не заменяет end-to-end проверку протокольного transcript.
 [`RFC 5804 §2.1`](https://www.rfc-editor.org/rfc/rfc5804.html#section-2.1)

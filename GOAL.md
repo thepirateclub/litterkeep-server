@@ -1,5 +1,22 @@
 # Goal ledger
 
+### 2026-09-28: G18 SCRAM server-final and mutual proof completion, scoped PASS T326
+
+- `ServerFinal::complete` связывает client-final transcript с verifier:
+  некорректный proof даёт `e=invalid-proof`, корректный выдаёт `v=` с
+  Base64 ServerSignature. Все RFC 5802 §7 server-error tokens представлены
+  закрытым enum, не открытыми строковыми исходами.
+- RFC 5802 §5.1 published client proof завершается точной опубликованной
+  server signature. Отрицательный тест заменяет proof и получает только
+  typed invalid-proof outcome; десять прочих error-вариантов проверены на
+  wire encoding.
+- Windows Rust 1.97.1: 907 библиотечных и 1 CLI тест прошли, 4 игнорированы;
+  fmt/strict Clippy прошли. Linux Docker Rust 1.97.1: 1012 библиотечных и
+  1 CLI тест прошли, 4 игнорированы; fmt/strict Clippy прошли. Контейнер
+  использовал `--rm`.
+- Это формирует только SCRAM final SASL attribute, не ManageSieve outcome,
+  session transitions или capability. G18 ACTIVE.
+
 ### 2026-09-28: G18 SCRAM client-final proof and transcript, scoped PASS T325
 
 - Добавлен client-final validator fixed order `c,r,extensions,p`. Он проверяет
