@@ -126,11 +126,79 @@ fn consumer_publishes_one_delivered_report_and_recovers_acknowledgement() {
     std::fs::remove_dir_all(directory).expect("cleanup");
 }
 
+#[test]
+fn external_sender_receives_report_as_null_reverse_path_outbound_job() {
+    let directory = root();
+    let accounts = Accounts::open(&directory).expect("open accounts");
+    accounts
+        .create("bob", b"test-password")
+        .expect("bob account");
+    let mut request = envelope();
+    request.reverse_path = "sender@outside.example".into();
+    let source = b"Subject: external receipt\r\n\r\nprivate body";
+    {
+        let mut store = Store::open(&directory).expect("open Store");
+        store
+            .deliver_sieve_many_with_dsn(
+                &["bob".into()],
+                &request.reverse_path,
+                &["bob@litterkeep.test".into()],
+                source,
+                Some(&request),
+            )
+            .expect("commit local delivery");
+    }
+
+    let worker = StorageWorker::start(&directory, 2).expect("start automatic consumer");
+    worker
+        .submit(Request::OutboundPending { request_id: 3 })
+        .expect("query outbound after startup sweep");
+    let deliveries = match receive(&worker) {
+        Response::OutboundPending {
+            request_id: 3,
+            result,
+        } => result.expect("outbound jobs"),
+        _ => panic!("unexpected outbound response"),
+    };
+    worker.shutdown();
+
+    let store = Store::open(&directory).expect("reopen Store");
+    assert!(store.pending_dsn_success_notices().is_empty());
+    assert_eq!(deliveries.len(), 1);
+    let delivery = deliveries.first().expect("one external DSN job");
+    assert!(delivery.sender.is_empty());
+    assert_eq!(delivery.recipient, "sender@outside.example");
+    let report = store.outbound_blob(delivery).expect("report blob");
+    assert!(
+        report
+            .windows(b"Action: delivered".len())
+            .any(|value| value == b"Action: delivered")
+    );
+    assert!(
+        report
+            .windows(b"Subject: external receipt".len())
+            .any(|value| value == b"Subject: external receipt")
+    );
+    assert!(
+        !report
+            .windows(b"private body".len())
+            .any(|value| value == b"private body")
+    );
+    assert_eq!(store.pending_outbound().expect("recovered queue").len(), 1);
+    drop(store);
+    std::fs::remove_dir_all(directory).expect("cleanup");
+}
+
 fn receive(worker: &StorageWorker) -> Response {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     loop {
         if let Ok(response) = worker.try_response() {
             return response;
         }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "worker response timeout"
+        );
         std::thread::yield_now();
     }
 }

@@ -73,26 +73,17 @@ pub struct WakingStorageWorker {
 #[cfg(target_os = "linux")]
 impl WakingStorageWorker {
     pub fn start(root: impl AsRef<Path>, capacity: usize) -> io::Result<Self> {
-        use std::io::Write;
         use std::os::unix::net::UnixStream;
-        let mut store = Store::open(root.as_ref())?;
+        let store = Store::open(root.as_ref())?;
         let accounts = Accounts::open(root.as_ref())?;
         let (requests, incoming) = mpsc::sync_channel(capacity);
         let (outgoing, responses) = mpsc::channel();
-        let (wake_reader, mut wake_writer) = UnixStream::pair()?;
+        let (wake_reader, wake_writer) = UnixStream::pair()?;
         wake_reader.set_nonblocking(true)?;
         wake_writer.set_nonblocking(true)?;
         let thread = thread::Builder::new()
             .name("litterkeep-store-writer".into())
-            .spawn(move || {
-                for request in incoming {
-                    let response = execution::respond(&mut store, &accounts, request);
-                    if outgoing.send(response).is_err() {
-                        break;
-                    }
-                    let _ = wake_writer.write(&[1]);
-                }
-            })?;
+            .spawn(move || owner::run_waking(store, accounts, incoming, outgoing, wake_writer))?;
         Ok(Self {
             worker: StorageWorker {
                 requests,

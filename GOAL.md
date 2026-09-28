@@ -1,5 +1,31 @@
 # Goal ledger
 
+### 2026-09-29: G18 outbound SUCCESS DSN to external reverse-path, PARTIAL T398
+
+- Положительное уведомление теперь получает typed target: локальный mailbox
+  либо внешний reverse-path. Для внешнего адреса Store атомарно фиксирует
+  очередь сообщения с пустым SMTP reverse-path и idempotency key отчёта;
+  обычный outbound SMTP service доставляет его только в явно настроенный relay.
+- Linux независимый SMTP peer проверяет `MAIL FROM:<>`, внешний RCPT, `Action:
+  delivered`, оригинальные заголовки без исходного тела и очистку очереди после
+  успешной передачи. Этот peer не является публичным MX и не доказывает DNS/MX,
+  интернет-доставку или совместимость с приложением Litterkeep.
+- Sweep выполняется также в Linux reactor-worker после каждой bounded-команды,
+  а не только в отдельном StorageWorker loop. Это исправлено после того, как
+  end-to-end тест обнаружил непубликуемый pending intent в runtime-варианте.
+- Расширен typed outbound redirect recipient grammar для внешних доменов;
+  server-owned локальные домены остаются запрещены как relay targets. Прямой
+  SMTP RCPT путь не расширен и по-прежнему ограничен локальной маршрутизацией.
+- Windows Rust 1.97.1 all-target: 1037 passed, 4 ignored; Linux Docker Rust
+  1.97.1 all-target: 1158 passed, 4 ignored. Strict Clippy, rustfmt и
+  `git diff --check` прошли. Переиспользован образ
+  `sha256:0e2bcaef56d041a486784e54104a81aebe0da44bd03019bd70bc0401e42e4a97`,
+  cache `./data/g23-dsn-external-success-linux-target`; контейнер `--rm`, образ
+  не создавался.
+- Fair continuation/retry pacing при backlog не проверены. EHLO DSN и MAIL/RCPT
+  DSN параметры остаются выключены; G18 ACTIVE, T391 GAP.
+- Источник: [RFC 3461 §5.2.3](https://www.rfc-editor.org/rfc/rfc3461.html).
+
 ### 2026-09-29: G18 automatic local SUCCESS DSN recovery sweep, PARTIAL T397
 
 - Store owner now scans at most 100 pending positive notices when it starts and
@@ -32,9 +58,9 @@
   The report transaction is the durable acknowledgement: recovery exposes the
   intent until the report commit exists, then deduplicates retries after reopen.
   A failpoint vector verifies recovery between sidecar write and global commit.
-- The consumer currently handles only local sender mailboxes, and requires an
-  explicit worker request; automatic pending-intent scheduling and external
-  sender delivery remain absent. SMTP DSN negotiation is still disabled.
+- At this checkpoint the consumer handled only local sender mailboxes and
+  required an explicit worker request. T397 and T398 subsequently add automatic
+  sweep and external relay delivery. SMTP DSN negotiation is still disabled.
 - Windows Rust 1.97.1 all-target suite: 1035 passed, 4 ignored; Linux Docker
   Rust 1.97.1 all-target suite: 1155 passed, 4 ignored; strict Clippy, format,
   and diff checks passed. The Linux run reused image

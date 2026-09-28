@@ -47,11 +47,14 @@ StorageWorker operation: он восстанавливает envelope и исх�
 публикует отчёт идемпотентно. Commit отчёта подтверждает intent и устраняет его
 из pending-представления после recovery; failpoint проверяет retry при сбое до
 commit. Store owner выполняет ограниченный sweep при старте и после каждой
-bounded-команды, поэтому восстановленные local intents обрабатываются без
-отдельного протокольного запроса. Ошибки видны в stderr, исходная доставка не
-отзывается, pending intent остаётся для retry. Outbound-доставка внешнему
-sender-у пока отсутствует, а fairness/retry pacing при большом внешнем backlog
-нуждаются в доработке.
+bounded-команды, поэтому восстановленные intents обрабатываются без отдельного
+протокольного запроса. Ошибки видны в stderr, исходная доставка не отзывается,
+pending intent остаётся для retry. Для существующего внешнего reverse-path
+Store создаёт outbound job с пустым SMTP reverse-path; независимый Linux SMTP
+peer подтвердил `MAIL FROM:<>`, внешний RCPT, `Action: delivered`, отсутствие
+исходного тела и удаление job после принятия. Доставка проверена только до
+явно настроенного relay peer: публичный DNS/MX и интернет не проверялись.
+Fairness/retry pacing при большом внешнем backlog остаются GAP.
 Delay report scheduling, полная сквозная семантика повторной доставки и RFC
 3461 wire negotiation остаются неподдержанными. RFC 3461 §5.2.3 требует
 `delivered` DSN при локальной доставке с `NOTIFY=SUCCESS`; RFC считает её

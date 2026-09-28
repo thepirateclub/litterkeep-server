@@ -3,7 +3,7 @@
 use super::redirect_policy::{Domain, Error, Recipient, hop_limit_reached};
 
 #[test]
-fn peer_route_is_typed_and_local_or_malformed_targets_are_denied() {
+fn route_domains_are_typed_and_local_or_malformed_targets_are_denied() {
     let recipient = Recipient::parse("remote+tag@PEER.TEST").expect("peer route");
     assert_eq!(recipient.domain, Domain::PeerTest);
     assert_eq!(recipient.canonical(), "remote+tag@peer.test");
@@ -16,6 +16,13 @@ fn peer_route_is_typed_and_local_or_malformed_targets_are_denied() {
         Err(Error::Malformed)
     );
     assert_eq!(Recipient::parse("two@@peer.test"), Err(Error::Malformed));
+}
+
+#[test]
+fn external_domain_is_canonicalized_for_the_configured_relay() {
+    let recipient = Recipient::parse("remote+tag@OUTSIDE.EXAMPLE").expect("external route");
+    assert_eq!(recipient.domain, Domain::External);
+    assert_eq!(recipient.canonical(), "remote+tag@outside.example");
 }
 
 #[test]

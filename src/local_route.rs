@@ -39,9 +39,17 @@ fn classify_recipient_mailbox(mailbox: &str) -> LocalRecipient<'_> {
 pub fn local_mailbox(address: &str) -> Option<String> {
     let (mailbox, domain) = crate::smtp::canonical_parts(address)?;
     match LocalRoute::parse(&domain) {
-        LocalRoute::Accepted => crate::accounts::canonical_query_name(&mailbox),
+        LocalRoute::Owned | LocalRoute::Peer => crate::accounts::canonical_query_name(&mailbox),
         LocalRoute::Rejected => None,
     }
+}
+
+/// Отличает собственные домены сервера от тестового peer route.
+pub(crate) fn is_server_owned_domain(address: &str) -> bool {
+    let Some((_, domain)) = crate::smtp::canonical_parts(address) else {
+        return false;
+    };
+    matches!(LocalRoute::parse(&domain), LocalRoute::Owned)
 }
 
 /// Нормализует RCPT путь в локальный mailbox, включая bare Postmaster.
@@ -77,7 +85,8 @@ pub fn local_login(login: &str) -> Option<String> {
 
 /// Результат разбора domain на единственной string-to-enum границе.
 enum LocalRoute {
-    Accepted,
+    Owned,
+    Peer,
     Rejected,
 }
 
@@ -85,7 +94,8 @@ impl LocalRoute {
     /// Локальные домены первого профиля без DNS/MX discovery.
     fn parse(domain: &str) -> Self {
         match domain.to_ascii_lowercase().as_str() {
-            "test" | "litterkeep.test" | "peer.test" | "xn--bcher-kva.test" => Self::Accepted,
+            "test" | "litterkeep.test" | "xn--bcher-kva.test" => Self::Owned,
+            "peer.test" => Self::Peer,
             _ => Self::Rejected,
         }
     }

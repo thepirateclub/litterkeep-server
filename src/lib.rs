@@ -10,6 +10,7 @@ pub mod bootstrap;
 #[cfg(target_os = "linux")]
 pub mod control;
 pub mod dsn;
+mod dsn_target;
 pub mod imap;
 pub mod imap_fetch;
 pub mod local_route;

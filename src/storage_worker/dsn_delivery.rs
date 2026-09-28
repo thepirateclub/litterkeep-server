@@ -40,12 +40,18 @@ pub(super) fn append_success(
         return Ok(Some(transaction_id));
     }
     let context = store.dsn_success_context(key)?;
-    let Some(mailbox) = local_route::local_mailbox(&context.reverse_path) else {
-        return Ok(None);
+    let target = match (
+        local_route::local_mailbox(&context.reverse_path),
+        context.reverse_path.is_empty(),
+    ) {
+        (Some(mailbox), _) if accounts.exists(&mailbox) => {
+            crate::dsn_target::DsnSuccessTarget::LocalMailbox(mailbox)
+        }
+        (Some(_), _) | (None, true) => return Ok(None),
+        (None, false) => {
+            crate::dsn_target::DsnSuccessTarget::OutboundAddress(context.reverse_path.clone())
+        }
     };
-    if !accounts.exists(&mailbox) {
-        return Ok(None);
-    }
     let Some(report) = dsn::render_delivery_success(
         &context.reverse_path,
         &context.recipient,
@@ -56,7 +62,7 @@ pub(super) fn append_success(
         return Ok(None);
     };
     store
-        .append_dsn_success_report_once(&mailbox, &report, report_key)
+        .append_dsn_success_report_once(target, &report, report_key)
         .map(Some)
 }
 
