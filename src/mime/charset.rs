@@ -39,6 +39,7 @@ pub enum Charset {
     Koi8U,
     Gbk,
     Gb18030,
+    Big5,
     Utf16,
     Utf16Be,
     Utf16Le,
@@ -87,6 +88,7 @@ impl Charset {
             "gbk" | "gb2312" | "chinese" | "x-gbk" | "csgbk" | "cp936" | "ms936"
             | "windows-936" => Ok(Self::Gbk),
             "gb18030" | "csgb18030" => Ok(Self::Gb18030),
+            "big5" | "big5-hkscs" | "cn-big5" | "csbig5" | "x-x-big5" => Ok(Self::Big5),
             "utf-16" => Ok(Self::Utf16),
             "utf-16be" => Ok(Self::Utf16Be),
             "utf-16le" => Ok(Self::Utf16Le),
@@ -151,6 +153,7 @@ impl Charset {
             Self::Koi8R => Ok(super::charset_koi8_r::decode(bytes)),
             Self::Koi8U => Ok(super::charset_koi8_u::decode(bytes)),
             Self::Gbk | Self::Gb18030 => super::charset_gb18030::decode(bytes),
+            Self::Big5 => super::charset_big5::decode(bytes),
             Self::Utf16 => {
                 super::charset_utf16::decode(bytes, super::charset_utf16::ByteOrder::DetectBom)
             }

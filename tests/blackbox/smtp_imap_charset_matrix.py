@@ -57,6 +57,8 @@ CHARSET_CASES = (
     CharsetCase("ISO-8859-11", "iso8859_11", "ภาษาไทย"),
     CharsetCase("GBK", "gbk", "简体中文"),
     CharsetCase("GB18030", "gb18030", "中文𠀀😀"),
+    CharsetCase("Big5", "big5", "繁體中文"),
+    CharsetCase("Big5-HKSCS", "big5hkscs", "Ê\u0304Ê\u030cê\u0304ê\u030c"),
     CharsetCase("IBM866", "cp866", "Привет"),
     CharsetCase("KOI8-R", "koi8_r", "Привет"),
     CharsetCase("KOI8-U", "koi8_u", "Їжак"),

@@ -1,5 +1,24 @@
 # Goal ledger
 
+### 2026-09-28: G18 Big5/Big5-HKSCS MIME decoder and IMAP SEARCH, scoped PASS T302
+
+- Добавлен строгий собственный Big5 decoder с типизированным Charset и WHATWG
+  labels, O(1) generated index lookup и fail-closed ошибками malformed,
+  truncated и unmapped sequences. Четыре normative pointer exceptions дают
+  ровно две Unicode code points каждая.
+- Rust тесты проверяют структуру index asset и сверяют все 19 782 pointer
+  positions с результатом decoder-а. Отдельно проверяются четыре expansion
+  mappings, aliases, традиционный китайский текст и некорректные последовательности.
+- Windows Rust 1.97.1 targeted 6 tests, strict Clippy и all-target tests прошли
+  (833 library + 1 CLI, 3 ignored). Linux Rust 1.97 Docker gate прошёл strict
+  Clippy, 942 library + 1 CLI, 3 ignored, doc-tests. Независимый Python 3.14
+  SMTP STARTTLS -> IMAP UTF-8 SEARCH прошёл для всех 33 MIME labels, включая
+  Big5 `繁體中文` и Big5-HKSCS `Ê̄Ê̌ê̄ê̌`.
+- Индекс оставлен в `./data/g18-big5-table-20260928`, acceptance fixture в
+  `./data/acceptance-mime-big5-20260928`. Созданные контейнер и оба образа
+  удалены и проверены. Litterkeep app, EUC-JP, ISO-2022-JP, Shift_JIS и EUC-KR
+  не проверялись; G18 остаётся ACTIVE.
+
 ### 2026-09-28: G18 GBK/GB18030 MIME decoder and IMAP SEARCH, scoped PASS T301
 
 - Добавлены типизированные labels GBK и GB18030. Собственный строгий decoder

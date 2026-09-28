@@ -926,10 +926,18 @@ SEARCH цепочке. Это не доказывает остальные chars
 `gb18030` для `中文𠀀😀`. Таблицы воспроизводятся
 `tools/generate_gb18030_tables.py`; скрипт закрепляет SHA-256 официальных
 WHATWG index-файлов и не участвует в runtime/build. Эта проверка не закрывает
-прочие многобайтовые семейства: Big5, EUC-JP, ISO-2022-JP, Shift_JIS и EUC-KR.
-Первичные источники: [WHATWG GBK decoder](https://encoding.spec.whatwg.org/#gbk-decoder),
+Big5/Big5-HKSCS теперь также используют собственный строгий decoder и плотный
+O(1) WHATWG index lookup. Все 19 782 pointer positions сверяются с декодером;
+четыре нестандартных одиночных pointer-а корректно разворачиваются в пары
+Unicode scalars. Независимый SMTP -> IMAP charset matrix проверяет обычный Big5
+текст и все четыре expansion mappings через Python `big5hkscs` codec.
+Остаются неподдержанными EUC-JP, ISO-2022-JP, Shift_JIS и EUC-KR. Первичные
+источники: [WHATWG GBK decoder](https://encoding.spec.whatwg.org/#gbk-decoder),
 [two-byte index](https://encoding.spec.whatwg.org/index-gb18030.txt) и
-[four-byte ranges](https://encoding.spec.whatwg.org/index-gb18030-ranges.txt).
+[four-byte ranges](https://encoding.spec.whatwg.org/index-gb18030-ranges.txt),
+[WHATWG Big5 decoder](https://encoding.spec.whatwg.org/#big5-decoder),
+[Big5 index](https://encoding.spec.whatwg.org/index-big5.txt) и
+[IANA charset registry](https://www.iana.org/assignments/character-sets/).
 Отдельная
 SMTP -> IMAP wire-проверка доставила RFC 2047 Subject encoded-word варианты UTF-16,
 UTF-16BE/LE и UTF-32 с generic BE BOM, UTF-32BE/LE; UTF-8 SEARCH literal
