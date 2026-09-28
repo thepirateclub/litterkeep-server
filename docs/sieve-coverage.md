@@ -19,9 +19,12 @@ non-synchronizing literal response независимым Linux STARTTLS peer. T
 continuation до отправки payload и затем успешно аутентифицировал Bob. Проверен
 также повторный вход после отмены. Полное соответствие ManageSieve SASL всё ещё
 не достигнуто: SCRAM-SHA-1 обязателен по RFC и остаётся открытым пробелом.
-Причина ограничений реализации записана в [учёте зависимостей](dependencies.md):
-разрешённые production API не дают доступа к SHA-1/HMAC-SHA-1 backend, а account
-store хранит только Argon2id verifier. Это не считается выполненной поддержкой.
+Криптографическая основа SHA-1/HMAC-SHA-1/PBKDF2 теперь реализована собственными
+модулями без новых production dependencies и проверена RFC known-answer vectors.
+Она не является выполненной поддержкой SCRAM: account store хранит только
+Argon2id verifier, поэтому отсутствуют versioned SCRAM verifier, migration и
+сам authentication exchange. Детали и следующий безопасный объём записаны в
+[учёте зависимостей](dependencies.md). SCRAM не рекламируется.
 
 Для client-to-server literals receiver сначала читает ровно объявленное число
 octets, затем обязательный CRLF конца command line; только после него начинает

@@ -1204,9 +1204,12 @@ peer проверяет NOOP до аутентификации и обязате
 для quoted string. `UNAUTHENTICATE` сбрасывает состояние и owner, сохраняет TLS
 и допускает повторный AUTHENTICATE; независимый TLS peer это проверяет.
 Implicit-TLS проверен unit-тестом, а совместимость с Litterkeep остаётся
-непроверенной. RFC 5804 §2.1 требует SCRAM-SHA-1 и PLAIN;
-сервер реализует и объявляет только PLAIN, поэтому обязательный SCRAM-SHA-1
-остаётся conformance gap.
+непроверенной. RFC 5804 §2.1 требует SCRAM-SHA-1 и PLAIN; сервер реализует и
+объявляет только PLAIN, поэтому SCRAM остаётся conformance gap. Для будущей
+реализации добавлена собственная SHA-1/HMAC-SHA-1/PBKDF2 основа с RFC
+known-answer vectors, но SCRAM verifier и authentication exchange отсутствуют;
+см. [Sieve/ManageSieve coverage](sieve-coverage.md) и
+[dependency/security notes](dependencies.md).
 ManageSieve mutation quota failures now use the RFC 5804 `NO (QUOTA)` response
 code; Store boundary and response-mapping unit tests verify that ordinary disk
 errors do not become quota responses. Independent Linux TLS wire acceptance
@@ -1230,8 +1233,9 @@ is not verified.
 ManageSieve tokenizer rejects unterminated quoted strings and unsupported
 quoted-string escapes as syntax errors instead of accepting a valid command
 prefix. Parser tests and the independent Linux wire scenario verify both
-negative cases. Mandatory SCRAM-SHA-1 remains unimplemented under the current
-production dependency allowlist.
+negative cases. Mandatory SCRAM-SHA-1 exchange remains unimplemented under the
+current production dependency allowlist; only independently tested crypto
+primitives exist.
 NOOP accepts an optional RFC 5804 string as either quoted text or synchronizing
 and non-synchronizing client literals. Linux reactor tests cover literal
 consumption and pipeline boundaries; independent wire acceptance confirms the

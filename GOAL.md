@@ -1,5 +1,17 @@
 # Goal ledger
 
+### 2026-09-28: G18 SCRAM-SHA-1 primitive foundation, scoped PASS T312
+
+- Реализованы собственные safe-Rust SHA-1, HMAC-SHA-1 и PBKDF2-HMAC-SHA-1
+  без добавления зависимости. RFC known-answer tests покрывают SHA-1, короткий
+  и длинный HMAC key, а PBKDF2 итерации 1/2/4096.
+- Windows Rust 1.97.1: fmt, strict Clippy, 862 library + 1 CLI тест прошли,
+  3 external corpus ignored. Linux Docker: release build, strict Clippy,
+  971 library + 1 CLI, 3 ignored, doc-tests прошли. Временный test image удалён.
+- Это не SCRAM authentication: долговечный verifier, миграция Argon2-only
+  аккаунтов, SASL state machine и wire acceptance отсутствуют. Capability
+  остаётся скрытой. G18 остаётся ACTIVE.
+
 ### 2026-09-28: G18 SMTP DATA bounded incomplete-line wire acceptance, scoped PASS T311
 
 - Existing DATA receiver bounds an unterminated line fragment before CRLF and

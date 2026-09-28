@@ -13,19 +13,24 @@ reactor и lifecycle orchestration реализованы в этом репоз
 `examples/make_test_pki.rs` для однократного выпуска test CA и не попадает в
 обычный runtime server binary.
 
-### Ограничение SCRAM-SHA-1 для ManageSieve
+### Собственные примитивы для SCRAM-SHA-1 и оставшийся парольный verifier
 
-RFC 5804 §2.1 требует SCRAM-SHA-1, но текущий production allowlist разрешает
-только `rustls` и `argon2`. У закреплённого rustls выбран backend `ring`, однако
-его HMAC/hash адаптеры внутри rustls объявлены `pub(crate)` и не являются API
-этого приложения; использовать транзитивный crate напрямую также означало бы
-добавить третью production-зависимость. Account-файл содержит только Argon2id
-PHC verifier, из которого нельзя восстановить пароль или SCRAM salted password.
-Следовательно, SCRAM нельзя корректно добавить простым протокольным адаптером:
-потребуется явное расширение dependency allowlist либо отдельная криптографически
-ревьюируемая реализация требуемых примитивов и формат хранения SCRAM verifier.
-Пока ни одно из этих изменений не разрешено, сервер не рекламирует SCRAM и
-матрица считает его незакрытым RFC-пробелом.
+RFC 5804 §2.1 требует SCRAM-SHA-1. Allowlist production dependencies по-прежнему
+разрешает только `rustls` и `argon2`; hash/HMAC API закреплённого rustls backend
+не является публичным API приложения, а прямое использование транзитивного
+crate недопустимо. В `src/sasl/sha1.rs`, `hmac_sha1.rs` и `pbkdf2_sha1.rs`
+добавлены собственные safe-Rust примитивы без новой зависимости. Их узкие
+проверки сравниваются с RFC 3174, RFC 2202 и RFC 6070 известными ответами.
+SHA-1 применяется только как legacy совместимость SCRAM, не для подписей,
+нового хранения паролей или защиты от collision атак.
+
+Это только криптографическая основа, а не реализация SCRAM. Account-файл пока
+содержит только Argon2id PHC verifier, из которого нельзя восстановить пароль
+или SCRAM salted password. Следующие обязательные работы: versioned SCRAM
+verifier при регистрации/смене пароля, безопасный формат миграции существующих
+аккаунтов, bounded iteration policy, SASL state machine, constant-time proof
+validation и независимый ManageSieve/POP3 wire acceptance. Пока они не готовы,
+сервер не рекламирует SCRAM и матрица считает его незакрытым RFC-пробелом.
 
 IMAP mailbox validation использует собственные generated ranges Unicode
 17.0.0, а не crate. Официальный источник, версия toolchain, SHA-256 и лицензия

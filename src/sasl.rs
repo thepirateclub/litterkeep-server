@@ -2,6 +2,13 @@
 //!
 //! Модуль не проверяет пароль. Он формирует типизированные credentials, которые
 //! затем передаются единственному владельцу account-хранилища.
+#[path = "sasl/hmac_sha1.rs"]
+pub mod hmac_sha1;
+#[path = "sasl/pbkdf2_sha1.rs"]
+pub mod pbkdf2_sha1;
+#[path = "sasl/sha1.rs"]
+pub mod sha1;
+
 use crate::mime::decode_base64;
 
 /// Проверенные поля PLAIN без исходного base64-представления.
