@@ -8,6 +8,7 @@ pub mod idna17;
 #[path = "smtp/punycode.rs"]
 pub mod punycode;
 pub(crate) use command::canonical_parts;
+pub(crate) use command::is_utf8_mailbox;
 pub(crate) use command::requires_smtp_utf8;
 pub use command::{
     BdatCommand, BodyMode, Command, MAX_BINARYMIME_MAIL_LINE_SIZE, MAX_COMMAND_LINE_SIZE,

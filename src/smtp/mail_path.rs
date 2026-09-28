@@ -1,5 +1,5 @@
 //! Разбор SMTP reverse-path/forward-path и typed ESMTP MAIL параметров.
-use super::dsn_parameters::{ReturnContent, decode_xtext, parse_notify};
+use super::dsn_parameters::{ReturnContent, decode_utf8_xtext, decode_xtext, parse_notify};
 use super::{
     BodyMode, MAX_PATH_SIZE, MailDsn, MailFrom, ParseError, RcptTo, RecipientDsn, address,
 };
@@ -105,17 +105,38 @@ pub(super) fn parse_recipient(argument: &str) -> Result<RcptTo, ParseError> {
     })
 }
 
-/// Разбирает ORCPT=rfc822;xtext и сохраняет исходный регистр octet-значения.
+/// Разбирает поддерживаемые RFC 3461/6533 address-type без wire policy.
 fn parse_original_recipient(value: &str) -> Result<super::OriginalRecipient, ParseError> {
     let (kind, address) = value.split_once(';').ok_or(ParseError::Syntax)?;
     let address_type = match kind.to_ascii_lowercase().as_str() {
         "rfc822" => super::OriginalAddressType::Rfc822,
+        "utf-8" => super::OriginalAddressType::Utf8,
         _ => return Err(ParseError::Syntax),
     };
+    let address = match address_type {
+        super::OriginalAddressType::Rfc822 => decode_xtext(address, value.len())?,
+        super::OriginalAddressType::Utf8 => decode_utf8_xtext(address, value.len())?,
+    };
+    if matches!(address_type, super::OriginalAddressType::Utf8) {
+        let mailbox = std::str::from_utf8(&address).map_err(|_| ParseError::Syntax)?;
+        if !is_utf8_mailbox(mailbox) {
+            return Err(ParseError::Syntax);
+        }
+    }
     Ok(super::OriginalRecipient {
         address_type,
-        address: decode_xtext(address, value.len())?,
+        address,
     })
+}
+
+pub(crate) fn is_utf8_mailbox(mailbox: &str) -> bool {
+    matches!(
+        address::classify_mailbox(mailbox),
+        address::MailboxForm::DotAtom
+            | address::MailboxForm::QuotedLocalPart
+            | address::MailboxForm::AddressLiteral
+            | address::MailboxForm::BarePostmaster
+    )
 }
 
 fn parse_path<'a>(

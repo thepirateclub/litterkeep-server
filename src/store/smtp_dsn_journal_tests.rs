@@ -52,6 +52,26 @@ fn frame_round_trip_preserves_typed_envelope() {
     assert_eq!(decoded, vec![(7, expected)]);
 }
 
+/// Новое декодирование сохраняет чтение старого version-1 RFC822 sidecar.
+#[test]
+fn version_one_frame_remains_readable_after_utf8_extension() {
+    let mut bytes = encode::frame(7, &envelope()).expect("encode current frame");
+    let version = bytes.get_mut(4..6).expect("version field");
+    version.copy_from_slice(&format::LEGACY_VERSION.to_be_bytes());
+    let protected_end = bytes.len().checked_sub(12).expect("frame trailer");
+    let protected = bytes.get(..protected_end).expect("protected frame bytes");
+    let checksum = format::checksum(protected).to_be_bytes();
+    let checksum_end = protected_end.checked_add(8).expect("checksum boundary");
+    bytes
+        .get_mut(protected_end..checksum_end)
+        .expect("checksum field")
+        .copy_from_slice(&checksum);
+    assert_eq!(
+        decode::scan(&bytes).expect("decode legacy frame"),
+        vec![(7, envelope())]
+    );
+}
+
 /// Loader скрывает целый envelope frame без общего transaction commit.
 #[test]
 fn load_ignores_complete_uncommitted_sidecar_records() {

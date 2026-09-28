@@ -1,7 +1,8 @@
 //! Общие constants и checksum versioned SMTP DSN frame.
 
 pub(super) const MAGIC: [u8; 4] = *b"LKSD";
-pub(super) const VERSION: u16 = 1;
+pub(super) const VERSION: u16 = 2;
+pub(super) const LEGACY_VERSION: u16 = 1;
 pub(super) const COMMIT: u32 = 0xd50c_0de1;
 pub(super) const MAX_FRAME: usize = 65_536;
 pub(super) const MAX_RECIPIENTS: usize = 100;

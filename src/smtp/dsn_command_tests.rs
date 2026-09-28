@@ -24,10 +24,36 @@ fn rejects_invalid_or_duplicate_dsn_parameters() {
             "RCPT TO:<bob@test> ORCPT=rfc822;bob+2btest\r\n",
             ParseError::Syntax,
         ),
+        (
+            "RCPT TO:<bob@test> ORCPT=utf-8;bob@例.test\r\n",
+            ParseError::Syntax,
+        ),
+        (
+            "RCPT TO:<bob@test> ORCPT=utf-8;not-a-mailbox\r\n",
+            ParseError::Syntax,
+        ),
     ];
     for (wire, expected) in cases {
         assert_eq!(parse(wire), Err(expected), "wire command: {wire}");
     }
+}
+
+/// RFC 6533 7-bit unitext parses into a typed UTF-8 address without enabling DSN.
+#[test]
+fn parses_utf8_orcpt_unitext_as_typed_address() {
+    assert_eq!(
+        parse("RCPT TO:<bob@test> ORCPT=utf-8;bob@\\x{4F8B}.test\r\n"),
+        Ok(Command::RcptWithDsn(RcptTo {
+            address: "bob@test".into(),
+            dsn: RecipientDsn {
+                notify: None,
+                original_recipient: Some(OriginalRecipient {
+                    address_type: OriginalAddressType::Utf8,
+                    address: "bob@例.test".as_bytes().to_vec(),
+                }),
+            },
+        }))
+    );
 }
 
 /// Ограничение RFC 3461 включает имя и значение параметра ORCPT.

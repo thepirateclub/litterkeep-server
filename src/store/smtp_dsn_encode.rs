@@ -59,12 +59,10 @@ fn validate_envelope(envelope: &DsnEnvelope) -> io::Result<()> {
         if recipient.address.is_empty() || recipient.address.len() > 256 {
             return Err(invalid("SMTP DSN forward-path limit"));
         }
-        if let Some(OriginalRecipient { address, .. }) = &recipient.dsn.original_recipient {
-            let valid =
-                address.len() <= 500 && address.iter().all(|byte| (b' '..=b'~').contains(byte));
-            if !valid {
-                return Err(invalid("SMTP DSN original-recipient limit"));
-            }
+        if let Some(original) = &recipient.dsn.original_recipient
+            && !valid_original_recipient(original)
+        {
+            return Err(invalid("SMTP DSN original-recipient limit"));
         }
         if let Some(NotifyPolicy::Conditions(conditions)) = &recipient.dsn.notify
             && conditions.is_empty()
@@ -73,6 +71,21 @@ fn validate_envelope(envelope: &DsnEnvelope) -> io::Result<()> {
         }
     }
     Ok(())
+}
+
+fn valid_original_recipient(value: &OriginalRecipient) -> bool {
+    if value.address.is_empty() || value.address.len() > 500 {
+        return false;
+    }
+    match value.address_type {
+        OriginalAddressType::Rfc822 => value
+            .address
+            .iter()
+            .all(|byte| (b' '..=b'~').contains(byte)),
+        OriginalAddressType::Utf8 => std::str::from_utf8(&value.address)
+            .ok()
+            .is_some_and(crate::smtp::is_utf8_mailbox),
+    }
 }
 
 /// Записывает recipient-specific NOTIFY и ORCPT рядом с forward-path.
@@ -101,6 +114,7 @@ fn return_tag(value: Option<ReturnContent>) -> u8 {
 fn address_type_tag(value: OriginalAddressType) -> u8 {
     match value {
         OriginalAddressType::Rfc822 => 1,
+        OriginalAddressType::Utf8 => 2,
     }
 }
 

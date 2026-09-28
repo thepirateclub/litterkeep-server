@@ -31,6 +31,7 @@ pub use dsn_parameters::{
     MailDsn, NotifyCondition, NotifyPolicy, OriginalAddressType, OriginalRecipient, RecipientDsn,
     ReturnContent,
 };
+pub(crate) use mail_path::is_utf8_mailbox;
 pub use verify_command::{ReplyEncoding, VerifyRequest};
 
 /// Команда SMTP после разбора wire-строки без потери ESMTP параметров.

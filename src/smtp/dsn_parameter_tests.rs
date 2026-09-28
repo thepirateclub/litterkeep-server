@@ -47,3 +47,49 @@ fn xtext_rejects_invalid_or_non_printable_values() {
     }
     assert_eq!(decode_xtext("abcd", 3), Err(ParseError::Syntax));
 }
+
+/// RFC 6533 unitext escapes produce exact UTF-8 bytes for an ORCPT value.
+#[test]
+fn utf8_xtext_decodes_unicode_without_accepting_native_wire_utf8() {
+    assert_eq!(
+        decode_utf8_xtext("alice\\x{20}例", 100),
+        Err(ParseError::Syntax)
+    );
+    assert_eq!(
+        decode_utf8_xtext("alice@\\x{4F8B}.test", 100),
+        Ok("alice@例.test".as_bytes().to_vec())
+    );
+    assert_eq!(
+        decode_utf8_xtext("a\\x{2B}\\x{3D}\\x{5C}", 100),
+        Ok(b"a+=\\".to_vec())
+    );
+}
+
+/// Embedded Unicode validation rejects malformed, forbidden, and non-scalar points.
+#[test]
+fn utf8_xtext_rejects_malformed_or_noncanonical_embedded_points() {
+    for invalid in [
+        "",
+        "é",
+        "a\\x{1}",
+        "a\\x{0A}",
+        "a\\x{D800}",
+        "a\\x{110000}",
+        "a\\x{000080}",
+        "a\\x{000041}",
+        "a\\x{4F8B",
+        "a\\x{4F8B}b\\",
+        "a\\x{4F8B}=b",
+    ] {
+        assert_eq!(
+            decode_utf8_xtext(invalid, 100),
+            Err(ParseError::Syntax),
+            "{invalid}"
+        );
+    }
+    assert_eq!(
+        decode_utf8_xtext("a\\x{4f8b}", 100),
+        Ok("a例".as_bytes().to_vec())
+    );
+    assert_eq!(decode_utf8_xtext("valid", 4), Err(ParseError::Syntax));
+}

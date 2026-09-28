@@ -1,5 +1,28 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 6533 UTF-8 ORCPT xtext, PARTIAL T348
+
+- RCPT parser теперь распознаёт address-type `utf-8` и только безопасную
+  7-bit форму `utf-8-addr-xtext`: QCHAR плюс `\x{HEXPOINT}`. Проверяются
+  ограничения RFC 6533 для HEXPOINT, Unicode scalar и синтаксис UTF-8 mailbox.
+  Sidecar version 2 хранит UTF-8 type/octet value; decoder сохраняет чтение
+  version 1 RFC822 записей.
+- Проверены malformed/native UTF-8 отказ, mailbox grammar, типизированный
+  command parsing и Store reopen. Это внутренний parser/storage acceptance:
+  сервер по-прежнему не рекламирует DSN и отказывает параметризованным MAIL/
+  RCPT кодом `555 5.5.4`. Unitext/native wire support, SMTPUTF8 negotiation для
+  них, отчёты и полная RFC 3461 семантика остаются GAP.
+- Windows Rust 1.97.1: 962 library + 1 CLI test, 4 ignored; all-target tests,
+  strict Clippy, fmt и diff check прошли. Linux Rust 1.97.1: 1072 library + 1
+  CLI test, 4 ignored; all-target tests, strict Clippy и fmt прошли.
+- Существующий `rust:1.97-bookworm` переиспользован; rustfmt/clippy установлены
+  только в disposable `--rm` container, Docker image не создавался. Linux target
+  оставлен в `./data/g18-rfc6533-linux-target-verify`. Первый повтор на старом
+  bind-mounted incremental target получил missing-object ошибку Cargo; без
+  удаления артефактов повтор на отдельном target прошёл полностью. Изменённые source/test файлы
+  меньше 300 строк; user-owned blackbox diff сохранён.
+- T348 PARTIAL, G18 ACTIVE.
+
 ### 2026-09-28: G18 SMTP DSN coverage reconciliation, PARTIAL T347
 
 - Актуальная матрица `docs/protocol-coverage.md` теперь разделяет внутренний

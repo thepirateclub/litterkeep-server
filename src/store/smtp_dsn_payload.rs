@@ -12,7 +12,7 @@ const MAX_ENVID: usize = 100;
 const MAX_ORCPT: usize = 500;
 
 /// Восстанавливает envelope и проверяет каждое ограниченное поле.
-pub(super) fn decode(bytes: &[u8]) -> Result<DsnEnvelope, FrameError> {
+pub(super) fn decode(bytes: &[u8], version: u16) -> Result<DsnEnvelope, FrameError> {
     let mut reader = Reader::new(bytes);
     let reverse_path = reader.text(MAX_ADDRESS)?;
     let mail = reader.mail_dsn()?;
@@ -22,7 +22,7 @@ pub(super) fn decode(bytes: &[u8]) -> Result<DsnEnvelope, FrameError> {
     }
     let mut recipients = Vec::with_capacity(count);
     for _ in 0..count {
-        recipients.push(reader.recipient()?);
+        recipients.push(reader.recipient(version)?);
     }
     if reader.cursor.position() != bytes.len() {
         return Err(reader.invalid("trailing SMTP DSN payload"));
@@ -93,7 +93,7 @@ impl<'a> Reader<'a> {
         })
     }
 
-    fn recipient(&mut self) -> Result<RcptTo, FrameError> {
+    fn recipient(&mut self, version: u16) -> Result<RcptTo, FrameError> {
         let address = self.text(MAX_ADDRESS)?;
         let notify = self.notify()?;
         let original_recipient = match self.byte()? {
@@ -101,11 +101,23 @@ impl<'a> Reader<'a> {
             2 => {
                 let address_type = match self.byte()? {
                     1 => OriginalAddressType::Rfc822,
+                    2 if version >= super::format::VERSION => OriginalAddressType::Utf8,
                     _ => return Err(self.invalid("unsupported SMTP DSN ORCPT type")),
                 };
                 let value = self.bytes(MAX_ORCPT)?;
                 if value.is_empty() {
                     return Err(self.invalid("empty SMTP DSN ORCPT"));
+                }
+                let valid = match address_type {
+                    OriginalAddressType::Rfc822 => {
+                        value.iter().all(|byte| (b' '..=b'~').contains(byte))
+                    }
+                    OriginalAddressType::Utf8 => std::str::from_utf8(&value)
+                        .ok()
+                        .is_some_and(crate::smtp::is_utf8_mailbox),
+                };
+                if !valid {
+                    return Err(self.invalid("invalid SMTP DSN ORCPT bytes"));
                 }
                 Some(OriginalRecipient {
                     address_type,

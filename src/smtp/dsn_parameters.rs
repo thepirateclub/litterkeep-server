@@ -3,6 +3,9 @@
 use super::ParseError;
 use std::collections::HashSet;
 
+#[path = "dsn_utf8.rs"]
+mod utf8;
+
 /// Правило отправки итогового отчёта для одного получателя.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum NotifyCondition {
@@ -28,6 +31,8 @@ pub enum NotifyPolicy {
 pub enum OriginalAddressType {
     /// Адрес представлен в формате RFC 822 mailbox.
     Rfc822,
+    /// Адрес UTF-8, восстановленный из RFC 6533 unitext/xtext формы.
+    Utf8,
 }
 
 /// Адрес, первоначально указанный SMTP sender-ом.
@@ -35,7 +40,7 @@ pub enum OriginalAddressType {
 pub struct OriginalRecipient {
     /// Зарегистрированный тип исходного адреса.
     pub address_type: OriginalAddressType,
-    /// Xtext-декодированное US-ASCII значение без потери регистра.
+    /// Декодированный адрес в исходном регистре; UTF-8 тип содержит UTF-8 octets.
     pub address: Vec<u8>,
 }
 
@@ -108,6 +113,11 @@ pub(super) fn decode_xtext(value: &str, maximum: usize) -> Result<Vec<u8>, Parse
         true => Ok(decoded),
         false => Err(ParseError::Syntax),
     }
+}
+
+/// Декодирует только 7-bit-safe RFC 6533 utf-8-addr-xtext.
+pub(super) fn decode_utf8_xtext(value: &str, maximum: usize) -> Result<Vec<u8>, ParseError> {
+    utf8::decode(value, maximum)
 }
 
 /// Декодирует одну обязательную пару заглавных шестнадцатеричных цифр.

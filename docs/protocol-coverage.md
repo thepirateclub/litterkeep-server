@@ -31,8 +31,12 @@ RFC 3461 требует применить запросы условий `NOTIFY
 peer подтвердил отсутствие capability, точный refusal-код для MAIL/RCPT и
 восстановление сессии; отдельный Linux Store integration test подтвердил
 durable round-trip typed envelope. RFC 6533 задаёт для `utf-8` ORCPT три разные
-формы xtext, unitext и native UTF-8 с разными условиями SMTPUTF8; сервер их
-пока не поддерживает. Полный DSN ESMTP профиль остаётся неподдержанным.
+формы xtext, unitext и native UTF-8 с разными условиями SMTPUTF8. Теперь
+внутренний parser декодирует только 7-bit-safe `utf-8-addr-xtext` и проверяет
+результат как UTF-8 mailbox; sidecar v2 сохраняет его type и octets, а version
+1 продолжает читаться. Это не wire support: DSN команды всё ещё отвергаются.
+Unitext/native UTF-8, генерация и доставка отчётов, а также полный DSN ESMTP
+профиль остаются неподдержанными.
 
 Submission поддерживает implicit TLS и STARTTLS, EHLO, AUTH PLAIN, MAIL SIZE,
 несколько RCPT, DATA с однократным dot-unstuffing, RSET, NOOP и QUIT. Также

@@ -56,7 +56,8 @@ fn decode_frame(bytes: &[u8], start: usize) -> Result<DecodedFrame, FrameError> 
             "bad SMTP DSN journal magic",
         )));
     }
-    if u16::from_be_bytes(cursor.take::<2>()?) != format::VERSION {
+    let version = u16::from_be_bytes(cursor.take::<2>()?);
+    if !matches!(version, format::LEGACY_VERSION | format::VERSION) {
         return Err(FrameError::Invalid(cursor::invalid(
             "unsupported SMTP DSN journal version",
         )));
@@ -84,7 +85,7 @@ fn decode_frame(bytes: &[u8], start: usize) -> Result<DecodedFrame, FrameError> 
             "SMTP DSN checksum mismatch",
         )));
     }
-    let envelope = super::payload::decode(payload_bytes)?;
+    let envelope = super::payload::decode(payload_bytes, version)?;
     Ok(DecodedFrame {
         transaction_id,
         envelope,

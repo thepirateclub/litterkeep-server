@@ -2,7 +2,8 @@
 
 use super::*;
 use crate::smtp::{
-    DsnEnvelope, MailDsn, NotifyCondition, NotifyPolicy, RcptTo, RecipientDsn, ReturnContent,
+    DsnEnvelope, MailDsn, NotifyCondition, NotifyPolicy, OriginalAddressType, OriginalRecipient,
+    RcptTo, RecipientDsn, ReturnContent,
 };
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -28,7 +29,10 @@ fn envelope() -> DsnEnvelope {
                 notify: Some(NotifyPolicy::Conditions(
                     [NotifyCondition::Success].into_iter().collect(),
                 )),
-                original_recipient: None,
+                original_recipient: Some(OriginalRecipient {
+                    address_type: OriginalAddressType::Utf8,
+                    address: "bob@例.test".as_bytes().to_vec(),
+                }),
             },
         }],
     }
