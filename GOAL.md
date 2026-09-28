@@ -10076,3 +10076,20 @@ ManageSieve до заявленного набора современных фо
   оставлен; одноразовый container удалён, image не создавался.
 - G18 остаётся ACTIVE; поддержка не рекламируемых буквальных форм, полный
   IMAP4rev2 и остальные протокольные RFC gaps продолжают проверяться.
+
+### 2026-09-28: G18 SMTP DSN coverage audit, scoped GAP T339
+
+- Повторно проверен путь RFC 3461 от SMTP parser до local delivery: `RCPT TO`
+  параметры не сохраняются в transaction/envelope, запрос AppendMany переносит
+  только recipient strings, а durable queue принимает recipient без DSN
+  attributes. Поэтому RFC 3461 не рекламируется и не реализуется объявлением
+  capabilities или частичным приёмом `NOTIFY`/`ORCPT`.
+- Независимая parser-проверка уже фиксирует `RCPT TO ... NOTIFY=SUCCESS` как
+  `UnsupportedParameter`; wire-клиентская проверка именно SMTP `555` в этом
+  этапе не запускалась. Существующий внутренний outbound RFC 3464 DSN не
+  доказывает входящую ESMTP DSN поддержку.
+- Контейнеров/образов Litterkeep в Docker inventory нет; другие контейнеры и
+  образы сохранены. Это аудит пробела, не PASS реализации RFC 3461.
+- G18 остаётся ACTIVE. Для полного DSN нужны per-recipient typed attributes,
+  долговечный формат с безопасной совместимостью/recovery, разбор NOTIFY и
+  ORCPT, MAIL RET/ENVID, связанные правила генерации и wire acceptance.

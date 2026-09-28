@@ -16,6 +16,17 @@ submission, IMAP и POP3; ManageSieve включён в общую команд�
 
 ## SMTP
 
+RFC 3461 `DSN` пока не рекламируется. `RCPT TO` с ESMTP-параметрами
+отклоняется как неподдерживаемое расширение; поэтому сервер не принимает
+`NOTIFY`/`ORCPT` и не обещает их семантику. Успешные входящие сообщения
+сохраняют только адреса envelope, без DSN-политики отдельного получателя.
+Имеющаяся генерация RFC 3464 failure reports относится к внутреннему
+outbound retry профилю и сама по себе не означает поддержку RFC 3461.
+Проверяемая граница: parser считает неизвестный параметр неподдерживаемым,
+а SMTP dispatcher отображает этот исход в `555`; независимый wire-тест именно
+этого ответа в текущем этапе не запускался. Полный DSN ESMTP профиль остаётся
+неподдержанным.
+
 Submission поддерживает implicit TLS и STARTTLS, EHLO, AUTH PLAIN, MAIL SIZE,
 несколько RCPT, DATA с однократным dot-unstuffing, RSET, NOOP и QUIT. Также
 рекламируются RFC 2920 `PIPELINING` и RFC 6152 `8BITMIME`. Независимый
@@ -421,7 +432,9 @@ C0/C1 controls и ASCII-only atom. Ограниченный synchronizing-litera
 SUBSCRIBE/UNSUBSCRIBE, LIST/LSUB/STATUS, COPY/MOVE, SELECT/EXAMINE и UID
 COPY/MOVE, а также SEARCH/UID SEARCH. Независимый raw STARTTLS acceptance
 проверил LOGIN, CREATE, LIST и SELECT; APPEND использует отдельный receiver.
-Это не общая поддержка literal для всех аргументов, LITERAL+ не рекламируется.
+Это ограниченный набор грамматических позиций: LITERAL+ рекламируется, а
+receiver обрабатывает указанные поддержанные command families, не любые
+аргументы произвольной IMAP-команды.
 Внутренние CRLF учитываются в literal octet count и сохраняются как данные:
 STARTTLS LOGIN получил CRLF-containing password literal, вернул обычный auth
 failure, после чего принял правильный login. Raw NUL отклоняется; LOGIN password
@@ -458,10 +471,11 @@ positions, duplicate-name rejection, privacy response and NOOP recovery. The
 shared bounded literal receiver recognizes the RFC list-opening `(` directly
 before the first literal marker. This implements the identification extension
 only; it does not claim full IMAP4rev2 or all registered extensions.
-The same acceptance sends non-synchronizing literal forms for both fields and values without
-waiting for continuations, after checking the advertised capability. RFC 7888
-allows non-synchronizing literals in any IMAP command; `LITERAL-` caps them at
-4096 octets, while this ID test covers small payloads and the global
+The same acceptance sends non-synchronizing literal forms for both fields and
+values without waiting for continuations, after checking the advertised
+capability. RFC 7888 allows non-synchronizing literals in any IMAP command;
+this server caps command-argument literals at 64 KiB and uses the advertised
+APPENDLIMIT for APPEND. The ID test covers small payloads and the global
 oversize boundary. RFC 2971 ID field/value limits are also checked at their
 wire boundaries: 30-octet field and 1024-octet value are accepted, while 31
 and 1025 octets respectively receive tagged BAD without disclosing ID data;
