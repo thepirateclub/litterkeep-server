@@ -90,7 +90,7 @@ ManageSieve state machine принимает
 initial-response и continuation, а capability рекламирует механизм только
 после TLS. Независимые Linux peers подтвердили mutual proof и server signature
 по implicit TLS и STARTTLS; отдельный Python peer также завершил POP3
-SCRAM-SHA-256 по STARTTLS с независимым proof. TLS 1.3 tls-exporter проверен
+SCRAM-SHA-256 по STARTTLS и implicit TLS с независимым proof. TLS 1.3 tls-exporter проверен
 между rustls endpoints и подключён к ManageSieve SCRAM-SHA-256-PLUS с точной
 GS2/c= binding-проверкой и live wire acceptance. Litterkeep app interoperability
 для этих механизмов пока не проверялась.

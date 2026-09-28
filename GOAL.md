@@ -10618,5 +10618,21 @@ ManageSieve до заявленного набора современных фо
   image reused; disposable runtime container removed and verified absent; no
   image created. Artifacts remain under `./data/g19-pop3-scram-linux`.
 - T362 is PASS for POP3 SCRAM-SHA-256 and the tested STARTTLS exchange.
-  Implicit-TLS SCRAM-SHA-256, POP3 PLUS, other mechanisms and Litterkeep app
-  interoperability remain unverified; G19 stays ACTIVE.
+  POP3 PLUS, other mechanisms and Litterkeep app interoperability remain
+  unverified; G19 stays ACTIVE.
+
+### 2026-09-28: G19 POP3 SCRAM-SHA-256 implicit-TLS wire, T363 PASS
+
+- A separate Python peer validates the server certificate against the local CA,
+  then receives greeting only after implicit TLS, checks the TLS CAPA mechanism
+  list, independently calculates SCRAM-SHA-256 client proof and server
+  signature, accesses the maildrop with STAT and closes via QUIT. An old
+  acceptance account's verifier is first created by normal USER/PASS over the
+  same verified implicit-TLS listener.
+- `python -m py_compile` passes. Live acceptance passes against the Linux Rust
+  1.97.1 release server in the existing `rust:1.97-bookworm` image. The
+  disposable listener container is absent, no image was created, and existing
+  fixtures/build cache remain under `./data/g19-pop3-scram-linux`.
+- T363 is PASS for this implicit-TLS exchange only. It does not establish
+  Litterkeep app interoperability or POP3 SCRAM-SHA-256-PLUS support; G19 stays
+  ACTIVE.

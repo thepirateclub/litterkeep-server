@@ -1264,9 +1264,10 @@ SCRAM-SHA-256 использует свой SHA-256 verifier sidecar через 
 выполняет mutual proof и не запрашивает maildrop lease до пустого SASL
 acknowledgement. Отдельный Python STARTTLS peer независимо проверяет SHA-256
 proof/server signature и сохраняет предыдущие SHA-1, неверный proof, lease
-conflict/reuse сценарии. Это не проверка Litterkeep client; SCRAM-SHA-256-PLUS
-и остальные SASL mechanisms не рекламируются, implicit-TLS SHA-256 wire не
-проверялся; полный RFC 5034 профиль не заявляется.
+conflict/reuse сценарии. Отдельный peer с проверкой CA завершил тот же
+SCRAM-SHA-256 exchange по implicit TLS, включая CAPA, STAT и QUIT. Это не
+проверка Litterkeep client; SCRAM-SHA-256-PLUS и остальные SASL mechanisms не
+рекламируются; полный RFC 5034 профиль не заявляется.
 Во время незавершённого `AUTH PLAIN` единственная команда отмены SASL exchange
 это строка `*`. Любой иной клиентский ответ обязан быть Base64; обычный SMTP
 текст `NOOP` и повторный `AUTH` не исполняются как вложенные команды, получают
