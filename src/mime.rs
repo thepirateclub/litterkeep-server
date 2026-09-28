@@ -116,6 +116,12 @@ pub mod header_block;
 mod imap_string;
 #[path = "mime/language_tag.rs"]
 pub mod language_tag;
+#[cfg(test)]
+#[path = "mime/parameter_case_tests.rs"]
+mod parameter_case_tests;
+#[cfg(test)]
+#[path = "mime/parameter_conflict_tests.rs"]
+mod parameter_conflict_tests;
 #[path = "mime/parameter_extended.rs"]
 pub(crate) mod parameter_extended;
 #[path = "mime/parameter_join.rs"]

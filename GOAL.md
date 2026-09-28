@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 2231 duplicate-form rejection, scoped PASS T329
+
+- RFC 2231 regular `filename` и extended `filename*`/`filename*0*` теперь
+  считаются конфликтующими формами одного attribute и не сливаются при
+  сборке MIME tree. Добавлены regression tests на оба порядка и допустимый
+  пустой extended payload.
+- Независимый Linux STARTTLS IMAP acceptance доставляет multipart письмо с
+  конфликтующим attachment filename. BODYSTRUCTURE не публикует ни одно имя;
+  RFC822 FETCH подтверждает сохранность исходных байтов. Это не проверка
+  приложения Litterkeep.
+- Windows Rust 1.97.1: 913 библиотечных и 1 CLI тест прошли, 4 ignored;
+  fmt, strict all-target Clippy и `git diff --check` прошли. Тестовые
+  контейнеры удалены, существующие образы повторно использованы.
+- RFC 2231 ABNF whitespace у `=` остаётся открытой темой: попытка ужесточения
+  затронула comment/quoted-value совместимость и не включена. G18 ACTIVE.
+
 ### 2026-09-28: G18 ManageSieve SCRAM-SHA-1 TLS wire exchange, scoped PASS T328
 
 - Завершён ManageSieve SCRAM-SHA-1 command/state/reactor путь поверх TLS:

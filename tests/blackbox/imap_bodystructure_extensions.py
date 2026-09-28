@@ -69,6 +69,10 @@ def main() -> None:
         b"Content-Language: ru\r\n"
         b"Content-Location: ../files/a%20b.bin\r\n\r\n"
         b"attachment-octets\r\n--meta-boundary\r\n"
+        b"Content-Type: application/octet-stream\r\n"
+        b"Content-Disposition: attachment; filename=plain.txt; "
+        b"filename*=UTF-8''extended.txt\r\n\r\n"
+        b"conflicting-parameter-octets\r\n--meta-boundary\r\n"
         b"Content-Type: text/plain\r\n"
         b"Content-Location: ../files/bad%ZZ.txt\r\n\r\n"
         b"invalid-location-octets\r\n--meta-boundary\r\n"
@@ -138,6 +142,8 @@ def main() -> None:
             raise AssertionError(f"obsolete quoted Content-ID word was lost: {profile!r}")
     if b'"../files/bad%ZZ.txt"' in extended:
         raise AssertionError(f"invalid Content-Location was projected: {extended!r}")
+    if b'"plain.txt"' in extended or b'"extended.txt"' in extended:
+        raise AssertionError(f"conflicting RFC 2231 filename was projected: {extended!r}")
     for required in (b'"<\\"attachment@one\\"@[IPv6:2001:db8::1]>" "attached file"',):
         if required not in basic:
             raise AssertionError(f"basic BODY lacks MIME basic fields {required!r}: {basic!r}")

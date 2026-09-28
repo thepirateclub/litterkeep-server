@@ -25,10 +25,25 @@ impl Segment {
 pub(super) fn join_segments(
     mut segments: Vec<Segment>,
 ) -> Result<(String, Option<LanguageTag>), &'static str> {
+    reject_conflicting_parameter_forms(&segments)?;
     match segments.iter().all(|segment| segment.index.is_none()) {
         true if segments.len() == 1 => decode_single(segments.pop().expect("one segment")),
         true => Err("duplicate MIME parameter"),
         false => join_continuations(segments),
+    }
+}
+
+/// Не допускает одновременно regular parameter и его RFC 2231-форму.
+fn reject_conflicting_parameter_forms(segments: &[Segment]) -> Result<(), &'static str> {
+    let has_regular = segments
+        .iter()
+        .any(|segment| segment.index.is_none() && !segment.encoded);
+    let has_extended = segments
+        .iter()
+        .any(|segment| segment.index.is_some() || segment.encoded);
+    match (has_regular, has_extended) {
+        (true, true) => Err("conflicting regular and extended MIME parameter"),
+        _ => Ok(()),
     }
 }
 

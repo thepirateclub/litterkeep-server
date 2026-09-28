@@ -54,7 +54,7 @@ pub struct StructuredValue {
 
 /// Разбирает Content-Type или Content-Disposition без потери неизвестного типа.
 pub fn parse(input: &str) -> Result<StructuredValue, &'static str> {
-    let normalized = super::structured_comments::remove(input)?;
+    let normalized = super::structured_comments::remove_preserving_adjacency(input)?;
     let sections = split_sections(&normalized)?;
     let mut iterator = sections.into_iter();
     let media_type = parse_media_type(super::wsp::trim(
@@ -62,9 +62,18 @@ pub fn parse(input: &str) -> Result<StructuredValue, &'static str> {
     ))?;
     let mut grouped: HashMap<String, Vec<super::parameter_join::Segment>> = HashMap::new();
     for section in iterator {
-        let (raw_name, raw_value) = section.split_once('=').ok_or("parameter without value")?;
-        let (base, index, encoded) = parameter_name(super::wsp::trim(raw_name))?;
-        let value = unquote(super::wsp::trim(raw_value))?;
+        let section = trim_comment_wsp(section);
+        if section.is_empty() {
+            continue;
+        }
+        let normalized_section = normalize_parameter_section(section)?;
+        let (raw_name, raw_value) = normalized_section
+            .split_once('=')
+            .ok_or("parameter without value")?;
+        let raw_name = super::wsp::trim(raw_name);
+        let raw_value = super::wsp::trim(raw_value);
+        let (base, index, encoded) = parameter_name(raw_name)?;
+        let value = unquote(raw_value)?;
         grouped
             .entry(base)
             .or_default()
@@ -84,6 +93,53 @@ pub fn parse(input: &str) -> Result<StructuredValue, &'static str> {
         parameters,
         parameter_languages,
     })
+}
+
+/// Удаляет comments только там, где RFC structured syntax трактует их как WSP.
+fn normalize_parameter_section(section: &str) -> Result<String, &'static str> {
+    let mut normalized = String::new();
+    let mut depth = 0_usize;
+    let mut quoted = false;
+    let mut escaped = false;
+    for character in section.chars() {
+        match (depth, quoted, escaped, character) {
+            (_, true, true, _) => {
+                normalized.push(character);
+                escaped = false;
+            }
+            (0, true, false, '\\') => {
+                normalized.push(character);
+                escaped = true;
+            }
+            (0, true, false, '"') => {
+                normalized.push(character);
+                quoted = false;
+            }
+            (0, true, false, _) => normalized.push(character),
+            (0, false, _, '"') => {
+                normalized.push(character);
+                quoted = true;
+            }
+            (0, false, _, '(') => {
+                normalized.push(' ');
+                depth = 1;
+            }
+            (0, false, _, _) => normalized.push(character),
+            (_, false, _, '(') => depth = depth.saturating_add(1),
+            (_, false, _, ')') => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+    }
+    match (depth, quoted, escaped) {
+        (0, false, false) => Ok(normalized),
+        _ => Err("malformed MIME parameter syntax"),
+    }
+}
+
+/// Снимает пробелы до и после секции, не удаляя comment-разделители.
+fn trim_comment_wsp(value: &str) -> &str {
+    let trimmed = value.trim_start_matches([' ', '\t']);
+    trimmed.trim_end_matches([' ', '\t'])
 }
 
 fn split_sections(input: &str) -> Result<Vec<&str>, &'static str> {

@@ -516,6 +516,11 @@ segmented RFC 2231 `filename*0*`/`filename*1*` с `UTF-8'en-US'`: BODYSTRUCTURE
 возвращает объединённое Unicode имя `😀 résumé.txt`, а RFC822.HEADER сохраняет
 исходные сегменты и language tag byte-exact. Это подтверждает данный wire
 вектор, но не актуальную registry validity BCP 47 и не Litterkeep app.
+T329 отдельно проверил конфликт regular `filename=` и extended `filename*=` в
+исходном письме независимым Linux STARTTLS клиентом: BODYSTRUCTURE не публикует
+конфликтующее значение, а RFC822 FETCH возвращает исходные байты. Litterkeep
+app interop не подтверждено. Whitespace возле `=` в RFC 2231 ABNF остаётся
+открытым вопросом; совместимое ужесточение не выполнено.
 RFC 2231 §4.1 допускает charset/language metadata в начале первой encoded
 continuation секции. Ранее `Content-Disposition` parser терял language hint
 после общего параметрического разбора; `Disposition` теперь сохраняет typed

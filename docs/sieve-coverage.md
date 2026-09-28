@@ -326,6 +326,10 @@ attribute=value, token/quoted-string и список tspecials. RFC 2231 attribu
 пробелы/tspecials в unquoted значениях, повреждённые имена, внутреннюю
 неэкранированную кавычку, корректный escaped DQUOTE, пустой quoted value и
 filename continuation. Сетевой MIME acceptance этих новых границ не выполнялся.
+T329 добавил сетевую регрессию conflicting regular/extended filename в
+Content-Disposition и подтвердил, что MIME tree не публикует спорное имя,
+сохраняя оригинальные RFC822 bytes. Whitespace около `=` в параметрах
+остается открытым и отдельно не ужесточается.
 
 RFC 2231 extended payload decoder принимает только attribute-char или
 percent-encoded octets, а hexadecimal digits в escapes принимаются без учёта
