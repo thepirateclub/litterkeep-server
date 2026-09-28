@@ -175,10 +175,10 @@ fn generate_credentials() -> io::Result<Vec<(Account, String)>> {
         .collect()
 }
 
-/// Генерирует синтетический пароль через криптографический provider Rustls.
+/// Генерирует POP3-совместимый тестовый пароль длиной ровно 40 символов.
 fn generate_password() -> io::Result<String> {
     let random = rustls::crypto::ring::default_provider().secure_random;
-    let mut bytes = [0_u8; 24];
+    let mut bytes = [0_u8; 20];
     random
         .fill(&mut bytes)
         .map_err(|_| io::Error::other("secure password generation failed"))?;

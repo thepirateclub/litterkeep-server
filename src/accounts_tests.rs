@@ -41,6 +41,82 @@ fn new_account_password_uses_saslprep_credentials() {
     fs::remove_dir_all(root).expect("remove test account data");
 }
 
+/// Имя аккаунта и compatibility-вариант используют один SASLprep key.
+#[test]
+fn account_identity_is_stored_and_queried_in_saslprep_form() {
+    let root = temporary_root("accounts-identity-saslprep");
+    let accounts = Accounts::open(&root).expect("account store");
+    accounts
+        .create("\u{00AA}", b"identity-password")
+        .expect("create prepared account");
+
+    assert!(accounts.exists("a"));
+    assert!(accounts.exists("\u{00AA}"));
+    assert!(
+        accounts
+            .authenticate("\u{00AA}", b"identity-password")
+            .expect("verify prepared alias")
+    );
+    assert_eq!(
+        accounts
+            .create("a", b"replacement")
+            .err()
+            .map(|error| error.kind()),
+        Some(io::ErrorKind::AlreadyExists)
+    );
+    assert!(file_key::path(&root.join("accounts"), "a", FileKind::SaslPrepCredentials).is_file());
+
+    fs::remove_dir_all(root).expect("remove test account data");
+}
+
+/// Новые account names с SASLprep-prohibited символами не создаются.
+#[test]
+fn account_identity_rejects_saslprep_prohibited_input() {
+    let root = temporary_root("accounts-identity-prohibited");
+    let accounts = Accounts::open(&root).expect("account store");
+    assert_eq!(
+        accounts
+            .create("\u{0007}", b"identity-password")
+            .err()
+            .map(|error| error.kind()),
+        Some(io::ErrorKind::InvalidInput)
+    );
+    assert_eq!(
+        accounts
+            .create("\u{00AD}", b"identity-password")
+            .err()
+            .map(|error| error.kind()),
+        Some(io::ErrorKind::InvalidInput)
+    );
+    fs::remove_dir_all(root).expect("remove test account data");
+}
+
+/// Старый username alias блокирует создание совпадающей canonical учётки.
+#[test]
+fn legacy_alias_blocks_canonical_account_creation_without_rewrite() {
+    let root = temporary_root("accounts-identity-legacy-conflict");
+    let accounts = Accounts::open(&root).expect("account store");
+    let legacy_path = file_key::prepare(&root.join("accounts"), "\u{00AA}", FileKind::Credentials)
+        .expect("legacy identity path");
+    fs::write(
+        &legacy_path,
+        format!("{}\n", legacy_hash(b"legacy-password")),
+    )
+    .expect("legacy credential");
+
+    assert_eq!(
+        accounts
+            .create("a", b"replacement")
+            .err()
+            .map(|error| error.kind()),
+        Some(io::ErrorKind::AlreadyExists)
+    );
+    assert!(legacy_path.is_file());
+    assert!(!accounts.exists("a"));
+
+    fs::remove_dir_all(root).expect("remove test account data");
+}
+
 #[test]
 fn legacy_phc_login_migrates_without_removing_the_original_hash() {
     let root = temporary_root("accounts-legacy");

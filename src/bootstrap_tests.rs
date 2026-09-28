@@ -54,6 +54,7 @@ fn saved_passwords_authenticate_all_acceptance_accounts() {
         let mut fields = line.split('\t');
         let name = fields.next().expect("name");
         let password = fields.next().expect("password");
+        assert!(password.chars().count() <= 40, "POP3 PASS limit for {name}");
         assert!(
             accounts
                 .authenticate(name, password.as_bytes())

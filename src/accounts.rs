@@ -5,6 +5,8 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+#[path = "accounts/identity.rs"]
+mod identity;
 #[path = "accounts/scram_store.rs"]
 mod scram_store;
 
@@ -20,17 +22,17 @@ impl Accounts {
         Ok(Self { root })
     }
     pub fn create(&self, name: &str, password: &[u8]) -> io::Result<()> {
-        valid_name(name)?;
-        if self.exists(name) {
+        let name = identity::stored_name(name)?;
+        if self.has_identity_record(&name)? {
             return Err(io::Error::new(
                 io::ErrorKind::AlreadyExists,
-                "account credential already exists",
+                "account identity already exists or conflicts with legacy key",
             ));
         }
         let credential = Credential::create(password)?;
         let path = crate::store::file_key::prepare(
             &self.root,
-            name,
+            &name,
             crate::store::file_key::FileKind::SaslPrepCredentials,
         )?;
         let mut file = OpenOptions::new()
@@ -43,11 +45,11 @@ impl Accounts {
         drop(file);
         let directory = path.parent().unwrap_or(&self.root);
         crate::store::file_key::sync_key_directory(&self.root, directory)?;
-        match scram_store::create(&self.root, name, password) {
+        match scram_store::create(&self.root, &name, password) {
             Ok(()) => Ok(()),
             Err(error) => {
                 let credential_cleanup = fs::remove_file(path);
-                let scram_cleanup = scram_store::remove(&self.root, name);
+                let scram_cleanup = scram_store::remove(&self.root, &name);
                 match (credential_cleanup, scram_cleanup) {
                     (Ok(()), Ok(())) => Err(error),
                     (credential_result, scram_result) => Err(io::Error::new(
@@ -62,18 +64,18 @@ impl Accounts {
     }
 
     pub fn authenticate(&self, name: &str, password: &[u8]) -> io::Result<bool> {
-        valid_name(name)?;
-        let normalized_path = self.normalized_path(name);
+        let name = identity::query_name(name)?;
+        let normalized_path = self.normalized_path(&name);
         match fs::read_to_string(normalized_path) {
             Ok(phc) => match verify_credential(&phc, password, CredentialFormat::SaslPrep)? {
                 false => Ok(false),
                 true => {
-                    scram_store::ensure(&self.root, name, password)?;
+                    scram_store::ensure(&self.root, &name, password)?;
                     Ok(true)
                 }
             },
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                self.authenticate_legacy(name, password)
+                self.authenticate_legacy(&name, password)
             }
             Err(error) => Err(error),
         }
@@ -84,20 +86,20 @@ impl Accounts {
         &self,
         name: &str,
     ) -> io::Result<Option<crate::sasl::scram_sha1_record::ScramSha1Record>> {
-        valid_name(name)?;
-        scram_store::load(&self.root, name)
+        let name = identity::query_name(name)?;
+        scram_store::load(&self.root, &name)
     }
     /// Сообщает, существует ли допустимый локальный получатель.
     ///
     /// Эта проверка намеренно не раскрывает credential и нужна writer-у до
     /// публикации SMTP-сообщения в mailbox получателя.
     pub fn exists(&self, name: &str) -> bool {
-        if valid_name(name).is_err() {
+        let Ok(name) = identity::query_name(name) else {
             return false;
-        }
+        };
         match (
-            self.path(name).is_file(),
-            self.normalized_path(name).is_file(),
+            self.path(&name).is_file(),
+            self.normalized_path(&name).is_file(),
         ) {
             (true, _) | (_, true) => true,
             (false, false) => false,
@@ -194,6 +196,30 @@ impl Accounts {
             )),
         }
     }
+
+    /// Запрещает новую учётку при конфликте с любым старым эквивалентным ключом.
+    fn has_identity_record(&self, canonical: &str) -> io::Result<bool> {
+        let kinds = [
+            crate::store::file_key::FileKind::Credentials,
+            crate::store::file_key::FileKind::SaslPrepCredentials,
+            crate::store::file_key::FileKind::ScramCredentials,
+        ];
+        for kind in kinds {
+            let entries = crate::store::file_key::entries(&self.root, kind)?;
+            for (stored, _) in entries {
+                match identity::query_name(&stored) {
+                    Ok(prepared) if prepared == canonical => return Ok(true),
+                    Ok(_) | Err(_) => {}
+                }
+            }
+        }
+        Ok(false)
+    }
+}
+
+/// Канонизирует протокольное имя аккаунта по query-профилю SASLprep.
+pub(crate) fn canonical_query_name(name: &str) -> Option<String> {
+    identity::query_name(name).ok()
 }
 
 /// Формирует уникальный временный путь в том же каталоге для атомарной публикации.
@@ -233,20 +259,6 @@ fn verify_credential(phc: &str, password: &[u8], format: CredentialFormat) -> io
         CredentialFormat::SaslPrep => credential.verify(password),
     };
     Ok(accepted)
-}
-fn valid_name(name: &str) -> io::Result<()> {
-    // Храним точные UTF-8 октеты канонического local-part без нормализации.
-    // Полную SMTP mailbox grammar проверяет протокольный слой до маршрута.
-    let invalid_name = name.is_empty()
-        || name.len() > crate::smtp::MAX_LOCAL_PART_SIZE
-        || name.chars().any(char::is_control);
-    match invalid_name {
-        true => Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "invalid account name",
-        )),
-        false => Ok(()),
-    }
 }
 #[cfg(test)]
 #[path = "accounts_tests.rs"]

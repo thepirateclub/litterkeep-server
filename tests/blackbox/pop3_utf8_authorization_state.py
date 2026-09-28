@@ -76,8 +76,28 @@ def verify(host: str, port: int, password: str) -> None:
             exchange(tls_stream, b"USER bob", b"+OK")
             exchange(tls_stream, b"UTF8", b"+OK")
             exchange(tls_stream, b"PASS wrong", b"-ERR")
-            sasl = base64.b64encode(b"\x00bob\x00" + password.encode("ascii"))
+            sasl = base64.b64encode(b"\x00pop\x00" + password.encode("ascii"))
             exchange(tls_stream, b"AUTH PLAIN " + sasl, b"+OK")
+            exchange(tls_stream, b"STAT", b"+OK")
+            exchange(tls_stream, b"QUIT", b"+OK")
+    verify_prepared_user(host, port, password)
+
+
+def verify_prepared_user(host: str, port: int, password: str) -> None:
+    """Доказывает вход full-width username в канонический POP account."""
+    with socket.create_connection((host, port), timeout=10) as connection:
+        stream = connection.makefile("rwb", buffering=0)
+        if not read_line(stream, "prepared greeting").startswith(b"+OK"):
+            raise AssertionError("prepared account greeting failed")
+        exchange(stream, b"STLS", b"+OK")
+        stream.close()
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        with context.wrap_socket(connection, server_hostname=host) as tls:
+            tls_stream = tls.makefile("rwb", buffering=0)
+            exchange(tls_stream, "USER ｐｏｐ".encode("utf-8"), b"+OK")
+            exchange(tls_stream, b"PASS " + password.encode("ascii"), b"+OK")
             exchange(tls_stream, b"STAT", b"+OK")
             exchange(tls_stream, b"QUIT", b"+OK")
 
@@ -87,12 +107,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, required=True)
-    parser.add_argument("--password", default=os.environ.get("LITTERKEEP_BOB_PASSWORD"))
+    parser.add_argument("--password", default=os.environ.get("LITTERKEEP_POP_PASSWORD"))
     options = parser.parse_args()
     if options.password is None:
         raise SystemExit("укажите --password или LITTERKEEP_BOB_PASSWORD")
     verify(options.host, options.port, options.password)
-    print("PASS POP3 RFC 6856: UTF8 valid after USER; PASS exchange preserved")
+    print("PASS POP3 RFC 6856: UTF8 credentials, SASLprep alias login, SASL retry")
 
 
 if __name__ == "__main__":

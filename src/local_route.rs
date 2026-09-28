@@ -39,7 +39,7 @@ fn classify_recipient_mailbox(mailbox: &str) -> LocalRecipient<'_> {
 pub fn local_mailbox(address: &str) -> Option<String> {
     let (mailbox, domain) = crate::smtp::canonical_parts(address)?;
     match LocalRoute::parse(&domain) {
-        LocalRoute::Accepted => Some(mailbox),
+        LocalRoute::Accepted => crate::accounts::canonical_query_name(&mailbox),
         LocalRoute::Rejected => None,
     }
 }
@@ -51,9 +51,12 @@ pub fn local_recipient(address: &str) -> Option<String> {
             LocalRecipient::Postmaster => Some("postmaster".to_owned()),
             LocalRecipient::Account(name) => Some(name.to_owned()),
         },
-        None if !address.contains('@') => match classify_recipient_mailbox(address) {
-            LocalRecipient::Postmaster => Some("postmaster".to_owned()),
-            LocalRecipient::Account(_) => None,
+        None if !address.contains('@') => match crate::accounts::canonical_query_name(address) {
+            Some(mailbox) => match classify_recipient_mailbox(&mailbox) {
+                LocalRecipient::Postmaster => Some("postmaster".to_owned()),
+                LocalRecipient::Account(_) => None,
+            },
+            None => None,
         },
         None => None,
     }
@@ -68,7 +71,7 @@ pub fn local_recipient(address: &str) -> Option<String> {
 pub fn local_login(login: &str) -> Option<String> {
     match login.contains('@') {
         true => local_mailbox(login),
-        false => Some(login.to_owned()),
+        false => crate::accounts::canonical_query_name(login),
     }
 }
 
@@ -112,6 +115,28 @@ mod tests {
         assert_eq!(local_login("alice"), Some("alice".into()));
         assert_eq!(local_login("alice@litterkeep.test"), Some("alice".into()));
         assert_eq!(local_login("alice@example.test"), None);
+    }
+
+    /// SASLprep username и доставочный local-part разделяют account key.
+    #[test]
+    fn account_routes_apply_saslprep_before_storage_lookup() {
+        assert_eq!(local_login("\u{00AA}"), Some("a".into()));
+        assert_eq!(local_mailbox("\u{00AA}@litterkeep.test"), Some("a".into()));
+        assert_eq!(local_mailbox("\u{0007}@litterkeep.test"), None);
+        assert_eq!(local_login("\u{0627}1"), None);
+    }
+
+    /// Unicode-совместимая запись Postmaster не создаёт отдельный mailbox.
+    #[test]
+    fn normalized_postmaster_route_keeps_system_delivery() {
+        assert_eq!(
+            local_recipient("ＰＯＳＴＭＡＳＴＥＲ@test"),
+            Some("postmaster".into())
+        );
+        assert_eq!(
+            local_recipient("ＰＯＳＴＭＡＳＴＥＲ"),
+            Some("postmaster".into())
+        );
     }
 
     #[test]

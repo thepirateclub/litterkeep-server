@@ -10135,3 +10135,32 @@ ManageSieve до заявленного набора современных фо
   Временный runtime container остановлен, удалён через `--rm`, отсутствие и
   закрытие порта проверяются. Тестовые данные этапа находятся в `./data`.
 - G18 остаётся ACTIVE.
+
+### 2026-09-28: G18 RFC 4013 USER identity mapping, scoped PARTIAL T342
+
+- POP3 USER/PASS use SASLprep RFC 4013 query profile. New account identities are
+  stored with the stored profile, and common local login / SMTP mailbox routing
+  uses the same prepared key. Unit checks cover compatibility mapping, duplicate
+  canonical keys, prohibited input, delivery route equality, and Postmaster.
+- Acceptance bootstrap now generates 20 random bytes as 40 hex characters, so
+  fresh credentials fit POP3 PASS's RFC 1939 maximum. Existing persisted secrets
+  remain unchanged on repeated initialization: a pre-change fixture with 48-char
+  secrets was re-initialized by the Linux binary with created=0/existing=4 and
+  its credential-file SHA-256 stayed identical. These old passwords remain too
+  long for USER/PASS until separately changed; AUTH PLAIN remains available.
+- Independent Linux STARTTLS peer logged into canonical account `pop` by USER
+  `ｐｏｐ` plus the valid 40-character PASS, then read STAT and QUIT. The same
+  peer checked invalid UTF-8 credentials, UTF8 mode after USER, AUTH PLAIN retry,
+  and the advertised `UTF8 USER` capability. This is not Litterkeep app interop.
+- No legacy account/mailbox-key migration is provided when SASLprep changes the
+  old stored identity. New account creation scans existing PHC/SCRAM keys and
+  refuses a canonical collision without rewriting a legacy record. Such old
+  identities need a separate safe migration procedure; therefore this
+  checkpoint remains PARTIAL. Legacy charset conversion also remains open.
+- Windows Rust 1.97.1 strict fmt/Clippy/all-target tests pass (940 library,
+  1 CLI, 4 ignored). Linux Docker Rust 1.97.1 strict fmt/Clippy/all-target tests
+  pass (1049 library, 1 CLI, 4 ignored) and release build passes. Runtime
+  container used `--rm` and was verified absent; no image created. Artifacts are
+  isolated under `./data/g18-pop3-saslprep-identity-linux` and
+  `./data/g18-pop3-saslprep-identity-wire`.
+- G18 остаётся ACTIVE.
