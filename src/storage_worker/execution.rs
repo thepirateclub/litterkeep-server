@@ -5,6 +5,9 @@ use crate::{accounts::Accounts, store::Store};
 /// Преобразует запрос reactor-а в completion, не выдавая Store наружу.
 pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) -> Response {
     match request {
+        Request::ScramVerifier(request) => {
+            Response::ScramVerifier(super::sasl_lookup::load(accounts, request))
+        }
         Request::Authenticate {
             request_id,
             username,

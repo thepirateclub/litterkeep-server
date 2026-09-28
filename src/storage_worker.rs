@@ -11,6 +11,11 @@ mod local_delivery;
 mod message;
 #[path = "storage_worker/owner.rs"]
 mod owner;
+#[path = "storage_worker/sasl_lookup.rs"]
+mod sasl_lookup;
+#[cfg(test)]
+#[path = "storage_worker/sasl_lookup_tests.rs"]
+mod sasl_lookup_tests;
 use crate::{accounts::Accounts, store::Store};
 pub use imap_append::ImapAppendResult;
 pub use message::{Request, Response};

@@ -5,6 +5,7 @@ use super::*;
 /// Сохраняет один полный mapping всех ответов worker-а к session owner-у.
 pub(super) fn response_id(response: &Response) -> u64 {
     match response {
+        Response::ScramVerifier(response) => response.request_id,
         Response::Authenticated { request_id, .. }
         | Response::RecipientValidated { request_id, .. }
         | Response::Appended { request_id, .. }

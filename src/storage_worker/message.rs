@@ -4,9 +4,9 @@ use super::imap_append::ImapAppendResult;
 use crate::mail_flags::{FlagMutation, MessageFlags};
 use crate::store::{MailboxSnapshot, ResolvedMailbox, SubscriptionSnapshot};
 use std::io;
-
 #[derive(Debug)]
 pub enum Request {
+    ScramVerifier(super::sasl_lookup::ScramVerifierRequest),
     Authenticate {
         request_id: u64,
         username: String,
@@ -184,9 +184,9 @@ pub enum Request {
         state: crate::queue::State,
     },
 }
-
 #[derive(Debug)]
 pub enum Response {
+    ScramVerifier(super::sasl_lookup::ScramVerifierResponse),
     Authenticated {
         request_id: u64,
         result: io::Result<bool>,

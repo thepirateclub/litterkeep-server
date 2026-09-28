@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-28: G18 single-owner SCRAM verifier lookup, scoped PASS T327
+
+- Добавлена типизированная пара request/response для чтения SCRAM verifier
+  через единственного владельца Accounts. Ошибки I/O и отсутствующий verifier
+  различаются; Debug completion намеренно не раскрывает credential. Worker-тест
+  создаёт аккаунт и подтверждает получение записи через bounded канал.
+- Windows Rust 1.97.1: `cargo fmt --check`, strict all-target Clippy и
+  `cargo test --locked --all-targets` прошли (904 library + 1 CLI, 4 ignored).
+  Linux Rust 1.97.1 в существующем `rust:1.97-bookworm`: те же gates прошли
+  (1013 library + 1 CLI, 4 ignored). `rustfmt`/`clippy` установлены лишь внутри
+  одноразового контейнера; `--rm` удалил контейнер. Новый image не создавался.
+- Подтверждён только путь безопасной загрузки verifier. SCRAM всё ещё не
+  подключён к ManageSieve command/state machine, client/server exchange и
+  wire-acceptance отсутствуют; capability не рекламируется. G18 ACTIVE.
+- В этой среде не найден исполняемый `goal` CLI или repository-инструкция его
+  вызовов; никаких фиктивных goal-вызовов не делалось. Фактический журнал
+  `GOAL.md` обновлён вручную.
+
 ### 2026-09-28: G18 SCRAM server-final and mutual proof completion, scoped PASS T326
 
 - `ServerFinal::complete` связывает client-final transcript с verifier:

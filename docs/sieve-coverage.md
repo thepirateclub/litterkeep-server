@@ -19,6 +19,9 @@ non-synchronizing literal response независимым Linux STARTTLS peer. T
 continuation до отправки payload и затем успешно аутентифицировал Bob. Проверен
 также повторный вход после отмены. Полное соответствие ManageSieve SASL всё ещё
 не достигнуто: SCRAM-SHA-1 обязателен по RFC и остаётся открытым пробелом.
+T327 добавил только typed bounded-worker доступ к сохранённому SCRAM verifier
+через единственного владельца Accounts; он не меняет ManageSieve FSM и не
+рекламирует SCRAM capability. Протокольный обмен остаётся неподдержанным.
 Собственные SHA-1/HMAC-SHA-1/PBKDF2 модули теперь связаны в SCRAM StoredKey и
 ServerKey derivation. Полный пример RFC 5802 §5.1 подтверждает client proof и
 server signature, а iteration/salt границы ограничены до дорогого KDF вызова.

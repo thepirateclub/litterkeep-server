@@ -45,6 +45,8 @@ backfill; legacy `.phc` миграция публикует sidecar до нов�
 вход не меняет файлы. Это всё ещё не полный SCRAM exchange: нужны bounded
 parsing, ManageSieve state machine с SASL continuation и независимый wire
 acceptance.
+T327 добавил bounded-worker путь для чтения sidecar единственным Accounts
+owner-ом; это не протокольная поддержка механизма и не разрешает capability.
 Для подготовки протокольного слоя модуль `scram_attributes` разбирает только
 ограниченный синтаксис уникальных односимвольных атрибутов, отклоняет
 неподдержанные mandatory extension `m=` и ограничивает сообщение 16 KiB и
