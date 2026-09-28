@@ -67,7 +67,7 @@ fn render_non_empty(
              Content-Type: message/delivery-status\r\n\
              \r\n\
              Reporting-MTA: dns; litterkeep.test\r\n\
-             Final-Recipient: rfc822; <{recipient}>\r\n\
+             Final-Recipient: rfc822; {recipient}\r\n\
              Action: failed\r\n\
              Status: {status}\r\n\
              \r\n\
@@ -167,6 +167,16 @@ mod tests {
             report
                 .windows(b"Action: failed".len())
                 .any(|window| window == b"Action: failed")
+        );
+        assert!(
+            report
+                .windows(b"Final-Recipient: rfc822; bob@peer.test".len())
+                .any(|window| window == b"Final-Recipient: rfc822; bob@peer.test")
+        );
+        assert!(
+            !report
+                .windows(b"Final-Recipient: rfc822; <bob@peer.test>".len())
+                .any(|window| window == b"Final-Recipient: rfc822; <bob@peer.test>")
         );
     }
 
