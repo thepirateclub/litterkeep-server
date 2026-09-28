@@ -9978,3 +9978,19 @@ ManageSieve до заявленного набора современных фо
 - Ограничение: RFC date-time синтаксис для creation-date/modification-date/
   read-date остаётся непроверенным; независимый peer, не Litterkeep app.
   G18 остаётся ACTIVE.
+### 2026-09-28: G18 RFC 2183 date disposition parameters, scoped PASS T333
+
+- `creation-date`, `modification-date`, `read-date` публикуются только из
+  обязательной quoted-формы с допустимой Gregorian датой/временем и numeric
+  timezone. Weekday, если передан, проверяется относительно локальной даты.
+- Добавлены unit-регрессии для всех трёх имён, malformed date, named zone,
+  unquoted значения и неправильного weekday. Независимый IMAP STARTTLS
+  acceptance подтвердил проекцию трёх валидных значений и отбрасывание
+  невозможной даты, сохранив filename и исходный RFC822 literal.
+- Общий RFC 5322 baseline parser теперь отвергает weekday, расходящийся с датой;
+  Rust 1.97.1 fmt, strict Clippy и all-target tests прошли (922 library +
+  1 CLI, 4 ignored); Python compile, diff check и Linux wire acceptance прошли.
+  Docker использовал существующие образы и одноразовый Cargo target в контейнере;
+  созданный контейнер удалён.
+- Не покрыты leap-second и obsolete RFC 822 date-time формы; независимый peer
+  проверен, Litterkeep app interop нет. G18 остаётся ACTIVE.

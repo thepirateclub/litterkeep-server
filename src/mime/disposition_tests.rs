@@ -139,6 +139,43 @@ fn rejects_quoted_and_extended_size_parameter_forms() {
     }
 }
 
+/// Все RFC 2183 date-параметры требуют quoted date-time с числовой зоной.
+#[test]
+fn preserves_valid_numeric_zone_date_parameters() {
+    let value = parse(
+        "attachment; creation-date=\"Fri, (weekday) 21 Nov 1997 09:55:06 -0600\"; \
+         modification-date=\"21 Nov 1997 10:00 +0000\"; \
+         read-date=\"Mon, 24 Nov 1997 12:00:00 +0300\"",
+    )
+    .expect("valid RFC 5322 date-times");
+
+    for name in ["creation-date", "modification-date", "read-date"] {
+        assert!(value.parameters.contains_key(name), "lost {name}");
+    }
+}
+
+/// Неверная календарная дата, named zone и unquoted форма не проецируются.
+#[test]
+fn omits_invalid_date_parameter_without_losing_valid_filename() {
+    for date_parameter in [
+        "creation-date=\"Fri, 31 Feb 1997 09:55:06 -0600\"",
+        "creation-date=\"Fri, 21 Nov 1997 09:55:06 GMT\"",
+        "creation-date=\"Thu, 21 Nov 1997 09:55:06 -0600\"",
+        "creation-date=Fri, 21 Nov 1997 09:55:06 -0600",
+    ] {
+        let value = parse(&format!(
+            "attachment; filename=report.pdf; {date_parameter}"
+        ))
+        .expect("invalid date does not poison disposition");
+
+        assert!(!value.parameters.contains_key("creation-date"));
+        assert_eq!(
+            value.parameters.get("filename").map(String::as_str),
+            Some("report.pdf")
+        );
+    }
+}
+
 #[test]
 fn rejects_unicode_whitespace_around_disposition_token() {
     assert!(parse("\u{00a0}attachment").is_err());

@@ -88,6 +88,17 @@ def main() -> None:
         b"Content-Type: application/octet-stream\r\n"
         b"Content-Disposition: attachment; filename=extended-size.txt; size*=UTF-8''14\r\n\r\n"
         b"extended-size-parameter-octets\r\n--meta-boundary\r\n"
+        b"Content-Type: application/octet-stream\r\n"
+        b'Content-Disposition: attachment; creation-date="Fri, 21 Nov 1997 09:55:06 -0600"; '
+        b'modification-date="21 Nov 1997 10:00 +0000"; '
+        b'read-date="Mon, 24 Nov 1997 12:00:00 +0300"\r\n\r\n'
+        b"valid-disposition-dates-octets\r\n--meta-boundary\r\n"
+        b"Content-Type: application/octet-stream\r\n"
+        b'Content-Disposition: attachment; filename=invalid-date.txt; creation-date="Fri, 31 Feb 1997 09:55:06 -0600"\r\n\r\n'
+        b"invalid-disposition-date-octets\r\n--meta-boundary\r\n"
+        b"Content-Type: application/octet-stream\r\n"
+        b'Content-Disposition: attachment; filename=wrong-weekday.txt; creation-date="Thu, 21 Nov 1997 09:55:06 -0600"\r\n\r\n'
+        b"wrong-weekday-disposition-date-octets\r\n--meta-boundary\r\n"
         b"Content-Type: text/plain\r\n"
         b"Content-Location: ../files/bad%ZZ.txt\r\n\r\n"
         b"invalid-location-octets\r\n--meta-boundary\r\n"
@@ -149,6 +160,11 @@ def main() -> None:
         b'("attachment" ("FILENAME" "bad-size.txt"))',
         b'("attachment" ("FILENAME" "quoted-size.txt"))',
         b'("attachment" ("FILENAME" "extended-size.txt"))',
+        b'"CREATION-DATE" "Fri, 21 Nov 1997 09:55:06 -0600"',
+        b'"MODIFICATION-DATE" "21 Nov 1997 10:00 +0000"',
+        b'"READ-DATE" "Mon, 24 Nov 1997 12:00:00 +0300"',
+        b'("attachment" ("FILENAME" "invalid-date.txt"))',
+        b'("attachment" ("FILENAME" "wrong-weekday.txt"))',
         '"NAME" "архив-✓.bin"'.encode("utf-8"),
         b'"ru"',
         b'"../files/a%20b.bin"',
@@ -166,6 +182,10 @@ def main() -> None:
         raise AssertionError(f"conflicting RFC 2231 filename was projected: {extended!r}")
     if any(invalid in extended for invalid in (b'"SIZE" "12x"', b'"SIZE" "13"', b'"SIZE" "14"')):
         raise AssertionError(f"invalid RFC 2183 size was projected: {extended!r}")
+    if b'"CREATION-DATE" "Fri, 31 Feb 1997 09:55:06 -0600"' in extended:
+        raise AssertionError(f"invalid RFC 2183 date was projected: {extended!r}")
+    if b'"CREATION-DATE" "Thu, 21 Nov 1997 09:55:06 -0600"' in extended:
+        raise AssertionError(f"mismatched RFC 5322 weekday was projected: {extended!r}")
     for required in (b'"<\\"attachment@one\\"@[IPv6:2001:db8::1]>" "attached file"',):
         if required not in basic:
             raise AssertionError(f"basic BODY lacks MIME basic fields {required!r}: {basic!r}")

@@ -62,6 +62,9 @@ struct ParsedParameter {
 /// Имена параметров RFC 2183 с отдельными синтаксическими ограничениями.
 enum DispositionParameterName {
     Size,
+    CreationDate,
+    ModificationDate,
+    ReadDate,
     Other,
 }
 
@@ -70,6 +73,9 @@ impl DispositionParameterName {
     fn parse(name: &str) -> Self {
         match name {
             "size" => Self::Size,
+            "creation-date" => Self::CreationDate,
+            "modification-date" => Self::ModificationDate,
+            "read-date" => Self::ReadDate,
             _ => Self::Other,
         }
     }
@@ -143,7 +149,30 @@ fn parse_one_parameter(parameter: &str) -> Option<ParsedParameter> {
 fn valid_parameter_value(name: &str, value: &str, wire_parameter: &str) -> bool {
     match DispositionParameterName::parse(name) {
         DispositionParameterName::Size => valid_size_parameter(value, wire_parameter),
+        DispositionParameterName::CreationDate
+        | DispositionParameterName::ModificationDate
+        | DispositionParameterName::ReadDate => valid_date_parameter(value, wire_parameter),
         DispositionParameterName::Other => true,
+    }
+}
+
+/// Принимает quoted RFC date-time с числовой зоной и корректной календарной датой.
+fn valid_date_parameter(value: &str, wire_parameter: &str) -> bool {
+    let raw_value = wire_parameter
+        .split_once('=')
+        .map(|(_, raw_value)| super::wsp::trim(raw_value));
+    let quoted_value = raw_value
+        .and_then(|raw| raw.strip_prefix('"'))
+        .and_then(|raw| raw.strip_suffix('"'));
+    match quoted_value {
+        Some(_) => {
+            let without_comments = match super::structured_comments::remove(value) {
+                Ok(cleaned) => cleaned,
+                Err(_) => return false,
+            };
+            crate::imap::sent_date::parse(without_comments.as_bytes()).is_some()
+        }
+        None => false,
     }
 }
 

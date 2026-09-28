@@ -10,12 +10,12 @@ use crate::mail_date::MailDate;
 /// чтобы сомнительная дата не превращалась в ложное SEARCH-совпадение.
 pub fn parse(value: &[u8]) -> Option<SearchDate> {
     let value = crate::mime::wsp::trim(std::str::from_utf8(value).ok()?);
-    let date_time = match value.split_once(',') {
-        Some((weekday, tail)) => match valid_weekday(crate::mime::wsp::trim(weekday)) {
-            true => crate::mime::wsp::trim(tail),
-            false => return None,
-        },
-        None => value,
+    let (weekday, date_time) = match value.split_once(',') {
+        Some((weekday, tail)) => (
+            Some(crate::mime::wsp::trim(weekday)),
+            crate::mime::wsp::trim(tail),
+        ),
+        None => (None, value),
     };
     let mut fields = date_time.split_ascii_whitespace();
     let day = fields.next()?;
@@ -26,15 +26,14 @@ pub fn parse(value: &[u8]) -> Option<SearchDate> {
     if fields.next().is_some() {
         return None;
     }
+    if let Some(value) = weekday {
+        let date = SearchDate::parse(&format!("{day}-{month}-{year}"))?;
+        if !date.weekday_matches(value) {
+            return None;
+        }
+    }
     let imap_date = format!("{day}-{month}-{year} {time} {zone}");
     MailDate::parse(&imap_date).map(SearchDate::from_mail_date)
-}
-
-fn valid_weekday(value: &str) -> bool {
-    matches!(
-        value.to_ascii_uppercase().as_str(),
-        "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN"
-    )
 }
 
 fn normalized_time(value: &str) -> Option<String> {
@@ -62,6 +61,13 @@ mod tests {
         assert!(parse(b"Mon, 2 Feb 2026 12:30:00 GMT").is_none());
         assert!(parse(b"Bad, 2 Feb 2026 12:30:00 +0000").is_none());
         assert!(parse(b"2 Feb 2026 12:30:00 +0000 trailing").is_none());
+    }
+
+    /// RFC 5322 требует, чтобы weekday совпадал с локальной календарной датой.
+    #[test]
+    fn rejects_weekday_that_disagrees_with_calendar_date() {
+        assert!(parse(b"Thu, 21 Nov 1997 09:55:06 -0600").is_none());
+        assert!(parse(b"Fri, 21 Nov 1997 09:55:06 -0600").is_some());
     }
 
     #[test]

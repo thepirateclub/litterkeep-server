@@ -339,6 +339,10 @@ filename при byte-exact сохранении исходного RFC822 litera
 RFC 2183 `size` принимает только непустые десятичные цифры: `size=12x`
 отбрасывается отдельно, сохраняя валидный `filename`; это покрыто unit и IMAP
 STARTTLS acceptance. Полная проверка трёх date-параметров остаётся открытой.
+T333 добавил quoted RFC 2183 date-параметры с календарной валидацией,
+числовой timezone и сверкой weekday; unit и IMAP STARTTLS проверили accepted и
+rejected формы. Leap-second и obsolete RFC 822 variants остаются непокрытыми,
+поэтому широкая date-time совместимость не заявляется.
 Whitespace около `=` в параметрах остается открытым и отдельно не ужесточается.
 
 RFC 2231 extended payload decoder принимает только attribute-char или
