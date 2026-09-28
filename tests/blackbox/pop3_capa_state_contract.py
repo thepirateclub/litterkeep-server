@@ -53,9 +53,9 @@ def require_capabilities(
                 raise AssertionError(f"{phase}: STLS остался после TLS")
     match sasl:
         case True:
-            expected.add(b"SASL PLAIN SCRAM-SHA-1\r\n")
+            expected.add(b"SASL PLAIN SCRAM-SHA-1 SCRAM-SHA-256\r\n")
         case False:
-            if b"SASL PLAIN SCRAM-SHA-1\r\n" in actual:
+            if b"SASL PLAIN SCRAM-SHA-1 SCRAM-SHA-256\r\n" in actual:
                 raise AssertionError(f"{phase}: SASL рекламируется до TLS")
     if actual != expected:
         raise AssertionError(f"{phase}: CAPA {actual!r}, ожидалось {expected!r}")

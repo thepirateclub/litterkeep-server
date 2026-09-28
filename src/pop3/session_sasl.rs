@@ -17,6 +17,9 @@ impl Session {
                 | Phase::SaslScramFirst
                 | Phase::SaslScramFinal
                 | Phase::SaslScramAcknowledgement
+                | Phase::SaslScramSha256First
+                | Phase::SaslScramSha256Final
+                | Phase::SaslScramSha256Acknowledgement
         )
     }
 
@@ -47,6 +50,31 @@ impl Session {
             }
             Phase::SaslScramAcknowledgement => {
                 return super::session_scram::acknowledgement(self, response);
+            }
+            Phase::SaslScramSha256First => {
+                return match super::session_scram::ClientResponse::parse(response) {
+                    super::session_scram::ClientResponse::Cancel => {
+                        self.restore_authorization_after_sasl();
+                        Reply::Error("authentication cancelled")
+                    }
+                    super::session_scram::ClientResponse::Payload(payload) => {
+                        super::session_scram_sha256::client_first(self, payload)
+                    }
+                };
+            }
+            Phase::SaslScramSha256Final => {
+                return match super::session_scram::ClientResponse::parse(response) {
+                    super::session_scram::ClientResponse::Cancel => {
+                        self.restore_authorization_after_sasl();
+                        Reply::Error("authentication cancelled")
+                    }
+                    super::session_scram::ClientResponse::Payload(payload) => {
+                        super::session_scram_sha256::client_final(self, payload)
+                    }
+                };
+            }
+            Phase::SaslScramSha256Acknowledgement => {
+                return super::session_scram_sha256::acknowledgement(self, response);
             }
             _ => {}
         }
@@ -89,6 +117,9 @@ impl Session {
         match mechanism {
             SaslMechanism::Plain => self.start_plain_authentication(initial_response),
             SaslMechanism::ScramSha1 => super::session_scram::start(self, initial_response),
+            SaslMechanism::ScramSha256 => {
+                super::session_scram_sha256::start(self, initial_response)
+            }
             SaslMechanism::Unsupported => Reply::Error("unsupported SASL mechanism"),
         }
     }
@@ -135,6 +166,7 @@ impl Session {
 
     pub(super) fn restore_authorization_after_sasl(&mut self) {
         self.scram_exchange = None;
+        self.scram_sha256_exchange = None;
         match self.sasl_previous_authorization.take() {
             Some(PriorAuthorization::User(username)) => {
                 self.username = Some(username);

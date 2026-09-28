@@ -52,6 +52,9 @@ fn dispatch_reply(
         pop3::Reply::ScramVerifierLookup { account } => pop3_scram_protocol::lookup(
             session, account, slot, generation, worker, owners, request_id,
         ),
+        pop3::Reply::ScramSha256VerifierLookup { account } => pop3_scram_protocol::lookup_sha256(
+            session, account, slot, generation, worker, owners, request_id,
+        ),
         pop3::Reply::ScramAccepted { account } => pop3_scram_protocol::authenticated(
             session, account, slot, generation, worker, owners, request_id,
         ),

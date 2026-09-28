@@ -1248,9 +1248,9 @@ RETR/TOP отдельно ограничивают status, сохраняя до
 передаёт `.first` и `..second` через SMTP; byte-exact POP3 результат одновременно
 проверяет снятие SMTP и POP3 dot-transparency по одному октету на границе.
 
-`AUTH PLAIN` и `AUTH SCRAM-SHA-1` поддерживаются только после TLS: до STLS
-механизмы отсутствуют в CAPA, после него сервер рекламирует `SASL PLAIN
-SCRAM-SHA-1` и убирает `STLS`. PLAIN поддерживает initial response и
+`AUTH PLAIN`, `AUTH SCRAM-SHA-1` и `AUTH SCRAM-SHA-256` поддерживаются только
+после TLS: до STLS механизмы отсутствуют в CAPA, после него сервер рекламирует
+`SASL PLAIN SCRAM-SHA-1 SCRAM-SHA-256` и убирает `STLS`. PLAIN поддерживает initial response и
 continuation, отмену через `*`, строгую Base64-проверку и сохранение SASL
 capability после входа. SCRAM-SHA-1 использует canonical Base64, общий
 SASLprep query профиль и Accounts-owned verifier lookup; client proof проверяется
@@ -1260,8 +1260,13 @@ SASLprep query профиль и Accounts-owned verifier lookup; client proof п
 обе формы client-first, отказ plaintext CAPA, CAPA после TLS, `-ERR [IN-USE]`
 при занятом maildrop, восстановление соединения и повторный захват lease после
 QUIT. Отдельный peer проверяет PLAIN initial/continuation и CAPA по состояниям.
-Это не проверка Litterkeep client. SCRAM-SHA-256/PLUS и прочие SASL-механизмы
-не реализованы; полный профиль RFC 5034 не заявляется.
+SCRAM-SHA-256 использует свой SHA-256 verifier sidecar через Accounts owner,
+выполняет mutual proof и не запрашивает maildrop lease до пустого SASL
+acknowledgement. Отдельный Python STARTTLS peer независимо проверяет SHA-256
+proof/server signature и сохраняет предыдущие SHA-1, неверный proof, lease
+conflict/reuse сценарии. Это не проверка Litterkeep client; SCRAM-SHA-256-PLUS
+и остальные SASL mechanisms не рекламируются, implicit-TLS SHA-256 wire не
+проверялся; полный RFC 5034 профиль не заявляется.
 Во время незавершённого `AUTH PLAIN` единственная команда отмены SASL exchange
 это строка `*`. Любой иной клиентский ответ обязан быть Base64; обычный SMTP
 текст `NOOP` и повторный `AUTH` не исполняются как вложенные команды, получают

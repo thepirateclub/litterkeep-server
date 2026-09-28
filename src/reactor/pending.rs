@@ -26,6 +26,7 @@ pub(super) enum Pending {
     },
     /// Асинхронный SCRAM verifier lookup остаётся связанным с session generation.
     Pop3ScramLookup,
+    Pop3ScramSha256Lookup,
     /// Snapshot и внутренний folder key возвращаются одним completion worker-а.
     Pop3ReadInbox,
     /// SCRAM proof проверен; lease получается при принятии folder snapshot.

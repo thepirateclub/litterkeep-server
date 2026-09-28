@@ -35,6 +35,7 @@ pub enum Command {
 pub enum SaslMechanism {
     Plain,
     ScramSha1,
+    ScramSha256,
     Unsupported,
 }
 
@@ -115,6 +116,7 @@ fn sasl_mechanism(name: &str) -> SaslMechanism {
     match name.to_ascii_uppercase().as_str() {
         "PLAIN" => SaslMechanism::Plain,
         "SCRAM-SHA-1" => SaslMechanism::ScramSha1,
+        "SCRAM-SHA-256" => SaslMechanism::ScramSha256,
         _ => SaslMechanism::Unsupported,
     }
 }

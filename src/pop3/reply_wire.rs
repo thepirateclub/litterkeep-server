@@ -18,6 +18,7 @@ pub(crate) fn encode_reply(reply: Reply) -> Option<Vec<u8>> {
         Reply::Message(bytes) => Some(message_multiline(bytes)),
         Reply::Authenticate { .. }
         | Reply::ScramVerifierLookup { .. }
+        | Reply::ScramSha256VerifierLookup { .. }
         | Reply::ScramAccepted { .. }
         | Reply::CommitDeletes(_)
         | Reply::StartTls => None,

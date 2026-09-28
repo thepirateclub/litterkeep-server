@@ -15,6 +15,10 @@ pub(super) fn handles(pending: &Pending, response: &Response) -> bool {
                 Response::FolderRead { .. }
             )
             | (Pending::Pop3ScramLookup, Response::ScramVerifier(_))
+            | (
+                Pending::Pop3ScramSha256Lookup,
+                Response::ScramSha256Verifier(_)
+            )
             | (Pending::Pop3Commit, Response::Expunged { .. })
     )
 }
@@ -51,6 +55,10 @@ pub(super) fn write(
         }
         (Pending::Pop3ScramLookup, Response::ScramVerifier(response)) => {
             let reply = session.pop3.scram_verifier_loaded(response.result);
+            pop3_protocol::write_reply(session, reply)
+        }
+        (Pending::Pop3ScramSha256Lookup, Response::ScramSha256Verifier(response)) => {
+            let reply = session.pop3.scram_sha256_verifier_loaded(response.result);
             pop3_protocol::write_reply(session, reply)
         }
         (

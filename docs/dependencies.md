@@ -83,12 +83,17 @@ SHA-256 сверяется с RFC 6234, HMAC с RFC 4231, PBKDF2 с RFC 7914 §1
 client proof/server signature — с примером RFC 7677 §3; iteration count
 ограничен значением 200000. Аккаунты сохраняют SHA-256 verifier в отдельном
 sidecar и предоставляют его через типизированный запрос единственного Accounts
-worker; запрос не выводит секрет в Debug. ManageSieve state machine принимает
+worker; запрос не выводит секрет в Debug. POP3 и ManageSieve используют
+отдельный SHA-256 verifier lookup через bounded Accounts owner. POP3 принимает
+SCRAM-SHA-256 только внутри TLS и выдаёт maildrop после mutual proof.
+ManageSieve state machine принимает
 initial-response и continuation, а capability рекламирует механизм только
 после TLS. Независимые Linux peers подтвердили mutual proof и server signature
-по implicit TLS и STARTTLS. TLS 1.3 tls-exporter проверен между rustls endpoints
-и подключён к ManageSieve SCRAM-SHA-256-PLUS с точной GS2/c= binding-проверкой.
-Сам PLUS over live wire и Litterkeep app interoperability пока не проверены.
+по implicit TLS и STARTTLS; отдельный Python peer также завершил POP3
+SCRAM-SHA-256 по STARTTLS с независимым proof. TLS 1.3 tls-exporter проверен
+между rustls endpoints и подключён к ManageSieve SCRAM-SHA-256-PLUS с точной
+GS2/c= binding-проверкой и live wire acceptance. Litterkeep app interoperability
+для этих механизмов пока не проверялась.
 
 IMAP mailbox validation использует собственные generated ranges Unicode
 17.0.0, а не crate. Официальный источник, версия toolchain, SHA-256 и лицензия

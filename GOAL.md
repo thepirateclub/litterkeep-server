@@ -10599,3 +10599,24 @@ ManageSieve до заявленного набора современных фо
   oracle. The disposable runtime container is absent; no image was created.
 - T361 is PASS for server-side PLUS and the independent live wire exchange.
   Litterkeep app interoperability remains unverified; G18 stays ACTIVE.
+
+### 2026-09-28: G19 POP3 SCRAM-SHA-256, T362 PASS
+
+- POP3 parses and advertises `SCRAM-SHA-256` only after TLS. Its typed AUTH
+  flow reads the dedicated verifier through the bounded Accounts owner, checks
+  the RFC 7677 proof, sends server-final, waits for acknowledgement, and only
+  then requests the maildrop snapshot. Failed proof never authenticates.
+- Windows Rust 1.97.1 all-target: 994 library + 1 CLI passed, 4 ignored; fmt,
+  strict Clippy and `git diff --check` passed. Linux Rust 1.97.1 all-target:
+  1107 library + 1 CLI passed, 4 ignored; fmt, strict Clippy and release build
+  passed. Python 3.14 syntax check passed.
+- Independent Python STARTTLS acceptance verifies CAPA before/after TLS and
+  USER/transaction states, preserves SCRAM-SHA-1 invalid-proof/retry/lease
+  scenarios, and completes SCRAM-SHA-256 with mutual proof, server signature,
+  cancellation recovery, maildrop access and lease reuse. Legacy fixture
+  verifier is provisioned by a successful USER/PASS login before testing. Existing `rust:1.97-bookworm`
+  image reused; disposable runtime container removed and verified absent; no
+  image created. Artifacts remain under `./data/g19-pop3-scram-linux`.
+- T362 is PASS for POP3 SCRAM-SHA-256 and the tested STARTTLS exchange.
+  Implicit-TLS SCRAM-SHA-256, POP3 PLUS, other mechanisms and Litterkeep app
+  interoperability remain unverified; G19 stays ACTIVE.

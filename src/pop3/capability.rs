@@ -12,7 +12,7 @@ pub(super) fn capa_reply(tls_active: bool) -> Reply {
         b"+OK Capability list\r\nUSER\r\nUIDL\r\nTOP\r\nRESP-CODES\r\nUTF8 USER\r\nLANG\r\n"
             .to_vec();
     match tls_active {
-        true => response.extend_from_slice(b"SASL PLAIN SCRAM-SHA-1\r\n"),
+        true => response.extend_from_slice(b"SASL PLAIN SCRAM-SHA-1 SCRAM-SHA-256\r\n"),
         false => response.extend_from_slice(b"STLS\r\n"),
     }
     response.extend_from_slice(b".\r\n");

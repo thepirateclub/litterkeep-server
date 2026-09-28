@@ -9,6 +9,8 @@ use crate::store::Message;
 mod sasl;
 #[path = "session_scram.rs"]
 mod session_scram;
+#[path = "session_scram_sha256.rs"]
+mod session_scram_sha256;
 
 #[derive(Default)]
 enum Phase {
@@ -17,9 +19,13 @@ enum Phase {
     UserAccepted,
     SaslPlainResponse,
     SaslScramFirst,
+    SaslScramSha256First,
     SaslScramVerifier,
     SaslScramFinal,
     SaslScramAcknowledgement,
+    SaslScramSha256Verifier,
+    SaslScramSha256Final,
+    SaslScramSha256Acknowledgement,
     Transaction,
     Update,
 }
@@ -37,6 +43,7 @@ pub enum Reply {
     SaslContinue,
     SaslChallenge(String),
     ScramVerifierLookup { account: String },
+    ScramSha256VerifierLookup { account: String },
     ScramAccepted { account: String },
     Multiline(Vec<u8>),
     Message(Vec<u8>),
@@ -56,6 +63,7 @@ pub struct Session {
     username: Option<String>,
     sasl_previous_authorization: Option<PriorAuthorization>,
     scram_exchange: Option<session_scram::Exchange>,
+    scram_sha256_exchange: Option<session_scram_sha256::Exchange>,
     maildrop: Option<Maildrop>,
     tls_active: bool,
     /// Отмечает разрешение передавать UTF-8 строки после команды UTF8.
@@ -132,11 +140,19 @@ impl Session {
     ) -> Reply {
         session_scram::verifier_loaded(self, result)
     }
+    /// Завершает асинхронное чтение SHA-256 verifier владельцем учётных записей.
+    pub fn scram_sha256_verifier_loaded(
+        &mut self,
+        result: std::io::Result<Option<crate::sasl::scram_sha256_record::ScramSha256Record>>,
+    ) -> Reply {
+        session_scram_sha256::verifier_loaded(self, result)
+    }
     /// Сбрасывает незавершённую пару USER/PASS после отказа входа или STLS.
     pub fn reset_authorization(&mut self) {
         self.username = None;
         self.sasl_previous_authorization = None;
         self.scram_exchange = None;
+        self.scram_sha256_exchange = None;
         self.phase = Phase::Authorization;
     }
     pub fn commit_deletes(&mut self, accepted: bool) -> Reply {

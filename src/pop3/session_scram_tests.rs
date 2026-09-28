@@ -10,8 +10,8 @@ fn accepts_only_tls_protected_scram_capability() {
     session.tls_established();
     let encrypted = session.apply(crate::pop3::parse("CAPA\r\n"));
     assert!(matches!(encrypted, Reply::Multiline(bytes)
-        if bytes.windows(b"SASL PLAIN SCRAM-SHA-1\r\n".len())
-            .any(|line| line == b"SASL PLAIN SCRAM-SHA-1\r\n")));
+        if bytes.windows(b"SCRAM-SHA-1 SCRAM-SHA-256\r\n".len())
+            .any(|line| line == b"SCRAM-SHA-1 SCRAM-SHA-256\r\n")));
 }
 
 #[test]
