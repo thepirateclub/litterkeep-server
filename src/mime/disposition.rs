@@ -230,6 +230,14 @@ fn split_parameter_sections(input: &str) -> Result<Vec<&str>, &'static str> {
 
 /// Сериализует disposition extension как IMAP list и string values.
 pub fn encode_bodystructure(value: &Disposition) -> Result<String, &'static str> {
+    encode_bodystructure_with_mode(value, crate::imap::tokenizer::StringMode::Legacy)
+}
+
+/// Сериализует disposition с режимом строк согласованной IMAP-сессии.
+pub fn encode_bodystructure_with_mode(
+    value: &Disposition,
+    mode: crate::imap::tokenizer::StringMode,
+) -> Result<String, &'static str> {
     let mut output = format!("(\"{}\"", quote(value.kind.as_str())?);
     if value.parameters.is_empty() {
         output.push_str(" NIL)");
@@ -240,9 +248,9 @@ pub fn encode_bodystructure(value: &Disposition) -> Result<String, &'static str>
     for (name, parameter) in &value.parameters {
         output.push_str(separator);
         output.push_str(&format!(
-            "\"{}\" \"{}\"",
+            "\"{}\" {}",
             quote(&name.to_ascii_uppercase())?,
-            quote(parameter)?
+            encode_parameter_string(parameter, mode)?
         ));
         separator = " ";
     }
@@ -250,12 +258,26 @@ pub fn encode_bodystructure(value: &Disposition) -> Result<String, &'static str>
     Ok(output)
 }
 
+/// Переводит Unicode параметр в literal до ENABLE, сохраняя quoted форму после.
+fn encode_parameter_string(
+    value: &str,
+    mode: crate::imap::tokenizer::StringMode,
+) -> Result<String, &'static str> {
+    let escaped = quote(value)?;
+    match (mode, value.is_ascii()) {
+        (crate::imap::tokenizer::StringMode::Legacy, false) => {
+            Ok(format!("{{{}}}\r\n{value}", value.len()))
+        }
+        _ => Ok(format!("\"{escaped}\"")),
+    }
+}
+
 /// Кавычит IMAP nstring содержимое и запрещает CR/LF injection.
 fn quote(value: &str) -> Result<String, &'static str> {
     let mut output = String::with_capacity(value.len());
     for character in value.chars() {
         match character {
-            '\r' | '\n' => return Err("newline in MIME disposition value"),
+            '\0' | '\r' | '\n' => return Err("control octet in MIME disposition value"),
             '\\' | '"' => {
                 output.push('\\');
                 output.push(character);

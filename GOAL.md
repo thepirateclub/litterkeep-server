@@ -1,5 +1,28 @@
 # Goal ledger
 
+### 2026-09-28: G17 RFC 9755 FETCH BODYSTRUCTURE string mode, PARTIAL T352
+
+- Connection-local `StringMode` теперь проходит через BODY, BODYSTRUCTURE,
+  рекурсивные MIME parts и nested message ENVELOPE. RFC 3501 `string` значения
+  MIME description, Content-ID и RFC 2231 parameters используют literals до
+  ENABLE, а quoted UTF-8 после ENABLE. ASCII поля сохраняют compact quoted form.
+- Unit-проверка покрывает decoded Content-Description, Unicode Content-ID,
+  Content-Type `name*`, disposition `filename*` и обе сериализации. Независимый
+  STARTTLS клиент через APPEND сохранённого ASCII RFC 2047/RFC 2231 fixture
+  подтвердил ENVELOPE и BODYSTRUCTURE до ENABLE и после `ENABLE UTF8=ACCEPT`.
+  PASS: `python tests/blackbox/imap_utf8_envelope_mode.py --port 32143 --ca
+  data/pki/ca.pem --credentials data/g22-imap-bodystructure-runtime/test-accounts.tsv`.
+- Windows Rust 1.97.1: 965 library + 1 CLI, 4 ignored; all-target tests,
+  fmt и strict Clippy прошли. Linux `rust:1.97-bookworm`, Rust 1.97.1:
+  1076 library + 1 CLI, 4 ignored; fmt, strict Clippy, all-target tests и
+  release build прошли. Runtime fixture `./data/g22-imap-bodystructure-runtime`,
+  target `./data/g22-imap-bodystructure-linux-target`; existing image reused,
+  disposable listener container удалён и его отсутствие проверено, новый image
+  не создавался. Изменённые code/test файлы не превышают 300 строк.
+- Остаются непокрытые IMAP response strings и исходный RFC822 header downgrade;
+  capability `UTF8=ACCEPT` не рекламируется, Litterkeep не запускался. G17
+  остаётся PARTIAL/ACTIVE.
+
 ### 2026-09-28: G17 RFC 9755 FETCH ENVELOPE string mode, PARTIAL T351
 
 - FETCH ENVELOPE теперь получает режим quoting из владельца IMAP-сессии. В

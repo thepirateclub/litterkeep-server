@@ -20,7 +20,7 @@ fn decodes_rfc2231_filename_before_bodystructure_encoding() {
 
     assert_eq!(
         encode_bodystructure(&value).expect("IMAP disposition"),
-        "(\"attachment\" (\"FILENAME\" \"résumé.pdf\"))"
+        "(\"attachment\" (\"FILENAME\" {12}\r\nrésumé.pdf))"
     );
 }
 
@@ -42,7 +42,7 @@ fn preserves_rfc2231_language_hint_without_changing_bodystructure() {
     );
     assert_eq!(
         encode_bodystructure(&value).expect("IMAP disposition"),
-        "(\"attachment\" (\"FILENAME\" \"файл.txt\"))"
+        "(\"attachment\" (\"FILENAME\" {12}\r\nфайл.txt))"
     );
 }
 

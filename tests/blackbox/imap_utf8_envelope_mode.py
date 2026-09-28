@@ -65,7 +65,11 @@ def main() -> None:
     message = (
         b"From: =?UTF-8?B?0J/RgNC40LLQtdGC?= <alice@example.test>\r\n"
         b"To: bob@example.test\r\n"
-        b"Subject: =?UTF-8?B?0J/RgNC40LLQtdGC?=\r\n\r\nbody\r\n"
+        b"Subject: =?UTF-8?B?0J/RgNC40LLQtdGC?=\r\n"
+        b"Content-Type: application/pdf; name*=UTF-8''caf%C3%A9.pdf\r\n"
+        b"Content-Disposition: attachment; filename*=UTF-8''caf%C3%A9.pdf\r\n"
+        b"Content-Description: =?UTF-8?B?Y2Fmw6k=?=\r\n"
+        b"Content-Transfer-Encoding: base64\r\n\r\nUERG\r\n"
     )
 
     legacy = open_client(options.host, options.port, options.ca, password)
@@ -79,6 +83,20 @@ def main() -> None:
             raise AssertionError(f"legacy ENVELOPE did not use UTF-8 literals: {legacy_wire!r}")
     if b'"' + subject + b'"' in legacy_wire:
         raise AssertionError(f"legacy quoted-string contained UTF-8: {legacy_wire!r}")
+    legacy_structure = response_bytes(
+        require(legacy.fetch("1", "(BODYSTRUCTURE)"), "FETCH BODYSTRUCTURE")
+    )
+    match (b"{5}" in legacy_structure, b"{9}" in legacy_structure):
+        case (True, True):
+            pass
+        case _:
+            raise AssertionError(
+                f"legacy BODYSTRUCTURE omitted MIME literals: {legacy_structure!r}"
+            )
+    if b'"caf\xc3\xa9"' in legacy_structure:
+        raise AssertionError(f"legacy BODYSTRUCTURE string mode failed: {legacy_structure!r}")
+    if "café".encode("utf-8") not in legacy_structure:
+        raise AssertionError(f"legacy BODYSTRUCTURE lost decoded MIME text: {legacy_structure!r}")
     legacy.logout()
 
     enabled = open_client(options.host, options.port, options.ca, password)
@@ -94,6 +112,13 @@ def main() -> None:
     utf8_wire = fetch_envelope(enabled, mailbox)
     if b'"' + subject + b'"' not in utf8_wire:
         raise AssertionError(f"enabled ENVELOPE did not use quoted UTF-8: {utf8_wire!r}")
+    enabled_structure = response_bytes(
+        require(enabled.fetch("1", "(BODYSTRUCTURE)"), "FETCH BODYSTRUCTURE")
+    )
+    if b'"caf\xc3\xa9"' not in enabled_structure:
+        raise AssertionError(f"enabled BODYSTRUCTURE did not quote UTF-8: {enabled_structure!r}")
+    if b'"caf\xc3\xa9.pdf"' not in enabled_structure:
+        raise AssertionError(f"enabled MIME parameter did not quote UTF-8: {enabled_structure!r}")
     enabled.logout()
     print("PASS imap-utf8-envelope-mode: legacy literals and enabled quoted UTF-8")
 

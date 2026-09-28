@@ -489,6 +489,13 @@ downgrade исходного RFC822 заголовка, все остальны�
 полный RFC 9755 профиль. Требование не отправлять UTF-8 в quoted-string до
 явного ENABLE установлено [RFC 9755 §3](https://www.rfc-editor.org/rfc/rfc9755.html#section-3);
 literal остаётся базовой IMAP string формой по [RFC 3501 §4.3](https://www.rfc-editor.org/rfc/rfc3501.html#section-4.3).
+Тот же negotiated mode протянут по всему FETCH BODY/BODYSTRUCTURE дереву:
+Content-ID/Description, MIME type parameters, disposition filename, languages,
+location и вложенный message ENVELOPE проходят mode-aware сериализацию. Unit
+тест покрывает Unicode Content-ID, decoded description, RFC 2231 parameters и
+обе wire формы; независимый STARTTLS клиент проверил до/после ENABLE DESCRIPTION,
+NAME и FILENAME на одном сохранённом MIME-part. Это не доказывает отсутствие
+UTF-8 quoted-string во всех прочих IMAP ответах; capability остаётся скрыта.
 Дополнительная комбинированная STARTTLS проверка включает `ENABLE UTF8=ACCEPT`,
 создаёт mailbox с `é` и запрашивает `LIST RETURN STATUS`: соседние LIST и
 STATUS ответы сохраняют UTF-8 имя и порядок запрошенных числовых полей. Это

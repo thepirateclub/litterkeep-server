@@ -15,6 +15,7 @@ pub(super) fn encode(
     anchor: Anchor,
     disposition: Option<&Disposition>,
     metadata: &ContentMetadata,
+    mode: crate::imap::tokenizer::StringMode,
 ) -> Result<String, &'static str> {
     match (
         anchor,
@@ -29,7 +30,7 @@ pub(super) fn encode(
     }
 
     let mut output = match (anchor, metadata.content_md5.as_deref()) {
-        (Anchor::BodyMd5, Some(digest)) => format!(" {}", quote_string(digest)?),
+        (Anchor::BodyMd5, Some(digest)) => format!(" {}", quote_string(digest, mode)?),
         (Anchor::BodyMd5, None) | (Anchor::MultipartParameters, _) => String::from(" NIL"),
     };
     match (
@@ -39,7 +40,9 @@ pub(super) fn encode(
     ) {
         (Some(value), _, _) => {
             output.push(' ');
-            output.push_str(&super::super::disposition::encode_bodystructure(value)?);
+            output.push_str(&super::super::disposition::encode_bodystructure_with_mode(
+                value, mode,
+            )?);
         }
         (None, Some(_), _) | (None, None, Some(_)) => output.push_str(" NIL"),
         (None, None, None) => {}
@@ -47,16 +50,14 @@ pub(super) fn encode(
     match (metadata.languages.as_ref(), metadata.location.as_ref()) {
         (Some(languages), _) => {
             output.push(' ');
-            output.push_str(&encode_languages(languages)?);
+            output.push_str(&encode_languages(languages, mode)?);
         }
         (None, Some(_)) => output.push_str(" NIL"),
         (None, None) => {}
     }
     if let Some(location) = metadata.location.as_ref() {
         output.push(' ');
-        output.push('"');
-        output.push_str(&quote(location)?);
-        output.push('"');
+        output.push_str(&quote_string(location, mode)?);
     }
     Ok(output)
 }
@@ -64,15 +65,16 @@ pub(super) fn encode(
 /// Кодирует одиночный язык строкой, список языков списком строк.
 fn encode_languages(
     languages: &[super::super::language_tag::LanguageTag],
+    mode: crate::imap::tokenizer::StringMode,
 ) -> Result<String, &'static str> {
     match languages {
-        [language] => quote_string(language.as_str()),
+        [language] => quote_string(language.as_str(), mode),
         many => {
             let mut output = String::from("(");
             let mut separator = "";
             for language in many {
                 output.push_str(separator);
-                output.push_str(&quote_string(language.as_str())?);
+                output.push_str(&quote_string(language.as_str(), mode)?);
                 separator = " ";
             }
             output.push(')');
@@ -82,8 +84,17 @@ fn encode_languages(
 }
 
 /// Создаёт quoted IMAP string без CR/LF инъекции.
-pub(super) fn quote_string(value: &str) -> Result<String, &'static str> {
-    Ok(format!("\"{}\"", quote(value)?))
+pub(super) fn quote_string(
+    value: &str,
+    mode: crate::imap::tokenizer::StringMode,
+) -> Result<String, &'static str> {
+    let escaped = quote(value)?;
+    match (mode, value.is_ascii()) {
+        (crate::imap::tokenizer::StringMode::Legacy, false) => {
+            Ok(format!("{{{}}}\r\n{value}", value.len()))
+        }
+        _ => Ok(format!("\"{escaped}\"")),
+    }
 }
 
 /// Экранирует quoted-specials и отвергает запрещённые CR/LF octets.

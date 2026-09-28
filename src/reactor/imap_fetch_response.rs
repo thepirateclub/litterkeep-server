@@ -152,7 +152,11 @@ fn append_attribute(
         imap::FetchAttribute::BodyStructure => {
             let structure = crate::mime::tree::parse(&message.bytes)
                 .and_then(|entity| {
-                    crate::mime::bodystructure::encode_extended(&entity, &message.bytes)
+                    crate::mime::bodystructure::encode_extended_with_mode(
+                        &entity,
+                        &message.bytes,
+                        string_mode,
+                    )
                 })
                 .map_err(|_| crate::imap_fetch::FetchError::InvalidSection)?;
             append_item(response, first, "BODYSTRUCTURE", structure.as_bytes());
@@ -161,7 +165,11 @@ fn append_attribute(
         imap::FetchAttribute::BodyStructureBasic => {
             let structure = crate::mime::tree::parse(&message.bytes)
                 .and_then(|entity| {
-                    crate::mime::bodystructure::encode_basic(&entity, &message.bytes)
+                    crate::mime::bodystructure::encode_basic_with_mode(
+                        &entity,
+                        &message.bytes,
+                        string_mode,
+                    )
                 })
                 .map_err(|_| crate::imap_fetch::FetchError::InvalidSection)?;
             append_item(response, first, "BODY", structure.as_bytes());
