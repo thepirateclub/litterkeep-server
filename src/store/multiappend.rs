@@ -33,7 +33,7 @@ impl Store {
             .iter()
             .map(|(_, record)| record.uid)
             .collect::<Vec<_>>();
-        self.publish_links(transaction_id, links, None)?;
+        self.publish_links(transaction_id, links, None, None)?;
         self.next_transaction_id = reservations
             .last()
             .and_then(|reservation| reservation.transaction_id.checked_add(1))

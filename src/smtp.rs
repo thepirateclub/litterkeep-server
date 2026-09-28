@@ -31,6 +31,17 @@ pub struct Envelope {
     pub reverse_path: String,
     pub recipients: Vec<String>,
 }
+
+/// Typed SMTP envelope DSN, привязываемый Store к transaction ID доставки.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DsnEnvelope {
+    /// Обратный SMTP путь, а не MIME поле `From`.
+    pub reverse_path: String,
+    /// Необязательные параметры RFC 3461 команды MAIL.
+    pub mail: MailDsn,
+    /// Получатели вместе с независимыми запросами NOTIFY и ORCPT.
+    pub recipients: Vec<RcptTo>,
+}
 /// Верхняя граница получателей одного SMTP envelope в локальном профиле.
 const MAX_RECIPIENTS: usize = 100;
 #[derive(Default, Debug)]

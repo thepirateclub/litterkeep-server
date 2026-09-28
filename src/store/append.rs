@@ -1,10 +1,18 @@
 //! Публикация immutable blob, mailbox links и исходящих jobs одной транзакцией.
 use super::{
     AppendMetadata, AppendStage, Store, WriteState, blobs, commit_log, durability, journal, model,
-    recent, sieve_diagnostics, validated_unique_mailboxes,
+    recent, sieve_diagnostics, smtp_dsn_journal, validated_unique_mailboxes,
 };
 use std::fs::OpenOptions;
 use std::io::{self, Write};
+
+/// Дополнительные durable данные одной append-транзакции.
+#[derive(Default)]
+struct AppendExtensions<'a> {
+    diagnostics: &'a [sieve_diagnostics::PendingDiagnostic],
+    vacation_claim: Option<&'a super::vacation_suppression::PendingClaim>,
+    smtp_dsn: Option<&'a crate::smtp::DsnEnvelope>,
+}
 
 impl Store {
     /// Фиксирует отдельный generated payload и outbound job без mailbox link.
@@ -18,7 +26,7 @@ impl Store {
         raw: &[u8],
     ) -> io::Result<u64> {
         let outbound = [(sender.to_owned(), recipient.to_owned())];
-        self.append_many_with_sieve(&[], raw, &outbound, &[])
+        self.append_many_with_sieve(&[], raw, &outbound, &[], None)
     }
 
     pub(super) fn append_vacation_transaction(
@@ -32,8 +40,10 @@ impl Store {
             raw,
             AppendMetadata::default(),
             outbound,
-            &[],
-            Some(claim),
+            AppendExtensions {
+                vacation_claim: Some(claim),
+                ..AppendExtensions::default()
+            },
         )
     }
 
@@ -46,10 +56,22 @@ impl Store {
         raw: &[u8],
         metadata: AppendMetadata,
     ) -> io::Result<u64> {
-        self.append_many_with_metadata(&[mailbox.to_owned()], raw, metadata, &[], &[], None)
+        self.append_many_with_metadata(
+            &[mailbox.to_owned()],
+            raw,
+            metadata,
+            &[],
+            AppendExtensions::default(),
+        )
     }
     pub fn append_many(&mut self, mailboxes: &[String], raw: &[u8]) -> io::Result<u64> {
-        self.append_many_with_metadata(mailboxes, raw, AppendMetadata::default(), &[], &[], None)
+        self.append_many_with_metadata(
+            mailboxes,
+            raw,
+            AppendMetadata::default(),
+            &[],
+            AppendExtensions::default(),
+        )
     }
     #[cfg(test)]
     pub(crate) fn append_many_with_outbound(
@@ -63,8 +85,7 @@ impl Store {
             raw,
             AppendMetadata::default(),
             outbound,
-            &[],
-            None,
+            AppendExtensions::default(),
         )
     }
     pub(super) fn append_many_with_sieve(
@@ -73,14 +94,18 @@ impl Store {
         raw: &[u8],
         outbound: &[(String, String)],
         diagnostics: &[sieve_diagnostics::PendingDiagnostic],
+        smtp_dsn: Option<&crate::smtp::DsnEnvelope>,
     ) -> io::Result<u64> {
         self.append_many_with_metadata(
             mailboxes,
             raw,
             AppendMetadata::default(),
             outbound,
-            diagnostics,
-            None,
+            AppendExtensions {
+                diagnostics,
+                smtp_dsn,
+                ..AppendExtensions::default()
+            },
         )
     }
     fn append_many_with_metadata(
@@ -89,8 +114,7 @@ impl Store {
         raw: &[u8],
         metadata: AppendMetadata,
         outbound: &[(String, String)],
-        diagnostics: &[sieve_diagnostics::PendingDiagnostic],
-        vacation_claim: Option<&super::vacation_suppression::PendingClaim>,
+        extensions: AppendExtensions<'_>,
     ) -> io::Result<u64> {
         self.ensure_writable()?;
         let mailboxes = validated_delivery_mailboxes(mailboxes, outbound)?;
@@ -106,15 +130,24 @@ impl Store {
                 .enqueue_owned(transaction_id, sender, recipient)?;
         }
         self.check_and_poison(AppendStage::QueueWritten)?;
-        if let Err(error) = sieve_diagnostics::append(&self.root, transaction_id, diagnostics) {
+        if let Err(error) =
+            sieve_diagnostics::append(&self.root, transaction_id, extensions.diagnostics)
+        {
             self.write_state = WriteState::Poisoned;
             return Err(error);
         }
         self.check_and_poison(AppendStage::DiagnosticsWritten)?;
+        if let Some(envelope) = extensions.smtp_dsn
+            && let Err(error) = smtp_dsn_journal::append(&self.root, transaction_id, envelope)
+        {
+            self.write_state = WriteState::Poisoned;
+            return Err(error);
+        }
+        self.check_and_poison(AppendStage::EnvelopeWritten)?;
         if let Err(error) = super::vacation_suppression::append(
             &self.root,
             transaction_id,
-            vacation_claim,
+            extensions.vacation_claim,
             &self.committed_transactions,
         ) {
             self.write_state = WriteState::Poisoned;
@@ -124,7 +157,12 @@ impl Store {
         match self.commit_links(transaction_id, &links) {
             Ok(()) => {
                 self.check_and_poison(AppendStage::BeforeMemoryPublish)?;
-                self.publish_links(transaction_id, links, vacation_claim.cloned())
+                self.publish_links(
+                    transaction_id,
+                    links,
+                    extensions.vacation_claim.cloned(),
+                    extensions.smtp_dsn.cloned(),
+                )
             }
             Err(error) => {
                 self.write_state = WriteState::Poisoned;
@@ -217,6 +255,7 @@ impl Store {
         transaction_id: u64,
         links: Vec<(String, model::Record)>,
         vacation_claim: Option<super::vacation_suppression::PendingClaim>,
+        smtp_dsn: Option<crate::smtp::DsnEnvelope>,
     ) -> io::Result<u64> {
         let first_uid = match links.first() {
             Some((_, record)) => record.uid,
@@ -238,6 +277,9 @@ impl Store {
             .checked_add(1)
             .ok_or_else(|| io::Error::other("transaction id exhausted"))?;
         self.committed_transactions.insert(transaction_id);
+        if let Some(envelope) = smtp_dsn {
+            self.smtp_dsn_envelopes.insert(transaction_id, envelope);
+        }
         if let Some(claim) = vacation_claim {
             self.vacation_history.insert(claim.key, claim.expires_at);
         }

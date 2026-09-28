@@ -100,6 +100,11 @@ mod sieve_tests;
 #[cfg(test)]
 #[path = "store/sieve_vacation_tests.rs"]
 mod sieve_vacation_tests;
+#[cfg(test)]
+#[path = "store/smtp_dsn_integration_tests.rs"]
+mod smtp_dsn_integration_tests;
+#[path = "store/smtp_dsn_journal.rs"]
+mod smtp_dsn_journal;
 #[path = "store/subscription_access.rs"]
 mod subscription_access;
 #[path = "store/subscriptions.rs"]
@@ -194,6 +199,8 @@ pub struct Store {
     vacation_history: HashMap<vacation_suppression::VacationKey, u64>,
     /// Queue принадлежит тому же единственному writer-у, что и mailbox journal.
     queue: Queue,
+    /// Typed SMTP DSN envelope keyed by the global delivery transaction ID.
+    smtp_dsn_envelopes: HashMap<u64, crate::smtp::DsnEnvelope>,
     /// Единственный источник видимости queue jobs после recovery или commit.
     committed_transactions: HashSet<u64>,
     next_transaction_id: u64,
@@ -218,6 +225,7 @@ enum AppendStage {
     BlobPublished,
     QueueWritten,
     DiagnosticsWritten,
+    EnvelopeWritten,
     VacationWritten,
     FirstMailboxFrame,
     MailboxDirectorySynced,

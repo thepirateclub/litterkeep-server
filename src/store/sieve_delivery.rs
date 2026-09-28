@@ -30,6 +30,18 @@ impl Store {
         envelope_recipients: &[String],
         raw: &[u8],
     ) -> io::Result<u64> {
+        self.deliver_sieve_many_with_dsn(accounts, envelope_sender, envelope_recipients, raw, None)
+    }
+
+    /// Сохраняет DSN envelope вместе с общей transaction ID local delivery.
+    pub(super) fn deliver_sieve_many_with_dsn(
+        &mut self,
+        accounts: &[String],
+        envelope_sender: &str,
+        envelope_recipients: &[String],
+        raw: &[u8],
+        smtp_dsn: Option<&crate::smtp::DsnEnvelope>,
+    ) -> io::Result<u64> {
         if accounts.len() != envelope_recipients.len() {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -82,7 +94,13 @@ impl Store {
         }
         let mut transaction_id = match (mailboxes.is_empty(), outbound.is_empty()) {
             (true, true) => None,
-            _ => Some(self.append_many_with_sieve(&mailboxes, raw, &outbound, &diagnostics)?),
+            _ => Some(self.append_many_with_sieve(
+                &mailboxes,
+                raw,
+                &outbound,
+                &diagnostics,
+                smtp_dsn,
+            )?),
         };
         for response in vacation_responses {
             let result = self.enqueue_vacation_response(super::VacationResponseRequest {

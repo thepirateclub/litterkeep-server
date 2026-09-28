@@ -26,6 +26,7 @@ impl Store {
         let lock = open_writer_lock(&root.join("writer.lock"))?;
         recovery::recover(&root)?;
         let committed = commit_log::committed(&root.join("journal/transactions.log"))?;
+        let smtp_dsn_envelopes = smtp_dsn_journal::load(&root, &committed.ids)?;
         sieve_diagnostics::recover(&root)?;
         vacation_suppression::recover(&root)?;
         let vacation_history = vacation_suppression::load(&root, &committed.ids)?;
@@ -56,6 +57,7 @@ impl Store {
             sieve_scripts,
             vacation_history,
             queue,
+            smtp_dsn_envelopes,
             committed_transactions: committed.ids,
             next_transaction_id,
             blob_quota,

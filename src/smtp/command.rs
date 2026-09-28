@@ -72,7 +72,7 @@ pub struct MailFrom {
 }
 
 /// Адрес и RFC 3461 настройки одной команды RCPT TO.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RcptTo {
     /// Проверенный SMTP forward-path без угловых скобок.
     pub address: String,
