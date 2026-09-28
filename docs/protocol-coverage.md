@@ -532,6 +532,12 @@ RFC 2183 §2.8 говорит игнорировать нераспознанн�
 в типизированном MIME представлении, не переписывая исходный заголовок письма.
 Unit-проверки фиксируют fallback и сохранение filename; до отдельного wire
 acceptance эта узкая проверка не считается клиентской interoperability.
+RFC 2183 §2.7 задаёт `size` как unquoted непустые десятичные цифры. MIME parser
+исключает только некорректный `size` и сохраняет соседние параметры; unit и
+независимый IMAP STARTTLS вектор проверяют нецифровую, quoted и RFC 2231 формы
+рядом с валидным filename.
+Creation/modification/read-date параметры пока сохраняют общую MIME-грамматику,
+их полная RFC date-time проверка остаётся отдельным пробелом.
 RFC 2231 §4.1 допускает charset/language metadata в начале первой encoded
 continuation секции. Ранее `Content-Disposition` parser терял language hint
 после общего параметрического разбора; `Disposition` теперь сохраняет typed

@@ -79,6 +79,15 @@ def main() -> None:
         b"Content-Type: application/octet-stream\r\n"
         b"Content-Disposition: x-company-review; filename=unknown-type.txt\r\n\r\n"
         b"unknown-disposition-type-octets\r\n--meta-boundary\r\n"
+        b"Content-Type: application/octet-stream\r\n"
+        b"Content-Disposition: attachment; filename=bad-size.txt; size=12x\r\n\r\n"
+        b"malformed-size-parameter-octets\r\n--meta-boundary\r\n"
+        b"Content-Type: application/octet-stream\r\n"
+        b'Content-Disposition: attachment; filename=quoted-size.txt; size="13"\r\n\r\n'
+        b"quoted-size-parameter-octets\r\n--meta-boundary\r\n"
+        b"Content-Type: application/octet-stream\r\n"
+        b"Content-Disposition: attachment; filename=extended-size.txt; size*=UTF-8''14\r\n\r\n"
+        b"extended-size-parameter-octets\r\n--meta-boundary\r\n"
         b"Content-Type: text/plain\r\n"
         b"Content-Location: ../files/bad%ZZ.txt\r\n\r\n"
         b"invalid-location-octets\r\n--meta-boundary\r\n"
@@ -137,6 +146,9 @@ def main() -> None:
         '("attachment" ("FILENAME" "résumé.bin"))'.encode("utf-8"),
         b'("attachment" ("SIZE" "12"))',
         b'("attachment" ("FILENAME" "unknown-type.txt"))',
+        b'("attachment" ("FILENAME" "bad-size.txt"))',
+        b'("attachment" ("FILENAME" "quoted-size.txt"))',
+        b'("attachment" ("FILENAME" "extended-size.txt"))',
         '"NAME" "архив-✓.bin"'.encode("utf-8"),
         b'"ru"',
         b'"../files/a%20b.bin"',
@@ -152,6 +164,8 @@ def main() -> None:
         raise AssertionError(f"invalid Content-Location was projected: {extended!r}")
     if b'"plain.txt"' in extended or b'"extended.txt"' in extended:
         raise AssertionError(f"conflicting RFC 2231 filename was projected: {extended!r}")
+    if any(invalid in extended for invalid in (b'"SIZE" "12x"', b'"SIZE" "13"', b'"SIZE" "14"')):
+        raise AssertionError(f"invalid RFC 2183 size was projected: {extended!r}")
     for required in (b'"<\\"attachment@one\\"@[IPv6:2001:db8::1]>" "attached file"',):
         if required not in basic:
             raise AssertionError(f"basic BODY lacks MIME basic fields {required!r}: {basic!r}")

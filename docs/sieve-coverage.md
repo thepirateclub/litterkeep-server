@@ -334,8 +334,11 @@ Content-Disposition и подтвердил, что MIME tree не публик�
 RFC 2183 §2.8: неизвестный charset отдельного `filename*` пропускается, а
 известный `size=12` и disposition сохраняются; RFC822 literal остаётся точным.
 Неизвестный disposition type должен проецироваться как `attachment`; локальные
-unit-тесты подтверждают fallback и сохранение filename, но отдельный IMAP wire
-вектор для него ещё не добавлен.
+unit-тесты и IMAP STARTTLS acceptance T331 подтверждают fallback и сохранение
+filename при byte-exact сохранении исходного RFC822 literal.
+RFC 2183 `size` принимает только непустые десятичные цифры: `size=12x`
+отбрасывается отдельно, сохраняя валидный `filename`; это покрыто unit и IMAP
+STARTTLS acceptance. Полная проверка трёх date-параметров остаётся открытой.
 Whitespace около `=` в параметрах остается открытым и отдельно не ужесточается.
 
 RFC 2231 extended payload decoder принимает только attribute-char или

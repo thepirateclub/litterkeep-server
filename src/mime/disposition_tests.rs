@@ -98,6 +98,47 @@ fn extension_disposition_keeps_known_filename_parameter() {
     );
 }
 
+/// Некорректный size пропускается отдельно, не теряя соседнее имя файла.
+#[test]
+fn ignores_size_parameter_with_non_decimal_octets() {
+    let value = parse("attachment; filename=report.pdf; size=12x").expect("disposition");
+
+    assert_eq!(
+        value.parameters.get("filename").map(String::as_str),
+        Some("report.pdf")
+    );
+    assert!(!value.parameters.contains_key("size"));
+}
+
+/// RFC 2183 допускает ненулевую последовательность десятичных цифр в size.
+#[test]
+fn preserves_decimal_size_parameter() {
+    let value = parse("attachment; size=0012").expect("disposition");
+
+    assert_eq!(
+        value.parameters.get("size").map(String::as_str),
+        Some("0012")
+    );
+}
+
+/// Размер в quoted-string или RFC 2231 форме не является RFC 2183 `size`.
+#[test]
+fn rejects_quoted_and_extended_size_parameter_forms() {
+    for parameter in ["size=\"12\"", "size*=UTF-8''12"] {
+        let value = parse(&format!("attachment; filename=report.pdf; {parameter}"))
+            .expect("invalid size does not poison disposition");
+
+        assert!(
+            !value.parameters.contains_key("size"),
+            "accepted {parameter}"
+        );
+        assert_eq!(
+            value.parameters.get("filename").map(String::as_str),
+            Some("report.pdf")
+        );
+    }
+}
+
 #[test]
 fn rejects_unicode_whitespace_around_disposition_token() {
     assert!(parse("\u{00a0}attachment").is_err());

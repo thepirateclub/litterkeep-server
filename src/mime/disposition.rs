@@ -59,6 +59,22 @@ struct ParsedParameter {
     language: Option<LanguageTag>,
 }
 
+/// Имена параметров RFC 2183 с отдельными синтаксическими ограничениями.
+enum DispositionParameterName {
+    Size,
+    Other,
+}
+
+impl DispositionParameterName {
+    /// Преобразует нормализованное имя общего MIME parser-а в типизированный вариант.
+    fn parse(name: &str) -> Self {
+        match name {
+            "size" => Self::Size,
+            _ => Self::Other,
+        }
+    }
+}
+
 /// Разбирает одно поле Content-Disposition, сохраняя расширения RFC 2231.
 pub fn parse(value: &str) -> Result<Disposition, &'static str> {
     let normalized = super::structured_comments::remove(value)?;
@@ -112,12 +128,41 @@ fn merge_parameters(parsed: Vec<ParsedParameter>) -> Result<DispositionParameter
 fn parse_one_parameter(parameter: &str) -> Option<ParsedParameter> {
     let parsed = parameters::parse(&format!("application/x;{parameter}")).ok()?;
     let (name, value) = parsed.parameters.into_iter().next()?;
+    if !valid_parameter_value(&name, &value, parameter) {
+        return None;
+    }
     let language = parsed.parameter_languages.get(&name).cloned();
     Some(ParsedParameter {
         name,
         value,
         language,
     })
+}
+
+/// Проверяет локальные ограничения параметра сверх общей MIME-грамматики.
+fn valid_parameter_value(name: &str, value: &str, wire_parameter: &str) -> bool {
+    match DispositionParameterName::parse(name) {
+        DispositionParameterName::Size => valid_size_parameter(value, wire_parameter),
+        DispositionParameterName::Other => true,
+    }
+}
+
+/// Требует unquoted `size=1*DIGIT`, не принимая RFC 2231 extended spelling.
+fn valid_size_parameter(value: &str, wire_parameter: &str) -> bool {
+    let mut components = wire_parameter.split('=');
+    let name = components.next().map(super::wsp::trim);
+    let raw_value = components.next().map(super::wsp::trim);
+    match (name, raw_value, components.next()) {
+        (Some(name), Some(raw_value), None)
+            if name.eq_ignore_ascii_case("size") && raw_value == value =>
+        {
+            !raw_value.is_empty()
+                && raw_value
+                    .chars()
+                    .all(|character| character.is_ascii_digit())
+        }
+        _ => false,
+    }
 }
 
 /// Возвращает имя и значение, если entry является ровно одним parameter.

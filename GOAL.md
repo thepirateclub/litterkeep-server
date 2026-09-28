@@ -9962,3 +9962,19 @@ ManageSieve до заявленного набора современных фо
 - Это scoped MIME/IMAP acceptance независимым клиентом, не Litterkeep app
   interoperability и не закрытие полной MIME registry coverage; G18 остаётся
   ACTIVE.
+### 2026-09-28: G18 RFC 2183 size parameter syntax, scoped PASS T332
+
+- Проверка Content-Disposition типизирует `size` и принимает только unquoted
+  последовательность одной или более ASCII-цифр, как задано RFC 2183 §2.7.
+  Невалидный параметр исключается независимо от соседнего корректного `filename`.
+- Unit-регрессии проверили нецифровые, quoted и RFC 2231 формы и сохранение
+  ведущих нулей;
+  независимый IMAP STARTTLS acceptance подтвердил, что BODYSTRUCTURE не содержит
+  `SIZE=12x`, но содержит filename, а RFC822 literal остаётся точным.
+- Rust 1.97.1 fmt, strict all-target Clippy, all-target tests прошли
+  (919 library + 1 CLI, 4 ignored); Python compile и diff check прошли. Docker
+  Linux wire acceptance прошёл при Cargo target внутри контейнера, созданный
+  контейнер затем удалён, образы переиспользованы.
+- Ограничение: RFC date-time синтаксис для creation-date/modification-date/
+  read-date остаётся непроверенным; независимый peer, не Litterkeep app.
+  G18 остаётся ACTIVE.
