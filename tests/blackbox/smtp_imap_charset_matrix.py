@@ -61,6 +61,7 @@ CHARSET_CASES = (
     CharsetCase("Big5-HKSCS", "big5hkscs", "Ê\u0304Ê\u030cê\u0304ê\u030c"),
     CharsetCase("EUC-JP", "euc_jp", "日本語かな"),
     CharsetCase("ISO-2022-JP", "iso2022_jp", "日本語メール"),
+    CharsetCase("Shift_JIS", "shift_jis", "日本語メール"),
     CharsetCase("IBM866", "cp866", "Привет"),
     CharsetCase("KOI8-R", "koi8_r", "Привет"),
     CharsetCase("KOI8-U", "koi8_u", "Їжак"),

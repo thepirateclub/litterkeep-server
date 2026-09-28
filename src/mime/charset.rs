@@ -42,6 +42,7 @@ pub enum Charset {
     Big5,
     EucJp,
     Iso2022Jp,
+    ShiftJis,
     Utf16,
     Utf16Be,
     Utf16Le,
@@ -93,6 +94,8 @@ impl Charset {
             "big5" | "big5-hkscs" | "cn-big5" | "csbig5" | "x-x-big5" => Ok(Self::Big5),
             "cseucpkdfmtjapanese" | "euc-jp" | "x-euc-jp" => Ok(Self::EucJp),
             "csiso2022jp" | "iso-2022-jp" => Ok(Self::Iso2022Jp),
+            "csshiftjis" | "cswindows31j" | "ms932" | "ms_kanji" | "shift-jis" | "shift_jis"
+            | "sjis" | "windows-31j" | "x-sjis" => Ok(Self::ShiftJis),
             "utf-16" => Ok(Self::Utf16),
             "utf-16be" => Ok(Self::Utf16Be),
             "utf-16le" => Ok(Self::Utf16Le),
@@ -160,6 +163,7 @@ impl Charset {
             Self::Big5 => super::charset_big5::decode(bytes),
             Self::EucJp => super::charset_euc_jp::decode(bytes),
             Self::Iso2022Jp => super::charset_iso2022_jp::decode(bytes),
+            Self::ShiftJis => super::charset_shift_jis::decode(bytes),
             Self::Utf16 => {
                 super::charset_utf16::decode(bytes, super::charset_utf16::ByteOrder::DetectBom)
             }

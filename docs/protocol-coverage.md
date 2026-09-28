@@ -931,7 +931,7 @@ O(1) WHATWG index lookup. Все 19 782 pointer positions сверяются с 
 четыре нестандартных одиночных pointer-а корректно разворачиваются в пары
 Unicode scalars. Независимый SMTP -> IMAP charset matrix проверяет обычный Big5
 текст и все четыре expansion mappings через Python `big5hkscs` codec.
-Остаются неподдержанными EUC-JP, ISO-2022-JP, Shift_JIS и EUC-KR. Первичные
+Первичные
 источники: [WHATWG GBK decoder](https://encoding.spec.whatwg.org/#gbk-decoder),
 [two-byte index](https://encoding.spec.whatwg.org/index-gb18030.txt) и
 [four-byte ranges](https://encoding.spec.whatwg.org/index-gb18030-ranges.txt),
@@ -942,8 +942,8 @@ EUC-JP добавлен отдельным strict decoder: ASCII, SS2 half-width
 двухбайтовый JIS X 0208 и SS3/JIS X 0212 читаются без runtime-зависимости.
 Обе WHATWG таблицы закреплены по SHA-256; runtime acceptance проверяет японский
 текст, kana и отдельные JIS X 0212 знаки. Unit suite сравнивает все 8 836
-wire-позиции каждой ветки с соответствующим таблицей. Остаются
-неподдержанными ISO-2022-JP, Shift_JIS и EUC-KR.
+wire-позиции каждой ветки с соответствующей таблицей. На этом этапе ещё
+неподдержанными были ISO-2022-JP, Shift_JIS и EUC-KR.
 Первичные источники: [WHATWG EUC-JP decoder](https://encoding.spec.whatwg.org/#euc-jp-decoder),
 [JIS X 0208 index](https://encoding.spec.whatwg.org/index-jis0208.txt) и
 [JIS X 0212 index](https://encoding.spec.whatwg.org/index-jis0212.txt).
@@ -958,6 +958,15 @@ mail profile; поэтому это не заявление полного RFC 1
 сверяют encoded-word с ASCII reset и отказ без него. Источники: [WHATWG
 ISO-2022-JP decoder](https://encoding.spec.whatwg.org/#iso-2022-jp-decoder),
 [RFC 1468](https://www.rfc-editor.org/rfc/rfc1468.html) и [RFC 2047 §3](https://www.rfc-editor.org/rfc/rfc2047.html#section-3).
+Shift_JIS добавлен как строгий decoder WHATWG §12.3.1: ASCII и U+0080,
+half-width kana, диапазоны lead/trail, JIS X 0208 index и Windows EUDC
+private-use mapping U+E000..U+E757. Тест сверяет все 11 280 синтаксически
+допустимых двухбайтовых pointers с JIS index либо EUDC mapping и все 256
+одиночных octets. Независимый SMTP -> IMAP STARTTLS acceptance использует
+Python `shift_jis` codec и подтверждает поиск японского текста после доставки.
+Приложение Litterkeep этим независимым клиентом не проверялось; EUC-KR остаётся
+неподдержанным. Источники: [WHATWG Shift_JIS decoder](https://encoding.spec.whatwg.org/#shift_jis-decoder),
+[IANA Character Sets registry](https://www.iana.org/assignments/character-sets/).
 Отдельная
 SMTP -> IMAP wire-проверка доставила RFC 2047 Subject encoded-word варианты UTF-16,
 UTF-16BE/LE и UTF-32 с generic BE BOM, UTF-32BE/LE; UTF-8 SEARCH literal

@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-28: G18 Shift_JIS MIME decoder and IMAP SEARCH, scoped PASS T305
+
+- Добавлен строгий typed Shift_JIS decoder для WHATWG labels и IANA alias:
+  однобайтовый ASCII/U+0080, half-width kana, JIS X 0208 и Windows EUDC
+  private-use mapping. Malformed, truncated и unmapped пары отвергаются.
+- Unit tests сравнили все 11 280 двухбайтовых pointers и все 256 одиночных
+  octets. Windows Rust 1.97.1: профильные 5 тестов, strict Clippy и полный
+  набор: 848 library + 1 CLI, 3 ignored.
+- Linux Docker Rust 1.97: strict Clippy, 957 library + 1 CLI, 3 ignored и
+  doc-tests. Независимая SMTP STARTTLS -> IMAP UTF-8 SEARCH matrix прошла для
+  всех 36 charset labels, включая Python `shift_jis` японский текст, и
+  отдельного RFC 2047 Subject сценария. Это не проверка приложения Litterkeep.
+- Acceptance данные находятся в `./data/acceptance-mime-shiftjis-20260928`.
+  Созданный контейнер и test/runtime images удалены, отсутствие проверено;
+  G18 остаётся ACTIVE, EUC-KR не реализован.
+
 ### 2026-09-28: G18 ISO-2022-JP MIME state machine and IMAP SEARCH, scoped PASS T304
 
 - Добавлен typed `ISO-2022-JP` Charset и строгий конечный автомат WHATWG:

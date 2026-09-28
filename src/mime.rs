@@ -54,6 +54,8 @@ mod charset_iso8859_9;
 mod charset_koi8_r;
 #[path = "mime/charset_koi8_u.rs"]
 mod charset_koi8_u;
+#[path = "mime/charset_shift_jis.rs"]
+mod charset_shift_jis;
 #[path = "mime/charset_tis620.rs"]
 mod charset_tis620;
 #[path = "mime/charset_utf16.rs"]
