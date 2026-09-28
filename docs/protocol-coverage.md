@@ -117,7 +117,7 @@ ASCII-варианты используют стандартные DSN media typ
 unit regressions на Windows и Linux, но не независимым wire-клиентом.
 Задержанные reports, группировка нескольких RCPT и сквозная проверка
 параметров остаются GAP; `DSN` остаётся выключенным. Failure-report crash window
-закрыт durable intent и idempotent report key (T390), но независимый crash-kill
+закрыт durable intent и idempotent report key (T389), но независимый crash-kill
 runtime acceptance ещё не проводился.
 RFC 3461 §§4.3, 5.2.6, 5.2.7 и 6 описывает эти требования.
 См. [RFC 3461](https://www.rfc-editor.org/rfc/rfc3461.html).
