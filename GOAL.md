@@ -26,6 +26,25 @@
   для существующей test account. Изменённые source/test файлы меньше 300 строк
   каждый. POP3 PLUS wire этап принят, G19 в целом остаётся ACTIVE.
 
+### 2026-09-28: G19 SCRAM-SHA-256-PLUS failure recovery, T366 PASS
+
+- Независимый TLS 1.3 peer расширен отрицательными wire сценариями: transcript
+  с синтаксически корректным, но чужим exporter отклоняется; правильный exporter
+  с валидно сформированным proof на неверном пароле также отклоняется после
+  server-final acknowledgement. После каждого отказа `USER bob` принимается,
+  что проверяет возврат в POP3 AUTHORIZATION согласно RFC 5034 §4. Успешный PLUS
+  вход, server signature и доступ к maildrop остаются частью того же acceptance.
+- Первоначальная попытка ожидала `NOOP` после отказа, но это противоречит RFC
+  1939 §5, где NOOP допустим лишь в TRANSACTION; тест скорректирован на допустимый
+  USER. Никакое серверное ограничение или тестовая семантика не ослаблялись.
+- Windows Rust 1.97.1 all-target: 996 library + 1 CLI passed, 4 ignored; fmt,
+  strict Clippy и `git diff --check` прошли. Linux live peer прошёл (1/1) на
+  существующем release binary; выделенный wire target собран с incremental off.
+- Существующий rust image переиспользован; listener удалён и проверен отсутствующим;
+  нового image нет. Acceptance sources разделены на peer и scenario файлы по
+  лимиту 300 строк; кэш расположен в `./data/g20-pop3-scram-plus`. Это расширяет
+  доказательства отказов/восстановления, G19 и общий RFC 5034 профиль остаются ACTIVE.
+
 ### 2026-09-28: G18 MIME parameter separator whitespace, T364 PASS
 
 - RFC 2045 §5.1 и RFC 2231 §7: parser отклоняет SP/HTAB непосредственно до и
