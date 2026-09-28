@@ -88,7 +88,7 @@ pub(super) fn process_input(
                 }
                 imap_search_literal::Progress::TooBig(tag) => {
                     session.push(
-                        format!("* BYE [TOOBIG] {tag} literal exceeds LITERAL- limits\r\n")
+                        format!("* BYE [TOOBIG] {tag} literal exceeds configured limit\r\n")
                             .as_bytes(),
                     )?;
                     session.imap_search_literal = None;

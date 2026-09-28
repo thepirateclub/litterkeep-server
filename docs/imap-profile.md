@@ -14,7 +14,7 @@ CAPABILITY не выдаёт за более широкое расширение
 |---|---|---|---|
 | Any | CAPABILITY, ID, NOOP, LOGOUT | PARTIAL | RFC 2971 ID command is typed, validated, and answered `* ID NIL` to avoid implementation fingerprinting; client parameters are discarded and never affect operations. CAPABILITY advertisement, NIL/list forms, malformed duplicate rejection, privacy response, and post-error NOOP recovery pass independent Linux STARTTLS wire acceptance; other unlisted IMAP extensions remain unsupported |
 | TLS | STARTTLS | PASS | Сброс plaintext state и пошаговый rustls handshake |
-| Authentication | LOGIN | PASS | Только TLS, общий Argon2 worker, повторный вход запрещён; username/password принимают atom, quoted-string, synchronizing literals до 64 KiB и `LITERAL-` non-synchronizing literals до 4096 octets; независимая STARTTLS acceptance проверяет обе формы |
+| Authentication | LOGIN | PASS | Только TLS, общий Argon2 worker, повторный вход запрещён; username/password принимают atom, quoted-string, synchronizing и LITERAL+ non-synchronizing literals в пределах 64 KiB; независимая STARTTLS acceptance проверяет обе формы |
 | Authentication | AUTHENTICATE PLAIN | PASS | Continuation, cancel, atom/quoted astring, пустой SASL-IR marker, authzid policy, только TLS; прочие механизмы не рекламируются |
 | Mailbox discovery | LIST, LSUB, STATUS | PARTIAL | CAPABILITY advertises implemented `LIST-EXTENDED` (RFC 5258) and `LIST-STATUS` (RFC 5819); modified UTF-7, `*`/`%`, root discovery, empty selection `()`, slash-delimited relative reference prefix with canonical response names, SUBSCRIBED, RECURSIVEMATCH with CHILDINFO for SUBSCRIBED/SPECIAL-USE, RETURN (CHILDREN), RETURN (SUBSCRIBED), and RETURN STATUS (MESSAGES/RECENT/UIDNEXT/UIDVALIDITY/UNSEEN/DELETED/SIZE/APPENDLIMIT) verified; RECENT reports unclaimed durable messages before SELECT and session-owned recent UIDs after SELECT, consistently in STATUS and LIST STATUS; combined UTF8=ACCEPT LIST/STATUS wire responses preserve Unicode mailbox names; missing names are selected only by SUBSCRIBED and retain `\\NonExistent`; multi-namespace/breakout naming is not implemented |
 | Namespace | NAMESPACE | PASS | Advertised and tested; personal namespace is `""` with `/` delimiter, unavailable classes are NIL |
@@ -22,7 +22,7 @@ CAPABILITY не выдаёт за более широкое расширение
 | Mailbox mutation | CREATE, DELETE, RENAME | PASS | Durable journal, subtree rename, retired folder IDs |
 | Subscription | SUBSCRIBE, UNSUBSCRIBE | PASS | Durable subscription независимо от существования папки |
 | Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS включает системные flags и keywords, существующие в mailbox; PERMANENTFLAGS включает `\\*` для новых keywords только в read-write selection; EXAMINE reports `PERMANENTFLAGS ()`; повторный SELECT/EXAMINE закрывает прежнюю папку с `OK [CLOSED]` до новых ответов, успешный выбор включает LIST с каноническим именем и имеющимся special-use атрибутом mailbox, а failed select оставляет authenticated state без выбранной папки |
-| Message insertion | APPEND | PARTIAL | Bounded synchronizing literal and RFC 7888 `LITERAL-` non-synchronizing literals до 4096 octets; strict parenthesized system flags/keywords, quoted-string-only RFC date-time INTERNALDATE, APPENDUID после fsync; zero-length literal returns tagged `NO` without a mailbox mutation and the session accepts a subsequent command; oversized non-synchronizing payload gets `BYE [TOOBIG]` and connection closure; global 25 MiB limit is advertised through APPENDLIMIT and oversized synchronizing APPEND is rejected with tagged TOOBIG before payload; RFC 3502 MULTIAPPEND parses and stores ordered messages in one atomic batch, preserves per-message flags/keywords/date, advertises MULTIAPPEND and returns ordered APPENDUID; independent STARTTLS acceptance checks distinct flags and exact RFC822 bytes including NUL and 0xFF; LITERAL+ is not advertised |
+| Message insertion | APPEND | PARTIAL | Bounded synchronizing literal and RFC 7888 `LITERAL+` non-synchronizing literals до APPENDLIMIT (25 MiB); strict parenthesized system flags/keywords, quoted-string-only RFC date-time INTERNALDATE, APPENDUID после fsync; zero-length literal returns tagged `NO` without a mailbox mutation and the session accepts a subsequent command; oversized non-synchronizing payload gets `BYE [TOOBIG]` and connection closure; oversized synchronizing APPEND is rejected with tagged TOOBIG before payload; RFC 3502 MULTIAPPEND parses and stores ordered messages in one atomic batch, preserves per-message flags/keywords/date, advertises MULTIAPPEND and returns ordered APPENDUID; independent STARTTLS acceptance checks distinct flags and exact RFC822 bytes including NUL and 0xFF plus non-sync payload above 4096 octets |
 | Reading | FETCH, UID FETCH | PARTIAL | Сгруппированные items, ALL/FAST/FULL с RFC-совместимым раскрытием FULL через BODY, BODY и BODYSTRUCTURE, UID, RFC822/RFC822.HEADER/RFC822.TEXT legacy items с правильными wire labels, BODY sections/partial и BINARY/BINARY.PEEK/BINARY.SIZE; decoded MIME leaf parts, Base64/QP, literal8 для NUL, decoded partial, UNKNOWN-CTE и Seen effects проверены. UID FETCH всегда получает ровно один UID item независимо от request list; обычный FETCH не вставляет его без запроса. Это проверяют отдельные Rust unit tests и независимый Linux STARTTLS acceptance. После durable Seen transition BODY и BINARY FETCH включают обновлённые FLAGS, если они не запрошены явно; BODY.PEEK, BINARY.PEEK и повторное чтение без изменения FLAGS не получают их автоматически. RFC 3516 BINARY объявлен в CAPABILITY до STARTTLS, после TLS и после LOGIN. RFC 6532 message/global принимает identity, Base64 и quoted-printable CTE с отдельным source для decoded вложенных ranges; неизвестный CTE сохраняет opaque octet-stream fallback. Полная rev2 grammar остаётся |
 
 Для `message/global` `7bit`, `8bit`, `binary`, Base64 и quoted-printable
@@ -69,18 +69,18 @@ MIME decoding проверены отдельно. При этом синтак�
 | KEYWORD, UNKEYWORD | Реализованы typed parser/evaluator и сетевые проверки; keywords входят в APPEND v4 и versioned flags journal v2. Старые append v1-v3 и flags v1 читаются как раньше; FETCH FLAGS, STORE и COPY/MOVE сохраняют keywords. STORE обновляет оба класса flags одним checksum/commit frame |
 
 Базовый набор SEARCH keys RFC 9051 закрыт parser/evaluator acceptance; это не
-означает полного SEARCH wire grammar. Quoted strings, synchronizing literals
-до 64 KiB и `LITERAL-` non-synchronizing literals до 4096 octets проверены.
-RFC 7888 `LITERAL-` capability объявляется только вместе с ограниченными
-wire receivers для LOGIN, SEARCH и APPEND; независимый STARTTLS клиент отправил
+означает полного SEARCH wire grammar. Quoted strings и synchronizing literals
+до 64 KiB проверены. RFC 7888 `LITERAL+` capability объявляется вместе с
+bounded wire receivers для LOGIN, SEARCH и APPEND; независимый STARTTLS клиент отправил
 все три literal без ожидания continuation и сравнил сохранённые APPEND octets.
 Ограниченный synchronizing-literal receiver принимает оба `astring` аргумента `LOGIN` и
 mailbox `astring` команд CREATE, DELETE, RENAME, SUBSCRIBE, UNSUBSCRIBE, LIST,
 LSUB, STATUS, COPY, MOVE, SELECT и EXAMINE, включая UID COPY/MOVE. Независимый
 raw STARTTLS-клиент проверил continuation и успешное выполнение CREATE, LIST,
 SELECT с literal mailbox. SEARCH/UID SEARCH и APPEND имеют собственные
-проверенные пути. Это не означает поддержку literals в прочих аргументах всех
-команд; расширение LITERAL+ не рекламируется. Адресные
+проверенные пути. Non-synchronizing literals ограничены 64 KiB для аргументов
+команд и APPENDLIMIT для APPEND; превышение завершает соединение после BYE.
+Это не означает поддержку literals в прочих аргументах всех команд. Адресные
 SEARCH criteria и FETCH ENVELOPE используют одну projection; вложенные comments
 и quoted-pairs удаляются из семантических полей. Obsolete forms и malformed
 RFC 5322 syntax остаются ограничениями address parser-а.

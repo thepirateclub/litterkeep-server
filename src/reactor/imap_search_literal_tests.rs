@@ -59,13 +59,10 @@ fn detects_login_search_and_uid_search_synchronizing_literals() {
 }
 
 #[test]
-fn literal_minus_enforces_4096_octets_and_closes_on_non_sync_overflow() {
+fn literal_plus_accepts_non_sync_values_above_4096_within_command_limit() {
     assert!(matches!(
         start(b"a SEARCH BODY {4097+}\r\n"),
-        Start::Reject {
-            terminate: true,
-            ..
-        }
+        Start::Begin { .. }
     ));
     assert!(matches!(
         start(b"a SEARCH BODY {65537}\r\n"),
@@ -237,7 +234,7 @@ fn receives_multiple_literals_and_preserves_pipelined_command() {
 #[test]
 fn rejects_an_oversized_followup_non_sync_literal_before_allocation() {
     let mut receiver = new_receiver(b"a SEARCH HEADER ", 1);
-    let mut input = b"x {4097+}\r\n".to_vec();
+    let mut input = b"x {65537+}\r\n".to_vec();
     assert!(matches!(
         receiver.consume(&mut input),
         Progress::TooBig(tag) if tag == "a"

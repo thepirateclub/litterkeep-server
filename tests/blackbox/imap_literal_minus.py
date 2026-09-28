@@ -1,4 +1,4 @@
-"""Проверяет RFC 7888 LITERAL- без серверного continuation."""
+"""Проверяет RFC 7888 LITERAL+ без серверного continuation."""
 
 import argparse
 import imaplib
@@ -19,7 +19,7 @@ class ImapCompletion(Enum):
 class ImapCapability(Enum):
     """Возможности, которые сервер обязан объявить в этом сценарии."""
 
-    LITERAL_MINUS = b"LITERAL-"
+    LITERAL_PLUS = b"LITERAL+"
     MULTIAPPEND = b"MULTIAPPEND"
 
 
@@ -39,8 +39,8 @@ def require_capability(client: imaplib.IMAP4, phase: str) -> None:
     status, response = client.capability()
     require(status, response, ImapCompletion.OK, f"{phase} CAPABILITY")
     capabilities = b" ".join(response).upper().split()
-    if ImapCapability.LITERAL_MINUS.value not in capabilities:
-        raise AssertionError(f"{phase} capability omitted LITERAL-: {capabilities!r}")
+    if ImapCapability.LITERAL_PLUS.value not in capabilities:
+        raise AssertionError(f"{phase} capability omitted LITERAL+: {capabilities!r}")
 
 
 def require_multiappend(client: imaplib.IMAP4) -> None:
@@ -79,7 +79,7 @@ def verify_search_literal(client: imaplib.IMAP4) -> None:
 
 def verify_append_literal(client: imaplib.IMAP4, mailbox: str) -> None:
     """Сверяет байты письма после APPEND literal без continuation."""
-    payload = b"Subject: LITERAL minus\r\n\r\nliteral needle\r\n"
+    payload = b"Subject: LITERAL plus\r\n\r\n" + b"literal needle " * 400
     send_non_sync(client, f'APPEND "{mailbox}"'.encode(), "APPEND", payload)
     require(*client.select(mailbox), ImapCompletion.OK, "reselect after non-sync APPEND")
     status, rows = client.fetch("2", "(RFC822)")
@@ -190,8 +190,27 @@ def main() -> None:
     verify_search_literal(client)
     verify_append_literal(client, mailbox)
     verify_multiappend(client, mailbox)
-    client.logout()
-    print("PASS IMAP wire: LITERAL-, MULTIAPPEND, SEARCH, LOGIN, flags and exact bytes")
+    verify_oversized_literal_closes_with_toobig(client, mailbox)
+    print("PASS IMAP wire: LITERAL+, MULTIAPPEND, SEARCH, LOGIN, flags and exact bytes")
+
+
+def verify_oversized_literal_closes_with_toobig(
+    client: imaplib.IMAP4, mailbox: str
+) -> None:
+    """Проверяет отказ до получения APPEND, превышающего APPENDLIMIT."""
+    over_limit = 25 * 1024 * 1024 + 1
+    tag = client._new_tag()
+    client.send(
+        tag
+        + b' APPEND "'
+        + mailbox.encode("ascii")
+        + b'" {'
+        + str(over_limit).encode("ascii")
+        + b"+}\r\n"
+    )
+    response = client.readline()
+    if not response.startswith(b"* BYE [TOOBIG]"):
+        raise AssertionError(f"oversized LITERAL+ was not rejected: {response!r}")
 
 
 def password_for(credentials: Path | None) -> str:

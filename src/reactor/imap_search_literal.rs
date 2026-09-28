@@ -27,7 +27,6 @@ pub(super) enum Start {
 }
 
 const MAX_IMAP_LITERAL: usize = 64 * 1024;
-const MAX_NON_SYNCHRONIZING_LITERAL: usize = 4 * 1024;
 
 /// Семейство команды определяет, допустим ли literal в последнем аргументе.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -39,7 +38,7 @@ pub(super) enum LiteralCommand {
     Append,
 }
 
-/// Ищет sync-literal в строковых и mailbox аргументах поддержанных команд.
+/// Ищет literal в строковых и mailbox аргументах поддержанных команд.
 pub(super) fn start(line: &[u8]) -> Start {
     let Ok(command) = std::str::from_utf8(line) else {
         return Start::NotLiteral;
@@ -55,12 +54,8 @@ pub(super) fn start(line: &[u8]) -> Start {
         _ => MAX_IMAP_LITERAL,
     };
     let within_generic_limit = marker.size <= max_size;
-    let within_non_sync_limit = match marker.mode {
-        LiteralMode::Synchronizing => true,
-        LiteralMode::NonSynchronizing => marker.size <= MAX_NON_SYNCHRONIZING_LITERAL,
-    };
-    match (within_generic_limit, within_non_sync_limit) {
-        (true, true) => match Receiver::new(
+    match within_generic_limit {
+        true => match Receiver::new(
             prefix.as_bytes().to_vec(),
             tag.to_owned(),
             marker,
@@ -80,7 +75,7 @@ pub(super) fn start(line: &[u8]) -> Start {
                 command: command_kind,
             },
         },
-        (false, _) | (true, false) => Start::Reject {
+        false => Start::Reject {
             tag: tag.to_owned(),
             reason: "IMAP literal exceeds configured limit",
             terminate: matches!(marker.mode, LiteralMode::NonSynchronizing),

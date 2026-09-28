@@ -1,6 +1,6 @@
 //! Владелец bounded-потока IMAP literal-ов и остатка команды.
 
-use super::{LiteralCommand, MAX_IMAP_LITERAL, MAX_NON_SYNCHRONIZING_LITERAL};
+use super::{LiteralCommand, MAX_IMAP_LITERAL};
 use crate::imap::literal::{self, Marker as LiteralMarker, Mode as LiteralMode};
 
 /// Фаза приёма literal или остатка команды после его octets.
@@ -169,10 +169,6 @@ impl Receiver {
         else {
             return Progress::TooBig(self.tag.clone());
         };
-        let within_non_sync_limit = match marker.mode {
-            LiteralMode::Synchronizing => true,
-            LiteralMode::NonSynchronizing => marker.size <= MAX_NON_SYNCHRONIZING_LITERAL,
-        };
         let maximum_literal = literal_limit(self.command);
         let total_within_limit = match self.command {
             LiteralCommand::Append => total <= maximum_literal,
@@ -181,12 +177,8 @@ impl Receiver {
             | LiteralCommand::Search
             | LiteralCommand::Mailbox => command_size <= super::super::MAX_INPUT,
         };
-        match (
-            marker.size <= maximum_literal,
-            within_non_sync_limit,
-            total_within_limit,
-        ) {
-            (true, true, true) => {}
+        match (marker.size <= maximum_literal, total_within_limit) {
+            (true, true) => {}
             _ => return Progress::TooBig(self.tag.clone()),
         }
         self.prefix.extend_from_slice(before_marker);

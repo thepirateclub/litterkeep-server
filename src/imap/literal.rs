@@ -16,7 +16,7 @@ pub struct Marker {
     pub mode: Mode,
 }
 
-/// Разбирает `{octets}` и `{octets+}` без допуска знаков и пробелов.
+/// Разбирает synchronizing и RFC 7888 non-synchronizing `{octets+}`.
 pub fn parse(value: &str) -> Option<Marker> {
     let digits_and_mode = value.strip_prefix('{')?.strip_suffix('}')?;
     let (digits, mode) = match digits_and_mode.strip_suffix('+') {

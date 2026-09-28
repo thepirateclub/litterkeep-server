@@ -10055,3 +10055,24 @@ ManageSieve до заявленного набора современных фо
 - Linux Rust 1.97.1: fmt, strict Clippy и all-target tests прошли
   (1040 library + 1 CLI, 4 ignored). Существующие Docker images переиспользованы,
   созданные containers удалены, images не создавались. G18 остаётся ACTIVE.
+
+### 2026-09-28: G18 RFC 7888 LITERAL+ и доставка BYE, scoped PASS T338
+
+- IMAP теперь рекламирует полный `LITERAL+` вместо `LITERAL-`. Marker остаётся
+  стандартным `{n+}`: non-synchronizing LOGIN/SEARCH аргументы bounded 64 KiB,
+  APPEND bounded общим APPENDLIMIT 25 MiB. Размер проверяется до выделения
+  receiver buffer; oversized non-sync команда получает `BYE [TOOBIG]`.
+- Независимый Python STARTTLS peer проверил CAPABILITY до/после TLS, literal
+  LOGIN и SEARCH, APPEND payload больше 4096 octets и точные FETCH bytes,
+  MULTIAPPEND; oversized APPEND marker без передачи payload получил `BYE
+  [TOOBIG]`. Первая wire-проверка нашла, что termination закрывала сессию до
+  передачи BYE. Исправлен lifecycle: протокольный отказ сначала flush-ит
+  ответ и TLS close-notify, затем освобождает lease.
+- Windows Rust 1.97.1: fmt, strict Clippy и all-target tests прошли
+  (931 library + 1 CLI, 4 ignored). Linux Rust 1.97.1: fmt, strict Clippy,
+  all-target tests прошли (1040 library + 1 CLI, 4 ignored), release binary
+  собран. Независимый Python клиент тестировал Linux Docker сервер, это не
+  проверка приложения Litterkeep. Fixture `./data/g18-literal-plus-20260928`
+  оставлен; одноразовый container удалён, image не создавался.
+- G18 остаётся ACTIVE; поддержка не рекламируемых буквальных форм, полный
+  IMAP4rev2 и остальные протокольные RFC gaps продолжают проверяться.

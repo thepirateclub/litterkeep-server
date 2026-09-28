@@ -19,6 +19,9 @@ pub(in crate::reactor) fn close_terminated(
             Some(lease) => match lease.get_mut().termination {
                 Some(super::SessionTermination::Pop3Quit) => finish_pop3_quit(lease),
                 Some(super::SessionTermination::PeerTlsClose) => finish_peer_tls_close(lease),
+                Some(super::SessionTermination::InvalidImapLiteral) => {
+                    finish_tls_close(lease.get_mut())
+                }
                 Some(_) => true,
                 None => false,
             },

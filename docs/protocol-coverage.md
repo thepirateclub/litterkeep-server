@@ -458,20 +458,21 @@ positions, duplicate-name rejection, privacy response and NOOP recovery. The
 shared bounded literal receiver recognizes the RFC list-opening `(` directly
 before the first literal marker. This implements the identification extension
 only; it does not claim full IMAP4rev2 or all registered extensions.
-The same acceptance sends `LITERAL-` forms for both fields and values without
+The same acceptance sends non-synchronizing literal forms for both fields and values without
 waiting for continuations, after checking the advertised capability. RFC 7888
-allows non-synchronizing literals in any IMAP command and caps them at 4096
-octets for `LITERAL-`; this ID test covers small payloads, not the global
+allows non-synchronizing literals in any IMAP command; `LITERAL-` caps them at
+4096 octets, while this ID test covers small payloads and the global
 oversize boundary. RFC 2971 ID field/value limits are also checked at their
 wire boundaries: 30-octet field and 1024-octet value are accepted, while 31
 and 1025 octets respectively receive tagged BAD without disclosing ID data;
 subsequent NOOP commands confirm session recovery.
 
-RFC 7888 `LITERAL-` включён в CAPABILITY. Synchronizing literal-ы сохраняют
+RFC 7888 `LITERAL+` включён в CAPABILITY. Synchronizing literal-ы сохраняют
 continuation; non-synchronizing `{n+}` не вызывает continuation и ограничен
-4096 octets. Независимый STARTTLS клиент проверяет эту форму для LOGIN, SEARCH
-и APPEND, включая byte-exact APPEND round-trip. При превышении 4096 octets
-сервер закрывает соединение с `BYE [TOOBIG]`, не выделяя недопустимый payload.
+64 KiB для command arguments и APPENDLIMIT для APPEND. Независимый STARTTLS
+клиент проверяет APPEND payload больше 4096 octets и его byte-exact round-trip.
+При превышении объявленного лимита сервер закрывает соединение с
+`BYE [TOOBIG]`, не выделяя недопустимый payload.
 Нулевой APPEND literal получает tagged `NO APPEND cancelled`; independent peer
 проверяет после него `NOOP` и пустой mailbox через `SELECT`, а затем продолжает
 работу в той же STARTTLS-сессии. RFC 3502 MULTIAPPEND реализован поверх общего
@@ -481,7 +482,7 @@ literal receiver: каждый synchronizing literal получает собст
 что после сбоя первой mailbox frame ни одно сообщение не видно после recovery.
 Независимый STARTTLS `imaplib` сценарий отправляет два сообщения с разными
 флагами и NUL/0xFF в первом body, сверяет UID-set `1 3,4`, затем читает оба
-RFC822 тела побайтно и проверяет FLAGS. LITERAL+ по-прежнему не рекламируется.
+RFC822 тела побайтно и проверяет FLAGS.
 
 RFC 7889 APPENDLIMIT объявляет единый предел `26214400` octets, равный
 действующему `MAX_MESSAGE_SIZE`. STATUS и LIST RETURN STATUS возвращают
