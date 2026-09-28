@@ -1,5 +1,18 @@
 # Goal ledger
 
+### 2026-09-29: G18 failure DSN RET=FULL MIME return, PARTIAL T408
+
+- Добавлена регрессия failure DSN с `RET=FULL`: сериализованный report
+  содержит исходные заголовки, MIME metadata и тело в части `message/rfc822`.
+  Существующий соседний тест `RET=HDRS` продолжает проверять исключение тела.
+- Windows Rust 1.97.1 all-target: 1061 library + 1 CLI passed, 4 ignored;
+  strict Clippy, rustfmt и diff-check прошли. Linux Rust 1.97.1 all-target:
+  1185 library + 1 CLI passed, 4 ignored. Специализированная регрессия
+  RET=FULL требует полного исходного byte sequence в message/rfc822 MIME part.
+- Это unit evidence политики сериализатора, не SMTP-wire acceptance. RFC 3461
+  §4.3 задаёт RET как выбор полного содержимого или заголовков для failure DSN;
+  sender negotiation и реальный SMTP transaction не повторялись этим тестом.
+
 ### 2026-09-29: G18 outbound SMTP diagnostic in external failure DSN, PARTIAL T407
 
 - Исходящий plain SMTP и implicit TLS теперь сохраняют точный bounded SMTP

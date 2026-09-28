@@ -291,3 +291,6 @@ fn contains(haystack: &[u8], needle: &[u8]) -> bool {
         .windows(needle.len())
         .any(|window| window == needle)
 }
+
+#[path = "dsn_report_ret_full_tests.rs"]
+mod ret_full_tests;
