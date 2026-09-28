@@ -56,7 +56,7 @@ def verify(host: str, port: int, ca: str, password: str) -> None:
             )
             exchange(protected, b"USER bob", b"+OK")
             response = base64.b64encode(b"\x00bob\x00" + password.encode("ascii"))
-            exchange(protected, b"AUTH PLAIN " + response, b"+OK")
+            authenticate_plain(protected, response, b"+OK")
             exchange(protected, b"STAT", b"+OK")
             exchange(protected, b"QUIT", b"+OK")
 
@@ -78,12 +78,9 @@ def rejected_commands(stream: socket.SocketIO, password: str) -> None:
     """Перебирает SASL отказы, не меняя выбранного USER bob."""
     exchange(stream, b"AUTH PLAIN =", b"-ERR invalid AUTH PLAIN credentials")
     exchange(stream, b"AUTH PLAIN !!!", b"-ERR invalid AUTH PLAIN credentials")
-    exchange(stream, b"AUTH PLAIN", b"+ ")
     long_password = b"x" * 256
     long_response = base64.b64encode(b"\x00bob\x00" + long_password)
-    if len(long_response) <= 255:
-        raise AssertionError("test SASL response must exceed the POP3 command limit")
-    exchange(stream, long_response, b"-ERR authentication failed")
+    authenticate_plain(stream, long_response, b"-ERR authentication failed")
     exchange(stream, b"AUTH PLAIN", b"+ ")
     exchange(stream, b"*", b"-ERR authentication cancelled")
     exchange(stream, b"AUTH PLAIN", b"+ ")
@@ -92,6 +89,19 @@ def rejected_commands(stream: socket.SocketIO, password: str) -> None:
     exchange(stream, b"AUTH PLAIN " + invalid, b"-ERR authentication failed")
     valid = base64.b64encode(b"\x00missing-account\x00" + password.encode("ascii"))
     exchange(stream, b"AUTH PLAIN " + valid, b"-ERR authentication failed")
+
+
+def authenticate_plain(
+    stream: socket.SocketIO,
+    response: bytes,
+    result_prefix: bytes,
+) -> bytes:
+    """Выбирает RFC 5034 initial-response или continuation по размеру команды."""
+    initial_command = b"AUTH PLAIN " + response
+    if len(initial_command) + len(b"\r\n") <= 255:
+        return exchange(stream, initial_command, result_prefix)
+    exchange(stream, b"AUTH PLAIN", b"+ ")
+    return exchange(stream, response, result_prefix)
 
 
 def verify_unsupported_mechanism(stream: socket.SocketIO) -> None:

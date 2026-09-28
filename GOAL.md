@@ -1,5 +1,22 @@
 # Goal ledger
 
+### 2026-09-28: G19 POP3 AUTH initial-response size fallback, T372 PASS
+
+- Независимый Python peer теперь выбирает AUTH PLAIN initial-response только
+  если вся команда, включая CRLF, укладывается в 255 октетов. Короткий пароль
+  проходит initial-response ветвь; 256-байтовый пароль кодируется в 348-октетный
+  Base64 payload, из-за чего полная AUTH команда превышает предел, и peer
+  корректно начинает exchange без initial-response, получает пустой `+ ` и
+  передаёт payload continuation строкой. Сервер обрабатывает его как SASL,
+  не как команду, и отвечает результатом проверки credentials.
+- RFC 5034 §4 требует не включать initial-response, если AUTH команда превышает
+  лимит RFC 2449, а перейти к challenge/response форме. Это проверка поведения
+  acceptance peer, а не реального клиентского приложения.
+- Python 3.14.7 `py_compile`, полный независимый Linux STARTTLS acceptance и
+  `git diff --check` прошли. Существующие Rust 1.97.1 release listener/image и
+  `./data` fixture переиспользованы; контейнер удалён и отсутствие проверено,
+  новый image не создавался. Litterkeep app этим этапом не проверялась.
+
 ### 2026-09-28: G19 POP3 SASL continuation beyond command limit, T371 PASS
 
 - RFC 5034 §4 отделяет ограничение initial-response команды (255 октетов по
