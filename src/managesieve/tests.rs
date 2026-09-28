@@ -84,6 +84,56 @@ fn plain_authentication_challenge_can_be_cancelled_and_retried() {
 }
 
 #[test]
+fn scram_sha1_command_is_typed_and_available_only_after_tls() {
+    let client_first = crate::sasl::encode_base64(b"n,,n=bob,r=client-nonce");
+    let command = parse(&format!("AUTHENTICATE \"sCrAm-ShA-1\" \"{client_first}\""));
+    assert_eq!(
+        command,
+        Command::AuthenticateScramSha1(Some(client_first.clone()))
+    );
+    assert_eq!(
+        parse("AUTHENTICATE \"SCRAM-SHA-1\""),
+        Command::AuthenticateScramSha1(None)
+    );
+    assert_eq!(
+        parse("AUTHENTICATE \"CRAM-MD5\" \"anything\""),
+        Command::Invalid
+    );
+    let mut session = Session::default();
+    assert!(matches!(
+        session.apply(
+            Command::AuthenticateScramSha1(Some(client_first.clone())),
+            false,
+            true,
+        ),
+        Reply::Text(response) if response == b"NO \"encryption required\"\r\n"
+    ));
+    assert!(matches!(
+        session.apply(
+            Command::AuthenticateScramSha1(Some(client_first.clone())),
+            true,
+            false,
+        ),
+        Reply::ScramClientFirst { response } if response == client_first
+    ));
+}
+
+#[test]
+fn scram_without_initial_response_uses_cancelable_challenge_state() {
+    let mut session = Session::default();
+    assert!(matches!(
+        session.apply(parse("AUTHENTICATE \"SCRAM-SHA-1\""), true, false),
+        Reply::AuthenticateChallenge
+    ));
+    assert!(session.awaiting_authentication_response());
+    assert!(matches!(
+        session.apply(Command::AuthenticateResponse("*".into()), true, false),
+        Reply::Text(response) if response == b"NO \"authentication cancelled\"\r\n"
+    ));
+    assert!(!session.awaiting_authentication_response());
+}
+
+#[test]
 fn authentication_response_parser_accepts_one_string_only() {
     assert_eq!(
         parse_authentication_response("\"AGJvYgBw\""),
@@ -187,8 +237,8 @@ fn capability_advertises_supported_sieve_extensions() {
     };
     assert!(
         encrypted
-            .windows(b"\"SASL\" \"PLAIN\"".len())
-            .any(|part| part == b"\"SASL\" \"PLAIN\"")
+            .windows(b"\"SASL\" \"PLAIN SCRAM-SHA-1\"".len())
+            .any(|part| part == b"\"SASL\" \"PLAIN SCRAM-SHA-1\"")
     );
     assert!(
         !encrypted
@@ -203,8 +253,8 @@ fn capability_advertises_supported_sieve_extensions() {
     let implicit_tls = greeting(true, false);
     assert!(
         implicit_tls
-            .windows(b"\"SASL\" \"PLAIN\"".len())
-            .any(|part| part == b"\"SASL\" \"PLAIN\"")
+            .windows(b"\"SASL\" \"PLAIN SCRAM-SHA-1\"".len())
+            .any(|part| part == b"\"SASL\" \"PLAIN SCRAM-SHA-1\"")
     );
     assert!(
         !implicit_tls
@@ -234,8 +284,8 @@ fn unauthenticate_clears_owner_keeps_tls_and_allows_authentication_again() {
     );
     assert!(
         capabilities
-            .windows(b"\"SASL\" \"PLAIN\"".len())
-            .any(|part| part == b"\"SASL\" \"PLAIN\"")
+            .windows(b"\"SASL\" \"PLAIN SCRAM-SHA-1\"".len())
+            .any(|part| part == b"\"SASL\" \"PLAIN SCRAM-SHA-1\"")
     );
     assert!(matches!(
         session.apply(parse("LISTSCRIPTS"), true, false),

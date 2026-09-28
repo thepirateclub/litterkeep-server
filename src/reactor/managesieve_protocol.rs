@@ -11,7 +11,7 @@ pub(super) fn line(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<()> {
-    if session.managesieve.awaiting_plain_response() {
+    if session.managesieve.awaiting_authentication_response() {
         return authentication_response(
             session, line, slot, generation, worker, owners, request_id,
         );
@@ -148,6 +148,20 @@ fn apply(
             session, response, slot, generation, worker, owners, request_id,
         ),
         managesieve::Reply::AuthenticateChallenge => session.push(b"\"\"\r\n"),
+        managesieve::Reply::ScramClientFirst { response } => {
+            managesieve_scram_protocol::start_lookup(
+                session, response, slot, generation, worker, owners, request_id,
+            )
+        }
+        managesieve::Reply::ScramChallenge { response } => {
+            session.push(format!("\"{response}\"\r\n").as_bytes())
+        }
+        managesieve::Reply::ScramAccepted { owner, response } => {
+            session.authenticated_account = Some(owner);
+            session.push(&response)
+        }
+        managesieve::Reply::ScramRejected { response } => session
+            .push(format!("NO (SASL \"{response}\") \"authentication failed\"\r\n").as_bytes()),
         reply => submit_command(session, reply, slot, generation, worker, owners, request_id),
     }
 }
@@ -255,7 +269,7 @@ fn submit_command(
     Ok(())
 }
 
-fn next(request_id: &mut u64) -> u64 {
+pub(super) fn next(request_id: &mut u64) -> u64 {
     let value = *request_id;
     *request_id = request_id.wrapping_add(1).max(1);
     value

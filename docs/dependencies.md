@@ -42,11 +42,8 @@ durable публикации Argon2 credential; при ошибке создан
 через восстановленную запись. Уже существующие Argon2 аккаунты пока не имеют
 SCRAM sidecar, но успешная проверка `.phc2` теперь безопасно создаёт его при
 backfill; legacy `.phc` миграция публикует sidecar до новой записи. Неуспешный
-вход не меняет файлы. Это всё ещё не полный SCRAM exchange: нужны bounded
-parsing, ManageSieve state machine с SASL continuation и независимый wire
-acceptance.
-T327 добавил bounded-worker путь для чтения sidecar единственным Accounts
-owner-ом; это не протокольная поддержка механизма и не разрешает capability.
+вход не меняет файлы. T327 добавил bounded-worker путь для чтения sidecar
+единственным Accounts owner-ом; полный exchange подключён в T328.
 Для подготовки протокольного слоя модуль `scram_attributes` разбирает только
 ограниченный синтаксис уникальных односимвольных атрибутов, отклоняет
 неподдержанные mandatory extension `m=` и ограничивает сообщение 16 KiB и
@@ -55,26 +52,24 @@ owner-ом; это не протокольная поддержка механи
 кроме NUL и разделителя comma; отдельный nonce профиль ограничен printable
 ASCII без comma. `scram_client_first` поддерживает только GS2 `n,,`, username
 SASLprep/escaping и сохраняет точный transcript; optional extensions
-игнорируются как требует RFC. Другие SCRAM message формы и ManageSieve wire
-interoperability пока не реализованы.
+игнорируются как требует RFC.
 `scram_server_first` формирует `r,s,i`, добавляя 18 криптографически случайных
 октетов Rustls к client nonce; соль и iteration count берутся из сохранённой
-verifier-записи. Builder пока не подключён к SASL lifecycle.
+verifier-записи; он подключён к SASL lifecycle.
 `scram_client_final` проверяет фиксированные `c,r,[extensions],p`, exact
 GS2 `biws`, полный nonce и canonical 20-octet ClientProof. Он формирует
 AuthMessage из исходных SCRAM transcript строк; полный RFC 5802 §5.1
 known-answer проходит через StoredKey verifier и совпадает с published
-ServerSignature. SASL outcome/state machine и ManageSieve integration всё ещё
-отсутствуют.
+ServerSignature.
 `scram_server_final` завершает тот же crypto transcript типизированным
 `v=<signature>` или `e=invalid-proof`; все RFC 5802 §7 server-error значения
-закрыты enum. Это не кодирует ManageSieve SASL outcome (который должен
-совместить final data с protocol-level success) и не включает reactor state.
-Crypto API проверяет proof с постоянновременным сравнением StoredKey и строит
-server signature; это не заменяет end-to-end проверку протокольного transcript.
+закрыты enum. ManageSieve exchange связывает final data с protocol-level
+success, а независимый TLS peer проверяет end-to-end transcript, включая
+серверную подпись и отказ неверного proof.
 [`RFC 5804 §2.1`](https://www.rfc-editor.org/rfc/rfc5804.html#section-2.1)
-прямо требует SCRAM-SHA-1 вместе с PLAIN over TLS; этот механизм не
-рекламируется до завершения verifier и exchange. Синтаксическая основа сверялась
+прямо требует SCRAM-SHA-1 вместе с PLAIN over TLS; оба механизма рекламируются
+только после TLS. Независимый TLS peer подтвердил полный ManageSieve exchange,
+но STARTTLS и приложение Litterkeep не проверялись. Синтаксическая основа сверялась
 по [RFC 5802 §7](https://www.rfc-editor.org/rfc/rfc5802.html#section-7).
 [RFC 7677](https://www.rfc-editor.org/rfc/rfc7677.html) регистрирует
 SCRAM-SHA-256, более сильный алгоритм семейства, и отмечает связанные с

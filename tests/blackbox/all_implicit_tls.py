@@ -156,8 +156,8 @@ def check_sieve(context: ssl.SSLContext, host: str, port: int, secret: str) -> N
             raise AssertionError(f"ManageSieve greeting is malformed: {greeting!r}")
         if b'"STARTTLS"' in greeting:
             raise AssertionError(f"unexpected ManageSieve capabilities: {greeting!r}")
-        if b'"SASL" "PLAIN"' not in greeting:
-            raise AssertionError(f"implicit TLS ManageSieve lacks SASL PLAIN: {greeting!r}")
+        if b'"SASL" "PLAIN SCRAM-SHA-1"' not in greeting:
+            raise AssertionError(f"implicit TLS ManageSieve lacks SASL mechanisms: {greeting!r}")
         peer.sendall(b"AUTHENTICATE {4+}\r\nCRAM {4+}\r\nAAAA\r\n")
         if line(peer) != b'NO "syntax error"\r\n':
             raise AssertionError("unsupported literal mechanism was not rejected")

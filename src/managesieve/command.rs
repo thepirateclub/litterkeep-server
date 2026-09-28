@@ -7,6 +7,7 @@ pub enum Command {
     StartTls,
     Unauthenticate,
     AuthenticatePlain(Option<String>),
+    AuthenticateScramSha1(Option<String>),
     AuthenticateResponse(String),
     Logout,
     HaveSpace { name: String, size: u64 },
@@ -19,6 +20,42 @@ pub enum Command {
     CheckScript(String),
     Noop(Option<String>),
     Invalid,
+}
+
+/// Поддерживаемые и явно неподдержанные SASL mechanism tokens.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SaslMechanism {
+    Plain,
+    ScramSha1,
+    Unsupported,
+}
+
+/// Различает единственную wire-команду отмены от непрозрачного SASL payload.
+#[derive(Debug, Eq, PartialEq)]
+pub enum SaslResponse {
+    Cancel,
+    Payload(String),
+}
+
+impl SaslResponse {
+    /// Классифицирует отмену до передачи protocol data следующему слою.
+    pub fn parse(value: String) -> Self {
+        match value.as_str() {
+            "*" => Self::Cancel,
+            _ => Self::Payload(value),
+        }
+    }
+}
+
+impl SaslMechanism {
+    /// Сопоставляет регистронезависимый wire token с типизированным механизмом.
+    pub fn parse(value: &str) -> Self {
+        match value.to_ascii_uppercase().as_str() {
+            "PLAIN" => Self::Plain,
+            "SCRAM-SHA-1" => Self::ScramSha1,
+            _ => Self::Unsupported,
+        }
+    }
 }
 
 /// Разбирает уже полный ManageSieve frame. Literal читает reactor до вызова.
@@ -92,12 +129,15 @@ fn pair(mut words: impl Iterator<Item = String>, make: fn(String, String) -> Com
 
 fn authenticate(mut words: impl Iterator<Item = String>) -> Command {
     match (words.next(), words.next(), words.next()) {
-        (Some(mechanism), Some(response), None) if mechanism.eq_ignore_ascii_case("PLAIN") => {
-            Command::AuthenticatePlain(Some(response))
-        }
-        (Some(mechanism), None, None) if mechanism.eq_ignore_ascii_case("PLAIN") => {
-            Command::AuthenticatePlain(None)
-        }
+        (Some(mechanism), response, None) => match (SaslMechanism::parse(&mechanism), response) {
+            (SaslMechanism::Plain, Some(response)) => Command::AuthenticatePlain(Some(response)),
+            (SaslMechanism::Plain, None) => Command::AuthenticatePlain(None),
+            (SaslMechanism::ScramSha1, Some(response)) => {
+                Command::AuthenticateScramSha1(Some(response))
+            }
+            (SaslMechanism::ScramSha1, None) => Command::AuthenticateScramSha1(None),
+            (SaslMechanism::Unsupported, _) => Command::Invalid,
+        },
         _ => Command::Invalid,
     }
 }

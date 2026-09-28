@@ -21,9 +21,45 @@ pub(super) fn authenticate(
     reply(session, authentication_reply)
 }
 
+/// Преобразует worker completion в первый SCRAM challenge ровно один раз.
+pub(super) fn scram_verifier(
+    session: &mut Session,
+    result: io::Result<Option<crate::sasl::scram_sha1_record::ScramSha1Record>>,
+) -> io::Result<()> {
+    match result {
+        Ok(Some(credential)) => match session.managesieve.scram_server_first(credential) {
+            Ok(protocol_reply) => reply(session, protocol_reply),
+            Err(_) => authentication_failure(session, false),
+        },
+        Ok(None) => authentication_failure(session, true),
+        Err(_) => authentication_failure(session, false),
+    }
+}
+
+/// Кодирует результат RFC 5804 HAVESPACE без смешения с I/O completion.
+pub(super) fn space(session: &mut Session, result: io::Result<bool>) -> io::Result<()> {
+    match result {
+        Ok(true) => session.push(b"OK \"space available\"\r\n"),
+        Ok(false) => session.push(b"NO (QUOTA) \"space unavailable\"\r\n"),
+        Err(_) => session.push(b"NO \"storage failure\"\r\n"),
+    }
+}
+
+/// Не раскрывает отсутствие аккаунта, сохраняя отдельный отказ файлового слоя.
+fn authentication_failure(session: &mut Session, rejected: bool) -> io::Result<()> {
+    session.managesieve.scram_failed();
+    match rejected {
+        true => session.push(b"NO \"authentication failed\"\r\n"),
+        false => session.push(b"NO \"authentication temporarily unavailable\"\r\n"),
+    }
+}
+
 pub(super) fn reply(session: &mut Session, reply: managesieve::Reply) -> io::Result<()> {
     match reply {
         managesieve::Reply::Text(bytes) => session.push(&bytes),
+        managesieve::Reply::ScramChallenge { response } => {
+            session.push(format!("\"{response}\"\r\n").as_bytes())
+        }
         _ => session.push(b"NO \"state failure\"\r\n"),
     }
 }

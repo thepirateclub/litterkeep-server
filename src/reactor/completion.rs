@@ -38,17 +38,18 @@ pub(super) fn write_completion(
         (Pending::ManageSieveAuthenticate { account }, Response::Authenticated { result, .. }) => {
             managesieve_completion::authenticate(session, account, result)
         }
+        (Pending::ManageSieveScramLookup, Response::ScramVerifier(response)) => {
+            managesieve_completion::scram_verifier(session, response.result)
+        }
         (Pending::ManageSieveCommand, Response::SieveStored { result, .. }) => {
             managesieve_completion::result(session, result.map(|_| ()))
         }
         (Pending::ManageSieveCommand, Response::SieveMutated { result, .. }) => {
             managesieve_completion::result(session, result)
         }
-        (Pending::ManageSieveCommand, Response::SieveSpace { result, .. }) => match result {
-            Ok(true) => session.push(b"OK \"space available\"\r\n"),
-            Ok(false) => session.push(b"NO (QUOTA) \"space unavailable\"\r\n"),
-            Err(_) => session.push(b"NO \"storage failure\"\r\n"),
-        },
+        (Pending::ManageSieveCommand, Response::SieveSpace { result, .. }) => {
+            managesieve_completion::space(session, result)
+        }
         (Pending::ManageSieveCommand, Response::SieveScripts { result, .. }) => {
             managesieve_completion::list(session, result)
         }

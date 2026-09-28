@@ -3,11 +3,12 @@
 use super::auth_mechanism::Mechanism;
 use super::{LiteralReceiver, Operation, Progress, Start, literal, quoted_then_tail, size};
 
-/// Выбирает receiver для quoted либо literal PLAIN mechanism и response.
+/// Выбирает receiver для quoted SASL mechanism и optional initial response.
 pub(super) fn start(tail: &str) -> Start {
     match quoted_then_tail(tail) {
         Some((mechanism, marker)) => match Mechanism::parse(&mechanism) {
             Mechanism::Plain => literal(Operation::AuthenticatePlain, marker),
+            Mechanism::ScramSha1 => literal(Operation::AuthenticateScramSha1, marker),
             Mechanism::Unsupported => Start::NotLiteral,
         },
         None => match size(tail.trim()) {
@@ -21,6 +22,13 @@ pub(super) fn start(tail: &str) -> Start {
             None => Start::NotLiteral,
         },
     }
+}
+
+/// Преобразует initial-response octets в typed SCRAM command.
+pub(super) fn initial_scram_response(response: String) -> Progress {
+    Progress::Complete(crate::managesieve::Command::AuthenticateScramSha1(Some(
+        response,
+    )))
 }
 
 /// Преобразует initial-response octets в типизированную команду PLAIN.

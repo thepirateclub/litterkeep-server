@@ -1,5 +1,24 @@
 # Goal ledger
 
+### 2026-09-28: G18 ManageSieve SCRAM-SHA-1 TLS wire exchange, scoped PASS T328
+
+- Завершён ManageSieve SCRAM-SHA-1 command/state/reactor путь поверх TLS:
+  challengeable AUTHENTICATE, bounded literal/quoted SASL строки, single-owner
+  verifier lookup, проверка client proof и выдача server signature. По RFC 5804
+  §2.1 механизм рекламируется только после TLS совместно с PLAIN.
+- Независимый Python TLS peer подтвердил SCRAM mutual proof/signature,
+  `e=invalid-proof` и восстановление соединения через NOOP. Это не проверка
+  приложения Litterkeep. Попытка STARTTLS acceptance не состоялась: текущий
+  disposable listener был собран только в implicit-TLS режиме; отдельный
+  STARTTLS listener в этой среде не поднялся. Не заявляется как пройденный.
+- Windows Rust 1.97.1: `cargo fmt --check`, strict all-target Clippy и
+  `cargo test --locked --all-targets` прошли (908 библиотечных + 1 CLI,
+  4 ignored). Совместимость приложения и STARTTLS wire acceptance не проверены.
+  Оба созданных временных контейнера очищены; образы не создавались.
+- Цель G18 остаётся ACTIVE: SCRAM-SHA-256/PLUS, полная совместимость RFC 5804,
+  приложение Litterkeep и прочие открытые этапы не закрыты. Исполняемый `goal`
+  CLI не найден; фиктивные вызовы не выполнялись.
+
 ### 2026-09-28: G18 single-owner SCRAM verifier lookup, scoped PASS T327
 
 - Добавлена типизированная пара request/response для чтения SCRAM verifier

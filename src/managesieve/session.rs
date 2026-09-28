@@ -1,15 +1,19 @@
 //! ManageSieve состояния до передачи typed запросов storage worker-у.
 
-use super::Command;
+#[path = "session_sasl.rs"]
+mod session_sasl;
 
 #[derive(Default)]
-enum Phase {
+pub(super) enum Phase {
     #[default]
     Plain,
     Authenticated {
         owner: String,
     },
     AwaitingPlainResponse,
+    AwaitingScramFirstResponse,
+    AwaitingScramVerifier,
+    AwaitingScramFinal,
     Closed,
 }
 
@@ -19,6 +23,10 @@ pub enum Reply {
     StartTls,
     Authenticate { response: String },
     AuthenticateChallenge,
+    ScramClientFirst { response: String },
+    ScramChallenge { response: String },
+    ScramAccepted { owner: String, response: Vec<u8> },
+    ScramRejected { response: String },
     Unauthenticated(Vec<u8>),
     HaveSpace { name: String, size: u64 },
     Put { name: String, source: String },
@@ -32,102 +40,16 @@ pub enum Reply {
 
 #[derive(Default)]
 pub struct Session {
-    phase: Phase,
+    pub(super) phase: Phase,
+    pub(super) scram_exchange: Option<ScramExchange>,
 }
 
-impl Session {
-    pub fn apply(&mut self, command: Command, tls_active: bool, starttls_available: bool) -> Reply {
-        match (&self.phase, command) {
-            (Phase::Plain, Command::Capability) => {
-                Reply::Text(capability(tls_active, starttls_available, None))
-            }
-            (Phase::Authenticated { owner }, Command::Capability) => {
-                Reply::Text(capability(tls_active, starttls_available, Some(owner)))
-            }
-            (Phase::Plain, Command::StartTls) if starttls_available && !tls_active => {
-                Reply::StartTls
-            }
-            (Phase::Plain, Command::StartTls) => no("TLS is unavailable or already active"),
-            (Phase::Authenticated { .. }, Command::StartTls) => {
-                no("TLS is unavailable or already active")
-            }
-            (Phase::Authenticated { .. }, Command::Unauthenticate) => {
-                self.phase = Phase::Plain;
-                Reply::Unauthenticated(capability_lines(
-                    tls_active,
-                    starttls_available,
-                    None,
-                    b"OK \"unauthenticated\"\r\n",
-                ))
-            }
-            (Phase::Plain, Command::Unauthenticate) => no("invalid command for state"),
-            (Phase::Plain, Command::AuthenticatePlain(Some(response))) if tls_active => {
-                Reply::Authenticate { response }
-            }
-            (Phase::Plain, Command::AuthenticatePlain(None)) if tls_active => {
-                self.phase = Phase::AwaitingPlainResponse;
-                Reply::AuthenticateChallenge
-            }
-            (Phase::Plain, Command::AuthenticatePlain(_)) => no("encryption required"),
-            (Phase::AwaitingPlainResponse, Command::AuthenticateResponse(response)) => {
-                self.phase = Phase::Plain;
-                match response.as_str() {
-                    "*" => no("authentication cancelled"),
-                    _ => Reply::Authenticate { response },
-                }
-            }
-            (Phase::AwaitingPlainResponse, Command::Invalid) => {
-                self.phase = Phase::Plain;
-                no("syntax error")
-            }
-            (Phase::Plain, Command::Logout) | (Phase::Authenticated { .. }, Command::Logout) => {
-                self.phase = Phase::Closed;
-                ok("bye")
-            }
-            (Phase::Authenticated { .. }, Command::HaveSpace { name, size }) => {
-                Reply::HaveSpace { name, size }
-            }
-            (Phase::Authenticated { .. }, Command::PutScript { name, source }) => {
-                Reply::Put { name, source }
-            }
-            (Phase::Authenticated { .. }, Command::ListScripts) => Reply::List,
-            (Phase::Authenticated { .. }, Command::SetActive(name)) => Reply::SetActive(name),
-            (Phase::Authenticated { .. }, Command::GetScript(name)) => Reply::Get(name),
-            (Phase::Authenticated { .. }, Command::DeleteScript(name)) => Reply::Delete(name),
-            (Phase::Authenticated { .. }, Command::RenameScript { old, new }) => {
-                Reply::Rename { old, new }
-            }
-            (Phase::Authenticated { .. }, Command::CheckScript(source)) => Reply::Check(source),
-            (Phase::Plain, Command::Noop(tag))
-            | (Phase::Authenticated { .. }, Command::Noop(tag)) => noop(tag),
-            (_, Command::Invalid) => no("syntax error"),
-            _ => no("invalid command for state"),
-        }
-    }
-
-    /// Сообщает reactor-у, что следующая строка принадлежит SASL exchange.
-    pub fn awaiting_plain_response(&self) -> bool {
-        matches!(self.phase, Phase::AwaitingPlainResponse)
-    }
-
-    pub fn authenticated(&mut self, owner: String, accepted: bool, tls_active: bool) -> Reply {
-        match (&self.phase, accepted, tls_active) {
-            (Phase::Plain, true, true) => {
-                self.phase = Phase::Authenticated {
-                    owner: owner.clone(),
-                };
-                Reply::Text(capability_lines(
-                    tls_active,
-                    false,
-                    Some(&owner),
-                    b"OK \"authenticated\"\r\n",
-                ))
-            }
-            (Phase::Plain, true, false) => no("encryption required"),
-            (Phase::Plain, false, _) => no("authentication failed"),
-            _ => no("no authentication pending"),
-        }
-    }
+/// Временный transcript и verifier одного ManageSieve SASL exchange.
+pub(super) struct ScramExchange {
+    pub(super) owner: String,
+    pub(super) client_first: crate::sasl::scram_client_first::ClientFirst,
+    pub(super) server_first: Option<crate::sasl::scram_server_first::ServerFirst>,
+    pub(super) credential: Option<crate::sasl::scram_sha1_record::ScramSha1Record>,
 }
 
 pub fn greeting(tls_active: bool, starttls_available: bool) -> Vec<u8> {
@@ -152,7 +74,7 @@ fn capability_lines(
 ) -> Vec<u8> {
     let mut output = b"\"IMPLEMENTATION\" \"litterkeep-server\"\r\n".to_vec();
     match (tls_active, starttls_available) {
-        (true, _) => output.extend_from_slice(b"\"SASL\" \"PLAIN\"\r\n"),
+        (true, _) => output.extend_from_slice(b"\"SASL\" \"PLAIN SCRAM-SHA-1\"\r\n"),
         (false, true) => output.extend_from_slice(b"\"SASL\" \"\"\r\n"),
         (false, false) => {}
     }

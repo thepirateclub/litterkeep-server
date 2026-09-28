@@ -19,6 +19,7 @@ mod sasl_lookup_tests;
 use crate::{accounts::Accounts, store::Store};
 pub use imap_append::ImapAppendResult;
 pub use message::{Request, Response};
+pub use sasl_lookup::{ScramVerifierRequest, ScramVerifierResponse};
 use std::io;
 use std::path::Path;
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError};

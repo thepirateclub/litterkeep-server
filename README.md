@@ -4,7 +4,10 @@ Self-hosted Rust mail server for the local `litterkeep` integration profile.
 It owns its protocol parsers, filesystem store and task/resource lifecycle.
 
 Current checkpoint: TLS and STARTTLS SMTP submission authenticate accounts with
-SASL PLAIN and deliver into the worker-owned filesystem store. IMAP supports
+SASL PLAIN and deliver into the worker-owned filesystem store. ManageSieve TLS
+supports SCRAM-SHA-1 mutual authentication alongside PLAIN; an independent peer
+verified proof/signature and failure recovery, not Litterkeep app
+interoperability. IMAP supports
 STARTTLS LOGIN and AUTHENTICATE PLAIN with SASL-IR, durable APPEND to INBOX,
 SELECT/EXAMINE metadata,
 sequence-set, UID FETCH, durable STORE/FETCH FLAGS, ENVELOPE, BODYSTRUCTURE and

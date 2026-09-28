@@ -2,14 +2,17 @@
 
 Есть bounded parser/executor для обязательного профиля, fileinto, redirect,
 keep/discard, header/address/size tests и diagnostics. ManageSieve поддерживает
-STARTTLS, SASL PLAIN, literals, CHECKSCRIPT, PUTSCRIPT, LISTSCRIPTS, GETSCRIPT,
+STARTTLS, SASL PLAIN and SCRAM-SHA-1, literals, CHECKSCRIPT, PUTSCRIPT, LISTSCRIPTS, GETSCRIPT,
 SETACTIVE, DELETESCRIPT и RENAMESCRIPT.
 
 RFC 5804 §2.1 string initial-response для AUTHENTICATE PLAIN теперь принимает
 и в bounded client-to-server literal форме. Literal проходит через ту же
 TLS-before-auth политику; независимая Linux проверка до TLS подтверждает
 разбор аргумента ответом `NO "encryption required"`, но не проверяет пароль.
-Обязательный SCRAM-SHA-1 по-прежнему не реализован.
+SCRAM-SHA-1 подключён к TLS-only capability и ManageSieve AUTHENTICATE.
+Независимый Python TLS peer проверяет client proof, server signature, отказ
+неверного proof и последующий NOOP. Litterkeep app interoperability и STARTTLS
+SCRAM wire acceptance не проверялись.
 
 RFC 5804 §2.1 challenge/response flow для PLAIN тоже поддержан: отсутствие
 initial-response приводит к пустому quoted challenge; ответ может быть quoted
@@ -18,10 +21,8 @@ non-synchronizing literal response независимым Linux STARTTLS peer. T
 проверил synchronizing literal после challenge: клиент получил обязательный
 continuation до отправки payload и затем успешно аутентифицировал Bob. Проверен
 также повторный вход после отмены. Полное соответствие ManageSieve SASL всё ещё
-не достигнуто: SCRAM-SHA-1 обязателен по RFC и остаётся открытым пробелом.
-T327 добавил только typed bounded-worker доступ к сохранённому SCRAM verifier
-через единственного владельца Accounts; он не меняет ManageSieve FSM и не
-рекламирует SCRAM capability. Протокольный обмен остаётся неподдержанным.
+не достигнуто. T327 добавил typed bounded-worker доступ к verifier через
+единственного владельца Accounts.
 Собственные SHA-1/HMAC-SHA-1/PBKDF2 модули теперь связаны в SCRAM StoredKey и
 ServerKey derivation. Полный пример RFC 5802 §5.1 подтверждает client proof и
 server signature, а iteration/salt границы ограничены до дорогого KDF вызова.
@@ -36,16 +37,11 @@ T317 подтверждает legacy-переход независимым SMTP 
 T323 исправил его ASCII-only value restriction согласно RFC 5802 §7 и добавил
 typed client-first parser с `n,,`, SASLprep username, nonce и optional
 extensions. Server-first/client-final/server-final semantic parsing и SASL
-state machine пока отсутствуют. T324 добавил server-first builder с Rustls
-secure RNG, но он ещё не встроен в ManageSieve lifecycle. T325 добавил
-client-final verifier и точный AuthMessage; опубликованный RFC proof и server
-signature проходят как crypto transcript. T326 строит typed `v=`/`e=` server-
-final message и покрывает RFC error token mapping, но не включает его в
-ManageSieve SASL success outcome или reactor state machine. Independent wire
-exchange также отсутствует.
-T318 сверил контракт с RFC 5804 §2.1 и RFC 7677: обязательный ManageSieve
-SCRAM-SHA-1 не реализован, более современный SCRAM-SHA-256 также не реализован.
-Детали записаны в [учёте зависимостей](dependencies.md). SCRAM не рекламируется.
+state machine подключены в T328. T324 добавил server-first builder, T325
+client-final verifier, а T326 typed server-final message. T328 подключил
+ManageSieve session/reactor и проверил exchange независимым TLS peer. STARTTLS
+и Litterkeep app interop отдельно остаются непроверенными. SCRAM-SHA-256/PLUS
+не реализованы. Детали записаны в [учёте зависимостей](dependencies.md).
 
 Для client-to-server literals receiver сначала читает ровно объявленное число
 octets, затем обязательный CRLF конца command line; только после него начинает

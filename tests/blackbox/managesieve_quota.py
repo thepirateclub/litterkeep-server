@@ -73,8 +73,8 @@ def main() -> None:
             raise AssertionError("STARTTLS negotiation отклонён")
         with context.wrap_socket(raw, server_hostname="localhost") as encrypted:
             post_tls = read_block(encrypted, Reply.READY)
-            if b'"SASL" "PLAIN"\r\n' not in post_tls:
-                raise AssertionError("TLS не рекламирует SASL PLAIN")
+            if b'"SASL" "PLAIN SCRAM-SHA-1"\r\n' not in post_tls:
+                raise AssertionError("TLS не рекламирует поддерживаемые SASL mechanisms")
             password = password_for(options.credentials, "bob")
             response = base64.b64encode(b"\x00bob\x00" + password.encode("utf-8"))
             encrypted.sendall(b'AUTHENTICATE "PLAIN" "' + response + b'"\r\n')

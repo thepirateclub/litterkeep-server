@@ -152,6 +152,7 @@ pub(super) enum Pending {
     ManageSieveAuthenticate {
         account: String,
     },
+    ManageSieveScramLookup,
     ManageSieveCommand,
 }
 

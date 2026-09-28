@@ -7,15 +7,17 @@ use crate::managesieve::Command;
 #[derive(Clone, Copy)]
 pub(super) enum Mechanism {
     Plain,
+    ScramSha1,
     Unsupported,
 }
 
 impl Mechanism {
     /// Преобразует wire-строку механизма в закрытый тип сервера.
     pub(super) fn parse(value: &str) -> Self {
-        match value.to_ascii_uppercase().as_str() {
-            "PLAIN" => Self::Plain,
-            _ => Self::Unsupported,
+        match crate::managesieve::SaslMechanism::parse(value) {
+            crate::managesieve::SaslMechanism::Plain => Self::Plain,
+            crate::managesieve::SaslMechanism::ScramSha1 => Self::ScramSha1,
+            crate::managesieve::SaslMechanism::Unsupported => Self::Unsupported,
         }
     }
 }
@@ -69,6 +71,7 @@ fn consume_arguments(
 fn empty_response(mechanism: Mechanism) -> Progress {
     match mechanism {
         Mechanism::Plain => Progress::Complete(Command::AuthenticatePlain(None)),
+        Mechanism::ScramSha1 => Progress::Complete(Command::AuthenticateScramSha1(None)),
         Mechanism::Unsupported => Progress::Complete(Command::Invalid),
     }
 }
@@ -99,6 +102,7 @@ fn start_response_literal(
 ) -> Progress {
     receiver.operation = match mechanism {
         Mechanism::Plain => Operation::AuthenticatePlain,
+        Mechanism::ScramSha1 => Operation::AuthenticateScramSha1,
         Mechanism::Unsupported => Operation::AuthenticateRejected,
     };
     receiver.expected = expected;
@@ -114,6 +118,7 @@ fn start_response_literal(
 fn parse_quoted_response(arguments: &str, mechanism: Mechanism) -> Progress {
     match mechanism {
         Mechanism::Plain => parse_plain_response(arguments),
+        Mechanism::ScramSha1 => parse_scram_response(arguments),
         Mechanism::Unsupported => Progress::Complete(Command::Invalid),
     }
 }
@@ -124,6 +129,17 @@ fn parse_plain_response(arguments: &str) -> Progress {
     match crate::managesieve::parse(&command) {
         Command::AuthenticatePlain(Some(response)) => {
             Progress::Complete(Command::AuthenticatePlain(Some(response)))
+        }
+        _ => Progress::Invalid,
+    }
+}
+
+/// Возвращает optional initial response для typed SCRAM-SHA-1 команды.
+fn parse_scram_response(arguments: &str) -> Progress {
+    let command = format!("AUTHENTICATE \"SCRAM-SHA-1\" {arguments}");
+    match crate::managesieve::parse(&command) {
+        Command::AuthenticateScramSha1(Some(response)) => {
+            Progress::Complete(Command::AuthenticateScramSha1(Some(response)))
         }
         _ => Progress::Invalid,
     }
