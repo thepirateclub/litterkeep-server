@@ -10106,10 +10106,14 @@ ManageSieve до заявленного набора современных фо
   строку. Windows Rust 1.97.1 all-target: 933 library + 1 CLI, 4 ignored;
   fmt и strict Clippy прошли. Linux Rust 1.97.1 Docker all-target:
   1042 library + 1 CLI, 4 ignored; fmt и strict Clippy прошли.
-- Независимый SMTP wire-тест специально длинного MAIL не выполнялся; suite
-  подтверждает вычисление лимита, не приложение Litterkeep. Docker использовал
-  существующий `rust:1.97-bookworm`, каждый временный container запускался с
-  `--rm`, новый image не создавался. Linux build artifacts оставлены в
-  `./data/g18-smtp-size-line-linux/target`.
+- Независимый Python STARTTLS peer проверил на реальном Linux runtime строки
+  размером ровно 538/564 октета (receiver пропускает к parser-у, который
+  отвечает 555 на дополнительный неизвестный параметр) и 539/565 октетов
+  (receiver возвращает 500); NOOP после каждого ответа получил 250. Также
+  повторно проверены базовые 512/513. Это не interop с приложением Litterkeep.
+  Docker использовал существующий `rust:1.97-bookworm`; тестовый runtime
+  container остановлен и отсутствует, новый image не создавался. Linux build
+  artifacts оставлены в `./data/g18-smtp-size-line-linux/target`, отдельные
+  runtime/bootstrap fixtures в `./data/g18-smtp-size-line-wire`.
 - G18 остаётся ACTIVE; это не закрывает прочие SMTP, IMAP, POP3, MIME, Sieve и
   ManageSieve пробелы.
