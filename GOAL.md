@@ -61,6 +61,20 @@
   300 строк, артефакты в `./data/g20-pop3-scram-plus`. Доказательство отмены
   добавлено, полный RFC 5034 профиль и G19 остаются ACTIVE.
 
+### 2026-09-28: G19 reject AUTH after success, T368 PASS
+
+- RFC 5034 §4 требует отклонять повторный AUTH в той же session после успешной
+  SASL-аутентификации. Независимый TLS 1.3 POP3 peer теперь после успешного
+  SCRAM-SHA-256-PLUS отправляет второй AUTH, проверяет `-ERR`, затем выполняет
+  `STAT` в уже открытой TRANSACTION и закрывает её через QUIT. Так проверяется
+  не только код отказа, но и сохранение активной maildrop session.
+- Windows Rust 1.97.1 all-target: 996 library + 1 CLI passed, 4 ignored; fmt,
+  strict Clippy и `git diff --check` прошли. Linux Rust 1.97.1 live acceptance
+  прошёл (1/1), сохранив проверки PLUS success/failure/cancellation.
+- Переиспользован `rust:1.97-bookworm`; listener удалён и отсутствие проверено,
+  новый образ не создавался. Изменение локализовано в wire acceptance под
+  `./data/g20-pop3-scram-plus`; полный RFC 5034 профиль остаётся ACTIVE.
+
 ### 2026-09-28: G18 MIME parameter separator whitespace, T364 PASS
 
 - RFC 2045 §5.1 и RFC 2231 §7: parser отклоняет SP/HTAB непосредственно до и

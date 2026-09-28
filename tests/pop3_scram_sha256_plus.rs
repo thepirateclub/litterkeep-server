@@ -36,6 +36,8 @@ fn verifies_scram_sha256_plus_with_rfc9266_exporter() {
     rejects_wrong_channel_binding(&address, &ca, &password);
     rejects_invalid_proof(&address, &ca);
     peer::authenticate_plus(&mut peer, &password, &exporter);
+    write_line(&mut peer, b"AUTH SCRAM-SHA-256-PLUS\r\n");
+    expect_prefix(&mut peer, "-ERR", "AUTH after successful authentication");
     write_line(&mut peer, b"STAT\r\n");
     expect_prefix(&mut peer, "+OK", "STAT after PLUS authentication");
     write_line(&mut peer, b"QUIT\r\n");
