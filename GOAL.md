@@ -1,5 +1,28 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 3464 delivered DSN serialization, PARTIAL T393
+
+- DSN renderer получил отдельный typed `Delivered` outcome: он формирует
+  `Action: delivered`, `Status: 2.0.0` и Success summary, не используя failure
+  enum/status. Для positive report исходный MIME-part всегда содержит только
+  заголовки, включая при `RET=FULL`; UTF-8 media type выбирается по этим
+  возвращаемым октетам. Пустой reverse-path подавляет генерацию.
+- Unit-векторы проверяют поля report, отсутствие тела при обычном policy и
+  `RET=FULL`, и подавление null reverse-path. Первый вектор обнаружил и помог
+  исправить несоответствие MIME media type при позитивном DSN.
+- Windows Rust 1.97.1 all-target suite: 1025 library + 1 CLI passed, 4 ignored;
+  strict all-target Clippy, rustfmt и `git diff --check` прошли. Linux Docker
+  Rust 1.97.1 all-target suite: 1145 library + 1 CLI passed, 4 ignored.
+- Docker переиспользовал существующий `rust:1.97-bookworm`; test target находится
+  в `./data/g21-dsn-delivered-linux-target`. Контейнер удалён через `--rm`, новых
+  images не создавалось. Независимый SMTP acceptance и durable crash/recovery
+  acceptance не запускались.
+- Это только сериализация. Local-delivery commit ещё не создаёт durable success
+  notice; report не ставится в очередь и DSN wire capability выключена. T391
+  остаётся GAP, G18 ACTIVE.
+- Источники: [RFC 3461 §§5.2.3, 6.2](https://www.rfc-editor.org/rfc/rfc3461.html),
+  [RFC 3464 §2.3.3](https://www.rfc-editor.org/rfc/rfc3464.html#section-2.3.3).
+
 ### 2026-09-28: G18 RFC 3461 outcome eligibility policy, PARTIAL T392
 
 - Выбор recipient-scoped NOTIFY вынесен в общую typed policy для FAILURE,
@@ -31,11 +54,11 @@
   wire-функция сейчас безопасно недоступна: `EHLO DSN` не объявляется, а
   параметризованные MAIL/RCPT отвергаются. Поэтому T391 фиксирует отсутствие
   conformance при включённом профиле, а не дефект уже рекламируемой функции.
-- Генератор и durable queue notice сейчас типизированы только как failure:
-  `Action: failed`, failure `Status` и failure key. Следующий совместимый шаг
-  требует отдельной модели notification outcome (`delivered`/`failed`/`delayed`),
-  отдельной политики SUCCESS/FAILURE/DELAY и durable post-commit intent для
-  SUCCESS. Нельзя сериализовать успешное уведомление через failure enum.
+- Durable queue notice сейчас типизирован только для failure: его очередь,
+  idempotency key и recovery ещё не представляют success. Serializer теперь
+  умеет отдельный delivered outcome, а typed eligibility policy охватывает
+  SUCCESS/FAILURE/DELAY. Остаётся связать успешную политику с durable
+  post-commit intent, отдельным report key, append/ack и crash recovery.
 - Acceptance для закрытия GAP: unit vectors для RFC 3461 SUCCESS/NEVER/default;
   crash recovery между local mailbox commit и report append/ack; независимый
   SMTP peer после последующего включения DSN wire должен получить ровно один

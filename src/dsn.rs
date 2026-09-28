@@ -58,6 +58,15 @@ pub struct ReportRequest<'a> {
     pub metadata: Option<&'a DsnDeliveryMetadata>,
 }
 
+/// Outcome, сериализуемый в per-recipient блок RFC 3464.
+#[derive(Clone, Copy)]
+pub(crate) enum ReportOutcome {
+    /// Окончательное отклонение или отказ от доставки.
+    Failure(Failure),
+    /// Локальное письмо уже стало доступно клиенту получателя.
+    Delivered,
+}
+
 /// Решает, разрешает ли сохранённая RCPT policy failure report.
 ///
 /// RFC 3461 задаёт default FAILURE при отсутствии NOTIFY; явные условия без
@@ -103,7 +112,31 @@ pub fn render_with_metadata(
             recipient,
             transaction_id,
             original,
-            failure,
+            ReportOutcome::Failure(failure),
+            metadata,
+        )),
+    }
+}
+
+/// Формирует positive DSN для уже опубликованного локального mailbox delivery.
+///
+/// Вызывающий код обязан вызывать функцию только после durable commit. Позитивный
+/// отчёт всегда возвращает лишь заголовки исходного письма, независимо от RET.
+pub fn render_delivery_success(
+    reverse_path: &str,
+    recipient: &str,
+    transaction_id: u64,
+    original: &[u8],
+    metadata: Option<&DsnDeliveryMetadata>,
+) -> Option<Vec<u8>> {
+    match reverse_path.is_empty() {
+        true => None,
+        false => Some(report::render(
+            reverse_path,
+            recipient,
+            transaction_id,
+            original,
+            ReportOutcome::Delivered,
             metadata,
         )),
     }

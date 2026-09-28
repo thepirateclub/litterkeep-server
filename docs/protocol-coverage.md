@@ -34,8 +34,12 @@ terminal queue transition и восстанавливается после пе�
 идемпотентен по committed Store transaction, а очередь очищает notice отдельным
 durable acknowledgement. Unit/failpoint tests и полный Windows/Linux suite
 проверили эти переходы. Независимый runtime crash-kill сценарий ещё не проверен.
-Success и delay report scheduling, полная сквозная семантика повторной доставки
-и RFC 3461 wire negotiation остаются неподдержанными. RFC 3461 §5.2.3 требует
+Success report serializer теперь создаёт отдельный `Action: delivered` / `Status:
+2.0.0` outcome и возвращает только заголовки даже при `RET=FULL`; unit vectors
+проверяют также null reverse-path. Это не подключено к post-commit delivery:
+durable success notice, идемпотентная очередь/ack и crash recovery отсутствуют.
+Delay report scheduling, полная сквозная семантика повторной доставки и RFC
+3461 wire negotiation остаются неподдержанными. RFC 3461 §5.2.3 требует
 `delivered` DSN при локальной доставке с `NOTIFY=SUCCESS`; RFC считает её
 успешной, когда письмо уже доступно для IMAP/POP retrieval. Текущая SMTP
 реализация DSN не рекламирует и корректные DSN-параметры отвергает, поэтому это
