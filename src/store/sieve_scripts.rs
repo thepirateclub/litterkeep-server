@@ -7,6 +7,9 @@
 mod codec;
 #[path = "sieve_script_error.rs"]
 mod error;
+#[cfg(test)]
+#[path = "sieve_script_name_tests.rs"]
+mod name_tests;
 
 use super::folders::validate_account;
 use crate::sieve;
@@ -18,6 +21,7 @@ use std::path::{Path, PathBuf};
 const MAX_SCRIPTS: usize = 16;
 const MAX_SCRIPT_BYTES: usize = 65_536;
 const MAX_ACCOUNT_BYTES: usize = 262_144;
+const MAX_SCRIPT_NAME_CHARACTERS: usize = 128;
 
 /// Метаданные script без исходника, безопасные для протокольного ответа.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -232,13 +236,27 @@ fn valid_name(name: &str) -> io::Result<()> {
     if name.is_empty() {
         return Err(invalid("unsafe sieve script name"));
     }
-    if name.len() > 120 {
-        return Err(invalid("unsafe sieve script name"));
-    }
-    if name.contains('/') {
-        return Err(invalid("unsafe sieve script name"));
+
+    for (position, character) in name.chars().enumerate() {
+        if position >= MAX_SCRIPT_NAME_CHARACTERS {
+            return Err(invalid("sieve script name exceeds 128 characters"));
+        }
+        if !crate::unicode::is_assigned(character) {
+            return Err(invalid("sieve script name contains an unassigned scalar"));
+        }
+        if forbidden_name_scalar(character, position) {
+            return Err(invalid("sieve script name contains a forbidden scalar"));
+        }
     }
     Ok(())
+}
+
+/// Ограничивает имена требованиями RFC 5804 и Net-Unicode.
+fn forbidden_name_scalar(character: char, position: usize) -> bool {
+    matches!(
+        (u32::from(character), position),
+        (0x0000..=0x001f, _) | (0x007f..=0x009f, _) | (0x2028..=0x2029, _) | (0xfeff, 0)
+    )
 }
 fn missing() -> io::Error {
     error::missing()

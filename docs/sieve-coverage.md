@@ -156,6 +156,19 @@ the following NOOP. The previous non-synchronizing literal/literal combination
 also passed independent wire acceptance.
 Other command string positions not listed above remain unverified or unsupported.
 
+RFC 5804 §1.6 ManageSieve script names now reject C0/C1 controls, U+2028/U+2029,
+a leading BOM, and Unicode 17.0.0 unassigned scalars. The server accepts the
+required 128 Unicode-character boundary (up to 512 UTF-8 octets) and does not
+impose a filesystem-style slash restriction. `LISTSCRIPTS` emits names as
+quoted strings with quote and backslash escaped, so a stored name cannot forge
+another response line. Rust unit checks and an independent STARTTLS client
+verify Unicode/special-character round-trip, CRLF/control rejection, the
+128/129 boundary, and exact listing bytes. This does not claim complete
+Net-Unicode recommendations: NFC normalization before transmission and the
+private-use guidance remain outstanding, as does Litterkeep app interoperability.
+See [RFC 5804 §1.6](https://www.rfc-editor.org/rfc/rfc5804.html#section-1.6)
+and [RFC 5198 §2](https://www.rfc-editor.org/rfc/rfc5198.html#section-2).
+
 ManageSieve script count, per-script byte size and serialized account catalog
 are bounded in the Store. RFC 5804 §1.5 requires a `NO` response containing
 the `QUOTA` response code when an imposed quota rejects a command. Store quota

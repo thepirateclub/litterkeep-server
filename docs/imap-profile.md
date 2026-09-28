@@ -63,7 +63,7 @@ MIME decoding проверены отдельно. При этом синтак�
 | `<sequence-set>`, UID, ALL, ANSWERED/UNANSWERED, DELETED/UNDELETED, DRAFT/UNDRAFT, FLAGGED/UNFLAGGED, SEEN/UNSEEN, RECENT/OLD/NEW | Parser/evaluator реализованы; RECENT является session projection |
 | BEFORE/ON/SINCE, SENTBEFORE/SENTON/SENTSINCE, LARGER/SMALLER | Parser/evaluator реализованы; даты сравниваются по календарному дню согласно профилю |
 | NOT, OR, скобочная группа и неявный AND | Parser/evaluator реализованы |
-| HEADER, BODY, TEXT | Parser/evaluator и MIME charset/transfer decoding реализованы; независимые wire acceptance покрывают Windows-874, 33 однобайтовых charset labels (29 mapping families, включая RFC 1556 ISO-8859-6/8 E/I) и отдельные labels TIS-620/ISO-8859-11; матрица содержит 41 label всего. Остальные body charset не входят в эти сценарии |
+| HEADER, BODY, TEXT | Parser/evaluator и MIME charset/transfer decoding реализованы; независимые wire acceptance покрывают Windows-874, 33 однобайтовых charset labels (29 mapping families, включая RFC 1556 ISO-8859-6/8 E/I) и отдельные labels TIS-620/ISO-8859-11; матрица содержит 42 label всего. Остальные body charset не входят в эти сценарии |
 | SUBJECT, FROM, TO, CC, BCC | Parser/evaluator используют ту же decoded ENVELOPE projection, что и FETCH ENVELOPE; RFC 2047 Subject encoded-words UTF-16 и UTF-32 в generic/BE/LE формах независимо доставлены и найдены через UTF-8 SEARCH literal. Адрес сравнивается по имени, mailbox, host и `mailbox@host`, без RFC 5322 wire delimiters. Obsolete null members пропускаются без потери mailbox order. Разделитель addr-spec выбирается вне quoted local-part и domain-literal; quoted-pair внутри quoted display-name декодируется. Obsolete source-route отбрасывается до разбора целевого addr-spec. CFWS вокруг точек в obsolete dot-separated local-part/domain нормализуется; содержимое quoted local-part и domain-literal сохраняется. Завершающий CFWS после `;` группы отделяется от её содержимого. RFC 5322 группы сериализуются start/member/end адресными структурами; comments удаляются до ENVELOPE/SEARCH. Остальные obsolete forms и malformed syntax ограничивают общий parser |
 | Address groups and addr-spec | FETCH ENVELOPE, SEARCH address keys | PARTIAL | RFC 5322 group markers, empty groups, nested and trailing comments, obsolete null members, display-name quoted-pair, RFC 2047 encoded words in unquoted display phrases, quoted local-part containing `@`, source-route destination, obsolete CFWS around dots, and address SEARCH are covered; malformed encoded words remain visible and quoted display names remain literal; other obsolete forms and grammar mismatches remain limited |
 | KEYWORD, UNKEYWORD | Реализованы typed parser/evaluator и сетевые проверки; keywords входят в APPEND v4 и versioned flags journal v2. Старые append v1-v3 и flags v1 читаются как раньше; FETCH FLAGS, STORE и COPY/MOVE сохраняют keywords. STORE обновляет оба класса flags одним checksum/commit frame |
@@ -214,9 +214,11 @@ build или host fingerprint. ENABLE игнорирует неизвестны�
 его не видит. Такое детерминированное правило находится в разрешённой RFC 3501
 неоднозначности для нескольких одновременно открытых соединений.
 
-Не заявлены IMAP4rev2, CONDSTORE, QRESYNC, COMPRESS,
-SORT, THREAD и полный набор SEARCH keys. Их отсутствие не маскируется пустым
-успешным результатом.
+Не заявлены IMAP4rev2, CONDSTORE, QRESYNC, COMPRESS, SORT и THREAD.
+Базовые SEARCH keys RFC 9051 распознаются и оцениваются, но дополнительные
+SEARCH/ESEARCH расширения и полный формальный профиль SEARCH остаются вне
+заявленного покрытия. Отсутствующие возможности не маскируются пустым успешным
+результатом.
 
 Parser выдаёт типизированный отказ для лишних аргументов у CAPABILITY, LOGOUT,
 NOOP, IDLE и STARTTLS. Tagged BAD содержит читаемый текст причины: пустой
@@ -224,8 +226,9 @@ resp-text допустим в RFC 9051, но стандартный Python imapl
 разбор ответа с пустым BAD, поэтому проверяется и межклиентская совместимость.
 Quoted-pair в quoted-string текущего IMAP4rev1 профиля допускает только `\"`
 и `\\`; произвольный `\x` теперь лексически отвергается, а исходный tag
-сохраняется в tagged BAD. Также legacy quoted-string отвергает raw high-bit
-characters, пока UTF8=ACCEPT не реализован и не согласован. Синхронизирующий
+сохраняется в tagged BAD. До ENABLE legacy quoted-string отвергает raw
+high-bit characters; после ENABLE UTF-8 разрешён в quoted-string, но не в
+atom. Синхронизирующий
 SEARCH literal обрабатывается отдельно от legacy atom/quoted-string: UTF-8
 BODY/UID literals и пустой literal проверены независимым STARTTLS клиентом.
 High-bit characters внутри atom отвергаются tagged BAD, пока UTF8=ACCEPT не

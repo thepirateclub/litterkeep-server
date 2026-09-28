@@ -97,7 +97,8 @@ pub(super) fn list(
                     true => " ACTIVE",
                     false => "",
                 };
-                session.push(format!("\"{}\"{}\r\n", script.name, active).as_bytes())?;
+                let name = super::managesieve_string::quoted(&script.name);
+                session.push(format!("{name}{active}\r\n").as_bytes())?;
             }
             session.push(b"OK \"list completed\"\r\n")
         }
@@ -125,6 +126,24 @@ pub(super) fn source(session: &mut Session, result: io::Result<(u64, String)>) -
 mod tests {
     use super::*;
 
+    /// LISTSCRIPTS сохраняет допустимые специальные символы как одну строку.
+    #[test]
+    fn list_escapes_script_names_and_keeps_active_marker_outside_string() {
+        let (mut session, _peer) = session();
+        let scripts = vec![crate::store::ScriptInfo {
+            name: "review\"\\draft/папка".into(),
+            version: 1,
+            active: true,
+        }];
+
+        list(&mut session, Ok(scripts)).expect("LISTSCRIPTS response");
+
+        assert_eq!(
+            session.output,
+            "\"review\\\"\\\\draft/папка\" ACTIVE\r\nOK \"list completed\"\r\n".as_bytes()
+        );
+    }
+
     /// Квотные отказы имеют машинно-читаемый RFC код, прочие ошибки не маскируются.
     #[test]
     fn mutation_result_distinguishes_quota_from_other_failures() {
@@ -148,5 +167,15 @@ mod tests {
             b"NO (ALREADYEXISTS) \"script already exists\"\r\n"
         );
         assert_eq!(result_response(storage), b"NO \"operation failed\"\r\n");
+    }
+
+    fn session() -> (Session, TcpStream) {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+        let peer = TcpStream::connect(listener.local_addr().expect("address")).expect("peer");
+        let (stream, _) = listener.accept().expect("accept");
+        let mut session =
+            Session::new(Kind::ManageSieve, stream, 1, None, None).expect("ManageSieve session");
+        session.output.clear();
+        (session, peer)
     }
 }

@@ -10392,3 +10392,34 @@ ManageSieve до заявленного набора современных фо
   isolated under `./data/g18-pop3-saslprep-identity-linux` and
   `./data/g18-pop3-saslprep-identity-wire`.
 - G18 остаётся ACTIVE.
+
+### 2026-09-28: IMAP coverage documentation consistency checkpoint
+
+- Сверена матрица IMAP с unit coverage `parses_every_base_rfc_9051_search_key`,
+  SEARCH evaluator and UTF8 tokenizer tests. Исправлены устаревшие заявления,
+  будто базовые SEARCH keys отсутствуют и UTF8=ACCEPT не реализован.
+- Уточнено, что покрытие базовых ключей не означает полного SEARCH/ESEARCH
+  профиля, а IMAP4rev2 и дополнительные extensions по-прежнему не заявлены.
+- Счётчик charset labels синхронизирован с независимой SMTP -> IMAP wire
+  проверкой: 42 labels. Windows Rust 1.97.1 `cargo test --lib imap::` прошёл:
+  137 passed. Reactor session tests на Windows не запускались, потому что этот
+  reactor-набор не входит в Windows lib-test target. Код протокола не менялся;
+  этот checkpoint не является реализационным этапом и не закрывает IMAP4rev2.
+
+### 2026-09-28: G18 RFC 5804 script-name validation and LISTSCRIPTS framing, T353 PARTIAL
+
+- Store теперь проверяет script names по RFC 5804/Net-Unicode: управляющие C0/C1,
+  U+2028/U+2029, начальный BOM и неназначенные Unicode 17.0.0 scalars запрещены;
+  128 Unicode characters принимаются. Slash больше не запрещён произвольным
+  filesystem-style правилом.
+- `LISTSCRIPTS` сериализует имена как quoted strings с экранированием quote и
+  backslash. Независимый TLS peer проверил Unicode/special-name round-trip,
+  CRLF response injection rejection и границу 128/129 символов.
+- Windows Rust 1.97.1 all-target tests: 968 library + 1 CLI, 4 ignored; fmt и
+  strict Clippy прошли. Linux Rust 1.97.1 all-target tests: 1081 library + 1 CLI,
+  4 ignored; strict Clippy и release build прошли. Litterkeep app не проверялось.
+- Docker использовал существующий `rust:1.97-bookworm`; временные контейнеры
+  удалены и отсутствие проверено, образ не создавался. Артефакты и bootstrap
+  аккаунты этапа изолированы в `./data/g18-managesieve-script-names-linux`.
+- NFC output recommendation и private-use guidance RFC 5198 остаются открыты;
+  этап ограничен указанным именовым профилем, полный ManageSieve не объявляется.

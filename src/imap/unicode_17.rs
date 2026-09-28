@@ -49,7 +49,7 @@ const _: () = match char::UNICODE_VERSION {
 };
 
 /// Возвращает true только для scalar values, назначенных в Unicode 17.0.0.
-pub(super) fn is_assigned(character: char) -> bool {
+pub(crate) fn is_assigned(character: char) -> bool {
     let code_point = u32::from(character);
     let ranges = unassigned_ranges(code_point);
     ranges

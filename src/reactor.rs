@@ -91,6 +91,8 @@ mod managesieve_protocol;
 mod managesieve_rename_literal;
 #[path = "reactor/managesieve_scram_protocol.rs"]
 mod managesieve_scram_protocol;
+#[path = "reactor/managesieve_string.rs"]
+mod managesieve_string;
 #[path = "reactor/outbound_entry.rs"]
 mod outbound_entry;
 #[path = "reactor/outbound_scheduler.rs"]
