@@ -189,6 +189,56 @@ fn external_sender_receives_report_as_null_reverse_path_outbound_job() {
     std::fs::remove_dir_all(directory).expect("cleanup");
 }
 
+#[test]
+fn idle_worker_continues_success_notice_backlog_beyond_one_bounded_page() {
+    let directory = root();
+    let accounts = Accounts::open(&directory).expect("open accounts");
+    accounts
+        .create("alice", b"test-password")
+        .expect("alice account");
+    let request = envelope();
+    {
+        let mut store = Store::open(&directory).expect("open Store");
+        for sequence in 0..101 {
+            let message = format!("Subject: receipt {sequence}\r\n\r\nbody");
+            store
+                .deliver_sieve_many_with_dsn(
+                    &["bob".into()],
+                    &request.reverse_path,
+                    &["bob@litterkeep.test".into()],
+                    message.as_bytes(),
+                    Some(&request),
+                )
+                .expect("commit source delivery");
+        }
+        assert_eq!(store.pending_dsn_success_notices().len(), 101);
+    }
+
+    let worker = StorageWorker::start(&directory, 2).expect("start owner");
+    std::thread::sleep(std::time::Duration::from_secs(3));
+    worker
+        .submit(Request::Read {
+            request_id: 101,
+            mailbox: "alice".into(),
+        })
+        .expect("read after idle background sweeps");
+    let response = receive(&worker);
+    assert!(matches!(
+        response,
+        Response::Read {
+            request_id: 101,
+            result: Ok(snapshot)
+        } if snapshot.messages.len() == 101
+    ));
+    worker.shutdown();
+
+    let recovered = Store::open(&directory).expect("verify fully swept backlog");
+    assert!(recovered.pending_dsn_success_notices().is_empty());
+    assert_eq!(recovered.messages("alice").expect("reports").len(), 101);
+    drop(recovered);
+    std::fs::remove_dir_all(directory).expect("cleanup");
+}
+
 fn receive(worker: &StorageWorker) -> Response {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     loop {

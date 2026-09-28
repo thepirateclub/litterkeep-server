@@ -1,5 +1,31 @@
 # Goal ledger
 
+### 2026-09-29: G18 fair bounded SUCCESS DSN backlog continuation, PARTIAL T399
+
+- Pending recipient intents теперь индексируются упорядоченным `BTreeSet` по
+  `(transaction_id, recipient_index)`. Владелец Store переносит cursor между
+  bounded страницами по 100 записей и оборачивается в начало, поэтому
+  необрабатываемая ранняя запись не заслоняет остальные в текущем процессе.
+  После committed report intent удаляется из pending-индекса, а recovery сразу
+  фильтрует подтверждённые ключи; поэтому scan bound ограничивает и посещённые
+  элементы, не только число найденных pending-результатов.
+- Worker делает следующий ограниченный проход после 100 ms ожидания канала,
+  поэтому backlog продолжается без новых клиентских запросов. Linux reactor
+  получает coalesced wake после Store-команды или если idle sweep создал отчёты.
+- Regression проверяет стабильные cursor pages и wrap-around после Store reopen.
+  Runtime acceptance формирует 101 SUCCESS intent, оставляет worker idle и
+  подтверждает публикацию всех отчётов и очистку intents после единственной
+  последующей проверки. Это тест StorageWorker, не Litterkeep-клиент.
+- Windows Rust 1.97.1 all-target: 1039 passed, 4 ignored; Linux Docker Rust
+  1.97.1 all-target: 1160 passed, 4 ignored. Strict Windows Clippy, rustfmt,
+  `git diff --check` и Linux suite прошли. Docker использовал существующий
+  `rust:1.97-bookworm` и `./data/g24-dsn-success-order-linux-target`, контейнер
+  `--rm`, образ не создавался.
+- Ошибки отдельного intent пока повторяются с cadence worker-а без per-intent
+  exponential backoff; pacing/DLQ policy остаются GAP. G18 остаётся ACTIVE,
+  SMTP DSN wire capability выключена.
+- Источник: [RFC 3461 §5.2.3](https://www.rfc-editor.org/rfc/rfc3461.html).
+
 ### 2026-09-29: G18 outbound SUCCESS DSN to external reverse-path, PARTIAL T398
 
 - Положительное уведомление теперь получает typed target: локальный mailbox

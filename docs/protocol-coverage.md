@@ -49,12 +49,17 @@ StorageWorker operation: он восстанавливает envelope и исх�
 commit. Store owner выполняет ограниченный sweep при старте и после каждой
 bounded-команды, поэтому восстановленные intents обрабатываются без отдельного
 протокольного запроса. Ошибки видны в stderr, исходная доставка не отзывается,
-pending intent остаётся для retry. Для существующего внешнего reverse-path
+pending intent остаётся для retry. Success intents обходятся по устойчивому
+cursor-у в `BTreeSet`, а StorageWorker продолжает bounded-страницы до 100 записей
+по idle timer-у; independent StorageWorker test с backlog 101 подтверждает
+продолжение без клиентского запроса. Committed report удаляет intent из
+оперативного pending-индекса, recovery фильтрует подтверждённые записи, поэтому
+лимит ограничивает реально просмотренные элементы. Для существующего внешнего reverse-path
 Store создаёт outbound job с пустым SMTP reverse-path; независимый Linux SMTP
 peer подтвердил `MAIL FROM:<>`, внешний RCPT, `Action: delivered`, отсутствие
 исходного тела и удаление job после принятия. Доставка проверена только до
 явно настроенного relay peer: публичный DNS/MX и интернет не проверялись.
-Fairness/retry pacing при большом внешнем backlog остаются GAP.
+Per-intent exponential retry pacing и dead-letter policy остаются GAP.
 Delay report scheduling, полная сквозная семантика повторной доставки и RFC
 3461 wire negotiation остаются неподдержанными. RFC 3461 §5.2.3 требует
 `delivered` DSN при локальной доставке с `NOTIFY=SUCCESS`; RFC считает её

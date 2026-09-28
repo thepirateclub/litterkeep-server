@@ -70,8 +70,12 @@ pub(super) fn append_success(
 pub(super) fn append_pending_successes(
     store: &mut Store,
     accounts: &Accounts,
+    cursor: &mut Option<crate::queue::DsnSuccessKey>,
 ) -> io::Result<usize> {
-    let notices = store.pending_dsn_success_notices_limited(100);
+    let notices = store.pending_dsn_success_notices_after(*cursor, 100);
+    if let Some(last) = notices.last() {
+        *cursor = Some(*last);
+    }
     let mut published = 0_usize;
     for key in notices {
         if append_success(store, accounts, key)?.is_some() {

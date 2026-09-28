@@ -153,7 +153,7 @@ pub use model::{AppendMetadata, MailboxSnapshot, Message};
 use quota::Quota;
 pub use sieve_diagnostics::{SieveDiagnostic, SieveFailureOutcome};
 pub use sieve_scripts::ScriptInfo;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
@@ -222,7 +222,7 @@ pub struct Store {
     /// Queue job keys whose immutable failure reports already committed.
     dsn_report_transactions: HashMap<crate::queue::DsnReportKey, u64>,
     /// Pending local-success notices visible only after the source transaction commits.
-    dsn_success_notices: HashSet<crate::queue::DsnSuccessKey>,
+    dsn_success_notices: BTreeSet<crate::queue::DsnSuccessKey>,
     /// Positive DSN report transactions, одновременно подтверждающие intents.
     dsn_success_report_transactions: HashMap<crate::queue::DsnSuccessReportKey, u64>,
     /// Единственный источник видимости queue jobs после recovery или commit.

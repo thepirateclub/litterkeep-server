@@ -70,6 +70,12 @@ pub(super) fn append(
                 store
                     .dsn_success_report_transactions
                     .insert(key, transaction_id);
+                store
+                    .dsn_success_notices
+                    .remove(&crate::queue::DsnSuccessKey {
+                        transaction_id: key.source_transaction_id,
+                        recipient_index: key.recipient_index,
+                    });
             }
             Ok(uid)
         }

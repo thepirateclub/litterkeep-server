@@ -4,41 +4,46 @@ use super::{Store, model};
 use std::{fs, io};
 
 impl Store {
-    /// Возвращает ограниченную пачку committed intents для фонового consumer-а.
-    pub(crate) fn pending_dsn_success_notices_limited(
+    /// Возвращает bounded cursor-страницу и оборачивается в начало при EOF.
+    pub(crate) fn pending_dsn_success_notices_after(
         &self,
+        cursor: Option<crate::queue::DsnSuccessKey>,
         limit: usize,
     ) -> Vec<crate::queue::DsnSuccessKey> {
-        self.dsn_success_notices
-            .iter()
-            .filter(|notice| {
-                let key = crate::queue::DsnSuccessReportKey {
-                    source_transaction_id: notice.transaction_id,
-                    recipient_index: notice.recipient_index,
-                };
-                !self.dsn_success_report_transactions.contains_key(&key)
-            })
-            .take(limit)
-            .copied()
-            .collect()
+        let mut notices = Vec::with_capacity(limit);
+        let mut later = match cursor {
+            Some(cursor) => self
+                .dsn_success_notices
+                .range::<crate::queue::DsnSuccessKey, _>((
+                    std::ops::Bound::Excluded(cursor),
+                    std::ops::Bound::Unbounded,
+                )),
+            None => self
+                .dsn_success_notices
+                .range::<crate::queue::DsnSuccessKey, _>((
+                    std::ops::Bound::<crate::queue::DsnSuccessKey>::Unbounded,
+                    std::ops::Bound::<crate::queue::DsnSuccessKey>::Unbounded,
+                )),
+        };
+        collect_pending(&mut notices, &mut later, limit);
+        if let Some(cursor) = cursor
+            && notices.len() < limit
+        {
+            let remaining = limit.saturating_sub(notices.len());
+            let mut earlier = self
+                .dsn_success_notices
+                .range::<crate::queue::DsnSuccessKey, _>((
+                    std::ops::Bound::Unbounded,
+                    std::ops::Bound::Excluded(cursor),
+                ));
+            collect_pending(&mut notices, &mut earlier, remaining);
+        }
+        notices
     }
 
     /// Возвращает RCPT success intents после исходного global commit.
     pub fn pending_dsn_success_notices(&self) -> Vec<crate::queue::DsnSuccessKey> {
-        let mut notices = self
-            .dsn_success_notices
-            .iter()
-            .filter(|notice| {
-                let key = crate::queue::DsnSuccessReportKey {
-                    source_transaction_id: notice.transaction_id,
-                    recipient_index: notice.recipient_index,
-                };
-                !self.dsn_success_report_transactions.contains_key(&key)
-            })
-            .copied()
-            .collect::<Vec<_>>();
-        notices.sort_by_key(|notice| (notice.transaction_id, notice.recipient_index));
-        notices
+        self.dsn_success_notices.iter().copied().collect::<Vec<_>>()
     }
 
     /// Восстанавливает исходные octets и recipient metadata одного pending intent.
@@ -46,7 +51,7 @@ impl Store {
         &self,
         key: crate::queue::DsnSuccessKey,
     ) -> io::Result<crate::queue::DsnSuccessContext> {
-        if !self.pending_dsn_success_notices().contains(&key) {
+        if !self.dsn_success_notices.contains(&key) {
             return Err(io::Error::new(
                 io::ErrorKind::NotFound,
                 "success notice is not pending",
@@ -83,5 +88,19 @@ impl Store {
                 recipient: Some(recipient.dsn.clone()),
             },
         })
+    }
+}
+
+/// Добавляет только необработанные ключи, сохраняя BTree-порядок и лимит.
+fn collect_pending<'a>(
+    output: &mut Vec<crate::queue::DsnSuccessKey>,
+    notices: &mut impl Iterator<Item = &'a crate::queue::DsnSuccessKey>,
+    limit: usize,
+) {
+    for notice in notices {
+        if output.len() >= limit {
+            break;
+        }
+        output.push(*notice);
     }
 }

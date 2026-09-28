@@ -68,6 +68,69 @@ fn committed_local_success_intent_survives_store_reopen() {
 }
 
 #[test]
+fn bounded_success_notice_pages_are_stable_across_recovery() {
+    let directory = root();
+    let mut expected = Vec::new();
+    {
+        let mut store = Store::open(&directory).expect("open store");
+        let addresses = (0..7).map(|_| "bob@test".to_owned()).collect::<Vec<_>>();
+        let request = envelope(
+            addresses
+                .iter()
+                .map(|address| recipient(address, success_policy()))
+                .collect(),
+        );
+        let transaction_id = store
+            .deliver_sieve_many_with_dsn(
+                &vec!["bob".to_owned(); 7],
+                "alice@test",
+                &addresses,
+                b"Subject: page\r\n\r\nbody",
+                Some(&request),
+            )
+            .expect("commit delivery");
+        for recipient_index in 0..7 {
+            expected.push(DsnSuccessKey {
+                transaction_id,
+                recipient_index,
+            });
+        }
+        let first_page = store.pending_dsn_success_notices_after(None, 3);
+        assert_eq!(
+            first_page,
+            expected.iter().take(3).copied().collect::<Vec<_>>()
+        );
+        let second_page = store.pending_dsn_success_notices_after(None, 6);
+        assert_eq!(
+            second_page,
+            expected.iter().take(6).copied().collect::<Vec<_>>()
+        );
+        let cursor = expected.get(2).copied();
+        assert_eq!(
+            store.pending_dsn_success_notices_after(cursor, 3),
+            expected.iter().skip(3).take(3).copied().collect::<Vec<_>>()
+        );
+        let final_key = expected.iter().last().copied();
+        assert_eq!(
+            store.pending_dsn_success_notices_after(final_key, 2),
+            expected.iter().take(2).copied().collect::<Vec<_>>()
+        );
+    }
+    let recovered = Store::open(&directory).expect("recover ordered intents");
+    assert_eq!(
+        recovered.pending_dsn_success_notices(),
+        expected,
+        "recovery preserves the same transaction/recipient order"
+    );
+    assert_eq!(
+        recovered.pending_dsn_success_notices_after(None, 4),
+        expected.iter().take(4).copied().collect::<Vec<_>>()
+    );
+    drop(recovered);
+    std::fs::remove_dir_all(directory).expect("cleanup");
+}
+
+#[test]
 fn duplicate_rcpt_tracks_only_each_explicit_success_request() {
     let directory = root();
     let request = envelope(vec![

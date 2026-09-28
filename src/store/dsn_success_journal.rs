@@ -2,7 +2,7 @@
 
 use crate::queue::DsnSuccessKey;
 use std::{
-    collections::HashSet,
+    collections::{BTreeSet, HashSet},
     fs::{self, OpenOptions},
     io::{self, Write},
     path::{Path, PathBuf},
@@ -47,13 +47,13 @@ pub(super) fn append(root: &Path, transaction_id: u64, indices: &[usize]) -> io:
 }
 
 /// Возвращает intents только для исходных транзакций с commit marker.
-pub(super) fn load(root: &Path, committed: &HashSet<u64>) -> io::Result<HashSet<DsnSuccessKey>> {
+pub(super) fn load(root: &Path, committed: &HashSet<u64>) -> io::Result<BTreeSet<DsnSuccessKey>> {
     let source = match fs::read_to_string(journal_path(root)) {
         Ok(value) => value,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(HashSet::new()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(BTreeSet::new()),
         Err(error) => return Err(error),
     };
-    let mut result = HashSet::new();
+    let mut result = BTreeSet::new();
     for line in source.lines() {
         let (transaction_id, recipient_index) = parse(line)?;
         if committed.contains(&transaction_id) {

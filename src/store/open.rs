@@ -28,9 +28,16 @@ impl Store {
         let committed = commit_log::committed(&root.join("journal/transactions.log"))?;
         let smtp_dsn_envelopes = smtp_dsn_journal::load(&root, &committed.ids)?;
         let dsn_report_transactions = dsn_report_journal::load(&root, &committed.ids)?;
-        let dsn_success_notices = dsn_success_journal::load(&root, &committed.ids)?;
         let dsn_success_report_transactions =
             dsn_success_report_journal::load(&root, &committed.ids)?;
+        let mut dsn_success_notices = dsn_success_journal::load(&root, &committed.ids)?;
+        dsn_success_notices.retain(|notice| {
+            let report_key = crate::queue::DsnSuccessReportKey {
+                source_transaction_id: notice.transaction_id,
+                recipient_index: notice.recipient_index,
+            };
+            !dsn_success_report_transactions.contains_key(&report_key)
+        });
         sieve_diagnostics::recover(&root)?;
         vacation_suppression::recover(&root)?;
         let vacation_history = vacation_suppression::load(&root, &committed.ids)?;

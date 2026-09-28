@@ -76,7 +76,7 @@ pub struct DsnReportKey {
 }
 
 /// Идемпотентная идентичность committed SMTP local-success уведомления.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct DsnSuccessKey {
     /// Глобальная transaction ID исходной local delivery.
     pub transaction_id: u64,
