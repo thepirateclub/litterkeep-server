@@ -77,6 +77,14 @@ SHA-1 и TLS channel binding требования безопасности. SHA-
 варианты также не реализованы; security-профиль следует закрывать прежде
 рекламы соответствующих механизмов.
 
+Для следующего этапа SCRAM-SHA-256 добавлены собственные safe-Rust примитивы
+`sha256`, `hmac_sha256` и одноблочный `pbkdf2_sha256`. Они не добавляют прямых
+production dependencies и пока не подключены к verifier, account sidecar или
+SASL state machine. SHA-256 сверяется с RFC 6234, HMAC с RFC 4231, PBKDF2 с
+RFC 7914 §11; iteration count ограничен значением 200000 на уровне примитива.
+Следовательно, ни SMTP, ни IMAP, POP3 или ManageSieve пока не рекламируют
+SCRAM-SHA-256 на основании одних этих криптографических building blocks.
+
 IMAP mailbox validation использует собственные generated ranges Unicode
 17.0.0, а не crate. Официальный источник, версия toolchain, SHA-256 и лицензия
 зафиксированы в [`unicode-data.md`](unicode-data.md); compile-time assertion

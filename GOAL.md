@@ -10446,3 +10446,22 @@ ManageSieve до заявленного набора современных фо
   `./data/g18-managesieve-script-names-linux`.
 - Не закрыты private-use guidance RFC 5198, interoperability с приложением и
   полный профиль ManageSieve.
+
+### 2026-09-28: G18 SCRAM-SHA-256 cryptographic foundations, T355 PARTIAL
+
+- Без новых production dependencies добавлены собственные safe-Rust
+  SHA-256, HMAC-SHA-256 и одноблочный PBKDF2-HMAC-SHA-256. Вычислительная
+  стоимость KDF ограничена 200000 итерациями.
+- Проверки используют SHA-256 vectors RFC 6234, HMAC vectors RFC 4231 и
+  PBKDF2 vector RFC 7914 §11. Сверены пустое/короткое/многоблочное сообщение,
+  границы padding, миллион октетов и HMAC ключ длиннее hash block.
+- Windows Rust 1.97.1 all-target: 977 library + 1 CLI passed, 4 ignored;
+  fmt и strict Clippy прошли. Linux Rust 1.97.1 all-target: 1090 library +
+  1 CLI passed, 4 ignored; strict Clippy и release build также прошли.
+- Использован существующий image `rust:1.97-bookworm` с ID
+  `sha256:0e2bcaef56d041a486784e54104a81aebe0da44bd03019bd70bc0401e42e4a97`;
+  контейнеры тестов одноразовые (`--rm`), новый image не создавался. Артефакты
+  этапа оставлены только в `./data/g18-scram-sha256-foundation`.
+- Это криптографическая основа, не поддержка SCRAM-SHA-256: verifier storage,
+  state machine, протокольный wire acceptance и channel binding пока отсутствуют;
+  механизм не рекламируется.

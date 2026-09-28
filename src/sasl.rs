@@ -4,8 +4,12 @@
 //! затем передаются единственному владельцу account-хранилища.
 #[path = "sasl/hmac_sha1.rs"]
 pub mod hmac_sha1;
+#[path = "sasl/hmac_sha256.rs"]
+pub mod hmac_sha256;
 #[path = "sasl/pbkdf2_sha1.rs"]
 pub mod pbkdf2_sha1;
+#[path = "sasl/pbkdf2_sha256.rs"]
+pub mod pbkdf2_sha256;
 #[path = "sasl/saslprep.rs"]
 pub mod saslprep;
 #[path = "sasl/saslprep_data/data.rs"]
@@ -26,6 +30,8 @@ pub mod scram_sha1_record;
 pub mod scram_sha1_verifier;
 #[path = "sasl/sha1.rs"]
 pub mod sha1;
+#[path = "sasl/sha256.rs"]
+pub mod sha256;
 
 use crate::mime::decode_base64;
 
