@@ -1,6 +1,9 @@
 //! Ограниченный и явный профиль преобразования MIME charset в Unicode.
 
 #[cfg(test)]
+#[path = "charset_alias_tests.rs"]
+mod alias_tests;
+#[cfg(test)]
 #[path = "charset_iso8859_bidi_tests.rs"]
 mod bidi_tests;
 #[cfg(test)]
@@ -68,16 +71,20 @@ impl Charset {
         match name.to_ascii_lowercase().as_str() {
             "us-ascii" | "ascii" => Ok(Self::UsAscii),
             "utf-8" | "utf8" => Ok(Self::Utf8),
-            "iso-8859-1" | "latin1" => Ok(Self::Iso8859_1),
-            "iso-8859-2" => Ok(Self::Iso8859_2),
-            "iso-8859-3" => Ok(Self::Iso8859_3),
-            "iso-8859-4" => Ok(Self::Iso8859_4),
-            "iso-8859-5" => Ok(Self::Iso8859_5),
-            "iso-8859-6" => Ok(Self::Iso8859_6),
+            "iso-8859-1" | "iso_8859-1" | "latin1" | "l1" | "ibm819" | "cp819" | "csisolatin1" => {
+                Ok(Self::Iso8859_1)
+            }
+            "iso-8859-2" | "iso_8859-2" | "latin2" | "l2" | "csisolatin2" => Ok(Self::Iso8859_2),
+            "iso-8859-3" | "iso_8859-3" | "latin3" | "l3" | "csisolatin3" => Ok(Self::Iso8859_3),
+            "iso-8859-4" | "iso_8859-4" | "latin4" | "l4" | "csisolatin4" => Ok(Self::Iso8859_4),
+            "iso-8859-5" | "iso_8859-5" | "cyrillic" | "csisolatincyrillic" => Ok(Self::Iso8859_5),
+            "iso-8859-6" | "iso_8859-6" | "ecma-114" | "asmo-708" | "arabic"
+            | "csisolatinarabic" => Ok(Self::Iso8859_6),
             "csiso88596e" | "iso-8859-6-e" | "iso_8859-6-e" => Ok(Self::Iso8859_6Explicit),
             "csiso88596i" | "iso-8859-6-i" | "iso_8859-6-i" => Ok(Self::Iso8859_6Implicit),
-            "iso-8859-7" => Ok(Self::Iso8859_7),
-            "iso-8859-8" => Ok(Self::Iso8859_8),
+            "iso-8859-7" | "iso_8859-7" | "elot_928" | "ecma-118" | "greek" | "greek8"
+            | "csisolatingreek" => Ok(Self::Iso8859_7),
+            "iso-8859-8" | "iso_8859-8" | "hebrew" | "csisolatinhebrew" => Ok(Self::Iso8859_8),
             "csiso88598e" | "iso-8859-8-e" | "iso_8859-8-e" => Ok(Self::Iso8859_8Explicit),
             "csiso88598i" | "iso-8859-8-i" | "iso_8859-8-i" => Ok(Self::Iso8859_8Implicit),
             "iso-8859-9" | "latin5" | "l5" => Ok(Self::Iso8859_9),
@@ -85,14 +92,14 @@ impl Charset {
                 Ok(Self::Iso8859_10)
             }
             "tis-620" | "iso-8859-11" => Ok(Self::Tis620),
-            "iso-8859-13" | "csiso885913" => Ok(Self::Iso8859_13),
+            "iso-8859-13" | "iso_8859-13" | "csiso885913" => Ok(Self::Iso8859_13),
             "iso-8859-14" | "latin8" | "l8" | "iso-celtic" | "csiso885914" => Ok(Self::Iso8859_14),
             "iso-8859-15" | "iso_8859-15" | "latin-9" | "csiso885915" => Ok(Self::Iso8859_15),
             "iso-8859-16" | "iso_8859-16:2001" | "iso_8859-16" | "latin10" | "l10"
             | "iso-ir-226" | "csiso885916" => Ok(Self::Iso8859_16),
             "windows-1250" | "cswindows1250" => Ok(Self::Windows1250),
-            "windows-1251" | "cp1251" => Ok(Self::Windows1251),
-            "windows-1252" => Ok(Self::Windows1252),
+            "windows-1251" | "cswindows1251" => Ok(Self::Windows1251),
+            "windows-1252" | "cp1252" | "cswindows1252" => Ok(Self::Windows1252),
             "windows-1253" | "cswindows1253" => Ok(Self::Windows1253),
             "windows-1254" | "cswindows1254" => Ok(Self::Windows1254),
             "windows-1255" | "cswindows1255" => Ok(Self::Windows1255),

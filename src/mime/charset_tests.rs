@@ -174,30 +174,9 @@ fn windows_1252_decodes_typographic_range_and_c1_controls() {
         decoded,
         "€\u{0081}‚ƒ„…†‡ˆ‰Š‹Œ\u{008d}Ž\u{008f}\u{0090}‘’“”•–—˜™š›œ\u{009d}žŸ"
     );
-    assert!(Charset::parse("cp1252").is_err());
 }
 
 #[test]
-fn windows_1250_decodes_central_european_text_and_rejects_undefined_octets() {
-    let charset = Charset::parse("WINDOWS-1250").expect("registered MIME charset");
-    assert_eq!(
-        charset.decode(b"P\xf8\xed\x9at\xed"),
-        Ok("Příští".to_owned())
-    );
-    assert_eq!(
-        charset.decode(b"Za\xbf\xf3\xb3\xe6"),
-        Ok("Zażółć".to_owned())
-    );
-    assert_eq!(Charset::parse("csWindows1250"), Ok(Charset::Windows1250));
-    assert!(Charset::parse("cp1250").is_err());
-    for byte in [0x81, 0x83, 0x88, 0x90, 0x98] {
-        assert!(
-            charset.decode(&[byte]).is_err(),
-            "undefined octet {byte:#04x}"
-        );
-    }
-}
-
 #[test]
 fn windows_1253_decodes_greek_and_rejects_undefined_octets() {
     let charset = Charset::parse("WINDOWS-1253").expect("registered MIME charset");

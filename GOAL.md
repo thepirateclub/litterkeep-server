@@ -1,5 +1,17 @@
 # Goal ledger
 
+### 2026-09-28: G18 registered IANA MIME aliases, scoped PASS T308
+
+- Added explicitly enumerated aliases from the IANA registry for already
+  supported ISO-8859-1..8 and ISO-8859-13 profiles, plus Windows-1251/1252/1255/1256
+  `cs` aliases and registered Windows-1252 `cp1252`. Unregistered `x-cp1252`
+  remains rejected; no decoder families were added.
+- Unit tests cover every new alias. IANA's full registry is much broader, so
+  this stage claims only names mapped to existing decoders, not registry-wide
+  charset support. Linux network matrix coverage remains the 41 canonical labels
+  from T307; this alias-only stage has no additional wire acceptance claim.
+- G18 remains ACTIVE; broader RFC/registry audit and other protocol gaps remain.
+
 ### 2026-09-28: G18 RFC 1556 bidi MIME charset aliases, scoped PASS T307
 
 - Добавлены четыре отдельные typed charset profiles: ISO-8859-6-E/I и

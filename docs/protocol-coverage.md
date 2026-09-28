@@ -986,6 +986,14 @@ Suffix E обозначает explicit, I implicit bidi presentation. Серве
 [RFC 1556](https://www.rfc-editor.org/rfc/rfc1556.html),
 [RFC 2046 §4.1.2](https://www.rfc-editor.org/rfc/rfc2046.html#section-4.1.2) и
 [IANA Character Sets registry](https://www.iana.org/assignments/character-sets/).
+IANA aliases добавлены как отдельные перечисленные варианты только для уже
+поддерживаемых ISO-8859 профилей: `iso_8859-*`, Latin/Greek/Hebrew/Arabic
+имена и `csISO*`; Windows-1251/1252/1255/1256 проверяются через IANA `cs`-
+aliases, а Windows-1252 также через RFC 1345 alias `cp1252`. Unit tests
+проверяют каждый добавленный alias и отклоняют незарегистрированный `x-cp1252`.
+Это не полная
+поддержка IANA Character Sets registry: неподдерживаемые charset остаются
+ошибкой и не угадываются по префиксу.
 Отдельная
 SMTP -> IMAP wire-проверка доставила RFC 2047 Subject encoded-word варианты UTF-16,
 UTF-16BE/LE и UTF-32 с generic BE BOM, UTF-32BE/LE; UTF-8 SEARCH literal
