@@ -914,7 +914,7 @@ STARTTLS SMTP -> IMAP acceptance дополнительно доставил 8BI
 synchronizing literal `ภาษาไทย`; результат включил доставленное сообщение.
 Это доказывает Windows-874 decoding в IMAP MIME text projection и его передачу
 в evaluator. Другой сценарий проверил 28 однобайтовых body charset: ISO-8859-1..10
-и 13..16, TIS-620, IBM866, KOI8-R/U, Windows-874 и Windows-1250..1258. KOI8-R
+и 13..16, TIS-620, ISO-8859-11, IBM866, KOI8-R/U, Windows-874 и Windows-1250..1258. KOI8-R
 и KOI8-U mappings unit-tested для всех 256 octets по RFC 1489 и RFC 2319;
 независимый Python codec проверил русский и украинский текст в SMTP -> IMAP
 SEARCH цепочке. Это не доказывает остальные

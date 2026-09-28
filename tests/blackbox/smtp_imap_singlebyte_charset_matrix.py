@@ -54,6 +54,7 @@ CHARSET_CASES = (
     CharsetCase("iso-8859-15", "iso8859_15", "Euro €"),
     CharsetCase("iso-8859-16", "iso8859_16", "ȘȚ șț"),
     CharsetCase("TIS-620", "tis_620", "ภาษาไทย"),
+    CharsetCase("ISO-8859-11", "iso8859_11", "ภาษาไทย"),
     CharsetCase("IBM866", "cp866", "Привет"),
     CharsetCase("KOI8-R", "koi8_r", "Привет"),
     CharsetCase("KOI8-U", "koi8_u", "Їжак"),

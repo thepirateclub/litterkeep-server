@@ -1,5 +1,18 @@
 # Goal ledger
 
+### 2026-09-28: G18 ISO-8859-11 MIME SEARCH wire coverage, scoped PASS T299
+
+- Существующий `ISO-8859-11` alias декодера TIS-620 был покрыт unit-тестом,
+  но отсутствовал как отдельный label в сетевой проверке MIME. В независимую
+  Linux SMTP STARTTLS -> IMAP UTF-8 SEARCH матрицу добавлен codec `iso8859_11`.
+- Все 29 однобайтовых charset labels теперь проходят сетевую матрицу, включая
+  раздельные `TIS-620` и `ISO-8859-11`. Python 3.14 `py_compile` прошёл.
+  Rust source не менялся, поэтому Rust suite повторно не запускался.
+- Fixture `./data/acceptance-mime-iso8859-11-20260928` сохранена. Созданный
+  Linux runtime image и контейнер удалены и их отсутствие проверено.
+- Это расширение wire evidence только для MIME SEARCH: прочие MIME поля,
+  charset labels и совместимость с Litterkeep app не подтверждены. G18 ACTIVE.
+
 ### 2026-09-28: G18 RFC 2319 KOI8-U MIME charset, scoped PASS T298
 
 - MIME `Charset` поддерживает зарегистрированные `KOI8-U` и alias `csKOI8U`.
