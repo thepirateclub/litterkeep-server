@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 1489 KOI8-R MIME charset, scoped PASS T297
+
+- MIME `Charset` принимает зарегистрированные IANA имя `KOI8-R` и alias
+  `csKOI8R`; однопроходная таблица реализует все 256 octets по RFC 1489.
+- Rust unit oracle сравнивает полную таблицу. Независимый Linux SMTP -> IMAP
+  acceptance отправил сообщение с русским текстом `charset=KOI8-R`, и IMAP
+  SEARCH по UTF-8 нашёл его через общий MIME decoder; проверены все 27
+  single-byte body charset в матричном сценарии.
+- Windows Rust 1.97.1 fmt, strict Clippy и all-target tests прошли (819 library
+  + 1 CLI, 3 ignored). Linux Rust 1.97 Docker strict Clippy, 928 library + 1
+  CLI, 3 ignored, и doc-tests прошли. Свежие test/runtime images и контейнер
+  удалены; fixture `./data/acceptance-mime-koi8-r-20260928` оставлен.
+- Сценарий проверяет MIME charset/IMAP SEARCH только для этого набора и не
+  закрывает оставшиеся charset, остальные RFC profile gaps или Litterkeep app
+  interoperability. G18 остаётся ACTIVE.
+
 ### 2026-09-28: G18 RFC 2045 quoted-printable illegal literal octets, scoped PASS T296
 
 - `quoted-printable` decoder теперь отклоняет незакодированные C0 controls,

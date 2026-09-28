@@ -35,6 +35,7 @@ pub enum Charset {
     Windows1258,
     Windows874,
     Ibm866,
+    Koi8R,
     Utf16,
     Utf16Be,
     Utf16Le,
@@ -78,6 +79,7 @@ impl Charset {
             "windows-1258" | "cswindows1258" => Ok(Self::Windows1258),
             "windows-874" | "cswindows874" => Ok(Self::Windows874),
             "ibm866" | "cp866" | "csibm866" | "866" => Ok(Self::Ibm866),
+            "koi8-r" | "cskoi8r" => Ok(Self::Koi8R),
             "utf-16" => Ok(Self::Utf16),
             "utf-16be" => Ok(Self::Utf16Be),
             "utf-16le" => Ok(Self::Utf16Le),
@@ -139,6 +141,7 @@ impl Charset {
             Self::Windows1258 => super::charset_windows1258::decode(bytes),
             Self::Windows874 => super::charset_windows874::decode(bytes),
             Self::Ibm866 => Ok(super::charset_ibm866::decode(bytes)),
+            Self::Koi8R => Ok(super::charset_koi8_r::decode(bytes)),
             Self::Utf16 => {
                 super::charset_utf16::decode(bytes, super::charset_utf16::ByteOrder::DetectBom)
             }

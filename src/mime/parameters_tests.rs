@@ -20,7 +20,7 @@ fn parses_quoted_boundary_and_filename_continuation() {
 #[test]
 fn rejects_gapped_continuation_and_unknown_charset() {
     assert!(parameters::parse("text/plain; name*1=x").is_err());
-    assert!(parameters::parse("text/plain; name*=koi8-r''text").is_err());
+    assert!(parameters::parse("text/plain; name*=x-litterkeep-unknown''text").is_err());
 }
 
 /// RFC 2231 continuation должна иметь уникальные имена и непрерывные индексы.
