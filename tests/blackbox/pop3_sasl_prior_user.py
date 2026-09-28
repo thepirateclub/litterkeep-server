@@ -128,7 +128,8 @@ def verify_maximum_scram_first(stream: socket.SocketIO) -> None:
     """Проверяет max client-first и следующий client-final с nonce overhead."""
     exchange(stream, b"AUTH SCRAM-SHA-256", b"+ ")
     username_and_nonce = b"n=bob,r="
-    client_nonce = b"A" * (16 * 1024 - len(username_and_nonce))
+    maximum_message_size = 256 * 1024
+    client_nonce = b"A" * (maximum_message_size - len(username_and_nonce))
     client_first = username_and_nonce + client_nonce
     sasl_payload = base64.b64encode(b"n,," + client_first)
     write_all(stream, sasl_payload + b"\r\n")
@@ -146,7 +147,7 @@ def verify_maximum_scram_first(stream: socket.SocketIO) -> None:
     server_nonce = nonce_field.removeprefix(b"r=")
     client_final = b"c=biws,r=" + server_nonce + b",p="
     client_final += base64.b64encode(bytes(32))
-    if len(client_final) != 16 * 1024 + 72:
+    if len(client_final) != maximum_message_size + 72:
         raise AssertionError(f"неожиданная граница SCRAM client-final: {len(client_final)}")
     write_all(stream, base64.b64encode(client_final) + b"\r\n")
     server_final = read_line(stream, "maximum SCRAM client-final response")
