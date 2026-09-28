@@ -41,6 +41,7 @@ pub enum Charset {
     Gb18030,
     Big5,
     EucJp,
+    Iso2022Jp,
     Utf16,
     Utf16Be,
     Utf16Le,
@@ -91,6 +92,7 @@ impl Charset {
             "gb18030" | "csgb18030" => Ok(Self::Gb18030),
             "big5" | "big5-hkscs" | "cn-big5" | "csbig5" | "x-x-big5" => Ok(Self::Big5),
             "cseucpkdfmtjapanese" | "euc-jp" | "x-euc-jp" => Ok(Self::EucJp),
+            "csiso2022jp" | "iso-2022-jp" => Ok(Self::Iso2022Jp),
             "utf-16" => Ok(Self::Utf16),
             "utf-16be" => Ok(Self::Utf16Be),
             "utf-16le" => Ok(Self::Utf16Le),
@@ -157,6 +159,7 @@ impl Charset {
             Self::Gbk | Self::Gb18030 => super::charset_gb18030::decode(bytes),
             Self::Big5 => super::charset_big5::decode(bytes),
             Self::EucJp => super::charset_euc_jp::decode(bytes),
+            Self::Iso2022Jp => super::charset_iso2022_jp::decode(bytes),
             Self::Utf16 => {
                 super::charset_utf16::decode(bytes, super::charset_utf16::ByteOrder::DetectBom)
             }

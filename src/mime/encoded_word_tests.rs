@@ -15,6 +15,17 @@ fn decodes_base64_utf8_and_q_latin1() {
 }
 
 #[test]
+fn iso2022_jp_encoded_word_must_return_to_ascii_before_its_boundary() {
+    let valid = "=?iso-2022-jp?B?GyRCRnxLXDhsGyhC?=";
+    assert_eq!(decode(valid), Ok("日本語".to_owned()));
+    let unreset = "=?iso-2022-jp?B?GyRCRnxLXDhs?=";
+    assert_eq!(
+        decode(unreset),
+        Err("ISO-2022-JP message must end in ASCII mode")
+    );
+}
+
+#[test]
 /// Проверяет, что charset IBM866 подключена к декодированию RFC 2047.
 fn decodes_ibm866_encoded_word_from_legacy_russian_header() {
     assert_eq!(

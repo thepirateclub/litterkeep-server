@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-28: G18 ISO-2022-JP MIME state machine and IMAP SEARCH, scoped PASS T304
+
+- Добавлен typed `ISO-2022-JP` Charset и строгий конечный автомат WHATWG:
+  ASCII, Roman, Katakana и JIS X 0208. JIS пары используют pinned таблицу
+  EUC-JP; malformed escape/pair sequences, redundant shifts и отсутствие
+  финального ASCII reset завершаются ошибкой.
+- RFC 2047 unit test проверяет reset внутри encoded-word. Независимый Linux
+  SMTP STARTTLS -> IMAP UTF-8 SEARCH wire test проверил 35 MIME charset labels,
+  японский ISO-2022-JP body и encoded-word Subject `日本語件名` отдельным SEARCH
+  SUBJECT. Это independent client, не проверка приложения Litterkeep.
+- Windows Rust 1.97.1 strict Clippy/all-target tests: 843 library + 1 CLI,
+  3 ignored. Linux Docker gate: 952 library + 1 CLI, 3 ignored, doc-tests.
+  Профиль явно помечает Katakana как WHATWG compatibility ветку, которую
+  RFC 1468 исключает из собственного mail profile.
+- Acceptance данные сохранены в `./data/acceptance-mime-iso2022jp-20260928`
+  и `./data/acceptance-mime-iso2022jp-final-20260928`. Созданные контейнеры и
+  test/runtime images удалены и их отсутствие проверено. G18 остаётся ACTIVE.
+
 ### 2026-09-28: G18 EUC-JP MIME decoder and IMAP SEARCH, scoped PASS T303
 
 - Добавлен строгий EUC-JP decoder с типизированными WHATWG labels и четырьмя

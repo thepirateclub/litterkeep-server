@@ -60,6 +60,7 @@ CHARSET_CASES = (
     CharsetCase("Big5", "big5", "繁體中文"),
     CharsetCase("Big5-HKSCS", "big5hkscs", "Ê\u0304Ê\u030cê\u0304ê\u030c"),
     CharsetCase("EUC-JP", "euc_jp", "日本語かな"),
+    CharsetCase("ISO-2022-JP", "iso2022_jp", "日本語メール"),
     CharsetCase("IBM866", "cp866", "Привет"),
     CharsetCase("KOI8-R", "koi8_r", "Привет"),
     CharsetCase("KOI8-U", "koi8_u", "Їжак"),
@@ -100,7 +101,7 @@ def wait_for_listener(host: str, port: int) -> None:
     raise TimeoutError(f"listener {host}:{port} не открылся за 15 секунд")
 
 
-def build_message() -> tuple[bytes, dict[bytes, bytes]]:
+def build_message() -> tuple[bytes, dict[bytes, tuple[bytes, bytes]]]:
     """Формирует multipart сообщение и независимые UTF-8 поисковые ключи."""
     boundary = b"litterkeep-singlebyte-boundary"
     parts = []
@@ -109,7 +110,7 @@ def build_message() -> tuple[bytes, dict[bytes, bytes]]:
         phrase = f"{case.phrase} matrix{ordinal:02d}"
         raw_body = phrase.encode(case.codec, errors="strict")
         query = phrase.encode("utf-8")
-        queries[query] = case.label.encode("ascii")
+        queries[query] = (case.label.encode("ascii"), b"BODY")
         parts.extend(
             (
                 b"--" + boundary,
@@ -121,10 +122,12 @@ def build_message() -> tuple[bytes, dict[bytes, bytes]]:
         )
     parts.append(b"--" + boundary + b"--")
     body = b"\r\n".join(parts)
+    subject_phrase = "日本語件名".encode("utf-8")
+    queries[subject_phrase] = (b"RFC2047 ISO-2022-JP Subject", b"SUBJECT")
     message = (
         b"From: Alice <alice@litterkeep.test>\r\n"
         b"To: Bob <bob@litterkeep.test>\r\n"
-        b"Subject: MIME charset matrix\r\n"
+        b"Subject: MIME charset matrix =?iso-2022-jp?B?GyRCRnxLXDhsN29MPhsoQg==?=\r\n"
         b"MIME-Version: 1.0\r\n"
         b"Content-Type: multipart/mixed; boundary=litterkeep-singlebyte-boundary\r\n"
         b"\r\n"
@@ -149,10 +152,10 @@ def deliver_message(options: argparse.Namespace, context: ssl.SSLContext, messag
             raise AssertionError(f"SMTP отклонил адресатов: {refused!r}")
 
 
-def search_literal(imap: imaplib.IMAP4, query: bytes) -> bytes:
+def search_literal(imap: imaplib.IMAP4, query: bytes, criterion: bytes) -> bytes:
     """Ищет один UTF-8 ключ synchronizing literal и возвращает ответ сервера."""
     tag = b"z321"
-    imap.send(tag + b" SEARCH CHARSET UTF-8 BODY {" + str(len(query)).encode() + b"}\r\n")
+    imap.send(tag + b" SEARCH CHARSET UTF-8 " + criterion + b" {" + str(len(query)).encode() + b"}\r\n")
     continuation = imap.readline()
     if not continuation.startswith(b"+"):
         raise AssertionError(f"сервер не запросил SEARCH literal: {continuation!r}")
@@ -176,7 +179,11 @@ def search_literal(imap: imaplib.IMAP4, query: bytes) -> bytes:
     return joined
 
 
-def verify_queries(options: argparse.Namespace, context: ssl.SSLContext, queries: dict[bytes, bytes]) -> None:
+def verify_queries(
+    options: argparse.Namespace,
+    context: ssl.SSLContext,
+    queries: dict[bytes, tuple[bytes, bytes]],
+) -> None:
     """Проверяет независимым IMAP клиентом все decoded MIME charset parts."""
     with imaplib.IMAP4(options.host, options.imap_port, timeout=15) as imap:
         imap.starttls(ssl_context=context)
@@ -186,9 +193,9 @@ def verify_queries(options: argparse.Namespace, context: ssl.SSLContext, queries
         select_status, _ = imap.select("INBOX", readonly=True)
         if ClientStatus.parse(select_status) is not ClientStatus.OK:
             raise AssertionError(f"IMAP SELECT завершился статусом {select_status!r}")
-        for query, label in queries.items():
-            search_literal(imap, query)
-            print(f"PASS IMAP SEARCH decoded MIME charset={label.decode('ascii')}")
+        for query, (label, criterion) in queries.items():
+            search_literal(imap, query, criterion)
+            print(f"PASS IMAP SEARCH decoded MIME text={label.decode('ascii')}")
 
 
 def run(options: argparse.Namespace) -> None:
@@ -201,7 +208,7 @@ def run(options: argparse.Namespace) -> None:
     message, queries = build_message()
     deliver_message(options, context, message)
     verify_queries(options, context, queries)
-    print(f"PASS MIME charset matrix: {len(queries)} labels")
+    print(f"PASS MIME charset matrix: {len(CHARSET_CASES)} labels and one RFC 2047 header")
 
 
 PARSER = argparse.ArgumentParser()

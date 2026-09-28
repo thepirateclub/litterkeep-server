@@ -22,6 +22,8 @@ mod charset_gb18030;
 mod charset_gb18030_table;
 #[path = "mime/charset_ibm866.rs"]
 mod charset_ibm866;
+#[path = "mime/charset_iso2022_jp.rs"]
+mod charset_iso2022_jp;
 #[path = "mime/charset_iso8859_10.rs"]
 mod charset_iso8859_10;
 #[path = "mime/charset_iso8859_13.rs"]

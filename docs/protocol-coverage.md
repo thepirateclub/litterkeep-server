@@ -947,6 +947,17 @@ wire-позиции каждой ветки с соответствующим т
 Первичные источники: [WHATWG EUC-JP decoder](https://encoding.spec.whatwg.org/#euc-jp-decoder),
 [JIS X 0208 index](https://encoding.spec.whatwg.org/index-jis0208.txt) и
 [JIS X 0212 index](https://encoding.spec.whatwg.org/index-jis0212.txt).
+ISO-2022-JP теперь декодируется конечным автоматом WHATWG с typed ASCII,
+Roman, Katakana и JIS X 0208 состояниями; пары JIS используют уже закреплённую
+таблицу X 0208. Некорректные и неполные escape/pair формы отклоняются, а MIME
+текст и каждый RFC 2047 encoded-word должны завершаться в ASCII. Независимый
+SMTP -> IMAP acceptance проверил японский body и ISO-2022-JP RFC 2047 Subject
+через отдельные BODY и SUBJECT criteria. Katakana designation входит в
+WHATWG compatibility decoder, но RFC 1468 явно исключает kana из собственного
+mail profile; поэтому это не заявление полного RFC 1468 conformance. Тесты
+сверяют encoded-word с ASCII reset и отказ без него. Источники: [WHATWG
+ISO-2022-JP decoder](https://encoding.spec.whatwg.org/#iso-2022-jp-decoder),
+[RFC 1468](https://www.rfc-editor.org/rfc/rfc1468.html) и [RFC 2047 §3](https://www.rfc-editor.org/rfc/rfc2047.html#section-3).
 Отдельная
 SMTP -> IMAP wire-проверка доставила RFC 2047 Subject encoded-word варианты UTF-16,
 UTF-16BE/LE и UTF-32 с generic BE BOM, UTF-32BE/LE; UTF-8 SEARCH literal
