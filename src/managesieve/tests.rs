@@ -213,6 +213,11 @@ fn capability_advertises_supported_sieve_extensions() {
     );
     assert!(
         response
+            .windows(b"\"MAXREDIRECTS\" \"16\"".len())
+            .any(|part| { part == b"\"MAXREDIRECTS\" \"16\"" })
+    );
+    assert!(
+        response
             .windows(b"\"VERSION\" \"1.0\"".len())
             .any(|part| part == b"\"VERSION\" \"1.0\"")
     );

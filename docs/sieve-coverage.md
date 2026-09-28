@@ -201,6 +201,10 @@ durable диагностику и fallback после повторного от�
 проверяет строку отчёта. Независимый сетевой сценарий подтверждает implicit
 keep при redirect-limit и redirect-loop; после остановки сервера команда
 запущена на тот же persistent store и подтвердила обе committed строки CLI.
+Сервер теперь публикует действующую границу `MAXREDIRECTS "16"` в каждом
+ManageSieve capability block. Capability и executor используют один
+`MAX_REDIRECTS_PER_EVALUATION`; unit boundary test подтверждает 16 успешных
+действий и отказ на 17-м.
 
 RFC 3894 `copy` реализован для `fileinto` и `redirect`; скрипт обязан явно
 заявить `require "copy"`, а `fileinto` дополнительно требует `fileinto`.

@@ -5,6 +5,9 @@ use super::ast::{Action, Command, Condition, EnvelopePart, Script, VacationActio
 use super::matching;
 use std::fmt;
 
+/// Максимум redirect действий за одну оценку Sieve script.
+pub const MAX_REDIRECTS_PER_EVALUATION: usize = 16;
+
 /// Единственный результат Sieve, который delivery transaction может применить.
 #[derive(Debug, Eq, PartialEq)]
 pub struct DeliveryPlan {
@@ -175,14 +178,14 @@ fn apply(
         }
         Action::FileIntoCopy(folder) => plan.folders.push(folder.clone()),
         Action::Redirect(address) => {
-            if plan.redirects.len() >= 16 {
+            if plan.redirects.len() >= MAX_REDIRECTS_PER_EVALUATION {
                 return Err(ExecutionError::RedirectLimit);
             }
             cancel_implicit_keep(plan, keep_state);
             plan.redirects.push(address.clone());
         }
         Action::RedirectCopy(address) => {
-            if plan.redirects.len() >= 16 {
+            if plan.redirects.len() >= MAX_REDIRECTS_PER_EVALUATION {
                 return Err(ExecutionError::RedirectLimit);
             }
             plan.redirects.push(address.clone());

@@ -1354,7 +1354,9 @@ peer проверяет NOOP до аутентификации и обязате
 Implicit-TLS SCRAM-SHA-1 и SCRAM-SHA-256 wire exchanges независимо сверяют proof
 и server signature. После STARTTLS независимый peer проверяет пустой список SASL
 до TLS, публикацию `PLAIN SCRAM-SHA-1 SCRAM-SHA-256` и полный SHA-256 proof plus
-server-signature exchange после TLS upgrade.
+server-signature exchange после TLS upgrade. Capability также объявляет
+`MAXREDIRECTS "16"`, синхронизированный с пределом evaluator-а и проверенный
+unit boundary test-ом.
 SCRAM-SHA-256 использует отдельный verifier sidecar и bounded Accounts owner
 lookup. Это независимый тестовый клиент, не Litterkeep app. SCRAM-SHA-256-PLUS
 и TLS channel binding остаются неподдержанными; полный профиль RFC 5804 ещё не

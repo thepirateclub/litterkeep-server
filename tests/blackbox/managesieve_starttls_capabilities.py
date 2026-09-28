@@ -37,6 +37,7 @@ def require_capabilities(
         block,
         b'"SIEVE" "fileinto subaddress envelope copy vacation vacation-seconds"\r\n',
     )
+    require_line(block, b'"MAXREDIRECTS" "16"\r\n')
     require_line(block, b'"UNAUTHENTICATE"\r\n')
     if owner is not None:
         require_line(block, b'"OWNER" "' + owner + b'"\r\n')

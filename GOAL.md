@@ -10548,3 +10548,27 @@ ManageSieve до заявленного набора современных фо
 - Это проверка независимого тестового клиента, а не приложения Litterkeep.
   SCRAM-SHA-256-PLUS/channel binding и application interoperability остаются
   неподтверждёнными; общий профиль ManageSieve и цель G18 остаются ACTIVE.
+
+### 2026-09-28: G18 ManageSieve MAXREDIRECTS capability, T360 PASS
+
+- RFC 5804 defines `MAXREDIRECTS` as the per-evaluation redirect-action limit.
+  The evaluator's existing value 16 now has one exported constant shared by
+  normal `redirect` and `redirect :copy`, and ManageSieve publishes the exact
+  `"MAXREDIRECTS" "16"` capability in every capability block.
+- A focused Rust boundary test proves that 16 actions execute and action 17
+  fails with typed `RedirectLimit`. An independent Python STARTTLS peer confirms
+  capability presence before TLS, after TLS, after PLAIN authentication, after
+  UNAUTHENTICATE, and on explicit CAPABILITY; it also passes the existing TLS
+  and authentication transitions.
+- Windows Rust 1.97.1 all-target: 989 library + 1 CLI passed, 4 ignored; fmt and
+  strict Clippy passed. Linux Rust 1.97.1 all-target: 1102 library + 1 CLI
+  passed, 4 ignored; strict Clippy and release build passed. Python 3.14.7
+  `py_compile` and `git diff --check` passed.
+- Reused existing `rust:1.97-bookworm` image ID
+  `sha256:0e2bcaef56d041a486784e54104a81aebe0da44bd03019bd70bc0401e42e4a97`
+  and `./data/g18-scram-sha256-managesieve` build/runtime fixtures. Disposable
+  build/runtime containers are absent; no image was created. Other running
+  containers were not modified.
+- This closes capability reporting and its boundary evidence only; broader
+  Sieve/ManageSieve profiles and Litterkeep app interoperability remain open.
+  G18 remains ACTIVE.

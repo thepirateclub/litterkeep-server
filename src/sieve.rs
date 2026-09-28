@@ -35,6 +35,9 @@ mod parser_tests;
 #[path = "sieve/parser_values.rs"]
 mod parser_values;
 #[cfg(test)]
+#[path = "sieve/redirect_limit_tests.rs"]
+mod redirect_limit_tests;
+#[cfg(test)]
 #[path = "sieve/tests.rs"]
 mod tests;
 #[path = "sieve/vacation_identity.rs"]
@@ -58,7 +61,9 @@ pub use ast::{
     Action, AddressPart, Comparator, Condition, EnvelopePart, MatchType, Script, SizeRelation,
     StringMatch, VacationAction, VacationInterval,
 };
-pub use execution::{DeliveryPlan, ExecutionError, execute, execute_with_envelope};
+pub use execution::{
+    DeliveryPlan, ExecutionError, MAX_REDIRECTS_PER_EVALUATION, execute, execute_with_envelope,
+};
 
 /// Разбирает и валидирует script до его сохранения или исполнения.
 pub fn parse(source: &str) -> Result<Script, &'static str> {
