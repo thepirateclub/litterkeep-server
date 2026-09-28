@@ -60,18 +60,31 @@ fn consumer_publishes_one_delivered_report_and_recovers_acknowledgement() {
     };
     let first_worker = StorageWorker::start(&directory, 2).expect("start worker");
     first_worker
-        .submit(Request::Dsn(DsnRequest::Success { request_id: 1, key }))
-        .expect("send intent to Store owner");
-    let report_id = match receive(&first_worker) {
-        Response::Dsn(DsnResponse::Success {
+        .submit(Request::Read {
             request_id: 1,
-            result,
-        }) => result
-            .expect("consumer result")
-            .expect("local sender report"),
-        _ => panic!("unexpected worker response"),
-    };
+            mailbox: "alice".into(),
+        })
+        .expect("wait for startup sweep");
+    assert!(matches!(
+        receive(&first_worker),
+        Response::Read {
+            request_id: 1,
+            result: Ok(snapshot)
+        } if snapshot.messages.len() == 1
+    ));
     first_worker.shutdown();
+
+    let store = Store::open(&directory).expect("verify automatic report");
+    assert!(store.pending_dsn_success_notices().is_empty());
+    let automatic_reports = store.messages("alice").expect("alice mailbox");
+    let automatic_report = automatic_reports.first().expect("startup delivered report");
+    assert!(
+        automatic_report
+            .bytes
+            .windows(b"Action: delivered".len())
+            .any(|value| value == b"Action: delivered")
+    );
+    drop(store);
 
     let recovered_worker = StorageWorker::start(&directory, 2).expect("restart worker");
     recovered_worker
@@ -82,7 +95,7 @@ fn consumer_publishes_one_delivered_report_and_recovers_acknowledgement() {
         Response::Dsn(DsnResponse::Success {
             request_id: 2,
             result: Ok(Some(transaction_id))
-        }) if transaction_id == report_id
+        }) if transaction_id > key.transaction_id
     ));
     recovered_worker.shutdown();
 

@@ -59,3 +59,18 @@ pub(super) fn append_success(
         .append_dsn_success_report_once(&mailbox, &report, report_key)
         .map(Some)
 }
+
+/// Обрабатывает ограниченную пачку durable pending intents.
+pub(super) fn append_pending_successes(
+    store: &mut Store,
+    accounts: &Accounts,
+) -> io::Result<usize> {
+    let notices = store.pending_dsn_success_notices_limited(100);
+    let mut published = 0_usize;
+    for key in notices {
+        if append_success(store, accounts, key)?.is_some() {
+            published = published.saturating_add(1);
+        }
+    }
+    Ok(published)
+}

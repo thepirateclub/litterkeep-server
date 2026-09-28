@@ -46,8 +46,12 @@ StorageWorker operation: он восстанавливает envelope и исх�
 только существующий локальный sender account, строит `Action: delivered` и
 публикует отчёт идемпотентно. Commit отчёта подтверждает intent и устраняет его
 из pending-представления после recovery; failpoint проверяет retry при сбое до
-commit. Пока нет автоматического scheduler-а pending intents и outbound
-доставки внешнему sender-у. Consumer требует явной worker-команды.
+commit. Store owner выполняет ограниченный sweep при старте и после каждой
+bounded-команды, поэтому восстановленные local intents обрабатываются без
+отдельного протокольного запроса. Ошибки видны в stderr, исходная доставка не
+отзывается, pending intent остаётся для retry. Outbound-доставка внешнему
+sender-у пока отсутствует, а fairness/retry pacing при большом внешнем backlog
+нуждаются в доработке.
 Delay report scheduling, полная сквозная семантика повторной доставки и RFC
 3461 wire negotiation остаются неподдержанными. RFC 3461 §5.2.3 требует
 `delivered` DSN при локальной доставке с `NOTIFY=SUCCESS`; RFC считает её

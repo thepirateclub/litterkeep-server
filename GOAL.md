@@ -1,5 +1,26 @@
 # Goal ledger
 
+### 2026-09-29: G18 automatic local SUCCESS DSN recovery sweep, PARTIAL T397
+
+- Store owner now scans at most 100 pending positive notices when it starts and
+  after each bounded storage request. Local sender accounts receive reports
+  automatically after recovery without a separate protocol/client command.
+- A failed sweep is written to stderr and leaves its intent durable for retry;
+  source SMTP delivery success is not retroactively changed by a report error.
+  A StorageWorker acceptance checks that startup processing commits one report,
+  removes the intent, and a later explicit retry does not duplicate it.
+- The scan is bounded per pass. Reports for external reverse-path senders are
+  not yet sent through outbound SMTP and remain pending; retry pacing and fair
+  continuation across a large external backlog need follow-up. SMTP DSN
+  negotiation remains disabled, so G18 is still ACTIVE and T391 remains GAP.
+- Windows Rust 1.97.1 all-target suite: 1035 passed, 4 ignored; Linux Docker
+  Rust 1.97.1 all-target suite: 1155 passed, 4 ignored. Strict all-target
+  Clippy, rustfmt, and diff checks passed. Docker reused
+  `sha256:0e2bcaef56d041a486784e54104a81aebe0da44bd03019bd70bc0401e42e4a97`
+  with `./data/g23-dsn-success-report-linux-verify-target`; the container was
+  removed by `--rm`, and no image was created.
+- Источник: [RFC 3461 §5.2.3](https://www.rfc-editor.org/rfc/rfc3461.html).
+
 ### 2026-09-29: G18 local delivered DSN consumer, PARTIAL T396
 
 - The bounded StorageWorker now accepts a typed command to consume a committed

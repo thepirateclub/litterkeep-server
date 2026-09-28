@@ -4,6 +4,25 @@ use super::{Store, model};
 use std::{fs, io};
 
 impl Store {
+    /// Возвращает ограниченную пачку committed intents для фонового consumer-а.
+    pub(crate) fn pending_dsn_success_notices_limited(
+        &self,
+        limit: usize,
+    ) -> Vec<crate::queue::DsnSuccessKey> {
+        self.dsn_success_notices
+            .iter()
+            .filter(|notice| {
+                let key = crate::queue::DsnSuccessReportKey {
+                    source_transaction_id: notice.transaction_id,
+                    recipient_index: notice.recipient_index,
+                };
+                !self.dsn_success_report_transactions.contains_key(&key)
+            })
+            .take(limit)
+            .copied()
+            .collect()
+    }
+
     /// Возвращает RCPT success intents после исходного global commit.
     pub fn pending_dsn_success_notices(&self) -> Vec<crate::queue::DsnSuccessKey> {
         let mut notices = self
