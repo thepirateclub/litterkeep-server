@@ -3,7 +3,11 @@
 //! Этот модуль не владеет ни Store, ни socket. Он чисто переводит проверенный
 //! transport outcome в записываемый queue state, retry deadline и DSN cause.
 
-use crate::{dsn, outbound::DeliveryOutcome, queue::State};
+use crate::{
+    dsn,
+    outbound::DeliveryOutcome,
+    queue::{DsnDeliveryMetadata, State},
+};
 use std::io;
 
 /// Максимум действительно начатых попыток для одного recipient job.
@@ -51,9 +55,19 @@ pub fn dsn_failure(result: &io::Result<DeliveryOutcome>, attempts: u8) -> Option
     }
 }
 
+/// Применяет сохранённый RCPT NOTIFY к терминальной причине доставки.
+pub fn requested_dsn_failure(
+    result: &io::Result<DeliveryOutcome>,
+    attempts: u8,
+    metadata: Option<&DsnDeliveryMetadata>,
+) -> Option<dsn::Failure> {
+    dsn_failure(result, attempts).filter(|_| dsn::failure_requested(metadata))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::smtp::{NotifyCondition, NotifyPolicy};
 
     #[test]
     fn third_deferred_attempt_becomes_permanent_failure() {
@@ -106,5 +120,41 @@ mod tests {
         let denied = Err(io::Error::new(io::ErrorKind::InvalidInput, "denied"));
         assert_eq!(state(&denied, 1), State::PermanentFailure);
         assert_eq!(dsn_failure(&denied, 1), Some(dsn::Failure::RoutePolicy));
+    }
+
+    /// Scheduler создаёт failure report только если NOTIFY его разрешает.
+    #[test]
+    fn terminal_failure_obeys_recipient_notify_policy() {
+        let failure = Ok(DeliveryOutcome::PermanentFailure);
+        assert_eq!(
+            requested_dsn_failure(&failure, 1, None),
+            Some(dsn::Failure::PermanentSmtp)
+        );
+        let only_success = dsn_metadata(NotifyPolicy::Conditions(
+            [NotifyCondition::Success].into_iter().collect(),
+        ));
+        assert_eq!(
+            requested_dsn_failure(&failure, 1, Some(&only_success)),
+            None
+        );
+        let failure_requested = dsn_metadata(NotifyPolicy::Conditions(
+            [NotifyCondition::Failure].into_iter().collect(),
+        ));
+        assert_eq!(
+            requested_dsn_failure(&failure, 1, Some(&failure_requested)),
+            Some(dsn::Failure::PermanentSmtp)
+        );
+        let never = dsn_metadata(NotifyPolicy::Never);
+        assert_eq!(requested_dsn_failure(&failure, 1, Some(&never)), None);
+    }
+
+    fn dsn_metadata(notify: NotifyPolicy) -> DsnDeliveryMetadata {
+        DsnDeliveryMetadata {
+            mail: Default::default(),
+            recipient: Some(crate::smtp::RecipientDsn {
+                notify: Some(notify),
+                original_recipient: None,
+            }),
+        }
     }
 }

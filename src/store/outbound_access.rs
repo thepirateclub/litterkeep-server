@@ -7,13 +7,16 @@ use std::io;
 impl Store {
     /// Возвращает только jobs, пережившие global Store commit и recovery.
     pub fn pending_outbound(&self) -> io::Result<Vec<crate::queue::OwnedDelivery>> {
-        self.queue.pending_owned(&self.committed_transactions)
+        let jobs = self.queue.pending_owned(&self.committed_transactions)?;
+        self.attach_dsn_metadata(jobs)
     }
 
     /// Возвращает committed jobs с наступившим retry deadline.
     pub fn due_outbound(&self, now_epoch: u64) -> io::Result<Vec<crate::queue::OwnedDelivery>> {
-        self.queue
-            .due_owned(&self.committed_transactions, now_epoch)
+        let jobs = self
+            .queue
+            .due_owned(&self.committed_transactions, now_epoch)?;
+        self.attach_dsn_metadata(jobs)
     }
 
     /// Ограничивает число jobs, передаваемых transport scheduler-у.
@@ -25,6 +28,36 @@ impl Store {
         let mut due = self.due_outbound(now_epoch)?;
         due.truncate(limit);
         Ok(due)
+    }
+
+    /// Связывает committed queue jobs с sidecar DSN через transaction и RCPT ID.
+    fn attach_dsn_metadata(
+        &self,
+        jobs: Vec<crate::queue::OwnedDelivery>,
+    ) -> io::Result<Vec<crate::queue::OwnedDelivery>> {
+        jobs.into_iter()
+            .map(|mut delivery| {
+                let Some(envelope) = self.smtp_dsn_envelopes.get(&delivery.transaction_id) else {
+                    return Ok(delivery);
+                };
+                let recipient = match delivery.original_recipient_index {
+                    Some(index) => Some(
+                        envelope
+                            .recipients
+                            .get(index)
+                            .ok_or_else(invalid_dsn_index)?
+                            .dsn
+                            .clone(),
+                    ),
+                    None => None,
+                };
+                delivery.dsn_metadata = Some(Box::new(crate::queue::DsnDeliveryMetadata {
+                    mail: envelope.mail.clone(),
+                    recipient,
+                }));
+                Ok(delivery)
+            })
+            .collect()
     }
 
     /// Читает payload только job, опубликованный общим transaction commit.
@@ -63,4 +96,12 @@ impl Store {
         }
         self.queue.transition_owned(delivery, state)
     }
+}
+
+/// Сообщает о повреждённом индексе, не подменяя политику другим RCPT.
+fn invalid_dsn_index() -> io::Error {
+    io::Error::new(
+        io::ErrorKind::InvalidData,
+        "outbound recipient index is outside DSN envelope",
+    )
 }

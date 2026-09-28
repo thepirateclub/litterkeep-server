@@ -1,5 +1,25 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 3461 terminal failure NOTIFY policy, PARTIAL T387
+
+- Store owner связывает committed outbound job с typed MAIL/RCPT DSN metadata
+  через transaction ID и сохранённый ordinal; повреждённый ordinal даёт
+  `InvalidData`, а не fallback на чужую RCPT policy.
+- Outbound scheduler теперь применяет RFC 3461 §5.2.6 к failure DSN: без
+  NOTIFY действует default failure, явный FAILURE разрешает report, SUCCESS,
+  DELAY и NEVER подавляют failure report. Политика хранится в компактном
+  boxed metadata, не раздувающем каждое storage Request.
+- Проверены policy unit cases и Store reopen round-trip. Windows Rust 1.97.1:
+  1010 library + 1 CLI прошли, 4 ignored; strict Clippy/fmt/diff прошли. Linux
+  rust:1.97-bookworm Rust 1.97.1: 1130 library + 1 CLI прошли, 4 ignored.
+  Повтор на прежнем bind-mounted incremental target встретил отсутствующий `.o`;
+  полный запуск на отдельном `./data/g18-rfc3461-notify-linux-target` прошёл.
+- Linux strict Clippy не выполнен: image не содержит `rustup`/`cargo-clippy`;
+  image не изменялся. `--rm` контейнер удалён автоматически. Это не wire
+  acceptance: EHLO `DSN` и параметризованные MAIL/RCPT остаются выключены;
+  SUCCESS/DELAY reports, RET, ORCPT, ENVID и объединение duplicate RCPT ещё GAP.
+- Источник: [RFC 3461 §5.2.6](https://www.rfc-editor.org/rfc/rfc3461.html).
+
 ### 2026-09-28: G18 RFC 3461 durable redirect recipient ordinal, PARTIAL T386
 
 - Outbound queue frame теперь сохраняет ordinal SMTP RCPT, чей Sieve plan

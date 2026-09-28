@@ -63,6 +63,48 @@ fn committed_envelope_survives_store_reopen() {
     let _ = fs::remove_dir_all(directory);
 }
 
+/// Scheduler получает RCPT policy, восстановленную через transaction и ordinal.
+#[test]
+fn outbound_job_recovers_its_recipient_policy_after_store_reopen() {
+    let directory = root();
+    let expected = envelope();
+    let expected_recipient = expected
+        .recipients
+        .first()
+        .map(|recipient| recipient.dsn.clone())
+        .expect("one recipient policy");
+    {
+        let mut store = Store::open(&directory).expect("open store");
+        store
+            .append_many_with_sieve(
+                &["bob".into()],
+                b"message",
+                &[("alice@test".into(), "forward@peer.test".into())],
+                &[],
+                Some(&expected),
+                &[Some(0)],
+            )
+            .expect("commit queued delivery");
+    }
+    let store = Store::open(&directory).expect("reopen store");
+    let delivery = store
+        .pending_outbound()
+        .expect("pending queue")
+        .into_iter()
+        .next()
+        .expect("one delivery");
+    assert_eq!(delivery.original_recipient_index, Some(0));
+    assert_eq!(
+        delivery.dsn_metadata,
+        Some(Box::new(crate::queue::DsnDeliveryMetadata {
+            mail: expected.mail,
+            recipient: Some(expected_recipient),
+        }))
+    );
+    drop(store);
+    let _ = fs::remove_dir_all(directory);
+}
+
 /// Complete DSN frame без global commit игнорируется после аварийного reopen.
 #[test]
 fn uncommitted_envelope_is_invisible_after_reopen() {

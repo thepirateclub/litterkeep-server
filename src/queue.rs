@@ -52,6 +52,16 @@ pub struct Delivery {
     pub recipient: String,
     pub state: State,
 }
+
+/// DSN policy одного исходного получателя, восстановленная Store по ordinal.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DsnDeliveryMetadata {
+    /// Параметры MAIL, общие для исходной SMTP transaction.
+    pub mail: crate::smtp::MailDsn,
+    /// Параметры RCPT, соответствующие исходному queue route.
+    pub recipient: Option<crate::smtp::RecipientDsn>,
+}
+
 /// Очередное задание, принадлежащее immutable blob одной Store transaction.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OwnedDelivery {
@@ -64,6 +74,8 @@ pub struct OwnedDelivery {
     pub recipient: String,
     /// Индекс исходного SMTP RCPT, если job возникла из Sieve redirect.
     pub original_recipient_index: Option<usize>,
+    /// Typed DSN данные исходной transaction, подставляемые Store при чтении.
+    pub dsn_metadata: Option<Box<DsnDeliveryMetadata>>,
     pub state: State,
 }
 impl Queue {

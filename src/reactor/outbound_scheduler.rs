@@ -114,8 +114,11 @@ impl OutboundScheduler {
             self.phase = match phase {
                 Phase::Transport(job_id, mut delivery, bytes) if job_id == completion.id => {
                     let state = outbound_policy::state(&completion.result, delivery.attempts);
-                    let failure =
-                        outbound_policy::dsn_failure(&completion.result, delivery.attempts);
+                    let failure = outbound_policy::requested_dsn_failure(
+                        &completion.result,
+                        delivery.attempts,
+                        delivery.dsn_metadata.as_deref(),
+                    );
                     delivery.state = state;
                     delivery.next_attempt_epoch =
                         outbound_policy::next_attempt_epoch(state, delivery.attempts, now_epoch()?);

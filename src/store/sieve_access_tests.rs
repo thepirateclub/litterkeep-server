@@ -53,6 +53,7 @@ fn redirect_cancels_implicit_keep_and_preserves_envelope_sender() {
         sender: "alice@litterkeep.test".into(),
         recipient: "remote@peer.test".into(),
         original_recipient_index: Some(0),
+        dsn_metadata: None,
         state: crate::queue::State::Pending,
     };
     assert_eq!(store.pending_outbound().expect("owned"), vec![expected]);

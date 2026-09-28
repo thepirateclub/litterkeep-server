@@ -50,11 +50,15 @@ ordinal исходного RCPT, из Sieve plan породившего redirect
 проверяет два одинаковых конечных адреса с различными исходными RCPT. Это пока
 только связь для обычных отдельных mailbox-планов: повторные SMTP RCPT,
 сведённые в один локальный mailbox, по-прежнему выполняют Sieve один раз, и их
-несколько исходных ordinal не агрегируются в одном job. Scheduler пока не
-читает этот ordinal для формирования DSN. Следовательно NOTIFY, ORCPT, RET и
-ENVID ещё нельзя объявлять поддержанными; `DSN` остаётся выключенным. RFC 3461
-описывает корреляцию исходного и переадресованного получателя в разделах 5.2.7
-и 6. См. [RFC 3461](https://www.rfc-editor.org/rfc/rfc3461.html).
+несколько исходных ordinal не агрегируются в одном job. Scheduler теперь
+восстанавливает recipient-scoped policy из sidecar через transaction ID и
+ordinal и применяет failure часть NOTIFY: без параметра default failure report
+разрешён; NEVER и список условий без FAILURE его подавляют. Это проверено
+unit policy test и Store reopen test, но не wire-клиентом, поскольку команды
+DSN по-прежнему отвергаются. Успех/задержка reports, RET-содержимое, ORCPT в
+report, ENVID correlation и группировка нескольких RCPT остаются GAP; `DSN`
+остаётся выключенным. RFC 3461 §§5.2.6, 5.2.7 и 6 описывает эти требования.
+См. [RFC 3461](https://www.rfc-editor.org/rfc/rfc3461.html).
 
 Генерируемый сервером внутренний failure report сериализует `Final-Recipient`
 как `rfc822; mailbox` без SMTP path угловых скобок; unit regression проверяет

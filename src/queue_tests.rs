@@ -57,6 +57,7 @@ fn owned_delivery_is_invisible_until_store_commit() {
             sender: "alice@test".into(),
             recipient: "remote@test".into(),
             original_recipient_index: None,
+            dsn_metadata: None,
             state: State::Pending
         }]
     );
@@ -108,6 +109,7 @@ fn owned_transition_survives_reopen_and_removes_pending_job() {
         sender: "alice@test".into(),
         recipient: "remote@test".into(),
         original_recipient_index: None,
+        dsn_metadata: None,
         state: State::Pending,
     };
     q.enqueue_owned(
@@ -142,6 +144,7 @@ fn interrupted_owned_delivery_is_deferred_on_reopen() {
         sender: "alice@test".into(),
         recipient: "remote@test".into(),
         original_recipient_index: None,
+        dsn_metadata: None,
         state: State::Pending,
     };
     q.enqueue_owned(
@@ -180,6 +183,7 @@ fn deferred_epoch_survives_reopen_and_gates_due_selection() {
         sender: "alice@test".into(),
         recipient: "remote@test".into(),
         original_recipient_index: None,
+        dsn_metadata: None,
         state: State::Deferred,
     };
     q.enqueue_owned(

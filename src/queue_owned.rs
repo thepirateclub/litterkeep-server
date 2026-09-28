@@ -107,6 +107,7 @@ fn parse_owned(line: &str) -> io::Result<Option<OwnedDelivery>> {
         sender: decode_sender(sender).into(),
         recipient: recipient.into(),
         original_recipient_index,
+        dsn_metadata: None,
         state,
     }))
 }

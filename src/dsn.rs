@@ -5,12 +5,34 @@
 //! не пишет файл и не ставит новое outbound job, поэтому пустой reverse-path
 //! гарантированно не образует DSN-цикл.
 
+use crate::{
+    queue::DsnDeliveryMetadata,
+    smtp::{NotifyCondition, NotifyPolicy},
+};
+
 /// Окончательная причина, показываемая локальному отправителю.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Failure {
     PermanentSmtp,
     RoutePolicy,
     RetryExhausted,
+}
+
+/// Решает, разрешает ли сохранённая RCPT policy failure report.
+///
+/// RFC 3461 задаёт default FAILURE при отсутствии NOTIFY; явные условия без
+/// FAILURE, включая SUCCESS и DELAY, запрещают failure report, как и NEVER.
+pub fn failure_requested(metadata: Option<&DsnDeliveryMetadata>) -> bool {
+    let Some(recipient) = metadata.and_then(|value| value.recipient.as_ref()) else {
+        return true;
+    };
+    match recipient.notify.as_ref() {
+        None => true,
+        Some(NotifyPolicy::Never) => false,
+        Some(NotifyPolicy::Conditions(conditions)) => {
+            conditions.contains(&NotifyCondition::Failure)
+        }
+    }
 }
 
 /// Строит multipart/report для одного окончательно недоставленного recipient.
@@ -213,5 +235,49 @@ mod tests {
                 .windows(b"Status: 5.7.1".len())
                 .any(|window| window == b"Status: 5.7.1")
         );
+    }
+
+    /// При отсутствии запросной политики сохраняется стандартное failure DSN.
+    #[test]
+    fn absent_notify_policy_requests_failure_report() {
+        assert!(failure_requested(None));
+        let metadata = DsnDeliveryMetadata {
+            mail: Default::default(),
+            recipient: None,
+        };
+        assert!(failure_requested(Some(&metadata)));
+    }
+
+    /// Явные NEVER, SUCCESS и DELAY не разрешают failure report.
+    #[test]
+    fn notify_policy_suppresses_failure_unless_failure_is_requested() {
+        assert!(!failure_requested(Some(&metadata(NotifyPolicy::Never))));
+        assert!(!failure_requested(Some(&metadata(conditions(&[
+            NotifyCondition::Success,
+        ])))));
+        assert!(!failure_requested(Some(&metadata(conditions(&[
+            NotifyCondition::Delay,
+        ])))));
+        assert!(failure_requested(Some(&metadata(conditions(&[
+            NotifyCondition::Failure,
+        ])))));
+        assert!(failure_requested(Some(&metadata(conditions(&[
+            NotifyCondition::Success,
+            NotifyCondition::Failure,
+        ])))));
+    }
+
+    fn metadata(notify: NotifyPolicy) -> DsnDeliveryMetadata {
+        DsnDeliveryMetadata {
+            mail: Default::default(),
+            recipient: Some(crate::smtp::RecipientDsn {
+                notify: Some(notify),
+                original_recipient: None,
+            }),
+        }
+    }
+
+    fn conditions(values: &[NotifyCondition]) -> NotifyPolicy {
+        NotifyPolicy::Conditions(values.iter().copied().collect())
     }
 }
