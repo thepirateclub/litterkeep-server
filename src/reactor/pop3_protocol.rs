@@ -49,6 +49,12 @@ fn dispatch_reply(
     request_id: &mut u64,
 ) -> io::Result<()> {
     match reply {
+        pop3::Reply::ScramVerifierLookup { account } => pop3_scram_protocol::lookup(
+            session, account, slot, generation, worker, owners, request_id,
+        ),
+        pop3::Reply::ScramAccepted { account } => pop3_scram_protocol::authenticated(
+            session, account, slot, generation, worker, owners, request_id,
+        ),
         pop3::Reply::Authenticate { username, password } => authenticate(
             session, username, password, slot, generation, worker, owners, request_id,
         ),
@@ -180,7 +186,7 @@ fn begin_tls(session: &mut Session) -> io::Result<()> {
 }
 
 /// Выдаёт ненулевые request id без прямого обращения к массивам или очередям.
-fn next_id(request_id: &mut u64) -> u64 {
+pub(super) fn next_id(request_id: &mut u64) -> u64 {
     let id = *request_id;
     *request_id = request_id.wrapping_add(1).max(1);
     id

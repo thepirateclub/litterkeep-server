@@ -1215,14 +1215,20 @@ RETR/TOP отдельно ограничивают status, сохраняя до
 передаёт `.first` и `..second` через SMTP; byte-exact POP3 результат одновременно
 проверяет снятие SMTP и POP3 dot-transparency по одному октету на границе.
 
-`AUTH PLAIN` поддержан только после TLS: до STLS механизм отсутствует в CAPA и
-команда AUTH получает отказ; после STLS сервер рекламирует `SASL PLAIN` и убирает
-`STLS`. Поддержаны initial response и continuation, отмена continuation через
-`*`, строгая Base64-проверка и сохранение SASL capability после входа. Независимый
-socket acceptance проверяет оба пути аутентификации, отказ от SCRAM, обновление
-CAPA и запрет повторного AUTH после входа. Это ограниченный профиль RFC 5034,
-не полная реализация: SCRAM и прочие SASL-механизмы не поддержаны, а
-взаимодействие с litterkeep не проверялось.
+`AUTH PLAIN` и `AUTH SCRAM-SHA-1` поддерживаются только после TLS: до STLS
+механизмы отсутствуют в CAPA, после него сервер рекламирует `SASL PLAIN
+SCRAM-SHA-1` и убирает `STLS`. PLAIN поддерживает initial response и
+continuation, отмену через `*`, строгую Base64-проверку и сохранение SASL
+capability после входа. SCRAM-SHA-1 использует canonical Base64, общий
+SASLprep query профиль и Accounts-owned verifier lookup; client proof проверяется
+до передачи отдельного Base64 server-final challenge, за которым следует
+обязательный пустой client response и обычный `+OK` без дополнительного payload.
+Независимый Linux STARTTLS peer проверяет успешный mutual proof, неверный proof,
+обе формы client-first, отказ plaintext CAPA, CAPA после TLS, `-ERR [IN-USE]`
+при занятом maildrop, восстановление соединения и повторный захват lease после
+QUIT. Отдельный peer проверяет PLAIN initial/continuation и CAPA по состояниям.
+Это не проверка Litterkeep client. SCRAM-SHA-256/PLUS и прочие SASL-механизмы
+не реализованы; полный профиль RFC 5034 не заявляется.
 Во время незавершённого `AUTH PLAIN` единственная команда отмены SASL exchange
 это строка `*`. Любой иной клиентский ответ обязан быть Base64; обычный SMTP
 текст `NOOP` и повторный `AUTH` не исполняются как вложенные команды, получают

@@ -3,6 +3,8 @@
 //! Этот модуль не владеет Store и не выполняет сетевой ввод. Reactor передаёт
 //! ему только typed command и snapshot общего INBOX после успешной AUTH.
 
+#[path = "pop3/capability.rs"]
+mod capability;
 #[path = "pop3/command.rs"]
 mod command;
 #[path = "pop3/language.rs"]

@@ -10,6 +10,11 @@ pub(super) fn handles(pending: &Pending, response: &Response) -> bool {
             Pending::Pop3Authenticate { .. },
             Response::Authenticated { .. }
         ) | (Pending::Pop3ReadInbox, Response::FolderRead { .. })
+            | (
+                Pending::Pop3ScramReadInbox { .. },
+                Response::FolderRead { .. }
+            )
+            | (Pending::Pop3ScramLookup, Response::ScramVerifier(_))
             | (Pending::Pop3Commit, Response::Expunged { .. })
     )
 }
@@ -24,6 +29,30 @@ pub(super) fn write(
     generation: u64,
 ) -> io::Result<()> {
     match (pending, response) {
+        (
+            Pending::Pop3ScramReadInbox { account },
+            Response::FolderRead {
+                result: Ok(resolved),
+                ..
+            },
+        ) => match maildrops.acquire(account, slot, generation) {
+            true => {
+                session.pop3_mailbox = Some(resolved.key);
+                let reply = session.pop3.authenticated(resolved.snapshot.messages);
+                pop3_protocol::write_reply(session, reply)
+            }
+            false => {
+                let reply = session.pop3.maildrop_in_use();
+                pop3_protocol::write_reply(session, reply)
+            }
+        },
+        (Pending::Pop3ScramReadInbox { .. }, Response::FolderRead { result: Err(_), .. }) => {
+            session.push(b"-ERR maildrop unavailable\r\n")
+        }
+        (Pending::Pop3ScramLookup, Response::ScramVerifier(response)) => {
+            let reply = session.pop3.scram_verifier_loaded(response.result);
+            pop3_protocol::write_reply(session, reply)
+        }
         (
             Pending::Pop3Authenticate { .. },
             Response::Authenticated {

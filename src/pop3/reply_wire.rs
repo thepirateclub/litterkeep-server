@@ -13,10 +13,24 @@ pub(crate) fn encode_reply(reply: Reply) -> Option<Vec<u8>> {
         Reply::Error(text) => Some(single_line(b"-ERR ", text)),
         Reply::ErrorCode(code, text) => Some(extended_error(code, text)),
         Reply::SaslContinue => Some(b"+ \r\n".to_vec()),
+        Reply::SaslChallenge(value) => Some(sasl_challenge(&value)),
         Reply::Multiline(bytes) => Some(bounded_multiline(bytes)),
         Reply::Message(bytes) => Some(message_multiline(bytes)),
-        Reply::Authenticate { .. } | Reply::CommitDeletes(_) | Reply::StartTls => None,
+        Reply::Authenticate { .. }
+        | Reply::ScramVerifierLookup { .. }
+        | Reply::ScramAccepted { .. }
+        | Reply::CommitDeletes(_)
+        | Reply::StartTls => None,
     }
+}
+
+/// Кодирует RFC 5034 server challenge с обязательным `+ ` prefix.
+fn sasl_challenge(value: &str) -> Vec<u8> {
+    let mut reply = Vec::with_capacity(value.len().saturating_add(5));
+    reply.extend_from_slice(b"+ ");
+    reply.extend_from_slice(value.as_bytes());
+    reply.extend_from_slice(b"\r\n");
+    reply
 }
 
 /// Формирует расширенный -ERR через типизированный код причины.

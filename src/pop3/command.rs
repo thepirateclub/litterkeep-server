@@ -34,6 +34,7 @@ pub enum Command {
 #[derive(Debug, Eq, PartialEq)]
 pub enum SaslMechanism {
     Plain,
+    ScramSha1,
     Unsupported,
 }
 
@@ -113,6 +114,7 @@ fn parse_initial_response(response: &str) -> SaslInitialResponse {
 fn sasl_mechanism(name: &str) -> SaslMechanism {
     match name.to_ascii_uppercase().as_str() {
         "PLAIN" => SaslMechanism::Plain,
+        "SCRAM-SHA-1" => SaslMechanism::ScramSha1,
         _ => SaslMechanism::Unsupported,
     }
 }

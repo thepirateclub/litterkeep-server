@@ -61,6 +61,24 @@ fn accepts_command_at_rfc2449_octet_limit_for_sasl_payload() {
 }
 
 #[test]
+fn recognizes_only_the_scram_sha1_sasl_mechanism() {
+    assert!(matches!(
+        parse("AUTH SCRAM-SHA-1\r\n"),
+        Command::Auth {
+            mechanism: super::SaslMechanism::ScramSha1,
+            initial_response: None,
+        }
+    ));
+    assert!(matches!(
+        parse("AUTH scram-sha-1 =\r\n"),
+        Command::Auth {
+            mechanism: super::SaslMechanism::ScramSha1,
+            initial_response: Some(SaslInitialResponse::Empty),
+        }
+    ));
+}
+
+#[test]
 fn rejects_command_over_rfc2449_octet_limit() {
     let token = "a".repeat(243);
     let wire = format!("AUTH PLAIN {token}\r\n");

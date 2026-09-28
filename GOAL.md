@@ -1,5 +1,26 @@
 # Goal ledger
 
+### 2026-09-28: G18 POP3 SCRAM-SHA-1 TLS wire profile, scoped PASS T343
+
+- POP3 AUTH теперь имеет отдельный SCRAM-SHA-1 state machine: mechanism
+  доступен только под TLS, verifier читается через единственный Accounts owner,
+  proof и server signature завершаются до maildrop transaction. Server-final
+  отправляется отдельным RFC 5034 challenge; success reply не несёт payload.
+- Независимый Linux STARTTLS peer подтвердил valid mutual proof, `e=invalid-proof`,
+  initial и challenge flows, восстановление после отказа, конфликт двух
+  maildrop владельцев (`IN-USE`) и повторный захват после QUIT. CAPA peer
+  подтвердил отсутствие SASL до TLS и рекламу PLAIN/SCRAM после TLS по состояниям.
+  Это не проверка приложения Litterkeep.
+- Windows Rust 1.97.1: 944 library + 1 CLI tests, 4 ignored; fmt и strict
+  all-target Clippy пройдены. Linux Docker Rust 1.97.1: 1053 library + 1 CLI
+  tests, 4 ignored; fmt и strict all-target Clippy пройдены. Python acceptance
+  успешно выполнен против Linux release сервера. Существующий образ
+  `rust:1.97-bookworm` переиспользован, временный контейнер очищен; новых образов
+  не создавалось. Артефакты этапа сохранены в `./data/g19-pop3-scram-linux`.
+- RFC 5034 PLAIN остаётся обязательным базовым механизмом; этот этап расширяет
+  современный профиль SCRAM-SHA-1. SCRAM-SHA-256/PLUS, прочие механизмы и
+  Litterkeep interoperability остаются открытыми; G18 ACTIVE.
+
 ### 2026-09-28: G18 RFC 2231 duplicate-form rejection, scoped PASS T329
 
 - RFC 2231 regular `filename` и extended `filename*`/`filename*0*` теперь

@@ -24,8 +24,14 @@ pub(super) enum Pending {
     Pop3Authenticate {
         account: String,
     },
+    /// Асинхронный SCRAM verifier lookup остаётся связанным с session generation.
+    Pop3ScramLookup,
     /// Snapshot и внутренний folder key возвращаются одним completion worker-а.
     Pop3ReadInbox,
+    /// SCRAM proof проверен; lease получается при принятии folder snapshot.
+    Pop3ScramReadInbox {
+        account: String,
+    },
     /// POP3 применяет накопленные DELE только после durable EXPUNGE.
     Pop3Commit,
     ValidateRecipient {

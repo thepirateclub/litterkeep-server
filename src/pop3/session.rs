@@ -1,11 +1,14 @@
 //! POP3 AUTHORIZATION, TRANSACTION и UPDATE без доступа к Store.
 
+use super::capability::{capa_reply, lang_reply};
 use super::listing_reply::{list_reply, uidl_reply};
-use super::{Command, DeleteError, LanguageRequest, Maildrop, SaslInitialResponse, SaslMechanism};
+use super::{Command, DeleteError, Maildrop, SaslInitialResponse, SaslMechanism};
 use crate::store::Message;
 
 #[path = "session_sasl.rs"]
 mod sasl;
+#[path = "session_scram.rs"]
+mod session_scram;
 
 #[derive(Default)]
 enum Phase {
@@ -13,6 +16,10 @@ enum Phase {
     Authorization,
     UserAccepted,
     SaslPlainResponse,
+    SaslScramFirst,
+    SaslScramVerifier,
+    SaslScramFinal,
+    SaslScramAcknowledgement,
     Transaction,
     Update,
 }
@@ -28,6 +35,9 @@ pub enum Reply {
     Error(&'static str),
     ErrorCode(ResponseCode, &'static str),
     SaslContinue,
+    SaslChallenge(String),
+    ScramVerifierLookup { account: String },
+    ScramAccepted { account: String },
     Multiline(Vec<u8>),
     Message(Vec<u8>),
     Authenticate { username: String, password: Vec<u8> },
@@ -45,6 +55,7 @@ pub struct Session {
     phase: Phase,
     username: Option<String>,
     sasl_previous_authorization: Option<PriorAuthorization>,
+    scram_exchange: Option<session_scram::Exchange>,
     maildrop: Option<Maildrop>,
     tls_active: bool,
     /// Отмечает разрешение передавать UTF-8 строки после команды UTF8.
@@ -113,10 +124,19 @@ impl Session {
             _ => Reply::Error("USER required"),
         }
     }
+
+    /// Завершает асинхронный verifier lookup и формирует следующий SCRAM reply.
+    pub fn scram_verifier_loaded(
+        &mut self,
+        result: std::io::Result<Option<crate::sasl::scram_sha1_record::ScramSha1Record>>,
+    ) -> Reply {
+        session_scram::verifier_loaded(self, result)
+    }
     /// Сбрасывает незавершённую пару USER/PASS после отказа входа или STLS.
     pub fn reset_authorization(&mut self) {
         self.username = None;
         self.sasl_previous_authorization = None;
+        self.scram_exchange = None;
         self.phase = Phase::Authorization;
     }
     pub fn commit_deletes(&mut self, accepted: bool) -> Reply {
@@ -247,32 +267,6 @@ impl Session {
     /// Сообщает reactor-у, что QUIT завершил POP3 UPDATE.
     pub fn is_update(&self) -> bool {
         matches!(self.phase, Phase::Update)
-    }
-}
-/// Формирует стабильный RFC 2449 набор и объявляет UTF8 в обоих состояниях.
-/// Параметр USER объявляется только вместе с реальным UTF-8 USER/PASS parser-ом.
-fn capa_reply(tls_active: bool) -> Reply {
-    let mut response =
-        b"+OK Capability list\r\nUSER\r\nUIDL\r\nTOP\r\nRESP-CODES\r\nUTF8 USER\r\nLANG\r\n"
-            .to_vec();
-    if tls_active {
-        response.extend_from_slice(b"SASL PLAIN\r\n");
-    } else {
-        response.extend_from_slice(b"STLS\r\n");
-    }
-    response.extend_from_slice(b".\r\n");
-    Reply::Multiline(response)
-}
-/// Возвращает поддерживаемую локаль либо RFC 6856 language listing.
-fn lang_reply(language: LanguageRequest) -> Reply {
-    match language {
-        LanguageRequest::Listing => {
-            Reply::Multiline(b"+OK Language listing follows\r\nen English\r\n.\r\n".to_vec())
-        }
-        LanguageRequest::Preferred | LanguageRequest::English => {
-            Reply::Ok("en Language selected".into())
-        }
-        LanguageRequest::Unsupported => Reply::Error("language not supported"),
     }
 }
 /// Добавляет обязательный POP3 +OK frame перед уже dot-stuffed RFC822 bytes.

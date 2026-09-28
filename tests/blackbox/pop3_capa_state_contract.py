@@ -42,7 +42,7 @@ def require_capabilities(
         b"UIDL\r\n",
         b"TOP\r\n",
         b"RESP-CODES\r\n",
-        b"UTF8\r\n",
+        b"UTF8 USER\r\n",
         b"LANG\r\n",
     }
     match starttls:
@@ -53,9 +53,9 @@ def require_capabilities(
                 raise AssertionError(f"{phase}: STLS остался после TLS")
     match sasl:
         case True:
-            expected.add(b"SASL PLAIN\r\n")
+            expected.add(b"SASL PLAIN SCRAM-SHA-1\r\n")
         case False:
-            if b"SASL PLAIN\r\n" in actual:
+            if b"SASL PLAIN SCRAM-SHA-1\r\n" in actual:
                 raise AssertionError(f"{phase}: SASL рекламируется до TLS")
     if actual != expected:
         raise AssertionError(f"{phase}: CAPA {actual!r}, ожидалось {expected!r}")
