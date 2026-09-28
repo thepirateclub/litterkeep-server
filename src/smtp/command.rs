@@ -85,6 +85,14 @@ pub const MAX_SMTPUTF8_MAIL_LINE_SIZE: usize = MAX_COMMAND_LINE_SIZE + 10;
 pub const MAX_BINARYMIME_MAIL_LINE_SIZE: usize = MAX_COMMAND_LINE_SIZE + 16;
 /// Совместная длина расширений RFC 6531 и RFC 3030 складывается.
 pub const MAX_SMTPUTF8_BINARYMIME_MAIL_LINE_SIZE: usize = MAX_COMMAND_LINE_SIZE + 10 + 16;
+/// RFC 1870 разрешает 26 дополнительных октетов для параметра SIZE.
+pub const MAX_SIZE_MAIL_LINE_SIZE: usize = MAX_COMMAND_LINE_SIZE + 26;
+/// SIZE может сочетаться с увеличением пути SMTPUTF8 и BODY=BINARYMIME.
+pub const MAX_SIZE_SMTPUTF8_MAIL_LINE_SIZE: usize = MAX_SIZE_MAIL_LINE_SIZE + 10;
+/// SIZE и BINARYMIME складывают независимые расширения строки MAIL.
+pub const MAX_SIZE_BINARYMIME_MAIL_LINE_SIZE: usize = MAX_SIZE_MAIL_LINE_SIZE + 16;
+/// Максимум MAIL со всеми тремя расширениями командной строки.
+pub const MAX_SIZE_SMTPUTF8_BINARYMIME_MAIL_LINE_SIZE: usize = MAX_SIZE_MAIL_LINE_SIZE + 10 + 16;
 /// Максимальный SMTP reverse-path/forward-path вместе с угловыми скобками.
 pub const MAX_PATH_SIZE: usize = 256;
 /// Максимальный размер SMTP local-part в октетах согласно RFC 5321.
@@ -142,22 +150,77 @@ pub fn command_line_limit(line: &[u8]) -> usize {
         .get(..5)
         .is_some_and(|prefix| prefix.eq_ignore_ascii_case(b"MAIL "));
     match (is_mail_command, std::str::from_utf8(line)) {
-        (true, Ok(text)) => {
-            let flags = text.split_ascii_whitespace().map(str::to_ascii_uppercase);
-            let (smtp_utf8, binarymime) = flags.fold((false, false), |(utf8, binary), token| {
-                (
-                    utf8 || token == "SMTPUTF8",
-                    binary || token == "BODY=BINARYMIME",
-                )
-            });
-            match (smtp_utf8, binarymime) {
-                (true, true) => MAX_SMTPUTF8_BINARYMIME_MAIL_LINE_SIZE,
-                (true, false) => MAX_SMTPUTF8_MAIL_LINE_SIZE,
-                (false, true) => MAX_BINARYMIME_MAIL_LINE_SIZE,
-                (false, false) => MAX_COMMAND_LINE_SIZE,
-            }
-        }
+        (true, Ok(text)) => mail_line_limit(text),
         _ => MAX_COMMAND_LINE_SIZE,
+    }
+}
+
+/// Суммирует только allowances расширений, объявленных в MAIL-команде.
+fn mail_line_limit(line: &str) -> usize {
+    let extensions = line
+        .split_ascii_whitespace()
+        .filter_map(MailLineExtension::parse)
+        .fold(MailLineExtensions::default(), MailLineExtensions::include);
+    extensions.limit()
+}
+
+/// Расширение ESMTP, которое увеличивает допустимую длину команды MAIL.
+#[derive(Clone, Copy)]
+enum MailLineExtension {
+    Size,
+    SmtpUtf8,
+    BinaryMime,
+}
+
+impl MailLineExtension {
+    /// Классифицирует параметры MAIL без строковых сравнений verbatim.
+    fn parse(token: &str) -> Option<Self> {
+        let bytes = token.as_bytes();
+        let size = bytes
+            .get(..5)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(b"SIZE="));
+        let smtp_utf8 = bytes.eq_ignore_ascii_case(b"SMTPUTF8");
+        let binary_mime = bytes.eq_ignore_ascii_case(b"BODY=BINARYMIME");
+        match (size, smtp_utf8, binary_mime) {
+            (true, _, _) => Some(Self::Size),
+            (_, true, _) => Some(Self::SmtpUtf8),
+            (_, _, true) => Some(Self::BinaryMime),
+            (false, false, false) => None,
+        }
+    }
+}
+
+/// Набор независимых дополнений, суммируемых для RFC 5321 line limit.
+#[derive(Default)]
+struct MailLineExtensions {
+    size: bool,
+    smtp_utf8: bool,
+    binary_mime: bool,
+}
+
+impl MailLineExtensions {
+    /// Добавляет распознанное расширение без повторного увеличения лимита.
+    fn include(mut self, extension: MailLineExtension) -> Self {
+        match extension {
+            MailLineExtension::Size => self.size = true,
+            MailLineExtension::SmtpUtf8 => self.smtp_utf8 = true,
+            MailLineExtension::BinaryMime => self.binary_mime = true,
+        }
+        self
+    }
+
+    /// Возвращает RFC-предел, включая CRLF, по набору параметров MAIL.
+    fn limit(&self) -> usize {
+        match (self.size, self.smtp_utf8, self.binary_mime) {
+            (false, false, false) => MAX_COMMAND_LINE_SIZE,
+            (false, false, true) => MAX_BINARYMIME_MAIL_LINE_SIZE,
+            (false, true, false) => MAX_SMTPUTF8_MAIL_LINE_SIZE,
+            (false, true, true) => MAX_SMTPUTF8_BINARYMIME_MAIL_LINE_SIZE,
+            (true, false, false) => MAX_SIZE_MAIL_LINE_SIZE,
+            (true, false, true) => MAX_SIZE_BINARYMIME_MAIL_LINE_SIZE,
+            (true, true, false) => MAX_SIZE_SMTPUTF8_MAIL_LINE_SIZE,
+            (true, true, true) => MAX_SIZE_SMTPUTF8_BINARYMIME_MAIL_LINE_SIZE,
+        }
     }
 }
 

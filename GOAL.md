@@ -10093,3 +10093,23 @@ ManageSieve до заявленного набора современных фо
 - G18 остаётся ACTIVE. Для полного DSN нужны per-recipient typed attributes,
   долговечный формат с безопасной совместимостью/recovery, разбор NOTIFY и
   ORCPT, MAIL RET/ENVID, связанные правила генерации и wire acceptance.
+
+### 2026-09-28: G18 RFC 1870 SIZE MAIL line allowance, scoped PASS T340
+
+- Исправлен calculation command receiver limit: RFC 1870 добавляет 26 октетов
+  для `SIZE=<1..20 digits>`, и этот allowance суммируется с 10 октетами
+  SMTPUTF8 и 16 октетами BINARYMIME. Восемь комбинаций теперь выбираются через
+  typed enum и exhaustive `match`; регистр параметров сохраняет RFC
+  case-insensitivity.
+- Тесты проверяют границы SIZE=538, SIZE+SMTPUTF8=548,
+  SIZE+BINARYMIME=554, combined=564, а также ровно 538-октетную командную
+  строку. Windows Rust 1.97.1 all-target: 933 library + 1 CLI, 4 ignored;
+  fmt и strict Clippy прошли. Linux Rust 1.97.1 Docker all-target:
+  1042 library + 1 CLI, 4 ignored; fmt и strict Clippy прошли.
+- Независимый SMTP wire-тест специально длинного MAIL не выполнялся; suite
+  подтверждает вычисление лимита, не приложение Litterkeep. Docker использовал
+  существующий `rust:1.97-bookworm`, каждый временный container запускался с
+  `--rm`, новый image не создавался. Linux build artifacts оставлены в
+  `./data/g18-smtp-size-line-linux/target`.
+- G18 остаётся ACTIVE; это не закрывает прочие SMTP, IMAP, POP3, MIME, Sieve и
+  ManageSieve пробелы.
