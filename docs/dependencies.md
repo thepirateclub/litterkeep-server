@@ -85,9 +85,9 @@ client proof/server signature — с примером RFC 7677 §3; iteration co
 sidecar и предоставляют его через типизированный запрос единственного Accounts
 worker; запрос не выводит секрет в Debug. ManageSieve state machine принимает
 initial-response и continuation, а capability рекламирует механизм только
-после TLS. Независимые Linux peers подтвердили mutual proof по implicit TLS и
-переход capability после STARTTLS. PLUS/channel binding и Litterkeep app
-interoperability не подтверждены.
+после TLS. Независимые Linux peers подтвердили mutual proof и server signature
+по implicit TLS и STARTTLS. PLUS/channel binding и Litterkeep app interoperability
+не подтверждены.
 
 IMAP mailbox validation использует собственные generated ranges Unicode
 17.0.0, а не crate. Официальный источник, версия toolchain, SHA-256 и лицензия

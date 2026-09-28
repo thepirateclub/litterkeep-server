@@ -102,12 +102,37 @@ def authenticate(stream: BinaryIO, secret: str, invalid: bool) -> str:
     return completion.decode("ascii")
 
 
-def connect(port: int, ca: Path) -> ssl.SSLSocket:
-    """Подключает implicit TLS peer с проверкой сертификата сервера."""
+def connect(port: int, ca: Path, starttls: bool) -> tuple[ssl.SSLSocket, list[bytes], bytes]:
+    """Подключает независимого peer через implicit TLS либо STARTTLS."""
     context = ssl.create_default_context(cafile=ca)
     peer = socket.create_connection(("127.0.0.1", port), timeout=10)
     peer.settimeout(10)
-    return context.wrap_socket(peer, server_hostname="localhost")
+    if starttls:
+        with peer.makefile("rwb", buffering=0) as clear:
+            greeting, terminal = result(clear)
+            match (
+                terminal,
+                any(item == b'"SASL" ""\r\n' for item in greeting),
+                any(item == b'"STARTTLS"\r\n' for item in greeting),
+            ):
+                case (b'OK "ready"\r\n', True, True):
+                    pass
+                case _:
+                    raise AssertionError("unexpected pre-TLS ManageSieve greeting")
+            clear.write(b"STARTTLS\r\n")
+            if line(clear) != b'OK "begin TLS"\r\n':
+                raise AssertionError("STARTTLS upgrade was rejected")
+        peer = context.wrap_socket(peer, server_hostname="localhost")
+    else:
+        peer = context.wrap_socket(peer, server_hostname="localhost")
+    stream = peer.makefile("rwb", buffering=0)
+    greeting, terminal = result(stream)
+    if terminal != b'OK "ready"\r\n':
+        stream.close()
+        peer.close()
+        raise AssertionError("unexpected secure ManageSieve greeting")
+    stream.close()
+    return peer, greeting, terminal
 
 
 def main() -> None:
@@ -116,10 +141,11 @@ def main() -> None:
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--ca", type=Path, required=True)
     parser.add_argument("--credentials", type=Path, required=True)
+    parser.add_argument("--starttls", action="store_true")
     options = parser.parse_args()
     secret = password(options.credentials)
-    with connect(options.port, options.ca) as peer, peer.makefile("rwb", buffering=0) as stream:
-        greeting, terminal = result(stream)
+    peer, greeting, terminal = connect(options.port, options.ca, options.starttls)
+    with peer, peer.makefile("rwb", buffering=0) as stream:
         capability = b'"SASL" "PLAIN SCRAM-SHA-1 SCRAM-SHA-256"\r\n'
         match (terminal == b'OK "ready"\r\n', capability in greeting):
             case (True, True):

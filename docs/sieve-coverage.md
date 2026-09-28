@@ -45,9 +45,9 @@ ManageSieve session/reactor и проверил SHA-1 exchange независи�
 
 Текущий профиль после T358 рекламирует SCRAM-SHA-256 только поверх TLS и
 проводит его через отдельный SHA-256 verifier sidecar и Accounts owner worker.
-Независимые Linux implicit-TLS peers сверяют server signature, неверный proof,
-UNAUTHENTICATE и повторную работу сессии; отдельный STARTTLS peer проверяет
-переход от пустого SASL списка до capability после upgrade. Это не проверка
+Независимые Linux peers по implicit TLS и STARTTLS сверяют server signature,
+неверный proof, UNAUTHENTICATE и повторную работу сессии; STARTTLS путь также
+проверяет пустой SASL список до upgrade и capability после него. Это не проверка
 Litterkeep app. SCRAM-SHA-256-PLUS и channel binding остаются неподдержанными.
 
 Для client-to-server literals receiver сначала читает ровно объявленное число

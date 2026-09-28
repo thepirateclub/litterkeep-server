@@ -10531,3 +10531,20 @@ ManageSieve до заявленного набора современных фо
 - Это acceptance независимого Python клиента, а не Litterkeep app. SCRAM-SHA-256
   PLUS/channel binding и фактический SHA-256 exchange через STARTTLS остаются
   открытыми; общий профиль ManageSieve и цель G18 остаются ACTIVE.
+
+### 2026-09-28: G18 ManageSieve SCRAM-SHA-256 через STARTTLS, T359 PASS
+
+- Независимый peer расширен режимом `--starttls`: до upgrade он проверяет
+  отсутствие SASL механизмов, посылает STARTTLS и валидирует серверный
+  сертификат; после upgrade проверяет secure greeting и полный SCRAM-SHA-256
+  обмен. Клиент независимо рассчитывает proof и сверяет server signature.
+- Linux runtime acceptance прошёл на существующем release binary Rust 1.97.1
+  внутри установленного `rust:1.97-bookworm`; валидный proof, неверный proof,
+  UNAUTHENTICATE и NOOP recovery подтверждены. `python -m py_compile` прошёл.
+- Использована существующая runtime fixture `./data/g18-scram-sha256-managesieve`.
+  Тестовый контейнер `litterkeep-g18-scram-sha256-starttls` остановлен и
+  проверен отсутствующим; image не создавался. Другие запущенные контейнеры
+  не изменялись.
+- Это проверка независимого тестового клиента, а не приложения Litterkeep.
+  SCRAM-SHA-256-PLUS/channel binding и application interoperability остаются
+  неподтверждёнными; общий профиль ManageSieve и цель G18 остаются ACTIVE.

@@ -1352,8 +1352,9 @@ peer проверяет NOOP до аутентификации и обязате
 для quoted string. `UNAUTHENTICATE` сбрасывает состояние и owner, сохраняет TLS
 и допускает повторный AUTHENTICATE; независимый TLS peer это проверяет.
 Implicit-TLS SCRAM-SHA-1 и SCRAM-SHA-256 wire exchanges независимо сверяют proof
-и server signature. После STARTTLS отдельный peer проверяет пустой список SASL
-до TLS и публикацию `PLAIN SCRAM-SHA-1 SCRAM-SHA-256` после TLS upgrade.
+и server signature. После STARTTLS независимый peer проверяет пустой список SASL
+до TLS, публикацию `PLAIN SCRAM-SHA-1 SCRAM-SHA-256` и полный SHA-256 proof plus
+server-signature exchange после TLS upgrade.
 SCRAM-SHA-256 использует отдельный verifier sidecar и bounded Accounts owner
 lookup. Это независимый тестовый клиент, не Litterkeep app. SCRAM-SHA-256-PLUS
 и TLS channel binding остаются неподдержанными; полный профиль RFC 5804 ещё не
