@@ -521,6 +521,12 @@ T329 отдельно проверил конфликт regular `filename=` и e
 конфликтующее значение, а RFC822 FETCH возвращает исходные байты. Litterkeep
 app interop не подтверждено. Whitespace возле `=` в RFC 2231 ABNF остаётся
 открытым вопросом; совместимое ужесточение не выполнено.
+RFC 2183 §2.8 говорит игнорировать нераспознанные параметры disposition.
+Следующий wire-вектор добавляет неизвестный RFC 2231 charset в `filename*` и
+известный `size=12`: сервер исключает только имя с неподдерживаемым charset,
+сохраняет disposition и SIZE в BODYSTRUCTURE и возвращает исходное RFC822 письмо
+побайтно. Это ограниченный acceptance неизвестного параметра, не заявление о
+полной registry coverage MIME charset.
 RFC 2231 §4.1 допускает charset/language metadata в начале первой encoded
 continuation секции. Ранее `Content-Disposition` parser терял language hint
 после общего параметрического разбора; `Disposition` теперь сохраняет typed
@@ -1251,9 +1257,9 @@ is not verified.
 ManageSieve tokenizer rejects unterminated quoted strings and unsupported
 quoted-string escapes as syntax errors instead of accepting a valid command
 prefix. Parser tests and the independent Linux wire scenario verify both
-negative cases. Mandatory SCRAM-SHA-1 exchange remains unimplemented under the
-current production dependency allowlist; only independently tested crypto
-primitives exist.
+negative cases. T328 subsequently connected SCRAM-SHA-1 to ManageSieve TLS
+authentication and an independent TLS wire test; STARTTLS and application
+interoperability are not established.
 NOOP accepts an optional RFC 5804 string as either quoted text or synchronizing
 and non-synchronizing client literals. Linux reactor tests cover literal
 consumption and pipeline boundaries; independent wire acceptance confirms the

@@ -46,24 +46,118 @@ pub struct Disposition {
     pub parameter_languages: BTreeMap<String, LanguageTag>,
 }
 
+/// Временный набор параметров перед построением публичного disposition.
+struct DispositionParameters {
+    values: BTreeMap<String, String>,
+    languages: BTreeMap<String, LanguageTag>,
+}
+
+/// Один успешно распарсенный MIME parameter вместе с optional языковой меткой.
+struct ParsedParameter {
+    name: String,
+    value: String,
+    language: Option<LanguageTag>,
+}
+
 /// Разбирает одно поле Content-Disposition, сохраняя расширения RFC 2231.
 pub fn parse(value: &str) -> Result<Disposition, &'static str> {
     let normalized = super::structured_comments::remove(value)?;
     let mut sections = normalized.splitn(2, ';');
     let raw_kind = sections.next().ok_or("missing MIME disposition token")?;
     let kind = DispositionKind::parse(super::wsp::trim(raw_kind))?;
-    let (parameters, parameter_languages) = match sections.next() {
-        Some(tail) => {
-            let parsed = parameters::parse(&format!("application/x;{tail}"))?;
-            (parsed.parameters, parsed.parameter_languages)
-        }
-        None => (BTreeMap::new(), BTreeMap::new()),
+    let parsed = match sections.next() {
+        Some(tail) => parse_parameters_ignoring_unrecognized(tail)?,
+        None => DispositionParameters {
+            values: BTreeMap::new(),
+            languages: BTreeMap::new(),
+        },
     };
     Ok(Disposition {
         kind,
-        parameters,
-        parameter_languages,
+        parameters: parsed.values,
+        parameter_languages: parsed.languages,
     })
+}
+
+/// Игнорирует отдельные неизвестные disposition-параметры по RFC 2183 §2.8.
+fn parse_parameters_ignoring_unrecognized(
+    tail: &str,
+) -> Result<DispositionParameters, &'static str> {
+    merge_parameters(collect_parameters(tail)?)
+}
+
+/// Объединяет параметры после раздельной обработки их ошибок.
+fn merge_parameters(parsed: Vec<ParsedParameter>) -> Result<DispositionParameters, &'static str> {
+    let mut grouped: BTreeMap<String, Vec<ParsedParameter>> = BTreeMap::new();
+    for parameter in parsed {
+        grouped
+            .entry(parameter.name.clone())
+            .or_default()
+            .push(parameter);
+    }
+    let mut values = BTreeMap::new();
+    let mut languages = BTreeMap::new();
+    for (name, entries) in grouped {
+        if let [parameter] = entries.as_slice() {
+            values.insert(name.clone(), parameter.value.clone());
+            if let Some(language) = &parameter.language {
+                languages.insert(name, language.clone());
+            }
+        }
+    }
+    Ok(DispositionParameters { values, languages })
+}
+
+/// Парсит одиночное валидное значение через общий RFC 2231 decoder.
+fn parse_one_parameter(parameter: &str) -> Option<ParsedParameter> {
+    let parsed = parameters::parse(&format!("application/x;{parameter}")).ok()?;
+    let (name, value) = parsed.parameters.into_iter().next()?;
+    let language = parsed.parameter_languages.get(&name).cloned();
+    Some(ParsedParameter {
+        name,
+        value,
+        language,
+    })
+}
+
+/// Возвращает имя и значение, если entry является ровно одним parameter.
+fn collect_parameters(tail: &str) -> Result<Vec<ParsedParameter>, &'static str> {
+    let parsed = split_parameter_sections(tail)?
+        .into_iter()
+        .map(super::wsp::trim)
+        .filter(|parameter| !parameter.is_empty())
+        .filter_map(parse_one_parameter)
+        .collect();
+    Ok(parsed)
+}
+
+/// Разделяет параметры, не трактуя точку с запятой в quoted-string как delimiter.
+fn split_parameter_sections(input: &str) -> Result<Vec<&str>, &'static str> {
+    let mut sections = Vec::new();
+    let mut quoted = false;
+    let mut escaped = false;
+    let mut start = 0_usize;
+    for (position, character) in input.char_indices() {
+        match (quoted, escaped, character) {
+            (true, true, _) => escaped = false,
+            (true, false, '\\') => escaped = true,
+            (_, false, '"') => quoted = !quoted,
+            (false, false, ';') => {
+                sections.push(
+                    input
+                        .get(start..position)
+                        .ok_or("invalid disposition boundary")?,
+                );
+                start = position.saturating_add(1);
+            }
+            _ => {}
+        }
+    }
+    if quoted || escaped {
+        return Err("unterminated disposition quoted-string");
+    }
+    sections.push(input.get(start..).ok_or("invalid disposition tail")?);
+    Ok(sections)
 }
 
 /// Сериализует disposition extension как IMAP list и string values.

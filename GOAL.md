@@ -9935,3 +9935,17 @@ ManageSieve до заявленного набора современных фо
   Созданные runtime container и test image удалены, отсутствие проверено.
   Это независимый POP3 peer, не Litterkeep app и не закрытие других SASL
   механизмов; полный G18 остаётся ACTIVE.
+### 2026-09-28: G18 RFC 2183 unknown disposition parameter handling, scoped PASS T330
+
+- `Content-Disposition` разбирает параметры независимо: неизвестный charset у
+  RFC 2231 `filename*` не теряет известные disposition и `size=12`; дубликаты
+  одного имени не разрешаются выбором первого или последнего значения.
+- Добавлены unit-регрессии с quoted semicolon, неизвестным charset и повтором
+  параметра. Независимый Python IMAP STARTTLS acceptance подтвердил BODYSTRUCTURE
+  с disposition/SIZE и точное сохранение исходного RFC822 literal.
+- Rust 1.97.1: fmt, strict all-target Clippy, `cargo test --locked --all-targets`
+  прошли (915 library + 1 CLI, 4 ignored); py_compile и diff check прошли.
+  Использованы уже имеющиеся Docker images, новый тестовый container удалён.
+- Ограничение: проверен независимый клиент, не Litterkeep app. Это scoped
+  acceptance RFC 2183 §2.8, не завершение registry coverage или G18; цель остаётся
+  ACTIVE.

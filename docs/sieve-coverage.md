@@ -75,9 +75,11 @@ authentication; an optional quoted tag is returned in the required `(TAG
 independent `tests/blackbox/managesieve_noop_tag.py` Linux socket acceptance
 verify untagged/tagged NOOP, escaping and LOGOUT. NOOP literal tags are
 supported in synchronizing and non-synchronizing forms, while other command
-literal arguments remain unverified. RFC 5804 §2.1 requires both SCRAM-SHA-1 and PLAIN; only PLAIN is
-implemented and advertised, so mandatory SCRAM-SHA-1 interoperability remains
-an explicit conformance gap.
+literal arguments remain unverified. RFC 5804 §2.1 mechanisms PLAIN and
+SCRAM-SHA-1 are advertised after TLS. T328 independently verified SCRAM
+client proof, server signature, invalid-proof response, and subsequent NOOP
+recovery over implicit TLS. STARTTLS SCRAM and Litterkeep app interoperability
+remain unverified.
 
 RFC 5804 §2.8 requires `SETACTIVE` to carry an `active-sieve-name`; the empty
 string disables active filtering. The parser now rejects a missing argument and
@@ -116,9 +118,9 @@ ManageSieve command tokenization now rejects malformed quoted strings instead
 of silently dropping an invalid suffix: unterminated strings and unsupported
 backslash escapes become syntax errors. Parser regression and independent
 Linux wire acceptance in `tests/blackbox/managesieve_noop_tag.py` verify both
-forms while retaining valid NOOP tag behavior. This does not close the
-mandatory SCRAM-SHA-1 gap; the project dependency allowlist currently excludes
-the SHA-1/HMAC primitives needed for a compliant implementation.
+forms while retaining valid NOOP tag behavior. T328 has since implemented and
+independently wire-tested the required SCRAM-SHA-1 mechanism. SCRAM-SHA-256/PLUS,
+STARTTLS SCRAM acceptance and Litterkeep app interoperability remain open.
 
 RFC 5804 §1.2 and §4 define command string values as quoted or literal. The
 NOOP optional tag accepts bounded sync and non-sync literal-c2s forms;
@@ -153,7 +155,6 @@ Bob. The same peer rejects a literal CRAM response and successfully executes
 the following NOOP. The previous non-synchronizing literal/literal combination
 also passed independent wire acceptance.
 Other command string positions not listed above remain unverified or unsupported.
-This does not close the mandatory SCRAM-SHA-1 gap.
 
 ManageSieve script count, per-script byte size and serialized account catalog
 are bounded in the Store. RFC 5804 §1.5 requires a `NO` response containing
@@ -328,8 +329,11 @@ attribute=value, token/quoted-string и список tspecials. RFC 2231 attribu
 filename continuation. Сетевой MIME acceptance этих новых границ не выполнялся.
 T329 добавил сетевую регрессию conflicting regular/extended filename в
 Content-Disposition и подтвердил, что MIME tree не публикует спорное имя,
-сохраняя оригинальные RFC822 bytes. Whitespace около `=` в параметрах
-остается открытым и отдельно не ужесточается.
+сохраняя оригинальные RFC822 bytes. Это консервативная политика ambiguity, а
+не нормативное правило precedence RFC 2231. Следующий acceptance T330 проверяет
+RFC 2183 §2.8: неизвестный charset отдельного `filename*` пропускается, а
+известный `size=12` и disposition сохраняются; RFC822 literal остаётся точным.
+Whitespace около `=` в параметрах остается открытым и отдельно не ужесточается.
 
 RFC 2231 extended payload decoder принимает только attribute-char или
 percent-encoded octets, а hexadecimal digits в escapes принимаются без учёта

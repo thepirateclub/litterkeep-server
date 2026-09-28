@@ -53,6 +53,31 @@ fn rejects_invalid_disposition_tokens_and_parameters() {
     }
 }
 
+/// RFC 2183 §2.8 требует сохранять известные параметры при чужом charset.
+#[test]
+fn ignores_one_unrecognized_extended_parameter() {
+    let value =
+        parse("attachment; filename*=x-litterkeep-unknown''secret.bin; size=12; x-vendor=ok")
+            .expect("unknown parameter is ignored independently");
+
+    assert!(!value.parameters.contains_key("filename"));
+    assert_eq!(value.parameters.get("size").map(String::as_str), Some("12"));
+    assert_eq!(
+        value.parameters.get("x-vendor").map(String::as_str),
+        Some("ok")
+    );
+}
+
+/// Повтор known parameter не выбирает произвольно первое или последнее имя.
+#[test]
+fn ignores_ambiguous_repeated_parameter_without_losing_other_values() {
+    let value = parse("attachment; filename=one.txt; filename=two.txt; size=12")
+        .expect("unknown repeated parameter does not poison disposition");
+
+    assert!(!value.parameters.contains_key("filename"));
+    assert_eq!(value.parameters.get("size").map(String::as_str), Some("12"));
+}
+
 #[test]
 fn extension_dispositions_remain_available_without_string_classification() {
     let value = parse("x-company-review").expect("extension disposition");
