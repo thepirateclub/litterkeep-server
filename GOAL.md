@@ -252,21 +252,18 @@
 - Источники: [RFC 3461 §§4.3, 5.2.6-5.2.7](https://www.rfc-editor.org/rfc/rfc3461.html),
   [RFC 3464](https://www.rfc-editor.org/rfc/rfc3464.html).
 
-### 2026-09-28: G18 failure DSN crash-window audit, GAP T389
+### 2026-09-28: G18 failure DSN crash-window audit, now PARTIAL T389
 
-- Статическая проверка `src/reactor/outbound_scheduler.rs`,
-  `src/store/outbound_access.rs`, `src/queue_owned.rs` и
-  `src/storage_worker/dsn_delivery.rs` подтвердила порядок: terminal queue state
-  синхронно фиксируется до отдельного `AppendDsn` Store-запроса.
-- `Queue::visible` выдаёт только `Pending`/`Deferred`, а последняя terminal
-  запись не несёт ожидающего DSN notice. Поэтому процесс, остановленный между
-  фиксацией `PermanentFailure` и Store append отчёта, теряет возможность
-  восстановить запрошенный failure report. Success/delay notices тоже не
-  представлены в durable state.
-- Это source audit, не failure-injection или runtime acceptance. EHLO `DSN`
-  остаётся выключенным. Перед полной RFC 3461 поддержкой нужен durable notice
-  outbox, связанный с переходом очереди, и идемпотентная публикация отчёта с
-  recovery для сбоя между append и подтверждением notice.
+- Исходный статический аудит зафиксировал разрыв между terminal queue state и
+  публикацией `AppendDsn`. Последующий commit `a609b6f` связал failure notice с
+  durable queue transition: queue recovery снова выдаёт terminal delivery с
+  неподтверждённым notice, Store append идемпотентен по ключу отчёта, а
+  scheduler записывает acknowledgement только после публикации.
+- Повторно пройдены `queue_tests::terminal_failure_notice_is_recovered_as_due_work`
+  и `store::failure_matrix_tests::append_failure_matrix_has_atomic_replay_boundary`.
+  Первый закрывает/reopen-ит journal и проверяет восстановление и ack. Это не
+  OS process-kill acceptance. T389 теперь PARTIAL: RFC 3461 SMTP wire negotiation
+  остаётся выключенной; success/delay policy и внешняя interop не покрыты.
 - Источники: [RFC 3461 §§5.2.6-5.2.7](https://www.rfc-editor.org/rfc/rfc3461.html).
 
 ### 2026-09-28: G18 RFC 3461 failure DSN fields and RET=HDRS, PARTIAL T388
