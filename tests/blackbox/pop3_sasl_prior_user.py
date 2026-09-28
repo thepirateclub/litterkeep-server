@@ -114,10 +114,14 @@ def verify_unsupported_mechanism(stream: socket.SocketIO) -> None:
             break
         capabilities.append(line)
     sasl_lines = [line for line in capabilities if line.startswith(b"SASL ")]
-    if len(sasl_lines) != 1:
-        raise AssertionError(f"CAPA advertises unexpected SASL mechanisms: {sasl_lines!r}")
-    if b"DIGEST-MD5" in sasl_lines[0]:
-        raise AssertionError("CAPA unexpectedly advertises DIGEST-MD5")
+    match sasl_lines:
+        case [sasl_line]:
+            if b"DIGEST-MD5" in sasl_line:
+                raise AssertionError("CAPA unexpectedly advertises DIGEST-MD5")
+        case _:
+            raise AssertionError(
+                f"CAPA advertises unexpected SASL mechanisms: {sasl_lines!r}"
+            )
     exchange(
         stream,
         b"AUTH DIGEST-MD5 ZHVtbXk=",

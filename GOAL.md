@@ -16,6 +16,9 @@
   `git diff --check` прошли. Существующие Rust 1.97.1 release listener/image и
   `./data` fixture переиспользованы; контейнер удалён и отсутствие проверено,
   новый image не создавался. Litterkeep app этим этапом не проверялась.
+- Проверка единственной SASL capability выражена структурным `match`, без
+  прямой индексации списка; после этой корректировки полный acceptance повторно
+  прошёл.
 
 ### 2026-09-28: G19 POP3 SASL continuation beyond command limit, T371 PASS
 
