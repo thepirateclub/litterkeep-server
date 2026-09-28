@@ -91,6 +91,64 @@ fn sha256_invalid_proof_never_authenticates_or_retains_exchange() {
     ));
 }
 
+#[test]
+fn sha256_plus_requires_tls_exporter_and_verifies_channel_binding() {
+    let mut session = Session::default();
+    session.tls_established();
+    assert!(matches!(
+        session.apply(crate::pop3::parse("AUTH SCRAM-SHA-256-PLUS\r\n")),
+        Reply::Error(_)
+    ));
+    session.update_tls_exporter(Some([0x5a; 32]));
+    let capability = session.apply(crate::pop3::parse("CAPA\r\n"));
+    assert!(matches!(capability, Reply::Multiline(bytes)
+        if bytes.windows(b"SCRAM-SHA-256-PLUS".len())
+            .any(|part| part == b"SCRAM-SHA-256-PLUS")));
+
+    let client_first = "p=tls-exporter,,n=bob,r=plus-client-nonce";
+    let encoded = crate::sasl::encode_base64(client_first.as_bytes());
+    assert!(matches!(
+        session.apply(crate::pop3::parse(&format!(
+            "AUTH SCRAM-SHA-256-PLUS {encoded}\r\n"
+        ))),
+        Reply::ScramSha256VerifierLookup { .. }
+    ));
+    let record = crate::sasl::scram_sha256_record::ScramSha256Record::create(b"pencil")
+        .expect("test verifier");
+    let salt = record.salt().to_vec();
+    let iterations = record.iterations();
+    let Reply::SaslChallenge(server_first_encoded) =
+        session.scram_sha256_verifier_loaded(Ok(Some(record)))
+    else {
+        panic!("PLUS verifier lookup must produce server-first");
+    };
+    let server_first = decode(&server_first_encoded).expect("server-first Base64");
+    let nonce = field(&server_first, "r");
+    let client_bare = "n=bob,r=plus-client-nonce";
+    let mut gs2_binding = b"p=tls-exporter,,".to_vec();
+    gs2_binding.extend_from_slice(&[0x5a; 32]);
+    let client_without_proof = format!("c={},r={nonce}", crate::sasl::encode_base64(&gs2_binding));
+    let auth_message = format!("{client_bare},{server_first},{client_without_proof}");
+    let (proof, server_signature) =
+        proof_and_signature(b"pencil", &salt, iterations, &auth_message);
+    let final_message = format!(
+        "{client_without_proof},p={}",
+        crate::sasl::encode_base64(&proof)
+    );
+    let final_response =
+        session.sasl_plain_response(&crate::sasl::encode_base64(final_message.as_bytes()));
+    let Reply::SaslChallenge(server_final) = final_response else {
+        panic!("valid PLUS proof must receive server-final");
+    };
+    assert_eq!(
+        decode(&server_final).as_deref(),
+        Some(format!("v={}", crate::sasl::encode_base64(&server_signature)).as_str())
+    );
+    assert!(
+        matches!(session.sasl_plain_response(""), Reply::ScramAccepted { account } if account == "bob")
+    );
+}
+
 fn field<'a>(message: &'a str, key: &str) -> &'a str {
     message
         .split(',')

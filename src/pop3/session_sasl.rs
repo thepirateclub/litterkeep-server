@@ -9,6 +9,11 @@ impl Session {
         self.reset_authorization();
     }
 
+    /// Обновляет привязку канала перед обработкой очередной команды POP3.
+    pub fn update_tls_exporter(&mut self, exporter: Option<[u8; 32]>) {
+        self.tls_exporter = exporter.map(|value| value.to_vec());
+    }
+
     /// Проверяет, ожидается ли SASL response вместо следующей POP3 команды.
     pub fn awaiting_sasl_response(&self) -> bool {
         matches!(
@@ -18,8 +23,11 @@ impl Session {
                 | Phase::SaslScramFinal
                 | Phase::SaslScramAcknowledgement
                 | Phase::SaslScramSha256First
+                | Phase::SaslScramSha256PlusFirst
                 | Phase::SaslScramSha256Final
                 | Phase::SaslScramSha256Acknowledgement
+                | Phase::SaslScramSha256PlusFinal
+                | Phase::SaslScramSha256PlusAcknowledgement
         )
     }
 
@@ -58,7 +66,18 @@ impl Session {
                         Reply::Error("authentication cancelled")
                     }
                     super::session_scram::ClientResponse::Payload(payload) => {
-                        super::session_scram_sha256::client_first(self, payload)
+                        super::session_scram_sha256::client_first(self, payload, false)
+                    }
+                };
+            }
+            Phase::SaslScramSha256PlusFirst => {
+                return match super::session_scram::ClientResponse::parse(response) {
+                    super::session_scram::ClientResponse::Cancel => {
+                        self.restore_authorization_after_sasl();
+                        Reply::Error("authentication cancelled")
+                    }
+                    super::session_scram::ClientResponse::Payload(payload) => {
+                        super::session_scram_sha256::client_first(self, payload, true)
                     }
                 };
             }
@@ -74,6 +93,20 @@ impl Session {
                 };
             }
             Phase::SaslScramSha256Acknowledgement => {
+                return super::session_scram_sha256::acknowledgement(self, response);
+            }
+            Phase::SaslScramSha256PlusFinal => {
+                return match super::session_scram::ClientResponse::parse(response) {
+                    super::session_scram::ClientResponse::Cancel => {
+                        self.restore_authorization_after_sasl();
+                        Reply::Error("authentication cancelled")
+                    }
+                    super::session_scram::ClientResponse::Payload(payload) => {
+                        super::session_scram_sha256::client_final(self, payload)
+                    }
+                };
+            }
+            Phase::SaslScramSha256PlusAcknowledgement => {
                 return super::session_scram_sha256::acknowledgement(self, response);
             }
             _ => {}
@@ -118,7 +151,10 @@ impl Session {
             SaslMechanism::Plain => self.start_plain_authentication(initial_response),
             SaslMechanism::ScramSha1 => super::session_scram::start(self, initial_response),
             SaslMechanism::ScramSha256 => {
-                super::session_scram_sha256::start(self, initial_response)
+                super::session_scram_sha256::start(self, initial_response, false)
+            }
+            SaslMechanism::ScramSha256Plus => {
+                super::session_scram_sha256::start(self, initial_response, true)
             }
             SaslMechanism::Unsupported => Reply::Error("unsupported SASL mechanism"),
         }

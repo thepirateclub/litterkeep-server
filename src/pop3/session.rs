@@ -20,12 +20,15 @@ enum Phase {
     SaslPlainResponse,
     SaslScramFirst,
     SaslScramSha256First,
+    SaslScramSha256PlusFirst,
     SaslScramVerifier,
     SaslScramFinal,
     SaslScramAcknowledgement,
     SaslScramSha256Verifier,
     SaslScramSha256Final,
     SaslScramSha256Acknowledgement,
+    SaslScramSha256PlusFinal,
+    SaslScramSha256PlusAcknowledgement,
     Transaction,
     Update,
 }
@@ -64,6 +67,8 @@ pub struct Session {
     sasl_previous_authorization: Option<PriorAuthorization>,
     scram_exchange: Option<session_scram::Exchange>,
     scram_sha256_exchange: Option<session_scram_sha256::Exchange>,
+    /// TLS 1.3 exporter, полученный только от завершённого transport handshake.
+    tls_exporter: Option<Vec<u8>>,
     maildrop: Option<Maildrop>,
     tls_active: bool,
     /// Отмечает разрешение передавать UTF-8 строки после команды UTF8.
@@ -91,7 +96,7 @@ impl Session {
                 },
             ) => self.begin_authentication(mechanism, initial_response),
             (Phase::Authorization | Phase::UserAccepted | Phase::Transaction, Command::Capa) => {
-                capa_reply(self.tls_active)
+                capa_reply(self.tls_active, self.tls_exporter.is_some())
             }
             (Phase::Authorization | Phase::UserAccepted, Command::Stls) => match self.utf8_active {
                 true => Reply::Error("STLS must precede UTF8"),

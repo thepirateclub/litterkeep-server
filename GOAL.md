@@ -1,5 +1,31 @@
 # Goal ledger
 
+### 2026-09-28: G19 POP3 SCRAM-SHA-256-PLUS, T365 PASS
+
+- POP3 теперь разбирает типизированный `SCRAM-SHA-256-PLUS` и рекламирует его
+  только после TLS 1.3, когда завершённый `ServerTls` предоставляет 32-октетный
+  RFC 9266 `EXPORTER-Channel-Binding`. GS2 допускает `p=tls-exporter,,`; сервер
+  связывает canonical `c=` с точной GS2 header и exporter, затем проверяет
+  proof до доступа к maildrop. Обычный SCRAM-SHA-256 сохраняет прежний путь.
+- Unit tests проверяют parser, отсутствие PLUS без exporter, capability,
+  корректный binding/proof, server signature и acknowledgement. Независимый
+  Rustls Linux peer проверяет CA и TLS 1.3, получает greeting, CAPA, независимо
+  экспортирует channel binding, проходит полный PLUS обмен, сверяет server
+  signature и выполняет STAT/QUIT. SHA-256 verifier старой acceptance учётки
+  создаётся предварительным штатным USER/PASS. Crypto peer повторно использует
+  crate SHA/HMAC/PBKDF2 helpers, поэтому он независим по transport/protocol,
+  но не является независимым crypto oracle и не проверяет приложение Litterkeep.
+- Windows Rust 1.97.1 all-target: 996 library + 1 CLI passed, 4 ignored; fmt,
+  strict Clippy и `git diff --check` прошли. Linux release build прошёл в
+  `rust:1.97-bookworm`; Linux integration peer прошёл (1/1). Windows all-target:
+  один явно требующий listener peer ожидаемо ignored.
+- Существующий image ID `sha256:0e2bcaef56d041a486784e54104a81aebe0da44bd03019bd70bc0401e42e4a97`
+  переиспользован; созданный POP3 listener удалён и его отсутствие проверено;
+  новый image не создавался. Linux target/cache и artifacts лежат в
+  `./data/g20-pop3-scram-plus`; предыдущие G19 runtime fixtures использованы
+  для существующей test account. Изменённые source/test файлы меньше 300 строк
+  каждый. POP3 PLUS wire этап принят, G19 в целом остаётся ACTIVE.
+
 ### 2026-09-28: G18 MIME parameter separator whitespace, T364 PASS
 
 - RFC 2045 §5.1 и RFC 2231 §7: parser отклоняет SP/HTAB непосредственно до и

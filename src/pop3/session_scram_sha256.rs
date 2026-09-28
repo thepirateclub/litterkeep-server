@@ -16,12 +16,21 @@ pub(super) struct Exchange {
     server: Option<ServerFirst>,
     verifier: Option<ScramSha256Record>,
     proof_verified: bool,
+    plus: bool,
+    channel_binding: Option<Vec<u8>>,
 }
 
 /// Начинает SASL exchange только внутри TLS.
-pub(super) fn start(session: &mut Session, response: Option<SaslInitialResponse>) -> Reply {
+pub(super) fn start(
+    session: &mut Session,
+    response: Option<SaslInitialResponse>,
+    plus: bool,
+) -> Reply {
     if !session.tls_active {
         return Reply::Error("STLS required before AUTH SCRAM-SHA-256");
+    }
+    if plus && session.tls_exporter.is_none() {
+        return Reply::Error("SCRAM-SHA-256-PLUS requires TLS exporter");
     }
     session.sasl_previous_authorization = Some(match &session.username {
         Some(username) => PriorAuthorization::User(username.clone()),
@@ -29,20 +38,23 @@ pub(super) fn start(session: &mut Session, response: Option<SaslInitialResponse>
     });
     match response {
         None => {
-            session.phase = Phase::SaslScramSha256First;
+            session.phase = match plus {
+                true => Phase::SaslScramSha256PlusFirst,
+                false => Phase::SaslScramSha256First,
+            };
             Reply::SaslContinue
         }
-        Some(SaslInitialResponse::Encoded(value)) => client_first(session, &value),
+        Some(SaslInitialResponse::Encoded(value)) => client_first(session, &value, plus),
         Some(SaslInitialResponse::Empty) => reject(session, "invalid SCRAM client-first message"),
     }
 }
 
 /// Проверяет Base64 client-first и запрашивает verifier через Accounts owner.
-pub(super) fn client_first(session: &mut Session, encoded: &str) -> Reply {
+pub(super) fn client_first(session: &mut Session, encoded: &str, plus: bool) -> Reply {
     let Some(message) = decode(encoded) else {
         return reject(session, "authentication failed");
     };
-    let client = match scram_client_first::parse(&message) {
+    let client = match parse_client_first(&message, plus) {
         Ok(client) => client,
         Err(_) => return reject(session, "authentication failed"),
     };
@@ -55,6 +67,8 @@ pub(super) fn client_first(session: &mut Session, encoded: &str) -> Reply {
         server: None,
         verifier: None,
         proof_verified: false,
+        plus,
+        channel_binding: session.tls_exporter.clone(),
     });
     session.phase = Phase::SaslScramSha256Verifier;
     Reply::ScramSha256VerifierLookup { account }
@@ -81,7 +95,10 @@ pub(super) fn verifier_loaded(
     let challenge = crate::sasl::encode_base64(server.message.as_bytes());
     exchange.server = Some(server);
     exchange.verifier = Some(credential);
-    session.phase = Phase::SaslScramSha256Final;
+    session.phase = match exchange.plus {
+        true => Phase::SaslScramSha256PlusFinal,
+        false => Phase::SaslScramSha256Final,
+    };
     Reply::SaslChallenge(challenge)
 }
 
@@ -97,10 +114,14 @@ pub(super) fn client_final(session: &mut Session, encoded: &str) -> Reply {
     else {
         return reject(session, "authentication failed");
     };
-    let final_message = match scram_sha256_client_final::parse(&message, &server.nonce) {
-        Ok(final_message) => final_message,
-        Err(_) => return reject(session, "authentication failed"),
+    let Some(binding) = expected_channel_binding(exchange) else {
+        return reject(session, "authentication failed");
     };
+    let final_message =
+        match scram_sha256_client_final::parse_with_binding(&message, &server.nonce, &binding) {
+            Ok(final_message) => final_message,
+            Err(_) => return reject(session, "authentication failed"),
+        };
     let server_final = ServerFinal::complete(
         &exchange.client,
         server,
@@ -109,7 +130,10 @@ pub(super) fn client_final(session: &mut Session, encoded: &str) -> Reply {
     );
     exchange.proof_verified = matches!(server_final, ServerFinal::Verified(_));
     let response = crate::sasl::encode_base64(server_final.encode().as_bytes());
-    session.phase = Phase::SaslScramSha256Acknowledgement;
+    session.phase = match exchange.plus {
+        true => Phase::SaslScramSha256PlusAcknowledgement,
+        false => Phase::SaslScramSha256Acknowledgement,
+    };
     Reply::SaslChallenge(response)
 }
 
@@ -135,6 +159,30 @@ pub(super) fn acknowledgement(session: &mut Session, response: &str) -> Reply {
 fn reject(session: &mut Session, reason: &'static str) -> Reply {
     session.restore_authorization_after_sasl();
     Reply::Error(reason)
+}
+
+/// Связывает GS2 header с exporter либо ожидает строго пустой `n,,` binding.
+fn expected_channel_binding(exchange: &Exchange) -> Option<Vec<u8>> {
+    match (exchange.plus, exchange.channel_binding.as_deref()) {
+        (false, _) => Some(b"n,,".to_vec()),
+        (true, Some(exporter)) => {
+            let mut binding = b"p=tls-exporter,,".to_vec();
+            binding.extend_from_slice(exporter);
+            Some(binding)
+        }
+        (true, None) => None,
+    }
+}
+
+/// Не допускает смешения обычного SCRAM и channel-binding GS2 заголовков.
+fn parse_client_first(
+    message: &str,
+    plus: bool,
+) -> Result<ClientFirst, scram_client_first::ClientFirstError> {
+    match plus {
+        true => scram_client_first::parse_tls_exporter(message),
+        false => scram_client_first::parse(message),
+    }
 }
 
 /// Принимает только canonical Base64 с UTF-8 SCRAM сообщением.

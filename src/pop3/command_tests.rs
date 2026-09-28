@@ -183,6 +183,13 @@ fn parses_sasl_auth_plain_with_or_without_initial_response() {
             initial_response: Some(SaslInitialResponse::Encoded("token".into())),
         }
     );
+    assert_eq!(
+        parse("AUTH SCRAM-SHA-256-PLUS token\r\n"),
+        Command::Auth {
+            mechanism: SaslMechanism::ScramSha256Plus,
+            initial_response: Some(SaslInitialResponse::Encoded("token".into())),
+        }
+    );
 }
 
 #[test]

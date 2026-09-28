@@ -36,6 +36,7 @@ pub enum SaslMechanism {
     Plain,
     ScramSha1,
     ScramSha256,
+    ScramSha256Plus,
     Unsupported,
 }
 
@@ -117,6 +118,7 @@ fn sasl_mechanism(name: &str) -> SaslMechanism {
         "PLAIN" => SaslMechanism::Plain,
         "SCRAM-SHA-1" => SaslMechanism::ScramSha1,
         "SCRAM-SHA-256" => SaslMechanism::ScramSha256,
+        "SCRAM-SHA-256-PLUS" => SaslMechanism::ScramSha256Plus,
         _ => SaslMechanism::Unsupported,
     }
 }

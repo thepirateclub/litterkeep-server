@@ -13,6 +13,11 @@ pub(super) fn line(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<()> {
+    let exporter = session
+        .tls
+        .as_ref()
+        .and_then(ServerTls::tls_exporter_channel_binding);
+    session.pop3.update_tls_exporter(exporter);
     if session.pop3.awaiting_sasl_response() {
         let reply = match std::str::from_utf8(&line)
             .ok()
