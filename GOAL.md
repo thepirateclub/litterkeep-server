@@ -1,5 +1,26 @@
 # Goal ledger
 
+### 2026-09-28: G18 SMTP DSN durable Store boundary, PARTIAL T345
+
+- Store теперь пишет bounded/versioned/checksummed SMTP DSN sidecar frame рядом
+  с append transaction. Sidecar становится видимым только после глобального
+  transaction commit; reopen отбрасывает незакоммиченные записи, recovery
+  обрезает неполный хвост, старые Store без sidecar продолжают открываться.
+- Это пока внутренний Store API: SMTP reactor и storage worker не передают туда
+  DSN envelope. Wire команды с корректными параметрами всё ещё получают
+  `555 5.5.4`, capability `DSN` не объявляется. Не заявляется выполнение
+  success/failure/delay уведомлений.
+- Windows Rust 1.97.1: 956 library tests и 1 CLI test прошли, 4 ignored;
+  strict all-target Clippy, fmt и diff check прошли. Linux в существующем
+  `rust:1.97-bookworm`: 1065 library + 1 CLI tests, 4 ignored, strict Clippy и
+  fmt прошли. Все новые DSN-файлы меньше 300 строк.
+- Linux артефакты и отдельный Cargo target оставлены в
+  `./data/g18-dsn-store-linux`. Два временных контейнера автоматически удалены
+  через `--rm`; Docker-образы не создавались. Приложение Litterkeep не проверено.
+- Следующий шаг: провести typed envelope через реальный SMTP transaction и
+  single-owner storage request, затем проверить фактическую durable доставку.
+  T345 PARTIAL, G18 ACTIVE.
+
 ### 2026-09-28: G18 RFC 3461 typed SMTP parameter grammar, PARTIAL T344
 
 - Добавлены typed-модели MAIL `RET`/`ENVID`, RCPT `NOTIFY`/`ORCPT` и отдельные
@@ -7,9 +28,8 @@
   уникальность условий и эксклюзивность `NEVER`; xtext проверяет uppercase hex,
   printable ASCII и границы RFC для ENVID/ORCPT.
 - Синтаксически верные DSN-команды пока отклоняются сервером ответом
-  `555 5.5.4`; EHLO capability `DSN` не объявляется. Это необходимо, пока
-  свойства отдельных получателей и transaction metadata не сохраняются
-  durable и сервер не умеет выполнять запрошенные уведомления.
+  `555 5.5.4`; EHLO capability `DSN` не объявляется. T345 добавил отдельный
+  durable Store boundary, но SMTP transaction пока не вызывает его.
 - Windows Rust 1.97.1: `cargo test --all-targets` прошёл (950 library tests,
   1 CLI test, 4 ignored), fmt и strict all-target Clippy прошли. Linux release
   сборка прошла в существующем `rust:1.97-bookworm`; независимый wire peer
