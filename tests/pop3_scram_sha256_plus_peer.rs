@@ -14,6 +14,15 @@ use std::{
 
 pub type Peer = BufReader<StreamOwned<ClientConnection, TcpStream>>;
 
+/// Извлекает DER октеты локального CA из одного PEM certificate block.
+pub fn decode_pem_certificate(pem: &str) -> Vec<u8> {
+    let body = pem
+        .lines()
+        .filter(|line| !line.starts_with("-----"))
+        .collect::<String>();
+    litterkeep_server::mime::decode_base64(body.as_bytes()).expect("decode CA certificate")
+}
+
 /// Отменяет незавершённый PLUS и подтверждает сохранение выбранного USER.
 pub fn cancellation_preserves_user(address: &str, ca: &[u8], password: &str) {
     let mut peer = connect(address, ca);

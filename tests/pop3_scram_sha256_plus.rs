@@ -2,10 +2,12 @@
 
 #[path = "pop3_scram_sha256_plus_peer.rs"]
 mod peer;
+#[path = "support/pop3_scram_sha256_plus_starttls_peer.rs"]
+mod starttls_peer;
 
 use peer::{
-    cancellation_preserves_user, connect, expect_prefix, read_multiline, rejects_invalid_proof,
-    rejects_wrong_channel_binding, required, write_line,
+    cancellation_preserves_user, connect, decode_pem_certificate, expect_prefix, read_multiline,
+    rejects_invalid_proof, rejects_wrong_channel_binding, required, write_line,
 };
 
 /// Запускается явно против независимого implicit-TLS POP3 listener-а.
@@ -44,6 +46,18 @@ fn verifies_scram_sha256_plus_with_rfc9266_exporter() {
     expect_prefix(&mut peer, "+OK", "QUIT after PLUS authentication");
 }
 
+/// Проверяет отдельный POP3 путь STLS и появление exporter-bound механизма.
+#[test]
+#[ignore = "requires POP3_STARTTLS_ADDRESS, POP3_CA_PEM and POP3_TEST_PASSWORD"]
+fn verifies_scram_sha256_plus_after_stls() {
+    let address = peer::required("POP3_STARTTLS_ADDRESS");
+    let pem = std::fs::read_to_string(peer::required("POP3_CA_PEM")).expect("read CA PEM");
+    let ca = peer::decode_pem_certificate(&pem);
+    let password = peer::required("POP3_TEST_PASSWORD");
+    starttls_peer::provision_sha256_verifier(&address, &ca, &password);
+    starttls_peer::authenticate_plus(&address, &ca, &password);
+}
+
 /// Создаёт SHA-256 verifier штатным успешным входом старой acceptance-учётки.
 fn provision_sha256_verifier(address: &str, ca: &[u8], password: &str) {
     let mut peer = connect(address, ca);
@@ -54,13 +68,4 @@ fn provision_sha256_verifier(address: &str, ca: &[u8], password: &str) {
     expect_prefix(&mut peer, "+OK", "provision PASS");
     write_line(&mut peer, b"QUIT\r\n");
     expect_prefix(&mut peer, "+OK", "provision QUIT");
-}
-
-/// Извлекает DER октеты локального CA из одного PEM certificate block.
-fn decode_pem_certificate(pem: &str) -> Vec<u8> {
-    let body = pem
-        .lines()
-        .filter(|line| !line.starts_with("-----"))
-        .collect::<String>();
-    litterkeep_server::mime::decode_base64(body.as_bytes()).expect("decode CA certificate")
 }

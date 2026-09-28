@@ -1276,9 +1276,10 @@ SCRAM-SHA-256 exchange по implicit TLS, включая CAPA, STAT и QUIT. Э�
 проверка Litterkeep client. SCRAM-SHA-256-PLUS рекламируется только поверх
 завершённого TLS 1.3 с RFC 9266 exporter; GS2 ограничен `p=tls-exporter,,`, а
 canonical `c=` проверяется как точная GS2 header и exporter до proof.
-Независимый Rustls Linux peer проверяет сертификат, CAPA, exporter, PLUS mutual
-proof, server signature, STAT и QUIT. Peer повторно использует локальные
-SHA/HMAC/PBKDF2 helpers и не является независимым crypto oracle. Остальные SASL
+Независимые Rustls Linux peers проверяют implicit TLS и STARTTLS: сертификат,
+pre/post-upgrade CAPA, exporter, PLUS mutual proof, server signature, STAT и
+QUIT. Peer повторно использует локальные SHA/HMAC/PBKDF2 helpers и не является
+независимым crypto oracle. Остальные SASL
 mechanisms не заявляются; полный RFC 5034 профиль не заявляется.
 Во время незавершённого `AUTH PLAIN` единственная команда отмены SASL exchange
 это строка `*`. Любой иной клиентский ответ обязан быть Base64; обычный SMTP

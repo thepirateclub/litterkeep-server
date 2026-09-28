@@ -75,6 +75,25 @@
   новый образ не создавался. Изменение локализовано в wire acceptance под
   `./data/g20-pop3-scram-plus`; полный RFC 5034 профиль остаётся ACTIVE.
 
+### 2026-09-28: G19 POP3 SCRAM-SHA-256-PLUS over STLS, T369 PASS
+
+- Независимый peer начинает с plaintext POP3: проверяет отсутствие SASL и
+  наличие STLS, получает положительный STLS boundary, согласует TLS 1.3 и
+  проверяет сертификат локальным CA. После upgrade CAPA включает
+  `SCRAM-SHA-256-PLUS`; peer экспортирует RFC 9266 channel binding, проходит
+  PLUS proof/server signature, получает maildrop через STAT и закрывает QUIT.
+  Verifier для исходной acceptance учётки создаётся перед сценарием обычным
+  USER/PASS через тот же STLS listener.
+- Windows Rust 1.97.1 all-target: 996 library + 1 CLI passed, 4 ignored; fmt,
+  strict Clippy и `git diff --check` прошли. Linux Rust 1.97.1 независимый
+  STARTTLS live test прошёл (1/1); существующий implicit-TLS плюс suite остаётся
+  отдельным сценарием T365–T368.
+- Использован существующий `rust:1.97-bookworm`; временный STLS listener удалён,
+  отсутствие проверено; нового Docker image нет. Peer лежит в
+  `tests/support/`, source-файлы не превышают 300 строк, cache в
+  `./data/g20-pop3-scram-plus`. Это подтверждает PLUS через POP3 STLS, не
+  совместимость приложения Litterkeep и не полный RFC 5034 профиль.
+
 ### 2026-09-28: G18 MIME parameter separator whitespace, T364 PASS
 
 - RFC 2045 §5.1 и RFC 2231 §7: parser отклоняет SP/HTAB непосредственно до и
