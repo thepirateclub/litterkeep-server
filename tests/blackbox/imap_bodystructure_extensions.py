@@ -76,6 +76,9 @@ def main() -> None:
         b"Content-Type: application/octet-stream\r\n"
         b"Content-Disposition: attachment; filename*=x-unknown''secret.bin; size=12\r\n\r\n"
         b"unknown-disposition-parameter-octets\r\n--meta-boundary\r\n"
+        b"Content-Type: application/octet-stream\r\n"
+        b"Content-Disposition: x-company-review; filename=unknown-type.txt\r\n\r\n"
+        b"unknown-disposition-type-octets\r\n--meta-boundary\r\n"
         b"Content-Type: text/plain\r\n"
         b"Content-Location: ../files/bad%ZZ.txt\r\n\r\n"
         b"invalid-location-octets\r\n--meta-boundary\r\n"
@@ -133,6 +136,7 @@ def main() -> None:
         b'"https://example.test/mail/"',
         '("attachment" ("FILENAME" "résumé.bin"))'.encode("utf-8"),
         b'("attachment" ("SIZE" "12"))',
+        b'("attachment" ("FILENAME" "unknown-type.txt"))',
         '"NAME" "архив-✓.bin"'.encode("utf-8"),
         b'"ru"',
         b'"../files/a%20b.bin"',

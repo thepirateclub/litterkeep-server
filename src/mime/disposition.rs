@@ -22,7 +22,7 @@ impl DispositionKind {
             "inline" => Self::Inline,
             "attachment" => Self::Attachment,
             "form-data" => Self::FormData,
-            _ => Self::Extension(normalized),
+            _ => Self::Attachment,
         })
     }
 

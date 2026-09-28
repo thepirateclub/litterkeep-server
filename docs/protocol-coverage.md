@@ -527,6 +527,11 @@ RFC 2183 §2.8 говорит игнорировать нераспознанн�
 сохраняет disposition и SIZE в BODYSTRUCTURE и возвращает исходное RFC822 письмо
 побайтно. Это ограниченный acceptance неизвестного параметра, не заявление о
 полной registry coverage MIME charset.
+Тот же раздел требует трактовать неизвестный disposition type как `attachment`
+и сохранять смысл его параметров. Парсер BODYSTRUCTURE применяет этот fallback
+в типизированном MIME представлении, не переписывая исходный заголовок письма.
+Unit-проверки фиксируют fallback и сохранение filename; до отдельного wire
+acceptance эта узкая проверка не считается клиентской interoperability.
 RFC 2231 §4.1 допускает charset/language metadata в начале первой encoded
 continuation секции. Ранее `Content-Disposition` parser терял language hint
 после общего параметрического разбора; `Disposition` теперь сохраняет typed

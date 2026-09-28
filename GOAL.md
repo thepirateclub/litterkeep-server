@@ -9949,3 +9949,16 @@ ManageSieve до заявленного набора современных фо
 - Ограничение: проверен независимый клиент, не Litterkeep app. Это scoped
   acceptance RFC 2183 §2.8, не завершение registry coverage или G18; цель остаётся
   ACTIVE.
+### 2026-09-28: G18 RFC 2183 unknown disposition fallback, scoped PASS T331
+
+- Неизвестный `Content-Disposition` type теперь проецируется как `attachment`,
+  как требует RFC 2183 §2.8; параметры, включая `filename`, сохраняются.
+- Unit-тесты проверяют fallback и параметр. Независимый IMAP STARTTLS acceptance
+  проверил BODYSTRUCTURE для неизвестного типа, сохранение filename и неизменность
+  исходного RFC822 literal.
+- Rust 1.97.1: fmt, strict all-target Clippy, all-target tests прошли
+  (916 library + 1 CLI, 4 ignored); Python compile и diff check прошли.
+  Новый тестовый контейнер удаляется после проверки, образы переиспользованы.
+- Это scoped MIME/IMAP acceptance независимым клиентом, не Litterkeep app
+  interoperability и не закрытие полной MIME registry coverage; G18 остаётся
+  ACTIVE.

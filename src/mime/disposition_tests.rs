@@ -78,13 +78,23 @@ fn ignores_ambiguous_repeated_parameter_without_losing_other_values() {
     assert_eq!(value.parameters.get("size").map(String::as_str), Some("12"));
 }
 
+/// Неизвестное disposition по RFC 2183 §2.8 безопасно трактуется как attachment.
 #[test]
-fn extension_dispositions_remain_available_without_string_classification() {
+fn extension_dispositions_fall_back_to_attachment() {
     let value = parse("x-company-review").expect("extension disposition");
 
+    assert_eq!(value.kind, DispositionKind::Attachment);
+}
+
+/// Параметры остаются применимы и когда disposition type неизвестен.
+#[test]
+fn extension_disposition_keeps_known_filename_parameter() {
+    let value = parse("x-company-review; filename=report.pdf").expect("extension disposition");
+
+    assert_eq!(value.kind, DispositionKind::Attachment);
     assert_eq!(
-        value.kind,
-        DispositionKind::Extension("x-company-review".to_owned())
+        value.parameters.get("filename").map(String::as_str),
+        Some("report.pdf")
     );
 }
 

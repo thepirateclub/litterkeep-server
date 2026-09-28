@@ -333,6 +333,9 @@ Content-Disposition и подтвердил, что MIME tree не публик�
 не нормативное правило precedence RFC 2231. Следующий acceptance T330 проверяет
 RFC 2183 §2.8: неизвестный charset отдельного `filename*` пропускается, а
 известный `size=12` и disposition сохраняются; RFC822 literal остаётся точным.
+Неизвестный disposition type должен проецироваться как `attachment`; локальные
+unit-тесты подтверждают fallback и сохранение filename, но отдельный IMAP wire
+вектор для него ещё не добавлен.
 Whitespace около `=` в параметрах остается открытым и отдельно не ужесточается.
 
 RFC 2231 extended payload decoder принимает только attribute-char или
