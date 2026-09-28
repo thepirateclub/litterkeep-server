@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 1556 bidi MIME charset aliases, scoped PASS T307
+
+- Добавлены четыре отдельные typed charset profiles: ISO-8859-6-E/I и
+  ISO-8859-8-E/I, их IANA aliases и byte mappings на существующие строгие
+  ISO-8859-6/8 таблицы. Неизвестные mappings по-прежнему дают ошибку.
+- Unit tests проверяют distinct enum values, арабский/ивритский text,
+  сохранение LRM/RLM и отказ undefined octets. Windows Rust 1.97.1 strict
+  Clippy и full suite: 856 library + 1 CLI, 3 ignored.
+- Linux Docker 1.97 strict Clippy и full suite: 965 library + 1 CLI,
+  3 ignored; doctests прошли. Независимый Python SMTP STARTTLS -> IMAP UTF-8
+  SEARCH подтвердил все 41 charset labels, включая четыре новые bidi profiles.
+- MIME search mapping подтверждён; explicit control presentation и implicit
+  bidi layout не реализуются и не заявляются. Acceptance в
+  `./data/acceptance-mime-bidi-20260928`; созданный контейнер и оба images
+  удалены с проверкой отсутствия. G18 остаётся ACTIVE.
+
 ### 2026-09-28: G18 EUC-KR MIME decoder and IMAP SEARCH, scoped PASS T306
 
 - Добавлен собственный strict WHATWG EUC-KR decoder: ASCII, typed WHATWG/IANA

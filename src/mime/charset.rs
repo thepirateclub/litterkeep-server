@@ -1,6 +1,9 @@
 //! Ограниченный и явный профиль преобразования MIME charset в Unicode.
 
 #[cfg(test)]
+#[path = "charset_iso8859_bidi_tests.rs"]
+mod bidi_tests;
+#[cfg(test)]
 #[path = "charset_tests.rs"]
 mod tests;
 #[cfg(test)]
@@ -18,8 +21,12 @@ pub enum Charset {
     Iso8859_4,
     Iso8859_5,
     Iso8859_6,
+    Iso8859_6Explicit,
+    Iso8859_6Implicit,
     Iso8859_7,
     Iso8859_8,
+    Iso8859_8Explicit,
+    Iso8859_8Implicit,
     Iso8859_9,
     Iso8859_10,
     Tis620,
@@ -67,8 +74,12 @@ impl Charset {
             "iso-8859-4" => Ok(Self::Iso8859_4),
             "iso-8859-5" => Ok(Self::Iso8859_5),
             "iso-8859-6" => Ok(Self::Iso8859_6),
+            "csiso88596e" | "iso-8859-6-e" | "iso_8859-6-e" => Ok(Self::Iso8859_6Explicit),
+            "csiso88596i" | "iso-8859-6-i" | "iso_8859-6-i" => Ok(Self::Iso8859_6Implicit),
             "iso-8859-7" => Ok(Self::Iso8859_7),
             "iso-8859-8" => Ok(Self::Iso8859_8),
+            "csiso88598e" | "iso-8859-8-e" | "iso_8859-8-e" => Ok(Self::Iso8859_8Explicit),
+            "csiso88598i" | "iso-8859-8-i" | "iso_8859-8-i" => Ok(Self::Iso8859_8Implicit),
             "iso-8859-9" | "latin5" | "l5" => Ok(Self::Iso8859_9),
             "iso-8859-10" | "iso_8859-10" | "iso_8859-10:1992" | "latin6" | "l6" => {
                 Ok(Self::Iso8859_10)
@@ -143,8 +154,14 @@ impl Charset {
             Self::Iso8859_4 => super::charset_iso8859_4::decode(bytes),
             Self::Iso8859_5 => Ok(super::charset_iso8859_5::decode(bytes)),
             Self::Iso8859_6 => super::charset_iso8859_6::decode(bytes),
+            Self::Iso8859_6Explicit | Self::Iso8859_6Implicit => {
+                super::charset_iso8859_6::decode(bytes)
+            }
             Self::Iso8859_7 => super::charset_iso8859_7::decode(bytes),
             Self::Iso8859_8 => super::charset_iso8859_8::decode(bytes),
+            Self::Iso8859_8Explicit | Self::Iso8859_8Implicit => {
+                super::charset_iso8859_8::decode(bytes)
+            }
             Self::Iso8859_9 => Ok(super::charset_iso8859_9::decode(bytes)),
             Self::Iso8859_10 => super::charset_iso8859_10::decode(bytes),
             Self::Tis620 => super::charset_tis620::decode(bytes),

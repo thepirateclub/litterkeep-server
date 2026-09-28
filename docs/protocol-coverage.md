@@ -977,6 +977,15 @@ Windows-949 lead/trail форм, поэтому эта проверка не у�
 decoder and index](https://encoding.spec.whatwg.org/#euc-kr-decoder),
 [RFC 1557](https://www.rfc-editor.org/rfc/rfc1557.html) и
 [IANA Character Sets registry](https://www.iana.org/assignments/character-sets/).
+RFC 1556 MIME labels ISO-8859-6-E/I и ISO-8859-8-E/I распознаются отдельными
+typed variants, применяя соответствующую base octet mapping для IMAP SEARCH.
+Suffix E обозначает explicit, I implicit bidi presentation. Сервер не выполняет
+ни контрольную explicit presentation, ни implicit bidi layout algorithm и не
+заявляет визуальный bidi renderer; примеры лишь проверяют mapping, сохранение
+назначенных control code points и прохождение SMTP -> IMAP SEARCH. Источники:
+[RFC 1556](https://www.rfc-editor.org/rfc/rfc1556.html),
+[RFC 2046 §4.1.2](https://www.rfc-editor.org/rfc/rfc2046.html#section-4.1.2) и
+[IANA Character Sets registry](https://www.iana.org/assignments/character-sets/).
 Отдельная
 SMTP -> IMAP wire-проверка доставила RFC 2047 Subject encoded-word варианты UTF-16,
 UTF-16BE/LE и UTF-32 с generic BE BOM, UTF-32BE/LE; UTF-8 SEARCH literal
