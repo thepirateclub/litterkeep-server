@@ -96,9 +96,11 @@ fn decode_part(entity: &Entity, message: &[u8]) -> Result<Vec<u8>, FetchError> {
         crate::mime::transfer::TransferEncoding::Unsupported(_) => {
             Err(FetchError::UnknownContentTransferEncoding)
         }
+        // Ошибка любого transfer decoder означает невозможность BINARY
+        // projection, а не синтаксически неверный путь MIME-части.
         _ => entity
             .decoded_body(message)
-            .map_err(|_| FetchError::InvalidSection),
+            .map_err(|_| FetchError::UnknownContentTransferEncoding),
     }
 }
 

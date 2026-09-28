@@ -705,7 +705,17 @@ RFC 2045 §6.7 decoder boundary теперь также проверяет вс�
 `=HH` и как robust lowercase `=hh`, а также все 93 literal-safe ASCII значения
 из диапазонов 33..60 и 62..126. Это exhaustive octet mapping, не полное
 покрытие line-length, transport, malformed-input и MIME interoperability
-профиля. Внутренний QP encoder для vacation-response также сверяется со всеми
+профиля. Отдельная fail-closed политика отклоняет raw C0 control octets
+(кроме TAB), DEL и high-bit octets, поскольку RFC 2045 §6.7 разрешает их только
+в `=HH` форме. Ошибка BINARY projection передаётся как `NO [UNKNOWN-CTE]`, а
+исходный RFC822 literal остаётся доступен без `\\Seen`. Независимый TLS IMAP
+peer APPEND-ит malformed QP literal с NUL, VT и 0xFF, проверяет этот response
+code, последующий NOOP и неизменённые bytes через `BODY.PEEK[]`. Rust
+регрессии проверяют каждый запрещённый octet и сохранение UNKNOWN-CTE.
+Malformed `=` escape по-прежнему имеет отдельную tolerant recovery policy;
+эта проверка не означает полное покрытие quoted-printable профиля и не
+проверяет доставку таких octets через SMTP или совместимость приложения.
+Внутренний QP encoder для vacation-response также сверяется со всеми
 256 отдельными входными октетами и смешанным полным диапазоном: round-trip,
 hard CRLF и предел 76 символов проверены. Escape token теперь собирается в
 фиксированные stack bytes вместо форматирования временной heap-строки для

@@ -47,6 +47,16 @@ fn unsupported_transfer_encoding_keeps_unknown_cte_result() {
     ));
 }
 
+/// QP decoding failure остаётся UNKNOWN-CTE, а не неверной MIME section.
+#[test]
+fn illegal_literal_octet_keeps_unknown_cte_result() {
+    let message = b"Content-Type: application/octet-stream\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nraw\x00octet";
+    assert!(matches!(
+        select(message, &[1], None),
+        Err(FetchError::UnknownContentTransferEncoding)
+    ));
+}
+
 #[test]
 fn binary_rejects_multipart_and_nonexistent_leaf_paths() {
     assert!(matches!(

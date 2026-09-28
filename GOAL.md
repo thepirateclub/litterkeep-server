@@ -1,5 +1,22 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 2045 quoted-printable illegal literal octets, scoped PASS T296
+
+- `quoted-printable` decoder теперь отклоняет незакодированные C0 controls,
+  кроме TAB, DEL и high-bit octets; допустимый printable ASCII, TAB, CRLF,
+  `=HH` bytes и существующий tolerant malformed-escape recovery сохранены.
+- IMAP BINARY projection сохраняет typed `UNKNOWN-CTE` при ошибке декодирования.
+  Независимый TLS IMAP peer APPEND-ит письмо с raw NUL/VT/0xFF, проверяет
+  `NO [UNKNOWN-CTE]`, успешный NOOP, точные неизменённые bytes через
+  `BODY.PEEK[]` и отсутствие `\\Seen`.
+- Windows Rust 1.97.1 fmt, strict Clippy, all-target tests и Linux Docker Rust
+  1.97 strict Clippy/test/doc-tests пройдены; точные итоги внесены в T296.
+  Это malformed MIME APPEND/FETCH acceptance независимым peer, не SMTP
+  malformed delivery и не проверка совместимости Litterkeep приложения.
+- Fixture хранится в `./data/acceptance-mime-qp-illegal-raw-20260928`.
+  Созданные для этапа runtime container и Docker images удалены после проверки;
+  G18 остаётся ACTIVE.
+
 ### 2026-09-28: G18 POP3 UIDL wire stability across server restart, scoped PASS T295
 
 - Independent Python STARTTLS acceptance delivered two messages through SMTP,

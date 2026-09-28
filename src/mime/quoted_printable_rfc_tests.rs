@@ -69,3 +69,21 @@ fn accepts_every_rfc_literal_printable_octet() {
         assert_eq!(decode(&[octet]), Ok(vec![octet]), "literal octet {octet}");
     }
 }
+
+/// Непечатные и high-bit literal octets не считаются валидным QP содержимым.
+#[test]
+fn rejects_unencoded_control_and_high_bit_octets() {
+    let controls = (0_u8..=8)
+        .chain([11, 12])
+        .chain(14_u8..=31)
+        .chain(127_u8..=u8::MAX);
+    for octet in controls {
+        assert_eq!(
+            decode(&[octet]),
+            Err("illegal octet in quoted-printable"),
+            "unencoded octet {octet:02X} must not enter decoded MIME data"
+        );
+    }
+    assert_eq!(decode(b"tab\tinside"), Ok(b"tab\tinside".to_vec()));
+    assert_eq!(decode(b"line\r\nbreak"), Ok(b"line\r\nbreak".to_vec()));
+}

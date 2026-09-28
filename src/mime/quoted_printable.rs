@@ -37,9 +37,12 @@ fn decode_with_policy(input: &[u8], policy: InvalidEscapePolicy) -> Result<Vec<u
             b' ' | b'\t' => {
                 cursor = decode_whitespace_run(input, cursor, &mut output)?;
             }
-            _ => {
+            33..=60 | 62..=126 => {
                 output.push(byte);
                 cursor = cursor.saturating_add(1);
+            }
+            _ => {
+                return Err("illegal octet in quoted-printable");
             }
         }
     }
