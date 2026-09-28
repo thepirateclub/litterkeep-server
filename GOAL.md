@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-28: G18 bounded SCRAM attribute syntax, scoped PASS T322
+
+- Добавлен типизированный парсер SCRAM attribute list: односимвольные ASCII
+  имена, уникальность, opaque значения, явные ошибки и отказ на неподдержанное
+  mandatory `m=`. Вход ограничен 16 KiB, а список - 26 элементами до создания
+  полного вектора. Значения с padding `=` сохраняются без изменения.
+- Пять focused-тестов проверяют известные поля, дубликаты, malformed/empty
+  формы, mandatory extension, Unicode/whitespace, padding и обе границы.
+  Windows Rust 1.97.1: 891 библиотечный и 1 CLI тест прошли, 4 игнорированы;
+  fmt и strict Clippy прошли. Linux Docker Rust 1.97.1: 996 библиотечных и
+  1 CLI тест прошли, 4 игнорированы; fmt и strict Clippy прошли. Контейнер
+  удалён автоматически через `--rm`.
+- Это только syntax parser, не проверка обязательных/взаимозависимых полей,
+  transcript, server nonce или SASL state machine. Capability выключена, G18
+  ACTIVE.
+
 ### 2026-09-28: G18 SCRAM verifier backfill after password login, scoped PASS T321
 
 - Успешная проверка существующего `.phc2` теперь создаёт недостающий SCRAM

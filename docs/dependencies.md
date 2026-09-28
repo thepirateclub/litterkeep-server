@@ -45,6 +45,12 @@ backfill; legacy `.phc` миграция публикует sidecar до нов�
 вход не меняет файлы. Это всё ещё не полный SCRAM exchange: нужны bounded
 parsing, ManageSieve state machine с SASL continuation и независимый wire
 acceptance.
+Для подготовки протокольного слоя модуль `scram_attributes` разбирает только
+ограниченный синтаксис уникальных односимвольных атрибутов, отклоняет
+неподдержанные mandatory extension `m=`, non-ASCII/whitespace значения и
+ограничивает сообщение 16 KiB и 26 атрибутами. Это не message-specific
+валидация полей client-first/server-first/client-final/server-final и не
+доказательство ManageSieve interoperability.
 Crypto API проверяет proof с постоянновременным сравнением StoredKey и строит
 server signature; это не заменяет end-to-end проверку протокольного transcript.
 [`RFC 5804 §2.1`](https://www.rfc-editor.org/rfc/rfc5804.html#section-2.1)

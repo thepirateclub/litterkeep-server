@@ -10,6 +10,8 @@ pub mod pbkdf2_sha1;
 pub mod saslprep;
 #[path = "sasl/saslprep_data/data.rs"]
 mod saslprep_data;
+#[path = "sasl/scram_attributes.rs"]
+pub mod scram_attributes;
 #[path = "sasl/scram_sha1_record.rs"]
 pub mod scram_sha1_record;
 #[path = "sasl/scram_sha1_verifier.rs"]
