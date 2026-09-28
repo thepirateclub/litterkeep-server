@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 2319 KOI8-U MIME charset, scoped PASS T298
+
+- MIME `Charset` поддерживает зарегистрированные `KOI8-U` и alias `csKOI8U`.
+  Декодер за один проход переиспользует KOI8-R таблицу и применяет восемь
+  украинских позиций RFC 2319; unit-тест сверяет все 256 octets.
+- Независимый Linux Python SMTP STARTTLS -> IMAP UTF-8 SEARCH acceptance прошёл
+  для 28 однобайтовых charset, включая украинский `Їжак` через встроенный
+  `koi8_u` codec. Проверка не использовала Litterkeep app.
+- Windows Rust 1.97.1 fmt, strict Clippy и all-target tests прошли (821 library
+  + 1 CLI, 3 ignored). Linux Rust 1.97 Docker strict Clippy, 930 library + 1
+  CLI, 3 ignored, и doc-tests прошли. Контейнер и оба созданных image удалены;
+  fixture `./data/acceptance-mime-koi8-u-20260928` оставлена.
+- Проверен этот MIME charset/Search путь, не полный набор charset и не остальные
+  RFC profile gaps. Совместимость с приложением Litterkeep не проверялась; G18
+  остаётся ACTIVE.
+
 ### 2026-09-28: G18 RFC 1489 KOI8-R MIME charset, scoped PASS T297
 
 - MIME `Charset` принимает зарегистрированные IANA имя `KOI8-R` и alias

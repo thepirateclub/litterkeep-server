@@ -56,6 +56,7 @@ CHARSET_CASES = (
     CharsetCase("TIS-620", "tis_620", "ภาษาไทย"),
     CharsetCase("IBM866", "cp866", "Привет"),
     CharsetCase("KOI8-R", "koi8_r", "Привет"),
+    CharsetCase("KOI8-U", "koi8_u", "Їжак"),
     CharsetCase("windows-874", "cp874", "ภาษาไทย"),
     CharsetCase("windows-1250", "cp1250", "Zażółć"),
     CharsetCase("windows-1251", "cp1251", "Привет"),

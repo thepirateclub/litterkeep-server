@@ -6,7 +6,7 @@ pub(super) fn decode(bytes: &[u8]) -> String {
 }
 
 /// Ищет octet в определённой RFC верхней половине таблицы.
-fn decode_octet(octet: u8) -> char {
+pub(super) fn decode_octet(octet: u8) -> char {
     match octet {
         0x00..=0x7f => char::from(octet),
         0x80..=0xff => {

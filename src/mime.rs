@@ -38,6 +38,8 @@ mod charset_iso8859_8;
 mod charset_iso8859_9;
 #[path = "mime/charset_koi8_r.rs"]
 mod charset_koi8_r;
+#[path = "mime/charset_koi8_u.rs"]
+mod charset_koi8_u;
 #[path = "mime/charset_tis620.rs"]
 mod charset_tis620;
 #[path = "mime/charset_utf16.rs"]
