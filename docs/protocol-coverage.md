@@ -17,21 +17,22 @@ submission, IMAP и POP3; ManageSieve включён в общую команд�
 ## SMTP
 
 RFC 3461 `DSN` пока не рекламируется. MAIL `RET`/`ENVID` и RCPT
-`NOTIFY`/`ORCPT` разбираются в typed поля, но команды отвергаются ответом
-`555 5.5.4`: сервер не принимает их как доставку и не обещает DSN-семантику.
-Успешные входящие сообщения сохраняют только адреса envelope, без DSN-политики
-отдельного получателя.
-Имеющаяся генерация RFC 3464 failure reports относится к внутреннему
-outbound retry профилю и сама по себе не означает поддержку RFC 3461.
-RFC 3461 определяет DSN как запрос с условиями генерации уведомления,
-возвратом содержания и корреляцией envelope/получателя. Поэтому одной
-грамматики `NOTIFY`/`ORCPT` недостаточно: сервер обязан применить запрос либо
-сообщить, что не может его выполнить. Typed parser проверяет списки условий,
-xtext и лимиты; dispatcher отвечает `555 5.5.4`, пока durable семантика не
-реализована. Независимый Linux wire peer подтвердил отсутствие capability,
-точный refusal-код для MAIL/RCPT и recovery после отказа. RFC 6533 UTF-8
-ORCPT пока не разбирается как поддерживаемый формат. Полный DSN ESMTP профиль
-остаётся неподдержанным.
+`NOTIFY`/`ORCPT` разбираются в typed поля, но корректные параметризованные
+команды отвергаются ответом `555 5.5.4`: wire-путь не принимает их как
+доставку и не обещает DSN-семантику. Внутри SMTP transaction typed envelope
+уже проходит через DATA/BDAT и bounded request к единственному Store owner;
+Store сохраняет его в commit-linked sidecar и восстанавливает после reopen.
+Это внутреннее сохранение намерения отправителя, а не генерация уведомлений.
+
+RFC 3461 требует применить запросы условий `NOTIFY`, возврата содержимого и
+корреляции envelope/получателя либо не заявлять о поддержке. Success, failure
+и delay report scheduling, report MIME conformance и сквозное поведение
+повторной доставки ещё не реализованы и не проверены. Независимый Linux wire
+peer подтвердил отсутствие capability, точный refusal-код для MAIL/RCPT и
+восстановление сессии; отдельный Linux Store integration test подтвердил
+durable round-trip typed envelope. RFC 6533 задаёт для `utf-8` ORCPT три разные
+формы xtext, unitext и native UTF-8 с разными условиями SMTPUTF8; сервер их
+пока не поддерживает. Полный DSN ESMTP профиль остаётся неподдержанным.
 
 Submission поддерживает implicit TLS и STARTTLS, EHLO, AUTH PLAIN, MAIL SIZE,
 несколько RCPT, DATA с однократным dot-unstuffing, RSET, NOOP и QUIT. Также

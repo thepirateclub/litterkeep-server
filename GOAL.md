@@ -1,5 +1,20 @@
 # Goal ledger
 
+### 2026-09-28: G18 SMTP DSN coverage reconciliation, PARTIAL T347
+
+- Актуальная матрица `docs/protocol-coverage.md` теперь разделяет внутренний
+  typed/durable handoff T345/T346 и неподдерживаемый RFC 3461 wire-профиль:
+  EHLO не рекламирует DSN, команды остаются отказанными, генерация уведомлений
+  не реализована. Исторические T339/T344 записи сохранены, добавлены строки
+  приёмки T345/T346.
+- RFC 6533 первоисточник проверен: `utf-8` ORCPT имеет xtext, unitext и native
+  формы с разными требованиями SMTPUTF8. Не выдаём частичный парсер за
+  поддержку; весь формат остаётся GAP до определения строгого typed контракта.
+- Документационная сверка проверена `git diff --check`; исходники и тесты не
+  менялись. Использован существующий Docker image; контейнеры и образы не
+  создавались, пользовательский diff `smtp_data_line_bound.py` сохранён.
+- T347 PARTIAL, G18 ACTIVE.
+
 ### 2026-09-28: G18 SMTP DSN envelope through transaction and Store owner, PARTIAL T346
 
 - Typed MAIL `RET`/`ENVID` и recipient-scoped `NOTIFY`/`ORCPT` теперь входят в
