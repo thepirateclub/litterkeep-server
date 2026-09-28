@@ -1,5 +1,17 @@
 # Goal ledger
 
+### 2026-09-28: G18 MIME charset inventory reconciled with wire matrix, T300
+
+- Сверила реализацию, `imap-profile.md`, wire matrix и актуальный IANA registry:
+  ISO-8859-11 уже принимается как alias TIS-620, но отсутствовал в Search
+  allowlist документа. Запись добавлена, число независимых single-byte wire
+  кейсов уточнено с 28 до 29 по результату T299.
+- Явно перечислены пока неподдерживаемые распространённые multibyte семейства:
+  GBK/GB18030, Big5, EUC-JP, ISO-2022-JP, Shift_JIS и EUC-KR. Их упоминание
+  фиксирует пробел, а не заявляет реализацию или acceptance.
+- Только документационная корректировка; Rust source и runtime не менялись.
+  G18 остаётся ACTIVE, полноценная поддержка multibyte charset отсутствует.
+
 ### 2026-09-28: G18 ISO-8859-11 MIME SEARCH wire coverage, scoped PASS T299
 
 - Существующий `ISO-8859-11` alias декодера TIS-620 был покрыт unit-тестом,

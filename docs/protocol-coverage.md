@@ -913,12 +913,14 @@ STARTTLS SMTP -> IMAP acceptance дополнительно доставил 8BI
 `charset=windows-874`, после чего Bob запросил `SEARCH CHARSET UTF-8 BODY` со
 synchronizing literal `ภาษาไทย`; результат включил доставленное сообщение.
 Это доказывает Windows-874 decoding в IMAP MIME text projection и его передачу
-в evaluator. Другой сценарий проверил 28 однобайтовых body charset: ISO-8859-1..10
+в evaluator. Другой сценарий проверил 29 однобайтовых body charset: ISO-8859-1..10
 и 13..16, TIS-620, ISO-8859-11, IBM866, KOI8-R/U, Windows-874 и Windows-1250..1258. KOI8-R
 и KOI8-U mappings unit-tested для всех 256 octets по RFC 1489 и RFC 2319;
 независимый Python codec проверил русский и украинский текст в SMTP -> IMAP
-SEARCH цепочке. Это не доказывает остальные
-charset. Отдельная SMTP -> IMAP wire-проверка доставила RFC 2047 Subject encoded-word варианты UTF-16,
+SEARCH цепочке. Это не доказывает остальные charset. В частности, известные
+зарегистрированные многобайтовые семейства GBK/GB18030, Big5, EUC-JP,
+ISO-2022-JP, Shift_JIS и EUC-KR в текущем декодере не реализованы. Отдельная
+SMTP -> IMAP wire-проверка доставила RFC 2047 Subject encoded-word варианты UTF-16,
 UTF-16BE/LE и UTF-32 с generic BE BOM, UTF-32BE/LE; UTF-8 SEARCH literal
 нашёл ровно одно соответствующее письмо для каждого label. Это подтверждает
 данный набор encoded-word -> ENVELOPE SEARCH сценариев, а не все MIME charset,
