@@ -1,5 +1,17 @@
 # Goal ledger
 
+### 2026-09-28: G18 SCRAM-SHA-1 verifier derivation, scoped PASS T313
+
+- Связала crypto-примитивы в `ScramSha1Verifier`, получающий StoredKey и
+  ServerKey из уже SASLprep-normalized password. Параметры ограничены до KDF:
+  salt 1..64 octets, iterations 4096..200000.
+- Сквозной crypto test воспроизводит опубликованные client proof и server
+  signature из RFC 5802 §5.1; пустой salt и iteration вне диапазона отвергаются.
+  Windows: 864 library + 1 CLI, 3 ignored, fmt и strict Clippy; Linux Docker:
+  973 library + 1 CLI, 3 ignored, doc-tests и strict Clippy. Test image удалён.
+- Account storage, SASLprep, миграция Argon2-only записей и протокольный
+  SCRAM exchange ещё отсутствуют; mechanism не рекламируется. G18 ACTIVE.
+
 ### 2026-09-28: G18 SCRAM-SHA-1 primitive foundation, scoped PASS T312
 
 - Реализованы собственные safe-Rust SHA-1, HMAC-SHA-1 и PBKDF2-HMAC-SHA-1

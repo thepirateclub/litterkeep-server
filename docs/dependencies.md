@@ -24,6 +24,13 @@ crate недопустимо. В `src/sasl/sha1.rs`, `hmac_sha1.rs` и `pbkdf2_s
 SHA-1 применяется только как legacy совместимость SCRAM, не для подписей,
 нового хранения паролей или защиты от collision атак.
 
+Тип `ScramSha1Verifier` связывает PBKDF2, ClientKey/StoredKey и ServerKey,
+проверяет непустой salt длиной до 64 октетов и ограничивает iteration count
+диапазоном 4096..=200000. Сквозной тест воспроизводит client proof и server
+signature из полного RFC 5802 §5.1 примера. Эти операции используют уже
+SASLprep-normalized password; нормализация пока не реализована, поэтому этот
+тип ещё нельзя вызывать из account или протокольного workflow.
+
 Это только криптографическая основа, а не реализация SCRAM. Account-файл пока
 содержит только Argon2id PHC verifier, из которого нельзя восстановить пароль
 или SCRAM salted password. Следующие обязательные работы: versioned SCRAM
