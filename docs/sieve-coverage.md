@@ -617,6 +617,15 @@ IANA charset [IBM866](https://www.iana.org/assignments/charset-reg/ibm866)
 MIME charset decoder unit-тестами; сетевое использование и клиентское
 подключение отдельно не проверялись.
 
+RFC 5228 §2.4.1 требует нечувствительности всех нестроковых токенов к регистру,
+сохраняя регистр quoted и multiline strings. Parser переводит команды, тесты,
+объявления capability, match/address/size tags и comparator identifiers в
+типизированные enum до построения AST. Регрессионные тесты исполняют верхний и
+смешанный регистр для HEADER, FILEINTO и ADDRESS, одновременно подтверждая,
+что имя папки `Invoices/2026` остается точным. Это только unit-проверка parser и
+executor; независимый ManageSieve wire-клиент и приложение Litterkeep в ней не
+участвовали. Полная совместимость RFC 5228 не заявляется.
+
 UTF-32, UTF-32BE и UTF-32LE зарегистрированные labels декодируются как Unicode
 scalars в RFC 2047 encoded-word и RFC 2231 extended values. Generic UTF-32 по
 IANA использует big-endian при отсутствии BOM и снимает только BE BOM; invalid

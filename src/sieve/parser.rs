@@ -5,6 +5,7 @@ use super::ast::{
     Action, Capability, Command, Comparator, Condition, EnvelopePart, MatchType, Script,
     SizeRelation, StringMatch,
 };
+use super::keywords::{CapabilityWord, CommandWord, ComparatorWord, MatchTag, SizeTag, TestWord};
 use super::lexer::Token;
 use super::parser_values::{atom, expect, one_string, string_list, terminated_strings};
 #[path = "parser_actions.rs"]
@@ -19,29 +20,29 @@ pub(super) fn parse(tokens: Vec<Token>) -> Result<Script, &'static str> {
         let Token::Atom(word) = token else {
             return Err("sieve command expected");
         };
-        match word.as_str() {
-            "require" => {
+        match CommandWord::parse(&word) {
+            CommandWord::Require => {
                 // RFC 5228 разрешает require только до первого действия или if.
                 if !commands.is_empty() {
                     return Err("sieve require must precede commands");
                 }
                 requires.extend(terminated_strings(&mut input)?.into_iter().map(capability))
             }
-            "if" => commands.push(if_command(&mut input)?),
-            word => action(word, &mut input, &mut commands)?,
+            CommandWord::If => commands.push(if_command(&mut input)?),
+            command => action(command, &mut input, &mut commands)?,
         }
     }
     Ok(Script { requires, commands })
 }
 
 fn capability(value: String) -> Capability {
-    match value.as_str() {
-        "fileinto" => Capability::FileInto,
-        "copy" => Capability::Copy,
-        "subaddress" => Capability::Subaddress,
-        "envelope" => Capability::Envelope,
-        "vacation" => Capability::Vacation,
-        "vacation-seconds" => Capability::VacationSeconds,
+    match CapabilityWord::parse(&value) {
+        CapabilityWord::FileInto => Capability::FileInto,
+        CapabilityWord::Copy => Capability::Copy,
+        CapabilityWord::Subaddress => Capability::Subaddress,
+        CapabilityWord::Envelope => Capability::Envelope,
+        CapabilityWord::Vacation => Capability::Vacation,
+        CapabilityWord::VacationSeconds => Capability::VacationSeconds,
         _ => Capability::Unsupported(value),
     }
 }
@@ -63,11 +64,11 @@ fn if_command(input: &mut VecDeque<Token>) -> Result<Command, &'static str> {
 /// не создаёт второй алгоритм выбора ветви и сохраняет общий лимит команд.
 fn alternative(input: &mut VecDeque<Token>) -> Result<Vec<Command>, &'static str> {
     match input.front() {
-        Some(Token::Atom(word)) if word == "else" => {
+        Some(Token::Atom(word)) if CommandWord::parse(word) == CommandWord::Else => {
             let _ = input.pop_front();
             block(input)
         }
-        Some(Token::Atom(word)) if word == "elsif" => {
+        Some(Token::Atom(word)) if CommandWord::parse(word) == CommandWord::Elsif => {
             let _ = input.pop_front();
             Ok(vec![if_command(input)?])
         }
@@ -81,25 +82,25 @@ fn block(input: &mut VecDeque<Token>) -> Result<Vec<Command>, &'static str> {
     loop {
         match input.pop_front() {
             Some(Token::CloseBlock) => return Ok(commands),
-            Some(Token::Atom(word)) => action(&word, input, &mut commands)?,
+            Some(Token::Atom(word)) => action(CommandWord::parse(&word), input, &mut commands)?,
             _ => return Err("invalid sieve block"),
         }
     }
 }
 
 fn action(
-    word: &str,
+    word: CommandWord,
     input: &mut VecDeque<Token>,
     output: &mut Vec<Command>,
 ) -> Result<(), &'static str> {
     let action = match word {
-        "keep" => Action::Keep,
-        "discard" => Action::Discard,
-        "stop" => Action::Stop,
-        "fileinto" => actions::fileinto(input)?,
-        "redirect" => actions::redirect(input)?,
-        "vacation" => actions::vacation(input)?,
-        "if" => {
+        CommandWord::Keep => Action::Keep,
+        CommandWord::Discard => Action::Discard,
+        CommandWord::Stop => Action::Stop,
+        CommandWord::FileInto => actions::fileinto(input)?,
+        CommandWord::Redirect => actions::redirect(input)?,
+        CommandWord::Vacation => actions::vacation(input)?,
+        CommandWord::If => {
             output.push(if_command(input)?);
             return Ok(());
         }
@@ -112,19 +113,19 @@ fn action(
 
 fn condition(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
     let word = atom(input)?;
-    match word.as_str() {
-        "true" => Ok(Condition::True),
-        "false" => Ok(Condition::False),
-        "header" => header(input),
-        "address" => address(input),
-        "envelope" => envelope(input),
-        "exists" => Ok(Condition::Exists {
+    match TestWord::parse(&word) {
+        TestWord::True => Ok(Condition::True),
+        TestWord::False => Ok(Condition::False),
+        TestWord::Header => header(input),
+        TestWord::Address => address(input),
+        TestWord::Envelope => envelope(input),
+        TestWord::Exists => Ok(Condition::Exists {
             names: string_list(input)?,
         }),
-        "size" => size(input),
-        "not" => Ok(Condition::Not(Box::new(condition(input)?))),
-        "allof" => conditions(input, Condition::AllOf),
-        "anyof" => conditions(input, Condition::AnyOf),
+        TestWord::Size => size(input),
+        TestWord::Not => Ok(Condition::Not(Box::new(condition(input)?))),
+        TestWord::AllOf => conditions(input, Condition::AllOf),
+        TestWord::AnyOf => conditions(input, Condition::AnyOf),
         _ => Err("unsupported sieve test"),
     }
 }
@@ -194,45 +195,47 @@ fn match_options(input: &mut VecDeque<Token>) -> Result<(MatchType, Comparator),
         let Some(Token::Atom(tag)) = input.front() else {
             return Ok((kind, selected_comparator));
         };
-        match tag.as_str() {
-            ":is" if !has_kind => {
+        match (MatchTag::parse(tag), has_kind, has_comparator) {
+            (MatchTag::Is, false, _) => {
                 let _ = input.pop_front();
                 kind = MatchType::Is;
                 has_kind = true;
             }
-            ":contains" if !has_kind => {
+            (MatchTag::Contains, false, _) => {
                 let _ = input.pop_front();
                 kind = MatchType::Contains;
                 has_kind = true;
             }
-            ":matches" if !has_kind => {
+            (MatchTag::Matches, false, _) => {
                 let _ = input.pop_front();
                 kind = MatchType::Matches;
                 has_kind = true;
             }
-            ":comparator" if !has_comparator => {
+            (MatchTag::Comparator, _, false) => {
                 let _ = input.pop_front();
                 selected_comparator = parse_comparator(&one_string(input)?)?;
                 has_comparator = true;
             }
-            value if value.starts_with(':') => return Err("unsupported sieve match tag"),
+            (MatchTag::Unknown, _, _) if tag.starts_with(':') => {
+                return Err("unsupported sieve match tag");
+            }
             _ => return Ok((kind, selected_comparator)),
         }
     }
 }
 
 fn parse_comparator(value: &str) -> Result<Comparator, &'static str> {
-    match value {
-        "i;ascii-casemap" => Ok(Comparator::AsciiCasemap),
-        "i;octet" => Ok(Comparator::Octet),
+    match ComparatorWord::parse(value) {
+        ComparatorWord::AsciiCasemap => Ok(Comparator::AsciiCasemap),
+        ComparatorWord::Octet => Ok(Comparator::Octet),
         _ => Err("unsupported sieve comparator"),
     }
 }
 
 fn size(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
-    let relation = match atom(input)?.as_str() {
-        ":over" => SizeRelation::Over,
-        ":under" => SizeRelation::Under,
+    let relation = match SizeTag::parse(&atom(input)?) {
+        SizeTag::Over => SizeRelation::Over,
+        SizeTag::Under => SizeRelation::Under,
         _ => return Err("sieve size relation expected"),
     };
     Ok(Condition::Size {

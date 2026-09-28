@@ -58,3 +58,25 @@ fn require_declarations_must_precede_every_command() {
     assert!(parse("keep; require \"fileinto\";").is_err());
     assert!(parse("if true { keep; } require \"fileinto\";").is_err());
 }
+
+/// Проверяет ASCII-регистр у синтаксических токенов, но не у строковых данных.
+#[test]
+fn syntax_tokens_ignore_case_while_string_values_remain_exact() {
+    let source = "REQUIRE \"FiLeInTo\"; IF HEADER :IS :COMPARATOR \"I;ASCII-CASEMAP\" \"Subject\" \"Invoice\" { FILEINTO \"Invoices/2026\"; } eLsE { KEEP; }";
+    let script = parse(source).expect("case-insensitive syntax");
+    let plan = execute(&script, &[("Subject".into(), "Invoice".into())], 0)
+        .expect("execute matching header");
+    assert_eq!(plan.folders.as_slice(), &["Invoices/2026"]);
+    assert!(parse("IF HEADER :IS \"subject\" \"invoice\" { KEEP; }").is_ok());
+    assert!(parse("REQUIRE \"FILEINTO\"; FILEINTO \"Invoices\";").is_ok());
+}
+
+/// Address tags и comparator names также являются case-insensitive tokens.
+#[test]
+fn address_tags_and_comparator_names_ignore_ascii_case() {
+    let source =
+        "IF ADDRESS :LOCALPART :IS :COMPARATOR \"I;ASCII-CASEMAP\" \"to\" \"alice\" { KEEP; }";
+    let script = parse(source).expect("case-insensitive address options");
+    let plan = execute_with_envelope(&script, &[], 0, "", "Alice@example.test");
+    assert!(plan.expect("execute address test").keep);
+}

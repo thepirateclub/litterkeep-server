@@ -23,6 +23,8 @@ mod copy_tests;
 mod envelope_tests;
 #[path = "sieve/execution.rs"]
 mod execution;
+#[path = "sieve/keywords.rs"]
+mod keywords;
 #[path = "sieve/lexer.rs"]
 mod lexer;
 #[path = "sieve/matching.rs"]

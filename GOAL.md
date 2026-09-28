@@ -11390,3 +11390,19 @@ ManageSieve до заявленного набора современных фо
 - T384 proves capability discovery and the listed extension paths only.
   Remaining RFC 9755 requirements, IMAP4rev2 and Litterkeep app interoperability
   remain unverified; G14 stays RUNNING.
+
+### 2026-09-29: G18 Sieve syntax case-insensitivity, T403 PASS
+
+- RFC 5228 §2.4.1 requires non-string tokens to ignore ASCII case and quoted or
+  multiline strings to remain case-sensitive. Sieve commands, tests,
+  capabilities, match/address/size tags and comparator identifiers now pass
+  through typed enums before AST construction. User string values are retained
+  unchanged.
+- Regression tests parse and execute mixed/upper-case HEADER, FILEINTO and
+  ADDRESS paths and preserve exact `Invoices/2026` folder spelling.
+- Windows Rust 1.97.1 full suite: 1045 library + 1 CLI passed, 4 ignored;
+  focused parser tests, strict all-target Clippy, rustfmt and diff check pass.
+- No Linux/Docker or independent ManageSieve wire test was run for this local
+  parser change. Parser/executor unit behavior only is proven; full RFC 5228
+  coverage and Litterkeep app interoperability remain unverified; G18 stays
+  ACTIVE.
