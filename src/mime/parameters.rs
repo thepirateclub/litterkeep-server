@@ -66,6 +66,7 @@ pub fn parse(input: &str) -> Result<StructuredValue, &'static str> {
         if section.is_empty() {
             continue;
         }
+        super::parameter_separator::validate(section)?;
         let normalized_section = normalize_parameter_section(section)?;
         let (raw_name, raw_value) = normalized_section
             .split_once('=')

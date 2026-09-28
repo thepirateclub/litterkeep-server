@@ -293,7 +293,7 @@ fn rejects_unicode_whitespace_outside_mime_parameter_values() {
 
 #[test]
 fn trims_ascii_wsp_but_preserves_unicode_whitespace_inside_quotes() {
-    let parsed = parameters::parse(" \ttext/plain\t; \tname\t=\t\"\u{00a0}\" \t")
+    let parsed = parameters::parse(" \ttext/plain\t; \tname=\"\u{00a0}\" \t")
         .expect("RFC WSP and quoted Unicode value");
 
     assert_eq!(

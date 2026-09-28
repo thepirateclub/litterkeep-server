@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-28: G18 MIME parameter separator whitespace, T364 PASS
+
+- RFC 2045 §5.1 и RFC 2231 §7: parser отклоняет SP/HTAB непосредственно до и
+  после `=` в regular, extended и continuation параметрах. Допустимый OWS после
+  `;` и комментарии RFC 822 не превращаются в ложные ошибки.
+- Unit regressions и независимый IMAP STARTTLS wire acceptance проверяют
+  fallback для испорченного Content-Type, отбрасывание только некорректного
+  filename при сохранении `attachment` в BODYSTRUCTURE и исходные RFC822 bytes
+  без изменений. Peer отправляет обычный literal RFC 9755 после ENABLE.
+- Windows Rust 1.97.1: 995 library + 1 CLI, 4 ignored; all-target tests, fmt,
+  strict Clippy и Python 3.14 syntax check прошли. Linux Rust 1.97.1:
+  1108 library + 1 CLI, 4 ignored; fmt, strict Clippy, all-target tests и
+  release build прошли. Независимый IMAP STARTTLS acceptance прошёл.
+- Существующий `rust:1.97-bookworm` переиспользован; listener-контейнер удалён,
+  его отсутствие проверено; нового image нет. Build cache лежит в
+  `./data/g18-mime-rfc2231-equals`. Это узкий parser/wire этап, не полная MIME
+  совместимость и не проверка приложения Litterkeep; G18 остаётся ACTIVE.
+
 ### 2026-09-28: G17 RFC 9755 FETCH BODYSTRUCTURE string mode, PARTIAL T352
 
 - Connection-local `StringMode` теперь проходит через BODY, BODYSTRUCTURE,

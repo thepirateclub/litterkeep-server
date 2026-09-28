@@ -126,6 +126,11 @@ mod parameter_conflict_tests;
 pub(crate) mod parameter_extended;
 #[path = "mime/parameter_join.rs"]
 mod parameter_join;
+#[path = "mime/parameter_separator.rs"]
+mod parameter_separator;
+#[cfg(test)]
+#[path = "mime/parameter_whitespace_tests.rs"]
+mod parameter_whitespace_tests;
 #[path = "mime/parameters.rs"]
 pub mod parameters;
 #[cfg(test)]

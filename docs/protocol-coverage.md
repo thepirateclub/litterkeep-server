@@ -580,8 +580,15 @@ segmented RFC 2231 `filename*0*`/`filename*1*` с `UTF-8'en-US'`: BODYSTRUCTURE
 T329 отдельно проверил конфликт regular `filename=` и extended `filename*=` в
 исходном письме независимым Linux STARTTLS клиентом: BODYSTRUCTURE не публикует
 конфликтующее значение, а RFC822 FETCH возвращает исходные байты. Litterkeep
-app interop не подтверждено. Whitespace возле `=` в RFC 2231 ABNF остаётся
-открытым вопросом; совместимое ужесточение не выполнено.
+app interop не подтверждено. RFC 2045 §5.1 и RFC 2231 §7 требуют, чтобы имя,
+`=` и значение parameter шли без пробельных октетов между ними: MIME parser
+отвергает SP/HTAB до или после разделителя в regular, extended и continuation
+формах. Пробелы после `;` и RFC 822 comments отдельно сохраняют допустимую
+семантику. Unit и независимый IMAP wire acceptance подтверждают безопасный
+fallback для Content-Type, отбрасывание повреждённого filename при сохранении
+валидного Content-Disposition в BODYSTRUCTURE и побайтную сохранность исходного
+RFC822. Это не заявляет полную
+совместимость со всеми MIME клиентами или interoperability приложения Litterkeep.
 RFC 2183 §2.8 говорит игнорировать нераспознанные параметры disposition.
 Следующий wire-вектор добавляет неизвестный RFC 2231 charset в `filename*` и
 известный `size=12`: сервер исключает только имя с неподдерживаемым charset,
