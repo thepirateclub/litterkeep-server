@@ -10572,3 +10572,21 @@ ManageSieve до заявленного набора современных фо
 - This closes capability reporting and its boundary evidence only; broader
   Sieve/ManageSieve profiles and Litterkeep app interoperability remain open.
   G18 remains ACTIVE.
+
+### 2026-09-28: G18 TLS 1.3 channel-binding exporter groundwork, T361 PARTIAL
+
+- `ServerTls` exposes the RFC 9266 `tls-exporter` value only after a completed
+  TLS 1.3 handshake, using `EXPORTER-Channel-Binding`, empty context and 32-byte
+  output. Other protocol versions and pre-handshake states return unavailable.
+- A separate rustls client/server handshake independently derives the same
+  exporter bytes; a pending ClientHello test verifies no binding is exposed
+  before completion. This validates TLS plumbing only, not SASL or wire behavior.
+- Windows Rust 1.97.1 all-target: 990 library + 1 CLI passed, 4 ignored; fmt
+  and strict Clippy passed. Linux Rust 1.97.1 all-target: 1103 library + 1 CLI
+  passed, 4 ignored; fmt, strict Clippy and release build passed. The existing
+  `rust:1.97-bookworm` image ID is unchanged; the disposable build container is
+  absent and no image was created. Existing `./data/g18-scram-sha256-managesieve`
+  Cargo cache/target was reused.
+- T361 is PARTIAL: the exporter is not wired to ManageSieve SCRAM-SHA-256-PLUS,
+  channel-binding proof validation or capability advertisement. PLUS remains
+  unsupported; G18 remains ACTIVE.

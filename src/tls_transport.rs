@@ -98,6 +98,17 @@ impl ServerTls {
         self.connection.is_handshaking()
     }
 
+    /// Извлекает RFC 9266 tls-exporter только из завершённого TLS 1.3 канала.
+    pub fn tls_exporter_channel_binding(&self) -> Option<[u8; 32]> {
+        match self.connection.protocol_version() {
+            Some(rustls::ProtocolVersion::TLSv1_3) => self
+                .connection
+                .export_keying_material([0; 32], b"EXPORTER-Channel-Binding", Some(&[]))
+                .ok(),
+            _ => None,
+        }
+    }
+
     /// Забирает один накопленный TLS output для неблокирующей записи в TCP.
     pub fn take_encrypted(&mut self) -> io::Result<Vec<u8>> {
         let mut encrypted = Vec::new();
@@ -125,6 +136,10 @@ impl ServerTls {
         self.peer_closed
     }
 }
+
+#[cfg(test)]
+#[path = "tls_transport_exporter_tests.rs"]
+mod exporter_tests;
 
 /// Возвращает длину полного TLS record, сохраняя неполный хвост для POLLIN.
 fn complete_record_length(bytes: &[u8]) -> Option<usize> {
@@ -158,6 +173,7 @@ mod tests {
             .with_cert_resolver(Arc::new(rustls::server::ResolvesServerCertUsingSni::new()));
         let mut server = ServerTls::new(Arc::new(server_config)).expect("server");
         assert!(server.is_handshaking());
+        assert!(server.tls_exporter_channel_binding().is_none());
         assert!(server.receive(first).is_ok());
         assert!(server.receive(second).is_err());
     }

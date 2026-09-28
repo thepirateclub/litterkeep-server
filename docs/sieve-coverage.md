@@ -49,6 +49,8 @@ ManageSieve session/reactor и проверил SHA-1 exchange независи�
 неверный proof, UNAUTHENTICATE и повторную работу сессии; STARTTLS путь также
 проверяет пустой SASL список до upgrade и capability после него. Это не проверка
 Litterkeep app. SCRAM-SHA-256-PLUS и channel binding остаются неподдержанными.
+TLS 1.3 `tls-exporter` groundwork проверен отдельно между rustls endpoints,
+однако ManageSieve SASL его пока не использует.
 
 Для client-to-server literals receiver сначала читает ровно объявленное число
 octets, затем обязательный CRLF конца command line; только после него начинает

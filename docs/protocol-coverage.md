@@ -1358,9 +1358,10 @@ server-signature exchange после TLS upgrade. Capability также объя
 `MAXREDIRECTS "16"`, синхронизированный с пределом evaluator-а и проверенный
 unit boundary test-ом.
 SCRAM-SHA-256 использует отдельный verifier sidecar и bounded Accounts owner
-lookup. Это независимый тестовый клиент, не Litterkeep app. SCRAM-SHA-256-PLUS
-и TLS channel binding остаются неподдержанными; полный профиль RFC 5804 ещё не
-закрыт.
+lookup. TLS 1.3 `tls-exporter` primitive сверяется между независимыми rustls
+endpoints с параметрами RFC 9266, но пока не подключён к SASL transcript или
+capability; SCRAM-SHA-256-PLUS по-прежнему не реализован и не рекламируется.
+Это не проверка Litterkeep app; полный профиль RFC 5804 ещё не закрыт.
 
 См. [Sieve/ManageSieve coverage](sieve-coverage.md) и
 [dependency/security notes](dependencies.md).
