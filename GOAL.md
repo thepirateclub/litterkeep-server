@@ -1,5 +1,30 @@
 # Goal ledger
 
+### 2026-09-28: G18 local-delivery SUCCESS DSN conformance audit, GAP T391
+
+- Сверка RFC 3461 §5.2.3 и §6 с `src/reactor/smtp_data.rs`,
+  `src/storage_worker/local_delivery.rs`, `src/store/sieve_delivery.rs` и
+  `src/store/append_transaction.rs` показывает: входящая локальная доставка
+  становится видимой после Store commit, но append transaction не создаёт
+  delivered DSN для SMTP RCPT `NOTIFY=SUCCESS`.
+- RFC определяет успешную доставку в mailbox как момент доступности письма для
+  retrieval и требует `delivered` DSN, когда SUCCESS был запрошен. У нас эта
+  wire-функция сейчас безопасно недоступна: `EHLO DSN` не объявляется, а
+  параметризованные MAIL/RCPT отвергаются. Поэтому T391 фиксирует отсутствие
+  conformance при включённом профиле, а не дефект уже рекламируемой функции.
+- Генератор и durable queue notice сейчас типизированы только как failure:
+  `Action: failed`, failure `Status` и failure key. Следующий совместимый шаг
+  требует отдельной модели notification outcome (`delivered`/`failed`/`delayed`),
+  отдельной политики SUCCESS/FAILURE/DELAY и durable post-commit intent для
+  SUCCESS. Нельзя сериализовать успешное уведомление через failure enum.
+- Acceptance для закрытия GAP: unit vectors для RFC 3461 SUCCESS/NEVER/default;
+  crash recovery между local mailbox commit и report append/ack; независимый
+  SMTP peer после последующего включения DSN wire должен получить ровно один
+  RFC 3464 `Action: delivered` report при RET=HDRS и ни одного при NEVER.
+  Независимый runtime сценарий пока не выполнен.
+- Источники: [RFC 3461 §§5.2.3, 6.2-6.3](https://www.rfc-editor.org/rfc/rfc3461.html),
+  [RFC 3464 §§2.2-2.3](https://www.rfc-editor.org/rfc/rfc3464.html).
+
 ### 2026-09-28: G18 durable failure DSN outbox and idempotent Store append, PARTIAL T390
 
 - Queue terminal transition теперь атомарно записывает pending failure-notice tag

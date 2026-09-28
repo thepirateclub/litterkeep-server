@@ -35,7 +35,13 @@ terminal queue transition и восстанавливается после пе�
 durable acknowledgement. Unit/failpoint tests и полный Windows/Linux suite
 проверили эти переходы. Независимый runtime crash-kill сценарий ещё не проверен.
 Success и delay report scheduling, полная сквозная семантика повторной доставки
-и RFC 3461 wire negotiation остаются неподдержанными.
+и RFC 3461 wire negotiation остаются неподдержанными. RFC 3461 §5.2.3 требует
+`delivered` DSN при локальной доставке с `NOTIFY=SUCCESS`; RFC считает её
+успешной, когда письмо уже доступно для IMAP/POP retrieval. Текущая SMTP
+реализация DSN не рекламирует и корректные DSN-параметры отвергает, поэтому это
+пока неподдерживаемый профиль, не нарушение обещанной сервером возможности.
+Внутренние serializer/outbox пока несут только failure outcome и не готовы
+представить `Action: delivered`; нужна отдельная typed success notice.
 Независимый Linux wire
 peer подтвердил отсутствие capability, точный refusal-код для MAIL/RCPT и
 восстановление сессии; после добавления RFC 6533 xtext второй независимый Linux
