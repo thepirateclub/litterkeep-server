@@ -14,6 +14,22 @@ use std::{
 
 pub type Peer = BufReader<StreamOwned<ClientConnection, TcpStream>>;
 
+/// Отменяет незавершённый PLUS и подтверждает сохранение выбранного USER.
+pub fn cancellation_preserves_user(address: &str, ca: &[u8], password: &str) {
+    let mut peer = connect(address, ca);
+    expect_prefix(&mut peer, "+OK", "cancellation greeting");
+    write_line(&mut peer, b"USER bob\r\n");
+    expect_prefix(&mut peer, "+OK", "USER before SASL");
+    write_line(&mut peer, b"AUTH SCRAM-SHA-256-PLUS\r\n");
+    expect_prefix(&mut peer, "+ ", "PLUS client-first prompt");
+    write_line(&mut peer, b"*\r\n");
+    expect_prefix(&mut peer, "-ERR", "PLUS cancellation");
+    write_line(&mut peer, format!("PASS {password}\r\n").as_bytes());
+    expect_prefix(&mut peer, "+OK", "PASS after cancellation");
+    write_line(&mut peer, b"QUIT\r\n");
+    expect_prefix(&mut peer, "+OK", "QUIT after cancellation recovery");
+}
+
 /// Отвергает transcript с чужим exporter и сохраняет POP3 сессию.
 pub fn rejects_wrong_channel_binding(address: &str, ca: &[u8], password: &str) {
     let mut peer = connect(address, ca);

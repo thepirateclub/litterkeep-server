@@ -4,8 +4,8 @@
 mod peer;
 
 use peer::{
-    connect, expect_prefix, read_multiline, rejects_invalid_proof, rejects_wrong_channel_binding,
-    required, write_line,
+    cancellation_preserves_user, connect, expect_prefix, read_multiline, rejects_invalid_proof,
+    rejects_wrong_channel_binding, required, write_line,
 };
 
 /// Запускается явно против независимого implicit-TLS POP3 listener-а.
@@ -27,6 +27,7 @@ fn verifies_scram_sha256_plus_with_rfc9266_exporter() {
             .any(|line| line == b"SASL PLAIN SCRAM-SHA-1 SCRAM-SHA-256 SCRAM-SHA-256-PLUS\r\n"),
         "TLS CAPA must advertise exporter-bound SCRAM"
     );
+    cancellation_preserves_user(&address, &ca, &password);
     let exporter = peer
         .get_ref()
         .conn

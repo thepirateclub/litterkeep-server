@@ -45,6 +45,22 @@
   лимиту 300 строк; кэш расположен в `./data/g20-pop3-scram-plus`. Это расширяет
   доказательства отказов/восстановления, G19 и общий RFC 5034 профиль остаются ACTIVE.
 
+### 2026-09-28: G19 SCRAM-SHA-256-PLUS cancellation, T367 PASS
+
+- Независимый POP3 TLS 1.3 peer выбирает `USER bob`, начинает `AUTH
+  SCRAM-SHA-256-PLUS` без initial response, отменяет запрос client-first через
+  RFC 5034 `*`, затем успешно отправляет `PASS` с тем же паролем и завершает
+  соединение через `QUIT`. Это проверяет восстановление прежней AUTHORIZATION
+  пары USER/PASS при отмене до передачи verifier lookup.
+- Windows Rust 1.97.1 all-target: 996 library + 1 CLI passed, 4 ignored; fmt и
+  strict Clippy прошли. Linux независимый implicit-TLS acceptance прошёл (1/1),
+  включая cancellation, wrong exporter/proof failure recovery, успешный PLUS,
+  server signature, STAT и QUIT. `git diff --check` прошёл.
+- Существующий `rust:1.97-bookworm` образ переиспользован; listener удалён,
+  отсутствие проверено; нового образа нет. Peer остаётся отдельным файлом меньше
+  300 строк, артефакты в `./data/g20-pop3-scram-plus`. Доказательство отмены
+  добавлено, полный RFC 5034 профиль и G19 остаются ACTIVE.
+
 ### 2026-09-28: G18 MIME parameter separator whitespace, T364 PASS
 
 - RFC 2045 §5.1 и RFC 2231 §7: parser отклоняет SP/HTAB непосредственно до и
