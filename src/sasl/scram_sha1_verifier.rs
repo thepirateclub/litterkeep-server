@@ -11,6 +11,8 @@ pub const MIN_SALT_SIZE: usize = 1;
 pub const MAX_SALT_SIZE: usize = 64;
 /// Рекомендуемый размер соли для будущего локального создания аккаунтов.
 pub const DEFAULT_SALT_SIZE: usize = 16;
+/// Ограничивает объём пароля до Unicode-подготовки и дорогостоящего KDF.
+pub const MAX_PASSWORD_SIZE: usize = 4096;
 
 /// Секреты сервера для proof validation и server signature.
 ///
@@ -25,10 +27,17 @@ pub struct ScramSha1Verifier {
 impl ScramSha1Verifier {
     /// Выводит verifier только для ограниченных salt и iteration параметров.
     pub fn derive(password: &[u8], salt: &[u8], iterations: u32) -> Option<Self> {
+        if password.len() > MAX_PASSWORD_SIZE {
+            return None;
+        }
         if !valid_parameters(salt, iterations) {
             return None;
         }
-        let salted_password = derive(password, salt, iterations)?;
+        let password_text = std::str::from_utf8(password).ok()?;
+        let normalized_password =
+            super::saslprep::prepare(password_text, super::saslprep::SaslPrepContext::StoredValue)
+                .ok()?;
+        let salted_password = derive(normalized_password.as_bytes(), salt, iterations)?;
         let client_key = authenticate(&salted_password, b"Client Key");
         let stored_key = digest(&client_key);
         let server_key = authenticate(&salted_password, b"Server Key");

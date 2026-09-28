@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-28: G18 SASLprep Unicode 3.2 and verifier integration, scoped PASS T314
+
+- Добавлен собственный RFC 4013 SASLprep профиль: B.1/C.1.2 mapping,
+  Unicode 3.2 NFKC, полный RFC prohibited output, bidi и контексты
+  StoredValue/Query для A.1 unassigned. `ScramSha1Verifier::derive` нормализует
+  UTF-8 secret до PBKDF2. Runtime-зависимости не добавлялись.
+- Генератор закрепляет хеши RFC/UCD источников и проверяет 14 таблиц RFC 3454
+  на всём диапазоне кодовых точек против опубликованных диапазонов. Rust NFKC
+  прошёл полный `NormalizationTest-3.2.0.txt`; RFC 4013 примеры и эквивалентные
+  verifier credentials прошли.
+- Windows Rust 1.97.1: fmt, strict Clippy `-D warnings`, all-targets:
+  871 library + 1 CLI, 4 ignored. Linux Docker Rust 1.97.1: те же gates,
+  980 library + 1 CLI, 4 ignored. Полный Unicode 3.2 NFKC corpus отдельно
+  прошёл на обеих платформах. Одноразовый container удалён автоматически,
+  временный image tag очищен, существующий Rust image сохранён.
+- G18 остаётся ACTIVE: account persistence/migration, SCRAM state machine и
+  независимое wire acceptance всё ещё отсутствуют; SCRAM не рекламируется.
+
 ### 2026-09-28: G18 SCRAM-SHA-1 verifier derivation, scoped PASS T313
 
 - Связала crypto-примитивы в `ScramSha1Verifier`, получающий StoredKey и

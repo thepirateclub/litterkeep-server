@@ -6,6 +6,10 @@
 pub mod hmac_sha1;
 #[path = "sasl/pbkdf2_sha1.rs"]
 pub mod pbkdf2_sha1;
+#[path = "sasl/saslprep.rs"]
+pub mod saslprep;
+#[path = "sasl/saslprep_data/data.rs"]
+mod saslprep_data;
 #[path = "sasl/scram_sha1_verifier.rs"]
 pub mod scram_sha1_verifier;
 #[path = "sasl/sha1.rs"]

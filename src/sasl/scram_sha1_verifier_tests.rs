@@ -1,6 +1,6 @@
 //! Сквозной crypto known-answer test из SCRAM-SHA-1 RFC 5802 §5.1.
 use super::super::hmac_sha1::authenticate;
-use super::ScramSha1Verifier;
+use super::{MAX_PASSWORD_SIZE, ScramSha1Verifier};
 use crate::mime::decode_base64;
 
 /// Проверяет proof и server signature полного опубликованного SCRAM диалога.
@@ -42,4 +42,33 @@ fn verifier_rejects_out_of_policy_salt_and_iteration_values() {
     assert!(ScramSha1Verifier::derive(b"pencil", b"", 4096).is_none());
     assert!(ScramSha1Verifier::derive(b"pencil", &[0; 16], 4095).is_none());
     assert!(ScramSha1Verifier::derive(b"pencil", &[0; 16], 200_001).is_none());
+}
+
+/// Вывод verifier нормализует пароль по SASLprep до PBKDF2.
+#[test]
+fn verifier_derives_identical_keys_for_saslprep_equivalent_passwords() {
+    let compatibility_character = "\u{00AA}".as_bytes();
+    let normalized_character = b"a";
+    let first = ScramSha1Verifier::derive(compatibility_character, b"same salt", 4096)
+        .expect("valid SASLprep password");
+    let second = ScramSha1Verifier::derive(normalized_character, b"same salt", 4096)
+        .expect("valid normalized password");
+    assert_eq!(first.stored_key(), second.stored_key());
+    assert_eq!(first.server_key(), second.server_key());
+}
+
+/// Невалидный UTF-8 и SASLprep-prohibited пароль не доходят до PBKDF2.
+#[test]
+fn verifier_rejects_invalid_encoding_and_prohibited_password() {
+    assert!(ScramSha1Verifier::derive(&[0xFF], b"same salt", 4096).is_none());
+    assert!(
+        ScramSha1Verifier::derive("bad\u{0007}password".as_bytes(), b"same salt", 4096).is_none()
+    );
+}
+
+/// Отклоняет слишком длинный UTF-8 input до Unicode normalization и KDF.
+#[test]
+fn verifier_rejects_password_over_local_octet_limit() {
+    let oversized = vec![b'a'; MAX_PASSWORD_SIZE + 1];
+    assert!(ScramSha1Verifier::derive(&oversized, b"same salt", 4096).is_none());
 }
