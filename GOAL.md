@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-28: G18 SCRAM verifier backfill after password login, scoped PASS T321
+
+- Успешная проверка существующего `.phc2` теперь создаёт недостающий SCRAM
+  sidecar; неверный пароль не изменяет каталог. Legacy `.phc` переход сперва
+  записывает sidecar, затем публикует `.phc2`, сохраняя прежний hash.
+- Sidecar создаётся через fsync временного файла и hard-link публикацию.
+  Параллельный backfill допускает одного победителя, а остальные используют
+  уже опубликованную запись. Тест проверяет backfill, неверный пароль,
+  повторный вход и legacy migration.
+- Windows Rust 1.97.1: 882 библиотечных и 1 CLI тест прошли, 4 игнорированы;
+  fmt и strict Clippy прошли. Linux Docker Rust 1.97.1: 991 библиотечный и
+  1 CLI тест прошли, 4 игнорированы; fmt и strict Clippy прошли. Контейнер
+  временный (`--rm`), других контейнеров данного test image не осталось.
+- SCRAM не рекламируется: SASL exchange и ManageSieve wire acceptance
+  отсутствуют. G18 ACTIVE.
+
 ### 2026-09-28: G18 versioned SCRAM account sidecar, scoped PASS T320
 
 - Новые аккаунты получают отдельную `litterkeep-scram-sha1-v1` запись с

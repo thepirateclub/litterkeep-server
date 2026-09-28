@@ -13,15 +13,31 @@ pub(super) fn create(root: &Path, name: &str, password: &[u8]) -> io::Result<()>
         name,
         crate::store::file_key::FileKind::ScramCredentials,
     )?;
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&path)?;
-    file.write_all(record.encode().as_bytes())?;
-    file.sync_all()?;
-    drop(file);
-    let directory = path.parent().unwrap_or(root);
-    crate::store::file_key::sync_key_directory(root, directory)
+    let temporary = temporary_path(&path)?;
+    let preparation = write_record(&temporary, &record.encode());
+    if let Err(error) = preparation {
+        return cleanup_after_failure(&temporary, error);
+    }
+    let publication = fs::hard_link(&temporary, &path);
+    let cleanup = fs::remove_file(&temporary);
+    match (publication, cleanup) {
+        (Ok(()), Ok(())) => sync_parent(root, &path),
+        (Err(error), Ok(())) if error.kind() == io::ErrorKind::AlreadyExists => Ok(()),
+        (Err(error), Ok(())) => Err(error),
+        (Ok(()), Err(error)) => Err(error),
+        (Err(error), Err(cleanup_error)) => Err(io::Error::new(
+            error.kind(),
+            format!("{error}; SCRAM temporary cleanup failed: {cleanup_error}"),
+        )),
+    }
+}
+
+/// Дополняет существующую учётную запись после успешной проверки её пароля.
+pub(super) fn ensure(root: &Path, name: &str, password: &[u8]) -> io::Result<()> {
+    match load(root, name)? {
+        Some(_) => Ok(()),
+        None => create(root, name, password),
+    }
 }
 
 /// Удаляет SCRAM sidecar при откате незавершённого account creation.
@@ -52,4 +68,40 @@ pub(super) fn load(root: &Path, name: &str) -> io::Result<Option<ScramSha1Record
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(error),
     }
+}
+
+/// Записывает и синхронизирует полный временный verifier до его публикации.
+fn write_record(path: &Path, encoded: &str) -> io::Result<()> {
+    let mut file = OpenOptions::new().write(true).create_new(true).open(path)?;
+    file.write_all(encoded.as_bytes())?;
+    file.sync_all()
+}
+
+/// Создаёт непредсказуемый временный путь в каталоге окончательной записи.
+fn temporary_path(path: &Path) -> io::Result<std::path::PathBuf> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing SCRAM parent"))?;
+    let salt = argon2::password_hash::try_generate_salt()
+        .map_err(|error| io::Error::other(error.to_string()))?;
+    let suffix = salt
+        .iter()
+        .fold(0_u128, |value, byte| (value << 8) | u128::from(*byte));
+    Ok(parent.join(format!(".scram-{}-{suffix:032x}.tmp", std::process::id())))
+}
+
+/// Удаляет неполный временный файл и сохраняет обе причины при ошибке уборки.
+fn cleanup_after_failure(path: &Path, error: io::Error) -> io::Result<()> {
+    match fs::remove_file(path) {
+        Ok(()) => Err(error),
+        Err(cleanup_error) => Err(io::Error::new(
+            error.kind(),
+            format!("{error}; SCRAM temporary cleanup failed: {cleanup_error}"),
+        )),
+    }
+}
+
+/// Синхронизирует каталог после атомарной публикации sidecar.
+fn sync_parent(root: &Path, path: &Path) -> io::Result<()> {
+    crate::store::file_key::sync_key_directory(root, path.parent().unwrap_or(root))
 }

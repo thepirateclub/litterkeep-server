@@ -65,7 +65,13 @@ impl Accounts {
         valid_name(name)?;
         let normalized_path = self.normalized_path(name);
         match fs::read_to_string(normalized_path) {
-            Ok(phc) => verify_credential(&phc, password, CredentialFormat::SaslPrep),
+            Ok(phc) => match verify_credential(&phc, password, CredentialFormat::SaslPrep)? {
+                false => Ok(false),
+                true => {
+                    scram_store::ensure(&self.root, name, password)?;
+                    Ok(true)
+                }
+            },
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
                 self.authenticate_legacy(name, password)
             }
@@ -132,6 +138,7 @@ impl Accounts {
     /// Переписывает проверенную legacy-запись в новом формате до успешного входа.
     fn migrate_legacy(&self, name: &str, password: &[u8]) -> io::Result<()> {
         let credential = Credential::create(password)?;
+        scram_store::ensure(&self.root, name, password)?;
         let path = crate::store::file_key::prepare(
             &self.root,
             name,

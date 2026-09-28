@@ -58,13 +58,60 @@ fn legacy_phc_login_migrates_without_removing_the_original_hash() {
     );
     assert!(accounts.create("bob", b"replacement").is_err());
     let migrated = file_key::path(&root.join("accounts"), "bob", FileKind::SaslPrepCredentials);
+    let scram = file_key::path(&root.join("accounts"), "bob", FileKind::ScramCredentials);
     assert!(migrated.is_file());
+    assert!(scram.is_file());
     assert!(
         accounts
             .authenticate("bob", b"a")
             .expect("verify normalized migration")
     );
     assert!(file_key::path(&root.join("accounts"), "bob", FileKind::Credentials).is_file());
+    fs::remove_dir_all(root).expect("remove test account data");
+}
+
+#[test]
+fn existing_saslprep_account_gets_scram_record_only_after_correct_login() {
+    let root = temporary_root("accounts-scram-backfill");
+    let accounts = Accounts::open(&root).expect("account store");
+    let path = file_key::prepare(
+        &root.join("accounts"),
+        "erin",
+        FileKind::SaslPrepCredentials,
+    )
+    .expect("normalized credential path");
+    fs::write(&path, format!("{}\n", legacy_hash(b"stored-password")))
+        .expect("write preexisting PHC2 fixture");
+    let scram_path = file_key::path(&root.join("accounts"), "erin", FileKind::ScramCredentials);
+
+    assert!(
+        accounts
+            .scram_verifier("erin")
+            .expect("read record")
+            .is_none()
+    );
+    assert!(
+        !accounts
+            .authenticate("erin", b"wrong-password")
+            .expect("reject login")
+    );
+    assert!(!scram_path.exists());
+    assert!(
+        accounts
+            .authenticate("erin", b"stored-password")
+            .expect("accept login")
+    );
+    assert!(
+        accounts
+            .scram_verifier("erin")
+            .expect("read backfill")
+            .is_some()
+    );
+    assert!(
+        accounts
+            .authenticate("erin", b"stored-password")
+            .expect("repeat login")
+    );
     fs::remove_dir_all(root).expect("remove test account data");
 }
 

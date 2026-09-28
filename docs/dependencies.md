@@ -40,9 +40,11 @@ durable публикации Argon2 credential; при ошибке создан
 откатывается. Строгий parser отвергает неизвестные версии, лишние поля,
 неверную длину ключей и чрезмерную стоимость. Reload-тест проверяет proof
 через восстановленную запись. Уже существующие Argon2 аккаунты пока не имеют
-SCRAM sidecar, поэтому следующий этап - безопасная миграция после успешного
-парольного входа. Это всё ещё не полный SCRAM exchange: нужны bounded parsing,
-ManageSieve state machine с SASL continuation и независимый wire acceptance.
+SCRAM sidecar, но успешная проверка `.phc2` теперь безопасно создаёт его при
+backfill; legacy `.phc` миграция публикует sidecar до новой записи. Неуспешный
+вход не меняет файлы. Это всё ещё не полный SCRAM exchange: нужны bounded
+parsing, ManageSieve state machine с SASL continuation и независимый wire
+acceptance.
 Crypto API проверяет proof с постоянновременным сравнением StoredKey и строит
 server signature; это не заменяет end-to-end проверку протокольного transcript.
 [`RFC 5804 §2.1`](https://www.rfc-editor.org/rfc/rfc5804.html#section-2.1)
