@@ -57,6 +57,8 @@ pub struct ReportRequest<'a> {
     pub failure: Failure,
     /// Сохранённые MAIL/RCPT параметры RFC 3461, если они известны.
     pub metadata: Option<&'a DsnDeliveryMetadata>,
+    /// Последний полученный SMTP diagnostic, если отказ ответил удалённый peer.
+    pub diagnostic: Option<&'a crate::smtp_reply_diagnostic::SmtpReplyDiagnostic>,
 }
 
 /// Outcome, сериализуемый в per-recipient блок RFC 3464.
@@ -102,15 +104,37 @@ pub fn render_with_metadata(
     failure: Failure,
     metadata: Option<&DsnDeliveryMetadata>,
 ) -> Option<Vec<u8>> {
+    render_with_diagnostic(
+        reverse_path,
+        recipient,
+        transaction_id,
+        original,
+        failure,
+        metadata,
+        None,
+    )
+}
+
+/// Формирует отчёт с SMTP diagnostic, сохранённым исходящим transport owner-ом.
+pub(crate) fn render_with_diagnostic(
+    reverse_path: &str,
+    recipient: &str,
+    transaction_id: u64,
+    original: &[u8],
+    failure: Failure,
+    metadata: Option<&DsnDeliveryMetadata>,
+    diagnostic: Option<&crate::smtp_reply_diagnostic::SmtpReplyDiagnostic>,
+) -> Option<Vec<u8>> {
     match (reverse_path.is_empty(), has_failure_recipient(metadata)) {
         (true, _) | (false, false) => None,
-        (false, true) => Some(report::render(
+        (false, true) => Some(report::render_with_diagnostic(
             reverse_path,
             recipient,
             transaction_id,
             original,
             ReportOutcome::Failure(failure),
             metadata,
+            diagnostic,
         )),
     }
 }
@@ -158,13 +182,14 @@ pub fn render_delivery_success(
 
 /// Строит отчёт из агрегированного контекста без потери RCPT-корреляции.
 pub fn render_request(request: ReportRequest<'_>) -> Option<Vec<u8>> {
-    render_with_metadata(
+    render_with_diagnostic(
         request.reverse_path,
         request.recipient,
         request.transaction_id,
         request.original,
         request.failure,
         request.metadata,
+        request.diagnostic,
     )
 }
 

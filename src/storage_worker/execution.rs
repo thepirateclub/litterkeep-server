@@ -241,6 +241,7 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             original,
             failure,
             dsn_metadata,
+            diagnostic,
             report_key,
         }) => Response::Dsn(super::message::DsnResponse::Failure {
             request_id,
@@ -254,6 +255,7 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
                     original: &original,
                     failure,
                     metadata: dsn_metadata.as_deref(),
+                    diagnostic: diagnostic.as_ref(),
                 },
                 &report_key,
             ),

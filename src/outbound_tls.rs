@@ -19,6 +19,7 @@ pub struct Connection {
     capabilities: outbound::EhloCapabilities,
     close_after_response: bool,
     timeouts: outbound::SmtpTimeouts,
+    last_diagnostic: Option<crate::smtp_reply_diagnostic::SmtpReplyDiagnostic>,
 }
 
 impl Connection {
@@ -44,6 +45,7 @@ impl Connection {
             capabilities: outbound::EhloCapabilities::default(),
             close_after_response: false,
             timeouts,
+            last_diagnostic: None,
         };
         expect_success(&mut result.stream, outbound::ReplyExpectation::Greeting)?;
         // TLS EHLO является обычной командой после отдельного greeting deadline.
@@ -80,6 +82,7 @@ impl Connection {
         recipient: &str,
         message: &[u8],
     ) -> io::Result<DeliveryOutcome> {
+        self.last_diagnostic = None;
         self.deliver_recipients(sender, &[recipient], message)
     }
 
@@ -210,6 +213,13 @@ impl Connection {
         self.close_after_response
     }
 
+    /// Копирует diagnostic до выдачи TLS connection следующему job.
+    pub(crate) fn last_diagnostic(
+        &self,
+    ) -> Option<crate::smtp_reply_diagnostic::SmtpReplyDiagnostic> {
+        self.last_diagnostic.clone()
+    }
+
     fn expect_command(
         &mut self,
         expectation: outbound::ReplyExpectation,
@@ -218,7 +228,11 @@ impl Connection {
             .get_ref()
             .sock
             .set_read_timeout(Some(self.timeouts.response(expectation)))?;
-        match outbound::expect(&mut self.stream, expectation)? {
+        let (reply, diagnostic) = outbound::expect_with_diagnostic(&mut self.stream, expectation)?;
+        if diagnostic.is_some() {
+            self.last_diagnostic = diagnostic;
+        }
+        match reply {
             outbound::ReplyResult::Accepted => Ok(None),
             outbound::ReplyResult::Rejected(outcome) => Ok(Some(outcome)),
             outbound::ReplyResult::Closing => {
@@ -272,33 +286,6 @@ pub(crate) fn client_config(ca_der: &[u8]) -> io::Result<Arc<ClientConfig>> {
     ))
 }
 
-fn command(
-    reader: &mut BufReader<StreamOwned<ClientConnection, TcpStream>>,
-    wire: &str,
-) -> io::Result<()> {
-    let stream = reader.get_mut();
-    stream.write_all(wire.as_bytes())?;
-    stream.flush()
-}
-
-fn expect_success(
-    reader: &mut BufReader<StreamOwned<ClientConnection, TcpStream>>,
-    expectation: outbound::ReplyExpectation,
-) -> io::Result<()> {
-    match outbound::expect(reader, expectation)? {
-        outbound::ReplyResult::Accepted => Ok(()),
-        outbound::ReplyResult::Rejected(DeliveryOutcome::Deferred) => {
-            Err(io::Error::other("TLS SMTP peer deferred"))
-        }
-        outbound::ReplyResult::Rejected(DeliveryOutcome::PermanentFailure) => {
-            Err(io::Error::other("TLS SMTP peer rejected"))
-        }
-        outbound::ReplyResult::Rejected(DeliveryOutcome::Delivered) => {
-            Err(io::Error::other("unexpected SMTP outcome"))
-        }
-        outbound::ReplyResult::Closing => Err(io::Error::new(
-            io::ErrorKind::ConnectionAborted,
-            "TLS SMTP peer sent 421 and is closing the channel",
-        )),
-    }
-}
+#[path = "outbound_tls_command.rs"]
+mod tls_command;
+use tls_command::{command, expect_success};

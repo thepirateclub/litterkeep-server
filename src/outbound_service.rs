@@ -213,6 +213,7 @@ fn handle_storage(
             Response::Dsn(crate::storage_worker::DsnResponse::Failure { result: Ok(_), .. }),
         ) => {
             delivery.dsn_failure = None;
+            delivery.dsn_diagnostic = None;
             let state = delivery.state;
             submit(
                 storage,
@@ -273,6 +274,10 @@ fn handle_transport(
             );
             delivery.state = state;
             delivery.dsn_failure = failure;
+            delivery.dsn_diagnostic = match failure {
+                Some(_) => completion.diagnostic,
+                None => None,
+            };
             delivery.next_attempt_epoch =
                 outbound_policy::next_attempt_epoch(state, delivery.attempts, now_epoch()?);
             submit(

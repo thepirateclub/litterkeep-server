@@ -13,6 +13,7 @@ type ParsedOwned<'a> = (
     &'a str,
     Vec<usize>,
     Option<crate::dsn::Failure>,
+    Option<crate::smtp_reply_diagnostic::SmtpReplyDiagnostic>,
 );
 
 impl Queue {
@@ -97,15 +98,22 @@ fn parse_owned(line: &str) -> io::Result<Option<OwnedDelivery>> {
         .parse()
         .map_err(|_| invalid("bad owned transaction"))?;
     let state = State::parse(state)?;
-    let (attempts, next_attempt_epoch, sender, recipient, original_recipient_indices, dsn_failure) =
-        match candidate.parse::<u8>() {
-            Ok(attempts) => parse_versioned(attempts, fourth, &mut fields)?,
-            Err(_) => {
-                let (attempts, epoch, sender, recipient) =
-                    parse_legacy(candidate, fourth, &mut fields)?;
-                (attempts, epoch, sender, recipient, Vec::new(), None)
-            }
-        };
+    let (
+        attempts,
+        next_attempt_epoch,
+        sender,
+        recipient,
+        original_recipient_indices,
+        dsn_failure,
+        dsn_diagnostic,
+    ) = match candidate.parse::<u8>() {
+        Ok(attempts) => parse_versioned(attempts, fourth, &mut fields)?,
+        Err(_) => {
+            let (attempts, epoch, sender, recipient) =
+                parse_legacy(candidate, fourth, &mut fields)?;
+            (attempts, epoch, sender, recipient, Vec::new(), None, None)
+        }
+    };
     let (state, next_attempt_epoch) = match state {
         State::InFlight => (State::Deferred, 0),
         state => (state, next_attempt_epoch),
@@ -119,6 +127,7 @@ fn parse_owned(line: &str) -> io::Result<Option<OwnedDelivery>> {
         original_recipient_indices,
         dsn_metadata: None,
         dsn_failure,
+        dsn_diagnostic,
         state,
     }))
 }
@@ -139,7 +148,7 @@ fn parse_versioned<'a>(
     match fourth.parse::<u64>() {
         Ok(next_attempt_epoch) => parse_current_fields(attempts, next_attempt_epoch, fields),
         Err(_) => match (fields.next(), fields.next()) {
-            (Some(recipient), None) => Ok((attempts, 0, fourth, recipient, Vec::new(), None)),
+            (Some(recipient), None) => Ok((attempts, 0, fourth, recipient, Vec::new(), None, None)),
             _ => Err(invalid("bad previous owned queue record")),
         },
     }
@@ -165,6 +174,12 @@ fn parse_current_fields<'a>(
                 .ok_or_else(|| invalid("bad owned DSN notice"))?,
         ),
     };
+    let dsn_diagnostic = match fields.next() {
+        None | Some("-") => None,
+        Some(value) => {
+            Some(crate::smtp_reply_diagnostic::SmtpReplyDiagnostic::from_journal_token(value)?)
+        }
+    };
     match fields.next() {
         None => Ok((
             attempts,
@@ -173,6 +188,7 @@ fn parse_current_fields<'a>(
             recipient,
             original_recipient_indices,
             dsn_failure,
+            dsn_diagnostic,
         )),
         Some(_) => Err(invalid("bad current owned queue record")),
     }

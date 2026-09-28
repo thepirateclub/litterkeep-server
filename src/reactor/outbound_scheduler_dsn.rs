@@ -37,6 +37,7 @@ impl OutboundScheduler {
                 original: bytes,
                 failure,
                 dsn_metadata: delivery.dsn_metadata.clone(),
+                diagnostic: delivery.dsn_diagnostic.clone(),
                 report_key,
             }),
         )?;

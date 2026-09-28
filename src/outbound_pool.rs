@@ -39,12 +39,31 @@ impl ConnectionPool {
         recipient: &str,
         message: &[u8],
     ) -> io::Result<DeliveryOutcome> {
+        self.deliver_detailed(sender, recipient, message)
+            .map(|attempt| attempt.outcome)
+    }
+
+    /// Возвращает SMTP diagnostic до того, как owned socket станет idle.
+    pub(crate) fn deliver_detailed(
+        &mut self,
+        sender: &str,
+        recipient: &str,
+        message: &[u8],
+    ) -> io::Result<outbound::DeliveryAttempt> {
         let mut connection = self.acquire()?;
         let result = connection.deliver(sender, recipient, message);
+        let diagnostic = connection.last_diagnostic().map(|value| {
+            value.with_remote_mta(crate::smtp_reply_diagnostic::RemoteMtaIdentity::from_ip(
+                self.address.ip(),
+            ))
+        });
         match result {
             Ok(DeliveryOutcome::Delivered) => {
                 self.idle.push(connection);
-                Ok(DeliveryOutcome::Delivered)
+                Ok(outbound::DeliveryAttempt {
+                    outcome: DeliveryOutcome::Delivered,
+                    diagnostic: None,
+                })
             }
             Ok(outcome) => {
                 match connection.should_close() {
@@ -54,7 +73,10 @@ impl ConnectionPool {
                         Err(_) => self.discard(connection),
                     },
                 }
-                Ok(outcome)
+                Ok(outbound::DeliveryAttempt {
+                    outcome,
+                    diagnostic,
+                })
             }
             Err(error) => {
                 self.discard(connection);

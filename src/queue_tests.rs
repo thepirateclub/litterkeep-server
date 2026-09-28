@@ -59,6 +59,7 @@ fn owned_delivery_is_invisible_until_store_commit() {
             original_recipient_indices: Vec::new(),
             dsn_metadata: None,
             dsn_failure: None,
+            dsn_diagnostic: None,
             state: State::Pending
         }]
     );
@@ -103,6 +104,7 @@ fn owned_transition_survives_reopen_and_removes_pending_job() {
         original_recipient_indices: Vec::new(),
         dsn_metadata: None,
         dsn_failure: None,
+        dsn_diagnostic: None,
         state: State::Pending,
     };
     q.enqueue_owned_many(
@@ -139,6 +141,7 @@ fn interrupted_owned_delivery_is_deferred_on_reopen() {
         original_recipient_indices: Vec::new(),
         dsn_metadata: None,
         dsn_failure: None,
+        dsn_diagnostic: None,
         state: State::Pending,
     };
     q.enqueue_owned_many(
@@ -180,6 +183,13 @@ fn terminal_failure_notice_is_recovered_as_due_work() {
         original_recipient_indices: vec![0],
         dsn_metadata: None,
         dsn_failure: Some(crate::dsn::Failure::PermanentSmtp),
+        dsn_diagnostic: Some(
+            crate::smtp_reply_diagnostic::SmtpReplyDiagnostic::new(
+                550,
+                "5.1.1 mailbox unavailable".into(),
+            )
+            .expect("peer response"),
+        ),
         state: State::PermanentFailure,
     };
     queue
@@ -201,6 +211,7 @@ fn terminal_failure_notice_is_recovered_as_due_work() {
     assert_eq!(recovered, vec![delivery.clone()]);
 
     delivery.dsn_failure = None;
+    delivery.dsn_diagnostic = None;
     Queue::open(&directory)
         .expect("reopen for acknowledgement")
         .transition_owned(&delivery, State::PermanentFailure)
@@ -228,6 +239,7 @@ fn deferred_epoch_survives_reopen_and_gates_due_selection() {
         original_recipient_indices: Vec::new(),
         dsn_metadata: None,
         dsn_failure: None,
+        dsn_diagnostic: None,
         state: State::Deferred,
     };
     q.enqueue_owned_many(

@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-29: G18 outbound SMTP diagnostic in external failure DSN, PARTIAL T407
+
+- Исходящий plain SMTP и implicit TLS теперь сохраняют точный bounded SMTP
+  reply code/text и типизированную Remote-MTA identity в durable delivery job.
+  После terminal failure внешний DSN содержит peer enhanced status, Diagnostic-Code
+  и Remote-MTA (DNS name или RFC address literal), сохраняя RET=HDRS и recipient
+  correlation из предыдущего этапа.
+- Независимые unit и Linux SMTP peer проверки подтверждают восстановление
+  diagnostic token, DSN-поля, null reverse-path, sender recipient и отсутствие
+  исходного тела. Windows Rust 1.97.1 all-target: 1060 library + 1 CLI pass,
+  4 ignored; strict Clippy и rustfmt прошли. Linux Rust 1.97.1 all-target:
+  1184 library + 1 CLI pass, 4 ignored; сквозной failure DSN peer test прошёл.
+- Этап остаётся PARTIAL: RFC 3461 negotiation/ENVID/RET/NOTIFY/ORCPT не полностью
+  связан со всеми transport сценариями, SUCCESS/DELAY и SMTPUTF8 edge cases
+  не завершены; проверялся независимый тестовый peer, не Litterkeep app.
+- Использован существующий `rust:1.97-bookworm`; disposable `--rm` контейнер
+  удалён автоматически. Новых образов и постоянных контейнеров не создавалось.
+
 ### 2026-09-29: G18 external failure DSN durable publication, PARTIAL T406
 
 - Универсальная типизированная цель DSN теперь поддерживает локальный mailbox

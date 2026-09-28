@@ -44,11 +44,33 @@ impl ConnectionPool {
         recipient: &str,
         message: &[u8],
     ) -> io::Result<DeliveryOutcome> {
+        self.deliver_detailed(sender, recipient, message)
+            .map(|attempt| attempt.outcome)
+    }
+
+    /// Возвращает reply diagnostic до очистки либо уничтожения TLS connection.
+    pub(crate) fn deliver_detailed(
+        &mut self,
+        sender: &str,
+        recipient: &str,
+        message: &[u8],
+    ) -> io::Result<crate::outbound::DeliveryAttempt> {
         let mut connection = self.acquire()?;
-        match connection.deliver(sender, recipient, message) {
+        let result = connection.deliver(sender, recipient, message);
+        let diagnostic = connection.last_diagnostic().map(|value| {
+            value.with_remote_mta(
+                crate::smtp_reply_diagnostic::RemoteMtaIdentity::from_server_name(
+                    &self.server_name,
+                ),
+            )
+        });
+        match result {
             Ok(DeliveryOutcome::Delivered) => {
                 self.idle.push(connection);
-                Ok(DeliveryOutcome::Delivered)
+                Ok(crate::outbound::DeliveryAttempt {
+                    outcome: DeliveryOutcome::Delivered,
+                    diagnostic: None,
+                })
             }
             Ok(outcome) => {
                 match connection.should_close() {
@@ -58,7 +80,10 @@ impl ConnectionPool {
                         Err(_) => self.discard(connection),
                     },
                 }
-                Ok(outcome)
+                Ok(crate::outbound::DeliveryAttempt {
+                    outcome,
+                    diagnostic,
+                })
             }
             Err(error) => {
                 self.discard(connection);

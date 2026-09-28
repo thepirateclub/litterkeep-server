@@ -19,6 +19,8 @@ pub struct Job {
 pub struct Completion {
     pub id: u64,
     pub result: io::Result<DeliveryOutcome>,
+    /// Исходный SMTP reply, который можно безопасно включить в failure DSN.
+    pub diagnostic: Option<crate::smtp_reply_diagnostic::SmtpReplyDiagnostic>,
 }
 
 /// Один bounded transport owner. Он не создаёт thread для каждого job.
@@ -120,8 +122,19 @@ where
     F: FnMut(),
 {
     for job in incoming {
-        let result = pool.deliver(&job.sender, &job.recipient, &job.payload);
-        if outgoing.send(Completion { id: job.id, result }).is_err() {
+        let attempt = pool.deliver_detailed(&job.sender, &job.recipient, &job.payload);
+        let (result, diagnostic) = match attempt {
+            Ok(attempt) => (Ok(attempt.outcome), attempt.diagnostic),
+            Err(error) => (Err(error), None),
+        };
+        if outgoing
+            .send(Completion {
+                id: job.id,
+                result,
+                diagnostic,
+            })
+            .is_err()
+        {
             break;
         }
         notifier();

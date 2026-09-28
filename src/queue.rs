@@ -135,6 +135,8 @@ pub struct OwnedDelivery {
     pub dsn_metadata: Option<Box<DsnDeliveryMetadata>>,
     /// Failure DSN, который ещё должен быть опубликован после recovery.
     pub dsn_failure: Option<crate::dsn::Failure>,
+    /// Ответ удалённого SMTP peer, зафиксированный вместе с failure notice.
+    pub(crate) dsn_diagnostic: Option<crate::smtp_reply_diagnostic::SmtpReplyDiagnostic>,
     pub state: State,
 }
 

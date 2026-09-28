@@ -75,13 +75,16 @@ fn test_path() -> std::path::PathBuf {
 }
 
 fn outbound_recipient() -> Vec<(String, String)> {
-    vec![("alice@litterkeep.test".into(), "remote@peer.test".into())]
+    vec![("sender@outside.example".into(), "remote@peer.test".into())]
 }
 
 fn failure_envelope() -> crate::smtp::DsnEnvelope {
     crate::smtp::DsnEnvelope {
         reverse_path: "sender@outside.example".into(),
-        mail: crate::smtp::MailDsn::default(),
+        mail: crate::smtp::MailDsn {
+            return_content: Some(crate::smtp::ReturnContent::Headers),
+            ..crate::smtp::MailDsn::default()
+        },
         recipients: vec![crate::smtp::RcptTo {
             address: "remote@peer.test".into(),
             dsn: crate::smtp::RecipientDsn {
@@ -100,7 +103,7 @@ fn failure_envelope() -> crate::smtp::DsnEnvelope {
 fn reject_recipient(listener: TcpListener) {
     let (mut stream, _) = listener.accept().expect("accept original SMTP");
     let mut reader = protocol_start(&mut stream);
-    expected_command(&mut reader, "MAIL FROM:<alice@litterkeep.test>");
+    expected_command(&mut reader, "MAIL FROM:<sender@outside.example>");
     write_reply(&mut stream, b"250 sender\r\n");
     expected_command(&mut reader, "RCPT TO:<remote@peer.test>");
     write_reply(&mut stream, b"550 5.1.1 no such recipient\r\n");
@@ -124,8 +127,10 @@ fn accept_failure_report(listener: TcpListener) {
     for marker in [
         b"multipart/report".as_slice(),
         b"Final-Recipient: rfc822; remote@peer.test".as_slice(),
+        b"Remote-MTA: dns; [127.0.0.1]".as_slice(),
         b"Action: failed".as_slice(),
         b"Status: 5.1.1".as_slice(),
+        b"Diagnostic-Code: smtp; 550 5.1.1 no such recipient".as_slice(),
         b"Subject: external delivery".as_slice(),
     ] {
         assert!(

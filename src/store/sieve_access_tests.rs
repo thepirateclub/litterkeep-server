@@ -54,6 +54,7 @@ fn redirect_cancels_implicit_keep_and_preserves_envelope_sender() {
         original_recipient_indices: vec![0],
         dsn_metadata: None,
         dsn_failure: None,
+        dsn_diagnostic: None,
         state: crate::queue::State::Pending,
     };
     assert_eq!(store.pending_outbound().expect("owned"), vec![expected]);

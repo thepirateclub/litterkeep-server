@@ -43,7 +43,7 @@ impl Queue {
             .open(&self.path)?;
         writeln!(
             file,
-            "{} {transaction_id} 0 0 {sender_token} {recipient} {} -",
+            "{} {transaction_id} 0 0 {sender_token} {recipient} {} - -",
             State::Pending.wire(),
             queue_owned::encode_recipient_indices(original_recipient_indices)
         )?;
@@ -62,7 +62,7 @@ impl Queue {
             .open(&self.path)?;
         writeln!(
             file,
-            "{} {} {} {} {} {} {} {}",
+            "{} {} {} {} {} {} {} {} {}",
             state.wire(),
             delivery.transaction_id,
             delivery.attempts,
@@ -70,7 +70,11 @@ impl Queue {
             sender_token,
             delivery.recipient,
             queue_owned::encode_recipient_indices(&delivery.original_recipient_indices),
-            encode_dsn_failure(delivery.dsn_failure)
+            encode_dsn_failure(delivery.dsn_failure),
+            delivery
+                .dsn_diagnostic
+                .as_ref()
+                .map_or_else(|| "-".to_owned(), |value| value.journal_token())
         )?;
         file.sync_all()
     }

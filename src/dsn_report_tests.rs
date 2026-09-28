@@ -285,3 +285,9 @@ fn success_metadata(return_content: Option<ReturnContent>) -> DsnDeliveryMetadat
         origin_recipients: Vec::new(),
     }
 }
+
+fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+    haystack
+        .windows(needle.len())
+        .any(|window| window == needle)
+}

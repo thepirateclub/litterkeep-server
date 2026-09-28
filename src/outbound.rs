@@ -5,10 +5,15 @@ use std::{
     time::Duration,
 };
 
+#[path = "outbound_attempt.rs"]
+mod attempt;
+pub(crate) use attempt::DeliveryAttempt;
+
 #[path = "outbound_bdat.rs"]
 pub(crate) mod bdat;
 #[path = "outbound_connect.rs"]
 mod connect;
+pub(crate) use connect::{connect_bounded, connect_bounded_with_timeouts, parse_route};
 #[path = "outbound_data.rs"]
 mod data;
 #[path = "outbound_ehlo.rs"]
@@ -33,6 +38,7 @@ pub(crate) use ehlo::{EhloCapabilities, EhloExtension, EhloNegotiation, SizeAdve
 #[cfg(test)]
 pub(crate) use mail::header_profile::has_utf8_headers;
 pub(crate) use mail::{MailCommand, build_mail_command};
+pub(crate) use reply::expect_with_diagnostic;
 pub(crate) use reply::{ReplyExpectation, ReplyResult, expect, expect_success};
 pub(crate) use reply::{parse_reply, read_reply_line};
 pub(crate) use timeouts::SmtpTimeouts;
@@ -49,7 +55,6 @@ mod quit_timeout_tests;
 pub(crate) use ehlo::read_ehlo;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
-const GENERIC_IO_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Copy)]
 pub(crate) struct TransportLimits {
@@ -102,6 +107,7 @@ pub struct Connection {
     capabilities: EhloCapabilities,
     close_after_response: bool,
     timeouts: SmtpTimeouts,
+    last_diagnostic: Option<crate::smtp_reply_diagnostic::SmtpReplyDiagnostic>,
 }
 
 impl Connection {
@@ -130,6 +136,7 @@ impl Connection {
         recipient: &str,
         message: &[u8],
     ) -> io::Result<DeliveryOutcome> {
+        self.last_diagnostic = None;
         let binary_transfer = has_binary_transfer(message);
         let valid_message = match binary_transfer {
             true => validate_binary(message),
@@ -223,6 +230,13 @@ impl Connection {
         self.close_after_response
     }
 
+    /// Копирует diagnostic последнего завершённого отказа до возврата pooled socket.
+    pub(crate) fn last_diagnostic(
+        &self,
+    ) -> Option<crate::smtp_reply_diagnostic::SmtpReplyDiagnostic> {
+        self.last_diagnostic.clone()
+    }
+
     fn expect_command(
         &mut self,
         expectation: ReplyExpectation,
@@ -230,7 +244,11 @@ impl Connection {
         self.reader
             .get_ref()
             .set_read_timeout(Some(self.timeouts.response(expectation)))?;
-        match expect(&mut self.reader, expectation)? {
+        let (reply, diagnostic) = expect_with_diagnostic(&mut self.reader, expectation)?;
+        if diagnostic.is_some() {
+            self.last_diagnostic = diagnostic;
+        }
+        match reply {
             ReplyResult::Accepted => Ok(None),
             ReplyResult::Rejected(outcome) => Ok(Some(outcome)),
             ReplyResult::Closing => {
@@ -250,43 +268,6 @@ impl Connection {
             Some(DeliveryOutcome::Delivered) => Err(io::Error::other("unexpected SMTP outcome")),
         }
     }
-}
-
-/// Создаёт только числовой TCP route с конечными connect/read/write deadline.
-pub(crate) fn connect_bounded(address: &str) -> io::Result<TcpStream> {
-    let stream = TcpStream::connect_timeout(&parse_route(address)?, CONNECT_TIMEOUT)?;
-    stream.set_read_timeout(Some(GENERIC_IO_TIMEOUT))?;
-    stream.set_write_timeout(Some(GENERIC_IO_TIMEOUT))?;
-    Ok(stream)
-}
-
-pub(crate) fn connect_bounded_with_timeouts(
-    address: &str,
-    timeouts: SmtpTimeouts,
-) -> io::Result<TcpStream> {
-    connect_bounded_addr(
-        parse_route(address)?,
-        TransportLimits {
-            connect: CONNECT_TIMEOUT,
-            timeouts,
-        },
-    )
-}
-
-pub(crate) fn parse_route(address: &str) -> io::Result<SocketAddr> {
-    address.parse::<SocketAddr>().map_err(|_| {
-        io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "outbound route must be an explicit socket address",
-        )
-    })
-}
-
-fn connect_bounded_addr(address: SocketAddr, limits: TransportLimits) -> io::Result<TcpStream> {
-    let stream = TcpStream::connect_timeout(&address, limits.connect)?;
-    stream.set_read_timeout(Some(limits.timeouts.greeting()))?;
-    stream.set_write_timeout(Some(limits.timeouts.command()))?;
-    Ok(stream)
 }
 
 /// Отправляет один RFC822 message без повторного использования соединения.

@@ -14,6 +14,7 @@ pub enum DsnRequest {
         original: Vec<u8>,
         failure: crate::dsn::Failure,
         dsn_metadata: Option<Box<crate::queue::DsnDeliveryMetadata>>,
+        diagnostic: Option<crate::smtp_reply_diagnostic::SmtpReplyDiagnostic>,
         report_key: crate::queue::DsnReportKey,
     },
     /// Локальная доставка завершилась, и требуется positive report.

@@ -223,6 +223,7 @@ mod tests {
                 original: b"Subject: source\r\n\r\nbody".to_vec(),
                 failure: crate::dsn::Failure::PermanentSmtp,
                 dsn_metadata: None,
+                diagnostic: None,
                 report_key: crate::queue::DsnReportKey {
                     transaction_id: 42,
                     recipient: "remote@peer.test".into(),

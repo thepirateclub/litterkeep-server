@@ -58,10 +58,24 @@ pub(crate) fn expect<R: BufRead>(
     reader: &mut R,
     expectation: ReplyExpectation,
 ) -> io::Result<ReplyResult> {
+    expect_with_diagnostic(reader, expectation).map(|(result, _)| result)
+}
+
+/// Читает ответ без потери текста, необходимого для RFC 3464 Diagnostic-Code.
+pub(crate) fn expect_with_diagnostic<R: BufRead>(
+    reader: &mut R,
+    expectation: ReplyExpectation,
+) -> io::Result<(
+    ReplyResult,
+    Option<crate::smtp_reply_diagnostic::SmtpReplyDiagnostic>,
+)> {
     let mut reply_code = None;
+    let mut reply_text = String::new();
+    let mut reply_lines = 0_usize;
     loop {
         let line = read_reply_line(reader)?;
         let (code, continuation) = parse_reply(&line)?;
+        append_reply_text(&mut reply_text, &line, &mut reply_lines)?;
         match reply_code {
             Some(initial_code) if initial_code != code => {
                 return Err(io::Error::new(
@@ -73,14 +87,18 @@ pub(crate) fn expect<R: BufRead>(
         }
         if !continuation {
             if code == 421 {
-                return Ok(ReplyResult::Closing);
+                let diagnostic =
+                    crate::smtp_reply_diagnostic::SmtpReplyDiagnostic::new(code, reply_text)?;
+                return Ok((ReplyResult::Closing, Some(diagnostic)));
             }
             return match expectation.accepts(code) {
-                true => Ok(ReplyResult::Accepted),
+                true => Ok((ReplyResult::Accepted, None)),
                 false => match classify(code) {
-                    ReplyClass::Transient => Ok(ReplyResult::Rejected(DeliveryOutcome::Deferred)),
+                    ReplyClass::Transient => {
+                        diagnostic_result(DeliveryOutcome::Deferred, code, reply_text)
+                    }
                     ReplyClass::Permanent => {
-                        Ok(ReplyResult::Rejected(DeliveryOutcome::PermanentFailure))
+                        diagnostic_result(DeliveryOutcome::PermanentFailure, code, reply_text)
                     }
                     ReplyClass::Positive | ReplyClass::Unexpected => Err(io::Error::new(
                         io::ErrorKind::InvalidData,
@@ -91,6 +109,51 @@ pub(crate) fn expect<R: BufRead>(
         }
         reply_code = Some(code);
     }
+}
+
+/// Ограничивает multiline ответы и сохраняет читаемый единострочный текст.
+fn append_reply_text(output: &mut String, line: &str, count: &mut usize) -> io::Result<()> {
+    *count = count.saturating_add(1);
+    let body = line
+        .strip_suffix("\r\n")
+        .ok_or_else(|| io::Error::new(ErrorKind::InvalidData, "SMTP reply line lost CRLF"))?;
+    let text = body.get(4..).unwrap_or_default();
+    let normalized = text
+        .chars()
+        .map(|value| match value.is_ascii_graphic() || value == ' ' {
+            true => value,
+            false => '?',
+        });
+    let fragment = normalized.collect::<String>();
+    let required = output
+        .len()
+        .saturating_add(fragment.len())
+        .saturating_add(1);
+    match (*count <= 32, required <= 16_384) {
+        (true, true) => {
+            if !output.is_empty() && !fragment.is_empty() {
+                output.push(' ');
+            }
+            output.push_str(&fragment);
+            Ok(())
+        }
+        _ => Err(io::Error::new(
+            ErrorKind::InvalidData,
+            "SMTP multiline diagnostic exceeds configured bound",
+        )),
+    }
+}
+
+fn diagnostic_result(
+    outcome: DeliveryOutcome,
+    code: u16,
+    text: String,
+) -> io::Result<(
+    ReplyResult,
+    Option<crate::smtp_reply_diagnostic::SmtpReplyDiagnostic>,
+)> {
+    let diagnostic = crate::smtp_reply_diagnostic::SmtpReplyDiagnostic::new(code, text)?;
+    Ok((ReplyResult::Rejected(outcome), Some(diagnostic)))
 }
 
 /// Превращает ответ фазы в ошибку standalone SMTP операции.
@@ -206,76 +269,8 @@ pub(crate) fn read_reply_line(reader: &mut impl BufRead) -> io::Result<String> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{parse_reply, read_reply_line};
-    use std::io::{Cursor, ErrorKind};
-
-    #[test]
-    fn accepts_reply_line_at_the_512_octet_boundary() {
-        let mut wire = b"250 ".to_vec();
-        wire.extend(std::iter::repeat_n(b'x', 506));
-        wire.extend_from_slice(b"\r\n");
-        assert_eq!(wire.len(), 512);
-        let mut reader = Cursor::new(wire.clone());
-        assert_eq!(read_reply_line(&mut reader).expect("reply line").len(), 512);
-        assert_eq!(reader.position(), 512);
-    }
-
-    #[test]
-    fn rejects_reply_line_one_octet_over_the_512_octet_boundary() {
-        let mut wire = b"250 ".to_vec();
-        wire.extend(std::iter::repeat_n(b'x', 507));
-        wire.extend_from_slice(b"\r\n");
-        let mut reader = Cursor::new(wire);
-        assert_eq!(
-            read_reply_line(&mut reader)
-                .expect_err("oversized reply")
-                .kind(),
-            ErrorKind::InvalidData
-        );
-    }
-
-    #[test]
-    fn rejects_reply_line_without_crlf_terminator() {
-        let mut reader = Cursor::new(b"250 peer\n");
-        assert_eq!(
-            read_reply_line(&mut reader)
-                .expect_err("bare LF reply")
-                .kind(),
-            ErrorKind::InvalidData
-        );
-    }
-
-    /// RFC 5321 §4.2 требует принимать код без текста и с пустым текстом.
-    #[test]
-    fn accepts_reply_code_without_text_or_with_only_separator() {
-        assert_eq!(parse_reply("250\r\n").expect("bare code"), (250, false));
-        assert_eq!(parse_reply("250 \r\n").expect("empty text"), (250, false));
-        assert_eq!(parse_reply("250 text\r\n").expect("text"), (250, false));
-        assert_eq!(
-            parse_reply("250-\r\n").expect("empty continuation"),
-            (250, true)
-        );
-    }
-
-    /// Reply code остаётся строго тремя ASCII цифрами и CRLF-строкой.
-    #[test]
-    fn rejects_non_numeric_code_and_missing_crlf() {
-        assert_eq!(
-            parse_reply("+25 text\r\n")
-                .expect_err("sign is not a reply digit")
-                .kind(),
-            ErrorKind::InvalidData
-        );
-        assert_eq!(
-            parse_reply("250 text\n")
-                .expect_err("bare LF is not a complete reply line")
-                .kind(),
-            ErrorKind::InvalidData
-        );
-    }
-}
-
-#[cfg(test)]
 #[path = "outbound_bdat_reply_tests.rs"]
 mod bdat_tests;
+#[cfg(test)]
+#[path = "outbound_reply_tests.rs"]
+mod tests;

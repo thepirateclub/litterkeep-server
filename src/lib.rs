@@ -81,6 +81,7 @@ pub mod sasl;
 pub mod seed;
 pub mod sieve;
 pub mod smtp;
+pub(crate) mod smtp_reply_diagnostic;
 pub mod smtp_trace;
 pub mod storage_worker;
 pub mod store;

@@ -44,6 +44,7 @@ pub fn drain_at(
             if let Some(failure) = delivery.dsn_failure {
                 publish_dsn(store, accounts, &delivery, &payload, failure)?;
                 delivery.dsn_failure = None;
+                delivery.dsn_diagnostic = None;
                 store.transition_outbound(&delivery, delivery.state)?;
                 record(&mut report, delivery.state);
                 continue;
@@ -54,21 +55,43 @@ pub fn drain_at(
                 .ok_or_else(|| io::Error::other("outbound attempts exhausted"))?;
             delivery.state = State::InFlight;
             store.transition_outbound(&delivery, State::InFlight)?;
-            let result = pool.deliver(&delivery.sender, &delivery.recipient, &payload);
-            let state = outbound_policy::state(&result, delivery.attempts);
-            let dsn_failure = outbound_policy::requested_dsn_failure(
-                &result,
-                delivery.attempts,
-                delivery.dsn_metadata.as_deref(),
-            );
+            let attempt = pool.deliver_detailed(&delivery.sender, &delivery.recipient, &payload);
+            let (state, dsn_failure, diagnostic) = match attempt {
+                Ok(attempt) => {
+                    let result = Ok(attempt.outcome);
+                    let state = outbound_policy::state(&result, delivery.attempts);
+                    let failure = outbound_policy::requested_dsn_failure(
+                        &result,
+                        delivery.attempts,
+                        delivery.dsn_metadata.as_deref(),
+                    );
+                    let diagnostic = match failure {
+                        Some(_) => attempt.diagnostic,
+                        None => None,
+                    };
+                    (state, failure, diagnostic)
+                }
+                Err(error) => {
+                    let result = Err(error);
+                    let state = outbound_policy::state(&result, delivery.attempts);
+                    let failure = outbound_policy::requested_dsn_failure(
+                        &result,
+                        delivery.attempts,
+                        delivery.dsn_metadata.as_deref(),
+                    );
+                    (state, failure, None)
+                }
+            };
             delivery.state = state;
             delivery.dsn_failure = dsn_failure;
+            delivery.dsn_diagnostic = diagnostic;
             delivery.next_attempt_epoch =
                 outbound_policy::next_attempt_epoch(state, delivery.attempts, now_epoch);
             store.transition_outbound(&delivery, state)?;
             if let Some(failure) = dsn_failure {
                 publish_dsn(store, accounts, &delivery, &payload, failure)?;
                 delivery.dsn_failure = None;
+                delivery.dsn_diagnostic = None;
                 store.transition_outbound(&delivery, state)?;
             }
             record(&mut report, state);
@@ -114,13 +137,14 @@ fn publish_dsn(
         (Some(_), _) | (None, true) => return Ok(()),
         (None, false) => crate::dsn_target::DsnTarget::OutboundAddress(delivery.sender.clone()),
     };
-    let Some(report) = dsn::render_with_metadata(
+    let Some(report) = dsn::render_with_diagnostic(
         &delivery.sender,
         &delivery.recipient,
         delivery.transaction_id,
         payload,
         failure,
         delivery.dsn_metadata.as_deref(),
+        delivery.dsn_diagnostic.as_ref(),
     ) else {
         return Ok(());
     };

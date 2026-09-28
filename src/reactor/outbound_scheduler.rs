@@ -124,6 +124,10 @@ impl OutboundScheduler {
                     );
                     delivery.state = state;
                     delivery.dsn_failure = failure;
+                    delivery.dsn_diagnostic = match failure {
+                        Some(_) => completion.diagnostic,
+                        None => None,
+                    };
                     delivery.next_attempt_epoch =
                         outbound_policy::next_attempt_epoch(state, delivery.attempts, now_epoch()?);
                     let id = self.submit_transition(storage, &delivery, state, lifecycle)?;
@@ -227,6 +231,7 @@ impl OutboundScheduler {
                 }),
             ) => {
                 delivery.dsn_failure = None;
+                delivery.dsn_diagnostic = None;
                 let state = delivery.state;
                 let id = self.submit_transition(storage, &delivery, state, lifecycle)?;
                 Ok(Phase::AcknowledgeDsn(id))
