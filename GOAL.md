@@ -1,5 +1,27 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 3461 typed SMTP parameter grammar, PARTIAL T344
+
+- Добавлены typed-модели MAIL `RET`/`ENVID`, RCPT `NOTIFY`/`ORCPT` и отдельные
+  enum-варианты SMTP команд. `NOTIFY` проверяет регистр, непустой список,
+  уникальность условий и эксклюзивность `NEVER`; xtext проверяет uppercase hex,
+  printable ASCII и границы RFC для ENVID/ORCPT.
+- Синтаксически верные DSN-команды пока отклоняются сервером ответом
+  `555 5.5.4`; EHLO capability `DSN` не объявляется. Это необходимо, пока
+  свойства отдельных получателей и transaction metadata не сохраняются
+  durable и сервер не умеет выполнять запрошенные уведомления.
+- Windows Rust 1.97.1: `cargo test --all-targets` прошёл (950 library tests,
+  1 CLI test, 4 ignored), fmt и strict all-target Clippy прошли. Linux release
+  сборка прошла в существующем `rust:1.97-bookworm`; независимый wire peer
+  проверил отсутствие DSN capability, отказ обеих параметризованных команд и
+  recovery обычной MAIL transaction. Новые исходные/test файлы ниже 300 строк.
+- Временный runtime container остановлен и отсутствует; образы не создавались.
+  Linux build/runtime артефакты оставлены под `./data/g18-dsn-grammar-linux`.
+  Независимый peer не является проверкой приложения Litterkeep.
+- RFC 3461 остаётся неполным: durable envelope policy, success/failure/delay
+  DSN scheduling, MIME report conformance, RFC 6533 UTF-8 ORCPT и end-to-end
+  crash recovery ещё не реализованы. G18 ACTIVE.
+
 ### 2026-09-28: G18 SMTP DSN refusal wire check, GAP T339
 
 - RFC 3461 is intentionally not advertised because recipient DSN preferences,

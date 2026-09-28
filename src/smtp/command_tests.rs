@@ -123,31 +123,6 @@ fn smtp_utf8_mail_line_has_rfc6531_ten_octet_extension() {
     assert_eq!(command_line_limit(b"NOOP\r\n"), 512);
 }
 
-/// Отклоняет некорректные значения, повторы и не рекламируемые параметры.
-#[test]
-fn distinguishes_invalid_size_from_unsupported_parameter() {
-    let cases = [
-        ("MAIL FROM:<alice@test> SIZE=\r\n", ParseError::Syntax),
-        ("MAIL FROM:<alice@test> SIZE=+1\r\n", ParseError::Syntax),
-        (
-            "MAIL FROM:<alice@test> SIZE=123456789012345678901\r\n",
-            ParseError::Syntax,
-        ),
-        (
-            "MAIL FROM:<alice@test> SIZE=1 SIZE=2\r\n",
-            ParseError::Syntax,
-        ),
-        ("MAIL FROM:<alice@test> BODY=FOO\r\n", ParseError::Syntax),
-        (
-            "RCPT TO:<bob@test> NOTIFY=SUCCESS\r\n",
-            ParseError::UnsupportedParameter,
-        ),
-    ];
-    for (wire, expected) in cases {
-        assert_eq!(parse(wire), Err(expected), "wire command: {wire}");
-    }
-}
-
 #[test]
 fn quoted_local_part_can_contain_path_terminator_and_at_sign() {
     assert_eq!(

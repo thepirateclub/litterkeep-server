@@ -71,6 +71,9 @@ pub(super) fn smtp_line(
             session, response, slot, generation, worker, owners, request_id,
         ),
         smtp::Command::Mail(sender) => mail(session, sender),
+        smtp::Command::MailWithDsn(_, _) | smtp::Command::RcptWithDsn(_) => {
+            session.push(b"555 5.5.4 unsupported command parameter\r\n")
+        }
         smtp::Command::Bdat(chunk) => {
             super::smtp_bdat::start(session, chunk, slot, generation, worker, owners, request_id)
         }

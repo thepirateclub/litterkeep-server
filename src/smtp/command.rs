@@ -10,6 +10,8 @@ mod auth_command;
 mod bdat_command;
 #[path = "command_error.rs"]
 mod command_error;
+#[path = "dsn_parameters.rs"]
+mod dsn_parameters;
 #[path = "greeting.rs"]
 mod greeting;
 #[cfg(test)]
@@ -25,6 +27,10 @@ mod verify_command_tests;
 pub(crate) use address::canonical_parts;
 pub(crate) use address::requires_smtp_utf8;
 pub use bdat_command::BdatCommand;
+pub use dsn_parameters::{
+    MailDsn, NotifyCondition, NotifyPolicy, OriginalAddressType, OriginalRecipient, RecipientDsn,
+    ReturnContent,
+};
 pub use verify_command::{ReplyEncoding, VerifyRequest};
 
 /// Команда SMTP после разбора wire-строки без потери ESMTP параметров.
@@ -34,6 +40,10 @@ pub enum Command {
     Helo(String),
     Mail(MailFrom),
     Rcpt(String),
+    /// MAIL с корректно разобранными, но пока не поддерживаемыми параметрами DSN.
+    MailWithDsn(MailFrom, MailDsn),
+    /// RCPT с корректно разобранными, но пока не поддерживаемыми параметрами DSN.
+    RcptWithDsn(RcptTo),
     Data,
     /// Один octet-counted chunk согласно RFC 3030.
     Bdat(BdatCommand),
@@ -59,6 +69,15 @@ pub struct MailFrom {
     pub body_mode: BodyMode,
     /// Клиент объявил UTF-8 в envelope или заголовках сообщения.
     pub smtp_utf8: bool,
+}
+
+/// Адрес и RFC 3461 настройки одной команды RCPT TO.
+#[derive(Debug, Eq, PartialEq)]
+pub struct RcptTo {
+    /// Проверенный SMTP forward-path без угловых скобок.
+    pub address: String,
+    /// Типизированные запросы sender-а для будущих отчётов.
+    pub dsn: RecipientDsn,
 }
 
 /// RFC 6152/3030 body profile; unsupported modes are rejected before MAIL.
@@ -105,8 +124,14 @@ pub fn parse(line: &str) -> Result<Command, ParseError> {
     match verb.to_ascii_uppercase().as_str() {
         "EHLO" => greeting::ehlo(argument).map(Command::Ehlo),
         "HELO" => greeting::helo(argument).map(Command::Helo),
-        "MAIL" => mail_path::parse_mail_from(argument).map(Command::Mail),
-        "RCPT" => mail_path::parse_recipient(argument).map(Command::Rcpt),
+        "MAIL" => mail_path::parse_mail_from(argument).map(|(mail, dsn)| match dsn {
+            Some(dsn) => Command::MailWithDsn(mail, dsn),
+            None => Command::Mail(mail),
+        }),
+        "RCPT" => mail_path::parse_recipient(argument).map(|recipient| match recipient.dsn {
+            dsn if dsn == RecipientDsn::default() => Command::Rcpt(recipient.address),
+            _ => Command::RcptWithDsn(recipient),
+        }),
         "BDAT" => bdat_command::parse(argument).map(Command::Bdat),
         "DATA" => match argument.is_empty() {
             true => Ok(Command::Data),
@@ -246,6 +271,10 @@ fn parse_optional_string(argument: &str) -> Result<Option<String>, ParseError> {
 #[cfg(test)]
 #[path = "command_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "dsn_command_tests.rs"]
+mod dsn_command_tests;
 
 #[cfg(test)]
 #[path = "binarymime_tests.rs"]

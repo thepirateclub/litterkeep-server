@@ -12,8 +12,9 @@ pub use command::{
     MAX_DATA_LINE_SIZE, MAX_LOCAL_PART_SIZE, MAX_MESSAGE_SIZE, MAX_PATH_SIZE,
     MAX_SIZE_BINARYMIME_MAIL_LINE_SIZE, MAX_SIZE_MAIL_LINE_SIZE,
     MAX_SIZE_SMTPUTF8_BINARYMIME_MAIL_LINE_SIZE, MAX_SIZE_SMTPUTF8_MAIL_LINE_SIZE,
-    MAX_SMTPUTF8_BINARYMIME_MAIL_LINE_SIZE, MAX_SMTPUTF8_MAIL_LINE_SIZE, MailFrom, ParseError,
-    ReplyEncoding, VerifyRequest, command_line_limit, parse,
+    MAX_SMTPUTF8_BINARYMIME_MAIL_LINE_SIZE, MAX_SMTPUTF8_MAIL_LINE_SIZE, MailDsn, MailFrom,
+    NotifyCondition, NotifyPolicy, OriginalAddressType, OriginalRecipient, ParseError, RcptTo,
+    RecipientDsn, ReplyEncoding, ReturnContent, VerifyRequest, command_line_limit, parse,
 };
 
 /// Уровень SMTP greeting, определяющий допустимость ESMTP extensions.
