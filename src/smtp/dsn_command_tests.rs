@@ -25,7 +25,7 @@ fn rejects_invalid_or_duplicate_dsn_parameters() {
             ParseError::Syntax,
         ),
         (
-            "RCPT TO:<bob@test> ORCPT=utf-8;bob@例.test\r\n",
+            "RCPT TO:<bob@test> ORCPT=utf-8;bob@\\x{D800}.test\r\n",
             ParseError::Syntax,
         ),
         (
@@ -43,6 +43,24 @@ fn rejects_invalid_or_duplicate_dsn_parameters() {
 fn parses_utf8_orcpt_unitext_as_typed_address() {
     assert_eq!(
         parse("RCPT TO:<bob@test> ORCPT=utf-8;bob@\\x{4F8B}.test\r\n"),
+        Ok(Command::RcptWithDsn(RcptTo {
+            address: "bob@test".into(),
+            dsn: RecipientDsn {
+                notify: None,
+                original_recipient: Some(OriginalRecipient {
+                    address_type: OriginalAddressType::Utf8,
+                    address: "bob@例.test".as_bytes().to_vec(),
+                }),
+            },
+        }))
+    );
+}
+
+/// Unitext с буквальным Unicode разбирается, но не включает wire capability.
+#[test]
+fn parses_utf8_orcpt_unitext_with_literal_unicode() {
+    assert_eq!(
+        parse("RCPT TO:<bob@test> ORCPT=utf-8;bob@例.test\r\n"),
         Ok(Command::RcptWithDsn(RcptTo {
             address: "bob@test".into(),
             dsn: RecipientDsn {

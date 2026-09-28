@@ -34,11 +34,15 @@ socket peer подтвердил тот же точный отказ `555 5.5.4`
 recovery через NOOP/RSET/QUIT. Отдельный Linux Store integration test подтвердил
 durable round-trip typed envelope. RFC 6533 задаёт для `utf-8` ORCPT три разные
 формы xtext, unitext и native UTF-8 с разными условиями SMTPUTF8. Теперь
-внутренний parser декодирует только 7-bit-safe `utf-8-addr-xtext` и проверяет
-результат как UTF-8 mailbox; sidecar v2 сохраняет его type и octets, а version
-1 продолжает читаться. Это не wire support: DSN команды всё ещё отвергаются.
-Unitext/native UTF-8, генерация и доставка отчётов, а также полный DSN ESMTP
-профиль остаются неподдержанными.
+внутренний parser декодирует 7-bit-safe `utf-8-addr-xtext` и
+`utf-8-addr-unitext`, проверяя результат как UTF-8 mailbox; sidecar v2 сохраняет
+его type и octets, а version
+1 продолжает читаться. Parser сводит xtext и unitext к одному семантическому
+UTF-8 адресу, не сохраняя способ кодирования. Независимый Linux peer подтвердил
+точный отказ 555 5.5.4 отдельно для xtext и буквального Unicode unitext;
+это не wire support, DSN команды всё ещё отвергаются. Native UTF-8 form policy,
+SMTPUTF8-specific form constraints, генерация и доставка отчётов, а также
+полный DSN ESMTP профиль остаются неподдержанными.
 
 Submission поддерживает implicit TLS и STARTTLS, EHLO, AUTH PLAIN, MAIL SIZE,
 несколько RCPT, DATA с однократным dot-unstuffing, RSET, NOOP и QUIT. Также

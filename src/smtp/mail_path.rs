@@ -1,5 +1,5 @@
 //! Разбор SMTP reverse-path/forward-path и typed ESMTP MAIL параметров.
-use super::dsn_parameters::{ReturnContent, decode_utf8_xtext, decode_xtext, parse_notify};
+use super::dsn_parameters::{ReturnContent, decode_utf8_unitext, decode_xtext, parse_notify};
 use super::{
     BodyMode, MAX_PATH_SIZE, MailDsn, MailFrom, ParseError, RcptTo, RecipientDsn, address,
 };
@@ -115,7 +115,7 @@ fn parse_original_recipient(value: &str) -> Result<super::OriginalRecipient, Par
     };
     let address = match address_type {
         super::OriginalAddressType::Rfc822 => decode_xtext(address, value.len())?,
-        super::OriginalAddressType::Utf8 => decode_utf8_xtext(address, value.len())?,
+        super::OriginalAddressType::Utf8 => decode_utf8_unitext(address, value.len())?,
     };
     if matches!(address_type, super::OriginalAddressType::Utf8) {
         let mailbox = std::str::from_utf8(&address).map_err(|_| ParseError::Syntax)?;

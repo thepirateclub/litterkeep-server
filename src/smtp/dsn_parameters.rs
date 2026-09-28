@@ -116,8 +116,14 @@ pub(super) fn decode_xtext(value: &str, maximum: usize) -> Result<Vec<u8>, Parse
 }
 
 /// Декодирует только 7-bit-safe RFC 6533 utf-8-addr-xtext.
+#[cfg(test)]
 pub(super) fn decode_utf8_xtext(value: &str, maximum: usize) -> Result<Vec<u8>, ParseError> {
     utf8::decode(value, maximum)
+}
+
+/// Декодирует RFC 6533 unitext и сохраняет исходный адрес в UTF-8 octets.
+pub(super) fn decode_utf8_unitext(value: &str, maximum: usize) -> Result<Vec<u8>, ParseError> {
+    utf8::decode_unitext(value, maximum)
 }
 
 /// Декодирует одну обязательную пару заглавных шестнадцатеричных цифр.

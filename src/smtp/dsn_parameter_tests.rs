@@ -93,3 +93,27 @@ fn utf8_xtext_rejects_malformed_or_noncanonical_embedded_points() {
     );
     assert_eq!(decode_utf8_xtext("valid", 4), Err(ParseError::Syntax));
 }
+
+/// RFC 6533 unitext принимает QCHAR, экранирование и валидные UTF-8 символы.
+#[test]
+fn utf8_unitext_decodes_literal_unicode_and_embedded_escapes() {
+    assert_eq!(
+        decode_utf8_unitext("alice@例.test", 100),
+        Ok("alice@例.test".as_bytes().to_vec())
+    );
+    assert_eq!(
+        decode_utf8_unitext("alice@\\x{4F8B}.test", 100),
+        Ok("alice@例.test".as_bytes().to_vec())
+    );
+    assert_eq!(
+        decode_utf8_unitext("alice@例.\\x{0074}est", 100),
+        Err(ParseError::Syntax)
+    );
+    for invalid in ["alice@例 .test", "alice@例+.test", "alice@例=.test"] {
+        assert_eq!(
+            decode_utf8_unitext(invalid, 100),
+            Err(ParseError::Syntax),
+            "{invalid}"
+        );
+    }
+}

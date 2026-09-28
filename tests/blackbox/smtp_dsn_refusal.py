@@ -58,6 +58,14 @@ with socket.create_connection((OPTIONS.host, OPTIONS.port), timeout=10) as smtp:
     if b"unsupported command parameter" not in utf8_refusal.lower():
         raise AssertionError(f"unexpected UTF-8 ORCPT refusal text: {utf8_refusal!r}")
 
+    unitext_refusal = exchange(
+        smtp,
+        "RCPT TO:<bob@test> NOTIFY=SUCCESS ORCPT=utf-8;bob@例.test\r\n".encode(),
+        b"555 5.5.4",
+    )
+    if b"unsupported command parameter" not in unitext_refusal.lower():
+        raise AssertionError(f"unexpected UTF-8 unitext refusal text: {unitext_refusal!r}")
+
     exchange(smtp, b"NOOP\r\n", b"250")
     exchange(smtp, b"RSET\r\n", b"250")
     exchange(smtp, b"QUIT\r\n", b"221")

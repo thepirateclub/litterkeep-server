@@ -3,16 +3,35 @@
 use super::super::ParseError;
 
 /// Преобразует безопасные QCHAR и EmbeddedUnicodeChar в UTF-8 octets.
+#[cfg(test)]
 pub(super) fn decode(value: &str, maximum: usize) -> Result<Vec<u8>, ParseError> {
-    if value.is_empty() || value.len() > maximum || !value.is_ascii() {
+    decode_form(value, maximum, false)
+}
+
+/// Декодирует RFC 6533 unitext, включая буквальные UTF-8 символы.
+pub(super) fn decode_unitext(value: &str, maximum: usize) -> Result<Vec<u8>, ParseError> {
+    decode_form(value, maximum, true)
+}
+
+fn decode_form(value: &str, maximum: usize, allow_unicode: bool) -> Result<Vec<u8>, ParseError> {
+    if value.is_empty() || value.len() > maximum {
         return Err(ParseError::Syntax);
     }
-    let mut input = value.bytes().peekable();
+    if !allow_unicode && !value.is_ascii() {
+        return Err(ParseError::Syntax);
+    }
+    let mut input = value.chars().peekable();
     let mut output = Vec::with_capacity(value.len());
-    while let Some(byte) = input.next() {
-        match byte {
-            b'\\' => append_escape(&mut input, &mut output)?,
-            byte if is_qchar(byte) => output.push(byte),
+    while let Some(character) = input.next() {
+        match character {
+            '\\' => append_escape(&mut input, &mut output)?,
+            character if character.is_ascii() && is_qchar(character as u8) => {
+                output.push(character as u8);
+            }
+            character if allow_unicode && !character.is_ascii() => {
+                let mut encoded = [0_u8; 4];
+                output.extend_from_slice(character.encode_utf8(&mut encoded).as_bytes());
+            }
             _ => return Err(ParseError::Syntax),
         }
     }
@@ -23,26 +42,27 @@ pub(super) fn decode(value: &str, maximum: usize) -> Result<Vec<u8>, ParseError>
 }
 
 fn append_escape(
-    input: &mut impl Iterator<Item = u8>,
+    input: &mut impl Iterator<Item = char>,
     output: &mut Vec<u8>,
 ) -> Result<(), ParseError> {
-    if input.next() != Some(b'x') || input.next() != Some(b'{') {
+    if input.next() != Some('x') || input.next() != Some('{') {
         return Err(ParseError::Syntax);
     }
-    let mut digits = Vec::with_capacity(6);
+    let mut digits = String::with_capacity(6);
     loop {
         match input.next() {
-            Some(b'}') => break,
-            Some(byte) if digits.len() < 6 && byte.is_ascii_hexdigit() => digits.push(byte),
+            Some('}') => break,
+            Some(character) if digits.len() < 6 && character.is_ascii_hexdigit() => {
+                digits.push(character);
+            }
             _ => return Err(ParseError::Syntax),
         }
     }
     if !(2..=6).contains(&digits.len()) {
         return Err(ParseError::Syntax);
     }
-    let hex = std::str::from_utf8(&digits).map_err(|_| ParseError::Syntax)?;
-    let point = u32::from_str_radix(hex, 16).map_err(|_| ParseError::Syntax)?;
-    if !is_valid_hexpoint(hex, point) {
+    let point = u32::from_str_radix(&digits, 16).map_err(|_| ParseError::Syntax)?;
+    if !is_valid_hexpoint(&digits, point) {
         return Err(ParseError::Syntax);
     }
     let character = char::from_u32(point).ok_or(ParseError::Syntax)?;

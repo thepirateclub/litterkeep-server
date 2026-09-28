@@ -1,5 +1,27 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 6533 UTF-8 ORCPT unitext parsing, PARTIAL T350
+
+- Typed decoder для utf-8 ORCPT теперь принимает и 7-bit xtext, и unitext с
+  буквальными Unicode scalar values и \x{HEXPOINT} escape-ами. Оба варианта
+  проходят общую mailbox validation и сохраняются как семантические UTF-8
+  octets; исходный способ кодирования намеренно не сохраняется в sidecar.
+- Расширенный независимый SMTP socket peer против Linux release listener-а
+  подтвердил для xtext и буквального unitext одинаковый отказ 555 5.5.4,
+  отсутствие DSN capability и восстановление NOOP/RSET/QUIT. Это отказ
+  unsupported extension, не RFC 6533 wire support. Отдельная native
+  utf-8-address form policy всё ещё требует SMTPUTF8-specific handling.
+- Windows Rust 1.97.1: 964 library + 1 CLI test, 4 ignored; all-target tests,
+  strict Clippy и fmt прошли. Linux Rust 1.97.1: 1074 library + 1 CLI test,
+  4 ignored; all-target tests, strict Clippy, fmt и release build прошли.
+- Wire peer прошёл: python tests/blackbox/smtp_dsn_refusal.py 127.0.0.1 2526.
+  Disposable listener container удалён и его отсутствие проверено; Docker
+  image не создавался. Linux build оставлен в
+  ./data/g18-rfc6533-unitext-linux-target, runtime fixture в
+  ./data/g18-rfc6533-unitext-runtime. Изменённые source/test файлы ниже 300
+  строк; пользовательский smtp_data_line_bound.py сохранён.
+- T350 PARTIAL, G18 ACTIVE.
+
 ### 2026-09-28: G18 RFC 6533 ORCPT wire refusal, PARTIAL T349
 
 - Независимый Python socket peer прошёл против Linux release listener-а:
