@@ -22,7 +22,7 @@ mod validation;
 #[derive(Default)]
 pub(super) struct AppendExtensions<'a> {
     pub(super) diagnostics: &'a [sieve_diagnostics::PendingDiagnostic],
-    pub(super) outbound_origins: &'a [Option<usize>],
+    pub(super) outbound_origins: &'a [Vec<usize>],
     pub(super) vacation_claim: Option<&'a super::vacation_suppression::PendingClaim>,
     pub(super) smtp_dsn: Option<&'a crate::smtp::DsnEnvelope>,
     pub(super) dsn_report_key: Option<&'a crate::queue::DsnReportKey>,
@@ -37,7 +37,7 @@ pub(super) struct SieveAppend<'a> {
     pub(super) outbound: &'a [(String, String)],
     pub(super) diagnostics: &'a [sieve_diagnostics::PendingDiagnostic],
     pub(super) smtp_dsn: Option<&'a crate::smtp::DsnEnvelope>,
-    pub(super) outbound_origins: &'a [Option<usize>],
+    pub(super) outbound_origins: &'a [Vec<usize>],
     pub(super) dsn_success_recipient_indices: &'a [usize],
 }
 
@@ -122,7 +122,7 @@ impl Store {
         outbound: &[(String, String)],
         diagnostics: &[sieve_diagnostics::PendingDiagnostic],
         smtp_dsn: Option<&crate::smtp::DsnEnvelope>,
-        outbound_origins: &[Option<usize>],
+        outbound_origins: &[Vec<usize>],
     ) -> io::Result<u64> {
         self.append_many_with_sieve_and_success(SieveAppend {
             mailboxes,

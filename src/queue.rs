@@ -6,11 +6,22 @@ use std::{
     path::{Path, PathBuf},
 };
 
+#[path = "queue_enqueue.rs"]
+mod queue_enqueue;
+#[cfg(test)]
+#[path = "queue_origin_tests.rs"]
+mod queue_origin_tests;
 #[path = "queue_owned.rs"]
 mod queue_owned;
 #[derive(Debug)]
 pub struct Queue {
     path: PathBuf,
+}
+pub(super) const MAX_ORIGIN_RECIPIENTS: usize = 100;
+
+/// Кодирует origin ordinal-ы для shared durable journal формата.
+pub(crate) fn encode_recipient_indices(indices: &[usize]) -> String {
+    queue_owned::encode_recipient_indices(indices)
 }
 /// Состояние одного адресата, записываемое в долговечный журнал очереди.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -69,8 +80,8 @@ pub struct DsnReportKey {
     pub transaction_id: u64,
     /// Конечный адрес queue route, чтобы различать несколько redirect jobs.
     pub recipient: String,
-    /// Индекс исходного SMTP RCPT, если маршрут однозначно ему принадлежит.
-    pub original_recipient_index: Option<usize>,
+    /// Все исходные SMTP RCPT, сведённые в этот durable маршрут.
+    pub original_recipient_indices: Vec<usize>,
     /// Терминальная причина, включённая в сохраняемый report.
     pub failure: crate::dsn::Failure,
 }
@@ -116,8 +127,8 @@ pub struct OwnedDelivery {
     pub next_attempt_epoch: u64,
     pub sender: String,
     pub recipient: String,
-    /// Индекс исходного SMTP RCPT, если job возникла из Sieve redirect.
-    pub original_recipient_index: Option<usize>,
+    /// Индексы SMTP RCPT, чьи Sieve redirects сведены в одну queue job.
+    pub original_recipient_indices: Vec<usize>,
     /// Typed DSN данные исходной transaction, подставляемые Store при чтении.
     pub dsn_metadata: Option<Box<DsnDeliveryMetadata>>,
     /// Failure DSN, который ещё должен быть опубликован после recovery.
@@ -131,7 +142,7 @@ impl OwnedDelivery {
         self.dsn_failure.map(|failure| DsnReportKey {
             transaction_id: self.transaction_id,
             recipient: self.recipient.clone(),
-            original_recipient_index: self.original_recipient_index,
+            original_recipient_indices: self.original_recipient_indices.clone(),
             failure,
         })
     }
@@ -145,52 +156,6 @@ impl Queue {
     }
     pub fn enqueue(&self, id: &str, recipient: &str) -> io::Result<()> {
         self.record(id, recipient, State::Pending)
-    }
-    /// Пишет job до global Store commit. Видимым его делает только committed ID.
-    pub fn enqueue_owned(
-        &self,
-        transaction_id: u64,
-        sender: &str,
-        recipient: &str,
-        original_recipient_index: Option<usize>,
-    ) -> io::Result<()> {
-        validate_token(sender)?;
-        validate_token(recipient)?;
-        let sender_token = encode_sender(sender);
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&self.path)?;
-        writeln!(
-            file,
-            "{} {transaction_id} 0 0 {sender_token} {recipient} {} -",
-            State::Pending.wire(),
-            encode_recipient_index(original_recipient_index)
-        )?;
-        file.sync_all()
-    }
-    /// Фиксирует состояние owned job без изменения immutable envelope данных.
-    pub fn transition_owned(&self, delivery: &OwnedDelivery, state: State) -> io::Result<()> {
-        validate_token(&delivery.sender)?;
-        validate_token(&delivery.recipient)?;
-        let sender_token = encode_sender(&delivery.sender);
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&self.path)?;
-        writeln!(
-            file,
-            "{} {} {} {} {} {} {} {}",
-            state.wire(),
-            delivery.transaction_id,
-            delivery.attempts,
-            delivery.next_attempt_epoch,
-            sender_token,
-            delivery.recipient,
-            encode_recipient_index(delivery.original_recipient_index),
-            encode_dsn_failure(delivery.dsn_failure)
-        )?;
-        file.sync_all()
     }
     /// Добавляет новый факт перехода; старые факты сохраняются для recovery.
     pub fn transition(&self, id: &str, recipient: &str, state: State) -> io::Result<()> {
@@ -252,14 +217,6 @@ impl Queue {
             Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(Vec::new()),
             Err(e) => Err(e),
         }
-    }
-}
-
-/// Кодирует отсутствующую связь отдельным токеном, сохраняя старые queue frames.
-fn encode_recipient_index(index: Option<usize>) -> String {
-    match index {
-        Some(value) => value.to_string(),
-        None => "-".to_owned(),
     }
 }
 

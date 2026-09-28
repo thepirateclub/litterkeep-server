@@ -2,7 +2,7 @@
 
 use super::{Store, append::SieveAppend};
 use crate::sieve;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -93,10 +93,15 @@ impl Store {
         let mut diagnostics = Vec::new();
         let mut vacation_responses = Vec::new();
         let mut success_recipient_indices = Vec::new();
+        let mut recipient_indices_by_account: HashMap<&str, Vec<usize>> = HashMap::new();
+        for (recipient_index, account) in accounts.iter().enumerate() {
+            recipient_indices_by_account
+                .entry(account.as_str())
+                .or_default()
+                .push(recipient_index);
+        }
         let mut evaluated = HashSet::with_capacity(accounts.len());
-        for (recipient_index, (account, envelope_to)) in
-            accounts.iter().zip(envelope_recipients).enumerate()
-        {
+        for (account, envelope_to) in accounts.iter().zip(envelope_recipients) {
             if !evaluated.insert(account.as_str()) {
                 continue;
             }
@@ -121,7 +126,11 @@ impl Store {
             }
             for recipient in plan.redirects {
                 outbound.push((envelope_sender.to_owned(), recipient));
-                outbound_origins.push(Some(recipient_index));
+                let origins = recipient_indices_by_account
+                    .get(account.as_str())
+                    .ok_or_else(|| io::Error::other("local recipient group disappeared"))?
+                    .clone();
+                outbound_origins.push(origins);
             }
             for action in plan.vacations {
                 if let Some(response) =

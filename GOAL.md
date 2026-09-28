@@ -372,6 +372,29 @@
   `src/store/sieve_delivery.rs`, `src/store/append.rs`, `src/queue.rs`,
   `src/queue_owned.rs` и `src/store/outbound_access.rs`.
 
+### 2026-09-29: G18 durable multi-origin queue recovery, T404 PARTIAL
+
+- Sieve delivery groups source RCPT indices by resolved local account. A single
+  redirect route for duplicate recipients now journals its full ordered origin
+  set rather than only the first index. Owned queue recovery and retry
+  transitions retain the list; report idempotency keys serialize the same set.
+- Existing single-index queue and report-journal tokens still recover as a
+  one-element set. Writers reject duplicate/unordered origins and enforce the
+  SMTP envelope's current 100-recipient bound.
+- Focused Windows tests pass for queue recovery, legacy journal compatibility,
+  retry transition recovery, Store reopen for coalesced same-account redirects,
+  and multi-ordinal DSN report-journal identity.
+- Full Windows Rust 1.97.1 gate passes with 1050 library + 1 CLI tests
+  (4 ignored), strict Clippy and rustfmt. Linux Rust 1.97.1 gate passes with
+  1171 library + 1 CLI tests (4 ignored), strict Clippy and rustfmt using the
+  existing `rust:1.97-bookworm` image. Its disposable test container was removed;
+  no image was created.
+- This is not complete T385: outbound relay policy still uses the first
+  recipient's DSN metadata and generated failure DSN still contains one
+  per-recipient block. EHLO DSN is not advertised, MAIL/RCPT DSN parameters are
+  refused, and no new independent wire or Litterkeep app test was run.
+- Normative basis: RFC 3461 §§5.2.7-5.2.8 and RFC 3464 §§1.2, 2.3.
+
 ### 2026-09-28: G18 RFC 3464 Final-Recipient mailbox syntax, T382 PASS
 
 - Исправлен generated failure DSN: `Final-Recipient` теперь содержит

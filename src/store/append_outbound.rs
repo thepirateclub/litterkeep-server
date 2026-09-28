@@ -6,7 +6,7 @@ use std::io;
 /// Проверяет параллельных outbound маршрутных и исходных RCPT списков.
 pub(super) fn validate_count(
     outbound: &[(String, String)],
-    original_indices: &[Option<usize>],
+    original_indices: &[Vec<usize>],
 ) -> io::Result<()> {
     match original_indices.is_empty() || original_indices.len() == outbound.len() {
         true => Ok(()),
@@ -22,14 +22,14 @@ pub(super) fn enqueue(
     store: &Store,
     transaction_id: u64,
     outbound: &[(String, String)],
-    original_indices: &[Option<usize>],
+    original_indices: &[Vec<usize>],
 ) -> io::Result<()> {
     for (position, (sender, recipient)) in outbound.iter().enumerate() {
-        store.queue.enqueue_owned(
+        store.queue.enqueue_owned_many(
             transaction_id,
             sender,
             recipient,
-            original_indices.get(position).copied().flatten(),
+            original_indices.get(position).map_or(&[], Vec::as_slice),
         )?;
     }
     Ok(())

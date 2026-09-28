@@ -90,12 +90,9 @@ fn parse(line: &str) -> io::Result<(u64, DsnReportKey)> {
     }
     let report_id = parse_number(report, "DSN report transaction")?;
     let transaction_id = parse_number(transaction, "DSN source transaction")?;
-    let original_recipient_index = match ordinal {
-        "-" => None,
-        value => Some(
-            usize::try_from(parse_number(value, "DSN recipient ordinal")?)
-                .map_err(|_| invalid("DSN recipient ordinal overflow"))?,
-        ),
+    let original_recipient_indices = match ordinal {
+        "-" => Vec::new(),
+        value => parse_ordinals(value)?,
     };
     let failure = crate::dsn::Failure::from_journal_tag(failure)
         .ok_or_else(|| invalid("unknown DSN report failure tag"))?;
@@ -103,7 +100,7 @@ fn parse(line: &str) -> io::Result<(u64, DsnReportKey)> {
     let key = DsnReportKey {
         transaction_id,
         recipient,
-        original_recipient_index,
+        original_recipient_indices,
         failure,
     };
     validate_key(&key)?;
@@ -115,15 +112,32 @@ fn parse(line: &str) -> io::Result<(u64, DsnReportKey)> {
 }
 
 fn payload(report: u64, key: &DsnReportKey) -> String {
-    let ordinal = key
-        .original_recipient_index
-        .map_or_else(|| "-".to_owned(), |value| value.to_string());
+    let ordinal = crate::queue::encode_recipient_indices(&key.original_recipient_indices);
     format!(
         "{report} {} {ordinal} {} {}",
         key.transaction_id,
         key.failure.journal_tag(),
         encode_hex(key.recipient.as_bytes())
     )
+}
+
+/// Проверяет упорядоченный список исходных RCPT в idempotency journal.
+fn parse_ordinals(value: &str) -> io::Result<Vec<usize>> {
+    let mut ordinals = Vec::new();
+    let mut previous = None;
+    for item in value.split(',') {
+        let ordinal = usize::try_from(parse_number(item, "DSN recipient ordinal")?)
+            .map_err(|_| invalid("DSN recipient ordinal overflow"))?;
+        match previous {
+            Some(last) if ordinal <= last => {
+                return Err(invalid("unordered DSN recipient ordinals"));
+            }
+            _ => {}
+        }
+        previous = Some(ordinal);
+        ordinals.push(ordinal);
+    }
+    Ok(ordinals)
 }
 
 fn validate_key(key: &DsnReportKey) -> io::Result<()> {

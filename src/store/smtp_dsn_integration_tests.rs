@@ -82,7 +82,7 @@ fn outbound_job_recovers_its_recipient_policy_after_store_reopen() {
                 &[("alice@test".into(), "forward@peer.test".into())],
                 &[],
                 Some(&expected),
-                &[Some(0)],
+                &[vec![0]],
             )
             .expect("commit queued delivery");
     }
@@ -93,7 +93,7 @@ fn outbound_job_recovers_its_recipient_policy_after_store_reopen() {
         .into_iter()
         .next()
         .expect("one delivery");
-    assert_eq!(delivery.original_recipient_index, Some(0));
+    assert_eq!(delivery.original_recipient_indices, vec![0]);
     assert_eq!(
         delivery.dsn_metadata,
         Some(Box::new(crate::queue::DsnDeliveryMetadata {

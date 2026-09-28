@@ -22,7 +22,7 @@ fn key() -> DsnReportKey {
     DsnReportKey {
         transaction_id: 7,
         recipient: "bob@example.test".into(),
-        original_recipient_index: Some(2),
+        original_recipient_indices: vec![2, 4],
         failure: crate::dsn::Failure::PermanentSmtp,
     }
 }

@@ -226,7 +226,7 @@ mod tests {
                 report_key: crate::queue::DsnReportKey {
                     transaction_id: 42,
                     recipient: "remote@peer.test".into(),
-                    original_recipient_index: None,
+                    original_recipient_indices: Vec::new(),
                     failure: crate::dsn::Failure::PermanentSmtp,
                 },
             }))

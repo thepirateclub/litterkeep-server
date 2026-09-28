@@ -40,11 +40,11 @@ impl Store {
                 let Some(envelope) = self.smtp_dsn_envelopes.get(&delivery.transaction_id) else {
                     return Ok(delivery);
                 };
-                let recipient = match delivery.original_recipient_index {
+                let recipient = match delivery.original_recipient_indices.first() {
                     Some(index) => Some(
                         envelope
                             .recipients
-                            .get(index)
+                            .get(*index)
                             .ok_or_else(invalid_dsn_index)?
                             .dsn
                             .clone(),

@@ -44,8 +44,12 @@ intents, чья source transaction committed. Unit integration покрывае�
 RCPT policy, discard и crash до commit. Если несколько RCPT разрешаются в один
 локальный mailbox, Store фиксирует одно сообщение, а независимые SUCCESS intents
 сохраняет по каждому eligible RCPT ordinal; T402 проверяет оба ключа после
-reopen. Для outbound redirect failure текущий queue route по-прежнему хранит
-один source ordinal, поэтому duplicate-origin correlation остаётся GAP (T385).
+reopen. Для outbound redirect queue route теперь хранит все source ordinals,
+если несколько RCPT того же локального mailbox сведены в одну Sieve evaluation.
+Recovery, deferred retry и DSN idempotency key сохраняют список. Однако Store
+пока прикрепляет к transport только policy первого ordinal, а failure DSN
+serializer формирует один per-recipient блок; полный multi-origin DSN остаётся
+GAP (T385/T404). EHLO `DSN` не рекламируется, SMTP DSN параметры отвергаются.
 Consumer доступен как typed bounded
 StorageWorker operation: он восстанавливает envelope и исходный blob, принимает
 существующий локальный sender account либо передаёт внешний reverse-path через

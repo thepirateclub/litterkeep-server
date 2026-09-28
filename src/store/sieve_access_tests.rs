@@ -51,7 +51,7 @@ fn redirect_cancels_implicit_keep_and_preserves_envelope_sender() {
         next_attempt_epoch: 0,
         sender: "alice@litterkeep.test".into(),
         recipient: "remote@peer.test".into(),
-        original_recipient_index: Some(0),
+        original_recipient_indices: vec![0],
         dsn_metadata: None,
         dsn_failure: None,
         state: crate::queue::State::Pending,

@@ -56,7 +56,7 @@ fn owned_delivery_is_invisible_until_store_commit() {
             next_attempt_epoch: 0,
             sender: "alice@test".into(),
             recipient: "remote@test".into(),
-            original_recipient_index: None,
+            original_recipient_indices: Vec::new(),
             dsn_metadata: None,
             dsn_failure: None,
             state: State::Pending
@@ -65,17 +65,14 @@ fn owned_delivery_is_invisible_until_store_commit() {
     let _ = fs::remove_dir_all(d);
 }
 
-/// Разные исходные RCPT не схлопываются при одинаковом redirect-адресе.
+/// Один outbound route сохраняет все исходные RCPT после reopen журнала.
 #[test]
-fn owned_queue_recovery_preserves_distinct_original_recipient_indices() {
+fn owned_queue_recovery_preserves_multiple_origin_indices() {
     let directory = std::env::temp_dir().join("litterkeep-owned-queue-origin-index-test");
     let queue = Queue::open(&directory).expect("queue");
     queue
-        .enqueue_owned(17, "alice@test", "remote@test", Some(0))
-        .expect("first route");
-    queue
-        .enqueue_owned(17, "alice@test", "remote@test", Some(1))
-        .expect("second route");
+        .enqueue_owned_many(17, "alice@test", "remote@test", &[0, 1])
+        .expect("aggregated route");
     let committed = HashSet::from([17]);
 
     let recovered = Queue::open(&directory)
@@ -83,18 +80,12 @@ fn owned_queue_recovery_preserves_distinct_original_recipient_indices() {
         .pending_owned(&committed)
         .expect("pending after recovery");
 
-    assert_eq!(recovered.len(), 2);
+    assert_eq!(recovered.len(), 1);
     assert_eq!(
         recovered
             .first()
-            .and_then(|job| job.original_recipient_index),
-        Some(0)
-    );
-    assert_eq!(
-        recovered
-            .get(1)
-            .and_then(|job| job.original_recipient_index),
-        Some(1)
+            .map(|job| job.original_recipient_indices.clone()),
+        Some(vec![0, 1])
     );
     let _ = fs::remove_dir_all(directory);
 }
@@ -109,16 +100,16 @@ fn owned_transition_survives_reopen_and_removes_pending_job() {
         next_attempt_epoch: 0,
         sender: "alice@test".into(),
         recipient: "remote@test".into(),
-        original_recipient_index: None,
+        original_recipient_indices: Vec::new(),
         dsn_metadata: None,
         dsn_failure: None,
         state: State::Pending,
     };
-    q.enqueue_owned(
+    q.enqueue_owned_many(
         delivery.transaction_id,
         &delivery.sender,
         &delivery.recipient,
-        delivery.original_recipient_index,
+        delivery.original_recipient_indices.as_slice(),
     )
     .expect("enqueue");
     q.transition_owned(&delivery, State::Delivered)
@@ -145,16 +136,16 @@ fn interrupted_owned_delivery_is_deferred_on_reopen() {
         next_attempt_epoch: 0,
         sender: "alice@test".into(),
         recipient: "remote@test".into(),
-        original_recipient_index: None,
+        original_recipient_indices: Vec::new(),
         dsn_metadata: None,
         dsn_failure: None,
         state: State::Pending,
     };
-    q.enqueue_owned(
+    q.enqueue_owned_many(
         delivery.transaction_id,
         &delivery.sender,
         &delivery.recipient,
-        delivery.original_recipient_index,
+        delivery.original_recipient_indices.as_slice(),
     )
     .expect("enqueue");
     q.transition_owned(&delivery, State::InFlight)
@@ -186,17 +177,17 @@ fn terminal_failure_notice_is_recovered_as_due_work() {
         next_attempt_epoch: 0,
         sender: "alice@test".into(),
         recipient: "remote@test".into(),
-        original_recipient_index: Some(0),
+        original_recipient_indices: vec![0],
         dsn_metadata: None,
         dsn_failure: Some(crate::dsn::Failure::PermanentSmtp),
         state: State::PermanentFailure,
     };
     queue
-        .enqueue_owned(
+        .enqueue_owned_many(
             delivery.transaction_id,
             &delivery.sender,
             &delivery.recipient,
-            delivery.original_recipient_index,
+            delivery.original_recipient_indices.as_slice(),
         )
         .expect("enqueue");
     queue
@@ -234,16 +225,16 @@ fn deferred_epoch_survives_reopen_and_gates_due_selection() {
         next_attempt_epoch: 1_060,
         sender: "alice@test".into(),
         recipient: "remote@test".into(),
-        original_recipient_index: None,
+        original_recipient_indices: Vec::new(),
         dsn_metadata: None,
         dsn_failure: None,
         state: State::Deferred,
     };
-    q.enqueue_owned(
+    q.enqueue_owned_many(
         delivery.transaction_id,
         &delivery.sender,
         &delivery.recipient,
-        delivery.original_recipient_index,
+        delivery.original_recipient_indices.as_slice(),
     )
     .expect("enqueue");
     q.transition_owned(&delivery, State::Deferred)
