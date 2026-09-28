@@ -10038,3 +10038,20 @@ ManageSieve до заявленного набора современных фо
   all-target tests прошли (1036 library + 1 CLI, 4 ignored). Использованы
   существующие Docker images; созданный сервисный container удалён, новые
   images не создавались. G18 остаётся ACTIVE.
+### 2026-09-28: G18 RFC 5322 obsolete timezone profile split, scoped PASS T337
+
+- IMAP `SENT*` использует перечисленные RFC 5322 §4.3 зоны: UT/GMT,
+  EST/EDT, CST/CDT, MST/MDT, PST/PDT и military A-I/K-Z. Военные зоны
+  и неизвестные 3-5-буквенные alphabetic zone names нормализуются к `-0000`
+  согласно RFC-рекомендации без out-of-band данных; J и malformed/overlong
+  имена отвергаются.
+- RFC 2183 date-параметры используют отдельную typed numeric-only policy и
+  продолжают отвергать буквенные зоны. Unit tests и независимый IMAP STARTTLS
+  проверили UTC date boundary, точный SENTON набор, BODYSTRUCTURE omission и
+  неизменность RFC822 octets.
+- Windows Rust 1.97.1: fmt, strict Clippy и all-target tests прошли
+  (931 library + 1 CLI, 4 ignored). Независимые Python peers запускались на
+  Windows против сервера в Linux Docker; это не проверка Litterkeep app.
+- Linux Rust 1.97.1: fmt, strict Clippy и all-target tests прошли
+  (1040 library + 1 CLI, 4 ignored). Существующие Docker images переиспользованы,
+  созданные containers удалены, images не создавались. G18 остаётся ACTIVE.

@@ -1,14 +1,25 @@
 //! Ограниченный, строгий разбор календарной даты из RFC 5322 `Date`.
 
+use super::date_zone::{DateTimeProfile, normalized_zone};
 use super::search_date::SearchDate;
 use crate::mail_date::MailDate;
 
-/// Извлекает UTC-день отправки из корректного базового RFC 5322 date-time.
+/// Извлекает UTC-день RFC 5322 Date с numeric или допустимой obsolete timezone.
 ///
-/// Поддерживаются необязательный day-of-week, обязательная числовая timezone и
-/// время с секундами либо без них. Obsolete named zones намеренно отвергаются,
-/// чтобы сомнительная дата не превращалась в ложное SEARCH-совпадение.
+/// Поддерживаются необязательный day-of-week, календарная проверка,
+/// секунды, известные зоны RFC 5322 §4.3 и unknown-offset fallback.
+/// Синтаксически некорректная или неоднозначно широкая зона отвергается.
 pub fn parse(value: &[u8]) -> Option<SearchDate> {
+    parse_with_profile(value, DateTimeProfile::Rfc5322)
+}
+
+/// Разбирает RFC 2183 quoted-date-time, где допустима только числовая зона.
+pub(crate) fn parse_numeric_timezone(value: &[u8]) -> Option<SearchDate> {
+    parse_with_profile(value, DateTimeProfile::Rfc2183NumericZone)
+}
+
+/// Применяет синтаксис и политику зоны выбранного RFC-профиля.
+fn parse_with_profile(value: &[u8], profile: DateTimeProfile) -> Option<SearchDate> {
     let value = std::str::from_utf8(value).ok()?;
     let value = crate::mime::structured_comments::remove(value).ok()?;
     let value = crate::mime::wsp::trim(&value);
@@ -27,7 +38,7 @@ pub fn parse(value: &[u8]) -> Option<SearchDate> {
     }
     let year = normalized_year(fields.next()?)?;
     let time = normalized_time(fields.next()?)?;
-    let zone = fields.next()?;
+    let zone = normalized_zone(fields.next()?, profile)?;
     if fields.next().is_some() {
         return None;
     }
@@ -109,8 +120,8 @@ mod tests {
     }
 
     #[test]
-    fn rejects_named_zone_extra_fields_and_invalid_weekday() {
-        assert!(parse(b"Mon, 2 Feb 2026 12:30:00 GMT").is_none());
+    fn rejects_unclassifiable_zone_extra_fields_and_invalid_weekday() {
+        assert!(parse(b"Mon, 2 Feb 2026 12:30:00 UNKNOWN").is_none());
         assert!(parse(b"Bad, 2 Feb 2026 12:30:00 +0000").is_none());
         assert!(parse(b"2 Feb 2026 12:30:00 +0000 trailing").is_none());
     }
@@ -136,6 +147,52 @@ mod tests {
     #[test]
     fn rejects_unterminated_comment_in_date_time() {
         assert!(parse(b"Fri, 21 Nov 1997 09:55:06 (missing zone -0600").is_none());
+    }
+
+    /// RFC 5322 §4.3 зоны США применяются с заданными фиксированными offsets.
+    #[test]
+    fn interprets_obsolete_north_american_zones() {
+        let day = SearchDate::parse("2-Feb-2026").expect("February 2");
+        for value in [
+            b"Mon, 2 Feb 2026 00:30:00 UT".as_slice(),
+            b"Mon, 2 Feb 2026 00:30:00 gmt".as_slice(),
+            b"Mon, 2 Feb 2026 00:30:00 EST".as_slice(),
+            b"Mon, 2 Feb 2026 00:30:00 EDT".as_slice(),
+            b"Mon, 2 Feb 2026 00:30:00 CST".as_slice(),
+            b"Mon, 2 Feb 2026 00:30:00 CDT".as_slice(),
+            b"Mon, 2 Feb 2026 00:30:00 MST".as_slice(),
+            b"Mon, 2 Feb 2026 00:30:00 MDT".as_slice(),
+            b"Mon, 2 Feb 2026 00:30:00 PST".as_slice(),
+            b"Mon, 2 Feb 2026 00:30:00 PDT".as_slice(),
+        ] {
+            assert_eq!(parse(value), Some(day), "zone in {value:?}");
+        }
+    }
+
+    /// RFC 5322 рекомендует считать военные зоны неизвестным `-0000`.
+    #[test]
+    fn military_zones_use_unknown_offset_and_exclude_j() {
+        let day = SearchDate::parse("1-Feb-2026").expect("February 1");
+        assert_eq!(parse(b"Sun, 1 Feb 2026 23:30:00 A"), Some(day));
+        assert_eq!(parse(b"Sun, 1 Feb 2026 23:30:00 Z"), Some(day));
+        assert!(parse(b"Sun, 1 Feb 2026 23:30:00 J").is_none());
+    }
+
+    /// Неизвестная историческая буквенная зона сравнивается как `-0000`.
+    #[test]
+    fn unknown_three_to_five_letter_zones_use_unknown_offset() {
+        let day = SearchDate::parse("2-Feb-2026").expect("February 2");
+        assert_eq!(parse(b"Mon, 2 Feb 2026 12:30:00 XYZ"), Some(day));
+        assert_eq!(parse(b"Mon, 2 Feb 2026 12:30:00 abcde"), Some(day));
+        assert!(parse(b"Mon, 2 Feb 2026 12:30:00 UNKNOWN").is_none());
+    }
+
+    /// RFC 2183 сохраняет numeric-only policy даже для общей RFC 5322 даты.
+    #[test]
+    fn rfc2183_date_parameters_reject_obsolete_named_zones() {
+        assert!(parse_numeric_timezone(b"Fri, 21 Nov 1997 09:55:06 EST").is_none());
+        assert!(parse_numeric_timezone(b"Fri, 21 Nov 1997 09:55:06 XYZ").is_none());
+        assert!(parse_numeric_timezone(b"Fri, 21 Nov 1997 09:55:06 -0500").is_some());
     }
 
     /// Допустимая секунда 60 сохраняет календарный день при date-only поиске.

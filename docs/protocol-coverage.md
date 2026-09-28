@@ -562,6 +562,16 @@ while an unterminated comment invalidates the parameter. Unit tests and an
 independent Python IMAP STARTTLS peer verify the projected date and exact original
 RFC822 octets. This does not implement every obsolete date-time placement or
 relax the required numeric timezone.
+RFC 5322 Date search has a distinct profile from RFC 2183 MIME date parameters:
+`UT`/`GMT` and the eight registered North American obsolete zones are normalized
+to their RFC offsets; military zones use `-0000` as recommended without out-of-band
+data, and unknown 3-5-letter alphabetic names use `-0000` per RFC guidance. `J`
+and malformed/overlong names are rejected. RFC 2183 continues to reject every
+alphabetic zone. Unit tests and independent IMAP STARTTLS peers verify UTC day
+boundaries, the exact `SENTON` result, MIME date omission, and byte-exact RFC822
+FETCH. This is not support for unknown historical zone spellings or Litterkeep app
+interoperability; see [RFC 5322 §4.3](https://www.rfc-editor.org/rfc/rfc5322.html#section-4.3)
+and [RFC 2183 §2](https://www.rfc-editor.org/rfc/rfc2183.html#section-2).
 RFC 2231 §4.1 допускает charset/language metadata в начале первой encoded
 continuation секции. Ранее `Content-Disposition` parser терял language hint
 после общего параметрического разбора; `Disposition` теперь сохраняет typed

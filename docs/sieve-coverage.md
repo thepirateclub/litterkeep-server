@@ -338,7 +338,9 @@ unit-тесты и IMAP STARTTLS acceptance T331 подтверждают fallba
 filename при byte-exact сохранении исходного RFC822 literal.
 RFC 2183 `size` принимает только непустые десятичные цифры: `size=12x`
 отбрасывается отдельно, сохраняя валидный `filename`; это покрыто unit и IMAP
-STARTTLS acceptance. Полная проверка трёх date-параметров остаётся открытой.
+STARTTLS acceptance. Date-параметры закрыты узкими проверками T333-T336;
+T337 отдельно подтверждает, что MIME RFC 2183 сохраняет numeric-only timezone,
+даже когда RFC 5322 Date parser принимает зарегистрированные obsolete zones.
 T333 добавил quoted RFC 2183 date-параметры с календарной валидацией,
 числовой timezone, сверкой weekday и leap-second `:60`; unit и IMAP STARTTLS
 проверили accepted и rejected формы. T334 добавил RFC 5322 pivot для numeric-

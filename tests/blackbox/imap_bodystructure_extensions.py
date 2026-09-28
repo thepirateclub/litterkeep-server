@@ -105,6 +105,9 @@ def main() -> None:
         b"Content-Type: application/octet-stream\r\n"
         b'Content-Disposition: attachment; filename=invalid-width.txt; creation-date="Fri, 21 Nov 1997 9:55:06 -0600"\r\n\r\n'
         b"invalid-width-disposition-date-octets\r\n--meta-boundary\r\n"
+        b"Content-Type: application/octet-stream\r\n"
+        b'Content-Disposition: attachment; filename=named-zone-date.txt; creation-date="Fri, 21 Nov 1997 09:55:06 GMT"\r\n\r\n'
+        b"named-zone-disposition-date-octets\r\n--meta-boundary\r\n"
         b"Content-Type: text/plain\r\n"
         b"Content-Location: ../files/bad%ZZ.txt\r\n\r\n"
         b"invalid-location-octets\r\n--meta-boundary\r\n"
@@ -173,6 +176,7 @@ def main() -> None:
         b'("attachment" ("FILENAME" "invalid-date.txt"))',
         b'("attachment" ("FILENAME" "wrong-weekday.txt"))',
         b'("attachment" ("FILENAME" "invalid-width.txt"))',
+        b'("attachment" ("FILENAME" "named-zone-date.txt"))',
         '"NAME" "архив-✓.bin"'.encode("utf-8"),
         b'"ru"',
         b'"../files/a%20b.bin"',
@@ -196,6 +200,8 @@ def main() -> None:
         raise AssertionError(f"mismatched RFC 5322 weekday was projected: {extended!r}")
     if b'"CREATION-DATE" "Fri, 21 Nov 1997 9:55:06 -0600"' in extended:
         raise AssertionError(f"invalid RFC 5322 time width was projected: {extended!r}")
+    if b'"CREATION-DATE" "Fri, 21 Nov 1997 09:55:06 GMT"' in extended:
+        raise AssertionError(f"obsolete zone escaped RFC 2183 numeric policy: {extended!r}")
     for required in (b'"<\\"attachment@one\\"@[IPv6:2001:db8::1]>" "attached file"',):
         if required not in basic:
             raise AssertionError(f"basic BODY lacks MIME basic fields {required!r}: {basic!r}")

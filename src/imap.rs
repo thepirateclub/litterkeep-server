@@ -13,6 +13,8 @@ pub mod copy;
 #[cfg(test)]
 #[path = "imap/copy_tests.rs"]
 mod copy_tests;
+#[path = "imap/date_zone.rs"]
+mod date_zone;
 pub mod enable;
 pub mod fetch;
 mod fetch_section;

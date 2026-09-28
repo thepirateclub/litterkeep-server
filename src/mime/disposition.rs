@@ -165,13 +165,7 @@ fn valid_date_parameter(value: &str, wire_parameter: &str) -> bool {
         .and_then(|raw| raw.strip_prefix('"'))
         .and_then(|raw| raw.strip_suffix('"'));
     match quoted_value {
-        Some(_) => {
-            let without_comments = match super::structured_comments::remove(value) {
-                Ok(cleaned) => cleaned,
-                Err(_) => return false,
-            };
-            crate::imap::sent_date::parse(without_comments.as_bytes()).is_some()
-        }
+        Some(_) => crate::imap::sent_date::parse_numeric_timezone(value.as_bytes()).is_some(),
         None => false,
     }
 }
