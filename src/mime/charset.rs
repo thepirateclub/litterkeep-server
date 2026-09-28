@@ -3,6 +3,9 @@
 #[cfg(test)]
 #[path = "charset_tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "charset_utf16_integration_tests.rs"]
+mod utf16_tests;
 
 /// Поддерживаемые charset после нормализации на протокольной границе.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -41,6 +44,7 @@ pub enum Charset {
     Gb18030,
     Big5,
     EucJp,
+    EucKr,
     Iso2022Jp,
     ShiftJis,
     Utf16,
@@ -93,6 +97,8 @@ impl Charset {
             "gb18030" | "csgb18030" => Ok(Self::Gb18030),
             "big5" | "big5-hkscs" | "cn-big5" | "csbig5" | "x-x-big5" => Ok(Self::Big5),
             "cseucpkdfmtjapanese" | "euc-jp" | "x-euc-jp" => Ok(Self::EucJp),
+            "cseuckr" | "csksc56011987" | "euc-kr" | "iso-ir-149" | "korean" | "ks_c_5601-1987"
+            | "ks_c_5601-1989" | "ksc5601" | "ksc_5601" | "windows-949" => Ok(Self::EucKr),
             "csiso2022jp" | "iso-2022-jp" => Ok(Self::Iso2022Jp),
             "csshiftjis" | "cswindows31j" | "ms932" | "ms_kanji" | "shift-jis" | "shift_jis"
             | "sjis" | "windows-31j" | "x-sjis" => Ok(Self::ShiftJis),
@@ -147,8 +153,8 @@ impl Charset {
             Self::Iso8859_15 => Ok(super::charset_iso8859_15::decode(bytes)),
             Self::Iso8859_16 => Ok(super::charset_iso8859_16::decode(bytes)),
             Self::Windows1250 => super::charset_windows1250::decode(bytes),
-            Self::Windows1251 => decode_windows_1251(bytes),
-            Self::Windows1252 => Ok(decode_windows_1252(bytes)),
+            Self::Windows1251 => super::charset_windows1251_1252::decode_1251(bytes),
+            Self::Windows1252 => Ok(super::charset_windows1251_1252::decode_1252(bytes)),
             Self::Windows1253 => super::charset_windows1253::decode(bytes),
             Self::Windows1254 => super::charset_windows1254::decode(bytes),
             Self::Windows1255 => super::charset_windows1255::decode(bytes),
@@ -162,6 +168,7 @@ impl Charset {
             Self::Gbk | Self::Gb18030 => super::charset_gb18030::decode(bytes),
             Self::Big5 => super::charset_big5::decode(bytes),
             Self::EucJp => super::charset_euc_jp::decode(bytes),
+            Self::EucKr => super::charset_euc_kr::decode(bytes),
             Self::Iso2022Jp => super::charset_iso2022_jp::decode(bytes),
             Self::ShiftJis => super::charset_shift_jis::decode(bytes),
             Self::Utf16 => {
@@ -183,137 +190,5 @@ impl Charset {
                 super::charset_utf32::decode(bytes, super::charset_utf32::ByteOrder::LittleEndian)
             }
         }
-    }
-}
-
-/// Преобразует байты Windows-1251 без таблиц с индексированием по входу.
-fn decode_windows_1251(bytes: &[u8]) -> Result<String, &'static str> {
-    bytes
-        .iter()
-        .copied()
-        .map(decode_windows_1251_byte)
-        .collect()
-}
-
-/// Декодирует один октет Windows-1251 и отклоняет незаданный RFC mapping.
-fn decode_windows_1251_byte(byte: u8) -> Result<char, &'static str> {
-    // В верхней четверти диапазона строчные и прописные русские буквы идут
-    // последовательно; пунктуационная часть задаётся отдельными точными ветвями.
-    let decoded = match byte {
-        0x00..=0x7f => char::from(byte),
-        0xc0..=0xff => char::from_u32(0x0410 + u32::from(byte - 0xc0))
-            .ok_or("invalid Windows-1251 code point")?,
-        0x80 => 'Ђ',
-        0x81 => 'Ѓ',
-        0x82 => '‚',
-        0x83 => 'ѓ',
-        0x84 => '„',
-        0x85 => '…',
-        0x86 => '†',
-        0x87 => '‡',
-        0x88 => '€',
-        0x89 => '‰',
-        0x8a => 'Љ',
-        0x8b => '‹',
-        0x8c => 'Њ',
-        0x8d => 'Ќ',
-        0x8e => 'Ћ',
-        0x8f => 'Џ',
-        0x90 => 'ђ',
-        0x91 => '‘',
-        0x92 => '’',
-        0x93 => '“',
-        0x94 => '”',
-        0x95 => '•',
-        0x96 => '–',
-        0x97 => '—',
-        // Спецификация оставляет этот октет незаданным, поэтому не подменяем его символом.
-        0x98 => return Err("undefined Windows-1251 octet"),
-        0x99 => '™',
-        0x9a => 'љ',
-        0x9b => '›',
-        0x9c => 'њ',
-        0x9d => 'ќ',
-        0x9e => 'ћ',
-        0x9f => 'џ',
-        0xa0 => '\u{00a0}',
-        0xa1 => 'Ў',
-        0xa2 => 'ў',
-        0xa3 => 'Ј',
-        0xa4 => '¤',
-        0xa5 => 'Ґ',
-        0xa6 => '¦',
-        0xa7 => '§',
-        0xa8 => 'Ё',
-        0xa9 => '©',
-        0xaa => 'Є',
-        0xab => '«',
-        0xac => '¬',
-        0xad => '\u{00ad}',
-        0xae => '®',
-        0xaf => 'Ї',
-        0xb0 => '°',
-        0xb1 => '±',
-        0xb2 => 'І',
-        0xb3 => 'і',
-        0xb4 => 'ґ',
-        0xb5 => 'µ',
-        0xb6 => '¶',
-        0xb7 => '·',
-        0xb8 => 'ё',
-        0xb9 => '№',
-        0xba => 'є',
-        0xbb => '»',
-        0xbc => 'ј',
-        0xbd => 'Ѕ',
-        0xbe => 'ѕ',
-        0xbf => 'ї',
-    };
-    Ok(decoded)
-}
-
-/// Декодирует Windows-1252 согласно web-compatible индексу WHATWG.
-fn decode_windows_1252(bytes: &[u8]) -> String {
-    bytes
-        .iter()
-        .copied()
-        .map(decode_windows_1252_byte)
-        .collect()
-}
-
-/// Преобразует один октет Windows-1252 без таблицы с прямой индексацией.
-///
-/// В отличие от ISO-8859-1, диапазон 0x80..0x9F содержит типографские знаки;
-/// пять позиций остаются соответствующими C1 control code points.
-fn decode_windows_1252_byte(byte: u8) -> char {
-    match byte {
-        0x00..=0x7f | 0x81 | 0x8d | 0x8f | 0x90 | 0x9d | 0xa0..=0xff => char::from(byte),
-        0x80 => '€',
-        0x82 => '‚',
-        0x83 => 'ƒ',
-        0x84 => '„',
-        0x85 => '…',
-        0x86 => '†',
-        0x87 => '‡',
-        0x88 => 'ˆ',
-        0x89 => '‰',
-        0x8a => 'Š',
-        0x8b => '‹',
-        0x8c => 'Œ',
-        0x8e => 'Ž',
-        0x91 => '‘',
-        0x92 => '’',
-        0x93 => '“',
-        0x94 => '”',
-        0x95 => '•',
-        0x96 => '–',
-        0x97 => '—',
-        0x98 => '˜',
-        0x99 => '™',
-        0x9a => 'š',
-        0x9b => '›',
-        0x9c => 'œ',
-        0x9e => 'ž',
-        0x9f => 'Ÿ',
     }
 }

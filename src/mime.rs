@@ -16,6 +16,13 @@ mod charset_big5_table;
 mod charset_euc_jp;
 #[path = "mime/charset_euc_jp_table.rs"]
 mod charset_euc_jp_table;
+#[path = "mime/charset_euc_kr.rs"]
+mod charset_euc_kr;
+#[path = "mime/charset_euc_kr_table.rs"]
+mod charset_euc_kr_table;
+#[cfg(test)]
+#[path = "mime/charset_euc_kr_table_exhaustive_tests.rs"]
+mod charset_euc_kr_table_exhaustive_tests;
 #[path = "mime/charset_gb18030.rs"]
 mod charset_gb18030;
 #[path = "mime/charset_gb18030_table.rs"]
@@ -67,6 +74,8 @@ mod charset_utf32;
 mod charset_utf32_integration_tests;
 #[path = "mime/charset_windows1250.rs"]
 mod charset_windows1250;
+#[path = "mime/charset_windows1251_1252.rs"]
+mod charset_windows1251_1252;
 #[path = "mime/charset_windows1253.rs"]
 mod charset_windows1253;
 #[path = "mime/charset_windows1254.rs"]

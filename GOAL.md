@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-28: G18 EUC-KR MIME decoder and IMAP SEARCH, scoped PASS T306
+
+- Добавлен собственный strict WHATWG EUC-KR decoder: ASCII, typed WHATWG/IANA
+  labels и O(1) mapping через закреплённую таблицу в `charset_euc_kr_table.bin`.
+  Invalid, truncated и unmapped последовательности отклоняются.
+- Таблица строится `tools/generate_euckr_table.py` из WHATWG `index-euc-kr.txt`
+  с SHA-256 validation. Rust unit tests проверяют asset shape; отдельный тест
+  сравнивает все 23 940 wire pointer slots с decoder output.
+- Windows Rust 1.97.1 strict Clippy и all-target tests прошли: 854 library +
+  1 CLI, 3 ignored. Linux Docker Rust 1.97 gate прошёл strict Clippy,
+  963 library + 1 CLI, 3 ignored и doc-tests.
+- Независимый Python 3.14 `euc_kr` codec и SMTP STARTTLS -> IMAP UTF-8 SEARCH
+  acceptance прошли для 37 charset labels, в том числе EUC-KR `안녕하세요`, и
+  отдельного RFC 2047 Subject. Это не проверка приложения Litterkeep.
+- Индекс сохранён в `./data/g18-euckr-table-20260928`, acceptance данные в
+  `./data/acceptance-mime-euckr-20260928`; контейнер и оба созданных image
+  удалены, отсутствие проверено. G18 остаётся ACTIVE.
+
 ### 2026-09-28: G18 Shift_JIS MIME decoder and IMAP SEARCH, scoped PASS T305
 
 - Добавлен строгий typed Shift_JIS decoder для WHATWG labels и IANA alias:

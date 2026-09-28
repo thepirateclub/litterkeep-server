@@ -964,8 +964,18 @@ private-use mapping U+E000..U+E757. Тест сверяет все 11 280 син
 допустимых двухбайтовых pointers с JIS index либо EUDC mapping и все 256
 одиночных octets. Независимый SMTP -> IMAP STARTTLS acceptance использует
 Python `shift_jis` codec и подтверждает поиск японского текста после доставки.
-Приложение Litterkeep этим независимым клиентом не проверялось; EUC-KR остаётся
-неподдержанным. Источники: [WHATWG Shift_JIS decoder](https://encoding.spec.whatwg.org/#shift_jis-decoder),
+Приложение Litterkeep этим независимым клиентом не проверялось. Источники:
+[WHATWG Shift_JIS decoder](https://encoding.spec.whatwg.org/#shift_jis-decoder),
+[IANA Character Sets registry](https://www.iana.org/assignments/character-sets/).
+EUC-KR добавлен как строгий decoder WHATWG §13.1. Он использует закреплённый
+index с 23 940 pointer slots, ASCII и пары lead/trail по алгоритму стандарта;
+undefined mappings, malformed и truncated ввод приводят к ошибке. Acceptance
+использует независимый Python `euc_kr` codec и проверяет `안녕하세요` через SMTP
+STARTTLS -> IMAP UTF-8 SEARCH. WHATWG decoder принимает расширенный набор
+Windows-949 lead/trail форм, поэтому эта проверка не утверждает только RFC 1557
+94x94 wire grammar или совместимость с приложением. Источники: [WHATWG EUC-KR
+decoder and index](https://encoding.spec.whatwg.org/#euc-kr-decoder),
+[RFC 1557](https://www.rfc-editor.org/rfc/rfc1557.html) и
 [IANA Character Sets registry](https://www.iana.org/assignments/character-sets/).
 Отдельная
 SMTP -> IMAP wire-проверка доставила RFC 2047 Subject encoded-word варианты UTF-16,
