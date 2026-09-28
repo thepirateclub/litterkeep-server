@@ -37,9 +37,13 @@ pub fn parse(value: &[u8]) -> Option<SearchDate> {
 }
 
 fn normalized_time(value: &str) -> Option<String> {
-    match value.split(':').count() {
-        2 => Some(format!("{value}:00")),
-        3 => Some(value.to_owned()),
+    let mut fields = value.split(':');
+    let hour = fields.next()?;
+    let minute = fields.next()?;
+    match (fields.next(), fields.next()) {
+        (None, None) => Some(format!("{hour}:{minute}:00")),
+        (Some("60"), None) => Some(format!("{hour}:{minute}:59")),
+        (Some(second), None) => Some(format!("{hour}:{minute}:{second}")),
         _ => None,
     }
 }
@@ -68,6 +72,13 @@ mod tests {
     fn rejects_weekday_that_disagrees_with_calendar_date() {
         assert!(parse(b"Thu, 21 Nov 1997 09:55:06 -0600").is_none());
         assert!(parse(b"Fri, 21 Nov 1997 09:55:06 -0600").is_some());
+    }
+
+    /// Допустимая секунда 60 сохраняет календарный день при date-only поиске.
+    #[test]
+    fn accepts_rfc5322_leap_second() {
+        let date = SearchDate::parse("31-Dec-2016").expect("date");
+        assert_eq!(parse(b"Sat, 31 Dec 2016 23:59:60 +0000"), Some(date));
     }
 
     #[test]

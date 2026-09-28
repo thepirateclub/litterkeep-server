@@ -145,7 +145,7 @@ fn preserves_valid_numeric_zone_date_parameters() {
     let value = parse(
         "attachment; creation-date=\"Fri, (weekday) 21 Nov 1997 09:55:06 -0600\"; \
          modification-date=\"21 Nov 1997 10:00 +0000\"; \
-         read-date=\"Mon, 24 Nov 1997 12:00:00 +0300\"",
+         read-date=\"Sat, 31 Dec 2016 23:59:60 +0000\"",
     )
     .expect("valid RFC 5322 date-times");
 

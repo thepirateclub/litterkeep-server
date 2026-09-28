@@ -91,7 +91,7 @@ def main() -> None:
         b"Content-Type: application/octet-stream\r\n"
         b'Content-Disposition: attachment; creation-date="Fri, 21 Nov 1997 09:55:06 -0600"; '
         b'modification-date="21 Nov 1997 10:00 +0000"; '
-        b'read-date="Mon, 24 Nov 1997 12:00:00 +0300"\r\n\r\n'
+        b'read-date="Sat, 31 Dec 2016 23:59:60 +0000"\r\n\r\n'
         b"valid-disposition-dates-octets\r\n--meta-boundary\r\n"
         b"Content-Type: application/octet-stream\r\n"
         b'Content-Disposition: attachment; filename=invalid-date.txt; creation-date="Fri, 31 Feb 1997 09:55:06 -0600"\r\n\r\n'
@@ -162,7 +162,7 @@ def main() -> None:
         b'("attachment" ("FILENAME" "extended-size.txt"))',
         b'"CREATION-DATE" "Fri, 21 Nov 1997 09:55:06 -0600"',
         b'"MODIFICATION-DATE" "21 Nov 1997 10:00 +0000"',
-        b'"READ-DATE" "Mon, 24 Nov 1997 12:00:00 +0300"',
+        b'"READ-DATE" "Sat, 31 Dec 2016 23:59:60 +0000"',
         b'("attachment" ("FILENAME" "invalid-date.txt"))',
         b'("attachment" ("FILENAME" "wrong-weekday.txt"))',
         '"NAME" "архив-✓.bin"'.encode("utf-8"),

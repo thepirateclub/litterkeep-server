@@ -540,8 +540,10 @@ RFC 2183 §§2.4-2.6 date-параметры теперь публикуются
 с корректной Gregorian date, допустимым временем, числовой timezone и согласованным
 weekday. Один strict RFC 5322 baseline parser используется также для IMAP SEARCH;
 unit и независимый IMAP STARTTLS acceptance покрывают все три параметра и
-отбрасывание неверной даты без потери filename. Это не полная RFC 822 date-time
-грамматика: leap-second и obsolete формы остаются непокрытыми.
+отбрасывание неверной даты без потери filename; `:60` leap-second также
+проверяется и сохраняется в projection, тогда как календарный SEARCH сохраняет
+тот же день, используя представимое значение секунды. Это не полная RFC 822
+date-time грамматика: некоторые obsolete формы остаются непокрытыми.
 RFC 2231 §4.1 допускает charset/language metadata в начале первой encoded
 continuation секции. Ранее `Content-Disposition` parser терял language hint
 после общего параметрического разбора; `Disposition` теперь сохраняет typed

@@ -9988,9 +9988,10 @@ ManageSieve до заявленного набора современных фо
   acceptance подтвердил проекцию трёх валидных значений и отбрасывание
   невозможной даты, сохранив filename и исходный RFC822 literal.
 - Общий RFC 5322 baseline parser теперь отвергает weekday, расходящийся с датой;
-  Rust 1.97.1 fmt, strict Clippy и all-target tests прошли (922 library +
+  Rust 1.97.1 fmt, strict Clippy и all-target tests прошли (923 library +
   1 CLI, 4 ignored); Python compile, diff check и Linux wire acceptance прошли.
   Docker использовал существующие образы и одноразовый Cargo target в контейнере;
   созданный контейнер удалён.
-- Не покрыты leap-second и obsolete RFC 822 date-time формы; независимый peer
-  проверен, Litterkeep app interop нет. G18 остаётся ACTIVE.
+- Leap-second `:60` сохраняется и подтверждён в date projection; календарный
+  SEARCH использует представимую соседнюю секунду без смены дня. Некоторые
+  obsolete RFC 822 формы и Litterkeep app interop не проверены. G18 ACTIVE.
