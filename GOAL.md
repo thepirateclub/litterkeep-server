@@ -11402,7 +11402,14 @@ ManageSieve до заявленного набора современных фо
   ADDRESS paths and preserve exact `Invoices/2026` folder spelling.
 - Windows Rust 1.97.1 full suite: 1045 library + 1 CLI passed, 4 ignored;
   focused parser tests, strict all-target Clippy, rustfmt and diff check pass.
-- No Linux/Docker or independent ManageSieve wire test was run for this local
-  parser change. Parser/executor unit behavior only is proven; full RFC 5228
-  coverage and Litterkeep app interoperability remain unverified; G18 stays
-  ACTIVE.
+- Follow-up Linux acceptance: an independent Python ManageSieve peer verifies
+  STARTTLS, PLAIN auth, CHECKSCRIPT acceptance for mixed-case syntax and
+  rejection of an unknown required extension against the Linux release server.
+  Windows Rust 1.97.1 all-target suite passes with 1045 library + 1 CLI tests
+  (4 ignored); Linux Rust 1.97.1 all-target suite passes with 1166 library + 1
+  CLI tests (4 ignored), strict Clippy and rustfmt.
+- Linux acceptance artifacts remain under
+  `./data/g27-sieve-case-insensitive`; temporary build/init/listener/test
+  containers were removed, the existing Rust image was reused, and no image was
+  created. Litterkeep app interoperability and full RFC 5228 coverage remain
+  unverified; G18 stays ACTIVE.
