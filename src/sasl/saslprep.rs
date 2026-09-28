@@ -36,6 +36,17 @@ pub enum SaslPrepError {
     BidirectionalRule,
 }
 
+impl std::fmt::Display for SaslPrepError {
+    /// Даёт безопасное диагностическое описание без включения исходного пароля.
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnassignedCodePoint => formatter.write_str("unassigned Unicode 3.2 code point"),
+            Self::ProhibitedCodePoint => formatter.write_str("prohibited SASLprep code point"),
+            Self::BidirectionalRule => formatter.write_str("SASLprep bidirectional rule failed"),
+        }
+    }
+}
+
 /// Применяет mapping, Unicode 3.2 NFKC, prohibited и bidi проверки.
 pub fn prepare(value: &str, context: SaslPrepContext) -> Result<String, SaslPrepError> {
     let mapped = map_input(value);

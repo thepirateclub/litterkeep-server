@@ -1,5 +1,20 @@
 # Goal ledger
 
+### 2026-09-28: G18 SASLprep Argon2 credential storage, scoped PASS T315
+
+- Подключила RFC 4013 к общей границе `Accounts`: новые Argon2 записи
+  нормализуются в StoredValue-контексте и сохраняются под отдельным
+  `SaslPrepCredentials` file kind (`.phc2`); query passwords подготавливаются
+  перед проверкой. SMTP/IMAP/POP3/ManageSieve используют общий owner auth path.
+- Старые `.phc` не объявляются SASLprep credentials: совместимость сохраняет
+  проверку и подготовленного query, и прежних exact raw bytes. Автоматической
+  перезаписи нет; raw fallback для legacy credentials остаётся явным пробелом.
+- Windows Rust 1.97.1: fmt, strict Clippy `-D warnings`, all-targets:
+  880 library + 1 CLI прошли. Linux Docker Rust 1.97.1: fmt, strict Clippy,
+  985 library + 1 CLI прошли. Одноразовый container удалён через `--rm`,
+  отдельный image не создавался. G18 ACTIVE; независимая protocol wire-проверка
+  Unicode password login и безопасная миграция старых PHC ещё нужны.
+
 ### 2026-09-28: G18 SASLprep Unicode 3.2 and verifier integration, scoped PASS T314
 
 - Добавлен собственный RFC 4013 SASLprep профиль: B.1/C.1.2 mapping,
