@@ -240,16 +240,20 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             transaction_id,
             original,
             failure,
+            dsn_metadata,
         } => Response::DsnAppended {
             request_id,
             result: super::dsn_delivery::append(
                 store,
                 accounts,
-                &reverse_path,
-                &recipient,
-                transaction_id,
-                &original,
-                failure,
+                crate::dsn::ReportRequest {
+                    reverse_path: &reverse_path,
+                    recipient: &recipient,
+                    transaction_id,
+                    original: &original,
+                    failure,
+                    metadata: dsn_metadata.as_deref(),
+                },
             ),
         },
         Request::OutboundPending { request_id } => Response::OutboundPending {

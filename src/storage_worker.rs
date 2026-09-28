@@ -232,6 +232,7 @@ mod tests {
                 transaction_id: 42,
                 original: b"Subject: source\r\n\r\nbody".to_vec(),
                 failure: crate::dsn::Failure::PermanentSmtp,
+                dsn_metadata: None,
             })
             .expect("accepted");
         let response = loop {

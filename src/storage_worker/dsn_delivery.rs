@@ -11,20 +11,15 @@ use std::io;
 pub(super) fn append(
     store: &mut Store,
     accounts: &Accounts,
-    reverse_path: &str,
-    recipient: &str,
-    transaction_id: u64,
-    original: &[u8],
-    failure: dsn::Failure,
+    request: dsn::ReportRequest<'_>,
 ) -> io::Result<Option<u64>> {
-    let Some(mailbox) = local_route::local_mailbox(reverse_path) else {
+    let Some(mailbox) = local_route::local_mailbox(request.reverse_path) else {
         return Ok(None);
     };
     if !accounts.exists(&mailbox) {
         return Ok(None);
     }
-    let Some(report) = dsn::render(reverse_path, recipient, transaction_id, original, failure)
-    else {
+    let Some(report) = dsn::render_request(request) else {
         return Ok(None);
     };
     store.append(&mailbox, &report).map(Some)

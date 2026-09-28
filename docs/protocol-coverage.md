@@ -55,9 +55,17 @@ ordinal исходного RCPT, из Sieve plan породившего redirect
 ordinal и применяет failure часть NOTIFY: без параметра default failure report
 разрешён; NEVER и список условий без FAILURE его подавляют. Это проверено
 unit policy test и Store reopen test, но не wire-клиентом, поскольку команды
-DSN по-прежнему отвергаются. Успех/задержка reports, RET-содержимое, ORCPT в
-report, ENVID correlation и группировка нескольких RCPT остаются GAP; `DSN`
-остаётся выключенным. RFC 3461 §§5.2.6, 5.2.7 и 6 описывает эти требования.
+DSN по-прежнему отвергаются. Генератор внутренних failure reports теперь
+переносит `Original-Envelope-ID` и типизированный `Original-Recipient`,
+сохраняет отдельный `Final-Recipient`, соблюдает разделение per-message и
+per-recipient блоков, а при сохранённом `RET=HDRS` не включает тело письма.
+Для UTF-8 адресов используется RFC 6533 `message/global-delivery-status`, а
+для UTF-8 заголовков только `RET=HDRS` используется `message/global-headers`;
+ASCII-варианты используют стандартные DSN media types. Эти правила проверены
+unit regressions на Windows и Linux, но не независимым wire-клиентом.
+Успешные/задержанные reports, группировка нескольких RCPT и
+сквозная проверка параметров остаются GAP; `DSN` остаётся выключенным.
+RFC 3461 §§4.3, 5.2.6, 5.2.7 и 6 описывает эти требования.
 См. [RFC 3461](https://www.rfc-editor.org/rfc/rfc3461.html).
 
 Генерируемый сервером внутренний failure report сериализует `Final-Recipient`

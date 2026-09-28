@@ -49,7 +49,11 @@ pub fn drain_at(
             let payload = store.outbound_blob(&delivery)?;
             let result = pool.deliver(&delivery.sender, &delivery.recipient, &payload);
             let state = outbound_policy::state(&result, delivery.attempts);
-            let dsn_failure = outbound_policy::dsn_failure(&result, delivery.attempts);
+            let dsn_failure = outbound_policy::requested_dsn_failure(
+                &result,
+                delivery.attempts,
+                delivery.dsn_metadata.as_deref(),
+            );
             delivery.state = state;
             delivery.next_attempt_epoch =
                 outbound_policy::next_attempt_epoch(state, delivery.attempts, now_epoch);
@@ -96,12 +100,13 @@ fn publish_dsn(
     if !accounts.exists(&mailbox) {
         return Ok(());
     }
-    let Some(report) = dsn::render(
+    let Some(report) = dsn::render_with_metadata(
         &delivery.sender,
         &delivery.recipient,
         delivery.transaction_id,
         payload,
         failure,
+        delivery.dsn_metadata.as_deref(),
     ) else {
         return Ok(());
     };

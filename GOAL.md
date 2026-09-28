@@ -1,5 +1,34 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 3461 failure DSN fields and RET=HDRS, PARTIAL T388
+
+- Scheduler, event-driven service и bounded queue drain передают сохранённые
+  recipient-scoped MAIL/RCPT параметры в Store owner. Генератор отчёта включает
+  декодированный `Original-Envelope-ID`, типизированный `Original-Recipient`,
+  фактический `Final-Recipient` и корректное разделение DSN-блоков.
+- `RET=HDRS` возвращает только заголовки до первого `CRLF CRLF`; используются
+  `text/rfc822-headers` или RFC 6533 `message/global-headers` по charset.
+  UTF-8 ORCPT и адрес получателя выбирают `message/global-delivery-status`,
+  ASCII-адреса сохраняют `message/delivery-status`. MIME boundary выбирается
+  по реально возвращаемым байтам; unit regressions проверяют эти варианты.
+- Windows Rust 1.97.1 all-target: 1014 library + 1 CLI прошли, 4 ignored;
+  строгий Clippy, fmt и diff-check прошли. Linux `rust:1.97-bookworm` / Rust
+  1.97.1 all-target: 1134 library + 1 CLI прошли, 4 ignored. Linux Clippy не
+  запускался: image не содержит `cargo-clippy`; image не менялся.
+- Docker test container был запущен с `--rm` и отсутствует после тестов.
+  Повторное использование bind-mounted incremental target теряло `.o`, поэтому
+  итоговый полный Linux suite прошёл на изолированном
+  `./data/g18-rfc3461-report-final-linux-target`; Cargo cache лежит в
+  `./data/g18-rfc3461-report-cargo`. Новых image не создавалось.
+- Это внутренний failure-report checkpoint, не RFC 3461 wire acceptance:
+  SMTP `DSN` не рекламируется и параметры MAIL/RCPT по-прежнему отвергаются.
+  Успешные/задержанные отчёты, duplicate-RCPT aggregation, полная проверка
+  ENVID/ORCPT на независимом wire-клиенте и interoperability Litterkeep
+  остаются неподтверждёнными. G18 остаётся ACTIVE.
+- Источники: [RFC 3461 §§4.3, 6.3](https://www.rfc-editor.org/rfc/rfc3461.html),
+  [RFC 3464 §§2.2-2.3](https://www.rfc-editor.org/rfc/rfc3464.html),
+  [RFC 6533 §§3-4](https://www.rfc-editor.org/rfc/rfc6533.html).
+
 ### 2026-09-28: G18 RFC 3461 terminal failure NOTIFY policy, PARTIAL T387
 
 - Store owner связывает committed outbound job с typed MAIL/RCPT DSN metadata

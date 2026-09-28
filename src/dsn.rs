@@ -10,12 +10,31 @@ use crate::{
     smtp::{NotifyCondition, NotifyPolicy},
 };
 
+#[path = "dsn_report.rs"]
+mod report;
+
 /// Окончательная причина, показываемая локальному отправителю.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Failure {
     PermanentSmtp,
     RoutePolicy,
     RetryExhausted,
+}
+
+/// Полный неизменяемый контекст сериализации одного failure DSN.
+pub struct ReportRequest<'a> {
+    /// Исходный reverse-path, которому принадлежит DSN.
+    pub reverse_path: &'a str,
+    /// Окончательный адрес получателя после маршрутизации.
+    pub recipient: &'a str,
+    /// Идентификатор исходной транзакции для стабильного MIME boundary.
+    pub transaction_id: u64,
+    /// Байты принятого исходного письма.
+    pub original: &'a [u8],
+    /// Типизированная окончательная причина отказа.
+    pub failure: Failure,
+    /// Сохранённые MAIL/RCPT параметры RFC 3461, если они известны.
+    pub metadata: Option<&'a DsnDeliveryMetadata>,
 }
 
 /// Решает, разрешает ли сохранённая RCPT policy failure report.
@@ -46,110 +65,48 @@ pub fn render(
     original: &[u8],
     failure: Failure,
 ) -> Option<Vec<u8>> {
-    match reverse_path.is_empty() {
-        true => None,
-        false => Some(render_non_empty(
-            reverse_path,
-            recipient,
-            transaction_id,
-            original,
-            failure,
-        )),
-    }
+    render_with_metadata(
+        reverse_path,
+        recipient,
+        transaction_id,
+        original,
+        failure,
+        None,
+    )
 }
 
-/// Собирает body только после явного запрета bounce-loop в публичной границе.
-fn render_non_empty(
+/// Формирует отчёт, сохраняя исходные параметры RFC 3461 конкретного RCPT.
+pub fn render_with_metadata(
     reverse_path: &str,
     recipient: &str,
     transaction_id: u64,
     original: &[u8],
     failure: Failure,
-) -> Vec<u8> {
-    let boundary = boundary(transaction_id, original);
-    let status = status(failure);
-    let explanation = explanation(failure);
-    let mut report = Vec::with_capacity(original.len().saturating_add(768));
-    append(
-        &mut report,
-        &format!(
-            "From: MAILER-DAEMON <postmaster@litterkeep.test>\r\n\
-             To: <{reverse_path}>\r\n\
-             Subject: Delivery Status Notification (Failure)\r\n\
-             Auto-Submitted: auto-replied\r\n\
-             MIME-Version: 1.0\r\n\
-             Content-Type: multipart/report; report-type=delivery-status; boundary=\"{boundary}\"\r\n\
-             \r\n\
-             --{boundary}\r\n\
-             Content-Type: text/plain; charset=utf-8\r\n\
-             \r\n\
-             Delivery to <{recipient}> failed: {explanation}.\r\n\
-             \r\n\
-             --{boundary}\r\n\
-             Content-Type: message/delivery-status\r\n\
-             \r\n\
-             Reporting-MTA: dns; litterkeep.test\r\n\
-             Final-Recipient: rfc822; {recipient}\r\n\
-             Action: failed\r\n\
-             Status: {status}\r\n\
-             \r\n\
-             --{boundary}\r\n\
-             Content-Type: message/rfc822\r\n\
-             \r\n"
-        ),
-    );
-    report.extend_from_slice(original);
-    append(&mut report, &format!("\r\n--{boundary}--\r\n"));
-    report
-}
-
-/// Выбирает ограниченный boundary, отсутствующий в возвращаемом original.
-///
-/// Счётчик не является источником секрета, а служит только устранению MIME
-/// delimiter collision. После 32 попыток используется последний вариант:
-/// вероятность коллизии остаётся диагностируемой, но не приводит к циклу.
-fn boundary(transaction_id: u64, original: &[u8]) -> String {
-    for attempt in 0_u8..32 {
-        let candidate = format!("litterkeep-dsn-{transaction_id:x}-{attempt:x}");
-        let marker = format!("--{candidate}");
-        if !contains(original, marker.as_bytes()) {
-            return candidate;
-        }
-    }
-    format!("litterkeep-dsn-{transaction_id:x}-terminal")
-}
-
-/// Ищет bytes без выделений и без непосредственного индексирования массива.
-fn contains(haystack: &[u8], needle: &[u8]) -> bool {
-    match needle.is_empty() {
-        true => true,
-        false => haystack
-            .windows(needle.len())
-            .any(|window| window == needle),
+    metadata: Option<&DsnDeliveryMetadata>,
+) -> Option<Vec<u8>> {
+    match reverse_path.is_empty() {
+        true => None,
+        false => Some(report::render(
+            reverse_path,
+            recipient,
+            transaction_id,
+            original,
+            failure,
+            metadata,
+        )),
     }
 }
 
-/// Добавляет UTF-8 protocol fields как байты без изменения исходного сообщения.
-fn append(output: &mut Vec<u8>, value: &str) {
-    output.extend_from_slice(value.as_bytes());
-}
-
-/// RFC enhanced status остаётся typed решением delivery layer.
-fn status(failure: Failure) -> &'static str {
-    match failure {
-        Failure::PermanentSmtp => "5.0.0",
-        Failure::RoutePolicy => "5.7.1",
-        Failure::RetryExhausted => "4.4.0",
-    }
-}
-
-/// Короткий human-readable diagnostic не выдаёт сырой ответ внешнего peer-а.
-fn explanation(failure: Failure) -> &'static str {
-    match failure {
-        Failure::PermanentSmtp => "permanent SMTP failure",
-        Failure::RoutePolicy => "recipient route denied by policy",
-        Failure::RetryExhausted => "retry budget exhausted",
-    }
+/// Строит отчёт из агрегированного контекста без потери RCPT-корреляции.
+pub fn render_request(request: ReportRequest<'_>) -> Option<Vec<u8>> {
+    render_with_metadata(
+        request.reverse_path,
+        request.recipient,
+        request.transaction_id,
+        request.original,
+        request.failure,
+        request.metadata,
+    )
 }
 
 #[cfg(test)]

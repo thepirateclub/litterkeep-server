@@ -211,6 +211,7 @@ impl OutboundScheduler {
                         transaction_id: delivery.transaction_id,
                         original: bytes,
                         failure,
+                        dsn_metadata: delivery.dsn_metadata.clone(),
                     },
                 )?;
                 scheduler_lifecycle::wait(lifecycle, self.task, Event::Completion(id))?;

@@ -161,6 +161,7 @@ pub enum Request {
         transaction_id: u64,
         original: Vec<u8>,
         failure: crate::dsn::Failure,
+        dsn_metadata: Option<Box<crate::queue::DsnDeliveryMetadata>>,
     },
     OutboundPending {
         request_id: u64,

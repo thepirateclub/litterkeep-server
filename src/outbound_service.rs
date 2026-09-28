@@ -202,6 +202,7 @@ fn handle_storage(
                         transaction_id: delivery.transaction_id,
                         original: bytes,
                         failure,
+                        dsn_metadata: delivery.dsn_metadata.clone(),
                     },
                 )?;
                 Ok(Phase::Dsn(delivery.state))
@@ -250,7 +251,11 @@ fn handle_transport(
     match phase {
         Phase::Transport(mut delivery, bytes) => {
             let state = outbound_policy::state(&completion.result, delivery.attempts);
-            let failure = outbound_policy::dsn_failure(&completion.result, delivery.attempts);
+            let failure = outbound_policy::requested_dsn_failure(
+                &completion.result,
+                delivery.attempts,
+                delivery.dsn_metadata.as_deref(),
+            );
             delivery.state = state;
             delivery.next_attempt_epoch =
                 outbound_policy::next_attempt_epoch(state, delivery.attempts, now_epoch()?);
