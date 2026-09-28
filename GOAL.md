@@ -1,5 +1,27 @@
 # Goal ledger
 
+### 2026-09-28: G17 RFC 9755 FETCH ENVELOPE string mode, PARTIAL T351
+
+- FETCH ENVELOPE теперь получает режим quoting из владельца IMAP-сессии. В
+  Legacy UTF-8 значения, в том числе decoded RFC 2047 subject/display name,
+  сериализуются как RFC 3501 length-counted literals; после ENABLE UTF8=ACCEPT
+  они сериализуются quoted UTF-8. Контрольные ASCII строки остаются quoted.
+- Новый независимый STARTTLS `imaplib` acceptance APPEND-ит ASCII encoded-word
+  message и читает ENVELOPE двумя соединениями: до ENABLE и после него. Проверены
+  точный literal/quoted вариант и отсутствие UTF-8 внутри legacy quoted-string.
+  PASS: `python tests/blackbox/imap_utf8_envelope_mode.py --port 32143 --ca
+  data/pki/ca.pem --credentials data/g22-imap-envelope-runtime/test-accounts.tsv`.
+- Windows Rust 1.97.1: 964 library + 1 CLI, 4 ignored; all-target tests,
+  fmt и strict Clippy прошли. Linux Rust 1.97.1 в `rust:1.97-bookworm`:
+  1075 library + 1 CLI, 4 ignored; fmt, strict Clippy, all-target tests и
+  release build прошли. Runtime fixture `./data/g22-imap-envelope-runtime`,
+  Linux target `./data/g22-imap-envelope-linux-target`; существующий image
+  использован, созданный listener container остановлен и его отсутствие
+  подтверждено, image не создавался. Изменённые файлы ниже 300 строк.
+- Это derived ENVELOPE string-mode coverage, не downgrade исходных RFC822
+  заголовков, не acceptance остальных response paths, не полный RFC 9755 gate
+  и не проверка клиента Litterkeep. G17 остаётся PARTIAL/ACTIVE.
+
 ### 2026-09-28: G18 RFC 6533 UTF-8 ORCPT unitext parsing, PARTIAL T350
 
 - Typed decoder для utf-8 ORCPT теперь принимает и 7-bit xtext, и unitext с

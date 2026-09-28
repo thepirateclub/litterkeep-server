@@ -480,6 +480,15 @@ COPY/MOVE/RENAME/DELETE прошли независимую STARTTLS прове�
 RFC822 bytes совпадают точно. CAPABILITY всё ещё скрывает UTF8=ACCEPT до полного
 профиля. Актуальный audit RFC 9755 и оставшиеся обязательства приведён в
 `imap-profile.md`; это не объявляет IMAP4rev2.
+FETCH ENVELOPE учитывает connection-local string mode: до ENABLE Unicode,
+полученный из RFC 2047 encoded-word, кодируется как октетный literal, а после
+ENABLE как UTF-8 quoted-string. Независимый STARTTLS `imaplib` acceptance
+прочитал одно письмо в обеих сессиях и подтвердил точную форму заголовка и
+отсутствие high-bit байтов внутри legacy quoted-string. Это не проверяет
+downgrade исходного RFC822 заголовка, все остальные IMAP response strings или
+полный RFC 9755 профиль. Требование не отправлять UTF-8 в quoted-string до
+явного ENABLE установлено [RFC 9755 §3](https://www.rfc-editor.org/rfc/rfc9755.html#section-3);
+literal остаётся базовой IMAP string формой по [RFC 3501 §4.3](https://www.rfc-editor.org/rfc/rfc3501.html#section-4.3).
 Дополнительная комбинированная STARTTLS проверка включает `ENABLE UTF8=ACCEPT`,
 создаёт mailbox с `é` и запрашивает `LIST RETURN STATUS`: соседние LIST и
 STATUS ответы сохраняют UTF-8 имя и порядок запрошенных числовых полей. Это

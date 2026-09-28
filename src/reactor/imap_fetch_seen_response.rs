@@ -16,6 +16,7 @@ pub(super) fn write(
         attributes,
         addressing,
         &session.selected_recent,
+        session.imap_string_mode,
         true,
     ) {
         Ok(response) => response,
@@ -39,6 +40,7 @@ pub(super) fn prepare(
         attributes,
         addressing,
         selected_recent,
+        imap::tokenizer::StringMode::Legacy,
         true,
     )
 }

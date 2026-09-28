@@ -21,6 +21,7 @@ pub(super) fn write(
         attributes,
         addressing,
         &session.selected_recent,
+        session.imap_string_mode,
         false,
     ) {
         Ok(response) => response,
@@ -44,6 +45,7 @@ pub(super) fn prepare(
         attributes,
         addressing,
         selected_recent,
+        imap::tokenizer::StringMode::Legacy,
         false,
     )
 }
@@ -54,6 +56,7 @@ pub(super) fn prepare_internal(
     attributes: &[imap::FetchAttribute],
     addressing: imap::Addressing,
     selected_recent: &std::collections::BTreeSet<u64>,
+    string_mode: imap::tokenizer::StringMode,
     seen_changed: bool,
 ) -> Result<Vec<u8>, crate::imap_fetch::FetchError> {
     let mut response = format!("* {number} FETCH (").into_bytes();
@@ -81,6 +84,7 @@ pub(super) fn prepare_internal(
             selected_recent,
             message,
             attribute,
+            string_mode,
         )?;
         if response.len() > super::MAX_OUTPUT {
             return Err(crate::imap_fetch::FetchError::InvalidSection);
@@ -93,6 +97,7 @@ pub(super) fn prepare_internal(
             selected_recent,
             message,
             &imap::FetchAttribute::Flags,
+            string_mode,
         )?;
         if response.len() > super::MAX_OUTPUT {
             return Err(crate::imap_fetch::FetchError::InvalidSection);
@@ -108,6 +113,7 @@ fn append_attribute(
     selected_recent: &std::collections::BTreeSet<u64>,
     message: &crate::store::Message,
     attribute: &imap::FetchAttribute,
+    string_mode: imap::tokenizer::StringMode,
 ) -> Result<(), crate::imap_fetch::FetchError> {
     match attribute {
         imap::FetchAttribute::Uid => {
@@ -186,7 +192,7 @@ fn append_attribute(
             Ok(())
         }
         imap::FetchAttribute::Envelope => {
-            let envelope = crate::mime::envelope::encode(&message.bytes)
+            let envelope = crate::mime::envelope::encode_with_mode(&message.bytes, string_mode)
                 .map_err(|_| crate::imap_fetch::FetchError::InvalidSection)?;
             append_item(response, first, "ENVELOPE", envelope.as_bytes());
             Ok(())

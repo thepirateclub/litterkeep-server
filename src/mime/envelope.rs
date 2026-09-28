@@ -50,6 +50,14 @@ fn fields_for(fields: &[HeaderField], name: HeaderName) -> Vec<&HeaderField> {
 
 /// Кодирует десять обязательных полей IMAP ENVELOPE.
 pub fn encode(message: &[u8]) -> Result<String, &'static str> {
+    encode_with_mode(message, crate::imap::tokenizer::StringMode::Legacy)
+}
+
+/// Кодирует ENVELOPE с учётом согласованного режима IMAP quoted-string.
+pub fn encode_with_mode(
+    message: &[u8],
+    mode: crate::imap::tokenizer::StringMode,
+) -> Result<String, &'static str> {
     let headers = header_block::parse(message)?;
     let from = envelope_address::parse(fields(&headers.fields, HeaderName::From))?;
     let sender =
@@ -58,25 +66,28 @@ pub fn encode(message: &[u8]) -> Result<String, &'static str> {
         envelope_address::with_default(fields(&headers.fields, HeaderName::ReplyTo), &from)?;
     Ok(format!(
         "({} {} {} {} {} {} {} {} {} {})",
-        super::imap_string::encode_nstring(single(&headers.fields, HeaderName::Date)?),
-        super::imap_string::encode_nstring(decoded_single(&headers.fields, HeaderName::Subject)?),
-        envelope_address::encode_list(&from)?,
-        envelope_address::encode_list(&sender)?,
-        envelope_address::encode_list(&reply_to)?,
-        envelope_address::encode_list(&envelope_address::parse(fields(
-            &headers.fields,
-            HeaderName::To,
-        ))?)?,
-        envelope_address::encode_list(&envelope_address::parse(fields(
-            &headers.fields,
-            HeaderName::Cc,
-        ))?)?,
-        envelope_address::encode_list(&envelope_address::parse(fields(
-            &headers.fields,
-            HeaderName::Bcc,
-        ))?)?,
-        super::imap_string::encode_nstring(single(&headers.fields, HeaderName::InReplyTo)?),
-        super::imap_string::encode_nstring(single(&headers.fields, HeaderName::MessageId)?),
+        super::imap_string::encode_nstring(single(&headers.fields, HeaderName::Date)?, mode),
+        super::imap_string::encode_nstring(
+            decoded_single(&headers.fields, HeaderName::Subject)?,
+            mode,
+        ),
+        envelope_address::encode_list_with_mode(&from, mode)?,
+        envelope_address::encode_list_with_mode(&sender, mode)?,
+        envelope_address::encode_list_with_mode(&reply_to, mode)?,
+        envelope_address::encode_list_with_mode(
+            &envelope_address::parse(fields(&headers.fields, HeaderName::To,))?,
+            mode
+        )?,
+        envelope_address::encode_list_with_mode(
+            &envelope_address::parse(fields(&headers.fields, HeaderName::Cc,))?,
+            mode
+        )?,
+        envelope_address::encode_list_with_mode(
+            &envelope_address::parse(fields(&headers.fields, HeaderName::Bcc,))?,
+            mode
+        )?,
+        super::imap_string::encode_nstring(single(&headers.fields, HeaderName::InReplyTo)?, mode),
+        super::imap_string::encode_nstring(single(&headers.fields, HeaderName::MessageId)?, mode),
     ))
 }
 
@@ -110,7 +121,7 @@ mod tests {
     fn encodes_addresses_and_decoded_subject() {
         let raw = b"Date: Fri, 19 Sep 2026 20:00:00 +0300\r\nSubject: =?UTF-8?B?0J/RgNC40LLQtdGC?=\r\nFrom: Alice <alice@test>\r\nTo: Bob <bob@test>\r\nMessage-ID: <one@test>\r\n\r\nbody";
         let envelope = encode(raw).expect("envelope");
-        assert!(envelope.contains("\"Привет\""));
+        assert!(envelope.contains("{12}\r\nПривет"));
         assert!(envelope.contains("(\"Alice\" NIL \"alice\" \"test\")"));
         assert!(envelope.contains("(\"Bob\" NIL \"bob\" \"test\")"));
     }

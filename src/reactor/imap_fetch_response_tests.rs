@@ -92,6 +92,7 @@ fn seen_transition_adds_the_updated_flags_item() {
         }],
         imap::Addressing::Sequence,
         &BTreeSet::new(),
+        imap::tokenizer::StringMode::Legacy,
         true,
     )
     .expect("BODY FETCH response after durable Seen update");
@@ -122,9 +123,43 @@ fn seen_transition_does_not_duplicate_requested_flags() {
         ],
         imap::Addressing::Sequence,
         &BTreeSet::new(),
+        imap::tokenizer::StringMode::Legacy,
         true,
     )
     .expect("BODY FETCH response with requested FLAGS");
 
     assert_eq!(flags_item_count(&response), 1);
+}
+
+/// Проверяет, что decoded Unicode не попадает в legacy quoted-string.
+#[test]
+fn envelope_uses_literals_before_utf8_accept_and_quotes_after_enable() {
+    let mut stored = message(73);
+    stored.bytes = b"Subject: =?UTF-8?B?0J/RgNC40LLQtdGC?=\r\nFrom: =?UTF-8?B?0J/RgNC40LLQtdGC?= <alice@test>\r\n\r\nbody".to_vec();
+    let attributes = [imap::FetchAttribute::Envelope];
+    let legacy = prepare_internal(
+        1,
+        &stored,
+        &attributes,
+        imap::Addressing::Sequence,
+        &BTreeSet::new(),
+        imap::tokenizer::StringMode::Legacy,
+        false,
+    )
+    .expect("legacy ENVELOPE response");
+    let enabled = prepare_internal(
+        1,
+        &stored,
+        &attributes,
+        imap::Addressing::Sequence,
+        &BTreeSet::new(),
+        imap::tokenizer::StringMode::Utf8Accept,
+        false,
+    )
+    .expect("UTF8=ACCEPT ENVELOPE response");
+
+    let literal = "{12}\r\nПривет".as_bytes();
+    let quoted = "\"Привет\"".as_bytes();
+    assert!(legacy.windows(literal.len()).any(|part| part == literal));
+    assert!(enabled.windows(quoted.len()).any(|part| part == quoted));
 }

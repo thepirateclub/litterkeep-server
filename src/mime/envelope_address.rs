@@ -69,7 +69,16 @@ pub(super) fn with_default(
 }
 
 /// Кодирует mailbox и обе границы группы в последовательность IMAP address.
+#[cfg(test)]
 pub(super) fn encode_list(entries: &[AddressEntry]) -> Result<String, &'static str> {
+    encode_list_with_mode(entries, crate::imap::tokenizer::StringMode::Legacy)
+}
+
+/// Кодирует address-list в режиме quoted-string данного IMAP-соединения.
+pub(super) fn encode_list_with_mode(
+    entries: &[AddressEntry],
+    mode: crate::imap::tokenizer::StringMode,
+) -> Result<String, &'static str> {
     if entries.is_empty() {
         return Ok("NIL".to_owned());
     }
@@ -78,14 +87,14 @@ pub(super) fn encode_list(entries: &[AddressEntry]) -> Result<String, &'static s
         let encoded = match entry {
             AddressEntry::Mailbox(address) => format!(
                 "({} NIL {} {})",
-                super::imap_string::encode_nstring(address.name.clone()),
-                super::imap_string::encode_nstring(Some(address.mailbox.clone())),
-                super::imap_string::encode_nstring(Some(address.host.clone()))
+                super::imap_string::encode_nstring(address.name.clone(), mode),
+                super::imap_string::encode_nstring(Some(address.mailbox.clone()), mode),
+                super::imap_string::encode_nstring(Some(address.host.clone()), mode)
             ),
             AddressEntry::GroupStart(name) => {
                 format!(
                     "(NIL NIL {} NIL)",
-                    super::imap_string::encode_nstring(Some(name.clone()))
+                    super::imap_string::encode_nstring(Some(name.clone()), mode)
                 )
             }
             AddressEntry::GroupEnd => "(NIL NIL NIL NIL)".to_owned(),

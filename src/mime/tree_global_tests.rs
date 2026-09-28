@@ -13,7 +13,7 @@ fn parses_identity_encoded_global_message_with_utf8_headers() {
     assert_eq!(nested.media_type, MediaType::TextPlain);
     assert_eq!(
         crate::mime::bodystructure::encode_extended(&tree, raw).expect("BODYSTRUCTURE"),
-        "(\"MESSAGE\" \"GLOBAL\" NIL NIL NIL \"8BIT\" 109 (NIL \"Привет\" NIL NIL NIL NIL NIL NIL NIL NIL) (\"TEXT\" \"PLAIN\" (\"CHARSET\" \"utf-8\") NIL NIL \"8BIT\" 10 1) 5)"
+        "(\"MESSAGE\" \"GLOBAL\" NIL NIL NIL \"8BIT\" 109 (NIL {12}\r\nПривет NIL NIL NIL NIL NIL NIL NIL NIL) (\"TEXT\" \"PLAIN\" (\"CHARSET\" \"utf-8\") NIL NIL \"8BIT\" 10 1) 5)"
     );
 }
 

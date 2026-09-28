@@ -135,7 +135,7 @@ fn preserves_unicode_whitespace_inside_display_name() {
 
     assert_eq!(
         encode_list(&parsed).expect("ENVELOPE display name"),
-        "((\"Alice\u{00a0}North\" NIL \"alice\" \"example.test\"))"
+        "(({12}\r\nAlice\u{00a0}North NIL \"alice\" \"example.test\"))"
     );
 }
 
