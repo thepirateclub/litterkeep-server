@@ -43,8 +43,9 @@ NEVER. Store теперь до source commit записывает checksummed su
 intents, чья source transaction committed. Unit integration покрывает duplicate
 RCPT policy, discard и crash до commit. Consumer доступен как typed bounded
 StorageWorker operation: он восстанавливает envelope и исходный blob, принимает
-только существующий локальный sender account, строит `Action: delivered` и
-публикует отчёт идемпотентно. Commit отчёта подтверждает intent и устраняет его
+существующий локальный sender account либо передаёт внешний reverse-path через
+durable outbound SMTP job, строит `Action: delivered` и публикует отчёт
+идемпотентно. Commit отчёта подтверждает intent и устраняет его
 из pending-представления после recovery; failpoint проверяет retry при сбое до
 commit. Store owner выполняет ограниченный sweep при старте и после каждой
 bounded-команды, поэтому восстановленные intents обрабатываются без отдельного
@@ -64,11 +65,11 @@ Delay report scheduling, полная сквозная семантика пов
 3461 wire negotiation остаются неподдержанными. RFC 3461 §5.2.3 требует
 `delivered` DSN при локальной доставке с `NOTIFY=SUCCESS`; RFC считает её
 успешной, когда письмо уже доступно для IMAP/POP retrieval. Текущая SMTP
-реализация DSN не рекламирует и корректные DSN-параметры отвергает, поэтому это
-пока неподдерживаемый профиль, не нарушение обещанной сервером возможности.
-Typed delivered serializer, commit-linked success intent и local Store-owner
-consumer теперь существуют, но внешний SMTP peer не может запросить эту
-функцию.
+реализация DSN не рекламирует и корректные DSN-параметры отвергает, поэтому
+клиент не может запросить эту функцию по RFC 3461 wire-протоколу. Внутренние
+typed delivered serializer, commit-linked success intent, Store-owner consumer
+и доставка отчёта локально/через явно настроенный relay реализованы, но не
+означают заявленную внешнему клиенту DSN capability.
 Независимый Linux wire
 peer подтвердил отсутствие capability, точный refusal-код для MAIL/RCPT и
 восстановление сессии; после добавления RFC 6533 xtext второй независимый Linux
@@ -78,13 +79,14 @@ durable round-trip typed envelope. RFC 6533 задаёт для `utf-8` ORCPT т
 формы xtext, unitext и native UTF-8 с разными условиями SMTPUTF8. Теперь
 внутренний parser декодирует 7-bit-safe `utf-8-addr-xtext` и
 `utf-8-addr-unitext`, проверяя результат как UTF-8 mailbox; sidecar v2 сохраняет
-его type и octets, а version
-1 продолжает читаться. Parser сводит xtext и unitext к одному семантическому
-UTF-8 адресу, не сохраняя способ кодирования. Независимый Linux peer подтвердил
+его type и octets, а version 1 продолжает читаться. Parser сводит xtext и
+unitext к одному семантическому UTF-8 адресу, не сохраняя способ кодирования.
+Независимый Linux peer подтвердил
 точный отказ 555 5.5.4 отдельно для xtext и буквального Unicode unitext;
 это не wire support, DSN команды всё ещё отвергаются. Native UTF-8 form policy,
-SMTPUTF8-specific form constraints, формирование и доставка уведомлений об
-успехе/задержке, а также полный DSN ESMTP профиль остаются неподдержанными.
+SMTPUTF8-specific form constraints и уведомления о задержке остаются
+неподдержанными. Positive SUCCESS report реализован только для внутреннего
+commit-linked intent, не как доступная клиенту RFC 3461 capability.
 
 Дополнительный аудит очереди выявил отдельный барьер перед wire acceptance:
 DSN sidecar хранит исходный envelope, а queue jobs теперь durable сохраняют
@@ -110,7 +112,7 @@ per-recipient блоков, а при сохранённом `RET=HDRS` не в�
 для UTF-8 заголовков только `RET=HDRS` используется `message/global-headers`;
 ASCII-варианты используют стандартные DSN media types. Эти правила проверены
 unit regressions на Windows и Linux, но не независимым wire-клиентом.
-Успешные/задержанные reports, группировка нескольких RCPT и сквозная проверка
+Задержанные reports, группировка нескольких RCPT и сквозная проверка
 параметров остаются GAP; `DSN` остаётся выключенным. Failure-report crash window
 закрыт durable intent и idempotent report key (T390), но независимый crash-kill
 runtime acceptance ещё не проводился.
