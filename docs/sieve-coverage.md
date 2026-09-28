@@ -48,8 +48,9 @@ SCRAM-SHA-256-PLUS; оба используют отдельный SHA-256 verif
 Независимые Linux peers по implicit TLS и STARTTLS сверяют server signature,
 неверный proof, UNAUTHENTICATE и повторную работу сессии; STARTTLS путь также
 проверяет пустой SASL список до upgrade и capability после него. Это не проверка
-Litterkeep app. PLUS FSM и channel-binding proof проверены unit тестами, но
-independent wire peer для PLUS ещё отсутствует. TLS 1.3 `tls-exporter` проверен
+Litterkeep app. Отдельный Rustls peer проверяет PLUS по живому implicit-TLS
+socket и сверяет server signature; proof вычисляется общими SHA/HMAC/PBKDF2
+helpers проекта, поэтому криптографическая реализация не независима. TLS 1.3 `tls-exporter` проверен
 между rustls endpoints и используется ManageSieve только после завершённого
 TLS 1.3 handshake.
 

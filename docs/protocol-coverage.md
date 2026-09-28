@@ -1364,7 +1364,10 @@ SCRAM-SHA-256-PLUS: capability появляется только при дост
 GS2 допускает только `p=tls-exporter,,`, а `c=` сверяется с canonical Base64
 точной шапки и exporter до проверки proof. Есть FSM тесты корректного proof,
 server signature и несовпадающего exporter. Независимое PLUS подключение по
-живому TLS socket ещё не проверялось; это не проверка Litterkeep app, полный
+живому TLS socket завершено отдельным Rustls peer-ом: подтверждены CA chain,
+TLS 1.3, capability, RFC 9266 binding и mutual SCRAM signature. Peer повторно
+использует SHA/HMAC/PBKDF2 helpers этой реализации, поэтому не является
+независимым криптографическим oracle. Это не проверка Litterkeep app, полный
 профиль RFC 5804 ещё не закрыт.
 
 См. [Sieve/ManageSieve coverage](sieve-coverage.md) и

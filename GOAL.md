@@ -10573,7 +10573,7 @@ ManageSieve до заявленного набора современных фо
   Sieve/ManageSieve profiles and Litterkeep app interoperability remain open.
   G18 remains ACTIVE.
 
-### 2026-09-28: G18 ManageSieve SCRAM-SHA-256-PLUS integration, T361 PARTIAL
+### 2026-09-28: G18 ManageSieve SCRAM-SHA-256-PLUS integration, T361 PASS
 
 - `ServerTls` exposes the RFC 9266 `tls-exporter` value only after a completed
   TLS 1.3 handshake, using `EXPORTER-Channel-Binding`, empty context and 32-byte
@@ -10591,6 +10591,11 @@ ManageSieve до заявленного набора современных фо
   `rust:1.97-bookworm` image ID is unchanged; the disposable container was
   removed with `--rm`, no image was created. Cargo target/cache live under
   `./data/g18-scram-sha256-managesieve/plus-target` and `cargo-home`.
-- T361 remains PARTIAL: no independent client has completed SCRAM-SHA-256-PLUS
-  over a live ManageSieve TLS socket, and Litterkeep app interoperability is
-  unverified. G18 remains ACTIVE.
+- A separate Rustls client completed implicit-TLS ManageSieve against the Linux
+  release server, verified the CA chain and TLS 1.3, checked PLUS advertisement,
+  bound canonical `c=` to its RFC 9266 exporter, sent a valid proof, and verified
+  the server signature. The peer reuses this crate's tested SHA/HMAC/PBKDF2
+  helpers, so it is an independent transport peer, not an independent crypto
+  oracle. The disposable runtime container is absent; no image was created.
+- T361 is PASS for server-side PLUS and the independent live wire exchange.
+  Litterkeep app interoperability remains unverified; G18 stays ACTIVE.
