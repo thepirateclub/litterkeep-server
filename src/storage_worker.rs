@@ -13,6 +13,8 @@ mod local_delivery;
 mod message;
 #[path = "storage_worker/owner.rs"]
 mod owner;
+#[path = "storage_worker/retry_delay.rs"]
+mod retry_delay;
 #[path = "storage_worker/sasl_lookup.rs"]
 mod sasl_lookup;
 #[cfg(test)]

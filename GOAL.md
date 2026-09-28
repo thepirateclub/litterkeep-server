@@ -1,5 +1,17 @@
 # Goal ledger
 
+### 2026-09-29: G18 SUCCESS DSN пакетная задержка повторов, PARTIAL T400
+
+- Ошибки пакетного SUCCESS DSN sweep больше не вызывают повтор Store-запроса
+  на каждом 100 ms idle poll. Внутрипроцессная задержка растёт от 100 ms до
+  максимума 30 s и сбрасывается после успешной порции.
+- Deterministic unit tests проверяют начальный срок, удвоение, cap и reset.
+  Полный Windows Rust 1.97.1 прогон: 1042 passed, 4 ignored; Linux Docker
+  Rust 1.97.1: 1163 passed, 4 ignored; strict Clippy, fmt и diff-check прошли.
+- Это пакетный in-memory pacing, а не durable per-intent retries: срок повтора
+  не переживает рестарт, dead-letter policy отсутствует. RFC 3461 wire-поддержка
+  не заявляется, независимый Litterkeep acceptance не выполнялся.
+
 ### 2026-09-29: G18 fair bounded SUCCESS DSN backlog continuation, PARTIAL T399
 
 - Pending recipient intents теперь индексируются упорядоченным `BTreeSet` по

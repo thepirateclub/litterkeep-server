@@ -60,7 +60,10 @@ Store создаёт outbound job с пустым SMTP reverse-path; незав�
 peer подтвердил `MAIL FROM:<>`, внешний RCPT, `Action: delivered`, отсутствие
 исходного тела и удаление job после принятия. Доставка проверена только до
 явно настроенного relay peer: публичный DNS/MX и интернет не проверялись.
-Per-intent exponential retry pacing и dead-letter policy остаются GAP.
+Пакетный sweep после ошибки Store применяет экспоненциальную задержку в памяти
+процесса от 100 ms до 30 s и сбрасывает её после успешного прохода; deterministic
+unit tests проверяют границы и cap. Расписание повтора отдельного intent пока
+не durable и не сохраняется между перезапусками; dead-letter policy остаётся GAP.
 Delay report scheduling, полная сквозная семантика повторной доставки и RFC
 3461 wire negotiation остаются неподдержанными. RFC 3461 §5.2.3 требует
 `delivered` DSN при локальной доставке с `NOTIFY=SUCCESS`; RFC считает её
