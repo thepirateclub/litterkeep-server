@@ -36,8 +36,10 @@ black-box acceptance отдельно подтвердил wire-аутентиф
 Это пока не реализация SCRAM. Account storage не содержит versioned
 SCRAM-SHA-1 salted-password verifier; его нельзя получить из Argon2 PHC без
 исходного пароля. Требуются versioned verifier при создании/входе и переходе
-старых аккаунтов, ManageSieve SCRAM state machine с SASL continuation,
-constant-time proof validation и независимый ManageSieve wire acceptance.
+старых аккаунтов, bounded parsing полного SCRAM exchange, ManageSieve state
+machine с SASL continuation и независимый ManageSieve wire acceptance.
+Crypto API проверяет proof с постоянновременным сравнением StoredKey и строит
+server signature; это не заменяет end-to-end проверку протокольного transcript.
 [`RFC 5804 §2.1`](https://www.rfc-editor.org/rfc/rfc5804.html#section-2.1)
 прямо требует SCRAM-SHA-1 вместе с PLAIN over TLS; этот механизм не
 рекламируется до завершения verifier и exchange. [RFC 7677](https://www.rfc-editor.org/rfc/rfc7677.html) регистрирует

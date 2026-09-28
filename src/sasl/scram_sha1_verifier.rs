@@ -14,11 +14,10 @@ pub const DEFAULT_SALT_SIZE: usize = 16;
 /// Ограничивает объём пароля до Unicode-подготовки и дорогостоящего KDF.
 pub const MAX_PASSWORD_SIZE: usize = 4096;
 
-/// Секреты сервера для proof validation и server signature.
+/// Ключевой материал SCRAM-SHA-1 для проверки proof и подписи сервера.
 ///
-/// Пароль здесь уже обязан быть SASLprep-normalized вызывающим уровнем. Пока
-/// profile normalization и account persistence не подключены, тип не выдаёт
-/// себя за готовую SCRAM credential и не используется listener-ами.
+/// Тип предоставляет crypto operations, но сам по себе не задаёт долговечный
+/// credential format, nonce policy или состояние полного SASL exchange.
 pub struct ScramSha1Verifier {
     stored_key: [u8; 20],
     server_key: [u8; 20],
@@ -47,6 +46,36 @@ impl ScramSha1Verifier {
         })
     }
 
+    /// Создаёт verifier из ключей, прочитанных из проверенной account-записи.
+    pub fn from_keys(stored_key: [u8; 20], server_key: [u8; 20]) -> Self {
+        Self {
+            stored_key,
+            server_key,
+        }
+    }
+
+    /// Проверяет SCRAM client proof без раннего выхода по содержимому ключа.
+    pub fn verify_client_proof(&self, auth_message: &[u8], proof: &[u8]) -> bool {
+        if proof.len() != self.stored_key.len() {
+            return false;
+        }
+        let signature = authenticate(&self.stored_key, auth_message);
+        let mut client_key = [0_u8; 20];
+        for ((recovered, proof_octet), signature_octet) in client_key
+            .iter_mut()
+            .zip(proof.iter().copied())
+            .zip(signature)
+        {
+            *recovered = proof_octet ^ signature_octet;
+        }
+        constant_time_equal(&digest(&client_key), &self.stored_key)
+    }
+
+    /// Строит server verifier для тех же байтов AuthMessage, что видел клиент.
+    pub fn server_signature(&self, auth_message: &[u8]) -> [u8; 20] {
+        authenticate(&self.server_key, auth_message)
+    }
+
     /// Возвращает StoredKey для проверки клиентского proof.
     pub fn stored_key(&self) -> &[u8; 20] {
         &self.stored_key
@@ -56,6 +85,15 @@ impl ScramSha1Verifier {
     pub fn server_key(&self) -> &[u8; 20] {
         &self.server_key
     }
+}
+
+/// Сравнивает все октеты, не прекращая цикл на первом несовпадении.
+fn constant_time_equal(left: &[u8; 20], right: &[u8; 20]) -> bool {
+    let mut difference = 0_u8;
+    for (left_octet, right_octet) in left.iter().zip(right) {
+        difference |= left_octet ^ right_octet;
+    }
+    difference == 0
 }
 
 /// Проверяет параметры до дорогостоящего PBKDF2 вычисления.

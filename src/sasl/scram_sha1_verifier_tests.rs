@@ -29,6 +29,18 @@ fn rfc_5802_example_derives_matching_client_proof_and_server_signature() {
         server_signature.as_slice(),
         decode_base64(b"rmF9pqV8S7suAoZWja4dJRkFsKQ=").expect("RFC server signature")
     );
+    assert!(verifier.verify_client_proof(&auth_message, &client_proof));
+    assert_eq!(verifier.server_signature(&auth_message), server_signature);
+}
+
+/// Неверный proof и ошибочная длина отвергаются серверной crypto-границей.
+#[test]
+fn server_proof_validation_rejects_modified_and_truncated_proofs() {
+    let verifier =
+        ScramSha1Verifier::derive(b"pencil", b"RFC salt", 4096).expect("valid SCRAM verifier");
+    let auth_message = b"client-first,server-first,client-final";
+    assert!(!verifier.verify_client_proof(auth_message, &[0; 20]));
+    assert!(!verifier.verify_client_proof(auth_message, &[0; 19]));
 }
 
 /// Получает SaltedPassword независимо от хранимой verifier структуры.

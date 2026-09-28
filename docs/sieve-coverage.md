@@ -26,8 +26,9 @@ server signature, а iteration/salt границы ограничены до д�
 поэтому Argon2 verifier сам по себе не является SCRAM verifier. SASLprep,
 Argon2 `.phc2` account storage и безопасная legacy `.phc` миграция реализованы;
 T317 подтверждает legacy-переход независимым SMTP TLS клиентом, но это не
-проверка ManageSieve SASL. Versioned SCRAM verifier, state machine, proof
-validation и independent ManageSieve wire exchange всё ещё отсутствуют.
+проверка ManageSieve SASL. T319 добавил crypto primitive проверки SCRAM proof и
+вычисления server signature, но versioned verifier storage, bounded parsing,
+state machine и independent ManageSieve wire exchange всё ещё отсутствуют.
 T318 сверил контракт с RFC 5804 §2.1 и RFC 7677: обязательный ManageSieve
 SCRAM-SHA-1 не реализован, более современный SCRAM-SHA-256 также не реализован.
 Детали записаны в [учёте зависимостей](dependencies.md). SCRAM не рекламируется.

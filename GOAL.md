@@ -1,5 +1,24 @@
 # Goal ledger
 
+### 2026-09-28: G18 SCRAM-SHA-1 server proof primitive, scoped PASS T319
+
+- `ScramSha1Verifier` теперь восстанавливает ClientKey из proof/AuthMessage,
+  сверяет StoredKey циклом без раннего выхода по байтам и строит server
+  signature. Можно создавать verifier из двух фиксированных 20-октетных ключей
+  для следующего этапа хранения.
+- RFC 5802 §5.1 тест применяет production server verifier к известному client
+  proof и сравнивает server signature. Отдельные regressions отвергают
+  изменённый и усечённый proof. На Windows Rust 1.97.1 прошли 878 библиотечных
+  и 1 CLI-тест, 4 теста пропущены; fmt, strict Clippy и diff checks прошли.
+  В Linux-контейнере на Rust 1.97.1 прошли 987 библиотечных и 1 CLI-тест,
+  4 теста пропущены; fmt и strict Clippy прошли. Контейнер был временным
+  (`--rm`) и удалился после команды.
+- Это только proof primitive: SCRAM credential serialization/lookup, SASL
+  attribute parser, client/server nonce lifecycle, ManageSieve exchange и wire
+  acceptance отсутствуют. Никакие capability strings не изменялись.
+- G18 остаётся активной; следующий технический шаг - версионированный verifier
+  format с криптографической солью и контролируемой миграцией аккаунтов.
+
 ### 2026-09-28: G18 ManageSieve SCRAM gap inventory reconciliation, scoped PASS T318
 
 - Сверила текущее состояние кода с `docs/dependencies.md`,
