@@ -10,7 +10,6 @@ pub(super) fn request_id(request: &Request) -> u64 {
         | Request::ValidateRecipient { request_id, .. }
         | Request::Append { request_id, .. }
         | Request::ImapAppend { request_id, .. }
-        | Request::AppendMany { request_id, .. }
         | Request::Read { request_id, .. }
         | Request::UpdateFlags { request_id, .. }
         | Request::CreateFolder { request_id, .. }
@@ -38,5 +37,6 @@ pub(super) fn request_id(request: &Request) -> u64 {
         | Request::OutboundDue { request_id, .. }
         | Request::OutboundBlob { request_id, .. }
         | Request::OutboundTransition { request_id, .. } => *request_id,
+        Request::AppendMany(request) => request.request_id,
     }
 }

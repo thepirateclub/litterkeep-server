@@ -8,6 +8,7 @@ fn transaction(bytes: &[u8], body_mode: BodyMode, smtp_utf8: bool) -> Transactio
         bytes: bytes.to_vec(),
         reverse_path: "alice@test".to_owned(),
         recipients: vec!["bob@test".to_owned()],
+        dsn: crate::smtp::DsnEnvelope::default(),
         body_mode,
         smtp_utf8,
         failed: false,

@@ -1,9 +1,13 @@
 //! Типизированные сообщения bounded-канала между reactor и владельцем store.
 
 use super::imap_append::ImapAppendResult;
+#[path = "smtp_delivery.rs"]
+mod smtp_delivery;
 use crate::mail_flags::{FlagMutation, MessageFlags};
 use crate::store::{MailboxSnapshot, ResolvedMailbox, SubscriptionSnapshot};
+pub use smtp_delivery::SmtpDeliveryRequest;
 use std::io;
+
 #[derive(Debug)]
 pub enum Request {
     ScramVerifier(super::sasl_lookup::ScramVerifierRequest),
@@ -29,15 +33,7 @@ pub enum Request {
         mailbox: String,
         messages: Vec<(Vec<u8>, crate::store::AppendMetadata)>,
     },
-    AppendMany {
-        request_id: u64,
-        mailboxes: Vec<String>,
-        /// SMTP RCPT TO paths в том же порядке, что и mailboxes.
-        envelope_recipients: Vec<String>,
-        /// SMTP MAIL FROM до добавления trace-заголовков. Это не `From` MIME.
-        envelope_sender: String,
-        bytes: Vec<u8>,
-    },
+    AppendMany(Box<SmtpDeliveryRequest>),
     Read {
         request_id: u64,
         mailbox: String,

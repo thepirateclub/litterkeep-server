@@ -13,6 +13,7 @@ pub(super) struct Delivery {
     pub(super) bytes: Vec<u8>,
     pub(super) reverse_path: String,
     pub(super) recipients: Vec<String>,
+    pub(super) dsn: smtp::DsnEnvelope,
 }
 
 /// Причина отказа DATA после полного приёма dot-terminated транзакции.
@@ -118,13 +119,14 @@ fn submit_delivery(
     };
     super::protocol::submit(
         session,
-        Request::AppendMany {
+        Request::AppendMany(Box::new(crate::storage_worker::SmtpDeliveryRequest {
             request_id: id,
             mailboxes,
             envelope_recipients,
             envelope_sender: delivery.reverse_path,
+            dsn: delivery.dsn,
             bytes: delivery.bytes,
-        },
+        })),
         pending,
         slot,
         generation,
@@ -155,20 +157,33 @@ pub(super) fn submit_bdat(
 }
 
 /// Переносит поля завершённого DATA состояния без копирования body bytes.
-pub(super) fn take_data(session: &mut Session) -> (Vec<u8>, String, Vec<String>) {
+pub(super) fn take_data(
+    session: &mut Session,
+) -> (Vec<u8>, String, Vec<String>, smtp::DsnEnvelope) {
     let SmtpState::Data {
         bytes,
         reverse_path,
         recipients,
+        dsn,
         ..
     } = &mut session.smtp
     else {
-        return (Vec::new(), String::new(), Vec::new());
+        return (
+            Vec::new(),
+            String::new(),
+            Vec::new(),
+            smtp::DsnEnvelope {
+                reverse_path: String::new(),
+                mail: Default::default(),
+                recipients: Vec::new(),
+            },
+        );
     };
     (
         std::mem::take(bytes),
         std::mem::take(reverse_path),
         std::mem::take(recipients),
+        std::mem::take(dsn),
     )
 }
 

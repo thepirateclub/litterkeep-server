@@ -34,7 +34,7 @@ impl Store {
     }
 
     /// Сохраняет DSN envelope вместе с общей transaction ID local delivery.
-    pub(super) fn deliver_sieve_many_with_dsn(
+    pub(crate) fn deliver_sieve_many_with_dsn(
         &mut self,
         accounts: &[String],
         envelope_sender: &str,
@@ -60,6 +60,32 @@ impl Store {
                 "recipient envelope does not match local mailbox",
             ));
         }
+        if let Some(envelope) = smtp_dsn
+            && !smtp_dsn_validation::matches(envelope, envelope_sender, envelope_recipients)
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "DSN envelope does not match SMTP transaction",
+            ));
+        }
+        self.deliver_sieve_many_validated(
+            accounts,
+            envelope_sender,
+            envelope_recipients,
+            raw,
+            smtp_dsn,
+        )
+    }
+
+    /// Продолжает delivery после проверки границ typed SMTP envelope.
+    fn deliver_sieve_many_validated(
+        &mut self,
+        accounts: &[String],
+        envelope_sender: &str,
+        envelope_recipients: &[String],
+        raw: &[u8],
+        smtp_dsn: Option<&crate::smtp::DsnEnvelope>,
+    ) -> io::Result<u64> {
         let headers = delivery_headers(raw);
         let mut mailboxes = Vec::new();
         let mut outbound = Vec::new();
@@ -162,6 +188,9 @@ impl Store {
         }
     }
 }
+
+#[path = "sieve_delivery/smtp_dsn_validation.rs"]
+mod smtp_dsn_validation;
 
 /// Подготавливает только допустимый vacation response с обратным путём.
 fn prepare_vacation(

@@ -1,5 +1,7 @@
 //! Дисковый ввод-вывод transaction-linked SMTP DSN sidecar.
 
+#[path = "smtp_dsn_access.rs"]
+mod access;
 #[path = "smtp_dsn_cursor.rs"]
 mod cursor;
 #[path = "smtp_dsn_decode.rs"]

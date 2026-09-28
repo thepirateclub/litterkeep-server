@@ -38,7 +38,7 @@ fn accept_data(
     owners: &mut HashMap<u64, (usize, u64, Pending)>,
     request_id: &mut u64,
 ) -> io::Result<()> {
-    let (bytes, reverse_path, recipients) = super::take_data(session);
+    let (bytes, reverse_path, recipients, dsn) = super::take_data(session);
     reset_data_state(session);
     let message = crate::smtp_trace::prepend(&bytes, &reverse_path, std::time::SystemTime::now())?;
     super::submit_delivery(
@@ -47,6 +47,7 @@ fn accept_data(
             bytes: message,
             reverse_path,
             recipients,
+            dsn,
         },
         slot,
         generation,

@@ -155,6 +155,14 @@ mod tests {
             section: DataSection::Headers,
             recipients: vec!["bob@litterkeep.test".into()],
             reverse_path: "alice@litterkeep.test".into(),
+            dsn: crate::smtp::DsnEnvelope {
+                reverse_path: "alice@litterkeep.test".into(),
+                mail: Default::default(),
+                recipients: vec![crate::smtp::RcptTo {
+                    address: "bob@litterkeep.test".into(),
+                    dsn: Default::default(),
+                }],
+            },
             oversized: false,
             invalid_octets: false,
             body_mode: crate::smtp::BodyMode::SevenBit,

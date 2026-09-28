@@ -19,6 +19,7 @@ pub(super) enum SmtpState {
         bytes: Vec<u8>,
         section: DataSection,
         recipients: Vec<String>,
+        dsn: smtp::DsnEnvelope,
         reverse_path: String,
         oversized: bool,
         invalid_octets: bool,

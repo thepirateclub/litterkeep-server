@@ -36,6 +36,7 @@ pub(super) enum Pending {
     Pop3Commit,
     ValidateRecipient {
         address: String,
+        dsn: Option<crate::smtp::RcptTo>,
     },
     Append {
         mailboxes: Vec<String>,

@@ -1,5 +1,30 @@
 # Goal ledger
 
+### 2026-09-28: G18 SMTP DSN envelope through transaction and Store owner, PARTIAL T346
+
+- Typed MAIL `RET`/`ENVID` и recipient-scoped `NOTIFY`/`ORCPT` теперь входят в
+  SMTP transaction envelope, проходят через DATA/BDAT state, bounded
+  `AppendMany` request и single Store owner; Store связывает sidecar с commit ID.
+  Обычные письма без DSN параметров не создают sidecar. Сверяются reverse-path,
+  количество и порядок адресов до durable delivery.
+- Linux integration test отправляет запрос реальному storage owner, получает
+  append completion и после reopen находит точный DSN envelope. Отдельный Linux
+  SMTP socket peer проверил EHLO без `DSN`, точный `555 5.5.4` отказ MAIL/RCPT и
+  восстановление через NOOP/RSET/QUIT. Это независимый peer, не приложение
+  Litterkeep.
+- Windows Rust 1.97.1: 958 library + 1 CLI test, 4 ignored; strict Clippy,
+  fmt и diff check прошли. Linux `rust:1.97-bookworm`: 1068 library + 1 CLI,
+  4 ignored; strict Clippy, fmt и release build прошли. Wire refusal peer прошёл.
+  Все затронутые исходные/test файлы не превышают 300 строк.
+- DSN capability остаётся выключенной и параметризованные команды остаются
+  отвергнутыми: сервер ещё не планирует обязательные success/failure/delay
+  уведомления и не прошёл DSN report conformance. Новая цепочка проверяет
+  внутренний typed handoff, но не является RFC 3461 wire acceptance.
+- Linux build artifacts оставлены под `./data/g18-dsn-transport-linux`, runtime
+  fixture под `./data/g18-dsn-wire-runtime`. Все созданные контейнеры удалены;
+  существующий `rust:1.97-bookworm` образ переиспользован без создания image.
+  T346 PARTIAL, G18 ACTIVE.
+
 ### 2026-09-28: G18 SMTP DSN durable Store boundary, PARTIAL T345
 
 - Store теперь пишет bounded/versioned/checksummed SMTP DSN sidecar frame рядом

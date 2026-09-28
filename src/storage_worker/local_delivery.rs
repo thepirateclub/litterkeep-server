@@ -1,6 +1,6 @@
 //! Атомарная локальная публикация SMTP recipients владельцем Store.
 
-use super::Response;
+use super::{Response, SmtpDeliveryRequest};
 use crate::{accounts::Accounts, store::Store};
 use std::io;
 
@@ -8,22 +8,11 @@ use std::io;
 pub(super) fn append_many_response(
     store: &mut Store,
     accounts: &Accounts,
-    request_id: u64,
-    mailboxes: Vec<String>,
-    envelope_recipients: Vec<String>,
-    envelope_sender: String,
-    bytes: Vec<u8>,
+    request: SmtpDeliveryRequest,
 ) -> Response {
     Response::Appended {
-        request_id,
-        result: append_many(
-            store,
-            accounts,
-            mailboxes,
-            envelope_recipients,
-            &envelope_sender,
-            &bytes,
-        ),
+        request_id: request.request_id,
+        result: append_many(store, accounts, &request),
     }
 }
 
@@ -34,21 +23,19 @@ pub(super) fn append_many_response(
 pub(super) fn append_many(
     store: &mut Store,
     accounts: &Accounts,
-    mailboxes: Vec<String>,
-    envelope_recipients: Vec<String>,
-    envelope_sender: &str,
-    bytes: &[u8],
+    request: &SmtpDeliveryRequest,
 ) -> io::Result<u64> {
-    if mailboxes.is_empty() {
+    if request.mailboxes.is_empty() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "no recipients"));
     }
-    if mailboxes.len() != envelope_recipients.len() {
+    if request.mailboxes.len() != request.envelope_recipients.len() {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "recipient envelope count mismatch",
         ));
     }
-    if !mailboxes
+    if !request
+        .mailboxes
         .iter()
         .all(|mailbox| crate::local_route::known_recipient(mailbox, |name| accounts.exists(name)))
     {
@@ -57,5 +44,15 @@ pub(super) fn append_many(
             "unknown local recipient",
         ));
     }
-    store.deliver_sieve_many(&mailboxes, envelope_sender, &envelope_recipients, bytes)
+    let dsn = match request.dsn.has_dsn_parameters() {
+        true => Some(&request.dsn),
+        false => None,
+    };
+    store.deliver_sieve_many_with_dsn(
+        &request.mailboxes,
+        &request.envelope_sender,
+        &request.envelope_recipients,
+        &request.bytes,
+        dsn,
+    )
 }

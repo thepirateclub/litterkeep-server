@@ -1,6 +1,8 @@
 //! SMTP submission transaction state.
 #[path = "smtp/command.rs"]
 mod command;
+#[path = "smtp/dsn_envelope.rs"]
+mod dsn_envelope;
 #[path = "smtp/idna17.rs"]
 pub mod idna17;
 #[path = "smtp/punycode.rs"]
@@ -30,10 +32,11 @@ pub enum GreetingMode {
 pub struct Envelope {
     pub reverse_path: String,
     pub recipients: Vec<String>,
+    pub dsn: DsnEnvelope,
 }
 
 /// Typed SMTP envelope DSN, привязываемый Store к transaction ID доставки.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct DsnEnvelope {
     /// Обратный SMTP путь, а не MIME поле `From`.
     pub reverse_path: String,
@@ -48,18 +51,23 @@ const MAX_RECIPIENTS: usize = 100;
 pub struct Transaction {
     sender: Option<String>,
     recipients: Vec<String>,
+    mail_dsn: MailDsn,
+    recipient_dsn: Vec<RcptTo>,
 }
 impl Transaction {
     pub fn apply(&mut self, command: &Command) -> Result<bool, &'static str> {
         match command {
-            Command::Mail(_) if self.sender.is_some() => Err("mail transaction already open"),
-            Command::Mail(mail) => {
-                self.sender = Some(mail.reverse_path.clone());
-                self.recipients.clear();
-                Ok(false)
+            Command::Mail(_) | Command::MailWithDsn(_, _) if self.sender.is_some() => {
+                Err("mail transaction already open")
             }
+            Command::Mail(mail) => self.accept_mail(mail, MailDsn::default()),
+            Command::MailWithDsn(mail, dsn) => self.accept_mail(mail, dsn.clone()),
             Command::Rcpt(r) if self.sender.is_some() => {
                 self.accept_recipient(r.clone())?;
+                Ok(false)
+            }
+            Command::RcptWithDsn(recipient) if self.sender.is_some() => {
+                self.accept_typed_recipient(recipient.clone())?;
                 Ok(false)
             }
             Command::Data if !self.recipients.is_empty() => Ok(true),
@@ -76,9 +84,16 @@ impl Transaction {
     /// После этого SMTP-сессия уже не может повторно использовать прежний
     /// envelope для следующего сообщения.
     pub fn take_envelope(&mut self) -> Envelope {
+        let reverse_path = self.sender.take().unwrap_or_default();
+        let recipients = std::mem::take(&mut self.recipients);
         Envelope {
-            reverse_path: self.sender.take().unwrap_or_default(),
-            recipients: std::mem::take(&mut self.recipients),
+            reverse_path: reverse_path.clone(),
+            recipients,
+            dsn: DsnEnvelope {
+                reverse_path,
+                mail: std::mem::take(&mut self.mail_dsn),
+                recipients: std::mem::take(&mut self.recipient_dsn),
+            },
         }
     }
 
@@ -118,8 +133,33 @@ impl Transaction {
         if self.recipients.len() >= MAX_RECIPIENTS {
             return Err("too many recipients");
         }
-        self.recipients.push(recipient);
+        self.recipients.push(recipient.clone());
+        self.recipient_dsn.push(RcptTo {
+            address: recipient,
+            dsn: Default::default(),
+        });
         Ok(())
+    }
+
+    fn accept_mail(&mut self, mail: &MailFrom, dsn: MailDsn) -> Result<bool, &'static str> {
+        self.sender = Some(mail.reverse_path.clone());
+        self.recipients.clear();
+        self.recipient_dsn.clear();
+        self.mail_dsn = dsn;
+        Ok(false)
+    }
+
+    pub fn accept_typed_recipient(&mut self, recipient: RcptTo) -> Result<(), &'static str> {
+        self.accept_recipient(recipient.address.clone())?;
+        if let Some(accepted) = self.recipient_dsn.last_mut() {
+            *accepted = recipient;
+        }
+        Ok(())
+    }
+
+    /// Обновляет typed MAIL DSN параметры после общей policy-проверки MAIL.
+    pub fn set_mail_dsn(&mut self, dsn: MailDsn) {
+        self.mail_dsn = dsn;
     }
 }
 #[cfg(test)]
@@ -153,9 +193,55 @@ mod tests {
             Envelope {
                 reverse_path: "alice@test".into(),
                 recipients: vec!["bob@test".into()],
+                dsn: DsnEnvelope {
+                    reverse_path: "alice@test".into(),
+                    mail: MailDsn::default(),
+                    recipients: vec![RcptTo {
+                        address: "bob@test".into(),
+                        dsn: Default::default(),
+                    }],
+                },
             }
         );
         assert!(transaction.take_envelope().recipients.is_empty());
+    }
+
+    /// MAIL и принятые typed RCPT настройки сохраняются в одном ordered envelope.
+    #[test]
+    fn dsn_parameters_survive_transaction_consumption() {
+        let mut transaction = Transaction::default();
+        transaction
+            .apply(&parse("MAIL FROM:<alice@test> ENVID=id+20x RET=HDRS\r\n").expect("MAIL"))
+            .expect("MAIL accepted");
+        transaction
+            .apply(
+                &parse("RCPT TO:<bob@test> NOTIFY=FAILURE ORCPT=rfc822;bob+2Etest\r\n")
+                    .expect("RCPT"),
+            )
+            .expect("RCPT accepted");
+        let envelope = transaction.take_envelope();
+
+        assert_eq!(envelope.dsn.reverse_path, "alice@test");
+        assert_eq!(
+            envelope.dsn.mail.return_content,
+            Some(ReturnContent::Headers)
+        );
+        assert_eq!(envelope.dsn.mail.envelope_id, Some(b"id x".to_vec()));
+        let recipient = envelope.dsn.recipients.first().expect("accepted RCPT");
+        assert_eq!(envelope.dsn.recipients.len(), 1);
+        assert_eq!(recipient.address, "bob@test");
+        assert_eq!(
+            recipient
+                .dsn
+                .original_recipient
+                .as_ref()
+                .map(|value| value.address.clone()),
+            Some(b"bob.test".to_vec())
+        );
+        assert!(matches!(
+            recipient.dsn.notify,
+            Some(NotifyPolicy::Conditions(ref values)) if values.contains(&NotifyCondition::Failure)
+        ));
     }
 
     /// Повторный MAIL не заменяет отправителя и получателей открытой транзакции.

@@ -146,7 +146,6 @@ pub use vacation_access::{VacationResponseRequest, VacationResponseResult};
 pub(crate) fn is_sieve_quota_error(error: &io::Error) -> bool {
     sieve_scripts::is_quota_error(error)
 }
-
 #[cfg(target_os = "linux")]
 pub(crate) fn is_sieve_missing_error(error: &io::Error) -> bool {
     sieve_scripts::is_missing_error(error)

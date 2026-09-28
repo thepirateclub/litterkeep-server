@@ -16,9 +16,12 @@ mod sasl_lookup;
 #[cfg(test)]
 #[path = "storage_worker/sasl_lookup_tests.rs"]
 mod sasl_lookup_tests;
+#[cfg(test)]
+#[path = "storage_worker/smtp_dsn_tests.rs"]
+mod smtp_dsn_tests;
 use crate::{accounts::Accounts, store::Store};
 pub use imap_append::ImapAppendResult;
-pub use message::{Request, Response};
+pub use message::{Request, Response, SmtpDeliveryRequest};
 pub use sasl_lookup::{ScramVerifierRequest, ScramVerifierResponse};
 use std::io;
 use std::path::Path;
@@ -170,13 +173,27 @@ mod tests {
         accounts.create("bob", b"test-password").expect("account");
         let worker = StorageWorker::start(&root, 1).expect("worker");
         worker
-            .submit(Request::AppendMany {
+            .submit(Request::AppendMany(Box::new(SmtpDeliveryRequest {
                 request_id: 8,
                 mailboxes: vec!["bob".into(), "unknown".into()],
                 envelope_recipients: vec!["bob@test".into(), "unknown@test".into()],
                 envelope_sender: "alice@test".into(),
+                dsn: crate::smtp::DsnEnvelope {
+                    reverse_path: "alice@test".into(),
+                    mail: Default::default(),
+                    recipients: vec![
+                        crate::smtp::RcptTo {
+                            address: "bob@test".into(),
+                            dsn: Default::default(),
+                        },
+                        crate::smtp::RcptTo {
+                            address: "unknown@test".into(),
+                            dsn: Default::default(),
+                        },
+                    ],
+                },
                 bytes: b"message".to_vec(),
-            })
+            })))
             .expect("accepted");
         let response = loop {
             if let Ok(response) = worker.try_response() {

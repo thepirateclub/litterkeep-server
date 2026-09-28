@@ -18,11 +18,19 @@ pub(super) fn authenticated(
 }
 
 /// Завершает RCPT только после account policy, проверенной владельцем Store.
-pub(super) fn accept_recipient(session: &mut Session, address: String) -> io::Result<()> {
+pub(super) fn accept_recipient(
+    session: &mut Session,
+    address: String,
+    dsn: Option<crate::smtp::RcptTo>,
+) -> io::Result<()> {
     let SmtpState::Command(transaction) = &mut session.smtp else {
         return session.push(b"503 5.5.1 bad sequence\r\n");
     };
-    match transaction.accept_recipient(address) {
+    let accepted = match dsn {
+        Some(recipient) => transaction.accept_typed_recipient(recipient),
+        None => transaction.accept_recipient(address),
+    };
+    match accepted {
         Ok(()) => session.push(b"250 2.1.5 recipient accepted\r\n"),
         Err(_) => session.push(b"503 5.5.1 bad sequence\r\n"),
     }

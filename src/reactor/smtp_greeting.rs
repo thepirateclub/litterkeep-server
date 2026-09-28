@@ -10,7 +10,9 @@ pub(super) fn requirement(
         (
             smtp::GreetingMode::NotEstablished,
             smtp::Command::Mail(_)
+            | smtp::Command::MailWithDsn(_, _)
             | smtp::Command::Rcpt(_)
+            | smtp::Command::RcptWithDsn(_)
             | smtp::Command::Data
             | smtp::Command::Bdat(_)
             | smtp::Command::AuthPlain(_)
@@ -30,6 +32,14 @@ pub(super) fn requirement(
                 (false, smtp::BodyMode::SevenBit, false) => None,
             }
         }
+        (smtp::GreetingMode::Basic, smtp::Command::MailWithDsn(_, _))
+        | (smtp::GreetingMode::Basic, smtp::Command::RcptWithDsn(_)) => {
+            Some(session.push(b"555 5.5.4 DSN requires EHLO\r\n"))
+        }
+        (
+            smtp::GreetingMode::Extended,
+            smtp::Command::MailWithDsn(_, _) | smtp::Command::RcptWithDsn(_),
+        ) => Some(session.push(b"555 5.5.4 unsupported command parameter\r\n")),
         _ => None,
     }
 }

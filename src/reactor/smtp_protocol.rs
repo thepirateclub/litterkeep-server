@@ -4,7 +4,8 @@
 //! данных и получателей всегда передаётся единственному владельцу store.
 use super::session::DataSection;
 use super::*;
-use crate::local_route::{local_mailbox, local_recipient};
+#[path = "smtp_protocol/smtp_recipient.rs"]
+mod smtp_recipient;
 
 /// Обрабатывает одну завершённую CRLF строку SMTP либо строку DATA.
 pub(super) fn smtp_line(
@@ -70,15 +71,23 @@ pub(super) fn smtp_line(
         smtp::Command::AuthPlain(response) => super::smtp_auth::authenticate(
             session, response, slot, generation, worker, owners, request_id,
         ),
-        smtp::Command::Mail(sender) => mail(session, sender),
-        smtp::Command::MailWithDsn(_, _) | smtp::Command::RcptWithDsn(_) => {
-            session.push(b"555 5.5.4 unsupported command parameter\r\n")
-        }
+        smtp::Command::Mail(sender) => smtp_recipient::mail(session, sender, None),
+        smtp::Command::MailWithDsn(mail, dsn) => smtp_recipient::mail(session, mail, Some(dsn)),
         smtp::Command::Bdat(chunk) => {
             super::smtp_bdat::start(session, chunk, slot, generation, worker, owners, request_id)
         }
-        smtp::Command::Rcpt(address) => recipient(
-            session, address, slot, generation, worker, owners, request_id,
+        smtp::Command::Rcpt(address) => smtp_recipient::recipient(
+            session, address, None, slot, generation, worker, owners, request_id,
+        ),
+        smtp::Command::RcptWithDsn(recipient) => smtp_recipient::recipient(
+            session,
+            recipient.address.clone(),
+            Some(recipient),
+            slot,
+            generation,
+            worker,
+            owners,
+            request_id,
         ),
         command => super::smtp_transaction_command::transaction_command(session, command),
     }
@@ -125,95 +134,7 @@ pub(super) fn auth_plain_response(
     }
 }
 
-/// Принимает MAIL только от аутентифицированного владельца локального адреса.
-fn mail(session: &mut Session, mail: smtp::MailFrom) -> io::Result<()> {
-    match mail_can_start_transaction(&session.smtp) {
-        true => {}
-        false => return session.push(b"503 5.5.1 mail transaction already open\r\n"),
-    }
-    let sender_is_authorized = match (
-        session.tls.is_some(),
-        session.authenticated_account.as_deref(),
-    ) {
-        (true, None) => return session.push(b"530 5.7.0 authentication required\r\n"),
-        (false, _) => true,
-        (true, Some(account)) => sender_is_authorized(&mail.reverse_path, account),
-    };
-    match sender_is_authorized {
-        false => session.push(b"550 5.7.1 sender not authorized\r\n"),
-        true => apply_mail(session, mail),
-    }
-}
-
-/// Проверяет командный порядок до policy checks и не меняет открытый envelope.
-fn mail_can_start_transaction(state: &SmtpState) -> bool {
-    match state {
-        SmtpState::Command(transaction) => transaction.can_start_mail(),
-        SmtpState::Data { .. }
-        | SmtpState::BdatDiscard { .. }
-        | SmtpState::BdatReady(_)
-        | SmtpState::BdatFailed
-        | SmtpState::BdatReceiving(_) => false,
-    }
-}
-
-/// Проверяет envelope sender, сохраняя разрешённый RFC 6409 null reverse-path.
-fn sender_is_authorized(reverse_path: &str, account: &str) -> bool {
-    match reverse_path.is_empty() {
-        true => true,
-        false => {
-            matches!(local_mailbox(reverse_path).as_deref(), Some(mailbox) if mailbox == account)
-        }
-    }
-}
-
-/// Проверяет локального получателя через account owner перед изменением envelope.
-fn recipient(
-    session: &mut Session,
-    address: String,
-    slot: usize,
-    generation: u64,
-    worker: &mut WakingStorageWorker,
-    owners: &mut HashMap<u64, (usize, u64, Pending)>,
-    request_id: &mut u64,
-) -> io::Result<()> {
-    if let (true, true) = (
-        session.tls.is_some(),
-        session.authenticated_account.is_none(),
-    ) {
-        return session.push(b"530 5.7.0 authentication required\r\n");
-    }
-    let SmtpState::Command(transaction) = &session.smtp else {
-        return session.push(b"503 5.5.1 bad sequence\r\n");
-    };
-    if !transaction.can_accept_recipient() {
-        return session.push(b"503 5.5.1 bad sequence\r\n");
-    }
-    if !transaction.has_recipient_capacity() {
-        return session.push(b"452 4.5.3 too many recipients\r\n");
-    }
-    if smtp::requires_smtp_utf8(&address) && !session.smtp_utf8 {
-        return session.push(b"553 5.6.7 SMTPUTF8 required for recipient address\r\n");
-    }
-    let Some(mailbox) = local_recipient(&address) else {
-        return session.push(b"550 5.1.1 unknown local recipient\r\n");
-    };
-    let id = next_request(request_id);
-    super::protocol::submit(
-        session,
-        Request::ValidateRecipient {
-            request_id: id,
-            mailbox,
-        },
-        Pending::ValidateRecipient { address },
-        slot,
-        generation,
-        worker,
-        owners,
-    );
-    Ok(())
-}
-
+/// Применяет проверенную MAIL команду к transaction FSM.
 pub(super) fn apply_transaction(session: &mut Session, command: smtp::Command) -> io::Result<()> {
     let SmtpState::Command(transaction) = &mut session.smtp else {
         return session.push(b"503 5.5.1 bad sequence\r\n");
@@ -226,6 +147,7 @@ pub(super) fn apply_transaction(session: &mut Session, command: smtp::Command) -
                 bytes: Vec::new(),
                 section: DataSection::Headers,
                 recipients: envelope.recipients,
+                dsn: envelope.dsn,
                 reverse_path: envelope.reverse_path,
                 oversized: false,
                 invalid_octets: false,
@@ -240,13 +162,17 @@ pub(super) fn apply_transaction(session: &mut Session, command: smtp::Command) -
 }
 
 /// Применяет принятую typed MAIL-команду через обычную transaction FSM.
-fn apply_mail(session: &mut Session, mail: smtp::MailFrom) -> io::Result<()> {
+pub(super) fn apply_mail(
+    session: &mut Session,
+    mail: smtp::MailFrom,
+    dsn: Option<smtp::MailDsn>,
+) -> io::Result<()> {
     let body_mode = mail.body_mode;
     match mail.declared_size {
         Some(size) if size > smtp::MAX_MESSAGE_SIZE as u128 => {
             session.push(b"552 5.3.4 message size exceeds fixed maximum\r\n")
         }
-        Some(_) | None => apply_mail_transaction(session, mail, body_mode),
+        Some(_) | None => apply_mail_transaction(session, mail, body_mode, dsn),
     }
 }
 
@@ -255,13 +181,20 @@ fn apply_mail_transaction(
     session: &mut Session,
     mail: smtp::MailFrom,
     body_mode: smtp::BodyMode,
+    dsn: Option<smtp::MailDsn>,
 ) -> io::Result<()> {
     let smtp_utf8 = mail.smtp_utf8;
     let reply = apply_transaction(session, smtp::Command::Mail(mail));
     match reply {
         Ok(()) => {
-            match &session.smtp {
-                SmtpState::Command(_) => session.smtp_body_mode = body_mode,
+            match &mut session.smtp {
+                SmtpState::Command(transaction) if transaction.has_sender() => {
+                    if let Some(parameters) = dsn {
+                        transaction.set_mail_dsn(parameters);
+                    }
+                    session.smtp_body_mode = body_mode;
+                }
+                SmtpState::Command(_) => {}
                 SmtpState::Data { .. }
                 | SmtpState::BdatDiscard { .. }
                 | SmtpState::BdatReady(_)

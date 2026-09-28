@@ -57,9 +57,9 @@ pub(super) fn write_completion(
             managesieve_completion::source(session, result)
         }
         (
-            Pending::ValidateRecipient { address },
+            Pending::ValidateRecipient { address, dsn },
             Response::RecipientValidated { accepted: true, .. },
-        ) => smtp_completion::accept_recipient(session, address),
+        ) => smtp_completion::accept_recipient(session, address, dsn),
         (
             Pending::ValidateRecipient { .. },
             Response::RecipientValidated {

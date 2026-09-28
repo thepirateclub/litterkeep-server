@@ -74,6 +74,7 @@ pub(super) fn finish_accepted_chunk(
             bytes: transaction.bytes,
             reverse_path: transaction.reverse_path,
             recipients: transaction.recipients,
+            dsn: transaction.dsn,
         },
         slot,
         generation,

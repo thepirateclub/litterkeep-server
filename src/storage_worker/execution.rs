@@ -41,21 +41,9 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             request_id,
             result: super::imap_append::execute(store, &account, &mailbox, &messages),
         },
-        Request::AppendMany {
-            request_id,
-            mailboxes,
-            envelope_recipients,
-            envelope_sender,
-            bytes,
-        } => super::local_delivery::append_many_response(
-            store,
-            accounts,
-            request_id,
-            mailboxes,
-            envelope_recipients,
-            envelope_sender,
-            bytes,
-        ),
+        Request::AppendMany(request) => {
+            super::local_delivery::append_many_response(store, accounts, *request)
+        }
         Request::Read {
             request_id,
             mailbox,
