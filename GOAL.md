@@ -418,6 +418,14 @@
 - T385 remains PARTIAL: EHLO DSN is not advertised, DSN MAIL/RCPT parameters
   remain refused, and downstream outbound policy still sends one RCPT command
   for a coalesced route. No Litterkeep phone acceptance is claimed.
+- Follow-up Store regression reopens a coalesced two-origin job with distinct
+  `NOTIFY=FAILURE` and `NOTIFY=NEVER` plus distinct ORCPT values, then exercises
+  the real recovered metadata through failure policy and report rendering.
+  Windows gate: 1053 library + 1 CLI tests, 4 ignored; Linux gate: 1174 library
+  + 1 CLI, 4 ignored. Strict Clippy and rustfmt passed in both environments.
+- The extra disposable Linux container used the separate
+  `./data/g27-sieve-case-insensitive-dsn/target`; it was removed. The active
+  user container was left running and no Docker image was created.
 - RFC basis: [RFC 3461 §§5.2.7.3, 5.2.8](https://www.rfc-editor.org/rfc/rfc3461.html#section-5.2.8)
   permits shared DSN reporting for recipient aliases while applying each
   recipient's notification entitlement; [RFC 3464 §2.3](https://www.rfc-editor.org/rfc/rfc3464.html#section-2.3)
