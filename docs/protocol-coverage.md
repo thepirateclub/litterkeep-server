@@ -994,11 +994,16 @@ aliases, а Windows-1252 также через RFC 1345 alias `cp1252`. Unit tes
 Это не полная
 поддержка IANA Character Sets registry: неподдерживаемые charset остаются
 ошибкой и не угадываются по префиксу.
-RFC 3629 регистрирует MIME label `UTF-8`; parser больше не принимает короткое
-`utf8` как неформально придуманное имя. UTF-8 byte decoder остается стандартным
-строгим Rust decoder, отдельно unit test фиксирует допустимый registry label.
-Текущая архитектура намеренно не нормализует любые dash/underscore/case формы,
-а добавляет только подтвержденные registered aliases.
+RFC 3629 регистрирует MIME label `UTF-8`; parser принимает его и alias `csUTF8`,
+который также указан реестром IANA, используя тот же строгий Rust decoder.
+Независимая SMTP STARTTLS -> IMAP SEARCH матрица передает alias в MIME body и
+находит сообщение; всего проверено 42 charset labels. Rust unit test фиксирует
+обе границы: `csUTF8` принимается, `utf8` отклоняется как незарегистрированное
+имя. Сервер не нормализует произвольные dash/underscore/case формы и добавляет
+только подтвержденные registered aliases. Это не проверка взаимодействия с
+Litterkeep приложением. Источники: [RFC 2978 §2.3](https://www.rfc-editor.org/rfc/rfc2978.html#section-2.3),
+[RFC 3629 §8](https://www.rfc-editor.org/rfc/rfc3629.html#section-8) и
+[IANA Character Sets registry](https://www.iana.org/assignments/character-sets).
 Отдельная
 SMTP -> IMAP wire-проверка доставила RFC 2047 Subject encoded-word варианты UTF-16,
 UTF-16BE/LE и UTF-32 с generic BE BOM, UTF-32BE/LE; UTF-8 SEARCH literal

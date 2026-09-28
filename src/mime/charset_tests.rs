@@ -23,6 +23,7 @@ fn profiles_are_explicit_and_strict() {
 /// RFC 3629 задает MIME charset label UTF-8, не произвольное сокращение.
 fn utf8_parser_accepts_registered_label_and_rejects_unregistered_alias() {
     assert_eq!(Charset::parse("UTF-8"), Ok(Charset::Utf8));
+    assert_eq!(Charset::parse("csUTF8"), Ok(Charset::Utf8));
     assert_eq!(Charset::parse("utf8"), Err("unsupported MIME charset"));
 }
 

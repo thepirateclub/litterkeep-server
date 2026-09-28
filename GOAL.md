@@ -14,11 +14,12 @@
 
 ### 2026-09-28: G18 UTF-8 canonical MIME label, scoped PASS T309
 
-- RFC 3629 names `UTF-8` as the MIME charset label. The parser now accepts that
-  registered label case-insensitively and rejects the unregistered shortcut
-  `utf8`; byte decoding stays strict. Unit test added.
-- No network behavior beyond charset-name rejection was tested; prior 41-label
-  matrix uses its own canonical UTF-8 SEARCH charset and remains separate.
+- Correction to T309: IANA registers `csUTF8` as the `cs` alias for preferred
+  label `UTF-8`; accept that explicit alias and keep unregistered `utf8` rejected.
+  Windows and Linux acceptance has now verified `csUTF8` through SMTP MIME body
+  delivery and IMAP SEARCH. This supersedes T309's unsupported no-network claim.
+- Independent charset matrix now has 42 labels. Rust 1.97.1 Windows and Linux
+  Docker gates pass; details and created-resource cleanup are recorded in T310.
 - G18 remains ACTIVE; full protocol and charset conformance remain outstanding.
 
 ### 2026-09-28: G18 RFC 1556 bidi MIME charset aliases, scoped PASS T307

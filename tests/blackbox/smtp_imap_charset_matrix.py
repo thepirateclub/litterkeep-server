@@ -39,6 +39,7 @@ class CharsetCase:
 
 
 CHARSET_CASES = (
+    CharsetCase("csUTF8", "utf-8", "UTF-8 alias"),
     CharsetCase("iso-8859-1", "iso8859_1", "café"),
     CharsetCase("iso-8859-2", "iso8859_2", "Zażółć"),
     CharsetCase("iso-8859-3", "iso8859_3", "AfrĦika"),
