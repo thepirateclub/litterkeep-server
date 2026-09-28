@@ -20,7 +20,7 @@ pub fn parse(value: &[u8]) -> Option<SearchDate> {
     let mut fields = date_time.split_ascii_whitespace();
     let day = fields.next()?;
     let month = fields.next()?;
-    let year = fields.next()?;
+    let year = normalized_year(fields.next()?)?;
     let time = normalized_time(fields.next()?)?;
     let zone = fields.next()?;
     if fields.next().is_some() {
@@ -34,6 +34,26 @@ pub fn parse(value: &[u8]) -> Option<SearchDate> {
     }
     let imap_date = format!("{day}-{month}-{year} {time} {zone}");
     MailDate::parse(&imap_date).map(SearchDate::from_mail_date)
+}
+
+/// Нормализует obsolete 2/3-digit year по RFC 5322 §4.3.
+fn normalized_year(value: &str) -> Option<String> {
+    if !value.bytes().all(|octet| octet.is_ascii_digit()) {
+        return None;
+    }
+    match value.len() {
+        2 => match value.parse::<u32>().ok()? {
+            year @ 0..=49 => Some((year + 2_000).to_string()),
+            year @ 50..=99 => Some((year + 1_900).to_string()),
+            _ => None,
+        },
+        3 => Some((value.parse::<u32>().ok()? + 1_900).to_string()),
+        width if width >= 4 => match value.parse::<i32>().ok()? {
+            year if year >= 1_900 => Some(value.to_owned()),
+            _ => None,
+        },
+        _ => None,
+    }
 }
 
 fn normalized_time(value: &str) -> Option<String> {
@@ -79,6 +99,21 @@ mod tests {
     fn accepts_rfc5322_leap_second() {
         let date = SearchDate::parse("31-Dec-2016").expect("date");
         assert_eq!(parse(b"Sat, 31 Dec 2016 23:59:60 +0000"), Some(date));
+    }
+
+    /// RFC 5322 §4.3 задаёт pivot для obsolete двух- и трёхзначного года.
+    #[test]
+    fn interprets_obsolete_numeric_years_with_rfc_pivot() {
+        let year_1997 = SearchDate::parse("21-Nov-1997").expect("1997");
+        let year_2049 = SearchDate::parse("21-Nov-2049").expect("2049");
+        let year_1950 = SearchDate::parse("21-Nov-1950").expect("1950");
+        let year_2023 = SearchDate::parse("21-Nov-2023").expect("2023");
+
+        assert_eq!(parse(b"Fri, 21 Nov 97 09:55:06 -0600"), Some(year_1997));
+        assert_eq!(parse(b"21 Nov 49 09:55:06 +0000"), Some(year_2049));
+        assert_eq!(parse(b"21 Nov 50 09:55:06 +0000"), Some(year_1950));
+        assert_eq!(parse(b"21 Nov 123 09:55:06 +0000"), Some(year_2023));
+        assert!(parse(b"21 Nov 9 09:55:06 +0000").is_none());
     }
 
     #[test]

@@ -9995,3 +9995,18 @@ ManageSieve до заявленного набора современных фо
 - Leap-second `:60` сохраняется и подтверждён в date projection; календарный
   SEARCH использует представимую соседнюю секунду без смены дня. Некоторые
   obsolete RFC 822 формы и Litterkeep app interop не проверены. G18 ACTIVE.
+### 2026-09-28: G18 RFC 822 numeric-zone obsolete years, scoped PASS T334
+
+- Обработчик date-time принимает obsolete two-digit years с RFC 5322 §4.3 pivot
+  (00-49 -> 2000-2049, 50-99 -> 1950-1999) и three-digit years как 1900+year.
+  Weekday сверяется после нормализации года; RFC 2183 numeric timezone остаётся
+  обязательной, поэтому named obsolete zones не разрешены.
+- Unit-регрессии проверяют обе границы pivot, year `123` и отклонение короткого
+  года; независимый IMAP STARTTLS acceptance возвращает BODYSTRUCTURE с датой
+  `97` и проверяет byte-exact RFC822 FETCH.
+- Rust 1.97.1 fmt, strict Clippy и all-target tests прошли (924 library +
+  1 CLI, 4 ignored); Python compile/diff check и Linux wire acceptance прошли.
+  Использованы существующие Docker images и ephemeral Cargo target; контейнер
+  удалён.
+- Это не полная obsolete RFC 822 date-time грамматика, Litterkeep app interop не
+  проверен; G18 остаётся ACTIVE.

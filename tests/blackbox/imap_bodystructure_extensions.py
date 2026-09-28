@@ -89,7 +89,7 @@ def main() -> None:
         b"Content-Disposition: attachment; filename=extended-size.txt; size*=UTF-8''14\r\n\r\n"
         b"extended-size-parameter-octets\r\n--meta-boundary\r\n"
         b"Content-Type: application/octet-stream\r\n"
-        b'Content-Disposition: attachment; creation-date="Fri, 21 Nov 1997 09:55:06 -0600"; '
+        b'Content-Disposition: attachment; creation-date="Fri, (weekday) 21 Nov 97 09:55:06 -0600"; '
         b'modification-date="21 Nov 1997 10:00 +0000"; '
         b'read-date="Sat, 31 Dec 2016 23:59:60 +0000"\r\n\r\n'
         b"valid-disposition-dates-octets\r\n--meta-boundary\r\n"
@@ -160,7 +160,7 @@ def main() -> None:
         b'("attachment" ("FILENAME" "bad-size.txt"))',
         b'("attachment" ("FILENAME" "quoted-size.txt"))',
         b'("attachment" ("FILENAME" "extended-size.txt"))',
-        b'"CREATION-DATE" "Fri, 21 Nov 1997 09:55:06 -0600"',
+        b'"CREATION-DATE" "Fri, (weekday) 21 Nov 97 09:55:06 -0600"',
         b'"MODIFICATION-DATE" "21 Nov 1997 10:00 +0000"',
         b'"READ-DATE" "Sat, 31 Dec 2016 23:59:60 +0000"',
         b'("attachment" ("FILENAME" "invalid-date.txt"))',

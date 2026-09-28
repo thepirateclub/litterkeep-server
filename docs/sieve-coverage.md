@@ -341,8 +341,10 @@ RFC 2183 `size` принимает только непустые десятич�
 STARTTLS acceptance. Полная проверка трёх date-параметров остаётся открытой.
 T333 добавил quoted RFC 2183 date-параметры с календарной валидацией,
 числовой timezone, сверкой weekday и leap-second `:60`; unit и IMAP STARTTLS
-проверили accepted и rejected формы. Некоторые obsolete RFC 822 variants всё
-ещё непокрыты, поэтому полная date-time совместимость не заявляется.
+проверили accepted и rejected формы. T334 добавил RFC 5322 pivot для numeric-
+zone obsolete 2/3-digit year. Именованные зоны и некоторые прочие obsolete
+RFC 822 variants всё ещё непокрыты, поэтому полная date-time совместимость не
+заявляется.
 Whitespace около `=` в параметрах остается открытым и отдельно не ужесточается.
 
 RFC 2231 extended payload decoder принимает только attribute-char или

@@ -544,6 +544,13 @@ unit и независимый IMAP STARTTLS acceptance покрывают вс�
 проверяется и сохраняется в projection, тогда как календарный SEARCH сохраняет
 тот же день, используя представимое значение секунды. Это не полная RFC 822
 date-time грамматика: некоторые obsolete формы остаются непокрытыми.
+RFC 5322 §4.3 numeric-zone obsolete year forms now use the specified pivot:
+two-digit years 00-49 map to 2000-2049, 50-99 to 1950-1999, and three-digit
+years add 1900. Unit vectors cover both pivot edges and 123 -> 2023; independent
+IMAP STARTTLS BODYSTRUCTURE acceptance verifies a commented year `97` and keeps
+the original RFC822 octets unchanged. Named obsolete zones remain rejected by
+the RFC 2183 numeric-timezone requirement; this does not close all obsolete
+date-time grammar.
 RFC 2231 §4.1 допускает charset/language metadata в начале первой encoded
 continuation секции. Ранее `Content-Disposition` parser терял language hint
 после общего параметрического разбора; `Disposition` теперь сохраняет typed
