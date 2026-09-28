@@ -237,8 +237,8 @@ fn capability_advertises_supported_sieve_extensions() {
     };
     assert!(
         encrypted
-            .windows(b"\"SASL\" \"PLAIN SCRAM-SHA-1\"".len())
-            .any(|part| part == b"\"SASL\" \"PLAIN SCRAM-SHA-1\"")
+            .windows(b"\"SASL\" \"PLAIN SCRAM-SHA-1 SCRAM-SHA-256\"".len())
+            .any(|part| part == b"\"SASL\" \"PLAIN SCRAM-SHA-1 SCRAM-SHA-256\"")
     );
     assert!(
         !encrypted
@@ -253,8 +253,8 @@ fn capability_advertises_supported_sieve_extensions() {
     let implicit_tls = greeting(true, false);
     assert!(
         implicit_tls
-            .windows(b"\"SASL\" \"PLAIN SCRAM-SHA-1\"".len())
-            .any(|part| part == b"\"SASL\" \"PLAIN SCRAM-SHA-1\"")
+            .windows(b"\"SASL\" \"PLAIN SCRAM-SHA-1 SCRAM-SHA-256\"".len())
+            .any(|part| part == b"\"SASL\" \"PLAIN SCRAM-SHA-1 SCRAM-SHA-256\"")
     );
     assert!(
         !implicit_tls
@@ -284,8 +284,8 @@ fn unauthenticate_clears_owner_keeps_tls_and_allows_authentication_again() {
     );
     assert!(
         capabilities
-            .windows(b"\"SASL\" \"PLAIN SCRAM-SHA-1\"".len())
-            .any(|part| part == b"\"SASL\" \"PLAIN SCRAM-SHA-1\"")
+            .windows(b"\"SASL\" \"PLAIN SCRAM-SHA-1 SCRAM-SHA-256\"".len())
+            .any(|part| part == b"\"SASL\" \"PLAIN SCRAM-SHA-1 SCRAM-SHA-256\"")
     );
     assert!(matches!(
         session.apply(parse("LISTSCRIPTS"), true, false),

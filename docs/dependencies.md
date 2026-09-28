@@ -73,9 +73,8 @@ success, а независимый TLS peer проверяет end-to-end transc
 по [RFC 5802 §7](https://www.rfc-editor.org/rfc/rfc5802.html#section-7).
 [RFC 7677](https://www.rfc-editor.org/rfc/rfc7677.html) регистрирует
 SCRAM-SHA-256, более сильный алгоритм семейства, и отмечает связанные с
-SHA-1 и TLS channel binding требования безопасности. SHA-256 SCRAM и PLUS
-варианты также не реализованы; security-профиль следует закрывать прежде
-рекламы соответствующих механизмов.
+SHA-1 и TLS channel binding требования безопасности. SCRAM-SHA-256 теперь
+реализован для ManageSieve TLS; PLUS/channel binding остаются отдельным пробелом.
 
 Для SCRAM-SHA-256 добавлены собственные safe-Rust примитивы `sha256`,
 `hmac_sha256`, одноблочный `pbkdf2_sha256`, `ScramSha256Verifier` и отдельный
@@ -84,9 +83,11 @@ SHA-256 сверяется с RFC 6234, HMAC с RFC 4231, PBKDF2 с RFC 7914 §1
 client proof/server signature — с примером RFC 7677 §3; iteration count
 ограничен значением 200000. Аккаунты сохраняют SHA-256 verifier в отдельном
 sidecar и предоставляют его через типизированный запрос единственного Accounts
-worker; запрос не выводит секрет в Debug. Это storage-интеграция, а не протокольная
-поддержка: ManageSieve SASL state machine ещё не использует запись, поэтому
-SCRAM-SHA-256 не рекламируется. PLUS/channel binding также не реализованы.
+worker; запрос не выводит секрет в Debug. ManageSieve state machine принимает
+initial-response и continuation, а capability рекламирует механизм только
+после TLS. Независимые Linux peers подтвердили mutual proof по implicit TLS и
+переход capability после STARTTLS. PLUS/channel binding и Litterkeep app
+interoperability не подтверждены.
 
 IMAP mailbox validation использует собственные generated ranges Unicode
 17.0.0, а не crate. Официальный источник, версия toolchain, SHA-256 и лицензия

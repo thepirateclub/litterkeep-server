@@ -36,6 +36,21 @@ pub(super) fn scram_verifier(
     }
 }
 
+/// Преобразует SHA-256 verifier completion в server-first challenge.
+pub(super) fn scram_sha256_verifier(
+    session: &mut Session,
+    result: io::Result<Option<crate::sasl::scram_sha256_record::ScramSha256Record>>,
+) -> io::Result<()> {
+    match result {
+        Ok(Some(credential)) => match session.managesieve.scram_sha256_server_first(credential) {
+            Ok(protocol_reply) => reply(session, protocol_reply),
+            Err(_) => authentication_failure(session, false),
+        },
+        Ok(None) => authentication_failure(session, true),
+        Err(_) => authentication_failure(session, false),
+    }
+}
+
 /// Кодирует результат RFC 5804 HAVESPACE без смешения с I/O completion.
 pub(super) fn space(session: &mut Session, result: io::Result<bool>) -> io::Result<()> {
     match result {
@@ -58,6 +73,9 @@ pub(super) fn reply(session: &mut Session, reply: managesieve::Reply) -> io::Res
     match reply {
         managesieve::Reply::Text(bytes) => session.push(&bytes),
         managesieve::Reply::ScramChallenge { response } => {
+            session.push(format!("\"{response}\"\r\n").as_bytes())
+        }
+        managesieve::Reply::ScramSha256Challenge { response } => {
             session.push(format!("\"{response}\"\r\n").as_bytes())
         }
         _ => session.push(b"NO \"state failure\"\r\n"),

@@ -34,6 +34,7 @@ enum Operation {
     SetActive,
     AuthenticatePlain,
     AuthenticateScramSha1,
+    AuthenticateScramSha256,
     AuthenticateMechanism,
     AuthenticateRejected,
     AuthenticateResponse,
@@ -144,6 +145,7 @@ impl LiteralReceiver {
             }
             Operation::AuthenticatePlain => auth_literal::initial_response(source),
             Operation::AuthenticateScramSha1 => auth_literal::initial_scram_response(source),
+            Operation::AuthenticateScramSha256 => auth_literal::sha256_response(source),
             Operation::AuthenticateMechanism => Progress::Invalid,
             Operation::AuthenticateRejected => Progress::Complete(Command::Invalid),
             Operation::AuthenticateResponse => auth_literal::challenge_response(source),

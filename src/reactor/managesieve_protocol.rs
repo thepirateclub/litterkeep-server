@@ -153,6 +153,11 @@ fn apply(
                 session, response, slot, generation, worker, owners, request_id,
             )
         }
+        managesieve::Reply::ScramSha256ClientFirst { response } => {
+            managesieve_scram_protocol::start_sha256_lookup(
+                session, response, slot, generation, worker, owners, request_id,
+            )
+        }
         managesieve::Reply::ScramChallenge { response } => {
             session.push(format!("\"{response}\"\r\n").as_bytes())
         }
@@ -160,7 +165,13 @@ fn apply(
             session.authenticated_account = Some(owner);
             session.push(&response)
         }
+        managesieve::Reply::ScramSha256Accepted { owner, response } => {
+            session.authenticated_account = Some(owner);
+            session.push(&response)
+        }
         managesieve::Reply::ScramRejected { response } => session
+            .push(format!("NO (SASL \"{response}\") \"authentication failed\"\r\n").as_bytes()),
+        managesieve::Reply::ScramSha256Rejected { response } => session
             .push(format!("NO (SASL \"{response}\") \"authentication failed\"\r\n").as_bytes()),
         reply => submit_command(session, reply, slot, generation, worker, owners, request_id),
     }

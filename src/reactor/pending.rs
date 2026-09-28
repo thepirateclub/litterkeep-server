@@ -160,6 +160,7 @@ pub(super) enum Pending {
         account: String,
     },
     ManageSieveScramLookup,
+    ManageSieveScramSha256Lookup,
     ManageSieveCommand,
 }
 

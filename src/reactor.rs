@@ -15,6 +15,8 @@ mod completion;
 mod completion_dispatch;
 #[path = "reactor/completion_id.rs"]
 mod completion_id;
+#[path = "reactor/completion_managesieve.rs"]
+mod completion_managesieve;
 #[path = "reactor/completion_retry.rs"]
 mod completion_retry;
 #[path = "reactor/deadline.rs"]

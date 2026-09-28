@@ -2,7 +2,7 @@
 
 Есть bounded parser/executor для обязательного профиля, fileinto, redirect,
 keep/discard, header/address/size tests и diagnostics. ManageSieve поддерживает
-STARTTLS, SASL PLAIN and SCRAM-SHA-1, literals, CHECKSCRIPT, PUTSCRIPT, LISTSCRIPTS, GETSCRIPT,
+STARTTLS, SASL PLAIN, SCRAM-SHA-1 and SCRAM-SHA-256, literals, CHECKSCRIPT, PUTSCRIPT, LISTSCRIPTS, GETSCRIPT,
 SETACTIVE, DELETESCRIPT и RENAMESCRIPT.
 
 RFC 5804 §2.1 string initial-response для AUTHENTICATE PLAIN теперь принимает
@@ -39,9 +39,16 @@ typed client-first parser с `n,,`, SASLprep username, nonce и optional
 extensions. Server-first/client-final/server-final semantic parsing и SASL
 state machine подключены в T328. T324 добавил server-first builder, T325
 client-final verifier, а T326 typed server-final message. T328 подключил
-ManageSieve session/reactor и проверил exchange независимым TLS peer. STARTTLS
-и Litterkeep app interop отдельно остаются непроверенными. SCRAM-SHA-256/PLUS
-не реализованы. Детали записаны в [учёте зависимостей](dependencies.md).
+ManageSieve session/reactor и проверил SHA-1 exchange независимым TLS peer;
+на checkpoint T328 SHA-256/PLUS ещё не реализованы. Детали текущего состояния
+записаны в [учёте зависимостей](dependencies.md).
+
+Текущий профиль после T358 рекламирует SCRAM-SHA-256 только поверх TLS и
+проводит его через отдельный SHA-256 verifier sidecar и Accounts owner worker.
+Независимые Linux implicit-TLS peers сверяют server signature, неверный proof,
+UNAUTHENTICATE и повторную работу сессии; отдельный STARTTLS peer проверяет
+переход от пустого SASL списка до capability после upgrade. Это не проверка
+Litterkeep app. SCRAM-SHA-256-PLUS и channel binding остаются неподдержанными.
 
 Для client-to-server literals receiver сначала читает ровно объявленное число
 octets, затем обязательный CRLF конца command line; только после него начинает

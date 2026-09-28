@@ -10505,3 +10505,29 @@ ManageSieve до заявленного набора современных фо
 - Это интеграция хранения, не поддержка wire-протокола: ManageSieve SASL state
   machine пока не подключена, механизм не рекламируется; PLUS/channel binding и
   независимый SCRAM клиент не проверялись.
+
+### 2026-09-28: G18 ManageSieve SCRAM-SHA-256 TLS wire, T358 PASS
+
+- SCRAM-SHA-256 подключён через typed ManageSieve AUTHENTICATE command, bounded
+  initial/continuation framing и отдельные session transitions. Credential lookup
+  проходит через typed request ограниченного Accounts owner worker-а.
+- SHA-256 обмен формирует server-first nonce challenge, проверяет canonical
+  Base64, `n,,` channel-binding input, точный nonce, 32-октетный client proof и
+  mutual server signature. Ошибка proof возвращает server-final
+  `e=invalid-proof`; отмена и невалидные кадры сбрасывают SASL state.
+- TLS-only capability после TLS объявляет `PLAIN SCRAM-SHA-1 SCRAM-SHA-256`;
+  до STARTTLS SASL список остаётся пустым. Независимый Linux implicit-TLS peer
+  прошёл SHA-256 success, signature, invalid proof, UNAUTHENTICATE и NOOP recovery;
+  SHA-1 peer также прошёл. Отдельный STARTTLS peer подтвердил capability
+  transitions, но SHA-256 authentication поверх STARTTLS отдельно не запускал.
+- Windows Rust 1.97.1 all-target: 988 library + 1 CLI passed, 4 ignored; fmt и
+  strict Clippy прошли. Linux Rust 1.97.1 all-target: 1101 library + 1 CLI
+  passed, 4 ignored; strict Clippy и release build прошли. Python peers прошли
+  `py_compile` и wire acceptance.
+- Переиспользован установленный Docker image `rust:1.97-bookworm` с ID
+  `sha256:0e2bcaef56d041a486784e54104a81aebe0da44bd03019bd70bc0401e42e4a97`;
+  временные контейнеры с `--rm` отсутствуют, новый image не создавался.
+  Артефакты и runtime fixture находятся в `./data/g18-scram-sha256-managesieve`.
+- Это acceptance независимого Python клиента, а не Litterkeep app. SCRAM-SHA-256
+  PLUS/channel binding и фактический SHA-256 exchange через STARTTLS остаются
+  открытыми; общий профиль ManageSieve и цель G18 остаются ACTIVE.

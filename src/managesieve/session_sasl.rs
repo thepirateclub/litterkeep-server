@@ -13,11 +13,11 @@ impl Session {
             (Phase::Authenticated { owner }, Command::Capability) => {
                 Reply::Text(capability(tls_active, starttls_available, Some(owner)))
             }
-            (Phase::Plain, Command::StartTls) if starttls_available && !tls_active => {
-                Reply::StartTls
-            }
-            (Phase::Plain, Command::StartTls)
-            | (Phase::Authenticated { .. }, Command::StartTls) => {
+            (Phase::Plain, Command::StartTls) => match (starttls_available, tls_active) {
+                (true, false) => Reply::StartTls,
+                _ => no("TLS is unavailable or already active"),
+            },
+            (Phase::Authenticated { .. }, Command::StartTls) => {
                 no("TLS is unavailable or already active")
             }
             (Phase::Authenticated { .. }, Command::Unauthenticate) => {
@@ -48,6 +48,15 @@ impl Session {
                 Reply::AuthenticateChallenge
             }
             (Phase::Plain, Command::AuthenticateScramSha1(_)) => no("encryption required"),
+            (Phase::Plain, Command::AuthenticateScramSha256(Some(response))) if tls_active => {
+                self.phase = Phase::AwaitingScramSha256Verifier;
+                Reply::ScramSha256ClientFirst { response }
+            }
+            (Phase::Plain, Command::AuthenticateScramSha256(None)) if tls_active => {
+                self.phase = Phase::AwaitingScramSha256FirstResponse;
+                Reply::AuthenticateChallenge
+            }
+            (Phase::Plain, Command::AuthenticateScramSha256(_)) => no("encryption required"),
             (Phase::AwaitingPlainResponse, Command::AuthenticateResponse(response)) => {
                 self.phase = Phase::Plain;
                 match SaslResponse::parse(response) {
@@ -61,8 +70,20 @@ impl Session {
             (Phase::AwaitingScramFinal, Command::AuthenticateResponse(response)) => {
                 self.scram_final_response(response)
             }
+            (Phase::AwaitingScramSha256FirstResponse, Command::AuthenticateResponse(response)) => {
+                super::session_scram_sha256::first_response(self, response)
+            }
+            (Phase::AwaitingScramSha256Final, Command::AuthenticateResponse(response)) => {
+                super::session_scram_sha256::final_response(self, response)
+            }
             (Phase::AwaitingScramFirstResponse, Command::Invalid)
             | (Phase::AwaitingScramFinal, Command::Invalid) => {
+                self.scram_failed();
+                no("invalid SASL response")
+            }
+            (Phase::AwaitingScramSha256Verifier, Command::Invalid)
+            | (Phase::AwaitingScramSha256FirstResponse, Command::Invalid)
+            | (Phase::AwaitingScramSha256Final, Command::Invalid) => {
                 self.scram_failed();
                 no("invalid SASL response")
             }
@@ -107,6 +128,8 @@ impl Session {
             Phase::AwaitingPlainResponse
                 | Phase::AwaitingScramFirstResponse
                 | Phase::AwaitingScramFinal
+                | Phase::AwaitingScramSha256FirstResponse
+                | Phase::AwaitingScramSha256Final
         )
     }
 
@@ -142,6 +165,8 @@ impl Session {
                     client_first,
                     server_first: None,
                     credential: None,
+                    sha256_server_first: None,
+                    sha256_credential: None,
                 });
                 true
             }

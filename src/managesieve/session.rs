@@ -2,6 +2,8 @@
 
 #[path = "session_sasl.rs"]
 mod session_sasl;
+#[path = "session_scram_sha256.rs"]
+mod session_scram_sha256;
 
 #[derive(Default)]
 pub(super) enum Phase {
@@ -14,6 +16,9 @@ pub(super) enum Phase {
     AwaitingScramFirstResponse,
     AwaitingScramVerifier,
     AwaitingScramFinal,
+    AwaitingScramSha256Verifier,
+    AwaitingScramSha256FirstResponse,
+    AwaitingScramSha256Final,
     Closed,
 }
 
@@ -27,6 +32,10 @@ pub enum Reply {
     ScramChallenge { response: String },
     ScramAccepted { owner: String, response: Vec<u8> },
     ScramRejected { response: String },
+    ScramSha256ClientFirst { response: String },
+    ScramSha256Challenge { response: String },
+    ScramSha256Accepted { owner: String, response: Vec<u8> },
+    ScramSha256Rejected { response: String },
     Unauthenticated(Vec<u8>),
     HaveSpace { name: String, size: u64 },
     Put { name: String, source: String },
@@ -50,6 +59,8 @@ pub(super) struct ScramExchange {
     pub(super) client_first: crate::sasl::scram_client_first::ClientFirst,
     pub(super) server_first: Option<crate::sasl::scram_server_first::ServerFirst>,
     pub(super) credential: Option<crate::sasl::scram_sha1_record::ScramSha1Record>,
+    pub(super) sha256_server_first: Option<crate::sasl::scram_sha256_server_first::ServerFirst>,
+    pub(super) sha256_credential: Option<crate::sasl::scram_sha256_record::ScramSha256Record>,
 }
 
 pub fn greeting(tls_active: bool, starttls_available: bool) -> Vec<u8> {
@@ -74,11 +85,11 @@ fn capability_lines(
 ) -> Vec<u8> {
     let mut output = b"\"IMPLEMENTATION\" \"litterkeep-server\"\r\n".to_vec();
     match (tls_active, starttls_available) {
-        (true, _) => output.extend_from_slice(b"\"SASL\" \"PLAIN SCRAM-SHA-1\"\r\n"),
+        (true, _) => output.extend_from_slice(b"\"SASL\" \"PLAIN SCRAM-SHA-1 SCRAM-SHA-256\"\r\n"),
         (false, true) => output.extend_from_slice(b"\"SASL\" \"\"\r\n"),
         (false, false) => {}
     }
-    if starttls_available && !tls_active {
+    if let (true, false) = (starttls_available, tls_active) {
         output.extend_from_slice(b"\"STARTTLS\"\r\n");
     }
     output.extend_from_slice(b"\"UNAUTHENTICATE\"\r\n");

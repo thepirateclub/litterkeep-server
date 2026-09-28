@@ -5,6 +5,11 @@ pub(super) fn write_completion(
     pending: Pending,
     response: Response,
 ) -> io::Result<()> {
+    let (pending, response) =
+        match super::completion_managesieve::dispatch(session, pending, response) {
+            super::completion_managesieve::Dispatch::Handled(result) => return result,
+            super::completion_managesieve::Dispatch::Unhandled(pair) => *pair,
+        };
     match (pending, response) {
         (
             Pending::Authenticate {
@@ -34,27 +39,6 @@ pub(super) fn write_completion(
         }
         (Pending::SmtpAuthenticate { account }, Response::Authenticated { result, .. }) => {
             smtp_completion::authenticated(session, account, result)
-        }
-        (Pending::ManageSieveAuthenticate { account }, Response::Authenticated { result, .. }) => {
-            managesieve_completion::authenticate(session, account, result)
-        }
-        (Pending::ManageSieveScramLookup, Response::ScramVerifier(response)) => {
-            managesieve_completion::scram_verifier(session, response.result)
-        }
-        (Pending::ManageSieveCommand, Response::SieveStored { result, .. }) => {
-            managesieve_completion::result(session, result.map(|_| ()))
-        }
-        (Pending::ManageSieveCommand, Response::SieveMutated { result, .. }) => {
-            managesieve_completion::result(session, result)
-        }
-        (Pending::ManageSieveCommand, Response::SieveSpace { result, .. }) => {
-            managesieve_completion::space(session, result)
-        }
-        (Pending::ManageSieveCommand, Response::SieveScripts { result, .. }) => {
-            managesieve_completion::list(session, result)
-        }
-        (Pending::ManageSieveCommand, Response::SieveSource { result, .. }) => {
-            managesieve_completion::source(session, result)
         }
         (
             Pending::ValidateRecipient { address, dsn },

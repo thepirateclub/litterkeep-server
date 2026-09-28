@@ -8,6 +8,7 @@ pub enum Command {
     Unauthenticate,
     AuthenticatePlain(Option<String>),
     AuthenticateScramSha1(Option<String>),
+    AuthenticateScramSha256(Option<String>),
     AuthenticateResponse(String),
     Logout,
     HaveSpace { name: String, size: u64 },
@@ -27,6 +28,7 @@ pub enum Command {
 pub enum SaslMechanism {
     Plain,
     ScramSha1,
+    ScramSha256,
     Unsupported,
 }
 
@@ -53,6 +55,7 @@ impl SaslMechanism {
         match value.to_ascii_uppercase().as_str() {
             "PLAIN" => Self::Plain,
             "SCRAM-SHA-1" => Self::ScramSha1,
+            "SCRAM-SHA-256" => Self::ScramSha256,
             _ => Self::Unsupported,
         }
     }
@@ -136,6 +139,10 @@ fn authenticate(mut words: impl Iterator<Item = String>) -> Command {
                 Command::AuthenticateScramSha1(Some(response))
             }
             (SaslMechanism::ScramSha1, None) => Command::AuthenticateScramSha1(None),
+            (SaslMechanism::ScramSha256, Some(response)) => {
+                Command::AuthenticateScramSha256(Some(response))
+            }
+            (SaslMechanism::ScramSha256, None) => Command::AuthenticateScramSha256(None),
             (SaslMechanism::Unsupported, _) => Command::Invalid,
         },
         _ => Command::Invalid,

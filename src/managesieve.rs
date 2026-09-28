@@ -7,6 +7,14 @@ mod scram_final;
 #[cfg(test)]
 #[path = "managesieve/scram_session_tests.rs"]
 mod scram_session_tests;
+#[cfg(test)]
+#[path = "managesieve/scram_sha256_command_tests.rs"]
+mod scram_sha256_command_tests;
+#[path = "managesieve/scram_sha256_final.rs"]
+mod scram_sha256_final;
+#[cfg(test)]
+#[path = "managesieve/scram_sha256_session_tests.rs"]
+mod scram_sha256_session_tests;
 #[path = "managesieve/session.rs"]
 mod session;
 #[cfg(test)]

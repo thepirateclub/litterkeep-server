@@ -1351,14 +1351,13 @@ capability transitions ManageSieve вокруг STARTTLS и AUTHENTICATE, а о�
 peer проверяет NOOP до аутентификации и обязательный echo response code `TAG`
 для quoted string. `UNAUTHENTICATE` сбрасывает состояние и owner, сохраняет TLS
 и допускает повторный AUTHENTICATE; независимый TLS peer это проверяет.
-Implicit-TLS проверен unit-тестом, а совместимость с Litterkeep остаётся
-непроверенной. RFC 5804 §2.1 требует SCRAM-SHA-1 и PLAIN; сервер реализует и
-объявляет только PLAIN, поэтому SCRAM остаётся conformance gap. Собственная
-SHA-1/HMAC-SHA-1/PBKDF2 реализация проходит полный RFC 5802 §5.1 crypto пример.
-RFC 4013 SASLprep и Argon2 PHC2/legacy migration уже интегрированы в общий
-account path, однако SCRAM-SHA-1 verifier persistence и ManageSieve
-authentication exchange ещё отсутствуют; более современный SCRAM-SHA-256 по
-RFC 7677 тоже не поддержан.
+Implicit-TLS SCRAM-SHA-1 и SCRAM-SHA-256 wire exchanges независимо сверяют proof
+и server signature. После STARTTLS отдельный peer проверяет пустой список SASL
+до TLS и публикацию `PLAIN SCRAM-SHA-1 SCRAM-SHA-256` после TLS upgrade.
+SCRAM-SHA-256 использует отдельный verifier sidecar и bounded Accounts owner
+lookup. Это независимый тестовый клиент, не Litterkeep app. SCRAM-SHA-256-PLUS
+и TLS channel binding остаются неподдержанными; полный профиль RFC 5804 ещё не
+закрыт.
 
 См. [Sieve/ManageSieve coverage](sieve-coverage.md) и
 [dependency/security notes](dependencies.md).
