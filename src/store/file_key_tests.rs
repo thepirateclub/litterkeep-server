@@ -171,6 +171,14 @@ fn unicode_account_credentials_folders_subscriptions_and_sieve_recover() {
         Some(root.join("accounts/utf8").as_path())
     );
     assert!(path(&root.join("accounts"), account, FileKind::ScramCredentials).is_file());
+    assert!(
+        path(
+            &root.join("accounts"),
+            account,
+            FileKind::ScramSha256Credentials
+        )
+        .is_file()
+    );
 
     let mut store = Store::open(&root).unwrap();
     store.folders(account).unwrap();

@@ -45,7 +45,9 @@ impl Accounts {
         drop(file);
         let directory = path.parent().unwrap_or(&self.root);
         crate::store::file_key::sync_key_directory(&self.root, directory)?;
-        match scram_store::create(&self.root, &name, password) {
+        match scram_store::create(&self.root, &name, password)
+            .and_then(|()| scram_store::create_sha256(&self.root, &name, password))
+        {
             Ok(()) => Ok(()),
             Err(error) => {
                 let credential_cleanup = fs::remove_file(path);
@@ -71,6 +73,7 @@ impl Accounts {
                 false => Ok(false),
                 true => {
                     scram_store::ensure(&self.root, &name, password)?;
+                    scram_store::ensure_sha256(&self.root, &name, password)?;
                     Ok(true)
                 }
             },
@@ -88,6 +91,15 @@ impl Accounts {
     ) -> io::Result<Option<crate::sasl::scram_sha1_record::ScramSha1Record>> {
         let name = identity::query_name(name)?;
         scram_store::load(&self.root, &name)
+    }
+
+    /// Загружает SHA-256 verifier через Accounts owner без выдачи пароля.
+    pub fn scram_sha256_verifier(
+        &self,
+        name: &str,
+    ) -> io::Result<Option<crate::sasl::scram_sha256_record::ScramSha256Record>> {
+        let name = identity::query_name(name)?;
+        scram_store::load_sha256(&self.root, &name)
     }
     /// Сообщает, существует ли допустимый локальный получатель.
     ///
@@ -141,6 +153,7 @@ impl Accounts {
     fn migrate_legacy(&self, name: &str, password: &[u8]) -> io::Result<()> {
         let credential = Credential::create(password)?;
         scram_store::ensure(&self.root, name, password)?;
+        scram_store::ensure_sha256(&self.root, name, password)?;
         let path = crate::store::file_key::prepare(
             &self.root,
             name,
@@ -203,6 +216,7 @@ impl Accounts {
             crate::store::file_key::FileKind::Credentials,
             crate::store::file_key::FileKind::SaslPrepCredentials,
             crate::store::file_key::FileKind::ScramCredentials,
+            crate::store::file_key::FileKind::ScramSha256Credentials,
         ];
         for kind in kinds {
             let entries = crate::store::file_key::entries(&self.root, kind)?;

@@ -2,7 +2,10 @@
 
 use super::{
     Accounts, Request, Response, StorageWorker,
-    sasl_lookup::{ScramVerifierRequest, ScramVerifierResponse},
+    sasl_lookup::{
+        ScramSha256VerifierRequest, ScramSha256VerifierResponse, ScramVerifierRequest,
+        ScramVerifierResponse,
+    },
 };
 
 /// Убеждается, что reactor получает запись только после bounded worker-запроса.
@@ -23,6 +26,31 @@ fn verifier_lookup_stays_inside_the_accounts_owner() {
         response,
         Response::ScramVerifier(ScramVerifierResponse {
             request_id: 12,
+            result: Ok(Some(_)),
+        })
+    ));
+    worker.shutdown();
+    std::fs::remove_dir_all(root).expect("удаление временной fixture");
+}
+
+/// SHA-256 record выдаётся только через ограниченный Accounts owner channel.
+#[test]
+fn sha256_verifier_lookup_stays_inside_the_accounts_owner() {
+    let root = test_root();
+    let accounts = Accounts::open(&root).expect("учётные записи");
+    accounts.create("bob", b"test-password").expect("аккаунт");
+    let worker = StorageWorker::start(&root, 1).expect("worker");
+    worker
+        .submit(Request::ScramSha256Verifier(ScramSha256VerifierRequest {
+            request_id: 13,
+            account: "bob".into(),
+        }))
+        .expect("запрос принят");
+    let response = receive(&worker);
+    assert!(matches!(
+        response,
+        Response::ScramSha256Verifier(ScramSha256VerifierResponse {
+            request_id: 13,
             result: Ok(Some(_)),
         })
     ));

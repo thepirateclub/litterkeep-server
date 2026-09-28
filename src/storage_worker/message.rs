@@ -11,6 +11,7 @@ use std::io;
 #[derive(Debug)]
 pub enum Request {
     ScramVerifier(super::sasl_lookup::ScramVerifierRequest),
+    ScramSha256Verifier(super::sasl_lookup::ScramSha256VerifierRequest),
     Authenticate {
         request_id: u64,
         username: String,
@@ -183,6 +184,7 @@ pub enum Request {
 #[derive(Debug)]
 pub enum Response {
     ScramVerifier(super::sasl_lookup::ScramVerifierResponse),
+    ScramSha256Verifier(super::sasl_lookup::ScramSha256VerifierResponse),
     Authenticated {
         request_id: u64,
         result: io::Result<bool>,

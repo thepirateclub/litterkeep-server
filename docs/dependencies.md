@@ -82,9 +82,11 @@ SHA-1 и TLS channel binding требования безопасности. SHA-
 versioned `ScramSha256Record`. Они не добавляют прямых production dependencies.
 SHA-256 сверяется с RFC 6234, HMAC с RFC 4231, PBKDF2 с RFC 7914 §11, а полный
 client proof/server signature — с примером RFC 7677 §3; iteration count
-ограничен значением 200000. Record пока не подключён к Accounts Store и
-ManageSieve SASL state machine, поэтому ни один протокол не рекламирует
-SCRAM-SHA-256. PLUS/channel binding также не реализованы.
+ограничен значением 200000. Аккаунты сохраняют SHA-256 verifier в отдельном
+sidecar и предоставляют его через типизированный запрос единственного Accounts
+worker; запрос не выводит секрет в Debug. Это storage-интеграция, а не протокольная
+поддержка: ManageSieve SASL state machine ещё не использует запись, поэтому
+SCRAM-SHA-256 не рекламируется. PLUS/channel binding также не реализованы.
 
 IMAP mailbox validation использует собственные generated ranges Unicode
 17.0.0, а не crate. Официальный источник, версия toolchain, SHA-256 и лицензия

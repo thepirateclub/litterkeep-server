@@ -8,6 +8,9 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
         Request::ScramVerifier(request) => {
             Response::ScramVerifier(super::sasl_lookup::load(accounts, request))
         }
+        Request::ScramSha256Verifier(request) => {
+            Response::ScramSha256Verifier(super::sasl_lookup::load_sha256(accounts, request))
+        }
         Request::Authenticate {
             request_id,
             username,

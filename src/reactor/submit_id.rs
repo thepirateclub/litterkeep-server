@@ -6,6 +6,7 @@ use super::*;
 pub(super) fn request_id(request: &Request) -> u64 {
     match request {
         Request::ScramVerifier(request) => request.request_id,
+        Request::ScramSha256Verifier(request) => request.request_id,
         Request::Authenticate { request_id, .. }
         | Request::ValidateRecipient { request_id, .. }
         | Request::Append { request_id, .. }

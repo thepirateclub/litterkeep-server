@@ -22,7 +22,10 @@ mod smtp_dsn_tests;
 use crate::{accounts::Accounts, store::Store};
 pub use imap_append::ImapAppendResult;
 pub use message::{Request, Response, SmtpDeliveryRequest};
-pub use sasl_lookup::{ScramVerifierRequest, ScramVerifierResponse};
+pub use sasl_lookup::{
+    ScramSha256VerifierRequest, ScramSha256VerifierResponse, ScramVerifierRequest,
+    ScramVerifierResponse,
+};
 use std::io;
 use std::path::Path;
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError};

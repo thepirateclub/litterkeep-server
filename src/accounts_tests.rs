@@ -36,7 +36,19 @@ fn new_account_password_uses_saslprep_credentials() {
         FileKind::SaslPrepCredentials,
     );
     let legacy = file_key::path(&root.join("accounts"), "alice", FileKind::Credentials);
+    let sha256 = file_key::path(
+        &root.join("accounts"),
+        "alice",
+        FileKind::ScramSha256Credentials,
+    );
     assert!(current.is_file());
+    assert!(sha256.is_file());
+    assert!(
+        accounts
+            .scram_sha256_verifier("alice")
+            .expect("SHA-256 verifier")
+            .is_some()
+    );
     assert!(!legacy.exists());
     fs::remove_dir_all(root).expect("remove test account data");
 }
@@ -135,8 +147,14 @@ fn legacy_phc_login_migrates_without_removing_the_original_hash() {
     assert!(accounts.create("bob", b"replacement").is_err());
     let migrated = file_key::path(&root.join("accounts"), "bob", FileKind::SaslPrepCredentials);
     let scram = file_key::path(&root.join("accounts"), "bob", FileKind::ScramCredentials);
+    let scram_sha256 = file_key::path(
+        &root.join("accounts"),
+        "bob",
+        FileKind::ScramSha256Credentials,
+    );
     assert!(migrated.is_file());
     assert!(scram.is_file());
+    assert!(scram_sha256.is_file());
     assert!(
         accounts
             .authenticate("bob", b"a")
@@ -159,6 +177,11 @@ fn existing_saslprep_account_gets_scram_record_only_after_correct_login() {
     fs::write(&path, format!("{}\n", legacy_hash(b"stored-password")))
         .expect("write preexisting PHC2 fixture");
     let scram_path = file_key::path(&root.join("accounts"), "erin", FileKind::ScramCredentials);
+    let scram_sha256_path = file_key::path(
+        &root.join("accounts"),
+        "erin",
+        FileKind::ScramSha256Credentials,
+    );
 
     assert!(
         accounts
@@ -172,6 +195,7 @@ fn existing_saslprep_account_gets_scram_record_only_after_correct_login() {
             .expect("reject login")
     );
     assert!(!scram_path.exists());
+    assert!(!scram_sha256_path.exists());
     assert!(
         accounts
             .authenticate("erin", b"stored-password")
@@ -181,6 +205,13 @@ fn existing_saslprep_account_gets_scram_record_only_after_correct_login() {
         accounts
             .scram_verifier("erin")
             .expect("read backfill")
+            .is_some()
+    );
+    assert!(scram_sha256_path.is_file());
+    assert!(
+        accounts
+            .scram_sha256_verifier("erin")
+            .expect("read SHA-256 backfill")
             .is_some()
     );
     assert!(

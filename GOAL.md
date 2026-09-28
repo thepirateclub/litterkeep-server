@@ -10486,3 +10486,22 @@ ManageSieve до заявленного набора современных фо
   lifecycle или protocol capability. Сквозной wire exchange, TLS resumption
   policy и SCRAM-SHA-256-PLUS/channel binding не подтверждены; механизм не
   рекламируется.
+
+### 2026-09-28: G18 SCRAM-SHA-256 Accounts owner storage, T357 PARTIAL
+
+- Создание аккаунта сохраняет SHA-256 SCRAM verifier в отдельном sidecar рядом
+  с действующими password и SCRAM-SHA-1 записями. При миграции старого аккаунта
+  sidecar появляется только после успешной проверки пароля; неверный пароль его
+  не создаёт. Ошибка создания очищает обе SCRAM-записи.
+- Типизированный запрос bounded storage-worker channel загружает verifier через
+  Accounts owner; Debug-представление запроса/ответа скрывает credential.
+- Windows Rust 1.97.1 `cargo test --locked --all-targets`: 985 library + 1 CLI
+  прошли, 4 ignored; fmt и strict Clippy прошли. Linux Rust 1.97.1 all-target:
+  1098 library + 1 CLI прошли, 4 ignored; strict Clippy и release build прошли.
+- Использован существующий Docker image `rust:1.97-bookworm`, ID
+  `sha256:0e2bcaef56d041a486784e54104a81aebe0da44bd03019bd70bc0401e42e4a97`;
+  disposable-контейнеры с `--rm` отсутствуют, новые images не создавались.
+  Артефакты тестового этапа изолированы в `./data/g18-scram-sha256-accounts`.
+- Это интеграция хранения, не поддержка wire-протокола: ManageSieve SASL state
+  machine пока не подключена, механизм не рекламируется; PLUS/channel binding и
+  независимый SCRAM клиент не проверялись.
