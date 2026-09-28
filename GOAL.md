@@ -1,5 +1,22 @@
 # Goal ledger
 
+### 2026-09-28: G18 EUC-JP MIME decoder and IMAP SEARCH, scoped PASS T303
+
+- Добавлен строгий EUC-JP decoder с типизированными WHATWG labels и четырьмя
+  wire-формами: ASCII, SS2 half-width kana, JIS X 0208 и SS3/JIS X 0212.
+  Malformed, truncated и незаданные index mappings завершаются ошибкой.
+- Две таблицы собраны Python stdlib генератором с pinned SHA-256. Исчерпывающая
+  проверка сверяет все 8 836 допустимых wire pointers каждой JIS ветки,
+  отдельные тесты сверяют японский текст, kana, JIS 0212 и отказные варианты.
+- Windows Rust 1.97.1 fmt, strict Clippy и all-target tests прошли (839 library
+  + 1 CLI, 3 ignored). Linux Rust 1.97 Docker gate прошёл strict Clippy, 948
+  library + 1 CLI, 3 ignored, doc-tests. Независимый Python 3.14 SMTP STARTTLS
+  -> IMAP UTF-8 SEARCH прошёл для всех 34 labels, включая EUC-JP `日本語かな`.
+- Исходные индексы оставлены в `./data/g18-eucjp-table-20260928`, acceptance
+  fixture в `./data/acceptance-mime-eucjp-20260928`. Созданный контейнер и оба
+  Docker image удалены и их отсутствие проверено. Litterkeep app,
+  ISO-2022-JP, Shift_JIS и EUC-KR не проверялись; G18 остаётся ACTIVE.
+
 ### 2026-09-28: G18 Big5/Big5-HKSCS MIME decoder and IMAP SEARCH, scoped PASS T302
 
 - Добавлен строгий собственный Big5 decoder с типизированным Charset и WHATWG

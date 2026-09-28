@@ -12,6 +12,10 @@ pub mod charset;
 mod charset_big5;
 #[path = "mime/charset_big5_table.rs"]
 mod charset_big5_table;
+#[path = "mime/charset_euc_jp.rs"]
+mod charset_euc_jp;
+#[path = "mime/charset_euc_jp_table.rs"]
+mod charset_euc_jp_table;
 #[path = "mime/charset_gb18030.rs"]
 mod charset_gb18030;
 #[path = "mime/charset_gb18030_table.rs"]

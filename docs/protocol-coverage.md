@@ -938,6 +938,15 @@ Unicode scalars. Независимый SMTP -> IMAP charset matrix провер
 [WHATWG Big5 decoder](https://encoding.spec.whatwg.org/#big5-decoder),
 [Big5 index](https://encoding.spec.whatwg.org/index-big5.txt) и
 [IANA charset registry](https://www.iana.org/assignments/character-sets/).
+EUC-JP добавлен отдельным strict decoder: ASCII, SS2 half-width katakana,
+двухбайтовый JIS X 0208 и SS3/JIS X 0212 читаются без runtime-зависимости.
+Обе WHATWG таблицы закреплены по SHA-256; runtime acceptance проверяет японский
+текст, kana и отдельные JIS X 0212 знаки. Unit suite сравнивает все 8 836
+wire-позиции каждой ветки с соответствующим таблицей. Остаются
+неподдержанными ISO-2022-JP, Shift_JIS и EUC-KR.
+Первичные источники: [WHATWG EUC-JP decoder](https://encoding.spec.whatwg.org/#euc-jp-decoder),
+[JIS X 0208 index](https://encoding.spec.whatwg.org/index-jis0208.txt) и
+[JIS X 0212 index](https://encoding.spec.whatwg.org/index-jis0212.txt).
 Отдельная
 SMTP -> IMAP wire-проверка доставила RFC 2047 Subject encoded-word варианты UTF-16,
 UTF-16BE/LE и UTF-32 с generic BE BOM, UTF-32BE/LE; UTF-8 SEARCH literal
