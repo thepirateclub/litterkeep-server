@@ -9,7 +9,9 @@ use crate::mail_date::MailDate;
 /// время с секундами либо без них. Obsolete named zones намеренно отвергаются,
 /// чтобы сомнительная дата не превращалась в ложное SEARCH-совпадение.
 pub fn parse(value: &[u8]) -> Option<SearchDate> {
-    let value = crate::mime::wsp::trim(std::str::from_utf8(value).ok()?);
+    let value = std::str::from_utf8(value).ok()?;
+    let value = crate::mime::structured_comments::remove(value).ok()?;
+    let value = crate::mime::wsp::trim(&value);
     let (weekday, date_time) = match value.split_once(',') {
         Some((weekday, tail)) => (
             Some(crate::mime::wsp::trim(weekday)),
@@ -118,6 +120,22 @@ mod tests {
     fn rejects_weekday_that_disagrees_with_calendar_date() {
         assert!(parse(b"Thu, 21 Nov 1997 09:55:06 -0600").is_none());
         assert!(parse(b"Fri, 21 Nov 1997 09:55:06 -0600").is_some());
+    }
+
+    /// RFC 822 CFWS comments не меняют компоненты корректной даты.
+    #[test]
+    fn accepts_nested_comments_between_date_time_components() {
+        let expected = SearchDate::parse("21-Nov-1997").expect("date");
+        assert_eq!(
+            parse(b"Fri (weekday (note)), (day) 21 (month) Nov (year) 97 (time) 09:55:06 (zone) -0600"),
+            Some(expected)
+        );
+    }
+
+    /// Незакрытый comment не превращается в частично распознанную дату.
+    #[test]
+    fn rejects_unterminated_comment_in_date_time() {
+        assert!(parse(b"Fri, 21 Nov 1997 09:55:06 (missing zone -0600").is_none());
     }
 
     /// Допустимая секунда 60 сохраняет календарный день при date-only поиске.

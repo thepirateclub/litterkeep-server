@@ -94,6 +94,9 @@ def main() -> None:
         b'read-date="Sat, 31 Dec 2016 23:59:60 +0000"\r\n\r\n'
         b"valid-disposition-dates-octets\r\n--meta-boundary\r\n"
         b"Content-Type: application/octet-stream\r\n"
+        b'Content-Disposition: attachment; creation-date="Fri (weekday (note)), (day) 21 (month) Nov (year) 97 (time) 09:55:06 (zone) -0600"\r\n\r\n'
+        b"commented-disposition-date-octets\r\n--meta-boundary\r\n"
+        b"Content-Type: application/octet-stream\r\n"
         b'Content-Disposition: attachment; filename=invalid-date.txt; creation-date="Fri, 31 Feb 1997 09:55:06 -0600"\r\n\r\n'
         b"invalid-disposition-date-octets\r\n--meta-boundary\r\n"
         b"Content-Type: application/octet-stream\r\n"
@@ -166,6 +169,7 @@ def main() -> None:
         b'"CREATION-DATE" "Fri, (weekday) 21 Nov 97 09:55:06 -0600"',
         b'"MODIFICATION-DATE" "21 Nov 1997 10:00 +0000"',
         b'"READ-DATE" "Sat, 31 Dec 2016 23:59:60 +0000"',
+        b'"CREATION-DATE" "Fri (weekday (note)), (day) 21 (month) Nov (year) 97 (time) 09:55:06 (zone) -0600"',
         b'("attachment" ("FILENAME" "invalid-date.txt"))',
         b'("attachment" ("FILENAME" "wrong-weekday.txt"))',
         b'("attachment" ("FILENAME" "invalid-width.txt"))',

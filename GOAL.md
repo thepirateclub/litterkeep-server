@@ -10023,3 +10023,18 @@ ManageSieve до заявленного набора современных фо
   прошёл на существующих Docker images, созданный контейнер удалён.
 - Это ограниченный RFC 5322 numeric-timezone профиль; obsolete варианты кроме
   numeric-year и прочие RFC 2183 gaps остаются. G18 ACTIVE.
+### 2026-09-28: G18 RFC 822 CFWS comments in MIME dates, scoped PASS T336
+
+- Общий date-time parser удаляет корректные RFC 822 comments до проверки
+  календарных компонентов; nested comments между компонентами сохраняются как
+  допустимый CFWS. Незакрытый comment приводит к отказу. Требование RFC 2183 к
+  числовой timezone не менялось.
+- Unit-регрессии проверяют допустимый вложенный CFWS и отказ от незакрытого
+  comment. Независимый Python 3.14 IMAP STARTTLS peer проверил BODYSTRUCTURE и
+  побайтный RFC822 FETCH у Linux Docker сервера. Это не проверка приложения
+  Litterkeep и не полная проверка obsolete date-time grammar.
+- Windows Rust 1.97.1: fmt, Python compile, all-target tests прошли
+  (927 library + 1 CLI, 4 ignored). Linux Rust 1.97.1: fmt, strict Clippy и
+  all-target tests прошли (1036 library + 1 CLI, 4 ignored). Использованы
+  существующие Docker images; созданный сервисный container удалён, новые
+  images не создавались. G18 остаётся ACTIVE.

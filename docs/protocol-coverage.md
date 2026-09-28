@@ -556,6 +556,12 @@ hour/minute/second to exactly two; seconds remain optional and `60` is accepted.
 Unit and independent IMAP STARTTLS BODYSTRUCTURE regressions reject wider day,
 one-digit clock fields and a three-digit hour while retaining the valid adjacent
 filename; original message octets remain unchanged.
+RFC 822 CFWS comments in quoted RFC 2183 date parameters are removed before
+calendar validation; nested comments between date-time components are accepted,
+while an unterminated comment invalidates the parameter. Unit tests and an
+independent Python IMAP STARTTLS peer verify the projected date and exact original
+RFC822 octets. This does not implement every obsolete date-time placement or
+relax the required numeric timezone.
 RFC 2231 §4.1 допускает charset/language metadata в начале первой encoded
 continuation секции. Ранее `Content-Disposition` parser терял language hint
 после общего параметрического разбора; `Disposition` теперь сохраняет typed
