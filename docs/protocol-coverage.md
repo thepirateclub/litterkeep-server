@@ -38,6 +38,11 @@ STARTTLS peer проверил оба байта при обоих BODY-проф
 BINARYMIME regression сохраняет произвольные NUL/high-bit/bare CR/LF octets в
 BDAT. См. [RFC 2045 §§2.7-2.9](https://www.rfc-editor.org/rfc/rfc2045.html#section-2.7)
 и [RFC 6152 §3](https://www.rfc-editor.org/rfc/rfc6152.html#section-3).
+Незавершённая DATA wire-строка ограничена до чтения CRLF: независимый STARTTLS
+peer отправляет более 26 MiB без разделителя, затем dot terminator, получает
+552 и успешно продолжает той же сессией командой NOOP. Это проверяет bounded
+input и синхронизацию после отказа, но не означает сохранение отвергнутого
+сообщения или проверку приложения Litterkeep. См. [RFC 5321 §4.5.3.1.6](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.1.6).
 До TLS AUTH запрещён. Ненулевой envelope sender должен принадлежать
 authenticated owner. RFC 6409 §3.2 разрешённый `MAIL FROM:<>` не отклоняется
 только из-за пустого reverse-path: authenticated identity даёт MSA return path;

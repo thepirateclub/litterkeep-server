@@ -1,5 +1,15 @@
 # Goal ledger
 
+### 2026-09-28: G18 SMTP DATA bounded incomplete-line wire acceptance, scoped PASS T311
+
+- Existing DATA receiver bounds an unterminated line fragment before CRLF and
+  drains to dot terminator; independent STARTTLS client sent more than 26 MiB,
+  observed 552, then successful NOOP in the same session.
+- This is bounded-memory/synchronization evidence for SMTP DATA only, not
+  general SMTP conformance or Litterkeep app interoperability. Acceptance is
+  recorded as T311; the pre-existing user-owned probe was run but not edited.
+- G18 remains ACTIVE; continue the cross-protocol RFC gap audit.
+
 ### 2026-09-28: G18 registered IANA MIME aliases, scoped PASS T308
 
 - Added explicitly enumerated aliases from the IANA registry for already
