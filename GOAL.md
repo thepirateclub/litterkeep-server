@@ -452,6 +452,21 @@
   recipient's notification entitlement; [RFC 3464 §2.3](https://www.rfc-editor.org/rfc/rfc3464.html#section-2.3)
   defines recipient-scoped field groups.
 
+### 2026-09-29: G18 independent SMTP DSN negotiation acceptance, PARTIAL T405
+
+- Built the Linux release binary with Rust 1.97.1, initialized a dedicated
+  `./data/g18-smtp-dsn-blackbox/runtime`, and ran the server in a disposable
+  container on loopback. Two independent Python raw-socket peers verified
+  EHLO's `250-DSN`, accepted MAIL `RET/ENVID` and RCPT `NOTIFY/ORCPT`, completed
+  DATA, and verified that the same parameters remain rejected after HELO.
+- Commands passed: `python tests/blackbox/smtp_dsn_negotiation.py 127.0.0.1 2525`
+  and `python tests/blackbox/smtp_dsn_refusal.py 127.0.0.1 2525`. The server
+  container was stopped and removed; `rust:1.97-bookworm` was reused, not
+  created. Build and Store artifacts remain under `./data`.
+- This verifies plain ESMTP negotiation and transaction acceptance only.
+  It does not yet verify emitted failure/success/delay DSNs on the network,
+  parameter propagation to an external relay, or Litterkeep app behavior.
+
 ### 2026-09-28: G18 RFC 3464 Final-Recipient mailbox syntax, T382 PASS
 
 - Исправлен generated failure DSN: `Final-Recipient` теперь содержит

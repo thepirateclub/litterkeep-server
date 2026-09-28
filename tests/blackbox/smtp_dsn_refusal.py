@@ -1,73 +1,88 @@
-"""Проверяет отказ от неподдерживаемого RFC 3461 параметра и recovery SMTP."""
+"""Проверяет, что RFC 3461 параметры требуют EHLO, а не HELO."""
 
 import argparse
 import socket
+from enum import IntEnum
 
 
-ARGUMENTS = argparse.ArgumentParser()
-ARGUMENTS.add_argument("host", nargs="?", default="127.0.0.1")
-ARGUMENTS.add_argument("port", nargs="?", type=int, default=2525)
-OPTIONS = ARGUMENTS.parse_args()
+class ReplyCode(IntEnum):
+    """Числовые исходы команд ограничения DSN по greeting mode."""
+
+    GREETING = 220
+    SUCCESS = 250
+    PARAMETER_REQUIRES_EHLO = 555
+    BYE = 221
 
 
-def read_reply(client):
-    """Читает один SMTP reply и возвращает его без интерпретации клиентским SDK."""
-    response = client.recv(4096)
-    if not response:
-        raise AssertionError("SMTP peer closed before replying")
+def read_reply(stream):
+    """Считывает многострочный ответ до строки с завершающим SP-разделителем."""
+    lines = []
+    while True:
+        line = stream.readline()
+        if not line:
+            raise AssertionError("SMTP peer closed before completing its reply")
+        lines.append(line)
+        if len(line) < 4 or line[3:4] == b" ":
+            return b"".join(lines)
+
+
+def exchange(stream, request, expected):
+    """Проверяет числовой код ответа на одну команду."""
+    stream.write(request)
+    response = read_reply(stream)
+    actual = ReplyCode(int(response[:3]))
+    if actual != expected:
+        raise AssertionError(f"{request!r}: expected {expected}, got {response!r}")
     return response
 
 
-def exchange(client, request, expected):
-    """Сверяет точный ожидаемый статус-код после отдельной команды."""
-    client.sendall(request)
-    response = read_reply(client)
-    if not response.startswith(expected):
-        raise AssertionError(f"{request!r}: expected {expected!r}, got {response!r}")
-    return response
+def verify(host, port):
+    """Сверяет отказ в HELO-режиме и поддержку параметров после EHLO."""
+    with socket.create_connection((host, port), timeout=10) as connection:
+        connection.settimeout(10)
+        stream = connection.makefile("rwb", buffering=0)
+        greeting = read_reply(stream)
+        if int(greeting[:3]) != ReplyCode.GREETING:
+            raise AssertionError(f"expected SMTP 220 greeting, got {greeting!r}")
+        exchange(stream, b"HELO dsn.test\r\n", ReplyCode.SUCCESS)
+        exchange(
+            stream,
+            b"MAIL FROM:<alice@test> ENVID=queue-9\r\n",
+            ReplyCode.PARAMETER_REQUIRES_EHLO,
+        )
+        exchange(stream, b"MAIL FROM:<alice@test>\r\n", ReplyCode.SUCCESS)
+        exchange(
+            stream,
+            b"RCPT TO:<bob@test> NOTIFY=FAILURE ORCPT=rfc822;bob@test\r\n",
+            ReplyCode.PARAMETER_REQUIRES_EHLO,
+        )
+        exchange(stream, b"RSET\r\n", ReplyCode.SUCCESS)
+        ehlo = exchange(stream, b"EHLO dsn.test\r\n", ReplyCode.SUCCESS)
+        if b"250-DSN\r\n" not in ehlo:
+            raise AssertionError(f"EHLO did not advertise RFC 3461 DSN: {ehlo!r}")
+        exchange(
+            stream,
+            b"MAIL FROM:<alice@test> ENVID=queue-9\r\n",
+            ReplyCode.SUCCESS,
+        )
+        exchange(
+            stream,
+            b"RCPT TO:<bob@test> NOTIFY=FAILURE ORCPT=rfc822;bob@test\r\n",
+            ReplyCode.SUCCESS,
+        )
+        exchange(stream, b"RSET\r\n", ReplyCode.SUCCESS)
+        exchange(stream, b"QUIT\r\n", ReplyCode.BYE)
 
 
-with socket.create_connection((OPTIONS.host, OPTIONS.port), timeout=10) as smtp:
-    greeting = read_reply(smtp)
-    if not greeting.startswith(b"220"):
-        raise AssertionError(f"expected SMTP 220 greeting, got {greeting!r}")
+def main():
+    """Разбирает endpoint и запускает raw-socket acceptance."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("host", nargs="?", default="127.0.0.1")
+    parser.add_argument("port", nargs="?", type=int, default=2525)
+    options = parser.parse_args()
+    verify(options.host, options.port)
+    print("PASS smtp-dsn-greeting: HELO rejects DSN and EHLO accepts it")
 
-    ehlo = exchange(smtp, b"EHLO dsn.test\r\n", b"250")
-    if b"DSN" in ehlo.upper():
-        raise AssertionError("server advertised the unsupported DSN extension")
 
-    exchange(
-        smtp,
-        b"MAIL FROM:<alice@test> RET=HDRS ENVID=job+2B42\r\n",
-        b"555 5.5.4",
-    )
-    exchange(smtp, b"MAIL FROM:<alice@test>\r\n", b"250")
-    refusal = exchange(
-        smtp,
-        b"RCPT TO:<bob@test> NOTIFY=SUCCESS ORCPT=rfc822;bob+40test\r\n",
-        b"555 5.5.4",
-    )
-    if b"unsupported command parameter" not in refusal.lower():
-        raise AssertionError(f"unexpected DSN refusal text: {refusal!r}")
-
-    utf8_refusal = exchange(
-        smtp,
-        b"RCPT TO:<bob@test> NOTIFY=SUCCESS ORCPT=utf-8;bob@\\x{4F8B}.test\r\n",
-        b"555 5.5.4",
-    )
-    if b"unsupported command parameter" not in utf8_refusal.lower():
-        raise AssertionError(f"unexpected UTF-8 ORCPT refusal text: {utf8_refusal!r}")
-
-    unitext_refusal = exchange(
-        smtp,
-        "RCPT TO:<bob@test> NOTIFY=SUCCESS ORCPT=utf-8;bob@例.test\r\n".encode(),
-        b"555 5.5.4",
-    )
-    if b"unsupported command parameter" not in unitext_refusal.lower():
-        raise AssertionError(f"unexpected UTF-8 unitext refusal text: {unitext_refusal!r}")
-
-    exchange(smtp, b"NOOP\r\n", b"250")
-    exchange(smtp, b"RSET\r\n", b"250")
-    exchange(smtp, b"QUIT\r\n", b"221")
-
-print("PASS smtp-dsn-refusal: no DSN capability, exact 555, session recovery")
+if __name__ == "__main__":
+    main()

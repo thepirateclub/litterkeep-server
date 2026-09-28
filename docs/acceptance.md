@@ -1,5 +1,18 @@
 # Итоговая приёмка
 
+## RFC 3461 SMTP DSN negotiation
+
+T405: после включения RFC 3461 wire capability независимые Python raw-socket
+клиенты проверяют `250-DSN` в EHLO, принятие `MAIL RET=HDRS ENVID=...` и
+`RCPT NOTIFY=FAILURE ORCPT=...`, завершённую DATA транзакцию, а также отказ тех
+же параметров после HELO. Запускались
+`tests/blackbox/smtp_dsn_negotiation.py` и
+`tests/blackbox/smtp_dsn_refusal.py` против Linux Rust 1.97.1 release сервера
+в отдельном Store. Это доказывает ESMTP negotiation и envelope acceptance,
+не отправку итоговых DSN через сеть, не downstream relay и не взаимодействие
+с Litterkeep app. Более ранние T349/T350 фиксируют старое состояние отказа до
+включения capability и не описывают текущий сервер.
+
 Машиночитаемая матрица находится в `docs/acceptance.tsv`. Статус G12 не
 завышается: 44 G12 checks имеют PASS, T23 имеет NOT RUN, T25 имеет BLOCKED.
 Отдельный G17 T28 добавлен в ту же матрицу и не меняет оценку G12.
