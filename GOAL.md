@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-28: G18 SCRAM client-first message semantics, scoped PASS T323
+
+- `scram_client_first` принимает профиль GS2 `n,,`, требует ordered `n` then
+  `r`, проверяет RFC saslname `=2C`/`=3D`, применяет SASLprep query к username,
+  проверяет printable nonce и сохраняет exact `client-first-bare` transcript.
+  Unknown optional extensions игнорируются, как предписывает RFC; mandatory
+  `m=` отклоняется нижележащим parser-ом.
+- RFC 5802 §7 аудит выявил чрезмерное ASCII-only ограничение T322. Общий
+  attribute `value-char` теперь принимает UTF-8 и пробелы/control за
+  исключением NUL/comma delimiter; printable ASCII проверяется только для
+  nonce. Это исправление зафиксировано в coverage, а не скрыто как новый PASS.
+- Одиннадцать focused SCRAM parser тестов прошли. Windows Rust 1.97.1:
+  897 библиотечных и 1 CLI тест прошли, 4 игнорированы; fmt и strict Clippy
+  прошли. Linux Docker Rust 1.97.1: 1002 библиотечных и 1 CLI тест прошли,
+  4 игнорированы; fmt и strict Clippy прошли. Контейнер удалён через `--rm`.
+- Это не server-first/client-final/server-final parser, SASL state machine
+  или ManageSieve wire exchange; capability не рекламируется. G18 ACTIVE.
+
 ### 2026-09-28: G18 bounded SCRAM attribute syntax, scoped PASS T322
 
 - Добавлен типизированный парсер SCRAM attribute list: односимвольные ASCII

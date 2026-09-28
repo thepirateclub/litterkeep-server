@@ -100,11 +100,11 @@ fn attribute_name(value: char) -> AttributeName {
     }
 }
 
-/// Отклоняет пробелы, управляющие и не-ASCII октеты до протокольной семантики.
+/// Ограничивает значение допустимыми SCRAM value-char после UTF-8 декодирования.
 fn valid_value(value: &str) -> bool {
     value
-        .bytes()
-        .all(|octet| octet.is_ascii() && !octet.is_ascii_control() && !octet.is_ascii_whitespace())
+        .chars()
+        .all(|character| character != '\0' && character != ',')
 }
 
 #[cfg(test)]

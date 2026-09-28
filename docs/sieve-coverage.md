@@ -29,9 +29,12 @@ T317 подтверждает legacy-переход независимым SMTP 
 вычисления server signature. T320 добавил versioned случайно salted sidecar для
 новых аккаунтов и строгую загрузку verifier. T321 backfill-ит sidecar для
 существующего `.phc2` только после успешного парольного входа; legacy `.phc`
-миграция также публикует SCRAM sidecar. T322 добавил bounded syntax parser
-SCRAM attributes, но не валидатор комбинаций полей или SASL state machine.
-Independent ManageSieve wire exchange всё ещё отсутствует.
+миграция также публикует SCRAM sidecar. T322 добавил bounded syntax parser;
+T323 исправил его ASCII-only value restriction согласно RFC 5802 §7 и добавил
+typed client-first parser с `n,,`, SASLprep username, nonce и optional
+extensions. Server-first/client-final/server-final semantic parsing и SASL
+state machine пока отсутствуют. Independent ManageSieve wire exchange также
+отсутствует.
 T318 сверил контракт с RFC 5804 §2.1 и RFC 7677: обязательный ManageSieve
 SCRAM-SHA-1 не реализован, более современный SCRAM-SHA-256 также не реализован.
 Детали записаны в [учёте зависимостей](dependencies.md). SCRAM не рекламируется.

@@ -50,8 +50,9 @@ fn bounds_message_and_attribute_count_before_unbounded_collection() {
 }
 
 #[test]
-fn rejects_non_ascii_and_whitespace_attribute_values() {
-    for invalid in ["n=has space", "n=has\ttab", "n=юзер"] {
-        assert!(parse(invalid).is_err(), "accepted {invalid:?}");
+fn accepts_utf8_and_space_in_opaque_values_but_rejects_nul() {
+    for valid in ["n=has space", "n=юзер", "n=tab\tvalue"] {
+        assert!(parse(valid).is_ok(), "rejected {valid:?}");
     }
+    assert!(parse("n=has\0nul").is_err());
 }

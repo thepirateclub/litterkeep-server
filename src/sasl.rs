@@ -12,6 +12,8 @@ pub mod saslprep;
 mod saslprep_data;
 #[path = "sasl/scram_attributes.rs"]
 pub mod scram_attributes;
+#[path = "sasl/scram_client_first.rs"]
+pub mod scram_client_first;
 #[path = "sasl/scram_sha1_record.rs"]
 pub mod scram_sha1_record;
 #[path = "sasl/scram_sha1_verifier.rs"]

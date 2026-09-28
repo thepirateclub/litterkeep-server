@@ -47,15 +47,21 @@ parsing, ManageSieve state machine с SASL continuation и независимы�
 acceptance.
 Для подготовки протокольного слоя модуль `scram_attributes` разбирает только
 ограниченный синтаксис уникальных односимвольных атрибутов, отклоняет
-неподдержанные mandatory extension `m=`, non-ASCII/whitespace значения и
-ограничивает сообщение 16 KiB и 26 атрибутами. Это не message-specific
-валидация полей client-first/server-first/client-final/server-final и не
-доказательство ManageSieve interoperability.
+неподдержанные mandatory extension `m=` и ограничивает сообщение 16 KiB и
+26 атрибутами. T323 исправил чрезмерное ASCII-only ограничение T322: по RFC
+5802 §7 обычные `value-char` включают UTF-8 и пробельные/control октеты,
+кроме NUL и разделителя comma; отдельный nonce профиль ограничен printable
+ASCII без comma. `scram_client_first` поддерживает только GS2 `n,,`, username
+SASLprep/escaping и сохраняет точный transcript; optional extensions
+игнорируются как требует RFC. Другие SCRAM message формы и ManageSieve wire
+interoperability пока не реализованы.
 Crypto API проверяет proof с постоянновременным сравнением StoredKey и строит
 server signature; это не заменяет end-to-end проверку протокольного transcript.
 [`RFC 5804 §2.1`](https://www.rfc-editor.org/rfc/rfc5804.html#section-2.1)
 прямо требует SCRAM-SHA-1 вместе с PLAIN over TLS; этот механизм не
-рекламируется до завершения verifier и exchange. [RFC 7677](https://www.rfc-editor.org/rfc/rfc7677.html) регистрирует
+рекламируется до завершения verifier и exchange. Синтаксическая основа сверялась
+по [RFC 5802 §7](https://www.rfc-editor.org/rfc/rfc5802.html#section-7).
+[RFC 7677](https://www.rfc-editor.org/rfc/rfc7677.html) регистрирует
 SCRAM-SHA-256, более сильный алгоритм семейства, и отмечает связанные с
 SHA-1 и TLS channel binding требования безопасности. SHA-256 SCRAM и PLUS
 варианты также не реализованы; security-профиль следует закрывать прежде
