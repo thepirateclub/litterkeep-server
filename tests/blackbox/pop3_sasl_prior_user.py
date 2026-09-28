@@ -84,6 +84,7 @@ def rejected_commands(stream: socket.SocketIO, password: str) -> None:
     maximum_password = b"x" * 4096
     maximum_response = base64.b64encode(b"\x00bob\x00" + maximum_password)
     authenticate_plain(stream, maximum_response, b"-ERR authentication failed")
+    verify_maximum_scram_first(stream)
     exchange(stream, b"AUTH PLAIN", b"+ ")
     exchange(stream, b"*", b"-ERR authentication cancelled")
     exchange(stream, b"AUTH PLAIN", b"+ ")
@@ -120,6 +121,44 @@ def write_all(stream: socket.SocketIO, payload: bytes) -> None:
                 raise ConnectionError("socket перестал принимать POP3 acceptance bytes")
             case count:
                 remaining = remaining[count:]
+
+
+def verify_maximum_scram_first(stream: socket.SocketIO) -> None:
+    """Проверяет max client-first и следующий client-final с nonce overhead."""
+    exchange(stream, b"AUTH SCRAM-SHA-256", b"+ ")
+    username_and_nonce = b"n=bob,r="
+    client_nonce = b"A" * (16 * 1024 - len(username_and_nonce))
+    client_first = username_and_nonce + client_nonce
+    sasl_payload = base64.b64encode(b"n,," + client_first)
+    write_all(stream, sasl_payload + b"\r\n")
+    challenge = read_line(stream, "maximum SCRAM server-first challenge")
+    if not challenge.startswith(b"+ "):
+        raise AssertionError(f"максимальный SCRAM response отклонён: {challenge!r}")
+    encoded_challenge = challenge.removeprefix(b"+ ").removesuffix(b"\r\n")
+    server_first = base64.b64decode(encoded_challenge, validate=True)
+    nonce_field, separator, _ = server_first.partition(b",")
+    match (separator, nonce_field.startswith(b"r=" + client_nonce)):
+        case (b",", True):
+            pass
+        case _:
+            raise AssertionError("SCRAM challenge потерял полный client nonce prefix")
+    server_nonce = nonce_field.removeprefix(b"r=")
+    client_final = b"c=biws,r=" + server_nonce + b",p="
+    client_final += base64.b64encode(bytes(32))
+    if len(client_final) != 16 * 1024 + 72:
+        raise AssertionError(f"неожиданная граница SCRAM client-final: {len(client_final)}")
+    write_all(stream, base64.b64encode(client_final) + b"\r\n")
+    server_final = read_line(stream, "maximum SCRAM client-final response")
+    if not server_final.startswith(b"+ "):
+        raise AssertionError(f"maximal SCRAM client-final отклонён: {server_final!r}")
+    result = base64.b64decode(
+        server_final.removeprefix(b"+ ").removesuffix(b"\r\n"), validate=True
+    )
+    if result != b"e=invalid-proof":
+        raise AssertionError(f"неожиданный server-final на неверный proof: {result!r}")
+    failed = exchange(stream, b"", b"-ERR")
+    if failed != b"-ERR authentication failed\r\n":
+        raise AssertionError(f"неожиданный исход невалидного SCRAM proof: {failed!r}")
 
 
 def authenticate_plain(

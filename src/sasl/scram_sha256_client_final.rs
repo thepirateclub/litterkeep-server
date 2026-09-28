@@ -34,7 +34,8 @@ pub fn parse_with_binding(
     expected_nonce: &str,
     expected_binding: &[u8],
 ) -> Result<ClientFinal, ClientFinalError> {
-    let attributes = scram_attributes::parse(message).map_err(ClientFinalError::Attributes)?;
+    let attributes =
+        scram_attributes::parse_client_final(message).map_err(ClientFinalError::Attributes)?;
     let (channel_binding, nonce, proof) = match attributes.as_slice() {
         [channel_binding, nonce, extensions @ .., proof] => match (
             channel_binding.name,

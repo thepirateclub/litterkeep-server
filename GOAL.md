@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-28: G19 POP3 SCRAM nonce-expansion final bound, T375 PASS
+
+- SCRAM client-first остаётся ограничен 16 KiB. Его допустимый nonce может
+  расшириться серверным nonce suffix, channel-binding и proof полями в
+  client-final; единый лимит ранее отвергал корректный ответ этого обмена.
+  Client-final теперь использует отдельный жёсткий лимит 16 KiB + 136 октетов,
+  сохраняя исходный лимит для остальных SCRAM сообщений.
+- Независимый STARTTLS peer послал client-first ровно 16 KiB и получил
+  challenge с сохранённым nonce. Соответствующий SHA-256 client-final длиной
+  16 KiB + 72 октета прошёл parser и дошёл до ожидаемого `invalid-proof`;
+  сессия завершилась обычным отказом аутентификации. Это проверка границы
+  проекта, не полный размерный аудит или заявление о полном RFC 5034.
+- Rust 1.97.1 Linux полная suite прошла (1113 library + 1 CLI, 4 ignored),
+  strict Clippy и release build прошли; Python syntax и независимая живая
+  acceptance прошли. Переиспользованы `rust:1.97-bookworm` и `./data`;
+  временный listener удалён, новый image не создавался. Litterkeep app не
+  проверялась.
+
 ### 2026-09-28: G19 POP3 PLAIN maximum supported password continuation, T374 PASS
 
 - Независимый STARTTLS peer отправляет RFC 5034 PLAIN continuation с паролем

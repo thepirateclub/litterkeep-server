@@ -24,7 +24,8 @@ pub enum ClientFinalError {
 
 /// Разбирает RFC 5802 client-final для GS2 `n,,` без channel binding.
 pub fn parse(message: &str, expected_nonce: &str) -> Result<ClientFinal, ClientFinalError> {
-    let attributes = scram_attributes::parse(message).map_err(ClientFinalError::Attributes)?;
+    let attributes =
+        scram_attributes::parse_client_final(message).map_err(ClientFinalError::Attributes)?;
     let (channel_binding, nonce, proof) = match attributes.as_slice() {
         [channel_binding, nonce, extensions @ .., proof]
             if channel_binding.name == AttributeName::ChannelBinding

@@ -2,6 +2,8 @@
 
 /// Локальные границы не дают одной SASL-строке расходовать неограниченную память.
 pub const MAX_MESSAGE_SIZE: usize = 16 * 1024;
+/// Client-final включает server nonce и channel binding сверх принятого client-first.
+pub const MAX_CLIENT_FINAL_SIZE: usize = MAX_MESSAGE_SIZE + 136;
 /// Максимальное число атрибутов в одном SCRAM сообщении.
 pub const MAX_ATTRIBUTE_COUNT: usize = 26;
 
@@ -40,10 +42,20 @@ pub enum ParseError {
 
 /// Разбирает список `name=value`, отвергая повторы и неизвестные обязательные расширения.
 pub fn parse(message: &str) -> Result<Vec<Attribute>, ParseError> {
+    parse_with_limit(message, MAX_MESSAGE_SIZE)
+}
+
+/// Разбирает client-final с запасом для добавленного server nonce и TLS binding.
+pub fn parse_client_final(message: &str) -> Result<Vec<Attribute>, ParseError> {
+    parse_with_limit(message, MAX_CLIENT_FINAL_SIZE)
+}
+
+/// Разбирает атрибуты до переданного профильного предела, не меняя grammar.
+fn parse_with_limit(message: &str, limit: usize) -> Result<Vec<Attribute>, ParseError> {
     if message.is_empty() {
         return Err(ParseError::EmptyMessage);
     }
-    if message.len() > MAX_MESSAGE_SIZE {
+    if message.len() > limit {
         return Err(ParseError::MessageTooLarge);
     }
     if message.split(',').take(MAX_ATTRIBUTE_COUNT + 1).count() > MAX_ATTRIBUTE_COUNT {

@@ -50,6 +50,20 @@ fn bounds_message_and_attribute_count_before_unbounded_collection() {
 }
 
 #[test]
+fn client_final_allows_nonce_and_binding_overhead_but_remains_bounded() {
+    let exact = format!("x={}", "a".repeat(MAX_CLIENT_FINAL_SIZE - 2));
+    let oversized = format!("{exact}a");
+
+    assert_eq!(exact.len(), MAX_CLIENT_FINAL_SIZE);
+    assert!(parse_client_final(&exact).is_ok());
+    assert_eq!(
+        parse_client_final(&oversized),
+        Err(ParseError::MessageTooLarge)
+    );
+    assert_eq!(parse(&exact), Err(ParseError::MessageTooLarge));
+}
+
+#[test]
 fn accepts_utf8_and_space_in_opaque_values_but_rejects_nul() {
     for valid in ["n=has space", "n=юзер", "n=tab\tvalue"] {
         assert!(parse(valid).is_ok(), "rejected {valid:?}");
