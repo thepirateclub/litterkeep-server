@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-28: G19 POP3 SASL continuation beyond command limit, T371 PASS
+
+- RFC 5034 §4 отделяет ограничение initial-response команды (255 октетов по
+  RFC 2449) от последующих SASL challenge/response строк, длина которых зависит
+  от механизма. Независимый STARTTLS acceptance отправляет корректный PLAIN
+  continuation с 256-байтовым паролем; Base64 строка превышает 255 октетов.
+  Сервер принимает framing как SASL response и возвращает результат проверки
+  credentials, а не ошибку длины обычной POP3 команды.
+- Полный Python STARTTLS acceptance `pop3_sasl_prior_user.py` прошёл на Linux
+  Rust 1.97.1 listener-е, включая не рекламируемый DIGEST-MD5 и сохранение USER
+  через отказы. Python 3.14.7 `py_compile` и `git diff --check` прошли.
+- Переиспользованы `rust:1.97-bookworm` и локальный runtime под `./data`;
+  listener удалён и отсутствие проверено, образ не создавался. Эта граница
+  подтверждена для 348-октетного Base64 PLAIN payload; не заявляется испытание
+  максимального разрешённого transport buffer или всех SASL-механизмов.
+
 ### 2026-09-28: G19 reject unadvertised SASL mechanism, T370 PASS
 
 - Исправлен устаревший независимый acceptance `pop3_sasl_prior_user.py`: после

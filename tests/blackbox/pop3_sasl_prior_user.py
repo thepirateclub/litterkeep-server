@@ -79,6 +79,12 @@ def rejected_commands(stream: socket.SocketIO, password: str) -> None:
     exchange(stream, b"AUTH PLAIN =", b"-ERR invalid AUTH PLAIN credentials")
     exchange(stream, b"AUTH PLAIN !!!", b"-ERR invalid AUTH PLAIN credentials")
     exchange(stream, b"AUTH PLAIN", b"+ ")
+    long_password = b"x" * 256
+    long_response = base64.b64encode(b"\x00bob\x00" + long_password)
+    if len(long_response) <= 255:
+        raise AssertionError("test SASL response must exceed the POP3 command limit")
+    exchange(stream, long_response, b"-ERR authentication failed")
+    exchange(stream, b"AUTH PLAIN", b"+ ")
     exchange(stream, b"*", b"-ERR authentication cancelled")
     exchange(stream, b"AUTH PLAIN", b"+ ")
     exchange(stream, b"!!!", b"-ERR invalid AUTH PLAIN credentials")
