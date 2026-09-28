@@ -1,5 +1,22 @@
 # Goal ledger
 
+### 2026-09-28: G19 POP3 PLAIN maximum supported password continuation, T374 PASS
+
+- Независимый STARTTLS peer отправляет RFC 5034 PLAIN continuation с паролем
+  ровно 4096 байт, что соответствует верхней границе установленного SCRAM
+  credential verifier. Вместе с `bob` и двумя NUL разделителями Base64
+  response занимает 5468 октетов. Сервер принимает его как SASL response и
+  доходит до ожидаемого `-ERR authentication failed` для намеренно неверного
+  пароля; ошибка лимита POP3 command или invalid Base64 не возвращается.
+- Проверен именно парольный максимум текущего credential профиля, а не
+  наибольшие теоретические SCRAM nonce/все валидные authcid. RFC 5034 §4
+  обязывает peer-ы обрабатывать наибольшие ответы поддерживаемых механизмов;
+  полный такой размерный аудит остаётся открытым.
+- Python 3.14.7 syntax и полный независимый STARTTLS POP3 acceptance прошли на
+  имеющемся Linux Rust 1.97.1 release listener-е. `rust:1.97-bookworm` и
+  `./data/g19-pop3-scram-linux` переиспользованы; временный listener удалён,
+  новый image не создавался. Litterkeep app этим тестом не проверялась.
+
 ### 2026-09-28: G19 oversized POP3 SASL continuation bounded discard, T373 PASS
 
 - Reactor больше не закрывает POP3 session только из-за превышения общего

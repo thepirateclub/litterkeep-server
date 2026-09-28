@@ -81,6 +81,9 @@ def rejected_commands(stream: socket.SocketIO, password: str) -> None:
     long_password = b"x" * 256
     long_response = base64.b64encode(b"\x00bob\x00" + long_password)
     authenticate_plain(stream, long_response, b"-ERR authentication failed")
+    maximum_password = b"x" * 4096
+    maximum_response = base64.b64encode(b"\x00bob\x00" + maximum_password)
+    authenticate_plain(stream, maximum_response, b"-ERR authentication failed")
     exchange(stream, b"AUTH PLAIN", b"+ ")
     exchange(stream, b"*", b"-ERR authentication cancelled")
     exchange(stream, b"AUTH PLAIN", b"+ ")
