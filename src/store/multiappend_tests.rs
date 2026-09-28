@@ -121,6 +121,33 @@ fn empty_payload_cannot_be_used_as_an_append_cancellation() {
 }
 
 #[test]
+fn empty_message_cancels_the_entire_multiappend_batch_after_reopen() {
+    let root = directory();
+    let mut store = Store::open(&root).expect("store");
+    let batch = [
+        (b"valid first message".to_vec(), AppendMetadata::default()),
+        (Vec::new(), AppendMetadata::default()),
+    ];
+    let error = store
+        .append_batch("bob", &batch)
+        .expect_err("zero-length message cancels MULTIAPPEND");
+    assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    drop(store);
+
+    // После повторного открытия не должен обнаружиться даже первый элемент.
+    let reopened = Store::open(&root).expect("reopen");
+    assert!(
+        reopened
+            .snapshot("bob")
+            .expect("snapshot")
+            .messages
+            .is_empty()
+    );
+    drop(reopened);
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
 fn batch_preserves_each_messages_independent_metadata_after_reopen() {
     let root = directory();
     let first_date = crate::mail_date::MailDate::from_unix_seconds(1_700_000_000);

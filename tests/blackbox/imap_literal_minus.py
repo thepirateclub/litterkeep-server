@@ -181,6 +181,7 @@ def main() -> None:
             pass
         case _:
             raise AssertionError(f"cancelled APPEND changed mailbox contents: {selected!r}")
+    verify_zero_length_multiappend_cancellation(client, mailbox)
     require(
         *client.append(mailbox, None, None, b"Subject: seed\r\n\r\nliteral needle\r\n"),
         ImapCompletion.OK,
@@ -192,6 +193,39 @@ def main() -> None:
     verify_multiappend(client, mailbox)
     verify_oversized_literal_closes_with_toobig(client, mailbox)
     print("PASS IMAP wire: LITERAL+, MULTIAPPEND, SEARCH, LOGIN, flags and exact bytes")
+
+
+def verify_zero_length_multiappend_cancellation(
+    client: imaplib.IMAP4, mailbox: str
+) -> None:
+    """Проверяет атомарную отмену пакета после непустого первого literal."""
+    tag = client._new_tag()
+    client.tagged_commands.update({tag: None})
+    first = b"Subject: must roll back\r\n\r\nnot committed\r\n"
+    client.send(
+        tag
+        + b' APPEND "'
+        + mailbox.encode("ascii")
+        + b'" {'
+        + str(len(first)).encode("ascii")
+        + b"}\r\n"
+    )
+    if client._get_response() is not None:
+        raise AssertionError("first MULTIAPPEND literal did not receive continuation")
+    client.send(first + b" {0}\r\n")
+    if client._get_response() is not None:
+        raise AssertionError("zero-length MULTIAPPEND literal did not receive continuation")
+    client.send(b"\r\n")
+    status, detail = client._command_complete("APPEND", tag)
+    require(status, detail, ImapCompletion.NO, "zero-length MULTIAPPEND cancellation")
+    selected = require(
+        *client.select(mailbox), ImapCompletion.OK, "SELECT after cancelled MULTIAPPEND"
+    )
+    match selected:
+        case [b"0"]:
+            return
+        case _:
+            raise AssertionError(f"cancelled MULTIAPPEND published a prefix: {selected!r}")
 
 
 def verify_oversized_literal_closes_with_toobig(

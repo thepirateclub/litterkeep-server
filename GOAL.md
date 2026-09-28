@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 3502 zero-length MULTIAPPEND rollback, T381 PASS
+
+- RFC 3502 §3.1 требует ответить tagged `NO` на нулевой message literal и
+  отменить весь APPEND. Добавлена Store regression: batch с допустимым первым
+  сообщением и пустым вторым отклоняется; после закрытия и повторного открытия
+  ни один элемент пакета не виден.
+- Независимый STARTTLS клиент передаёт тот же пакет по wire: первый literal
+  получает continuation, второй имеет размер `{0}`, команда завершается `NO`,
+  последующий SELECT показывает ноль сообщений. Встроенный прогон также
+  повторно проверяет LITERAL+, SEARCH, успешный MULTIAPPEND и точные байты.
+- Linux Rust 1.97.1: fmt, all-target suite (1115 library + 1 CLI, 4 ignored),
+  strict Clippy и release build прошли; Windows Rust 1.97.1: fmt, all-target
+  suite (999 library + 1 CLI, 4 ignored) и strict Clippy прошли. Python syntax
+  прошёл. Использованы существующие `rust:1.97-bookworm` и
+  `./data`; созданный listener остановлен и автоматически удалён, новый image
+  не создавался. Проверен независимый клиент, не приложение Litterkeep.
+- Источник: [RFC 3502 §3.1](https://www.rfc-editor.org/rfc/rfc3502.html).
+
 ### 2026-09-28: G18 RFC 5322 military-zone grammar vectors, T380 PASS
 
 - Расширен unit regression для obsolete military timezone: проверяются все
