@@ -3,7 +3,7 @@ use super::*;
 use crate::pop3::{LanguageRequest, SaslInitialResponse};
 
 #[test]
-fn accepts_user_argument_at_rfc1939_limit() {
+fn accepts_user_argument_at_rfc1939_character_limit() {
     let username = "u".repeat(40);
     let wire = format!("USER {username}\r\n");
     assert_eq!(parse(&wire), Command::User(username));
@@ -20,6 +20,36 @@ fn rejects_user_and_pass_arguments_over_rfc1939_limit() {
     let password = format!("PASS {}\r\n", "p".repeat(41));
     assert_eq!(parse(&username), Command::Invalid);
     assert_eq!(parse(&password), Command::Invalid);
+}
+
+/// RFC 6856 credentials считают символы, а общий POP3 предел считает октеты.
+#[test]
+fn accepts_multibyte_credentials_by_character_count() {
+    let username = "ю".repeat(40);
+    let user_wire = format!("USER {username}\r\n");
+    assert!(user_wire.len() > username.chars().count());
+    assert_eq!(parse(&user_wire), Command::User(username));
+
+    let password = "密碼🔐".repeat(10);
+    assert_eq!(password.chars().count(), 30);
+    assert_eq!(
+        parse(&format!("PASS {password}\r\n")),
+        Command::Pass(password)
+    );
+}
+
+/// Прочие команды остаются ASCII; credentials по-прежнему ограничены 40 символами.
+#[test]
+fn rejects_non_ascii_outside_credentials_and_credential_overflow() {
+    assert_eq!(parse("STAT café\r\n"), Command::Invalid);
+    assert_eq!(
+        parse(&format!("USER {}\r\n", "ю".repeat(41))),
+        Command::Invalid
+    );
+    assert_eq!(
+        parse(&format!("PASS {}\r\n", "密".repeat(41))),
+        Command::Invalid
+    );
 }
 
 #[test]
@@ -45,7 +75,6 @@ fn rejects_non_printable_non_ascii_and_noncanonical_separators() {
         "USER\tbob\r\n",
         "USER bob \r\n",
         "USER b\u{0001}ob\r\n",
-        "USER bоб\r\n",
         "US bob\r\n",
         "USER bob\n",
     ] {

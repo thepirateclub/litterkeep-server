@@ -250,10 +250,11 @@ impl Session {
     }
 }
 /// Формирует стабильный RFC 2449 набор и объявляет UTF8 в обоих состояниях.
-/// Аргумент `USER` не передаётся: POP3 account credentials остаются ASCII.
+/// Параметр USER объявляется только вместе с реальным UTF-8 USER/PASS parser-ом.
 fn capa_reply(tls_active: bool) -> Reply {
     let mut response =
-        b"+OK Capability list\r\nUSER\r\nUIDL\r\nTOP\r\nRESP-CODES\r\nUTF8\r\nLANG\r\n".to_vec();
+        b"+OK Capability list\r\nUSER\r\nUIDL\r\nTOP\r\nRESP-CODES\r\nUTF8 USER\r\nLANG\r\n"
+            .to_vec();
     if tls_active {
         response.extend_from_slice(b"SASL PLAIN\r\n");
     } else {

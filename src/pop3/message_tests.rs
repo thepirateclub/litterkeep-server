@@ -10,7 +10,7 @@ fn utf8_capability_guards_messages_until_mode_is_enabled() {
     let mut session = Session::default();
     let capabilities = session.apply(parse("CAPA\r\n"));
     assert!(matches!(capabilities, Reply::Multiline(bytes)
-        if bytes.windows(6).any(|part| part == b"UTF8\r\n")));
+        if bytes.windows(11).any(|part| part == b"UTF8 USER\r\n")));
     let _ = session.apply(parse("USER bob\r\n"));
     let _ = session.authenticated(vec![message(
         21,

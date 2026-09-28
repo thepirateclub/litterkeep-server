@@ -46,8 +46,8 @@ pub enum SaslInitialResponse {
 
 /// RFC 2449 ограничивает команду вместе с CRLF 255 октетами.
 pub const MAX_COMMAND_LINE_SIZE: usize = 255;
-/// RFC 1939 ограничивает аргументы USER/PASS сорока печатными ASCII октетами.
-const MAX_CREDENTIAL_ARGUMENT_SIZE: usize = 40;
+/// RFC 1939 ограничивает USER/PASS сорока символами, POP3 строка остаётся ≤255 октетов.
+const MAX_CREDENTIAL_ARGUMENT_CHARACTERS: usize = 40;
 
 /// Единственная граница POP3 command line и её точной arity-проверки.
 pub fn parse(line: &str) -> Command {
@@ -117,11 +117,34 @@ fn sasl_mechanism(name: &str) -> SaslMechanism {
     }
 }
 
-/// POP3 keywords и параметры используют печатный ASCII и один SP separator.
+/// POP3 команды вне USER/PASS сохраняют ASCII grammar; credentials допускают RFC 6856 UTF-8.
 fn printable_command(command: &str) -> bool {
-    command
-        .bytes()
-        .all(|octet| octet == b' ' || (33..=126).contains(&octet))
+    let verb = command.split_once(' ').map_or(command, |(verb, _)| verb);
+    match CommandTextProfile::parse(verb) {
+        CommandTextProfile::Credentials => command
+            .chars()
+            .all(|character| character == ' ' || !character.is_control()),
+        CommandTextProfile::Ascii => command
+            .bytes()
+            .all(|octet| octet == b' ' || (33..=126).contains(&octet)),
+    }
+}
+
+/// Грамматический профиль текста команды до проверки arity и аргументов.
+enum CommandTextProfile {
+    Credentials,
+    Ascii,
+}
+
+impl CommandTextProfile {
+    /// Выбирает UTF-8 только для команд аутентификации RFC 6856.
+    fn parse(verb: &str) -> Self {
+        let normalized = verb.to_ascii_uppercase();
+        match normalized.as_bytes() {
+            b"USER" | b"PASS" => Self::Credentials,
+            _ => Self::Ascii,
+        }
+    }
 }
 
 fn text(value: Option<&str>, extra: Option<&str>) -> Option<String> {
@@ -131,9 +154,10 @@ fn text(value: Option<&str>, extra: Option<&str>) -> Option<String> {
     }
 }
 
-/// Ограничивает единственный ASCII credential аргумент пределом RFC 1939.
+/// Ограничивает единственный credential аргумент пределом RFC 1939.
 fn credential(value: Option<&str>, extra: Option<&str>) -> Option<String> {
-    text(value, extra).filter(|argument| argument.len() <= MAX_CREDENTIAL_ARGUMENT_SIZE)
+    text(value, extra)
+        .filter(|argument| argument.chars().count() <= MAX_CREDENTIAL_ARGUMENT_CHARACTERS)
 }
 
 /// Сохраняет пробелы в единственном аргументе PASS согласно RFC 1939 §7.3.
@@ -142,7 +166,7 @@ fn pass_argument(command: &str) -> Option<String> {
     match (
         verb.eq_ignore_ascii_case("PASS"),
         password.is_empty(),
-        password.len() <= MAX_CREDENTIAL_ARGUMENT_SIZE,
+        password.chars().count() <= MAX_CREDENTIAL_ARGUMENT_CHARACTERS,
     ) {
         (true, false, true) => Some(password.to_owned()),
         _ => None,

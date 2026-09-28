@@ -10117,3 +10117,21 @@ ManageSieve до заявленного набора современных фо
   runtime/bootstrap fixtures в `./data/g18-smtp-size-line-wire`.
 - G18 остаётся ACTIVE; это не закрывает прочие SMTP, IMAP, POP3, MIME, Sieve и
   ManageSieve пробелы.
+
+### 2026-09-28: G18 RFC 6856 UTF8 USER capability, scoped PARTIAL T341
+
+- POP3 CAPA теперь заявляет `UTF8 USER`, а grammar USER/PASS разрешает корректный
+  UTF-8 в аргументе при сохранении общей границы 255 октетов для строки и
+  40 символов для credential. Остальные команды остаются ASCII-профиля.
+- Добавлены Rust regressions для multibyte аргументов, предела символов и
+  запрета high-bit текста в остальных командах. Независимый Python STARTTLS
+  peer подтвердил capability, UTF-8 USER/PASS до UTF8, USER после UTF8,
+  восстановление после неудачной проверки через AUTH PLAIN, STAT и QUIT.
+- Проверка независимым POP3 клиентом не означает интероперабельность Litterkeep.
+  RFC 6856 §2.2 SASLprep canonical mapping для USER пока отсутствует; учётные
+  имена сохраняют текущую точную идентичность, поэтому этап отмечен PARTIAL.
+  Legacy charset conversion и другие пробелы RFC 6856 остаются открытыми.
+- Docker использовал существующий `rust:1.97-bookworm`, новый образ не создавался.
+  Временный runtime container остановлен, удалён через `--rm`, отсутствие и
+  закрытие порта проверяются. Тестовые данные этапа находятся в `./data`.
+- G18 остаётся ACTIVE.
