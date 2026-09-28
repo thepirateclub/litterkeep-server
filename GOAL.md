@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-28: G18 versioned SCRAM account sidecar, scoped PASS T320
+
+- Новые аккаунты получают отдельную `litterkeep-scram-sha1-v1` запись с
+  криптографически случайной солью, 4096 итерациями, StoredKey и ServerKey.
+  Формат строго проверяет версию, границы, hex и длины ключей; тест после
+  сериализации/reload проверяет SCRAM proof. Sidecar публикуется после durable
+  Argon2 PHC. Если SCRAM публикация не удалась, новый PHC удаляется и ошибка
+  возвращается вызывающему коду.
+- Windows Rust 1.97.1: 881 библиотечный и 1 CLI тест прошли, 4 игнорированы;
+  fmt, strict Clippy и diff check прошли. Linux Docker Rust 1.97.1: 990
+  библиотечных и 1 CLI тест прошли, 4 игнорированы; fmt и strict Clippy прошли.
+  Временный контейнер использовал `--rm`.
+- Это не миграция существующих аккаунтов и не SASL exchange. Для уже
+  сохранённых `.phc`/`.phc2` sidecar отсутствует до следующего этапа; SCRAM
+  capability остаётся выключенной. G18 ACTIVE.
+
 ### 2026-09-28: G18 SCRAM-SHA-1 server proof primitive, scoped PASS T319
 
 - `ScramSha1Verifier` теперь восстанавливает ClientKey из proof/AuthMessage,

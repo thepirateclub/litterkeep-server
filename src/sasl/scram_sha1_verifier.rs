@@ -24,6 +24,13 @@ pub struct ScramSha1Verifier {
 }
 
 impl ScramSha1Verifier {
+    /// Создаёт verifier с криптографически случайной солью для нового аккаунта.
+    pub fn create(password: &[u8]) -> Option<(Vec<u8>, u32, Self)> {
+        let salt = argon2::password_hash::try_generate_salt().ok()?;
+        let verifier = Self::derive(password, &salt, MIN_ITERATIONS)?;
+        Some((salt.to_vec(), MIN_ITERATIONS, verifier))
+    }
+
     /// Выводит verifier только для ограниченных salt и iteration параметров.
     pub fn derive(password: &[u8], salt: &[u8], iterations: u32) -> Option<Self> {
         if password.len() > MAX_PASSWORD_SIZE {

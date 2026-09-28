@@ -5,6 +5,9 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+#[path = "accounts/scram_store.rs"]
+mod scram_store;
+
 static NEXT_MIGRATION_ID: AtomicU64 = AtomicU64::new(1);
 
 pub struct Accounts {
@@ -39,7 +42,23 @@ impl Accounts {
         file.sync_all()?;
         drop(file);
         let directory = path.parent().unwrap_or(&self.root);
-        crate::store::file_key::sync_key_directory(&self.root, directory)
+        crate::store::file_key::sync_key_directory(&self.root, directory)?;
+        match scram_store::create(&self.root, name, password) {
+            Ok(()) => Ok(()),
+            Err(error) => {
+                let credential_cleanup = fs::remove_file(path);
+                let scram_cleanup = scram_store::remove(&self.root, name);
+                match (credential_cleanup, scram_cleanup) {
+                    (Ok(()), Ok(())) => Err(error),
+                    (credential_result, scram_result) => Err(io::Error::new(
+                        error.kind(),
+                        format!(
+                            "{error}; account rollback credential={credential_result:?}, SCRAM={scram_result:?}"
+                        ),
+                    )),
+                }
+            }
+        }
     }
 
     pub fn authenticate(&self, name: &str, password: &[u8]) -> io::Result<bool> {
@@ -52,6 +71,15 @@ impl Accounts {
             }
             Err(error) => Err(error),
         }
+    }
+
+    /// Загружает SCRAM verifier для protocol owner без раскрытия пароля.
+    pub fn scram_verifier(
+        &self,
+        name: &str,
+    ) -> io::Result<Option<crate::sasl::scram_sha1_record::ScramSha1Record>> {
+        valid_name(name)?;
+        scram_store::load(&self.root, name)
     }
     /// Сообщает, существует ли допустимый локальный получатель.
     ///

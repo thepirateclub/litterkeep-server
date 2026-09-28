@@ -33,11 +33,16 @@ signature из полного RFC 5802 §5.1 примера. RFC 4013 SASLprep �
 black-box acceptance отдельно подтвердил wire-аутентификацию и приоритет
 новой записи.
 
-Это пока не реализация SCRAM. Account storage не содержит versioned
-SCRAM-SHA-1 salted-password verifier; его нельзя получить из Argon2 PHC без
-исходного пароля. Требуются versioned verifier при создании/входе и переходе
-старых аккаунтов, bounded parsing полного SCRAM exchange, ManageSieve state
-machine с SASL continuation и независимый ManageSieve wire acceptance.
+Создание нового account теперь пишет отдельный versioned
+`litterkeep-scram-sha1-v1` sidecar с криптографически случайной солью,
+ограниченным числом итераций, StoredKey и ServerKey. Sidecar создаётся после
+durable публикации Argon2 credential; при ошибке создание Argon2 файла
+откатывается. Строгий parser отвергает неизвестные версии, лишние поля,
+неверную длину ключей и чрезмерную стоимость. Reload-тест проверяет proof
+через восстановленную запись. Уже существующие Argon2 аккаунты пока не имеют
+SCRAM sidecar, поэтому следующий этап - безопасная миграция после успешного
+парольного входа. Это всё ещё не полный SCRAM exchange: нужны bounded parsing,
+ManageSieve state machine с SASL continuation и независимый wire acceptance.
 Crypto API проверяет proof с постоянновременным сравнением StoredKey и строит
 server signature; это не заменяет end-to-end проверку протокольного transcript.
 [`RFC 5804 §2.1`](https://www.rfc-editor.org/rfc/rfc5804.html#section-2.1)

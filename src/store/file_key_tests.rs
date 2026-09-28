@@ -159,11 +159,18 @@ fn unicode_account_credentials_folders_subscriptions_and_sieve_recover() {
             .authenticate(account, b"wrong-password")
             .expect("verify account")
     );
+    assert!(
+        accounts
+            .scram_verifier(account)
+            .expect("SCRAM record")
+            .is_some()
+    );
     let credential_path = path(&root.join("accounts"), account, FileKind::Credentials);
     assert_eq!(
         credential_path.parent(),
         Some(root.join("accounts/utf8").as_path())
     );
+    assert!(path(&root.join("accounts"), account, FileKind::ScramCredentials).is_file());
 
     let mut store = Store::open(&root).unwrap();
     store.folders(account).unwrap();
