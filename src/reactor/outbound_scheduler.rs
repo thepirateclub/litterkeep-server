@@ -220,7 +220,12 @@ impl OutboundScheduler {
             | (Phase::AcknowledgeDsn(_), Response::OutboundTransitioned { result: Ok(()), .. }) => {
                 self.continue_or_stop(storage, lifecycle)
             }
-            (Phase::Dsn(_, mut delivery), Response::DsnAppended { result: Ok(_), .. }) => {
+            (
+                Phase::Dsn(_, mut delivery),
+                Response::Dsn(crate::storage_worker::DsnResponse::Failure {
+                    result: Ok(_), ..
+                }),
+            ) => {
                 delivery.dsn_failure = None;
                 let state = delivery.state;
                 let id = self.submit_transition(storage, &delivery, state, lifecycle)?;
@@ -246,9 +251,10 @@ impl OutboundScheduler {
             )
             | (
                 _,
-                Response::DsnAppended {
-                    result: Err(error), ..
-                },
+                Response::Dsn(crate::storage_worker::DsnResponse::Failure {
+                    result: Err(error),
+                    ..
+                }),
             ) => Err(error),
             _ => Err(io::Error::other("unexpected scheduler storage completion")),
         }

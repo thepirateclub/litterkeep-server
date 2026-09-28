@@ -10,6 +10,8 @@ use std::io::{self, Write};
 
 #[path = "append_dsn_report.rs"]
 mod dsn_report;
+#[path = "append_dsn_success_report.rs"]
+mod dsn_success_report;
 #[path = "append_transaction.rs"]
 mod transaction;
 use super::dsn_report_journal;
@@ -25,6 +27,7 @@ pub(super) struct AppendExtensions<'a> {
     pub(super) smtp_dsn: Option<&'a crate::smtp::DsnEnvelope>,
     pub(super) dsn_report_key: Option<&'a crate::queue::DsnReportKey>,
     pub(super) dsn_success_recipient_indices: &'a [usize],
+    pub(super) dsn_success_report_key: Option<crate::queue::DsnSuccessReportKey>,
 }
 
 /// Borrowed payload одного SMTP Sieve plan до атомарной Store публикации.

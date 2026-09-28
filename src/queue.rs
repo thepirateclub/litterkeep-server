@@ -84,6 +84,28 @@ pub struct DsnSuccessKey {
     pub recipient_index: usize,
 }
 
+/// Идемпотентная запись delivered report для committed local-success intent.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct DsnSuccessReportKey {
+    /// Глобальный ID исходного письма, ставшего доступным получателю.
+    pub source_transaction_id: u64,
+    /// Нулевой ordinal получателя в исходном SMTP envelope.
+    pub recipient_index: usize,
+}
+
+/// Восстановленный исходный контекст, необходимый consumer-у SUCCESS DSN.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DsnSuccessContext {
+    /// Envelope reverse-path исходной SMTP transaction.
+    pub reverse_path: String,
+    /// Исходный адрес RCPT соответствующего intent ordinal.
+    pub recipient: String,
+    /// Побайтное исходное сообщение из immutable blob.
+    pub original: Vec<u8>,
+    /// MAIL/RCPT DSN policy, восстановленная из commit-linked sidecar.
+    pub metadata: DsnDeliveryMetadata,
+}
+
 /// Очередное задание, принадлежащее immutable blob одной Store transaction.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OwnedDelivery {

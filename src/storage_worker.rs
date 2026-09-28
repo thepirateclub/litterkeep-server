@@ -1,6 +1,8 @@
 //! The single owner of a mutable Store, fed by a bounded request queue.
 #[path = "storage_worker/dsn_delivery.rs"]
 mod dsn_delivery;
+#[cfg(test)]
+mod dsn_success_tests;
 #[path = "storage_worker/execution.rs"]
 mod execution;
 #[path = "storage_worker/imap_append.rs"]
@@ -27,7 +29,7 @@ pub(crate) use crate::{accounts::Accounts, store::Store};
 #[cfg(not(target_os = "linux"))]
 pub(crate) use crate::{accounts::Accounts, store::Store};
 pub use imap_append::ImapAppendResult;
-pub use message::{Request, Response, SmtpDeliveryRequest};
+pub use message::{DsnRequest, DsnResponse, Request, Response, SmtpDeliveryRequest};
 pub use sasl_lookup::{
     ScramSha256VerifierRequest, ScramSha256VerifierResponse, ScramVerifierRequest,
     ScramVerifierResponse,
@@ -43,7 +45,6 @@ use std::sync::mpsc::{Receiver, SyncSender, TryRecvError};
 use std::thread;
 use std::thread::JoinHandle;
 pub use submit::SubmitError;
-
 pub struct StorageWorker {
     requests: SyncSender<Request>,
     responses: Receiver<Response>,
@@ -221,7 +222,7 @@ mod tests {
         accounts.create("alice", b"test-password").expect("account");
         let worker = StorageWorker::start(&root, 1).expect("worker");
         worker
-            .submit(Request::AppendDsn {
+            .submit(Request::Dsn(message::DsnRequest::Failure {
                 request_id: 9,
                 reverse_path: "alice@litterkeep.test".into(),
                 recipient: "remote@peer.test".into(),
@@ -235,7 +236,7 @@ mod tests {
                     original_recipient_index: None,
                     failure: crate::dsn::Failure::PermanentSmtp,
                 },
-            })
+            }))
             .expect("accepted");
         let response = loop {
             if let Ok(response) = worker.try_response() {
@@ -245,10 +246,10 @@ mod tests {
         };
         assert!(matches!(
             response,
-            Response::DsnAppended {
+            Response::Dsn(message::DsnResponse::Failure {
                 request_id: 9,
                 result: Ok(Some(_))
-            }
+            })
         ));
         worker.shutdown();
         let store = Store::open(&root).expect("reopen");

@@ -233,7 +233,7 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             request_id,
             result: store.check_sieve_script(&source),
         },
-        Request::AppendDsn {
+        Request::Dsn(super::message::DsnRequest::Failure {
             request_id,
             reverse_path,
             recipient,
@@ -242,7 +242,7 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             failure,
             dsn_metadata,
             report_key,
-        } => Response::DsnAppended {
+        }) => Response::Dsn(super::message::DsnResponse::Failure {
             request_id,
             result: super::dsn_delivery::append(
                 store,
@@ -257,7 +257,13 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
                 },
                 &report_key,
             ),
-        },
+        }),
+        Request::Dsn(super::message::DsnRequest::Success { request_id, key }) => {
+            Response::Dsn(super::message::DsnResponse::Success {
+                request_id,
+                result: super::dsn_delivery::append_success(store, accounts, key),
+            })
+        }
         Request::OutboundPending { request_id } => Response::OutboundPending {
             request_id,
             result: store.pending_outbound(),

@@ -1,6 +1,6 @@
 //! Порядок durable записей одной append transaction.
 
-use super::super::dsn_success_journal;
+use super::super::{dsn_success_journal, dsn_success_report_journal};
 use super::{
     AppendExtensions, AppendMetadata, AppendStage, Store, WriteState, blobs, dsn_report_journal,
     outbound, sieve_diagnostics, smtp_dsn_journal, validation,
@@ -42,6 +42,7 @@ pub(super) fn append(
         extensions.smtp_dsn,
         extensions.dsn_success_recipient_indices,
     )?;
+    append_success_report_key(store, transaction_id, extensions.dsn_success_report_key)?;
     append_vacation_claim(store, transaction_id, extensions.vacation_claim)?;
     match store.commit_links(transaction_id, &links) {
         Ok(()) => {
@@ -65,6 +66,11 @@ pub(super) fn append(
                             recipient_index: *index,
                         }),
                 );
+            if let Some(key) = extensions.dsn_success_report_key {
+                store
+                    .dsn_success_report_transactions
+                    .insert(key, transaction_id);
+            }
             Ok(uid)
         }
         Err(error) => {
@@ -72,6 +78,21 @@ pub(super) fn append(
             Err(error)
         }
     }
+}
+
+fn append_success_report_key(
+    store: &mut Store,
+    report_transaction_id: u64,
+    key: Option<crate::queue::DsnSuccessReportKey>,
+) -> io::Result<()> {
+    if let Some(key) = key
+        && let Err(error) =
+            dsn_success_report_journal::append(&store.root, report_transaction_id, key)
+    {
+        store.write_state = WriteState::Poisoned;
+        return Err(error);
+    }
+    store.check_and_poison(AppendStage::DsnSuccessReportWritten)
 }
 
 fn append_diagnostics(

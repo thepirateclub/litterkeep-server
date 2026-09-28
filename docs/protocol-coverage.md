@@ -41,17 +41,22 @@ Success report serializer теперь создаёт отдельный `Action
 NEVER. Store теперь до source commit записывает checksummed success intent для
 каждого eligible RCPT с локальным mailbox target; после recovery видны только
 intents, чья source transaction committed. Unit integration покрывает duplicate
-RCPT policy, discard и crash до commit. Consumer, который строит delivered
-report, идемпотентно публикует его и подтверждает intent, пока отсутствует.
+RCPT policy, discard и crash до commit. Consumer доступен как typed bounded
+StorageWorker operation: он восстанавливает envelope и исходный blob, принимает
+только существующий локальный sender account, строит `Action: delivered` и
+публикует отчёт идемпотентно. Commit отчёта подтверждает intent и устраняет его
+из pending-представления после recovery; failpoint проверяет retry при сбое до
+commit. Пока нет автоматического scheduler-а pending intents и outbound
+доставки внешнему sender-у. Consumer требует явной worker-команды.
 Delay report scheduling, полная сквозная семантика повторной доставки и RFC
 3461 wire negotiation остаются неподдержанными. RFC 3461 §5.2.3 требует
 `delivered` DSN при локальной доставке с `NOTIFY=SUCCESS`; RFC считает её
 успешной, когда письмо уже доступно для IMAP/POP retrieval. Текущая SMTP
 реализация DSN не рекламирует и корректные DSN-параметры отвергает, поэтому это
 пока неподдерживаемый профиль, не нарушение обещанной сервером возможности.
-Typed delivered serializer и commit-linked success intent уже существуют.
-Однако success intent пока не читается recovery consumer-ом: отсутствуют
-идемпотентное добавление delivered report и durable acknowledgement intent.
+Typed delivered serializer, commit-linked success intent и local Store-owner
+consumer теперь существуют, но внешний SMTP peer не может запросить эту
+функцию.
 Независимый Linux wire
 peer подтвердил отсутствие capability, точный refusal-код для MAIL/RCPT и
 восстановление сессии; после добавления RFC 6533 xtext второй независимый Linux

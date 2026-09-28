@@ -1,5 +1,32 @@
 # Goal ledger
 
+### 2026-09-29: G18 local delivered DSN consumer, PARTIAL T396
+
+- The bounded StorageWorker now accepts a typed command to consume a committed
+  local SUCCESS intent. It reloads the source reverse-path, per-recipient DSN
+  policy and immutable source bytes through the Store owner, verifies that the
+  sender maps to an existing local account, serializes `Action: delivered`,
+  and appends the report into that sender mailbox.
+- A checksummed sidecar ties the success-intent key to the report transaction.
+  The report transaction is the durable acknowledgement: recovery exposes the
+  intent until the report commit exists, then deduplicates retries after reopen.
+  A failpoint vector verifies recovery between sidecar write and global commit.
+- The consumer currently handles only local sender mailboxes, and requires an
+  explicit worker request; automatic pending-intent scheduling and external
+  sender delivery remain absent. SMTP DSN negotiation is still disabled.
+- Windows Rust 1.97.1 all-target suite: 1035 passed, 4 ignored; Linux Docker
+  Rust 1.97.1 all-target suite: 1155 passed, 4 ignored; strict Clippy, format,
+  and diff checks passed. The Linux run reused image
+  `sha256:0e2bcaef56d041a486784e54104a81aebe0da44bd03019bd70bc0401e42e4a97`
+  and cache `./data/g23-dsn-success-report-linux-verify-target` with Cargo
+  incremental compilation disabled; `--rm` removed the container and no image
+  was built. Reusing the older target cache once failed on a missing incremental
+  object in the bind mount, so the final Linux run used this separate cache.
+- T391 remains GAP and G18 remains ACTIVE. No SMTP peer or Litterkeep client
+  was used to claim RFC 3461 wire conformance.
+- Источник: [RFC 3461 §5.2.3](https://www.rfc-editor.org/rfc/rfc3461.html),
+  [RFC 3464 §§2.2-2.3](https://www.rfc-editor.org/rfc/rfc3464.html).
+
 ### 2026-09-28: G18 commit-linked local SUCCESS DSN intent, PARTIAL T395
 
 - Sieve delivery now identifies each source RCPT with explicit `NOTIFY=SUCCESS`

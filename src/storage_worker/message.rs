@@ -1,6 +1,9 @@
 //! Типизированные сообщения bounded-канала между reactor и владельцем store.
 
 use super::imap_append::ImapAppendResult;
+#[path = "dsn_message.rs"]
+mod dsn_message;
+pub use dsn_message::{DsnRequest, DsnResponse};
 #[path = "smtp_delivery.rs"]
 mod smtp_delivery;
 use crate::mail_flags::{FlagMutation, MessageFlags};
@@ -153,17 +156,8 @@ pub enum Request {
         request_id: u64,
         source: String,
     },
-    /// Публикует DSN только после account/local-route проверки владельцем Store.
-    AppendDsn {
-        request_id: u64,
-        reverse_path: String,
-        recipient: String,
-        transaction_id: u64,
-        original: Vec<u8>,
-        failure: crate::dsn::Failure,
-        dsn_metadata: Option<Box<crate::queue::DsnDeliveryMetadata>>,
-        report_key: crate::queue::DsnReportKey,
-    },
+    /// Публикует failure или local SUCCESS DSN через одного владельца Store.
+    Dsn(DsnRequest),
     OutboundPending {
         request_id: u64,
     },
@@ -275,11 +269,8 @@ pub enum Response {
         request_id: u64,
         result: io::Result<bool>,
     },
-    /// `None` означает пустой или внешний reverse-path без локальной публикации.
-    DsnAppended {
-        request_id: u64,
-        result: io::Result<Option<u64>>,
-    },
+    /// Завершение local Store DSN-публикации; None означает внешнюю цель.
+    Dsn(DsnResponse),
     OutboundPending {
         request_id: u64,
         result: io::Result<Vec<crate::queue::OwnedDelivery>>,

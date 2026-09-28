@@ -208,7 +208,10 @@ fn handle_storage(
             Some(failure) => dsn_request::submit(storage, ids, delivery, bytes, failure),
             None => progress::next_job(storage, ids, remaining, report, delivery.state),
         },
-        (Phase::Dsn(mut delivery), Response::DsnAppended { result: Ok(_), .. }) => {
+        (
+            Phase::Dsn(mut delivery),
+            Response::Dsn(crate::storage_worker::DsnResponse::Failure { result: Ok(_), .. }),
+        ) => {
             delivery.dsn_failure = None;
             let state = delivery.state;
             submit(
@@ -244,9 +247,9 @@ fn handle_storage(
         )
         | (
             _,
-            Response::DsnAppended {
+            Response::Dsn(crate::storage_worker::DsnResponse::Failure {
                 result: Err(error), ..
-            },
+            }),
         ) => Err(error),
         _ => Err(io::Error::other(
             "unexpected storage completion for outbound service",

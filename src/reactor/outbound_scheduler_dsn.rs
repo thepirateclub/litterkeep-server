@@ -6,7 +6,7 @@ use crate::{
     dsn,
     outbound_service_support::submit,
     queue::OwnedDelivery,
-    storage_worker::{Request, WakingStorageWorker},
+    storage_worker::{DsnRequest, Request, WakingStorageWorker},
 };
 use std::io;
 
@@ -29,7 +29,7 @@ impl OutboundScheduler {
             .ok_or_else(|| io::Error::other("outbound scheduler request IDs exhausted"))?;
         submit(
             storage,
-            Request::AppendDsn {
+            Request::Dsn(DsnRequest::Failure {
                 request_id: id,
                 reverse_path: delivery.sender.clone(),
                 recipient: delivery.recipient.clone(),
@@ -38,7 +38,7 @@ impl OutboundScheduler {
                 failure,
                 dsn_metadata: delivery.dsn_metadata.clone(),
                 report_key,
-            },
+            }),
         )?;
         scheduler_lifecycle::wait(lifecycle, self.task, Event::Completion(id))?;
         Ok(Phase::Dsn(id, delivery))

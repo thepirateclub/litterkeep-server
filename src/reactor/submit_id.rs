@@ -33,11 +33,11 @@ pub(super) fn request_id(request: &Request) -> u64 {
         | Request::SieveRename { request_id, .. }
         | Request::SieveHaveSpace { request_id, .. }
         | Request::SieveCheck { request_id, .. }
-        | Request::AppendDsn { request_id, .. }
         | Request::OutboundPending { request_id }
         | Request::OutboundDue { request_id, .. }
         | Request::OutboundBlob { request_id, .. }
         | Request::OutboundTransition { request_id, .. } => *request_id,
+        Request::Dsn(request) => request.request_id(),
         Request::AppendMany(request) => request.request_id,
     }
 }
