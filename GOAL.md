@@ -10423,3 +10423,26 @@ ManageSieve до заявленного набора современных фо
   аккаунты этапа изолированы в `./data/g18-managesieve-script-names-linux`.
 - NFC output recommendation и private-use guidance RFC 5198 остаются открыты;
   этап ограничен указанным именовым профилем, полный ManageSieve не объявляется.
+
+### 2026-09-28: G18 RFC 5198 NFC ManageSieve script names, T354 PARTIAL
+
+- Проверка имён и NFC-канонизация выделены в `src/store/sieve_script_name.rs`.
+  Все операции Store разрешают входные варианты через Unicode 17 NFC; выдача
+  `LISTSCRIPTS` и новые snapshot-файлы содержат канонические имена.
+- Старые decomposed snapshot-файлы открываются с NFC-ключами. Если прежние
+  имена схлопываются в один ключ, загрузка явно завершается ошибкой, а не
+  перезаписывает скрипт. Unit-тесты проверяют aliases, migration, collision и
+  повторное открытие.
+- Независимый TLS-клиент загружает decomposed имя, получает скрипт через тот
+  же decomposed alias и проверяет NFC-форму в `LISTSCRIPTS`.
+- Windows Rust 1.97.1 `cargo test --locked --all-targets`: 971 library + 1 CLI
+  прошли, 4 ignored; fmt и strict Clippy прошли. В Linux Rust 1.97.1 all-target
+  тестах прошли 1084 library + 1 CLI, 4 ignored; strict Clippy и release build
+  также прошли.
+- Независимый STARTTLS клиент проверил decomposed upload, GETSCRIPT по alias,
+  NFC listing и повторное чтение после перезапуска сервера. Runtime container
+  остановлен и проверен отсутствующим; Rust image с исходным ID переиспользован,
+  новые образы не создавались. Артефакты изолированы в
+  `./data/g18-managesieve-script-names-linux`.
+- Не закрыты private-use guidance RFC 5198, interoperability с приложением и
+  полный профиль ManageSieve.

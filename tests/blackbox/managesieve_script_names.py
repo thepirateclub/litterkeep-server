@@ -20,6 +20,7 @@ class Reply(bytes, Enum):
     COMPLETED = b'OK "completed"\r\n'
     REJECTED = b'NO "operation failed"\r\n'
     LISTED = b'OK "list completed"\r\n'
+    GETSCRIPT = b'OK "get completed"\r\n'
     LOGOUT = b'OK "bye"\r\n'
 
 
@@ -103,6 +104,16 @@ def verify_names(connection: socket.socket) -> None:
     long_name = b"a" * 128
     if put_script(connection, long_name, b"keep;") is not Reply.COMPLETED:
         raise AssertionError("RFC 5804 maximum 128-character name was rejected")
+    decomposed_name = "Cafe\u0301".encode("utf-8")
+    if put_script(connection, decomposed_name, b"keep;") is not Reply.COMPLETED:
+        raise AssertionError("decomposed Unicode name was rejected")
+    fetched = command(
+        connection,
+        b'GETSCRIPT "Cafe\xcc\x81"\r\n',
+        Reply.GETSCRIPT,
+    )
+    if b"keep;" not in fetched:
+        raise AssertionError(f"NFC alias did not resolve stored script: {fetched!r}")
 
     injected = b'broken\r\nOK "forged'
     if put_script(connection, injected, b"keep;") is not Reply.REJECTED:
@@ -114,10 +125,25 @@ def verify_names(connection: socket.socket) -> None:
     expected_unicode = b'"review\\"\\\\draft/\xd0\xbf\xd0\xb0\xd0\xbf\xd0\xba\xd0\xb0"'
     expected_long = b'"' + long_name + b'"'
     entries = {line for line in listing.splitlines() if line.startswith(b'"')}
-    if entries != {expected_unicode, expected_long}:
+    if entries != {expected_unicode, expected_long, b'"Caf\xc3\xa9"'}:
         raise AssertionError(f"unsafe or malformed LISTSCRIPTS data: {listing!r}")
     if b'OK "forged"' in listing:
         raise AssertionError("script name injected a ManageSieve response line")
+
+
+def verify_reopened_name(connection: socket.socket) -> None:
+    """Проверяет NFC имя и decomposed alias после перезапуска Store owner."""
+    fetched = command(
+        connection,
+        b'GETSCRIPT "Cafe\xcc\x81"\r\n',
+        Reply.GETSCRIPT,
+    )
+    if b"keep;" not in fetched:
+        raise AssertionError(f"reopened NFC alias lost its script: {fetched!r}")
+    listing = command(connection, b"LISTSCRIPTS\r\n", Reply.LISTED)
+    entries = {line for line in listing.splitlines() if line.startswith(b'"')}
+    if b'"Caf\xc3\xa9"' not in entries:
+        raise AssertionError(f"reopened script name is not NFC: {listing!r}")
 
 
 def run(options: argparse.Namespace) -> None:
@@ -131,7 +157,11 @@ def run(options: argparse.Namespace) -> None:
         with context.wrap_socket(raw, server_hostname=options.server_name) as encrypted:
             read_block(encrypted, Reply.READY)
             authenticate(encrypted, options.credentials)
-            verify_names(encrypted)
+            match options.verify_reopened:
+                case True:
+                    verify_reopened_name(encrypted)
+                case False:
+                    verify_names(encrypted)
             command(encrypted, b"LOGOUT\r\n", Reply.LOGOUT)
 
 
@@ -143,6 +173,7 @@ def main() -> None:
     parser.add_argument("--server-name", default="litterkeep.test")
     parser.add_argument("--ca", type=Path, required=True)
     parser.add_argument("--credentials", type=Path, required=True)
+    parser.add_argument("--verify-reopened", action="store_true")
     run(parser.parse_args())
     print("PASS ManageSieve RFC 5804 script-name wire profile")
 

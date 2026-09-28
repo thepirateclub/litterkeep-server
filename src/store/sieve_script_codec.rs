@@ -1,6 +1,6 @@
 //! Кодек долговечного snapshot Sieve catalog без файловых операций.
 
-use super::{AccountScripts, ScriptRecord, invalid, valid_name};
+use super::{AccountScripts, ScriptRecord, invalid, script_name};
 use crate::sieve;
 use std::io;
 
@@ -33,7 +33,7 @@ pub(super) fn decode(source: &str) -> io::Result<AccountScripts> {
         if let Some(value) = line.strip_prefix("active:") {
             state.active = match value.is_empty() {
                 true => None,
-                false => Some(unhex(value)?),
+                false => Some(script_name::canonical(&unhex(value)?)?),
             };
             continue;
         }
@@ -46,11 +46,13 @@ pub(super) fn decode(source: &str) -> io::Result<AccountScripts> {
         else {
             return Err(invalid("bad sieve script frame"));
         };
-        let name = unhex(name)?;
-        valid_name(&name)?;
+        let name = script_name::canonical(&unhex(name)?)?;
         let version = version.parse().map_err(|_| invalid("bad sieve version"))?;
         let body = unhex(body)?;
         sieve::parse(&body).map_err(invalid)?;
+        if state.scripts.contains_key(&name) {
+            return Err(invalid("canonical sieve script-name collision"));
+        }
         state.scripts.insert(
             name,
             ScriptRecord {

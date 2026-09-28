@@ -164,8 +164,11 @@ quoted strings with quote and backslash escaped, so a stored name cannot forge
 another response line. Rust unit checks and an independent STARTTLS client
 verify Unicode/special-character round-trip, CRLF/control rejection, the
 128/129 boundary, and exact listing bytes. This does not claim complete
-Net-Unicode recommendations: NFC normalization before transmission and the
-private-use guidance remain outstanding, as does Litterkeep app interoperability.
+Net-Unicode NFC is now applied to stored and transmitted script names. Incoming
+decomposed names remain accepted and resolve through their NFC alias. Legacy
+catalogs are normalized in memory; canonical-name collisions fail closed rather
+than silently dropping a script. RFC 5198 private-use guidance remains
+outstanding, as does Litterkeep app interoperability.
 See [RFC 5804 §1.6](https://www.rfc-editor.org/rfc/rfc5804.html#section-1.6)
 and [RFC 5198 §2](https://www.rfc-editor.org/rfc/rfc5198.html#section-2).
 

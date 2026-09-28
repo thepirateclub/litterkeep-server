@@ -10,6 +10,8 @@ mod error;
 #[cfg(test)]
 #[path = "sieve_script_name_tests.rs"]
 mod name_tests;
+#[path = "sieve_script_name.rs"]
+mod script_name;
 
 use super::folders::validate_account;
 use crate::sieve;
@@ -21,7 +23,6 @@ use std::path::{Path, PathBuf};
 const MAX_SCRIPTS: usize = 16;
 const MAX_SCRIPT_BYTES: usize = 65_536;
 const MAX_ACCOUNT_BYTES: usize = 262_144;
-const MAX_SCRIPT_NAME_CHARACTERS: usize = 128;
 
 /// Метаданные script без исходника, безопасные для протокольного ответа.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -73,14 +74,14 @@ impl SieveCatalog {
         source: String,
     ) -> io::Result<ScriptInfo> {
         validate_account(account)?;
-        valid_name(name)?;
+        let name = script_name::canonical(name)?;
         sieve::parse(&source).map_err(invalid)?;
         if source.len() > MAX_SCRIPT_BYTES {
             return Err(error::quota("sieve script quota exceeded"));
         }
         let candidate = self.candidate(account, |state| {
             if let (false, true) = (
-                state.scripts.contains_key(name),
+                state.scripts.contains_key(&name),
                 state.scripts.len() >= MAX_SCRIPTS,
             ) {
                 return Err(error::quota("sieve script count exceeded"));
@@ -98,14 +99,15 @@ impl SieveCatalog {
             );
             Ok(())
         })?;
-        let info = info(&candidate, name)?;
+        let info = info(&candidate, &name)?;
         self.publish(account, candidate)?;
         Ok(info)
     }
 
     pub(super) fn activate(&mut self, account: &str, name: Option<&str>) -> io::Result<()> {
+        let name = name.map(script_name::canonical).transpose()?;
         let candidate = self.candidate(account, |state| {
-            match name {
+            match name.as_deref() {
                 Some(value) if state.scripts.contains_key(value) => {
                     state.active = Some(value.to_owned())
                 }
@@ -118,11 +120,12 @@ impl SieveCatalog {
     }
 
     pub(super) fn delete(&mut self, account: &str, name: &str) -> io::Result<()> {
+        let name = script_name::canonical(name)?;
         let candidate = self.candidate(account, |state| {
-            if state.active.as_deref() == Some(name) {
+            if state.active.as_deref() == Some(&name) {
                 return Err(error::active());
             }
-            match state.scripts.remove(name) {
+            match state.scripts.remove(&name) {
                 Some(_) => Ok(()),
                 None => Err(missing()),
             }
@@ -131,13 +134,14 @@ impl SieveCatalog {
     }
 
     pub(super) fn rename(&mut self, account: &str, old: &str, new: &str) -> io::Result<()> {
-        valid_name(new)?;
+        let old = script_name::canonical(old)?;
+        let new = script_name::canonical(new)?;
         let candidate = self.candidate(account, |state| {
-            if state.scripts.contains_key(new) {
+            if state.scripts.contains_key(&new) {
                 return Err(error::already_exists());
             }
-            let record = state.scripts.remove(old).ok_or_else(missing)?;
-            if state.active.as_deref() == Some(old) {
+            let record = state.scripts.remove(&old).ok_or_else(missing)?;
+            if state.active.as_deref() == Some(&old) {
                 state.active = Some(new.to_owned());
             }
             state.scripts.insert(new.to_owned(), record);
@@ -148,7 +152,7 @@ impl SieveCatalog {
 
     pub(super) fn have_space(&self, account: &str, name: &str, size: u64) -> io::Result<bool> {
         validate_account(account)?;
-        valid_name(name)?;
+        script_name::canonical(name)?;
         match usize::try_from(size) {
             Ok(size) if size <= MAX_SCRIPT_BYTES => Ok(true),
             Ok(_) | Err(_) => Ok(false),
@@ -157,7 +161,8 @@ impl SieveCatalog {
 
     pub(super) fn source(&self, account: &str, name: &str) -> io::Result<(u64, String)> {
         let state = self.accounts.get(account).ok_or_else(missing)?;
-        let record = state.scripts.get(name).ok_or_else(missing)?;
+        let name = script_name::canonical(name)?;
+        let record = state.scripts.get(&name).ok_or_else(missing)?;
         Ok((record.version, record.source.clone()))
     }
 
@@ -232,32 +237,6 @@ fn info(state: &AccountScripts, name: &str) -> io::Result<ScriptInfo> {
     })
 }
 
-fn valid_name(name: &str) -> io::Result<()> {
-    if name.is_empty() {
-        return Err(invalid("unsafe sieve script name"));
-    }
-
-    for (position, character) in name.chars().enumerate() {
-        if position >= MAX_SCRIPT_NAME_CHARACTERS {
-            return Err(invalid("sieve script name exceeds 128 characters"));
-        }
-        if !crate::unicode::is_assigned(character) {
-            return Err(invalid("sieve script name contains an unassigned scalar"));
-        }
-        if forbidden_name_scalar(character, position) {
-            return Err(invalid("sieve script name contains a forbidden scalar"));
-        }
-    }
-    Ok(())
-}
-
-/// Ограничивает имена требованиями RFC 5804 и Net-Unicode.
-fn forbidden_name_scalar(character: char, position: usize) -> bool {
-    matches!(
-        (u32::from(character), position),
-        (0x0000..=0x001f, _) | (0x007f..=0x009f, _) | (0x2028..=0x2029, _) | (0xfeff, 0)
-    )
-}
 fn missing() -> io::Error {
     error::missing()
 }
