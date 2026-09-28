@@ -1,5 +1,19 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 6533 ORCPT wire refusal, PARTIAL T349
+
+- Независимый Python socket peer прошёл против Linux release listener-а:
+  EHLO не содержит `DSN`, корректный `ORCPT=utf-8;...\x{4F8B}...` распознаётся
+  и отвергается как неподдерживаемое расширение ровно `555 5.5.4`, после отказа
+  та же SMTP-сессия принимает NOOP, RSET и QUIT.
+- Проверены `python tests/blackbox/smtp_dsn_refusal.py 127.0.0.1 2525` и
+  `PASS smtp-dsn-refusal`. Сервер собран в Linux Rust 1.97.1 release из
+  `./data/g18-rfc6533-linux-target-verify`. Временный контейнер удалён и его
+  отсутствие подтверждено; образы не создавались, runtime fixture оставлен в
+  `./data/g18-rfc6533-wire-runtime`.
+- Это проверка отказа wire-пути, не приём RFC 3461/RFC 6533 и не проверка
+  приложения Litterkeep. T349 PARTIAL, G18 ACTIVE.
+
 ### 2026-09-28: G18 RFC 6533 UTF-8 ORCPT xtext, PARTIAL T348
 
 - RCPT parser теперь распознаёт address-type `utf-8` и только безопасную
@@ -19,8 +33,8 @@
   только в disposable `--rm` container, Docker image не создавался. Linux target
   оставлен в `./data/g18-rfc6533-linux-target-verify`. Первый повтор на старом
   bind-mounted incremental target получил missing-object ошибку Cargo; без
-  удаления артефактов повтор на отдельном target прошёл полностью. Изменённые source/test файлы
-  меньше 300 строк; user-owned blackbox diff сохранён.
+  удаления артефактов повтор на отдельном target прошёл полностью. Изменённые
+  source/test файлы меньше 300 строк; user-owned blackbox diff сохранён.
 - T348 PARTIAL, G18 ACTIVE.
 
 ### 2026-09-28: G18 SMTP DSN coverage reconciliation, PARTIAL T347

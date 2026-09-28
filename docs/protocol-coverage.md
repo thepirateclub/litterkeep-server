@@ -29,7 +29,9 @@ RFC 3461 требует применить запросы условий `NOTIFY
 и delay report scheduling, report MIME conformance и сквозное поведение
 повторной доставки ещё не реализованы и не проверены. Независимый Linux wire
 peer подтвердил отсутствие capability, точный refusal-код для MAIL/RCPT и
-восстановление сессии; отдельный Linux Store integration test подтвердил
+восстановление сессии; после добавления RFC 6533 xtext второй независимый Linux
+socket peer подтвердил тот же точный отказ `555 5.5.4` для `ORCPT=utf-8` и
+recovery через NOOP/RSET/QUIT. Отдельный Linux Store integration test подтвердил
 durable round-trip typed envelope. RFC 6533 задаёт для `utf-8` ORCPT три разные
 формы xtext, unitext и native UTF-8 с разными условиями SMTPUTF8. Теперь
 внутренний parser декодирует только 7-bit-safe `utf-8-addr-xtext` и проверяет
