@@ -42,6 +42,8 @@ def main() -> None:
             client.sendall(b"550 5.1.1 unknown recipient\r\n")
             require_prefix(command(client), b"RSET")
             client.sendall(b"250 reset\r\n")
+            require_prefix(command(client), b"QUIT")
+            client.sendall(b"221 closing connection\r\n")
     print("SMTP 550 peer: PASS")
 
 

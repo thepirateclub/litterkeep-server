@@ -1,5 +1,26 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 3464 Final-Recipient mailbox syntax, T382 PASS
+
+- Исправлен generated failure DSN: `Final-Recipient` теперь содержит
+  `rfc822; mailbox` без угловых скобок. Unit regression проверяет точное поле
+  и отсутствие прежней SMTP path формы.
+- Независимый Linux acceptance: Bob redirect настроен ManageSieve STARTTLS;
+  Alice отправляет письмо через SMTP. Файловая очередь доставляет job к
+  независимому SMTP peer, который подтверждает последовательность EHLO, MAIL,
+  RCPT, `550 5.1.1`, RSET и QUIT. `queue-drain` сообщает
+  `permanent_failures=1`. Стандартный независимый IMAP STARTTLS клиент читает
+  DSN из Alice INBOX и проверяет MIME report type, `Action: failed` и точный
+  `Final-Recipient: rfc822; remote@peer.test`.
+- Linux Rust 1.97.1: all-target suite (1115 library + 1 CLI, 4 ignored), strict
+  Clippy и release build прошли. Windows Rust 1.97.1: all-target suite (999
+  library + 1 CLI, 4 ignored), strict Clippy и fmt прошли. Python syntax и diff
+  check прошли. Переиспользованы `rust:1.97-bookworm`, `python:3.14-slim` и
+  `./data`; временные контейнеры удалены, новые образы не создавались.
+  Независимые тестовые клиенты, не приложение Litterkeep. RFC 3461 DSN
+  capability остаётся неподдержанным.
+- Источник: [RFC 3464 §2.3.2](https://www.rfc-editor.org/rfc/rfc3464.html#section-2.3.2).
+
 ### 2026-09-28: G18 RFC 3502 zero-length MULTIAPPEND rollback, T381 PASS
 
 - RFC 3502 §3.1 требует ответить tagged `NO` на нулевой message literal и

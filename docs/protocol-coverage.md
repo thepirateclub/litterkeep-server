@@ -46,13 +46,14 @@ SMTPUTF8-specific form constraints, генерация и доставка от�
 
 Генерируемый сервером внутренний failure report сериализует `Final-Recipient`
 как `rfc822; mailbox` без SMTP path угловых скобок; unit regression проверяет
-это поле и запрещает прежнюю форму. Сквозной независимый acceptance создания
-и чтения такого DSN пока не подтверждён: тестовый ManageSieve-сеанс проходит
-AUTH, но ожидание ответа на PUTSCRIPT завершается тайм-аутом и на чистом Store,
-и на предыдущем fixture, включая существующий репозиторный helper. Поэтому этот
-результат не заявляется как wire/IMAP acceptance. Это покрытие MIME
-delivery-status field syntax, не RFC 3461 ESMTP negotiation или клиентская
-запросная семантика. См. [RFC 3464 §2.3.2](https://www.rfc-editor.org/rfc/rfc3464.html#section-2.3.2).
+это поле и запрещает прежнюю форму. Независимый Linux acceptance прошёл полный
+путь ManageSieve STARTTLS redirect, SMTP submission, файловая очередь, ответ
+внешнего peer `550 5.1.1`, возврат через RSET/QUIT и чтение созданного failure
+DSN стандартным IMAP STARTTLS клиентом из Alice INBOX. Клиент проверяет MIME
+report type, `Action: failed` и точное поле `Final-Recipient`. Проверен
+RFC 3464 generated-report field syntax, но не RFC 3461 ESMTP negotiation или
+запросная семантика: capability `DSN` по-прежнему не рекламируется.
+См. [RFC 3464 §2.3.2](https://www.rfc-editor.org/rfc/rfc3464.html#section-2.3.2).
 
 Submission поддерживает implicit TLS и STARTTLS, EHLO, AUTH PLAIN, MAIL SIZE,
 несколько RCPT, DATA с однократным dot-unstuffing, RSET, NOOP и QUIT. Также
