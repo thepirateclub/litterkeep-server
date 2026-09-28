@@ -1,5 +1,17 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 5322 military-zone grammar vectors, T380 PASS
+
+- Расширен unit regression для obsolete military timezone: проверяются все
+  однобуквенные зоны A-I и K-Z в верхнем и нижнем регистре; J остаётся
+  отвергнутой. Каждый разрешённый вариант нормализуется к unknown offset и
+  сохраняет ожидаемый UTC-день.
+- Целевая Rust 1.97.1 unit проверка прошла; strict Clippy и форматирование
+  проходят. Это unit evidence общего RFC 5322 Date parser для IMAP SEARCH и MIME
+  date projection, не независимый IMAP wire acceptance и не полное покрытие
+  obsolete date-time grammar.
+- Источник: [RFC 5322 §4.3](https://www.rfc-editor.org/rfc/rfc5322.html#section-4.3).
+
 ### 2026-09-28: G19 POP3 near-transport-budget SCRAM, T379 PARTIAL
 
 - Общий bounded SCRAM message limit увеличен с 256 KiB до 700 KiB. При

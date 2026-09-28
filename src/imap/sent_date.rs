@@ -178,6 +178,21 @@ mod tests {
         assert!(parse(b"Sun, 1 Feb 2026 23:30:00 J").is_none());
     }
 
+    /// Проверяет весь RFC 5322 military-zone диапазон в обоих регистрах.
+    #[test]
+    fn accepts_every_defined_military_zone_case_insensitively() {
+        let day = SearchDate::parse("1-Feb-2026").expect("February 1");
+        for zone in b'A'..=b'Z' {
+            if let b'J' = zone {
+                continue;
+            }
+            for spelling in [zone, zone.to_ascii_lowercase()] {
+                let value = format!("Sun, 1 Feb 2026 23:30:00 {}", char::from(spelling));
+                assert_eq!(parse(value.as_bytes()), Some(day), "zone {spelling:?}");
+            }
+        }
+    }
+
     /// Неизвестная историческая буквенная зона сравнивается как `-0000`.
     #[test]
     fn unknown_three_to_five_letter_zones_use_unknown_offset() {

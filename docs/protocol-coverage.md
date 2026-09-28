@@ -633,7 +633,8 @@ relax the required numeric timezone.
 RFC 5322 Date search has a distinct profile from RFC 2183 MIME date parameters:
 `UT`/`GMT` and the eight registered North American obsolete zones are normalized
 to their RFC offsets; military zones use `-0000` as recommended without out-of-band
-data, and unknown 3-5-letter alphabetic names use `-0000` per RFC guidance. `J`
+data, and unknown 3-5-letter alphabetic names use `-0000` per RFC guidance. The
+complete A-I/K-Z military-zone range is unit-tested in both cases; reserved `J`
 and malformed/overlong names are rejected. RFC 2183 continues to reject every
 alphabetic zone. Unit tests and independent IMAP STARTTLS peers verify UTC day
 boundaries, the exact `SENTON` result, MIME date omission, and byte-exact RFC822
