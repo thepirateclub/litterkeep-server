@@ -12,6 +12,7 @@ pub(super) fn follow_up(
         addressing,
         sequence_set,
         attributes,
+        partial,
         tag,
         mailbox,
         read_only,
@@ -30,10 +31,23 @@ pub(super) fn follow_up(
     if *read_only || !sets_seen(attributes) {
         return None;
     }
-    if !fetch_responses_are_valid(*addressing, sequence_set, attributes, snapshot, saved_uids) {
+    if !fetch_responses_are_valid(
+        *addressing,
+        sequence_set,
+        partial.as_ref(),
+        attributes,
+        snapshot,
+        saved_uids,
+    ) {
         return None;
     }
-    let uids = unseen_uids(*addressing, sequence_set, snapshot, saved_uids);
+    let uids = unseen_uids(
+        *addressing,
+        sequence_set,
+        partial.as_ref(),
+        snapshot,
+        saved_uids,
+    );
     if uids.is_empty() {
         return None;
     }
@@ -54,6 +68,7 @@ pub(super) fn follow_up(
             addressing: *addressing,
             sequence_set: sequence_set.clone(),
             attributes: attributes.clone(),
+            partial: partial.clone(),
             tag: tag.clone(),
             mailbox: mailbox.clone(),
             uids,
@@ -66,6 +81,7 @@ pub(super) fn follow_up(
 fn fetch_responses_are_valid(
     addressing: imap::Addressing,
     sequence_set: &imap::sequence_set::MessageSet,
+    partial: Option<&imap::partial_range::PartialRange>,
     attributes: &[imap::FetchAttribute],
     snapshot: &crate::store::MailboxSnapshot,
     saved_uids: &std::collections::BTreeSet<u64>,
@@ -78,45 +94,58 @@ fn fetch_responses_are_valid(
             .map(|message| message.uid)
             .unwrap_or(0),
     };
-    snapshot
-        .messages
-        .iter()
-        .enumerate()
-        .filter(|(offset, message)| {
-            let sequence = offset.saturating_add(1) as u64;
-            let candidate = match addressing {
-                imap::Addressing::Sequence => sequence,
-                imap::Addressing::Uid => message.uid,
-            };
-            imap_fetch_completion::matches(
-                sequence_set,
-                candidate,
-                message.uid,
-                maximum,
-                saved_uids,
-            )
-        })
-        .all(|(offset, message)| {
-            let sequence = offset.saturating_add(1);
-            let unseen = !message.flags.contains(crate::mail_flags::SystemFlag::Seen);
-            let response = match (sets_seen(attributes), unseen) {
-                (true, true) => imap_fetch_seen_response::prepare(
-                    sequence,
-                    message,
-                    attributes,
-                    addressing,
-                    &std::collections::BTreeSet::new(),
-                ),
-                _ => imap_fetch_response::prepare(
-                    sequence,
-                    message,
-                    attributes,
-                    addressing,
-                    &std::collections::BTreeSet::new(),
-                ),
-            };
-            response.is_ok()
-        })
+    let selected_positions = super::imap_fetch_selection::positions(
+        addressing,
+        sequence_set,
+        partial,
+        &snapshot.messages,
+        saved_uids,
+    );
+    let mut rank = 0_usize;
+    for (offset, message) in snapshot.messages.iter().enumerate() {
+        let sequence = offset.saturating_add(1) as u64;
+        let candidate = match addressing {
+            imap::Addressing::Sequence => sequence,
+            imap::Addressing::Uid => message.uid,
+        };
+        let matches = imap_fetch_completion::matches(
+            sequence_set,
+            candidate,
+            message.uid,
+            maximum,
+            saved_uids,
+        );
+        if !matches {
+            continue;
+        }
+        let selected = selected_positions.contains(&rank);
+        rank = rank.saturating_add(1);
+        if !selected {
+            continue;
+        }
+        let sequence = offset.saturating_add(1);
+        let unseen = !message.flags.contains(crate::mail_flags::SystemFlag::Seen);
+        let response = match (sets_seen(attributes), unseen) {
+            (true, true) => imap_fetch_seen_response::prepare(
+                sequence,
+                message,
+                attributes,
+                addressing,
+                &std::collections::BTreeSet::new(),
+            ),
+            _ => imap_fetch_response::prepare(
+                sequence,
+                message,
+                attributes,
+                addressing,
+                &std::collections::BTreeSet::new(),
+            ),
+        };
+        if response.is_err() {
+            return false;
+        }
+    }
+    true
 }
 
 fn sets_seen(attributes: &[imap::FetchAttribute]) -> bool {
@@ -131,6 +160,7 @@ fn sets_seen(attributes: &[imap::FetchAttribute]) -> bool {
 fn unseen_uids(
     addressing: imap::Addressing,
     sequence_set: &imap::sequence_set::MessageSet,
+    partial: Option<&imap::partial_range::PartialRange>,
     snapshot: &crate::store::MailboxSnapshot,
     saved_uids: &std::collections::BTreeSet<u64>,
 ) -> Vec<u64> {
@@ -142,6 +172,14 @@ fn unseen_uids(
             .map(|message| message.uid)
             .unwrap_or(0),
     };
+    let selected_positions = super::imap_fetch_selection::positions(
+        addressing,
+        sequence_set,
+        partial,
+        &snapshot.messages,
+        saved_uids,
+    );
+    let mut rank = 0_usize;
     snapshot
         .messages
         .iter()
@@ -152,14 +190,21 @@ fn unseen_uids(
                 imap::Addressing::Sequence => sequence,
                 imap::Addressing::Uid => message.uid,
             };
+            let is_candidate = imap_fetch_completion::matches(
+                sequence_set,
+                candidate,
+                message.uid,
+                maximum,
+                saved_uids,
+            );
+            match is_candidate {
+                true => {}
+                false => return None,
+            }
+            let selected = selected_positions.contains(&rank);
+            rank = rank.saturating_add(1);
             match (
-                imap_fetch_completion::matches(
-                    sequence_set,
-                    candidate,
-                    message.uid,
-                    maximum,
-                    saved_uids,
-                ),
+                selected,
                 message.flags.contains(crate::mail_flags::SystemFlag::Seen),
             ) {
                 (true, false) => Some(message.uid),
@@ -175,6 +220,7 @@ pub(super) fn write(session: &mut Session, pending: Pending, response: Response)
         addressing,
         sequence_set,
         attributes,
+        partial,
         tag,
         saved_uids,
         uids,
@@ -194,6 +240,7 @@ pub(super) fn write(session: &mut Session, pending: Pending, response: Response)
         addressing,
         sequence_set,
         attributes,
+        partial,
         tag,
         saved_uids: &saved_uids,
         messages: snapshot.messages,

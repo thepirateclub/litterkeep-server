@@ -87,7 +87,25 @@ fn append_item(fields: &mut Vec<String>, item: ReturnItem, values: &[u64]) {
         ReturnItem::Max => {
             fields.push(format!("MAX {}", values.iter().max().copied().unwrap_or(0)))
         }
+        ReturnItem::Partial(range) => {
+            let positions = range.positions(values.len());
+            let partial = values
+                .iter()
+                .enumerate()
+                .filter(|(position, _)| positions.contains(position))
+                .map(|(_, value)| *value)
+                .collect::<Vec<_>>();
+            let result = match partial.is_empty() {
+                true => "NIL".to_owned(),
+                false => search_result::sequence_set(&partial),
+            };
+            fields.push(format!("PARTIAL ({} {result})", range.wire()));
+        }
         ReturnItem::All => {}
         ReturnItem::Save => {}
     }
 }
+
+#[cfg(test)]
+#[path = "imap_search_response_tests.rs"]
+mod tests;

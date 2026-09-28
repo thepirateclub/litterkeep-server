@@ -81,24 +81,36 @@ fn saved_uids(
     let imap::search_result::ResultRequest::Extended(items) = request else {
         return std::collections::BTreeSet::new();
     };
-    let save_all = matches!(
-        (
-            items.contains(&imap::search_result::ReturnItem::All),
-            items.contains(&imap::search_result::ReturnItem::Count),
-            items.contains(&imap::search_result::ReturnItem::Min),
-            items.contains(&imap::search_result::ReturnItem::Max),
-        ),
-        (true, _, _, _) | (_, true, _, _) | (false, false, false, false)
-    );
+    let partial_range = items.iter().find_map(|item| match item {
+        imap::search_result::ReturnItem::Partial(range) => Some(range),
+        _ => None,
+    });
+    let partial_positions = partial_range.map(|range| range.positions(matches.len()));
+    let save_all = items.contains(&imap::search_result::ReturnItem::All)
+        || items.contains(&imap::search_result::ReturnItem::Count)
+        || (partial_range.is_none()
+            && !items.contains(&imap::search_result::ReturnItem::Min)
+            && !items.contains(&imap::search_result::ReturnItem::Max));
     let minimum = matches.iter().map(|matched| matched.number).min();
     let maximum = matches.iter().map(|matched| matched.number).max();
     matches
         .iter()
-        .filter(|matched| match save_all {
-            true => true,
-            false => is_extreme(matched.number, items, minimum, maximum),
+        .enumerate()
+        .filter(|(position, matched)| {
+            match (
+                items.contains(&imap::search_result::ReturnItem::Count),
+                save_all,
+                partial_positions.as_ref(),
+            ) {
+                (true, _, _) | (false, true, _) => true,
+                (false, false, Some(partial)) => {
+                    partial.contains(position)
+                        || is_extreme(matched.number, items, minimum, maximum)
+                }
+                (false, false, None) => is_extreme(matched.number, items, minimum, maximum),
+            }
         })
-        .map(|matched| matched.uid)
+        .map(|(_, matched)| matched.uid)
         .collect()
 }
 

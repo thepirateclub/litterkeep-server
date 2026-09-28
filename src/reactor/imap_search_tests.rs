@@ -250,3 +250,36 @@ fn matches_sent_date_without_falling_back_to_internal_date() {
         &position(&recent)
     ));
 }
+
+#[test]
+fn save_partial_keeps_only_reported_uids_unless_count_is_requested() {
+    let matches = (1..=5)
+        .map(|number| SearchMatch {
+            number,
+            uid: number + 100,
+        })
+        .collect::<Vec<_>>();
+    let partial = crate::imap::search_result::ReturnItem::Partial(
+        crate::imap::partial_range::PartialRange::parse("2:3").unwrap(),
+    );
+    let saved = saved_uids(
+        &crate::imap::search_result::ResultRequest::Extended(vec![
+            crate::imap::search_result::ReturnItem::Save,
+            partial.clone(),
+        ]),
+        &matches,
+    );
+    assert_eq!(saved, std::collections::BTreeSet::from([102, 103]));
+    let saved_with_count = saved_uids(
+        &crate::imap::search_result::ResultRequest::Extended(vec![
+            crate::imap::search_result::ReturnItem::Save,
+            partial,
+            crate::imap::search_result::ReturnItem::Count,
+        ]),
+        &matches,
+    );
+    assert_eq!(
+        saved_with_count,
+        std::collections::BTreeSet::from([101, 102, 103, 104, 105])
+    );
+}

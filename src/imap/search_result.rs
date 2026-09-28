@@ -4,13 +4,14 @@ use super::tokenizer::Token;
 use std::collections::VecDeque;
 
 /// Запрошенные поля ESEARCH; пустой RETURN означает стандартный набор ALL.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ReturnItem {
     All,
     Count,
     Min,
     Max,
     Save,
+    Partial(super::partial_range::PartialRange),
 }
 
 /// Отличает совместимый legacy SEARCH от явно запрошенного ESEARCH.
@@ -63,7 +64,18 @@ fn parse_items(tokens: &mut VecDeque<Token>) -> Option<Vec<ReturnItem>> {
         match tokens.pop_front()? {
             Token::ListEnd => return Some(items),
             Token::Text(value) => {
-                let item = parse_item(&value)?;
+                let item = match value.eq_ignore_ascii_case("PARTIAL") {
+                    true => match tokens.pop_front()? {
+                        Token::Text(range) => {
+                            ReturnItem::Partial(super::partial_range::PartialRange::parse(&range)?)
+                        }
+                        _ => return None,
+                    },
+                    false => parse_item(&value)?,
+                };
+                if conflicts(&items, &item) {
+                    return None;
+                }
                 match items.contains(&item) {
                     true => return None,
                     false => items.push(item),
@@ -72,6 +84,19 @@ fn parse_items(tokens: &mut VecDeque<Token>) -> Option<Vec<ReturnItem>> {
             Token::Quoted(_) | Token::Literal(_) | Token::ListStart => return None,
         }
     }
+}
+
+fn conflicts(items: &[ReturnItem], candidate: &ReturnItem) -> bool {
+    let partial_already_requested = items
+        .iter()
+        .any(|item| matches!(item, ReturnItem::Partial(_)));
+    let all_already_requested = items.contains(&ReturnItem::All);
+    matches!(
+        (candidate, partial_already_requested, all_already_requested),
+        (ReturnItem::Partial(_), true, _)
+            | (ReturnItem::Partial(_), _, true)
+            | (ReturnItem::All, true, _)
+    )
 }
 
 fn parse_item(value: &str) -> Option<ReturnItem> {

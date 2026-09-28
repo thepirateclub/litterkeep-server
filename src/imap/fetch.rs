@@ -112,13 +112,40 @@ impl FetchMacro {
 pub(super) fn parse(tokens: &mut impl Iterator<Item = Token>, addressing: Addressing) -> Command {
     let sequence_set = next_text(tokens).and_then(|word| MessageSet::parse(&word).ok());
     let attributes = parse_attribute_list(tokens);
-    match (sequence_set, attributes, tokens.next()) {
-        (Some(sequence_set), Some(attributes), None) => Command::Fetch {
+    let partial = parse_modifier(tokens);
+    match (sequence_set, attributes, partial, addressing) {
+        (Some(sequence_set), Some(attributes), Some(partial), Addressing::Uid) => Command::Fetch {
             addressing,
             sequence_set,
             attributes,
+            partial,
         },
+        (Some(sequence_set), Some(attributes), Some(None), Addressing::Sequence) => {
+            Command::Fetch {
+                addressing,
+                sequence_set,
+                attributes,
+                partial: None,
+            }
+        }
         _ => Command::Unsupported,
+    }
+}
+
+fn parse_modifier(
+    tokens: &mut impl Iterator<Item = Token>,
+) -> Option<Option<super::partial_range::PartialRange>> {
+    match tokens.next() {
+        None => Some(None),
+        Some(Token::ListStart) => match (tokens.next(), tokens.next(), tokens.next()) {
+            (Some(Token::Text(name)), Some(Token::Text(range)), Some(Token::ListEnd))
+                if name.eq_ignore_ascii_case("PARTIAL") =>
+            {
+                super::partial_range::PartialRange::parse(&range).map(Some)
+            }
+            _ => None,
+        },
+        _ => None,
     }
 }
 

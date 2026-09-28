@@ -7,6 +7,7 @@ pub(super) struct Completion<'a> {
     pub(super) addressing: imap::Addressing,
     pub(super) sequence_set: imap::sequence_set::MessageSet,
     pub(super) attributes: Vec<imap::FetchAttribute>,
+    pub(super) partial: Option<imap::partial_range::PartialRange>,
     pub(super) tag: String,
     pub(super) saved_uids: &'a BTreeSet<u64>,
     pub(super) messages: Vec<crate::store::Message>,
@@ -30,6 +31,7 @@ fn write_internal(session: &mut Session, completion: Completion<'_>) -> io::Resu
         addressing,
         sequence_set,
         attributes,
+        partial,
         tag,
         saved_uids,
         messages,
@@ -39,6 +41,14 @@ fn write_internal(session: &mut Session, completion: Completion<'_>) -> io::Resu
         imap::Addressing::Sequence => messages.len() as u64,
         imap::Addressing::Uid => messages.last().map(|message| message.uid).unwrap_or(0),
     };
+    let selected_positions = super::imap_fetch_selection::positions(
+        addressing,
+        &sequence_set,
+        partial.as_ref(),
+        &messages,
+        saved_uids,
+    );
+    let mut rank = 0_usize;
     for (offset, message) in messages.iter().enumerate() {
         let number = offset.saturating_add(1);
         let candidate = match addressing {
@@ -46,6 +56,11 @@ fn write_internal(session: &mut Session, completion: Completion<'_>) -> io::Resu
             imap::Addressing::Uid => message.uid,
         };
         if !matches(&sequence_set, candidate, message.uid, maximum, saved_uids) {
+            continue;
+        }
+        let selected = selected_positions.contains(&rank);
+        rank = rank.saturating_add(1);
+        if !selected {
             continue;
         }
         let response = match &changed_uids {

@@ -6063,7 +6063,7 @@ ManageSieve до заявленного набора современных фо
 | Goal | Depends on | Acceptance criterion | Status |
 |---|---|---|---|
 | G13 | G12 | IMAP FETCH data-item list, ALL/FAST/FULL, UID response semantics, literal wire and attachment-byte acceptance | PASS |
-| G14 | G13 | IMAP4rev2 RFC 9051 baseline plus tested IMAP4rev1 client compatibility | RUNNING |
+| G14 | G13 | IMAP4rev2 RFC 9051 baseline plus tested IMAP4rev1 client compatibility, including RFC 9394 PARTIAL SEARCH/FETCH | RUNNING |
 | G15 | G12 | SMTP RFC 5321/6409/8314 baseline, including SMTPUTF8 RFC 6531 | NOT RUN |
 | G16 | G12 | POP3 RFC 1939 extensions RFC 2449/5034/6856 and secure TLS profile | RUNNING |
 | G17 | G12 | MIME RFC 5322/2045-2049 updates and Sieve RFC 5228/ManageSieve RFC 5804 profile | RUNNING |
@@ -10977,3 +10977,23 @@ ManageSieve до заявленного набора современных фо
 - T363 is PASS for this implicit-TLS exchange only. It does not establish
   Litterkeep app interoperability or POP3 SCRAM-SHA-256-PLUS support; G19 stays
   ACTIVE.
+
+### 2026-09-28: G14 RFC 9394 PARTIAL SEARCH/FETCH checkpoint, T383 PASS
+
+- IMAP now parses RFC 9394 oldest/newest rank ranges, returns ESEARCH PARTIAL
+  with compact UID/sequence sets or NIL, applies SAVE to only returned matches
+  (except the COUNT interaction), and applies UID FETCH PARTIAL after filtering
+  the requested UID set. FETCH \Seen mutation is limited to returned messages.
+  PARTIAL is advertised only after both SEARCH and UID FETCH wire paths exist.
+- Windows Rust 1.97.1 full suite: 1004 library + 1 CLI passed, 4 ignored;
+  strict all-target Clippy, formatting and Python 3.14 syntax checks pass.
+  Linux Rust 1.97.1 Docker suite: 1124 library + 1 CLI passed, 4 ignored;
+  strict Clippy and release build pass.
+- Independent `tests/blackbox/imap_partial.py` STARTTLS acceptance verified
+  capability, positive/reverse/negative ranges, NIL, partial SAVE and UID FETCH
+  Seen behavior against the Linux server. Existing Rust image was reused; both
+  temporary containers were removed and absence verified; no image was created.
+  Runtime and build artifacts are under `./data/g22-imap-partial-live` and
+  `./data/g22-imap-partial-linux`.
+- T383 covers the tested RFC 9394 semantics only. Full RFC 9051 compatibility
+  and Litterkeep app interoperability remain unverified; G14 stays RUNNING.

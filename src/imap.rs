@@ -44,6 +44,7 @@ pub mod literal;
 pub mod mailbox_utf8;
 pub mod modified_utf7;
 mod parser;
+pub mod partial_range;
 pub mod search;
 pub mod search_charset;
 #[path = "imap/search_date.rs"]
@@ -163,6 +164,7 @@ pub enum Command {
         addressing: Addressing,
         sequence_set: sequence_set::MessageSet,
         attributes: Vec<FetchAttribute>,
+        partial: Option<partial_range::PartialRange>,
     },
     Store {
         addressing: Addressing,

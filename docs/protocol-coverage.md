@@ -1613,3 +1613,13 @@ DATA передаётся потоково без дополнительной �
 границу фрагмента и точные octets; независимый Linux SMTP peer сверил около 2 MiB
 payload после dot-unstuffing. Это не измерение peak RSS и не тест максимального
 25 MiB сообщения.
+# IMAP RFC 9394 PARTIAL checkpoint
+
+`tests/blackbox/imap_partial.py` independently verifies the RFC 9394 extension
+over STARTTLS: the server advertises PARTIAL, ESEARCH returns forward and
+newest-relative rank ranges (including NIL for a wholly absent range), SAVE
+retains the reported subset unless COUNT is also requested, and UID FETCH
+PARTIAL selects ranks after UID-set filtering. A BODY FETCH acceptance also
+confirms that only returned messages acquire `\\Seen`. The Linux Rust 1.97.1
+suite, strict Clippy and release build pass. This is scoped extension evidence,
+not full RFC 9051 conformance or Litterkeep application interoperability.

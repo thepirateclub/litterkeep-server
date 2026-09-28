@@ -36,12 +36,30 @@ fn parses_save_alongside_result_items() {
 }
 
 #[test]
+fn parses_rfc9394_partial_return_ranges() {
+    for range in ["1:500", "-1:-100"] {
+        let parsed = crate::imap::parse(&format!("a SEARCH RETURN (PARTIAL {range}) ALL\r\n"));
+        assert!(matches!(
+            parsed.command,
+            crate::imap::Command::Search {
+                result: ResultRequest::Extended(items),
+                ..
+            } if items == vec![ReturnItem::Partial(
+                crate::imap::partial_range::PartialRange::parse(range).unwrap()
+            )]
+        ));
+    }
+}
+
+#[test]
 fn rejects_unknown_or_malformed_return_items() {
     for line in [
-        "a SEARCH RETURN (PARTIAL 1:2) ALL\r\n",
         "b SEARCH RETURN ALL\r\n",
         "c SEARCH RETURN (\"COUNT\") ALL\r\n",
         "d SEARCH RETURN (COUNT COUNT) ALL\r\n",
+        "e SEARCH RETURN (PARTIAL 1:2 ALL) ALL\r\n",
+        "f SEARCH RETURN (PARTIAL 1:2 PARTIAL 3:4) ALL\r\n",
+        "g SEARCH RETURN (PARTIAL 1:*) ALL\r\n",
     ] {
         assert_eq!(
             crate::imap::parse(line).command,

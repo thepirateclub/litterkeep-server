@@ -191,6 +191,7 @@ pub(super) fn line(
             addressing,
             sequence_set,
             attributes,
+            partial,
         } => {
             let read_only = session.selected_read_only;
             let saved_uids = session.saved_search_uids.clone();
@@ -201,6 +202,7 @@ pub(super) fn line(
                     addressing,
                     sequence_set,
                     attributes,
+                    partial,
                     tag,
                     mailbox,
                     read_only,

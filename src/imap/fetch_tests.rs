@@ -12,6 +12,7 @@ fn fetch_attribute_is_typed() {
             addressing: Addressing::Sequence,
             sequence_set: MessageSet::Explicit(SequenceSet::parse("2").unwrap(),),
             attributes: vec![FetchAttribute::BodyStructure],
+            partial: None,
         }
     );
 }
@@ -71,6 +72,7 @@ fn body_peek_partial_is_typed() {
                     count: 7,
                 }),
             }],
+            partial: None,
         }
     );
 }
@@ -138,6 +140,7 @@ fn header_fields_sections_are_typed() {
                     count: 10,
                 }),
             }],
+            partial: None,
         }
     );
 }
@@ -192,8 +195,29 @@ fn uid_fetch_is_typed() {
             addressing: Addressing::Uid,
             sequence_set: MessageSet::Explicit(SequenceSet::parse("20:10").unwrap(),),
             attributes: vec![FetchAttribute::Rfc822Size],
+            partial: None,
         }
     );
+}
+
+#[test]
+fn rfc9394_partial_modifier_is_typed_only_for_uid_fetch() {
+    assert_eq!(
+        parse("a10 UID FETCH 20:40 (UID FLAGS) (PARTIAL -1:-3)\r\n").command,
+        Command::Fetch {
+            addressing: Addressing::Uid,
+            sequence_set: MessageSet::Explicit(SequenceSet::parse("20:40").unwrap()),
+            attributes: vec![FetchAttribute::Uid, FetchAttribute::Flags],
+            partial: Some(crate::imap::partial_range::PartialRange::parse("-1:-3").unwrap()),
+        }
+    );
+    for line in [
+        "a11 FETCH 1 (UID FLAGS) (PARTIAL 1:2)\r\n",
+        "a12 UID FETCH 1 (UID) (PARTIAL 0:2)\r\n",
+        "a13 UID FETCH 1 (UID) (PARTIAL 1:2 EXTRA)\r\n",
+    ] {
+        assert_eq!(parse(line).command, Command::Unsupported);
+    }
 }
 
 /// Saved-result marker is distinct from invalid numeric sequence syntax.

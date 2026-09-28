@@ -31,6 +31,7 @@ fn pending(peek: bool, read_only: bool) -> Pending {
             section: imap::BodySection::EntireMessage,
             partial: None,
         }],
+        partial: None,
         tag: "A1".to_owned(),
         mailbox: "alice/INBOX".to_owned(),
         read_only,

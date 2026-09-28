@@ -140,6 +140,7 @@ pub(super) fn write_completion(
                 addressing,
                 sequence_set,
                 attributes,
+                partial,
                 tag,
                 saved_uids,
                 ..
@@ -154,6 +155,7 @@ pub(super) fn write_completion(
                 addressing,
                 sequence_set,
                 attributes,
+                partial,
                 tag,
                 saved_uids: &saved_uids,
                 messages: snapshot.messages,
