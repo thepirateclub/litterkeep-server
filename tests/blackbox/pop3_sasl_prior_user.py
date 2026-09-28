@@ -47,6 +47,7 @@ def verify(host: str, port: int, ca: str, password: str) -> None:
         with context.wrap_socket(connection, server_hostname="localhost") as secured:
             protected = secured.makefile("rwb", buffering=0)
             exchange(protected, b"USER bob", b"+OK")
+            verify_unsupported_mechanism(protected)
             rejected_commands(protected, password)
             exchange(
                 protected,
@@ -75,7 +76,6 @@ def read_bob_password(credentials: Path) -> str:
 
 def rejected_commands(stream: socket.SocketIO, password: str) -> None:
     """Перебирает SASL отказы, не меняя выбранного USER bob."""
-    exchange(stream, b"AUTH SCRAM-SHA-256", b"-ERR")
     exchange(stream, b"AUTH PLAIN =", b"-ERR invalid AUTH PLAIN credentials")
     exchange(stream, b"AUTH PLAIN !!!", b"-ERR invalid AUTH PLAIN credentials")
     exchange(stream, b"AUTH PLAIN", b"+ ")
@@ -86,6 +86,27 @@ def rejected_commands(stream: socket.SocketIO, password: str) -> None:
     exchange(stream, b"AUTH PLAIN " + invalid, b"-ERR authentication failed")
     valid = base64.b64encode(b"\x00missing-account\x00" + password.encode("ascii"))
     exchange(stream, b"AUTH PLAIN " + valid, b"-ERR authentication failed")
+
+
+def verify_unsupported_mechanism(stream: socket.SocketIO) -> None:
+    """Проверяет, что не объявленный механизм с initial-response отвергается."""
+    exchange(stream, b"CAPA", b"+OK")
+    capabilities = []
+    while True:
+        line = read_line(stream, "SASL capability listing")
+        if line == b".\r\n":
+            break
+        capabilities.append(line)
+    sasl_lines = [line for line in capabilities if line.startswith(b"SASL ")]
+    if len(sasl_lines) != 1:
+        raise AssertionError(f"CAPA advertises unexpected SASL mechanisms: {sasl_lines!r}")
+    if b"DIGEST-MD5" in sasl_lines[0]:
+        raise AssertionError("CAPA unexpectedly advertises DIGEST-MD5")
+    exchange(
+        stream,
+        b"AUTH DIGEST-MD5 ZHVtbXk=",
+        b"-ERR unsupported SASL mechanism",
+    )
 
 
 def main() -> None:

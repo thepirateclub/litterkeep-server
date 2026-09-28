@@ -1295,7 +1295,8 @@ RFC 5034, а не как некорректный Base64. Для PLAIN пуст�
 выполнялся. Unit-проверки подтверждают сохранение ранее выбранного USER при
 ошибочном SASL payload; независимый Linux STARTTLS acceptance
 `tests/blackbox/pop3_sasl_prior_user.py` подтверждает сохранение USER Bob после
-отказа unsupported mechanism, пустого и некорректного initial response,
+отказа не рекламируемого `DIGEST-MD5` с корректным Base64 initial response
+(T370), пустого и некорректного initial response,
 cancellation, некорректного continuation и backend-отказов для неверных
 credentials/аккаунта. Затем допустимый 40-октетный PASS доходит до проверки
 credentials и возвращает `authentication failed`, после чего независимый PLAIN

@@ -1,5 +1,26 @@
 # Goal ledger
 
+### 2026-09-28: G19 reject unadvertised SASL mechanism, T370 PASS
+
+- Исправлен устаревший независимый acceptance `pop3_sasl_prior_user.py`: после
+  SCRAM-SHA-256 стал поддержанным, его ошибочно называли unsupported. Теперь
+  STARTTLS peer сначала читает CAPA, подтверждает, что `DIGEST-MD5` не объявлен,
+  отправляет его с валидным Base64 initial response и проверяет точный
+  `-ERR unsupported SASL mechanism`. Затем тот же сценарий подтверждает, что
+  USER bob сохранён через отказы пустого/битого PLAIN, cancellation, malformed
+  continuation, неверный пароль и неизвестный account; завершает PLAIN login,
+  STAT и QUIT.
+- Нормативная база: RFC 5034 §3 задаёт CAPA SASL механизмами, а §4 требует
+  отклонить неподдерживаемый механизм. Это приёмка сервера, а не требование к
+  клиенту отправлять initial response для не объявленного механизма.
+- Python 3.14.7 `py_compile` прошёл. Независимый Python STARTTLS client прошёл
+  весь сценарий против Linux Rust 1.97.1 release listener-а. Использован уже
+  существующий `rust:1.97-bookworm` image и `./data/g19-pop3-scram-linux/runtime`;
+  disposable listener удалён и его отсутствие проверено, нового image нет.
+  Историческую запись T276 не переписывали; этот этап подтверждает исправленную
+  текущую acceptance семантику. Litterkeep app и полный RFC 5034 профиль не
+  проверялись.
+
 ### 2026-09-28: G19 POP3 SCRAM-SHA-256-PLUS, T365 PASS
 
 - POP3 теперь разбирает типизированный `SCRAM-SHA-256-PLUS` и рекламирует его
