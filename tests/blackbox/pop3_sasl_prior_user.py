@@ -128,7 +128,7 @@ def verify_maximum_scram_first(stream: socket.SocketIO) -> None:
     """Проверяет max client-first и следующий client-final с nonce overhead."""
     exchange(stream, b"AUTH SCRAM-SHA-256", b"+ ")
     username_and_nonce = b"n=bob,r="
-    maximum_message_size = 256 * 1024
+    maximum_message_size = 700 * 1024
     client_nonce = b"A" * (maximum_message_size - len(username_and_nonce))
     client_first = username_and_nonce + client_nonce
     sasl_payload = base64.b64encode(b"n,," + client_first)

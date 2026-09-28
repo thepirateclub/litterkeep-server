@@ -1,7 +1,7 @@
 //! Ограниченный синтаксический разбор атрибутов SCRAM RFC 5802.
 
-/// Ограничивает SCRAM transcript, оставаясь ниже POP3 Base64 line budget.
-pub const MAX_MESSAGE_SIZE: usize = 256 * 1024;
+/// Ограничивает SCRAM transcript так, чтобы Base64 client-final помещался в POP3 input budget.
+pub const MAX_MESSAGE_SIZE: usize = 700 * 1024;
 /// Client-final включает server nonce и channel binding сверх принятого client-first.
 pub const MAX_CLIENT_FINAL_SIZE: usize = MAX_MESSAGE_SIZE + 136;
 /// Максимальное число атрибутов в одном SCRAM сообщении.

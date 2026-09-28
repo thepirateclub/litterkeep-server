@@ -1324,12 +1324,13 @@ RFC 5034 профиль и не поддержку других SASL-механ�
 
 Открытый размерный GAP: RFC 5034 §4 требует обрабатывать наибольшие сообщения
 каждого поддерживаемого SASL-механизма независимо от прочих line-length
-ограничений. Общий SCRAM parser ограничивает client-first 256 KiB, а
-client-final 256 KiB + 136 октетами; POP3 continuation свыше 1 MiB дренируется
+ограничений. Общий SCRAM parser ограничивает client-first 700 KiB, а
+client-final 700 KiB + 136 октетами; POP3 continuation свыше 1 MiB дренируется
 как отказ. RFC 5802 §5.1 задаёт nonce как printable ASCII без верхнего предела.
-T375 проверил предыдущую 16 KiB границу, а независимый T378 peer подтвердил
-256 KiB client-first и соответствующий 256 KiB + 72 октета client-final до
-proof verification. Эти значения остаются локальными ограничениями, не
+T375 проверил предыдущую 16 KiB границу, T378 peer подтвердил 256 KiB, а
+независимый T379 peer подтвердил 700 KiB client-first и соответствующий
+700 KiB + 72 октета client-final до proof verification. Эти значения остаются
+локальными ограничениями, не
 крупнейшими возможными SCRAM messages и не полным size compliance. Для закрытия
 GAP нужен сквозной контракт parser, Base64 wire framing и bounded resource
 policy; увеличение лишь одного из лимитов будет недостаточным.
