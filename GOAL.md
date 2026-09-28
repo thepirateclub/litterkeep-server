@@ -1,5 +1,18 @@
 # Goal ledger
 
+### 2026-09-29: G20 POP3 SCRAM configured-size successful proof, PARTIAL T401
+
+- Добавлен независимый TLS POP3 acceptance для успешного SCRAM-SHA-256 на
+  настроенном пределе: client-first 700 KiB и соответствующий client-final
+  700 KiB + 72 октета. Python самостоятельно вычисляет client proof и
+  сверяет server signature, затем проверяет `STAT` и `QUIT`.
+- Linux Rust 1.97.1 release build и wire acceptance прошли; Python 3.14.7
+  `py_compile` и `git diff --check` прошли. Использован существующий образ
+  `rust:1.97-bookworm`; временный `--rm` контейнер удалён, новых образов нет.
+- Это evidence только конечного локального предела. T377 остаётся GAP: RFC 5034
+  произвольный размер механизма и RFC 5802 nonce без максимума не покрыты.
+  Litterkeep app acceptance не выполнялся.
+
 ### 2026-09-29: G18 SUCCESS DSN пакетная задержка повторов, PARTIAL T400
 
 - Ошибки пакетного SUCCESS DSN sweep больше не вызывают повтор Store-запроса

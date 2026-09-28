@@ -1427,11 +1427,14 @@ client-final 700 KiB + 136 октетами; POP3 continuation свыше 1 MiB 
 как отказ. RFC 5802 §5.1 задаёт nonce как printable ASCII без верхнего предела.
 T375 проверил предыдущую 16 KiB границу, T378 peer подтвердил 256 KiB, а
 независимый T379 peer подтвердил 700 KiB client-first и соответствующий
-700 KiB + 72 октета client-final до proof verification. Эти значения остаются
-локальными ограничениями, не
-крупнейшими возможными SCRAM messages и не полным size compliance. Для закрытия
-GAP нужен сквозной контракт parser, Base64 wire framing и bounded resource
-policy; увеличение лишь одного из лимитов будет недостаточным.
+700 KiB + 72 октета client-final до proof verification. Независимый T401 TLS
+peer на той же границе вычислил proof отдельно от сервера, проверил server
+signature и получил доступ к POP3 maildrop (`STAT`, `QUIT`). Это подтверждает
+успешный путь для настроенного предела, но конечные 700 KiB/1 MiB ограничения
+не покрывают наибольшие возможные SCRAM messages и не доказывают полный RFC 5034
+size compliance. RFC 5802 не ограничивает длину nonce, поэтому T377 остаётся
+GAP; дальнейшее решение требует совместного контракта parser, Base64 wire
+framing и bounded resource policy, а не независимого увеличения одного лимита.
 
 После успешного AUTH `CAPA` в TRANSACTION сохраняет строку `SASL` и список
 механизмов, как требует RFC 5034 §3, несмотря на запрет повторного AUTH из §4.
