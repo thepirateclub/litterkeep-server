@@ -551,6 +551,11 @@ IMAP STARTTLS BODYSTRUCTURE acceptance verifies a commented year `97` and keeps
 the original RFC822 octets unchanged. Named obsolete zones remain rejected by
 the RFC 2183 numeric-timezone requirement; this does not close all obsolete
 date-time grammar.
+RFC 5322 §3.3 lexical widths now constrain day to one/two ASCII digits and
+hour/minute/second to exactly two; seconds remain optional and `60` is accepted.
+Unit and independent IMAP STARTTLS BODYSTRUCTURE regressions reject wider day,
+one-digit clock fields and a three-digit hour while retaining the valid adjacent
+filename; original message octets remain unchanged.
 RFC 2231 §4.1 допускает charset/language metadata в начале первой encoded
 continuation секции. Ранее `Content-Disposition` parser терял language hint
 после общего параметрического разбора; `Disposition` теперь сохраняет typed

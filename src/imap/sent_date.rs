@@ -20,6 +20,9 @@ pub fn parse(value: &[u8]) -> Option<SearchDate> {
     let mut fields = date_time.split_ascii_whitespace();
     let day = fields.next()?;
     let month = fields.next()?;
+    if !valid_day(day) {
+        return None;
+    }
     let year = normalized_year(fields.next()?)?;
     let time = normalized_time(fields.next()?)?;
     let zone = fields.next()?;
@@ -34,6 +37,14 @@ pub fn parse(value: &[u8]) -> Option<SearchDate> {
     }
     let imap_date = format!("{day}-{month}-{year} {time} {zone}");
     MailDate::parse(&imap_date).map(SearchDate::from_mail_date)
+}
+
+/// Проверяет RFC day: одна или две десятичные ASCII-цифры.
+fn valid_day(value: &str) -> bool {
+    match value.len() {
+        1 | 2 => value.bytes().all(|octet| octet.is_ascii_digit()),
+        _ => false,
+    }
 }
 
 /// Нормализует obsolete 2/3-digit year по RFC 5322 §4.3.
@@ -60,11 +71,26 @@ fn normalized_time(value: &str) -> Option<String> {
     let mut fields = value.split(':');
     let hour = fields.next()?;
     let minute = fields.next()?;
-    match (fields.next(), fields.next()) {
-        (None, None) => Some(format!("{hour}:{minute}:00")),
-        (Some("60"), None) => Some(format!("{hour}:{minute}:59")),
-        (Some(second), None) => Some(format!("{hour}:{minute}:{second}")),
+    match (
+        valid_clock_field(hour),
+        valid_clock_field(minute),
+        fields.next(),
+        fields.next(),
+    ) {
+        (true, true, None, None) => Some(format!("{hour}:{minute}:00")),
+        (true, true, Some("60"), None) => Some(format!("{hour}:{minute}:59")),
+        (true, true, Some(second), None) if valid_clock_field(second) => {
+            Some(format!("{hour}:{minute}:{second}"))
+        }
         _ => None,
+    }
+}
+
+/// Проверяет фиксированную RFC ширину hour, minute или second.
+fn valid_clock_field(value: &str) -> bool {
+    match value.len() {
+        2 => value.bytes().all(|octet| octet.is_ascii_digit()),
+        _ => false,
     }
 }
 
@@ -114,6 +140,20 @@ mod tests {
         assert_eq!(parse(b"21 Nov 50 09:55:06 +0000"), Some(year_1950));
         assert_eq!(parse(b"21 Nov 123 09:55:06 +0000"), Some(year_2023));
         assert!(parse(b"21 Nov 9 09:55:06 +0000").is_none());
+    }
+
+    /// Современная дата не принимает однозначные или чрезмерно широкие поля.
+    #[test]
+    fn rejects_date_and_time_fields_outside_rfc_widths() {
+        for value in [
+            b"Fri, 001 Nov 1997 09:55:06 -0600".as_slice(),
+            b"Fri, 21 Nov 1997 9:55:06 -0600".as_slice(),
+            b"Fri, 21 Nov 1997 09:5:06 -0600".as_slice(),
+            b"Fri, 21 Nov 1997 09:55:6 -0600".as_slice(),
+            b"Fri, 21 Nov 1997 009:55:06 -0600".as_slice(),
+        ] {
+            assert!(parse(value).is_none(), "accepted date-time: {value:?}");
+        }
     }
 
     #[test]

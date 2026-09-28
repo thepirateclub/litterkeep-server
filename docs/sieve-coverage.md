@@ -345,6 +345,9 @@ T333 добавил quoted RFC 2183 date-параметры с календар�
 zone obsolete 2/3-digit year. Именованные зоны и некоторые прочие obsolete
 RFC 822 variants всё ещё непокрыты, поэтому полная date-time совместимость не
 заявляется.
+T335 закрепил RFC 5322 ширины day и clock fields, включая optional seconds и
+`:60`; независимый IMAP BODYSTRUCTURE test отвергает однозначные и чрезмерно
+широкие numeric fields.
 Whitespace около `=` в параметрах остается открытым и отдельно не ужесточается.
 
 RFC 2231 extended payload decoder принимает только attribute-char или

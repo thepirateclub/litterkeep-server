@@ -10010,3 +10010,16 @@ ManageSieve до заявленного набора современных фо
   удалён.
 - Это не полная obsolete RFC 822 date-time грамматика, Litterkeep app interop не
   проверен; G18 остаётся ACTIVE.
+### 2026-09-28: G18 RFC 5322 date-time lexical widths, scoped PASS T335
+
+- `Date` parser ограничивает day одной/двумя ASCII-цифрами и hour/minute/second
+  ровно двумя цифрами; seconds остаются optional, `60` поддержан по RFC.
+  Обновлена общая граница IMAP SEARCH и RFC 2183 disposition date validation.
+- Unit и независимый IMAP STARTTLS BODYSTRUCTURE acceptance отвергают
+  трёхзначный day, однозначные компоненты времени и трёхзначный hour; валидный
+  adjacent filename сохраняется, RFC822 literal совпадает побайтно.
+- Rust 1.97.1 fmt, strict Clippy, all-target tests прошли (925 library +
+  1 CLI, 4 ignored); Python compile и diff check прошли. Linux wire acceptance
+  прошёл на существующих Docker images, созданный контейнер удалён.
+- Это ограниченный RFC 5322 numeric-timezone профиль; obsolete варианты кроме
+  numeric-year и прочие RFC 2183 gaps остаются. G18 ACTIVE.
