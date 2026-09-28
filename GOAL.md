@@ -11,9 +11,10 @@
   UTF-8 ORCPT и адрес получателя выбирают `message/global-delivery-status`,
   ASCII-адреса сохраняют `message/delivery-status`. MIME boundary выбирается
   по реально возвращаемым байтам; unit regressions проверяют эти варианты.
-- Windows Rust 1.97.1 all-target: 1014 library + 1 CLI прошли, 4 ignored;
-  строгий Clippy, fmt и diff-check прошли. Linux `rust:1.97-bookworm` / Rust
-  1.97.1 all-target: 1134 library + 1 CLI прошли, 4 ignored. Linux Clippy не
+- Windows Rust 1.97.1 all-target: 1014 library + 1 CLI прошли; 4 library
+  теста и 2 fixture-зависимых POP3 integration-теста ignored. Строгий Clippy,
+  fmt и diff-check прошли. Linux `rust:1.97-bookworm` / Rust 1.97.1 all-target:
+  1134 library + 1 CLI прошли; те же 4 + 2 теста ignored. Linux Clippy не
   запускался: image не содержит `cargo-clippy`; image не менялся.
 - Docker test container был запущен с `--rm` и отсутствует после тестов.
   Повторное использование bind-mounted incremental target теряло `.o`, поэтому
