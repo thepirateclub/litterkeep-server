@@ -1,5 +1,6 @@
 //! Порядок durable записей одной append transaction.
 
+use super::super::dsn_success_journal;
 use super::{
     AppendExtensions, AppendMetadata, AppendStage, Store, WriteState, blobs, dsn_report_journal,
     outbound, sieve_diagnostics, smtp_dsn_journal, validation,
@@ -35,6 +36,12 @@ pub(super) fn append(
     append_diagnostics(store, transaction_id, extensions.diagnostics)?;
     append_smtp_envelope(store, transaction_id, extensions.smtp_dsn)?;
     append_report_key(store, transaction_id, extensions.dsn_report_key)?;
+    append_success_intents(
+        store,
+        transaction_id,
+        extensions.smtp_dsn,
+        extensions.dsn_success_recipient_indices,
+    )?;
     append_vacation_claim(store, transaction_id, extensions.vacation_claim)?;
     match store.commit_links(transaction_id, &links) {
         Ok(()) => {
@@ -47,6 +54,17 @@ pub(super) fn append(
                 None,
             )?;
             store.publish_dsn_report_key_before_publish(extensions.dsn_report_key, transaction_id);
+            store
+                .dsn_success_notices
+                .extend(
+                    extensions
+                        .dsn_success_recipient_indices
+                        .iter()
+                        .map(|index| crate::queue::DsnSuccessKey {
+                            transaction_id,
+                            recipient_index: *index,
+                        }),
+                );
             Ok(uid)
         }
         Err(error) => {
@@ -94,6 +112,42 @@ fn append_report_key(
         return Err(error);
     }
     store.check_and_poison(AppendStage::DsnReportWritten)
+}
+
+fn append_success_intents(
+    store: &mut Store,
+    transaction_id: u64,
+    envelope: Option<&crate::smtp::DsnEnvelope>,
+    recipient_indices: &[usize],
+) -> io::Result<()> {
+    if !recipient_indices.is_empty() {
+        let valid_envelope = envelope.is_some_and(|value| {
+            recipient_indices.iter().all(|index| {
+                value.recipients.get(*index).is_some_and(|recipient| {
+                    crate::dsn::notification_allowed(
+                        Some(&crate::queue::DsnDeliveryMetadata {
+                            mail: value.mail.clone(),
+                            recipient: Some(recipient.dsn.clone()),
+                        }),
+                        crate::smtp::NotifyCondition::Success,
+                    )
+                })
+            })
+        });
+        if !valid_envelope {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "success notice lacks matching NOTIFY=SUCCESS recipient",
+            ));
+        }
+    }
+    if let Err(error) =
+        dsn_success_journal::append(store.root.as_path(), transaction_id, recipient_indices)
+    {
+        store.write_state = WriteState::Poisoned;
+        return Err(error);
+    }
+    store.check_and_poison(AppendStage::DsnSuccessWritten)
 }
 
 fn append_vacation_claim(

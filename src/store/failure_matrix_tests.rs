@@ -33,6 +33,7 @@ fn append_failure_matrix_has_atomic_replay_boundary() {
         AppendStage::DiagnosticsWritten,
         AppendStage::EnvelopeWritten,
         AppendStage::DsnReportWritten,
+        AppendStage::DsnSuccessWritten,
         AppendStage::VacationWritten,
         AppendStage::FirstMailboxFrame,
         AppendStage::MailboxDirectorySynced,

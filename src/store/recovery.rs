@@ -7,6 +7,7 @@ pub fn recover(root: &Path) -> io::Result<()> {
     commit_log::recover(&root.join("journal/transactions.log"))?;
     super::smtp_dsn_journal::recover(root)?;
     super::dsn_report_journal::recover(root)?;
+    super::dsn_success_journal::recover(root)?;
     let mailbox_files =
         super::file_key::entries(&root.join("mailboxes"), super::file_key::FileKind::Journal)?;
     for (mailbox, path) in mailbox_files {

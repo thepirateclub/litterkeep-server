@@ -24,6 +24,18 @@ pub(super) struct AppendExtensions<'a> {
     pub(super) vacation_claim: Option<&'a super::vacation_suppression::PendingClaim>,
     pub(super) smtp_dsn: Option<&'a crate::smtp::DsnEnvelope>,
     pub(super) dsn_report_key: Option<&'a crate::queue::DsnReportKey>,
+    pub(super) dsn_success_recipient_indices: &'a [usize],
+}
+
+/// Borrowed payload одного SMTP Sieve plan до атомарной Store публикации.
+pub(super) struct SieveAppend<'a> {
+    pub(super) mailboxes: &'a [String],
+    pub(super) raw: &'a [u8],
+    pub(super) outbound: &'a [(String, String)],
+    pub(super) diagnostics: &'a [sieve_diagnostics::PendingDiagnostic],
+    pub(super) smtp_dsn: Option<&'a crate::smtp::DsnEnvelope>,
+    pub(super) outbound_origins: &'a [Option<usize>],
+    pub(super) dsn_success_recipient_indices: &'a [usize],
 }
 
 impl Store {
@@ -109,15 +121,32 @@ impl Store {
         smtp_dsn: Option<&crate::smtp::DsnEnvelope>,
         outbound_origins: &[Option<usize>],
     ) -> io::Result<u64> {
-        self.append_many_with_metadata(
+        self.append_many_with_sieve_and_success(SieveAppend {
             mailboxes,
             raw,
-            AppendMetadata::default(),
             outbound,
+            diagnostics,
+            smtp_dsn,
+            outbound_origins,
+            dsn_success_recipient_indices: &[],
+        })
+    }
+
+    /// Сохраняет RCPT success intents в ту же commit-границу local delivery.
+    pub(super) fn append_many_with_sieve_and_success(
+        &mut self,
+        request: SieveAppend<'_>,
+    ) -> io::Result<u64> {
+        self.append_many_with_metadata(
+            request.mailboxes,
+            request.raw,
+            AppendMetadata::default(),
+            request.outbound,
             AppendExtensions {
-                diagnostics,
-                outbound_origins,
-                smtp_dsn,
+                diagnostics: request.diagnostics,
+                outbound_origins: request.outbound_origins,
+                smtp_dsn: request.smtp_dsn,
+                dsn_success_recipient_indices: request.dsn_success_recipient_indices,
                 ..AppendExtensions::default()
             },
         )

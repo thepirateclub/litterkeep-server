@@ -75,6 +75,15 @@ pub struct DsnReportKey {
     pub failure: crate::dsn::Failure,
 }
 
+/// Идемпотентная идентичность committed SMTP local-success уведомления.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct DsnSuccessKey {
+    /// Глобальная transaction ID исходной local delivery.
+    pub transaction_id: u64,
+    /// Нулевой ordinal RCPT из исходного SMTP envelope.
+    pub recipient_index: usize,
+}
+
 /// Очередное задание, принадлежащее immutable blob одной Store transaction.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OwnedDelivery {

@@ -1,6 +1,6 @@
 //! Построение атомарного delivery plan поверх Sieve и durable Store.
 
-use super::{Store, sieve_diagnostics};
+use super::{Store, append::SieveAppend};
 use crate::sieve;
 use std::collections::HashSet;
 use std::io;
@@ -86,12 +86,13 @@ impl Store {
         raw: &[u8],
         smtp_dsn: Option<&crate::smtp::DsnEnvelope>,
     ) -> io::Result<u64> {
-        let headers = delivery_headers(raw);
+        let headers = planning::delivery_headers(raw);
         let mut mailboxes = Vec::new();
         let mut outbound = Vec::new();
         let mut outbound_origins = Vec::new();
         let mut diagnostics = Vec::new();
         let mut vacation_responses = Vec::new();
+        let mut success_recipient_indices = Vec::new();
         let mut evaluated = HashSet::with_capacity(accounts.len());
         for (recipient_index, (account, envelope_to)) in
             accounts.iter().zip(envelope_recipients).enumerate()
@@ -99,10 +100,24 @@ impl Store {
             if !evaluated.insert(account.as_str()) {
                 continue;
             }
-            let (plan, diagnostic) =
-                self.delivery_plan(account, &headers, raw.len(), envelope_sender, envelope_to)?;
+            let (plan, diagnostic) = planning::delivery_plan(
+                self,
+                account,
+                &headers,
+                raw.len(),
+                envelope_sender,
+                envelope_to,
+            )?;
             if let Some(value) = diagnostic {
                 diagnostics.push(value);
+            }
+            if success_recipients::has_mailbox_target(plan.keep, plan.folders.len()) {
+                success_recipient_indices.extend(success_recipients::requested_for_account(
+                    account,
+                    accounts,
+                    envelope_recipients,
+                    smtp_dsn,
+                ));
             }
             for recipient in plan.redirects {
                 outbound.push((envelope_sender.to_owned(), recipient));
@@ -124,14 +139,15 @@ impl Store {
         }
         let mut transaction_id = match (mailboxes.is_empty(), outbound.is_empty()) {
             (true, true) => None,
-            _ => Some(self.append_many_with_sieve(
-                &mailboxes,
+            _ => Some(self.append_many_with_sieve_and_success(SieveAppend {
+                mailboxes: &mailboxes,
                 raw,
-                &outbound,
-                &diagnostics,
+                outbound: &outbound,
+                diagnostics: &diagnostics,
                 smtp_dsn,
-                &outbound_origins,
-            )?),
+                outbound_origins: &outbound_origins,
+                dsn_success_recipient_indices: &success_recipient_indices,
+            })?),
         };
         for response in vacation_responses {
             let result = self.enqueue_vacation_response(super::VacationResponseRequest {
@@ -161,41 +177,14 @@ impl Store {
         }
         Ok(transaction_id.unwrap_or_default())
     }
-
-    /// Читает и исполняет зафиксированную версию скрипта владельца mailbox.
-    fn delivery_plan(
-        &self,
-        account: &str,
-        headers: &[(String, String)],
-        message_size: usize,
-        envelope_from: &str,
-        envelope_to: &str,
-    ) -> io::Result<(
-        sieve::DeliveryPlan,
-        Option<sieve_diagnostics::PendingDiagnostic>,
-    )> {
-        let Some((version, source)) = self.active_sieve_script(account)? else {
-            return Ok((implicit_keep(), None));
-        };
-        let script = sieve::parse(&source).map_err(io::Error::other)?;
-        match sieve::execute_with_envelope(
-            &script,
-            headers,
-            message_size,
-            envelope_from,
-            envelope_to,
-        ) {
-            Ok(mut plan) => match apply_redirect_policy(&mut plan, headers) {
-                Some(error) => Ok(failed_plan(account, version, error)),
-                None => Ok((plan, None)),
-            },
-            Err(error) => Ok(failed_plan(account, version, error)),
-        }
-    }
 }
 
+#[path = "sieve_delivery/planning.rs"]
+mod planning;
 #[path = "sieve_delivery/smtp_dsn_validation.rs"]
 mod smtp_dsn_validation;
+#[path = "sieve_delivery/success_recipients.rs"]
+mod success_recipients;
 
 /// Подготавливает только допустимый vacation response с обратным путём.
 fn prepare_vacation(
@@ -231,72 +220,4 @@ fn prepare_vacation(
         now_epoch,
         interval_seconds: sieve::effective_seconds(action.interval),
     }))
-}
-
-/// Превращает runtime error в implicit keep и durable typed diagnostic.
-fn failed_plan(
-    account: &str,
-    script_version: u64,
-    error: sieve::ExecutionError,
-) -> (
-    sieve::DeliveryPlan,
-    Option<sieve_diagnostics::PendingDiagnostic>,
-) {
-    (
-        implicit_keep(),
-        Some(sieve_diagnostics::PendingDiagnostic {
-            account: account.to_owned(),
-            script_version,
-            error,
-        }),
-    )
-}
-
-/// Проверяет redirect allowlist и ограничивает число последовательных hops.
-fn apply_redirect_policy(
-    plan: &mut sieve::DeliveryPlan,
-    headers: &[(String, String)],
-) -> Option<sieve::ExecutionError> {
-    let mut canonical = Vec::with_capacity(plan.redirects.len());
-    for address in &plan.redirects {
-        match crate::redirect_policy::Recipient::parse(address) {
-            Ok(recipient) => canonical.push(recipient.canonical()),
-            Err(_) => return Some(sieve::ExecutionError::RedirectRouteDenied),
-        }
-    }
-    plan.redirects = canonical;
-    match (
-        plan.redirects.is_empty(),
-        crate::redirect_policy::hop_limit_reached(headers),
-    ) {
-        (false, true) => Some(sieve::ExecutionError::RedirectLoop),
-        _ => None,
-    }
-}
-
-/// RFC-safe fallback не исполняет частично построенный план после ошибки.
-fn implicit_keep() -> sieve::DeliveryPlan {
-    sieve::DeliveryPlan {
-        keep: true,
-        discard: false,
-        folders: Vec::new(),
-        redirects: Vec::new(),
-        vacations: Vec::new(),
-    }
-}
-
-/// Извлекает UTF-8 заголовки для Sieve без срыва SMTP при malformed MIME.
-fn delivery_headers(raw: &[u8]) -> Vec<(String, String)> {
-    match crate::mime::header_block::parse(raw) {
-        Ok(block) => block
-            .fields
-            .into_iter()
-            .filter_map(|field| {
-                String::from_utf8(field.value)
-                    .ok()
-                    .map(|value| (field.name, value))
-            })
-            .collect(),
-        Err(_) => Vec::new(),
-    }
 }

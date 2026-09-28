@@ -1,5 +1,30 @@
 # Goal ledger
 
+### 2026-09-28: G18 commit-linked local SUCCESS DSN intent, PARTIAL T395
+
+- Sieve delivery now identifies each source RCPT with explicit `NOTIFY=SUCCESS`
+  when its plan contains a local mailbox target. Pure discard and redirect-only
+  plans produce no local success intent; repeated RCPTs retain independent
+  ordinals and policy.
+- The per-RCPT intent is fsynced before the source global commit, then exposed
+  in Store memory only after commit. Recovery filters intents by source commit
+  ID, so a crash before commit cannot publish a success notice. The journal is
+  checksummed, trims only incomplete trailing frames, and is capped at 16 MiB.
+- Five Store integration vectors cover durable reopen, duplicate RCPT policy,
+  FAILURE-only suppression, discard suppression, and uncommitted recovery.
+- Windows Rust 1.97.1 all-target suite: 1031 library + 1 CLI passed, 4 ignored.
+  Linux Docker Rust 1.97.1 all-target suite: 1151 library + 1 CLI passed,
+  4 ignored. Strict all-target Clippy, rustfmt and `git diff --check` passed.
+- Docker reused image ID
+  `sha256:0e2bcaef56d041a486784e54104a81aebe0da44bd03019bd70bc0401e42e4a97`;
+  target cache is `./data/g22-dsn-success-intent-linux-target`. The disposable
+  container was removed with `--rm`, no image was created, and no test container
+  remains.
+- This is only durable intent discovery; no consumer generates/appends the
+  report or acknowledges the intent yet. DSN wire capability remains disabled,
+  so T391 stays GAP and G18 ACTIVE.
+- Источник: [RFC 3461 §5.2.3](https://www.rfc-editor.org/rfc/rfc3461.html).
+
 ### 2026-09-28: G18 suppress unsolicited delivered DSN, PARTIAL T394
 
 - Публичный success renderer теперь проверяет recipient-scoped policy и
@@ -65,19 +90,18 @@
 
 - Сверка RFC 3461 §5.2.3 и §6 с `src/reactor/smtp_data.rs`,
   `src/storage_worker/local_delivery.rs`, `src/store/sieve_delivery.rs` и
-  `src/store/append_transaction.rs` показывает: входящая локальная доставка
-  становится видимой после Store commit, но append transaction не создаёт
-  delivered DSN для SMTP RCPT `NOTIFY=SUCCESS`.
+  `src/store/append_transaction.rs` показывает: Store теперь фиксирует
+  commit-linked success intent для явно запрошенного RCPT с локальным mailbox
+  target, но ещё не сериализует/публикует report из этого intent.
 - RFC определяет успешную доставку в mailbox как момент доступности письма для
   retrieval и требует `delivered` DSN, когда SUCCESS был запрошен. У нас эта
   wire-функция сейчас безопасно недоступна: `EHLO DSN` не объявляется, а
   параметризованные MAIL/RCPT отвергаются. Поэтому T391 фиксирует отсутствие
   conformance при включённом профиле, а не дефект уже рекламируемой функции.
-- Durable queue notice сейчас типизирован только для failure: его очередь,
-  idempotency key и recovery ещё не представляют success. Serializer теперь
-  умеет отдельный delivered outcome, а typed eligibility policy охватывает
-  SUCCESS/FAILURE/DELAY. Остаётся связать успешную политику с durable
-  post-commit intent, отдельным report key, append/ack и crash recovery.
+- Durable outbound queue notice и report idempotency key всё ещё типизированы
+  только для failure. Serializer и commit-linked source intent умеют отдельный
+  delivered outcome/SUCCESS, но ещё отсутствуют recovery consumer, идемпотентный
+  report append и durable acknowledgement pending intent.
 - Acceptance для закрытия GAP: unit vectors для RFC 3461 SUCCESS/NEVER/default;
   crash recovery между local mailbox commit и report append/ack; независимый
   SMTP peer после последующего включения DSN wire должен получить ровно один

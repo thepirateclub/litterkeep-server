@@ -14,6 +14,13 @@ mod dsn_report_journal;
 #[cfg(test)]
 #[path = "store/dsn_report_journal_tests.rs"]
 mod dsn_report_journal_tests;
+#[path = "store/dsn_success_access.rs"]
+mod dsn_success_access;
+#[path = "store/dsn_success_journal.rs"]
+mod dsn_success_journal;
+#[cfg(test)]
+#[path = "store/dsn_success_journal_tests.rs"]
+mod dsn_success_journal_tests;
 #[path = "store/durability.rs"]
 mod durability;
 #[path = "store/expunge_codec.rs"]
@@ -209,6 +216,8 @@ pub struct Store {
     smtp_dsn_envelopes: HashMap<u64, crate::smtp::DsnEnvelope>,
     /// Queue job keys whose immutable failure reports already committed.
     dsn_report_transactions: HashMap<crate::queue::DsnReportKey, u64>,
+    /// Pending local-success notices visible only after the source transaction commits.
+    dsn_success_notices: HashSet<crate::queue::DsnSuccessKey>,
     /// Единственный источник видимости queue jobs после recovery или commit.
     committed_transactions: HashSet<u64>,
     next_transaction_id: u64,
@@ -235,6 +244,7 @@ enum AppendStage {
     DiagnosticsWritten,
     EnvelopeWritten,
     DsnReportWritten,
+    DsnSuccessWritten,
     VacationWritten,
     FirstMailboxFrame,
     MailboxDirectorySynced,
