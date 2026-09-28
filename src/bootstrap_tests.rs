@@ -54,7 +54,11 @@ fn saved_passwords_authenticate_all_acceptance_accounts() {
         let mut fields = line.split('\t');
         let name = fields.next().expect("name");
         let password = fields.next().expect("password");
-        assert!(accounts.authenticate(name, password.as_bytes()));
+        assert!(
+            accounts
+                .authenticate(name, password.as_bytes())
+                .expect("verify account")
+        );
     }
     assert!(!accounts.exists("пользователь"));
     fs::remove_dir_all(root).expect("cleanup");
@@ -75,7 +79,11 @@ fn unicode_acceptance_account_is_opt_in_and_preserves_existing_credentials() {
     assert!(fields.next().is_none());
 
     let accounts = Accounts::open(&root).expect("account store");
-    assert!(accounts.authenticate(username, password.as_bytes()));
+    assert!(
+        accounts
+            .authenticate(username, password.as_bytes())
+            .expect("verify account")
+    );
     let second = initialize_smtp_utf8_test(&root).expect("repeat Unicode init");
     assert!(!second.created);
     assert_eq!(

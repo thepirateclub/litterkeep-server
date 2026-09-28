@@ -5,14 +5,15 @@ use super::*;
 pub(super) fn authenticated(
     session: &mut Session,
     account: String,
-    accepted: bool,
+    result: io::Result<bool>,
 ) -> io::Result<()> {
-    match accepted {
-        true => {
+    match result {
+        Ok(true) => {
             session.authenticated_account = Some(account);
             session.push(b"235 2.7.0 authentication successful\r\n")
         }
-        false => session.push(b"535 5.7.8 authentication credentials invalid\r\n"),
+        Ok(false) => session.push(b"535 5.7.8 authentication credentials invalid\r\n"),
+        Err(_) => session.push(b"454 4.7.0 authentication temporarily unavailable\r\n"),
     }
 }
 

@@ -12,7 +12,9 @@ pub(super) fn write_completion(
                 account,
                 command,
             },
-            Response::Authenticated { accepted: true, .. },
+            Response::Authenticated {
+                result: Ok(true), ..
+            },
         ) => {
             session.authenticated_account = Some(account);
             let verb = match command {
@@ -24,16 +26,18 @@ pub(super) fn write_completion(
         (
             Pending::Authenticate { tag, .. },
             Response::Authenticated {
-                accepted: false, ..
+                result: Ok(false), ..
             },
         ) => session.push(format!("{tag} NO authentication failed\r\n").as_bytes()),
-        (Pending::SmtpAuthenticate { account }, Response::Authenticated { accepted, .. }) => {
-            smtp_completion::authenticated(session, account, accepted)
+        (Pending::Authenticate { tag, .. }, Response::Authenticated { result: Err(_), .. }) => {
+            session.push(format!("{tag} NO authentication temporarily unavailable\r\n").as_bytes())
         }
-        (
-            Pending::ManageSieveAuthenticate { account },
-            Response::Authenticated { accepted, .. },
-        ) => managesieve_completion::authenticate(session, account, accepted),
+        (Pending::SmtpAuthenticate { account }, Response::Authenticated { result, .. }) => {
+            smtp_completion::authenticated(session, account, result)
+        }
+        (Pending::ManageSieveAuthenticate { account }, Response::Authenticated { result, .. }) => {
+            managesieve_completion::authenticate(session, account, result)
+        }
         (Pending::ManageSieveCommand, Response::SieveStored { result, .. }) => {
             managesieve_completion::result(session, result.map(|_| ()))
         }

@@ -156,7 +156,7 @@ fn create_or_validate(accounts: &Accounts, account: Account, password: &[u8]) ->
     match accounts.create(account.name(), password) {
         Ok(()) => Ok(true),
         Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
-            match accounts.authenticate(account.name(), password) {
+            match accounts.authenticate(account.name(), password)? {
                 true => Ok(false),
                 false => Err(io::Error::new(
                     io::ErrorKind::AlreadyExists,

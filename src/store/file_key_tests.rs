@@ -149,8 +149,16 @@ fn unicode_account_credentials_folders_subscriptions_and_sieve_recover() {
     let accounts = crate::accounts::Accounts::open(&root).unwrap();
     accounts.create(account, b"strong-test-password").unwrap();
     assert!(accounts.exists(account));
-    assert!(accounts.authenticate(account, b"strong-test-password"));
-    assert!(!accounts.authenticate(account, b"wrong-password"));
+    assert!(
+        accounts
+            .authenticate(account, b"strong-test-password")
+            .expect("verify account")
+    );
+    assert!(
+        !accounts
+            .authenticate(account, b"wrong-password")
+            .expect("verify account")
+    );
     let credential_path = path(&root.join("accounts"), account, FileKind::Credentials);
     assert_eq!(
         credential_path.parent(),
@@ -195,6 +203,7 @@ fn unicode_account_credentials_folders_subscriptions_and_sieve_recover() {
         crate::accounts::Accounts::open(&root)
             .unwrap()
             .authenticate(account, b"strong-test-password")
+            .expect("verify account")
     );
     drop(reopened);
     fs::remove_dir_all(root).unwrap();

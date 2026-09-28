@@ -189,7 +189,7 @@ pub enum Request {
 pub enum Response {
     Authenticated {
         request_id: u64,
-        accepted: bool,
+        result: io::Result<bool>,
     },
     RecipientValidated {
         request_id: u64,

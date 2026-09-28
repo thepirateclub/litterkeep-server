@@ -3,6 +3,9 @@ use crate::auth::Credential;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static NEXT_MIGRATION_ID: AtomicU64 = AtomicU64::new(1);
 
 pub struct Accounts {
     root: PathBuf,
@@ -38,17 +41,16 @@ impl Accounts {
         let directory = path.parent().unwrap_or(&self.root);
         crate::store::file_key::sync_key_directory(&self.root, directory)
     }
-    pub fn authenticate(&self, name: &str, password: &[u8]) -> bool {
-        if valid_name(name).is_err() {
-            return false;
-        }
+
+    pub fn authenticate(&self, name: &str, password: &[u8]) -> io::Result<bool> {
+        valid_name(name)?;
         let normalized_path = self.normalized_path(name);
         match fs::read_to_string(normalized_path) {
             Ok(phc) => verify_credential(&phc, password, CredentialFormat::SaslPrep),
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
                 self.authenticate_legacy(name, password)
             }
-            Err(_) => false,
+            Err(error) => Err(error),
         }
     }
     /// Сообщает, существует ли допустимый локальный получатель.
@@ -85,12 +87,94 @@ impl Accounts {
     }
 
     /// Оставляет старые PHC читаемыми, не выдавая их за нормализованные записи.
-    fn authenticate_legacy(&self, name: &str, password: &[u8]) -> bool {
+    fn authenticate_legacy(&self, name: &str, password: &[u8]) -> io::Result<bool> {
         match fs::read_to_string(self.path(name)) {
-            Ok(phc) => verify_credential(&phc, password, CredentialFormat::LegacyRaw),
-            Err(_) => false,
+            Ok(phc) => match verify_credential(&phc, password, CredentialFormat::LegacyRaw)? {
+                false => Ok(false),
+                true => {
+                    self.migrate_legacy(name, password)?;
+                    Ok(true)
+                }
+            },
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+            Err(error) => Err(error),
         }
     }
+
+    /// Переписывает проверенную legacy-запись в новом формате до успешного входа.
+    fn migrate_legacy(&self, name: &str, password: &[u8]) -> io::Result<()> {
+        let credential = Credential::create(password)?;
+        let path = crate::store::file_key::prepare(
+            &self.root,
+            name,
+            crate::store::file_key::FileKind::SaslPrepCredentials,
+        )?;
+        let temporary = migration_temporary_path(&path)?;
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)?;
+        let preparation = (|| {
+            file.write_all(credential.as_phc().as_bytes())?;
+            file.write_all(b"\n")?;
+            file.sync_all()
+        })();
+        drop(file);
+        if let Err(error) = preparation {
+            return match fs::remove_file(&temporary) {
+                Ok(()) => Err(error),
+                Err(cleanup_error) => Err(io::Error::new(
+                    error.kind(),
+                    format!("{error}; migration temporary cleanup failed: {cleanup_error}"),
+                )),
+            };
+        }
+        let publication = fs::hard_link(&temporary, &path);
+        let cleanup = fs::remove_file(&temporary);
+        match (publication, cleanup) {
+            (Ok(()), Ok(())) => {
+                let directory = path.parent().unwrap_or(&self.root);
+                crate::store::file_key::sync_key_directory(&self.root, directory)
+            }
+            (Err(error), Ok(())) if error.kind() == io::ErrorKind::AlreadyExists => {
+                self.verify_concurrent_migration(&path, password)
+            }
+            (Err(error), Ok(())) => Err(error),
+            (Ok(()), Err(error)) => Err(error),
+            (Err(error), Err(cleanup_error)) => Err(io::Error::new(
+                error.kind(),
+                format!("{error}; migration temporary cleanup failed: {cleanup_error}"),
+            )),
+        }
+    }
+
+    /// Подтверждает результат конкурирующей миграции, не принимая сменённый пароль.
+    fn verify_concurrent_migration(&self, path: &Path, password: &[u8]) -> io::Result<()> {
+        let phc = fs::read_to_string(path)?;
+        match verify_credential(&phc, password, CredentialFormat::SaslPrep)? {
+            true => Ok(()),
+            false => Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "credential changed during legacy migration",
+            )),
+        }
+    }
+}
+
+/// Формирует уникальный временный путь в том же каталоге для атомарной публикации.
+fn migration_temporary_path(path: &Path) -> io::Result<PathBuf> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing credential parent"))?;
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(io::Error::other)?
+        .as_nanos();
+    let identifier = NEXT_MIGRATION_ID.fetch_add(1, Ordering::Relaxed);
+    Ok(parent.join(format!(
+        ".phc2-migration-{}-{timestamp}-{identifier}.tmp",
+        std::process::id()
+    )))
 }
 
 /// Выбирает password semantics по типизированному storage format.
@@ -101,18 +185,19 @@ enum CredentialFormat {
 }
 
 /// Выбирает password semantics по типизированному storage format.
-fn verify_credential(phc: &str, password: &[u8], format: CredentialFormat) -> bool {
+fn verify_credential(phc: &str, password: &[u8], format: CredentialFormat) -> io::Result<bool> {
     let credential = match Credential::from_phc(phc.trim().to_owned()) {
         Ok(credential) => credential,
-        Err(_) => return false,
+        Err(_) => return Ok(false),
     };
-    match format {
+    let accepted = match format {
         CredentialFormat::LegacyRaw => match credential.verify(password) {
             true => true,
             false => credential.verify_legacy_raw(password),
         },
         CredentialFormat::SaslPrep => credential.verify(password),
-    }
+    };
+    Ok(accepted)
 }
 fn valid_name(name: &str) -> io::Result<()> {
     // Храним точные UTF-8 октеты канонического local-part без нормализации.

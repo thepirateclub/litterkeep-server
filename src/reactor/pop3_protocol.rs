@@ -69,8 +69,12 @@ pub(super) fn follow_up(
     slot: usize,
     generation: u64,
 ) -> Option<(Request, Pending)> {
-    let (Pending::Pop3Authenticate { account }, Response::Authenticated { accepted: true, .. }) =
-        (pending, response)
+    let (
+        Pending::Pop3Authenticate { account },
+        Response::Authenticated {
+            result: Ok(true), ..
+        },
+    ) = (pending, response)
     else {
         return None;
     };

@@ -5,8 +5,12 @@ use super::*;
 pub(super) fn authenticate(
     session: &mut Session,
     account: String,
-    accepted: bool,
+    result: io::Result<bool>,
 ) -> io::Result<()> {
+    let accepted = match result {
+        Ok(accepted) => accepted,
+        Err(_) => return session.push(b"NO \"authentication temporarily unavailable\"\r\n"),
+    };
     let authentication_reply =
         session
             .managesieve

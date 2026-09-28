@@ -11,7 +11,7 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             password,
         } => Response::Authenticated {
             request_id,
-            accepted: accounts.authenticate(&username, &password),
+            result: accounts.authenticate(&username, &password),
         },
         Request::ValidateRecipient {
             request_id,

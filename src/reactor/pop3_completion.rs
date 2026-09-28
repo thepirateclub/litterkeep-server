@@ -27,23 +27,29 @@ pub(super) fn write(
         (
             Pending::Pop3Authenticate { .. },
             Response::Authenticated {
-                accepted: false, ..
+                result: Ok(false), ..
             },
         ) => {
             let reply = session.pop3.authentication_rejected();
             pop3_protocol::write_reply(session, reply)
         }
-        (Pending::Pop3Authenticate { account }, Response::Authenticated { accepted: true, .. }) => {
-            match maildrops.owns(&account, slot, generation) {
-                true => {
-                    session.pop3.authentication_accepted();
-                    Ok(())
-                }
-                false => {
-                    let reply = session.pop3.maildrop_in_use();
-                    pop3_protocol::write_reply(session, reply)
-                }
+        (
+            Pending::Pop3Authenticate { account },
+            Response::Authenticated {
+                result: Ok(true), ..
+            },
+        ) => match maildrops.owns(&account, slot, generation) {
+            true => {
+                session.pop3.authentication_accepted();
+                Ok(())
             }
+            false => {
+                let reply = session.pop3.maildrop_in_use();
+                pop3_protocol::write_reply(session, reply)
+            }
+        },
+        (Pending::Pop3Authenticate { .. }, Response::Authenticated { result: Err(_), .. }) => {
+            session.push(b"-ERR authentication temporarily unavailable\r\n")
         }
         (
             Pending::Pop3ReadInbox,

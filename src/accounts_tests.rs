@@ -16,9 +16,13 @@ fn new_account_password_uses_saslprep_credentials() {
         .create("alice", "\u{00AA}".as_bytes())
         .expect("create normalized account");
     assert!(accounts.exists("alice"));
-    assert!(accounts.authenticate("alice", b"a"));
-    assert!(accounts.authenticate("alice", "\u{00AA}".as_bytes()));
-    assert!(!accounts.authenticate("alice", b"A"));
+    assert!(accounts.authenticate("alice", b"a").expect("verify"));
+    assert!(
+        accounts
+            .authenticate("alice", "\u{00AA}".as_bytes())
+            .expect("verify")
+    );
+    assert!(!accounts.authenticate("alice", b"A").expect("verify"));
     assert_eq!(
         accounts
             .create("alice", b"replacement")
@@ -38,7 +42,7 @@ fn new_account_password_uses_saslprep_credentials() {
 }
 
 #[test]
-fn legacy_phc_accounts_remain_readable_without_relabeling_their_hashes() {
+fn legacy_phc_login_migrates_without_removing_the_original_hash() {
     let root = temporary_root("accounts-legacy");
     let accounts = Accounts::open(&root).expect("account store");
     let legacy_path = file_key::prepare(&root.join("accounts"), "bob", FileKind::Credentials)
@@ -47,10 +51,54 @@ fn legacy_phc_accounts_remain_readable_without_relabeling_their_hashes() {
     fs::write(&legacy_path, format!("{hash}\n")).expect("write legacy PHC fixture");
 
     assert!(accounts.exists("bob"));
-    assert!(accounts.authenticate("bob", "\u{00AA}".as_bytes()));
-    assert!(!accounts.authenticate("bob", b"a"));
+    assert!(
+        accounts
+            .authenticate("bob", "\u{00AA}".as_bytes())
+            .expect("verify")
+    );
     assert!(accounts.create("bob", b"replacement").is_err());
-    assert!(!file_key::path(&root.join("accounts"), "bob", FileKind::SaslPrepCredentials).exists());
+    let migrated = file_key::path(&root.join("accounts"), "bob", FileKind::SaslPrepCredentials);
+    assert!(migrated.is_file());
+    assert!(
+        accounts
+            .authenticate("bob", b"a")
+            .expect("verify normalized migration")
+    );
+    assert!(file_key::path(&root.join("accounts"), "bob", FileKind::Credentials).is_file());
+    fs::remove_dir_all(root).expect("remove test account data");
+}
+
+#[test]
+fn concurrent_legacy_logins_share_the_published_migration() {
+    let root = temporary_root("accounts-legacy-race");
+    Accounts::open(&root).expect("account store");
+    let path = file_key::prepare(&root.join("accounts"), "dana", FileKind::Credentials)
+        .expect("legacy credential path");
+    fs::write(&path, format!("{}\n", legacy_hash(b"race-password")))
+        .expect("write legacy PHC fixture");
+    let workers = (0..4)
+        .map(|_| {
+            let root = root.clone();
+            std::thread::spawn(move || {
+                Accounts::open(root)
+                    .expect("open account store")
+                    .authenticate("dana", b"race-password")
+                    .expect("authenticate concurrent legacy login")
+            })
+        })
+        .collect::<Vec<_>>();
+    for worker in workers {
+        assert!(worker.join().expect("join migration worker"));
+    }
+    assert!(
+        file_key::path(
+            &root.join("accounts"),
+            "dana",
+            FileKind::SaslPrepCredentials
+        )
+        .is_file()
+    );
+    assert!(path.is_file());
     fs::remove_dir_all(root).expect("remove test account data");
 }
 
@@ -63,7 +111,11 @@ fn existing_normalized_legacy_password_can_use_its_saslprep_equivalent() {
     let hash = legacy_hash(b"a");
     fs::write(path, format!("{hash}\n")).expect("write legacy PHC fixture");
 
-    assert!(accounts.authenticate("carol", "\u{00AA}".as_bytes()));
+    assert!(
+        accounts
+            .authenticate("carol", "\u{00AA}".as_bytes())
+            .expect("verify")
+    );
     fs::remove_dir_all(root).expect("remove test account data");
 }
 
