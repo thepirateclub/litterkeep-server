@@ -22,12 +22,17 @@ RFC 3461 `DSN` пока не рекламируется. MAIL `RET`/`ENVID` и R
 доставку и не обещает DSN-семантику. Внутри SMTP transaction typed envelope
 уже проходит через DATA/BDAT и bounded request к единственному Store owner;
 Store сохраняет его в commit-linked sidecar и восстанавливает после reopen.
-Это внутреннее сохранение намерения отправителя, а не генерация уведомлений.
+Это внутреннее сохранение намерения отправителя, а не поддержка DSN на SMTP
+wire-пути.
 
 RFC 3461 требует применить запросы условий `NOTIFY`, возврата содержимого и
-корреляции envelope/получателя либо не заявлять о поддержке. Success, failure
-и delay report scheduling, report MIME conformance и сквозное поведение
-повторной доставки ещё не реализованы и не проверены. Независимый Linux wire
+корреляции envelope/получателя либо не заявлять о поддержке. Внутреннее
+планирование failure report после окончательного отказа и часть MIME-семантики
+уже реализованы и проверены, но только для очереди и Store owner, не через
+параметризованный SMTP wire-путь. Success и delay report scheduling,
+идемпотентность при сбоях между фиксацией queue state и публикацией report и
+полная сквозная семантика повторной доставки ещё не реализованы и не проверены.
+Независимый Linux wire
 peer подтвердил отсутствие capability, точный refusal-код для MAIL/RCPT и
 восстановление сессии; после добавления RFC 6533 xtext второй независимый Linux
 socket peer подтвердил тот же точный отказ `555 5.5.4` для `ORCPT=utf-8` и
@@ -41,8 +46,8 @@ durable round-trip typed envelope. RFC 6533 задаёт для `utf-8` ORCPT т
 UTF-8 адресу, не сохраняя способ кодирования. Независимый Linux peer подтвердил
 точный отказ 555 5.5.4 отдельно для xtext и буквального Unicode unitext;
 это не wire support, DSN команды всё ещё отвергаются. Native UTF-8 form policy,
-SMTPUTF8-specific form constraints, генерация и доставка отчётов, а также
-полный DSN ESMTP профиль остаются неподдержанными.
+SMTPUTF8-specific form constraints, формирование и доставка уведомлений об
+успехе/задержке, а также полный DSN ESMTP профиль остаются неподдержанными.
 
 Дополнительный аудит очереди выявил отдельный барьер перед wire acceptance:
 DSN sidecar хранит исходный envelope, а queue jobs теперь durable сохраняют
