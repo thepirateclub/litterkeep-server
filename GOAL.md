@@ -10997,3 +10997,24 @@ ManageSieve до заявленного набора современных фо
   `./data/g22-imap-partial-linux`.
 - T383 covers the tested RFC 9394 semantics only. Full RFC 9051 compatibility
   and Litterkeep app interoperability remain unverified; G14 stays RUNNING.
+
+### 2026-09-28: G14 RFC 9755 UTF8=ACCEPT capability discovery, T384 PASS
+
+- Advertised `UTF8=ACCEPT` in all IMAP CAPABILITY states after auditing the
+  implemented mailbox-name, internationalized APPEND, FETCH ENVELOPE and
+  mode-gated UTF-8 response paths. Capability discovery does not imply
+  `UTF8=ONLY`, IMAP4rev2, or full RFC 9755 conformance.
+- Independent STARTTLS acceptance checks capability before STARTTLS, after TLS
+  and LOGIN, and after ENABLE; APPEND with an internationalized header is
+  refused before ENABLE and accepted after it. The same test checks UTF-8
+  mailbox CREATE/LIST and FETCH ENVELOPE projection. Existing APPEND acceptance
+  was updated to require the capability and retain its legacy/enabled checks.
+- Windows Rust 1.97.1 full suite: 1004 library + 1 CLI passed, 4 ignored;
+  strict Clippy/fmt and Python syntax pass. Linux Rust 1.97.1 Docker suite:
+  1124 library + 1 CLI passed, 4 ignored; strict Clippy and release build pass.
+- Linux runtime uses `./data/g22-imap-utf8-capability`; test/release artifacts
+  reuse `./data/g22-imap-partial-linux`. Existing Rust image reused; temporary
+  containers removed and verified absent; no image created.
+- T384 proves capability discovery and the listed extension paths only.
+  Remaining RFC 9755 requirements, IMAP4rev2 and Litterkeep app interoperability
+  remain unverified; G14 stays RUNNING.

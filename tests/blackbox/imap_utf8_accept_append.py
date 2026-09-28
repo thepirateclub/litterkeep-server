@@ -1,10 +1,25 @@
 """Проверяет RFC 9755 APPEND до и после ENABLE независимым imaplib-клиентом."""
 
 import argparse
+from enum import Enum
 import imaplib
 import ssl
 from pathlib import Path
 from imap_utf7 import modified_utf7
+
+
+class ImapStatus(Enum):
+    """Успешное completion состояние независимого IMAP-клиента."""
+
+    OK = "OK"
+
+
+def status_kind(value: str) -> ImapStatus:
+    """Преобразует completion строку imaplib в конечный enum."""
+    try:
+        return ImapStatus(value)
+    except ValueError as error:
+        raise AssertionError(f"неожиданный IMAP completion: {value!r}") from error
 
 
 def arguments() -> argparse.Namespace:
@@ -92,8 +107,10 @@ def main() -> None:
     password = account_password(Path(options.credentials), "bob")
     client = authenticated_client(options, password)
     status, capabilities = client.capability()
-    if status != "OK" or any(b"UTF8=ACCEPT" in item.upper() for item in capabilities):
-        raise AssertionError(f"partial extension was advertised: {capabilities!r}")
+    if status_kind(status) is not ImapStatus.OK or not any(
+        b"UTF8=ACCEPT" in item.upper() for item in capabilities
+    ):
+        raise AssertionError(f"UTF8=ACCEPT capability is missing: {capabilities!r}")
 
     legacy_tag = client._command("CREATE", '"旅行"'.encode("utf-8"))
     legacy_status, legacy_data = client._get_tagged_response(legacy_tag)
@@ -124,8 +141,7 @@ def main() -> None:
 
     # RFC 5161 требует выполнить ENABLE в AUTH state, до SELECT/EXAMINE.
     client = authenticated_client(options, password)
-    # CAPABILITY скрыта до прохождения всего acceptance profile, поэтому
-    # отправляем ENABLE через низкоуровневый независимый imaplib command path.
+    # CAPABILITY объявляет UTF8=ACCEPT, но режим включается только явным ENABLE.
     status, _ = client._simple_command("ENABLE", "UTF8=ACCEPT")
     response_type, enabled = client.response("ENABLED")
     if status != "OK" or response_type != "ENABLED" or not any(

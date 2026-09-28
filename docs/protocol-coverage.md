@@ -464,7 +464,7 @@ capability до/после TLS и отказ plaintext authentication. Друг�
 IMAP quoted-pair принимает только escaped `"` и `\\` по RFC 3501; иной
 символ после обратной косой черты возвращает tagged BAD, сохраняя командный
 тег. Независимый STARTTLS `imaplib` тест подтвердил BAD и успешный NOOP после
-лексической ошибки. UTF8=ACCEPT пока не рекламируется, но ENABLE активирует
+лексической ошибки. UTF8=ACCEPT рекламируется; ENABLE активирует
 connection-local mode: legacy quoted-string отклоняет high-bit UTF-8 до
 negotiation, а quoted mailbox names разрешаются после неё. Независимый STARTTLS
 acceptance проверил positive и negative переходы, включая malformed UTF-8,
@@ -488,8 +488,9 @@ UTF-8 BODY literal. RFC 9755 explicit SEARCH CHARSET получает BAD; wire-
 обычный и смешанный регистр keyword, после чего implicit UTF-8 SEARCH работает.
 UTF-8 mailbox CREATE/SUBSCRIBE/UNSUBSCRIBE/LIST/LSUB/STATUS/SELECT, APPEND,
 COPY/MOVE/RENAME/DELETE прошли независимую STARTTLS проверку; после COPY/MOVE
-RFC822 bytes совпадают точно. CAPABILITY всё ещё скрывает UTF8=ACCEPT до полного
-профиля. Актуальный audit RFC 9755 и оставшиеся обязательства приведён в
+RFC822 bytes совпадают точно. Независимый capability acceptance проверяет
+UTF8=ACCEPT до TLS, после TLS/LOGIN и после ENABLE. Это не закрывает весь
+профиль RFC 9755; оставшиеся обязательства приведены в
 `imap-profile.md`; это не объявляет IMAP4rev2.
 FETCH ENVELOPE учитывает connection-local string mode: до ENABLE Unicode,
 полученный из RFC 2047 encoded-word, кодируется как октетный literal, а после
@@ -505,8 +506,8 @@ Content-ID/Description, MIME type parameters, disposition filename, languages,
 location и вложенный message ENVELOPE проходят mode-aware сериализацию. Unit
 тест покрывает Unicode Content-ID, decoded description, RFC 2231 parameters и
 обе wire формы; независимый STARTTLS клиент проверил до/после ENABLE DESCRIPTION,
-NAME и FILENAME на одном сохранённом MIME-part. Это не доказывает отсутствие
-UTF-8 quoted-string во всех прочих IMAP ответах; capability остаётся скрыта.
+NAME и FILENAME на одном сохранённом MIME-part. Capability проверена новым
+сквозным acceptance; это не закрывает все остальные RFC 9755 обязанности.
 Дополнительная комбинированная STARTTLS проверка включает `ENABLE UTF8=ACCEPT`,
 создаёт mailbox с `é` и запрашивает `LIST RETURN STATUS`: соседние LIST и
 STATUS ответы сохраняют UTF-8 имя и порядок запрошенных числовых полей. Это

@@ -18,7 +18,7 @@ CAPABILITY не выдаёт за более широкое расширение
 | Authentication | AUTHENTICATE PLAIN | PASS | Continuation, cancel, atom/quoted astring, пустой SASL-IR marker, authzid policy, только TLS; прочие механизмы не рекламируются |
 | Mailbox discovery | LIST, LSUB, STATUS | PARTIAL | CAPABILITY advertises implemented `LIST-EXTENDED` (RFC 5258) and `LIST-STATUS` (RFC 5819); modified UTF-7, `*`/`%`, root discovery, empty selection `()`, slash-delimited relative reference prefix with canonical response names, SUBSCRIBED, RECURSIVEMATCH with CHILDINFO for SUBSCRIBED/SPECIAL-USE, RETURN (CHILDREN), RETURN (SUBSCRIBED), and RETURN STATUS (MESSAGES/RECENT/UIDNEXT/UIDVALIDITY/UNSEEN/DELETED/SIZE/APPENDLIMIT) verified; RECENT reports unclaimed durable messages before SELECT and session-owned recent UIDs after SELECT, consistently in STATUS and LIST STATUS; combined UTF8=ACCEPT LIST/STATUS wire responses preserve Unicode mailbox names; missing names are selected only by SUBSCRIBED and retain `\\NonExistent`; multi-namespace/breakout naming is not implemented |
 | Namespace | NAMESPACE | PASS | Advertised and tested; personal namespace is `""` with `/` delimiter, unavailable classes are NIL |
-| Extension negotiation | ENABLE | PARTIAL | Atom and quoted-string token forms are distinguished; unquoted arguments are validated against the IMAP atom production, invalid atom-special characters receive tagged BAD, and valid unsupported capability atoms remain ignored; authenticated `ENABLE UTF8=ACCEPT` activates a connection-local mode and returns `ENABLED UTF8=ACCEPT`; extension remains hidden from CAPABILITY until the full profile gate passes |
+| Extension negotiation | ENABLE | PARTIAL | Atom and quoted-string token forms are distinguished; unquoted arguments are validated against the IMAP atom production, invalid atom-special characters receive tagged BAD, and valid unsupported capability atoms remain ignored; authenticated `ENABLE UTF8=ACCEPT` activates a connection-local mode and returns `ENABLED UTF8=ACCEPT`; RFC 9755 UTF8=ACCEPT is advertised and independently checked before TLS, after TLS/LOGIN and after ENABLE; remaining RFC 9755 and IMAP4rev2 behavior is not claimed |
 | Mailbox mutation | CREATE, DELETE, RENAME | PASS | Durable journal, subtree rename, retired folder IDs |
 | Subscription | SUBSCRIBE, UNSUBSCRIBE | PASS | Durable subscription независимо от существования папки |
 | Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS включает системные flags и keywords, существующие в mailbox; PERMANENTFLAGS включает `\\*` для новых keywords только в read-write selection; EXAMINE reports `PERMANENTFLAGS ()`; повторный SELECT/EXAMINE закрывает прежнюю папку с `OK [CLOSED]` до новых ответов, успешный выбор включает LIST с каноническим именем и имеющимся special-use атрибутом mailbox, а failed select оставляет authenticated state без выбранной папки |
@@ -201,8 +201,8 @@ CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-U
 Он также объявляет RFC 2971 `ID`; сервер возвращает `* ID NIL` и не раскрывает
 build или host fingerprint. ENABLE игнорирует неизвестные и пока не поддерживаемые расширения по RFC. В authenticated state
 `ENABLE UTF8=ACCEPT` активирует режим на текущем соединении и возвращает
-`ENABLED UTF8=ACCEPT`; capability намеренно скрыта, пока не пройдёт весь
-профиль RFC 9755. `APPENDLIMIT=26214400` объявляет единый предельный размер
+`ENABLED UTF8=ACCEPT`; capability объявляется после проверки её базового
+контракта, хотя весь профиль RFC 9755 ещё не закрыт. `APPENDLIMIT=26214400` объявляет единый предельный размер
 сообщения в октетах; STATUS и LIST RETURN STATUS возвращают такое же значение
 для каждого mailbox. `IMAP4rev2` не заявляется.
 `AUTH=PLAIN SASL-IR` доступен только внутри TLS. До STARTTLS сервер выдаёт
@@ -261,12 +261,12 @@ except "+">`: закрывающая скобка допустима как `res
 Актуальный стандарт для UTF-8 режима IMAP4rev1 -
 [RFC 9755](https://www.rfc-editor.org/rfc/rfc9755.html), опубликованный в 2025
 году и заменивший RFC 6855. Он не расширяет IMAP4rev2: RFC 9051 уже включает
-этот функциональный набор. Сервер остаётся IMAP4rev1 и `UTF8=ACCEPT` не
-рекламирует; распознавание capability атома парсером не означает поддержки.
+этот функциональный набор. Сервер остаётся IMAP4rev1, рекламирует проверенный
+`UTF8=ACCEPT`, но не заявляет о полном покрытии всех требований RFC 9755.
 
 | Обязательство RFC 9755 | Текущее состояние | Что требуется для PASS |
 |---|---|---|
-| Capability и ENABLE | `ENABLE UTF8=ACCEPT` после аутентификации активирует session mode и возвращает `ENABLED UTF8=ACCEPT`; APPEND и mailbox subset прошли independent STARTTLS wire checks. NFC output проверен для LIST/LSUB/STATUS и старых mailbox aliases; capability скрыта до завершения remaining Net-Unicode response paths. Mailbox validator отвергает unassigned points из Unicode 17.0.0 | Завершить remaining response-path acceptance; только после полного profile gate рекламировать `UTF8=ACCEPT`; ENABLE остаётся additive на соединении |
+| Capability и ENABLE | `UTF8=ACCEPT` рекламируется; independent STARTTLS проверяет discovery до TLS, после TLS/LOGIN и после ENABLE. `ENABLE UTF8=ACCEPT` после аутентификации активирует session mode и возвращает `ENABLED UTF8=ACCEPT`; новый сквозной тест подтверждает APPEND отказ до ENABLE и успех после, UTF-8 mailbox CREATE/LIST и UTF-8 ENVELOPE. NFC output для LIST/LSUB/STATUS и исторических aliases проверен отдельными acceptance. Mailbox validator отвергает unassigned points из Unicode 17.0.0 | Расширить acceptance на оставшиеся RFC 9755 response paths и выполнить полный RFC 9755 audit; не рекламировать `UTF8=ONLY` |
 | UTF-8 quoted-string | Mode-aware lexer включается session ENABLE; independent wire тест подтверждает BAD для UTF-8 CREATE до ENABLE и успешные mailbox commands после него. FETCH ENVELOPE и MIME строки BODY/BODYSTRUCTURE используют RFC 3501 literals до ENABLE и quoted UTF-8 после него; независимый STARTTLS acceptance проверил оба ответа, включая RFC 2231 filename/параметры и decoded Content-Description. Malformed UTF-8, C0/C1 controls и UTF-8 atom получают BAD, за которым проходит NOOP | Проверить оставшиеся IMAP response string paths и полный набор RFC 9755 |
 | Имена mailbox | CREATE/DELETE/RENAME, SUBSCRIBE/UNSUBSCRIBE, APPEND, STATUS, COPY/MOVE, UID COPY/MOVE и LIST/LSUB используют mode-aware parser; независимый STARTTLS client проверил mutation и transfer между UTF-8 именами, включая tagged COPYUID и совпадение RFC822 bytes. Unicode 17 NFC применяется к новым именам и output. Существующие decomposed folder journals не переписываются: Store разрешает NFC-equivalent alias по stable folder ID; полный Store reopen подтверждает сохранение прежних mailbox bytes. Ambiguous canonical aliases отклоняются. CREATE с unassigned U+0378 получает BAD; unassigned scalars проверяются по Unicode 17.0.0 | Оставшиеся response paths требуют acceptance; RFC 9755 profile gate ещё не закрыт |
 | Ответы с именами mailbox | LIST/LSUB/STATUS выбирают modified UTF-7 в Legacy и NFC UTF-8 quoted output после ENABLE; independent wire tests проверили LIST/LSUB/STATUS и composed output для старой decomposed folder записи; комбинированный `LIST RETURN STATUS` после ENABLE проверил соседство ответов, UTF-8 mailbox и запрошенные числовые поля. NAMESPACE пока выдаёт только пустой personal prefix | Сохранять legacy представление для не включённого клиента; проверить namespace/shared prefixes, когда такие имена появятся |
@@ -276,9 +276,8 @@ except "+">`: закрывающая скобка допустима как `res
 | message/global | Независимый STARTTLS клиент включил `UTF8=ACCEPT` до APPEND и подтвердил `MESSAGE/GLOBAL`, encoded `BODY[1]`, decoded nested BODY/BINARY sections и исходный RFC822 literal byte-exact | Сохранить это поведение при оставшихся IMAP profile changes; RFC 9755 для IMAP4rev1 разрешает BODYSTRUCTURE как `message/rfc822` либо RFC 3501 вариант |
 | UTF8=ONLY | Не поддерживается и не рекламируется | Отдельный профиль: подразумевает UTF8=ACCEPT, клиенты всё равно отправляют `ENABLE UTF8=ACCEPT`; требует reject legacy modified UTF-7 и `NO [CANNOT]` для UTF-8-dependent команд до ENABLE |
 
-До прохождения этих gates `UTF8=ACCEPT` и `UTF8=ONLY` не должны появляться в
-CAPABILITY. ENABLE уже включает UTF8=ACCEPT на соединении, но само по себе это
-не означает завершения acceptance профиля. `UTF8=ONLY`
+`UTF8=ACCEPT` теперь рекламируется после проверки его capability-контракта и
+основных режимных wire-путей. Это не закрывает весь RFC 9755 профиль. `UTF8=ONLY`
 не является синонимом `UTF8=ACCEPT` и требует отдельного строгого режима. См.
 [RFC 5198](https://www.rfc-editor.org/rfc/rfc5198.html) для Net-Unicode
 нормализации, BOM и стабильности Unicode-таблиц. RFC 9755 Sections 3-7
