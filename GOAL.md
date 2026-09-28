@@ -1,5 +1,24 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 3461 outcome eligibility policy, PARTIAL T392
+
+- Выбор recipient-scoped NOTIFY вынесен в общую typed policy для FAILURE,
+  SUCCESS и DELAY. Без NOTIFY FAILURE разрешён, SUCCESS не запрошен, DELAY
+  допускается как необязательное уведомление; явный список допускает только
+  перечисленные outcomes, а NEVER запрещает все.
+- Три unit-вектора проверяют default, явный набор и NEVER. Windows Rust 1.97.1
+  all-target suite: 1023 library + 1 CLI passed, 4 ignored; прежняя точечная
+  проверка failure policy и `cargo clippy --all-targets -- -D warnings` прошли.
+- Linux Rust 1.97.1 Docker all-target suite: 1143 library + 1 CLI passed,
+  4 ignored. Использован существующий `rust:1.97-bookworm` image и локальный
+  `./data/g20-dsn-policy-linux-target`; одноразовый контейнер удалён через
+  `--rm`, новых images не создавалось.
+- Это только policy helper, не генерация delivered/delayed report и не SMTP
+  DSN wire support. EHLO DSN и параметры MAIL/RCPT остаются выключены; T391
+  остаётся GAP, G18 ACTIVE. Независимый SMTP wire acceptance для этого шага
+  не запускался.
+- Источник: [RFC 3461 §§5.2.3, 5.2.5-5.2.6](https://www.rfc-editor.org/rfc/rfc3461.html).
+
 ### 2026-09-28: G18 local-delivery SUCCESS DSN conformance audit, GAP T391
 
 - Сверка RFC 3461 §5.2.3 и §6 с `src/reactor/smtp_data.rs`,

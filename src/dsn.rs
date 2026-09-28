@@ -5,13 +5,13 @@
 //! не пишет файл и не ставит новое outbound job, поэтому пустой reverse-path
 //! гарантированно не образует DSN-цикл.
 
-use crate::{
-    queue::DsnDeliveryMetadata,
-    smtp::{NotifyCondition, NotifyPolicy},
-};
+use crate::{queue::DsnDeliveryMetadata, smtp::NotifyCondition};
 
+#[path = "dsn_policy.rs"]
+mod policy;
 #[path = "dsn_report.rs"]
 mod report;
+pub use policy::notification_allowed;
 
 /// Окончательная причина, показываемая локальному отправителю.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -63,16 +63,7 @@ pub struct ReportRequest<'a> {
 /// RFC 3461 задаёт default FAILURE при отсутствии NOTIFY; явные условия без
 /// FAILURE, включая SUCCESS и DELAY, запрещают failure report, как и NEVER.
 pub fn failure_requested(metadata: Option<&DsnDeliveryMetadata>) -> bool {
-    let Some(recipient) = metadata.and_then(|value| value.recipient.as_ref()) else {
-        return true;
-    };
-    match recipient.notify.as_ref() {
-        None => true,
-        Some(NotifyPolicy::Never) => false,
-        Some(NotifyPolicy::Conditions(conditions)) => {
-            conditions.contains(&NotifyCondition::Failure)
-        }
-    }
+    notification_allowed(metadata, NotifyCondition::Failure)
 }
 
 /// Строит multipart/report для одного окончательно недоставленного recipient.
@@ -133,6 +124,7 @@ pub fn render_request(request: ReportRequest<'_>) -> Option<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::smtp::NotifyPolicy;
 
     #[test]
     fn null_reverse_path_does_not_create_a_bounce() {

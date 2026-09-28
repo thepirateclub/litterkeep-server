@@ -69,7 +69,12 @@ ordinal исходного RCPT, из Sieve plan породившего redirect
 восстанавливает recipient-scoped policy из sidecar через transaction ID и
 ordinal и применяет failure часть NOTIFY: без параметра default failure report
 разрешён; NEVER и список условий без FAILURE его подавляют. Это проверено
-unit policy test и Store reopen test, но не wire-клиентом, поскольку команды
+unit policy test и Store reopen test. Общая внутренняя eligibility policy теперь
+также покрывает SUCCESS/FAILURE/DELAY: default не запрашивает SUCCESS,
+разрешает обязательный FAILURE и допускает опциональный DELAY; явный список
+ограничивает outcome, NEVER подавляет всё. Три дополнительных unit-вектора
+проверяют эти правила. Это не генерация delivered/delayed reports и не wire
+acceptance: команды
 DSN по-прежнему отвергаются. Генератор внутренних failure reports теперь
 переносит `Original-Envelope-ID` и типизированный `Original-Recipient`,
 сохраняет отдельный `Final-Recipient`, соблюдает разделение per-message и
