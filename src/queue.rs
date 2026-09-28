@@ -62,6 +62,19 @@ pub struct DsnDeliveryMetadata {
     pub recipient: Option<crate::smtp::RecipientDsn>,
 }
 
+/// Идемпотентная идентичность failure DSN для одной durable queue job.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct DsnReportKey {
+    /// Глобальный ID исходной Store transaction.
+    pub transaction_id: u64,
+    /// Конечный адрес queue route, чтобы различать несколько redirect jobs.
+    pub recipient: String,
+    /// Индекс исходного SMTP RCPT, если маршрут однозначно ему принадлежит.
+    pub original_recipient_index: Option<usize>,
+    /// Терминальная причина, включённая в сохраняемый report.
+    pub failure: crate::dsn::Failure,
+}
+
 /// Очередное задание, принадлежащее immutable blob одной Store transaction.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OwnedDelivery {
@@ -76,7 +89,21 @@ pub struct OwnedDelivery {
     pub original_recipient_index: Option<usize>,
     /// Typed DSN данные исходной transaction, подставляемые Store при чтении.
     pub dsn_metadata: Option<Box<DsnDeliveryMetadata>>,
+    /// Failure DSN, который ещё должен быть опубликован после recovery.
+    pub dsn_failure: Option<crate::dsn::Failure>,
     pub state: State,
+}
+
+impl OwnedDelivery {
+    /// Формирует стабильный ключ отчёта из durable identity queue job.
+    pub fn dsn_report_key(&self) -> Option<DsnReportKey> {
+        self.dsn_failure.map(|failure| DsnReportKey {
+            transaction_id: self.transaction_id,
+            recipient: self.recipient.clone(),
+            original_recipient_index: self.original_recipient_index,
+            failure,
+        })
+    }
 }
 impl Queue {
     pub fn open(root: impl AsRef<Path>) -> io::Result<Self> {
@@ -105,7 +132,7 @@ impl Queue {
             .open(&self.path)?;
         writeln!(
             file,
-            "{} {transaction_id} 0 0 {sender_token} {recipient} {}",
+            "{} {transaction_id} 0 0 {sender_token} {recipient} {} -",
             State::Pending.wire(),
             encode_recipient_index(original_recipient_index)
         )?;
@@ -122,14 +149,15 @@ impl Queue {
             .open(&self.path)?;
         writeln!(
             file,
-            "{} {} {} {} {} {} {}",
+            "{} {} {} {} {} {} {} {}",
             state.wire(),
             delivery.transaction_id,
             delivery.attempts,
             delivery.next_attempt_epoch,
             sender_token,
             delivery.recipient,
-            encode_recipient_index(delivery.original_recipient_index)
+            encode_recipient_index(delivery.original_recipient_index),
+            encode_dsn_failure(delivery.dsn_failure)
         )?;
         file.sync_all()
     }
@@ -201,6 +229,14 @@ fn encode_recipient_index(index: Option<usize>) -> String {
     match index {
         Some(value) => value.to_string(),
         None => "-".to_owned(),
+    }
+}
+
+/// Кодирует durable failure notice без свободного текстового значения.
+fn encode_dsn_failure(failure: Option<crate::dsn::Failure>) -> &'static str {
+    match failure {
+        Some(value) => value.journal_tag(),
+        None => "-",
     }
 }
 

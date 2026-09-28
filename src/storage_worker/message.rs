@@ -162,6 +162,7 @@ pub enum Request {
         original: Vec<u8>,
         failure: crate::dsn::Failure,
         dsn_metadata: Option<Box<crate::queue::DsnDeliveryMetadata>>,
+        report_key: crate::queue::DsnReportKey,
     },
     OutboundPending {
         request_id: u64,

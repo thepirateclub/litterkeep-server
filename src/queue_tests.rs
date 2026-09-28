@@ -58,6 +58,7 @@ fn owned_delivery_is_invisible_until_store_commit() {
             recipient: "remote@test".into(),
             original_recipient_index: None,
             dsn_metadata: None,
+            dsn_failure: None,
             state: State::Pending
         }]
     );
@@ -110,6 +111,7 @@ fn owned_transition_survives_reopen_and_removes_pending_job() {
         recipient: "remote@test".into(),
         original_recipient_index: None,
         dsn_metadata: None,
+        dsn_failure: None,
         state: State::Pending,
     };
     q.enqueue_owned(
@@ -145,6 +147,7 @@ fn interrupted_owned_delivery_is_deferred_on_reopen() {
         recipient: "remote@test".into(),
         original_recipient_index: None,
         dsn_metadata: None,
+        dsn_failure: None,
         state: State::Pending,
     };
     q.enqueue_owned(
@@ -172,6 +175,55 @@ fn interrupted_owned_delivery_is_deferred_on_reopen() {
     let _ = fs::remove_dir_all(d);
 }
 
+/// Терминальный failure notice переживает reopen и не ждёт retry deadline.
+#[test]
+fn terminal_failure_notice_is_recovered_as_due_work() {
+    let directory = std::env::temp_dir().join("litterkeep-owned-dsn-notice-test");
+    let queue = Queue::open(&directory).expect("queue");
+    let mut delivery = OwnedDelivery {
+        transaction_id: 31,
+        attempts: 1,
+        next_attempt_epoch: 0,
+        sender: "alice@test".into(),
+        recipient: "remote@test".into(),
+        original_recipient_index: Some(0),
+        dsn_metadata: None,
+        dsn_failure: Some(crate::dsn::Failure::PermanentSmtp),
+        state: State::PermanentFailure,
+    };
+    queue
+        .enqueue_owned(
+            delivery.transaction_id,
+            &delivery.sender,
+            &delivery.recipient,
+            delivery.original_recipient_index,
+        )
+        .expect("enqueue");
+    queue
+        .transition_owned(&delivery, State::PermanentFailure)
+        .expect("persist notice with terminal state");
+    let committed = HashSet::from([delivery.transaction_id]);
+    let recovered = Queue::open(&directory)
+        .expect("reopen")
+        .due_owned(&committed, u64::MAX)
+        .expect("due terminal notice");
+    assert_eq!(recovered, vec![delivery.clone()]);
+
+    delivery.dsn_failure = None;
+    Queue::open(&directory)
+        .expect("reopen for acknowledgement")
+        .transition_owned(&delivery, State::PermanentFailure)
+        .expect("acknowledge notice");
+    assert!(
+        Queue::open(&directory)
+            .expect("reopen after acknowledgement")
+            .due_owned(&committed, u64::MAX)
+            .expect("due after acknowledgement")
+            .is_empty()
+    );
+    let _ = fs::remove_dir_all(directory);
+}
+
 #[test]
 fn deferred_epoch_survives_reopen_and_gates_due_selection() {
     let d = std::env::temp_dir().join("litterkeep-owned-retry-deadline-test");
@@ -184,6 +236,7 @@ fn deferred_epoch_survives_reopen_and_gates_due_selection() {
         recipient: "remote@test".into(),
         original_recipient_index: None,
         dsn_metadata: None,
+        dsn_failure: None,
         state: State::Deferred,
     };
     q.enqueue_owned(

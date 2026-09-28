@@ -14,11 +14,32 @@ use crate::{
 mod report;
 
 /// Окончательная причина, показываемая локальному отправителю.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Failure {
     PermanentSmtp,
     RoutePolicy,
     RetryExhausted,
+}
+
+impl Failure {
+    /// Стабильный компактный тег для queue journal и индекса идемпотентности.
+    pub(crate) fn journal_tag(self) -> &'static str {
+        match self {
+            Self::PermanentSmtp => "permanent-smtp",
+            Self::RoutePolicy => "route-policy",
+            Self::RetryExhausted => "retry-exhausted",
+        }
+    }
+
+    /// Разбирает только известные варианты причины из durable журнала.
+    pub(crate) fn from_journal_tag(value: &str) -> Option<Self> {
+        match value {
+            "permanent-smtp" => Some(Self::PermanentSmtp),
+            "route-policy" => Some(Self::RoutePolicy),
+            "retry-exhausted" => Some(Self::RetryExhausted),
+            _ => None,
+        }
+    }
 }
 
 /// Полный неизменяемый контекст сериализации одного failure DSN.

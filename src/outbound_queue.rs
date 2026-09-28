@@ -40,13 +40,20 @@ pub fn drain_at(
     let mut pool = ConnectionPool::new(address, ROUTE_POOL_CAPACITY)?;
     let result = (|| {
         for mut delivery in store.due_outbound(now_epoch)?.into_iter().take(limit) {
+            let payload = store.outbound_blob(&delivery)?;
+            if let Some(failure) = delivery.dsn_failure {
+                publish_dsn(store, accounts, &delivery, &payload, failure)?;
+                delivery.dsn_failure = None;
+                store.transition_outbound(&delivery, delivery.state)?;
+                record(&mut report, delivery.state);
+                continue;
+            }
             delivery.attempts = delivery
                 .attempts
                 .checked_add(1)
                 .ok_or_else(|| io::Error::other("outbound attempts exhausted"))?;
             delivery.state = State::InFlight;
             store.transition_outbound(&delivery, State::InFlight)?;
-            let payload = store.outbound_blob(&delivery)?;
             let result = pool.deliver(&delivery.sender, &delivery.recipient, &payload);
             let state = outbound_policy::state(&result, delivery.attempts);
             let dsn_failure = outbound_policy::requested_dsn_failure(
@@ -55,11 +62,14 @@ pub fn drain_at(
                 delivery.dsn_metadata.as_deref(),
             );
             delivery.state = state;
+            delivery.dsn_failure = dsn_failure;
             delivery.next_attempt_epoch =
                 outbound_policy::next_attempt_epoch(state, delivery.attempts, now_epoch);
             store.transition_outbound(&delivery, state)?;
             if let Some(failure) = dsn_failure {
                 publish_dsn(store, accounts, &delivery, &payload, failure)?;
+                delivery.dsn_failure = None;
+                store.transition_outbound(&delivery, state)?;
             }
             record(&mut report, state);
         }
@@ -110,7 +120,14 @@ fn publish_dsn(
     ) else {
         return Ok(());
     };
-    store.append(&mailbox, &report).map(|_| ())
+    let Some(key) = delivery.dsn_report_key() else {
+        return Err(io::Error::other(
+            "terminal DSN notice has no idempotency key",
+        ));
+    };
+    store
+        .append_dsn_report_once(&mailbox, &report, &key)
+        .map(|_| ())
 }
 
 /// Считает только durable terminal result одной реально начатой попытки.

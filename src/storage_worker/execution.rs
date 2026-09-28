@@ -241,6 +241,7 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             original,
             failure,
             dsn_metadata,
+            report_key,
         } => Response::DsnAppended {
             request_id,
             result: super::dsn_delivery::append(
@@ -254,6 +255,7 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
                     failure,
                     metadata: dsn_metadata.as_deref(),
                 },
+                &report_key,
             ),
         },
         Request::OutboundPending { request_id } => Response::OutboundPending {

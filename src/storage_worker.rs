@@ -19,17 +19,30 @@ mod sasl_lookup_tests;
 #[cfg(test)]
 #[path = "storage_worker/smtp_dsn_tests.rs"]
 mod smtp_dsn_tests;
-use crate::{accounts::Accounts, store::Store};
+mod start;
+mod submit;
+#[cfg(target_os = "linux")]
+pub(crate) use crate::{accounts::Accounts, store::Store};
+#[cfg(test)]
+#[cfg(not(target_os = "linux"))]
+pub(crate) use crate::{accounts::Accounts, store::Store};
 pub use imap_append::ImapAppendResult;
 pub use message::{Request, Response, SmtpDeliveryRequest};
 pub use sasl_lookup::{
     ScramSha256VerifierRequest, ScramSha256VerifierResponse, ScramVerifierRequest,
     ScramVerifierResponse,
 };
+#[cfg(target_os = "linux")]
 use std::io;
+#[cfg(target_os = "linux")]
 use std::path::Path;
-use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError};
-use std::thread::{self, JoinHandle};
+#[cfg(target_os = "linux")]
+use std::sync::mpsc;
+use std::sync::mpsc::{Receiver, SyncSender, TryRecvError};
+#[cfg(target_os = "linux")]
+use std::thread;
+use std::thread::JoinHandle;
+pub use submit::SubmitError;
 
 pub struct StorageWorker {
     requests: SyncSender<Request>,
@@ -38,23 +51,6 @@ pub struct StorageWorker {
 }
 
 impl StorageWorker {
-    pub fn start(root: impl AsRef<Path>, capacity: usize) -> io::Result<Self> {
-        let store = Store::open(root.as_ref())?;
-        let accounts = Accounts::open(root.as_ref())?;
-        let (requests, incoming) = mpsc::sync_channel(capacity);
-        let (outgoing, responses) = mpsc::channel();
-        let thread = thread::Builder::new()
-            .name("litterkeep-store-writer".into())
-            .spawn(move || owner::run(store, accounts, incoming, outgoing))?;
-        Ok(Self {
-            requests,
-            responses,
-            thread,
-        })
-    }
-    pub fn submit(&self, request: Request) -> Result<(), mpsc::TrySendError<Request>> {
-        self.requests.try_send(request)
-    }
     pub fn try_response(&self) -> Result<Response, TryRecvError> {
         self.responses.try_recv()
     }
@@ -233,6 +229,12 @@ mod tests {
                 original: b"Subject: source\r\n\r\nbody".to_vec(),
                 failure: crate::dsn::Failure::PermanentSmtp,
                 dsn_metadata: None,
+                report_key: crate::queue::DsnReportKey {
+                    transaction_id: 42,
+                    recipient: "remote@peer.test".into(),
+                    original_recipient_index: None,
+                    failure: crate::dsn::Failure::PermanentSmtp,
+                },
             })
             .expect("accepted");
         let response = loop {

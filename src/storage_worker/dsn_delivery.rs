@@ -12,6 +12,7 @@ pub(super) fn append(
     store: &mut Store,
     accounts: &Accounts,
     request: dsn::ReportRequest<'_>,
+    report_key: &crate::queue::DsnReportKey,
 ) -> io::Result<Option<u64>> {
     let Some(mailbox) = local_route::local_mailbox(request.reverse_path) else {
         return Ok(None);
@@ -22,5 +23,5 @@ pub(super) fn append(
     let Some(report) = dsn::render_request(request) else {
         return Ok(None);
     };
-    store.append(&mailbox, &report).map(Some)
+    store.append_dsn_report_once(&mailbox, &report, report_key)
 }

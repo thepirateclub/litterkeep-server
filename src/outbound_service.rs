@@ -10,6 +10,10 @@ use crate::{
 };
 use std::io;
 use std::os::fd::AsFd;
+#[path = "outbound_service_dsn.rs"]
+mod dsn_request;
+#[path = "outbound_service_progress.rs"]
+mod progress;
 
 /// Итог конечных durable исходов одного bounded service drain.
 #[derive(Debug, Default, Eq, PartialEq)]
@@ -93,13 +97,14 @@ fn run(
 }
 
 /// Явно описывает, какой durable completion сейчас принадлежит service drain.
-enum Phase {
+pub(super) enum Phase {
     Due,
     Blob(OwnedDelivery),
     Start(OwnedDelivery, Vec<u8>),
     Transport(OwnedDelivery, Vec<u8>),
     Finalize(OwnedDelivery, Vec<u8>, Option<dsn::Failure>),
-    Dsn(State),
+    Dsn(OwnedDelivery),
+    Acknowledge(OwnedDelivery),
     Finished,
 }
 
@@ -110,7 +115,7 @@ fn readable() -> Interest {
     }
 }
 
-fn request_due(storage: &WakingStorageWorker, ids: &mut u64) -> io::Result<()> {
+pub(super) fn request_due(storage: &WakingStorageWorker, ids: &mut u64) -> io::Result<()> {
     let request_id = next_id(ids)?;
     submit(
         storage,
@@ -153,6 +158,14 @@ fn handle_storage(
             }
         },
         (
+            Phase::Blob(delivery),
+            Response::OutboundBlob {
+                result: Ok(bytes), ..
+            },
+        ) if let Some(failure) = delivery.dsn_failure => {
+            dsn_request::submit(storage, ids, delivery, bytes, failure)
+        }
+        (
             Phase::Blob(mut delivery),
             Response::OutboundBlob {
                 result: Ok(bytes), ..
@@ -192,25 +205,24 @@ fn handle_storage(
             Phase::Finalize(delivery, bytes, failure),
             Response::OutboundTransitioned { result: Ok(()), .. },
         ) => match failure {
-            Some(failure) => {
-                submit(
-                    storage,
-                    Request::AppendDsn {
-                        request_id: next_id(ids)?,
-                        reverse_path: delivery.sender,
-                        recipient: delivery.recipient,
-                        transaction_id: delivery.transaction_id,
-                        original: bytes,
-                        failure,
-                        dsn_metadata: delivery.dsn_metadata.clone(),
-                    },
-                )?;
-                Ok(Phase::Dsn(delivery.state))
-            }
-            None => next_job(storage, ids, remaining, report, delivery.state),
+            Some(failure) => dsn_request::submit(storage, ids, delivery, bytes, failure),
+            None => progress::next_job(storage, ids, remaining, report, delivery.state),
         },
-        (Phase::Dsn(state), Response::DsnAppended { result: Ok(_), .. }) => {
-            next_job(storage, ids, remaining, report, state)
+        (Phase::Dsn(mut delivery), Response::DsnAppended { result: Ok(_), .. }) => {
+            delivery.dsn_failure = None;
+            let state = delivery.state;
+            submit(
+                storage,
+                Request::OutboundTransition {
+                    request_id: next_id(ids)?,
+                    delivery: delivery.clone(),
+                    state,
+                },
+            )?;
+            Ok(Phase::Acknowledge(delivery))
+        }
+        (Phase::Acknowledge(delivery), Response::OutboundTransitioned { result: Ok(()), .. }) => {
+            progress::next_job(storage, ids, remaining, report, delivery.state)
         }
         (
             _,
@@ -257,6 +269,7 @@ fn handle_transport(
                 delivery.dsn_metadata.as_deref(),
             );
             delivery.state = state;
+            delivery.dsn_failure = failure;
             delivery.next_attempt_epoch =
                 outbound_policy::next_attempt_epoch(state, delivery.attempts, now_epoch()?);
             submit(
@@ -270,34 +283,5 @@ fn handle_transport(
             Ok(Phase::Finalize(delivery, bytes, failure))
         }
         _ => Err(io::Error::other("unexpected transport completion")),
-    }
-}
-
-fn next_job(
-    storage: &WakingStorageWorker,
-    ids: &mut u64,
-    remaining: &mut usize,
-    report: &mut DrainReport,
-    state: State,
-) -> io::Result<Phase> {
-    record(report, state);
-    *remaining = remaining
-        .checked_sub(1)
-        .ok_or_else(|| io::Error::other("outbound limit underflow"))?;
-    match *remaining {
-        0 => Ok(Phase::Finished),
-        _ => {
-            request_due(storage, ids)?;
-            Ok(Phase::Due)
-        }
-    }
-}
-
-fn record(report: &mut DrainReport, state: State) {
-    match state {
-        State::Delivered => report.delivered += 1,
-        State::Deferred => report.deferred += 1,
-        State::PermanentFailure => report.permanent_failures += 1,
-        State::Pending | State::InFlight => {}
     }
 }

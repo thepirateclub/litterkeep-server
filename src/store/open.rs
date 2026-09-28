@@ -1,6 +1,6 @@
 //! Открытие store и восстановление всех долговечных индексов.
 
-use super::*;
+use super::{platform_writer_lock::open_writer_lock, *};
 
 impl Store {
     pub fn open(root: impl AsRef<Path>) -> io::Result<Self> {
@@ -27,6 +27,7 @@ impl Store {
         recovery::recover(&root)?;
         let committed = commit_log::committed(&root.join("journal/transactions.log"))?;
         let smtp_dsn_envelopes = smtp_dsn_journal::load(&root, &committed.ids)?;
+        let dsn_report_transactions = dsn_report_journal::load(&root, &committed.ids)?;
         sieve_diagnostics::recover(&root)?;
         vacation_suppression::recover(&root)?;
         let vacation_history = vacation_suppression::load(&root, &committed.ids)?;
@@ -58,6 +59,7 @@ impl Store {
             vacation_history,
             queue,
             smtp_dsn_envelopes,
+            dsn_report_transactions,
             committed_transactions: committed.ids,
             next_transaction_id,
             blob_quota,

@@ -9,6 +9,11 @@ mod blobs;
 mod commit_log;
 #[path = "store/copy.rs"]
 mod copy;
+#[path = "store/dsn_report_journal.rs"]
+mod dsn_report_journal;
+#[cfg(test)]
+#[path = "store/dsn_report_journal_tests.rs"]
+mod dsn_report_journal_tests;
 #[path = "store/durability.rs"]
 mod durability;
 #[path = "store/expunge_codec.rs"]
@@ -70,6 +75,8 @@ mod outbound_service_tests;
 #[cfg(test)]
 #[path = "store/outbound_tests.rs"]
 mod outbound_tests;
+#[path = "store/platform_writer_lock.rs"]
+mod platform_writer_lock;
 #[path = "store/quota.rs"]
 mod quota;
 #[path = "store/read.rs"]
@@ -200,6 +207,8 @@ pub struct Store {
     queue: Queue,
     /// Typed SMTP DSN envelope keyed by the global delivery transaction ID.
     smtp_dsn_envelopes: HashMap<u64, crate::smtp::DsnEnvelope>,
+    /// Queue job keys whose immutable failure reports already committed.
+    dsn_report_transactions: HashMap<crate::queue::DsnReportKey, u64>,
     /// Единственный источник видимости queue jobs после recovery или commit.
     committed_transactions: HashSet<u64>,
     next_transaction_id: u64,
@@ -225,6 +234,7 @@ enum AppendStage {
     QueueWritten,
     DiagnosticsWritten,
     EnvelopeWritten,
+    DsnReportWritten,
     VacationWritten,
     FirstMailboxFrame,
     MailboxDirectorySynced,
@@ -267,34 +277,4 @@ fn validated_unique_mailboxes(mailboxes: &[String]) -> io::Result<Vec<String>> {
         }
     }
     Ok(unique)
-}
-#[cfg(target_os = "linux")]
-fn open_writer_lock(path: &Path) -> io::Result<File> {
-    let file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .open(path)?;
-    // Нормализуем платформенный EWOULDBLOCK к единому контракту хранилища:
-    // занятый каталог уже принадлежит другому writer.
-    if let Err(error) = crate::platform::linux_lock::acquire(&file) {
-        return match error.kind() {
-            io::ErrorKind::WouldBlock => Err(io::Error::new(
-                io::ErrorKind::AlreadyExists,
-                "store writer is already active",
-            )),
-            _ => Err(error),
-        };
-    }
-    Ok(file)
-}
-#[cfg(not(target_os = "linux"))]
-impl Drop for Store {
-    fn drop(&mut self) {
-        let _ = fs::remove_file(self.root.join("writer.lock"));
-    }
-}
-#[cfg(not(target_os = "linux"))]
-fn open_writer_lock(path: &Path) -> io::Result<File> {
-    OpenOptions::new().write(true).create_new(true).open(path)
 }

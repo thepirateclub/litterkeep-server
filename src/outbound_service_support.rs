@@ -6,10 +6,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Передаёт request единственному Store owner без блокировки event loop.
 pub(crate) fn submit(storage: &WakingStorageWorker, request: Request) -> io::Result<()> {
-    storage
-        .worker
-        .submit(request)
-        .map_err(|_| io::Error::new(io::ErrorKind::WouldBlock, "storage worker is full"))
+    storage.worker.submit(request).map_err(|error| match error {
+        crate::storage_worker::SubmitError::Full(_) => {
+            io::Error::new(io::ErrorKind::WouldBlock, "storage worker is full")
+        }
+        crate::storage_worker::SubmitError::Stopped => {
+            io::Error::new(io::ErrorKind::BrokenPipe, "storage worker stopped")
+        }
+    })
 }
 
 /// Выдаёт monotonic service-local request ID без silent wraparound.

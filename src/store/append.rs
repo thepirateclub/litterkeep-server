@@ -1,20 +1,29 @@
 //! Публикация immutable blob, mailbox links и исходящих jobs одной транзакцией.
 use super::{
     AppendMetadata, AppendStage, Store, WriteState, blobs, commit_log, durability, journal, model,
-    recent, sieve_diagnostics, smtp_dsn_journal, validated_unique_mailboxes,
+    recent, sieve_diagnostics, smtp_dsn_journal,
 };
 #[path = "append_outbound.rs"]
 mod outbound;
 use std::fs::OpenOptions;
 use std::io::{self, Write};
 
+#[path = "append_dsn_report.rs"]
+mod dsn_report;
+#[path = "append_transaction.rs"]
+mod transaction;
+use super::dsn_report_journal;
+#[path = "append_validation.rs"]
+mod validation;
+
 /// Дополнительные durable данные одной append-транзакции.
 #[derive(Default)]
-struct AppendExtensions<'a> {
-    diagnostics: &'a [sieve_diagnostics::PendingDiagnostic],
-    outbound_origins: &'a [Option<usize>],
-    vacation_claim: Option<&'a super::vacation_suppression::PendingClaim>,
-    smtp_dsn: Option<&'a crate::smtp::DsnEnvelope>,
+pub(super) struct AppendExtensions<'a> {
+    pub(super) diagnostics: &'a [sieve_diagnostics::PendingDiagnostic],
+    pub(super) outbound_origins: &'a [Option<usize>],
+    pub(super) vacation_claim: Option<&'a super::vacation_suppression::PendingClaim>,
+    pub(super) smtp_dsn: Option<&'a crate::smtp::DsnEnvelope>,
+    pub(super) dsn_report_key: Option<&'a crate::queue::DsnReportKey>,
 }
 
 impl Store {
@@ -113,7 +122,7 @@ impl Store {
             },
         )
     }
-    fn append_many_with_metadata(
+    pub(super) fn append_many_with_metadata(
         &mut self,
         mailboxes: &[String],
         raw: &[u8],
@@ -121,56 +130,16 @@ impl Store {
         outbound: &[(String, String)],
         extensions: AppendExtensions<'_>,
     ) -> io::Result<u64> {
-        self.ensure_writable()?;
-        outbound::validate_count(outbound, extensions.outbound_origins)?;
-        let mailboxes = validated_delivery_mailboxes(mailboxes, outbound)?;
-        self.blob_quota.ensure_available(raw.len())?;
-        let mut transaction_id = self.next_transaction_id;
-        let (name, _) = blobs::next_available(&self.root, &mut transaction_id)?;
-        let links = self.prepare_links(&mailboxes, transaction_id, &name, metadata)?;
-        blobs::publish(&self.root, &name, raw)?;
-        self.check_and_poison(AppendStage::BlobPublished)?;
-        self.blob_quota.record(raw.len())?;
-        outbound::enqueue(self, transaction_id, outbound, extensions.outbound_origins)?;
-        self.check_and_poison(AppendStage::QueueWritten)?;
-        if let Err(error) =
-            sieve_diagnostics::append(&self.root, transaction_id, extensions.diagnostics)
-        {
-            self.write_state = WriteState::Poisoned;
-            return Err(error);
-        }
-        self.check_and_poison(AppendStage::DiagnosticsWritten)?;
-        if let Some(envelope) = extensions.smtp_dsn
-            && let Err(error) = smtp_dsn_journal::append(&self.root, transaction_id, envelope)
-        {
-            self.write_state = WriteState::Poisoned;
-            return Err(error);
-        }
-        self.check_and_poison(AppendStage::EnvelopeWritten)?;
-        if let Err(error) = super::vacation_suppression::append(
-            &self.root,
-            transaction_id,
-            extensions.vacation_claim,
-            &self.committed_transactions,
-        ) {
-            self.write_state = WriteState::Poisoned;
-            return Err(error);
-        }
-        self.check_and_poison(AppendStage::VacationWritten)?;
-        match self.commit_links(transaction_id, &links) {
-            Ok(()) => {
-                self.check_and_poison(AppendStage::BeforeMemoryPublish)?;
-                self.publish_links(
-                    transaction_id,
-                    links,
-                    extensions.vacation_claim.cloned(),
-                    extensions.smtp_dsn.cloned(),
-                )
-            }
-            Err(error) => {
-                self.write_state = WriteState::Poisoned;
-                Err(error)
-            }
+        transaction::append(self, mailboxes, raw, metadata, outbound, extensions)
+    }
+    pub(super) fn publish_dsn_report_key_before_publish(
+        &mut self,
+        key: Option<&crate::queue::DsnReportKey>,
+        transaction_id: u64,
+    ) {
+        if let Some(key) = key {
+            self.dsn_report_transactions
+                .insert(key.clone(), transaction_id);
         }
     }
     pub(super) fn check_and_poison(&mut self, stage: AppendStage) -> io::Result<()> {
@@ -188,7 +157,7 @@ impl Store {
             WriteState::Poisoned => Err(io::Error::other("store writer is poisoned")),
         }
     }
-    fn prepare_links(
+    pub(super) fn prepare_links(
         &self,
         mailboxes: &[String],
         transaction_id: u64,
@@ -253,12 +222,13 @@ impl Store {
         durability::sync_directory(&self.root.join("journal"))?;
         self.check_failpoint(AppendStage::CommitDirectorySynced)
     }
-    pub(super) fn publish_links(
+    pub(in crate::store) fn publish_links(
         &mut self,
         transaction_id: u64,
         links: Vec<(String, model::Record)>,
         vacation_claim: Option<super::vacation_suppression::PendingClaim>,
         smtp_dsn: Option<crate::smtp::DsnEnvelope>,
+        dsn_report_key: Option<crate::queue::DsnReportKey>,
     ) -> io::Result<u64> {
         let first_uid = match links.first() {
             Some((_, record)) => record.uid,
@@ -283,21 +253,10 @@ impl Store {
         if let Some(envelope) = smtp_dsn {
             self.smtp_dsn_envelopes.insert(transaction_id, envelope);
         }
+        let _ = dsn_report_key;
         if let Some(claim) = vacation_claim {
             self.vacation_history.insert(claim.key, claim.expires_at);
         }
         Ok(first_uid)
-    }
-}
-
-/// Разрешает redirect-only transaction, но не пустой обычный APPEND.
-fn validated_delivery_mailboxes(
-    mailboxes: &[String],
-    outbound: &[(String, String)],
-) -> io::Result<Vec<String>> {
-    match (mailboxes.is_empty(), outbound.is_empty()) {
-        (false, _) => validated_unique_mailboxes(mailboxes),
-        (true, false) => Ok(Vec::new()),
-        (true, true) => Err(io::Error::new(io::ErrorKind::InvalidInput, "no recipients")),
     }
 }

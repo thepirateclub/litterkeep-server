@@ -1,5 +1,35 @@
 # Goal ledger
 
+### 2026-09-28: G18 durable failure DSN outbox and idempotent Store append, PARTIAL T390
+
+- Queue terminal transition теперь атомарно записывает pending failure-notice tag
+  в тот же fsync-журнал. Recovery выбирает такой terminal job для обработки до
+  новых SMTP попыток; после успешного/подавленного report queue transition
+  очищает notice как acknowledgement.
+- Store связывает DSN report idempotency key с глобальной transaction через
+  checksummed sidecar, фильтруемый по commit journal. Повтор после сбоя между
+  report commit и queue acknowledgement возвращает прежний transaction ID;
+  незакоммиченный mapping не скрывает retry. Есть проверки checksum/conflict,
+  recovery оборванного tail и failpoint перед commit.
+- Все три пути исходящей очереди используют intent, idempotent append и ack:
+  reactor scheduler, bounded event-driven service и synchronous bounded drain.
+  При восстановлении terminal notice не увеличивает attempts и не запускает
+  повторную SMTP доставку.
+- Windows Rust 1.97.1: `cargo check --all-targets`, полный suite (1020 passed,
+  4 ignored) и `cargo clippy --all-targets -- -D warnings` прошли. Linux Docker,
+  существующий image `rust:1.97-bookworm` ID
+  `sha256:0e2bcaef56d041a486784e54104a81aebe0da44bd03019bd70bc0401e42e4a97`:
+  all-target suite 1140 passed, 4 ignored. Первый Linux запуск поймал moved-value
+  defect при bounded submit; после `SubmitError::Full(Box<Request>)` повторный
+  запуск прошёл. Контейнер использовал `--rm`; после завершения контейнера нет,
+  image не создавался. Build/cache каталоги находятся в `./data/g19-dsn-outbox-*`.
+- Не выполнялись независимый runtime crash-kill acceptance и interoperability
+  с приложением Litterkeep. Это recovery-unit/failpoint evidence, не полная
+  RFC 3461 wire поддержка: EHLO `DSN`, MAIL/RCPT параметры остаются выключены;
+  success/delay reports и RCPT aggregation остаются GAP. G18 ACTIVE.
+- Источники: [RFC 3461 §§4.3, 5.2.6-5.2.7](https://www.rfc-editor.org/rfc/rfc3461.html),
+  [RFC 3464](https://www.rfc-editor.org/rfc/rfc3464.html).
+
 ### 2026-09-28: G18 failure DSN crash-window audit, GAP T389
 
 - Статическая проверка `src/reactor/outbound_scheduler.rs`,

@@ -235,10 +235,11 @@ pub(super) fn submit(
             owners.insert(request_id, (slot, generation, pending.clone()));
             session.pending = Some(pending);
         }
-        Err(std::sync::mpsc::TrySendError::Full(request)) => {
-            session.pending_submit = Some((request, pending));
+        Err(crate::storage_worker::SubmitError::Full(request)) => {
+            // Полный bounded mailbox откладывает неизменённый request до wakeup worker-а.
+            session.pending_submit = Some((*request, pending));
         }
-        Err(std::sync::mpsc::TrySendError::Disconnected(_)) => {
+        Err(crate::storage_worker::SubmitError::Stopped) => {
             let response: &[u8] = match session.kind {
                 Kind::Smtp => b"451 4.3.0 storage unavailable\r\n",
                 Kind::Imap | Kind::Pop3 | Kind::ManageSieve => b"451 storage unavailable\r\n",

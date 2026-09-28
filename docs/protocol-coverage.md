@@ -29,9 +29,13 @@ RFC 3461 требует применить запросы условий `NOTIFY
 корреляции envelope/получателя либо не заявлять о поддержке. Внутреннее
 планирование failure report после окончательного отказа и часть MIME-семантики
 уже реализованы и проверены, но только для очереди и Store owner, не через
-параметризованный SMTP wire-путь. Success и delay report scheduling,
-идемпотентность при сбоях между фиксацией queue state и публикацией report и
-полная сквозная семантика повторной доставки ещё не реализованы и не проверены.
+параметризованный SMTP wire-путь. Failure notice теперь сохраняется вместе с
+terminal queue transition и восстанавливается после перезапуска; DSN append
+идемпотентен по committed Store transaction, а очередь очищает notice отдельным
+durable acknowledgement. Unit/failpoint tests и полный Windows/Linux suite
+проверили эти переходы. Независимый runtime crash-kill сценарий ещё не проверен.
+Success и delay report scheduling, полная сквозная семантика повторной доставки
+и RFC 3461 wire negotiation остаются неподдержанными.
 Независимый Linux wire
 peer подтвердил отсутствие capability, точный refusal-код для MAIL/RCPT и
 восстановление сессии; после добавления RFC 6533 xtext второй независимый Linux
@@ -68,8 +72,10 @@ per-recipient блоков, а при сохранённом `RET=HDRS` не в�
 для UTF-8 заголовков только `RET=HDRS` используется `message/global-headers`;
 ASCII-варианты используют стандартные DSN media types. Эти правила проверены
 unit regressions на Windows и Linux, но не независимым wire-клиентом.
-Успешные/задержанные reports, группировка нескольких RCPT и
-сквозная проверка параметров остаются GAP; `DSN` остаётся выключенным.
+Успешные/задержанные reports, группировка нескольких RCPT и сквозная проверка
+параметров остаются GAP; `DSN` остаётся выключенным. Failure-report crash window
+закрыт durable intent и idempotent report key (T390), но независимый crash-kill
+runtime acceptance ещё не проводился.
 RFC 3461 §§4.3, 5.2.6, 5.2.7 и 6 описывает эти требования.
 См. [RFC 3461](https://www.rfc-editor.org/rfc/rfc3461.html).
 

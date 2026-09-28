@@ -13,6 +13,8 @@ use std::{
     io,
     time::{Duration, Instant},
 };
+#[path = "outbound_scheduler_dsn.rs"]
+mod dsn_request;
 
 /// Интервал повторного просмотра durable deadline-index после пустой выборки.
 const IDLE_SCAN: Duration = Duration::from_secs(1);
@@ -31,7 +33,8 @@ pub(super) enum Phase {
     Start(u64, OwnedDelivery, Vec<u8>),
     Transport(u64, OwnedDelivery, Vec<u8>),
     Finalize(u64, OwnedDelivery, Vec<u8>, Option<dsn::Failure>),
-    Dsn(u64),
+    Dsn(u64, OwnedDelivery),
+    AcknowledgeDsn(u64),
     Idle(Instant),
 }
 
@@ -120,6 +123,7 @@ impl OutboundScheduler {
                         delivery.dsn_metadata.as_deref(),
                     );
                     delivery.state = state;
+                    delivery.dsn_failure = failure;
                     delivery.next_attempt_epoch =
                         outbound_policy::next_attempt_epoch(state, delivery.attempts, now_epoch()?);
                     let id = self.submit_transition(storage, &delivery, state, lifecycle)?;
@@ -165,6 +169,14 @@ impl OutboundScheduler {
                 Ok(Phase::Blob(id, delivery))
             }
             (
+                Phase::Blob(_, delivery),
+                Response::OutboundBlob {
+                    result: Ok(bytes), ..
+                },
+            ) if let Some(failure) = delivery.dsn_failure => {
+                self.submit_dsn(storage, delivery, bytes, failure, lifecycle)
+            }
+            (
                 Phase::Blob(_, mut delivery),
                 Response::OutboundBlob {
                     result: Ok(bytes), ..
@@ -200,29 +212,19 @@ impl OutboundScheduler {
             (
                 Phase::Finalize(_, delivery, bytes, Some(failure)),
                 Response::OutboundTransitioned { result: Ok(()), .. },
-            ) => {
-                let id = self.take_id()?;
-                submit(
-                    storage,
-                    Request::AppendDsn {
-                        request_id: id,
-                        reverse_path: delivery.sender,
-                        recipient: delivery.recipient,
-                        transaction_id: delivery.transaction_id,
-                        original: bytes,
-                        failure,
-                        dsn_metadata: delivery.dsn_metadata.clone(),
-                    },
-                )?;
-                scheduler_lifecycle::wait(lifecycle, self.task, Event::Completion(id))?;
-                Ok(Phase::Dsn(id))
-            }
+            ) => self.submit_dsn(storage, delivery, bytes, failure, lifecycle),
             (
                 Phase::Finalize(_, _, _, None),
                 Response::OutboundTransitioned { result: Ok(()), .. },
             )
-            | (Phase::Dsn(_), Response::DsnAppended { result: Ok(_), .. }) => {
+            | (Phase::AcknowledgeDsn(_), Response::OutboundTransitioned { result: Ok(()), .. }) => {
                 self.continue_or_stop(storage, lifecycle)
+            }
+            (Phase::Dsn(_, mut delivery), Response::DsnAppended { result: Ok(_), .. }) => {
+                delivery.dsn_failure = None;
+                let state = delivery.state;
+                let id = self.submit_transition(storage, &delivery, state, lifecycle)?;
+                Ok(Phase::AcknowledgeDsn(id))
             }
             (
                 _,
@@ -258,7 +260,8 @@ impl OutboundScheduler {
             | Phase::Blob(id, _)
             | Phase::Start(id, _, _)
             | Phase::Finalize(id, _, _, _)
-            | Phase::Dsn(id) => Some(id),
+            | Phase::Dsn(id, _)
+            | Phase::AcknowledgeDsn(id) => Some(id),
             Phase::Transport(_, _, _) | Phase::Idle(_) => None,
         }
     }

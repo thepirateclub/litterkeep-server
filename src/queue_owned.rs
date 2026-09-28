@@ -6,6 +6,14 @@ use std::{
 };
 
 type OwnedLatest = BTreeMap<(u64, String, Option<usize>), OwnedDelivery>;
+type ParsedOwned<'a> = (
+    u8,
+    u64,
+    &'a str,
+    &'a str,
+    Option<usize>,
+    Option<crate::dsn::Failure>,
+);
 
 impl Queue {
     /// Возвращает IDs transaction, для которых журнал содержит owned SMTP job.
@@ -39,7 +47,9 @@ impl Queue {
             .owned_latest()?
             .into_values()
             .filter(|delivery| visible(delivery, committed))
-            .filter(|delivery| delivery.next_attempt_epoch <= now_epoch)
+            .filter(|delivery| {
+                delivery.dsn_failure.is_some() || delivery.next_attempt_epoch <= now_epoch
+            })
             .collect())
     }
 
@@ -87,13 +97,13 @@ fn parse_owned(line: &str) -> io::Result<Option<OwnedDelivery>> {
         .parse()
         .map_err(|_| invalid("bad owned transaction"))?;
     let state = State::parse(state)?;
-    let (attempts, next_attempt_epoch, sender, recipient, original_recipient_index) =
+    let (attempts, next_attempt_epoch, sender, recipient, original_recipient_index, dsn_failure) =
         match candidate.parse::<u8>() {
             Ok(attempts) => parse_versioned(attempts, fourth, &mut fields)?,
             Err(_) => {
                 let (attempts, epoch, sender, recipient) =
                     parse_legacy(candidate, fourth, &mut fields)?;
-                (attempts, epoch, sender, recipient, None)
+                (attempts, epoch, sender, recipient, None, None)
             }
         };
     let (state, next_attempt_epoch) = match state {
@@ -108,6 +118,7 @@ fn parse_owned(line: &str) -> io::Result<Option<OwnedDelivery>> {
         recipient: recipient.into(),
         original_recipient_index,
         dsn_metadata: None,
+        dsn_failure,
         state,
     }))
 }
@@ -124,11 +135,11 @@ fn parse_versioned<'a>(
     attempts: u8,
     fourth: &'a str,
     fields: &mut std::str::SplitWhitespace<'a>,
-) -> io::Result<(u8, u64, &'a str, &'a str, Option<usize>)> {
+) -> io::Result<ParsedOwned<'a>> {
     match fourth.parse::<u64>() {
         Ok(next_attempt_epoch) => parse_current_fields(attempts, next_attempt_epoch, fields),
         Err(_) => match (fields.next(), fields.next()) {
-            (Some(recipient), None) => Ok((attempts, 0, fourth, recipient, None)),
+            (Some(recipient), None) => Ok((attempts, 0, fourth, recipient, None, None)),
             _ => Err(invalid("bad previous owned queue record")),
         },
     }
@@ -139,14 +150,14 @@ fn parse_current_fields<'a>(
     attempts: u8,
     epoch: u64,
     fields: &mut std::str::SplitWhitespace<'a>,
-) -> io::Result<(u8, u64, &'a str, &'a str, Option<usize>)> {
+) -> io::Result<ParsedOwned<'a>> {
     let (Some(sender), Some(recipient)) = (fields.next(), fields.next()) else {
         return Err(invalid("bad current owned queue record"));
     };
     let original_recipient_index = match fields.next() {
         None => None,
-        Some("-") if fields.next().is_none() => None,
-        Some(value) if fields.next().is_none() => Some(
+        Some("-") => None,
+        Some(value) => Some(
             usize::try_from(
                 value
                     .parse::<u64>()
@@ -154,9 +165,25 @@ fn parse_current_fields<'a>(
             )
             .map_err(|_| invalid("RCPT index overflow"))?,
         ),
-        _ => return Err(invalid("bad current owned queue record")),
     };
-    Ok((attempts, epoch, sender, recipient, original_recipient_index))
+    let dsn_failure = match fields.next() {
+        None | Some("-") => None,
+        Some(value) => Some(
+            crate::dsn::Failure::from_journal_tag(value)
+                .ok_or_else(|| invalid("bad owned DSN notice"))?,
+        ),
+    };
+    match fields.next() {
+        None => Ok((
+            attempts,
+            epoch,
+            sender,
+            recipient,
+            original_recipient_index,
+            dsn_failure,
+        )),
+        Some(_) => Err(invalid("bad current owned queue record")),
+    }
 }
 
 fn parse_legacy<'a>(
@@ -173,7 +200,8 @@ fn parse_legacy<'a>(
 fn visible(delivery: &OwnedDelivery, committed: &HashSet<u64>) -> bool {
     match (
         committed.contains(&delivery.transaction_id),
-        matches!(delivery.state, State::Pending | State::Deferred),
+        matches!(delivery.state, State::Pending | State::Deferred)
+            || delivery.dsn_failure.is_some(),
     ) {
         (true, true) => true,
         (true, false) | (false, _) => false,
