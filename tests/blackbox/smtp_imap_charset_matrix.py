@@ -1,4 +1,4 @@
-"""Проверяет MIME single-byte charset декодирование через SMTP и IMAP SEARCH."""
+"""Проверяет MIME charset декодирование через SMTP и IMAP SEARCH."""
 
 from __future__ import annotations
 
@@ -55,6 +55,8 @@ CHARSET_CASES = (
     CharsetCase("iso-8859-16", "iso8859_16", "ȘȚ șț"),
     CharsetCase("TIS-620", "tis_620", "ภาษาไทย"),
     CharsetCase("ISO-8859-11", "iso8859_11", "ภาษาไทย"),
+    CharsetCase("GBK", "gbk", "简体中文"),
+    CharsetCase("GB18030", "gb18030", "中文𠀀😀"),
     CharsetCase("IBM866", "cp866", "Привет"),
     CharsetCase("KOI8-R", "koi8_r", "Привет"),
     CharsetCase("KOI8-U", "koi8_u", "Їжак"),
@@ -119,7 +121,7 @@ def build_message() -> tuple[bytes, dict[bytes, bytes]]:
     message = (
         b"From: Alice <alice@litterkeep.test>\r\n"
         b"To: Bob <bob@litterkeep.test>\r\n"
-        b"Subject: single-byte MIME charset matrix\r\n"
+        b"Subject: MIME charset matrix\r\n"
         b"MIME-Version: 1.0\r\n"
         b"Content-Type: multipart/mixed; boundary=litterkeep-singlebyte-boundary\r\n"
         b"\r\n"
@@ -196,7 +198,7 @@ def run(options: argparse.Namespace) -> None:
     message, queries = build_message()
     deliver_message(options, context, message)
     verify_queries(options, context, queries)
-    print(f"PASS single-byte MIME charset matrix: {len(queries)} labels")
+    print(f"PASS MIME charset matrix: {len(queries)} labels")
 
 
 PARSER = argparse.ArgumentParser()

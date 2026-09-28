@@ -1,5 +1,25 @@
 # Goal ledger
 
+### 2026-09-28: G18 GBK/GB18030 MIME decoder and IMAP SEARCH, scoped PASS T301
+
+- Добавлены типизированные labels GBK и GB18030. Собственный строгий decoder
+  обрабатывает ASCII, WHATWG euro mapping, двухбайтовые CJK sequences и
+  четырёхбайтовые GB18030 scalars; malformed, unmapped и truncated sequences
+  возвращают ошибку. Runtime dependencies не изменились.
+- Таблицы сгенерированы отдельным Python stdlib tool из WHATWG Encoding index
+  файлов с проверкой SHA-256 источников. В тестах перебраны все 23 940
+  двухбайтовых указателей и граничные точки four-byte ranges.
+- Windows Rust 1.97.1 fmt, strict Clippy и all-target tests прошли (827 library
+  + 1 CLI, 3 ignored). Linux Rust 1.97 Docker strict Clippy, 936 library + 1
+  CLI, 3 ignored, и doc-tests прошли. Независимая Linux Python SMTP STARTTLS ->
+  IMAP UTF-8 SEARCH acceptance прошла для всех 31 MIME charset labels, включая
+  GBK `简体中文` и GB18030 `中文𠀀😀`.
+- Источники индексов сохранены в `./data/g18-gbk-table-20260928`, acceptance
+  fixtures в `./data/acceptance-mime-gbk-20260928` и чистом повторном прогоне
+  `./data/acceptance-mime-gbk-final-20260928`. Оба созданных Docker container
+  и пары образов удалены и проверены. Big5/EUC-JP/ISO-2022-JP/Shift_JIS/EUC-KR и приложение
+  Litterkeep не проверялись; G18 остаётся ACTIVE.
+
 ### 2026-09-28: G18 MIME charset inventory reconciled with wire matrix, T300
 
 - Сверила реализацию, `imap-profile.md`, wire matrix и актуальный IANA registry:

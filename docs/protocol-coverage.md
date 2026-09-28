@@ -918,8 +918,19 @@ synchronizing literal `ภาษาไทย`; результат включил
 и KOI8-U mappings unit-tested для всех 256 octets по RFC 1489 и RFC 2319;
 независимый Python codec проверил русский и украинский текст в SMTP -> IMAP
 SEARCH цепочке. Это не доказывает остальные charset. В частности, известные
-зарегистрированные многобайтовые семейства GBK/GB18030, Big5, EUC-JP,
-ISO-2022-JP, Shift_JIS и EUC-KR в текущем декодере не реализованы. Отдельная
+зарегистрированные многобайтовые семейства GBK/GB18030 теперь используют
+строгий собственный decoder без runtime зависимости: GBK и GB18030 labels идут
+через WHATWG GB18030 state machine, двухбайтовый index и 207 four-byte ranges.
+Индекс содержит 23 940 указателей; Rust тест проверяет каждую позицию, а
+независимая SMTP -> IMAP acceptance проверяет Python `gbk` для `简体中文` и
+`gb18030` для `中文𠀀😀`. Таблицы воспроизводятся
+`tools/generate_gb18030_tables.py`; скрипт закрепляет SHA-256 официальных
+WHATWG index-файлов и не участвует в runtime/build. Эта проверка не закрывает
+прочие многобайтовые семейства: Big5, EUC-JP, ISO-2022-JP, Shift_JIS и EUC-KR.
+Первичные источники: [WHATWG GBK decoder](https://encoding.spec.whatwg.org/#gbk-decoder),
+[two-byte index](https://encoding.spec.whatwg.org/index-gb18030.txt) и
+[four-byte ranges](https://encoding.spec.whatwg.org/index-gb18030-ranges.txt).
+Отдельная
 SMTP -> IMAP wire-проверка доставила RFC 2047 Subject encoded-word варианты UTF-16,
 UTF-16BE/LE и UTF-32 с generic BE BOM, UTF-32BE/LE; UTF-8 SEARCH literal
 нашёл ровно одно соответствующее письмо для каждого label. Это подтверждает

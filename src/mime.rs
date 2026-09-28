@@ -8,6 +8,10 @@ pub use base64::{decode_base64, decode_mime_base64};
 pub mod bodystructure;
 #[path = "mime/charset.rs"]
 pub mod charset;
+#[path = "mime/charset_gb18030.rs"]
+mod charset_gb18030;
+#[path = "mime/charset_gb18030_table.rs"]
+mod charset_gb18030_table;
 #[path = "mime/charset_ibm866.rs"]
 mod charset_ibm866;
 #[path = "mime/charset_iso8859_10.rs"]

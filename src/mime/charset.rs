@@ -37,6 +37,8 @@ pub enum Charset {
     Ibm866,
     Koi8R,
     Koi8U,
+    Gbk,
+    Gb18030,
     Utf16,
     Utf16Be,
     Utf16Le,
@@ -82,6 +84,9 @@ impl Charset {
             "ibm866" | "cp866" | "csibm866" | "866" => Ok(Self::Ibm866),
             "koi8-r" | "cskoi8r" => Ok(Self::Koi8R),
             "koi8-u" | "cskoi8u" => Ok(Self::Koi8U),
+            "gbk" | "gb2312" | "chinese" | "x-gbk" | "csgbk" | "cp936" | "ms936"
+            | "windows-936" => Ok(Self::Gbk),
+            "gb18030" | "csgb18030" => Ok(Self::Gb18030),
             "utf-16" => Ok(Self::Utf16),
             "utf-16be" => Ok(Self::Utf16Be),
             "utf-16le" => Ok(Self::Utf16Le),
@@ -145,6 +150,7 @@ impl Charset {
             Self::Ibm866 => Ok(super::charset_ibm866::decode(bytes)),
             Self::Koi8R => Ok(super::charset_koi8_r::decode(bytes)),
             Self::Koi8U => Ok(super::charset_koi8_u::decode(bytes)),
+            Self::Gbk | Self::Gb18030 => super::charset_gb18030::decode(bytes),
             Self::Utf16 => {
                 super::charset_utf16::decode(bytes, super::charset_utf16::ByteOrder::DetectBom)
             }
