@@ -3,6 +3,8 @@ use super::{
     AppendMetadata, AppendStage, Store, WriteState, blobs, commit_log, durability, journal, model,
     recent, sieve_diagnostics, smtp_dsn_journal, validated_unique_mailboxes,
 };
+#[path = "append_outbound.rs"]
+mod outbound;
 use std::fs::OpenOptions;
 use std::io::{self, Write};
 
@@ -10,6 +12,7 @@ use std::io::{self, Write};
 #[derive(Default)]
 struct AppendExtensions<'a> {
     diagnostics: &'a [sieve_diagnostics::PendingDiagnostic],
+    outbound_origins: &'a [Option<usize>],
     vacation_claim: Option<&'a super::vacation_suppression::PendingClaim>,
     smtp_dsn: Option<&'a crate::smtp::DsnEnvelope>,
 }
@@ -26,7 +29,7 @@ impl Store {
         raw: &[u8],
     ) -> io::Result<u64> {
         let outbound = [(sender.to_owned(), recipient.to_owned())];
-        self.append_many_with_sieve(&[], raw, &outbound, &[], None)
+        self.append_many_with_sieve(&[], raw, &outbound, &[], None, &[])
     }
 
     pub(super) fn append_vacation_transaction(
@@ -95,6 +98,7 @@ impl Store {
         outbound: &[(String, String)],
         diagnostics: &[sieve_diagnostics::PendingDiagnostic],
         smtp_dsn: Option<&crate::smtp::DsnEnvelope>,
+        outbound_origins: &[Option<usize>],
     ) -> io::Result<u64> {
         self.append_many_with_metadata(
             mailboxes,
@@ -103,6 +107,7 @@ impl Store {
             outbound,
             AppendExtensions {
                 diagnostics,
+                outbound_origins,
                 smtp_dsn,
                 ..AppendExtensions::default()
             },
@@ -117,6 +122,7 @@ impl Store {
         extensions: AppendExtensions<'_>,
     ) -> io::Result<u64> {
         self.ensure_writable()?;
+        outbound::validate_count(outbound, extensions.outbound_origins)?;
         let mailboxes = validated_delivery_mailboxes(mailboxes, outbound)?;
         self.blob_quota.ensure_available(raw.len())?;
         let mut transaction_id = self.next_transaction_id;
@@ -125,10 +131,7 @@ impl Store {
         blobs::publish(&self.root, &name, raw)?;
         self.check_and_poison(AppendStage::BlobPublished)?;
         self.blob_quota.record(raw.len())?;
-        for (sender, recipient) in outbound {
-            self.queue
-                .enqueue_owned(transaction_id, sender, recipient)?;
-        }
+        outbound::enqueue(self, transaction_id, outbound, extensions.outbound_origins)?;
         self.check_and_poison(AppendStage::QueueWritten)?;
         if let Err(error) =
             sieve_diagnostics::append(&self.root, transaction_id, extensions.diagnostics)

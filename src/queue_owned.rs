@@ -5,6 +5,8 @@ use std::{
     fs, io,
 };
 
+type OwnedLatest = BTreeMap<(u64, String, Option<usize>), OwnedDelivery>;
+
 impl Queue {
     /// Возвращает IDs transaction, для которых журнал содержит owned SMTP job.
     pub fn owned_transaction_ids(&self) -> io::Result<HashSet<u64>> {
@@ -49,12 +51,16 @@ impl Queue {
         }
     }
 
-    fn owned_latest(&self) -> io::Result<BTreeMap<(u64, String), OwnedDelivery>> {
+    fn owned_latest(&self) -> io::Result<OwnedLatest> {
         let mut latest = BTreeMap::new();
         for line in self.source()?.lines() {
             if let Some(delivery) = parse_owned(line)? {
                 latest.insert(
-                    (delivery.transaction_id, delivery.recipient.clone()),
+                    (
+                        delivery.transaction_id,
+                        delivery.recipient.clone(),
+                        delivery.original_recipient_index,
+                    ),
                     delivery,
                 );
             }
@@ -81,10 +87,15 @@ fn parse_owned(line: &str) -> io::Result<Option<OwnedDelivery>> {
         .parse()
         .map_err(|_| invalid("bad owned transaction"))?;
     let state = State::parse(state)?;
-    let (attempts, next_attempt_epoch, sender, recipient) = match candidate.parse::<u8>() {
-        Ok(attempts) => parse_versioned(attempts, fourth, &mut fields)?,
-        Err(_) => parse_legacy(candidate, fourth, &mut fields)?,
-    };
+    let (attempts, next_attempt_epoch, sender, recipient, original_recipient_index) =
+        match candidate.parse::<u8>() {
+            Ok(attempts) => parse_versioned(attempts, fourth, &mut fields)?,
+            Err(_) => {
+                let (attempts, epoch, sender, recipient) =
+                    parse_legacy(candidate, fourth, &mut fields)?;
+                (attempts, epoch, sender, recipient, None)
+            }
+        };
     let (state, next_attempt_epoch) = match state {
         State::InFlight => (State::Deferred, 0),
         state => (state, next_attempt_epoch),
@@ -95,6 +106,7 @@ fn parse_owned(line: &str) -> io::Result<Option<OwnedDelivery>> {
         next_attempt_epoch,
         sender: decode_sender(sender).into(),
         recipient: recipient.into(),
+        original_recipient_index,
         state,
     }))
 }
@@ -111,19 +123,39 @@ fn parse_versioned<'a>(
     attempts: u8,
     fourth: &'a str,
     fields: &mut std::str::SplitWhitespace<'a>,
-) -> io::Result<(u8, u64, &'a str, &'a str)> {
+) -> io::Result<(u8, u64, &'a str, &'a str, Option<usize>)> {
     match fourth.parse::<u64>() {
-        Ok(next_attempt_epoch) => match (fields.next(), fields.next(), fields.next()) {
-            (Some(sender), Some(recipient), None) => {
-                Ok((attempts, next_attempt_epoch, sender, recipient))
-            }
-            _ => Err(invalid("bad current owned queue record")),
-        },
+        Ok(next_attempt_epoch) => parse_current_fields(attempts, next_attempt_epoch, fields),
         Err(_) => match (fields.next(), fields.next()) {
-            (Some(recipient), None) => Ok((attempts, 0, fourth, recipient)),
+            (Some(recipient), None) => Ok((attempts, 0, fourth, recipient, None)),
             _ => Err(invalid("bad previous owned queue record")),
         },
     }
+}
+
+/// Читает текущий queue frame и совместимый вариант до появления RCPT индекса.
+fn parse_current_fields<'a>(
+    attempts: u8,
+    epoch: u64,
+    fields: &mut std::str::SplitWhitespace<'a>,
+) -> io::Result<(u8, u64, &'a str, &'a str, Option<usize>)> {
+    let (Some(sender), Some(recipient)) = (fields.next(), fields.next()) else {
+        return Err(invalid("bad current owned queue record"));
+    };
+    let original_recipient_index = match fields.next() {
+        None => None,
+        Some("-") if fields.next().is_none() => None,
+        Some(value) if fields.next().is_none() => Some(
+            usize::try_from(
+                value
+                    .parse::<u64>()
+                    .map_err(|_| invalid("bad RCPT index"))?,
+            )
+            .map_err(|_| invalid("RCPT index overflow"))?,
+        ),
+        _ => return Err(invalid("bad current owned queue record")),
+    };
+    Ok((attempts, epoch, sender, recipient, original_recipient_index))
 }
 
 fn parse_legacy<'a>(

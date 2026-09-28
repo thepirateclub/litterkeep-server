@@ -62,6 +62,8 @@ pub struct OwnedDelivery {
     pub next_attempt_epoch: u64,
     pub sender: String,
     pub recipient: String,
+    /// Индекс исходного SMTP RCPT, если job возникла из Sieve redirect.
+    pub original_recipient_index: Option<usize>,
     pub state: State,
 }
 impl Queue {
@@ -80,6 +82,7 @@ impl Queue {
         transaction_id: u64,
         sender: &str,
         recipient: &str,
+        original_recipient_index: Option<usize>,
     ) -> io::Result<()> {
         validate_token(sender)?;
         validate_token(recipient)?;
@@ -90,8 +93,9 @@ impl Queue {
             .open(&self.path)?;
         writeln!(
             file,
-            "{} {transaction_id} 0 0 {sender_token} {recipient}",
-            State::Pending.wire()
+            "{} {transaction_id} 0 0 {sender_token} {recipient} {}",
+            State::Pending.wire(),
+            encode_recipient_index(original_recipient_index)
         )?;
         file.sync_all()
     }
@@ -106,13 +110,14 @@ impl Queue {
             .open(&self.path)?;
         writeln!(
             file,
-            "{} {} {} {} {} {}",
+            "{} {} {} {} {} {} {}",
             state.wire(),
             delivery.transaction_id,
             delivery.attempts,
             delivery.next_attempt_epoch,
             sender_token,
-            delivery.recipient
+            delivery.recipient,
+            encode_recipient_index(delivery.original_recipient_index)
         )?;
         file.sync_all()
     }
@@ -176,6 +181,14 @@ impl Queue {
             Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(Vec::new()),
             Err(e) => Err(e),
         }
+    }
+}
+
+/// Кодирует отсутствующую связь отдельным токеном, сохраняя старые queue frames.
+fn encode_recipient_index(index: Option<usize>) -> String {
+    match index {
+        Some(value) => value.to_string(),
+        None => "-".to_owned(),
     }
 }
 

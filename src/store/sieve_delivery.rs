@@ -89,10 +89,13 @@ impl Store {
         let headers = delivery_headers(raw);
         let mut mailboxes = Vec::new();
         let mut outbound = Vec::new();
+        let mut outbound_origins = Vec::new();
         let mut diagnostics = Vec::new();
         let mut vacation_responses = Vec::new();
         let mut evaluated = HashSet::with_capacity(accounts.len());
-        for (account, envelope_to) in accounts.iter().zip(envelope_recipients) {
+        for (recipient_index, (account, envelope_to)) in
+            accounts.iter().zip(envelope_recipients).enumerate()
+        {
             if !evaluated.insert(account.as_str()) {
                 continue;
             }
@@ -103,6 +106,7 @@ impl Store {
             }
             for recipient in plan.redirects {
                 outbound.push((envelope_sender.to_owned(), recipient));
+                outbound_origins.push(Some(recipient_index));
             }
             for action in plan.vacations {
                 if let Some(response) =
@@ -126,6 +130,7 @@ impl Store {
                 &outbound,
                 &diagnostics,
                 smtp_dsn,
+                &outbound_origins,
             )?),
         };
         for response in vacation_responses {

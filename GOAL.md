@@ -1,5 +1,37 @@
 # Goal ledger
 
+### 2026-09-28: G18 RFC 3461 durable redirect recipient ordinal, PARTIAL T386
+
+- Outbound queue frame теперь сохраняет ordinal SMTP RCPT, чей Sieve plan
+  породил redirect. Queue recovery и transition сохраняют его; queue key
+  различает одинаковые конечные адреса, если исходные ordinal различны.
+- Совместимый reader продолжает принимать все предыдущие owned queue frame
+  форматы, у которых ordinal отсутствует.
+- Regression проверяет два разных локальных mailbox RCPT, переадресованных на
+  одинаковый внешний адрес, после закрытия и повторного открытия Store.
+- Windows Rust 1.97.1: full all-target suite 1006 library + 1 CLI, 4 ignored;
+  strict Clippy и fmt прошли. Linux Rust 1.97.1 контейнер: 1126 library + 1 CLI,
+  4 ignored прошли. Linux strict Clippy не выполнен: в имеющемся image отсутствуют
+  `rustup` и `cargo-clippy`; образ не изменялся. Новые временные контейнеры
+  использовали `--rm`, отдельные target/cache сохранены в `./data`.
+- Это recipient-link groundwork, не DSN scheduling или RFC 3461 PASS. Несколько
+  RCPT, схлопываемых в один локальный mailbox, ещё не агрегируются; scheduler
+  не применяет сохранённый ordinal. EHLO `DSN` остаётся выключенным.
+
+### 2026-09-28: G18 RFC 3461 queue recipient correlation audit, GAP T385
+
+- Повторно проверены текущие `Store`, `OwnedDelivery` и `deliver_sieve_many`.
+  DSN sidecar индексируется исходной transaction ID, а outbound queue journal
+  сохраняет только конечные sender/recipient и состояние попытки.
+- Sieve redirect создаёт job для нового адреса, не сохраняя связь с исходным
+  RCPT DSN metadata. Без recipient-scoped корреляции нельзя безопасно
+  применять NOTIFY, ORCPT, RET или ENVID к generated failure report.
+- EHLO `DSN` остаётся выключенным. Это инвентаризация подтверждённого GAP,
+  не реализация RFC 3461 и не PASS.
+- Источник: RFC 3461 §§5.2.7 и 6; локально сверены
+  `src/store/sieve_delivery.rs`, `src/store/append.rs`, `src/queue.rs`,
+  `src/queue_owned.rs` и `src/store/outbound_access.rs`.
+
 ### 2026-09-28: G18 RFC 3464 Final-Recipient mailbox syntax, T382 PASS
 
 - Исправлен generated failure DSN: `Final-Recipient` теперь содержит

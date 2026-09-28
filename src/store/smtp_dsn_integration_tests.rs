@@ -46,7 +46,7 @@ fn committed_envelope_survives_store_reopen() {
     let transaction_id = {
         let mut store = Store::open(&directory).expect("open store");
         let transaction_id = store
-            .append_many_with_sieve(&["bob".into()], b"message", &[], &[], Some(&expected))
+            .append_many_with_sieve(&["bob".into()], b"message", &[], &[], Some(&expected), &[])
             .expect("atomic message append");
         assert_eq!(
             store.smtp_dsn_envelopes.get(&transaction_id),
@@ -72,7 +72,14 @@ fn uncommitted_envelope_is_invisible_after_reopen() {
         store.set_failpoint(StoreFailpoint::Stage(AppendStage::EnvelopeWritten));
         assert!(
             store
-                .append_many_with_sieve(&["bob".into()], b"message", &[], &[], Some(&envelope()))
+                .append_many_with_sieve(
+                    &["bob".into()],
+                    b"message",
+                    &[],
+                    &[],
+                    Some(&envelope()),
+                    &[]
+                )
                 .is_err()
         );
     }
