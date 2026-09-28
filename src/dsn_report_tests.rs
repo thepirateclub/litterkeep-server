@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::dsn::render_delivery_success;
-use crate::smtp::{MailDsn, OriginalRecipient, RecipientDsn};
+use crate::smtp::{MailDsn, NotifyCondition, NotifyPolicy, OriginalRecipient, RecipientDsn};
 
 /// Проверяет перенос sidecar-параметров MAIL и RCPT в отдельные DSN-поля.
 #[test]
@@ -88,16 +88,15 @@ fn international_headers_use_the_global_headers_media_type() {
 #[test]
 fn delivered_report_uses_success_fields_and_returns_headers_only() {
     let source = b"Subject: receipt\r\nX-Trace: abc\r\n\r\nsecret attachment bytes";
-    let metadata = DsnDeliveryMetadata {
-        mail: MailDsn {
-            return_content: Some(ReturnContent::Full),
-            ..MailDsn::default()
-        },
-        recipient: None,
-    };
-    let report =
-        render_delivery_success("alice@litterkeep.test", "bob@peer.test", 22, source, None)
-            .expect("non-empty reverse path produces a delivered report");
+    let requested = success_metadata(Some(ReturnContent::Headers));
+    let report = render_delivery_success(
+        "alice@litterkeep.test",
+        "bob@peer.test",
+        22,
+        source,
+        Some(&requested),
+    )
+    .expect("requested delivery success produces a report");
     assert!(contains(&report, b"Action: delivered\r\nStatus: 2.0.0\r\n"));
     assert!(contains(&report, b"Delivery Status Notification (Success)"));
     assert!(contains(
@@ -105,12 +104,13 @@ fn delivered_report_uses_success_fields_and_returns_headers_only() {
         b"Content-Type: text/rfc822-headers\r\n\r\nSubject: receipt\r\nX-Trace: abc\r\n\r\n"
     ));
     assert!(!contains(&report, b"secret attachment bytes"));
+    let full_return = success_metadata(Some(ReturnContent::Full));
     let report_with_full_return = render_delivery_success(
         "alice@litterkeep.test",
         "bob@peer.test",
         23,
         source,
-        Some(&metadata),
+        Some(&full_return),
     )
     .expect("full RET still produces a delivered report");
     assert!(!contains(
@@ -126,7 +126,45 @@ fn delivered_report_uses_success_fields_and_returns_headers_only() {
 /// Запрещает DSN-цикл при пустом исходном reverse-path.
 #[test]
 fn delivered_report_is_suppressed_for_null_reverse_path() {
-    assert!(render_delivery_success("", "bob@peer.test", 24, b"body", None).is_none());
+    let metadata = success_metadata(None);
+    assert!(render_delivery_success("", "bob@peer.test", 24, b"body", Some(&metadata)).is_none());
+}
+
+/// Не выдаёт success DSN без явного запроса текущего RCPT.
+#[test]
+fn delivered_report_requires_explicit_success_policy() {
+    let absent = DsnDeliveryMetadata {
+        mail: MailDsn::default(),
+        recipient: None,
+    };
+    let failure_only = DsnDeliveryMetadata {
+        mail: MailDsn::default(),
+        recipient: Some(RecipientDsn {
+            notify: Some(NotifyPolicy::Conditions(
+                [NotifyCondition::Failure].into_iter().collect(),
+            )),
+            original_recipient: None,
+        }),
+    };
+    let never = DsnDeliveryMetadata {
+        mail: MailDsn::default(),
+        recipient: Some(RecipientDsn {
+            notify: Some(NotifyPolicy::Never),
+            original_recipient: None,
+        }),
+    };
+    for metadata in [absent, failure_only, never] {
+        assert!(
+            render_delivery_success(
+                "alice@litterkeep.test",
+                "bob@peer.test",
+                25,
+                b"Subject: test\r\n\r\nbody",
+                Some(&metadata),
+            )
+            .is_none()
+        );
+    }
 }
 
 /// RFC 6533 ORCPT сохраняет зарегистрированный тип utf-8.
@@ -171,5 +209,20 @@ fn headers_metadata() -> DsnDeliveryMetadata {
             ..MailDsn::default()
         },
         recipient: None,
+    }
+}
+
+fn success_metadata(return_content: Option<ReturnContent>) -> DsnDeliveryMetadata {
+    DsnDeliveryMetadata {
+        mail: MailDsn {
+            return_content,
+            ..MailDsn::default()
+        },
+        recipient: Some(RecipientDsn {
+            notify: Some(NotifyPolicy::Conditions(
+                [NotifyCondition::Success].into_iter().collect(),
+            )),
+            original_recipient: None,
+        }),
     }
 }

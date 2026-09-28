@@ -118,10 +118,11 @@ pub fn render_with_metadata(
     }
 }
 
-/// Формирует positive DSN для уже опубликованного локального mailbox delivery.
+/// Формирует positive DSN только для явно запрошенного успешного результата.
 ///
 /// Вызывающий код обязан вызывать функцию только после durable commit. Позитивный
-/// отчёт всегда возвращает лишь заголовки исходного письма, независимо от RET.
+/// отчёт требует `NOTIFY=SUCCESS` для конкретного RCPT и возвращает лишь
+/// заголовки исходного письма независимо от RET.
 pub fn render_delivery_success(
     reverse_path: &str,
     recipient: &str,
@@ -129,9 +130,11 @@ pub fn render_delivery_success(
     original: &[u8],
     metadata: Option<&DsnDeliveryMetadata>,
 ) -> Option<Vec<u8>> {
-    match reverse_path.is_empty() {
-        true => None,
-        false => Some(report::render(
+    match (
+        reverse_path.is_empty(),
+        notification_allowed(metadata, NotifyCondition::Success),
+    ) {
+        (false, true) => Some(report::render(
             reverse_path,
             recipient,
             transaction_id,
@@ -139,6 +142,7 @@ pub fn render_delivery_success(
             ReportOutcome::Delivered,
             metadata,
         )),
+        (true, _) | (false, false) => None,
     }
 }
 

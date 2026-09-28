@@ -36,7 +36,9 @@ durable acknowledgement. Unit/failpoint tests и полный Windows/Linux suit
 проверили эти переходы. Независимый runtime crash-kill сценарий ещё не проверен.
 Success report serializer теперь создаёт отдельный `Action: delivered` / `Status:
 2.0.0` outcome и возвращает только заголовки даже при `RET=FULL`; unit vectors
-проверяют также null reverse-path. Это не подключено к post-commit delivery:
+проверяют также null reverse-path. Сам serializer требует явный `NOTIFY=SUCCESS`
+для конкретного RCPT и не формирует отчёт для omitted policy, FAILURE-only или
+NEVER. Это не подключено к post-commit delivery:
 durable success notice, идемпотентная очередь/ack и crash recovery отсутствуют.
 Delay report scheduling, полная сквозная семантика повторной доставки и RFC
 3461 wire negotiation остаются неподдержанными. RFC 3461 §5.2.3 требует

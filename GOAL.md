@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-28: G18 suppress unsolicited delivered DSN, PARTIAL T394
+
+- Публичный success renderer теперь проверяет recipient-scoped policy и
+  сериализует отчёт только при явном `NOTIFY=SUCCESS`. Отсутствующий NOTIFY,
+  только FAILURE и NEVER возвращают отсутствие отчёта; это предотвращает
+  unsolicited positive DSN до появления durable delivery worker-а.
+- Targeted vectors прошли. Windows Rust 1.97.1 all-target suite: 1026 library
+  + 1 CLI passed, 4 ignored; strict all-target Clippy, fmt и diff-check прошли.
+  Linux Docker all-target suite: 1146 library + 1 CLI passed, 4 ignored.
+- Для Linux переиспользован существующий `rust:1.97-bookworm`, Cargo target
+  сохранён в `./data/g21-dsn-delivered-linux-target`; одноразовый контейнер
+  удалён через `--rm`, image не создавался. Независимый SMTP acceptance не
+  выполнялся.
+- Это policy guard вокруг сериализатора, а не durable outbox: local-delivery
+  commit ещё не создаёт и не восстанавливает success notice. T391 остаётся GAP,
+  G18 ACTIVE.
+- Источник: [RFC 3461 §5.2.3](https://www.rfc-editor.org/rfc/rfc3461.html).
+
 ### 2026-09-28: G18 RFC 3464 delivered DSN serialization, PARTIAL T393
 
 - DSN renderer получил отдельный typed `Delivered` outcome: он формирует
@@ -8,7 +26,8 @@
   заголовки, включая при `RET=FULL`; UTF-8 media type выбирается по этим
   возвращаемым октетам. Пустой reverse-path подавляет генерацию.
 - Unit-векторы проверяют поля report, отсутствие тела при обычном policy и
-  `RET=FULL`, и подавление null reverse-path. Первый вектор обнаружил и помог
+  `RET=FULL`, и подавление null reverse-path. Отдельный T394 проверяет, что без
+  явного SUCCESS отчёт не сериализуется. Первый вектор обнаружил и помог
   исправить несоответствие MIME media type при позитивном DSN.
 - Windows Rust 1.97.1 all-target suite: 1025 library + 1 CLI passed, 4 ignored;
   strict all-target Clippy, rustfmt и `git diff --check` прошли. Linux Docker
