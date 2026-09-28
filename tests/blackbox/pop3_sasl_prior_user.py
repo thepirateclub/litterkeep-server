@@ -57,6 +57,7 @@ def verify(host: str, port: int, ca: str, password: str) -> None:
             exchange(protected, b"USER bob", b"+OK")
             response = base64.b64encode(b"\x00bob\x00" + password.encode("ascii"))
             authenticate_plain(protected, response, b"+OK")
+            verify_sasl_capability_after_auth(protected)
             exchange(protected, b"STAT", b"+OK")
             exchange(protected, b"QUIT", b"+OK")
 
@@ -197,6 +198,25 @@ def verify_unsupported_mechanism(stream: socket.SocketIO) -> None:
         b"AUTH DIGEST-MD5 ZHVtbXk=",
         b"-ERR unsupported SASL mechanism",
     )
+
+
+def verify_sasl_capability_after_auth(stream: socket.SocketIO) -> None:
+    """Проверяет, что успешный AUTH не удалил CAPA SASL из transaction state."""
+    exchange(stream, b"CAPA", b"+OK")
+    sasl_lines = []
+    while True:
+        line = read_line(stream, "post-auth SASL capability listing")
+        if line == b".\r\n":
+            break
+        if line.startswith(b"SASL "):
+            sasl_lines.append(line)
+    match sasl_lines:
+        case [sasl_line] if b"PLAIN" in sasl_line:
+            return
+        case _:
+            raise AssertionError(
+                f"успешный AUTH удалил или исказил SASL capability: {sasl_lines!r}"
+            )
 
 
 def main() -> None:

@@ -1,5 +1,19 @@
 # Goal ledger
 
+### 2026-09-28: G19 POP3 SASL CAPA after successful AUTH, T376 PASS
+
+- RFC 5034 §3 requires `CAPA` to keep advertising the `SASL` capability after
+  successful AUTH, while §4 prohibits another AUTH in that session. Added a
+  session regression test and independent STARTTLS wire check that authenticate
+  Bob with PLAIN, read CAPA in TRANSACTION, and confirm its SASL mechanism line
+  still includes PLAIN. Existing transaction command flow then continues.
+- Rust 1.97.1 Linux suite passed (1113 library + 1 CLI, 4 ignored), strict
+  Clippy and release build passed; Python syntax and live acceptance passed.
+  Clippy component was installed in the disposable test container only.
+  Existing `rust:1.97-bookworm` and `./data` were reused; listener container
+  removed, no image created. This is RFC 5034 §3 scoped coverage, not complete
+  POP3 conformance or Litterkeep application interoperability.
+
 ### 2026-09-28: G19 POP3 SCRAM nonce-expansion final bound, T375 PASS
 
 - SCRAM client-first остаётся ограничен 16 KiB. Его допустимый nonce может

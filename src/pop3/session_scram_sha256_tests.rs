@@ -53,6 +53,14 @@ fn sha256_capability_requires_tls_and_success_reaches_maildrop() {
         matches!(session.sasl_plain_response(""), Reply::ScramAccepted { account } if account == "bob")
     );
     assert!(matches!(session.authenticated(Vec::new()), Reply::Ok(_)));
+    let post_auth_capability = session.apply(crate::pop3::parse("CAPA\r\n"));
+    assert!(matches!(post_auth_capability, Reply::Multiline(bytes)
+        if bytes.windows(b"SASL PLAIN SCRAM-SHA-1 SCRAM-SHA-256\r\n".len())
+            .any(|line| line == b"SASL PLAIN SCRAM-SHA-1 SCRAM-SHA-256\r\n")));
+    assert!(matches!(
+        session.apply(crate::pop3::parse("AUTH PLAIN\r\n")),
+        Reply::Error("invalid command for state")
+    ));
 }
 
 #[test]
