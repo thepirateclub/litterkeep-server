@@ -1,5 +1,22 @@
 # Goal ledger
 
+### 2026-09-29: G18 external failure DSN durable publication, PARTIAL T406
+
+- Универсальная типизированная цель DSN теперь поддерживает локальный mailbox
+  и исходящий адрес. Failure DSN для внешнего MAIL FROM создаётся как
+  идемпотентная Store-транзакция и outbound job с пустым reverse-path; пустой
+  sender и отсутствующий локальный аккаунт по-прежнему подавляются.
+- Добавлен Linux-only сетевой тест: первоначальный независимый SMTP peer
+  отклоняет доставку, затем тест требует durable DSN job и проверяет второй
+  независимый peer на null MAIL FROM, исходного отправителя, multipart/report,
+  Final-Recipient, Action, Status и ограниченное включение исходных заголовков.
+- Windows Rust 1.97.1 all-target: 1053 library + 1 CLI passed, 4 ignored;
+  strict Clippy, rustfmt и diff-check прошли. Linux execution не подтверждён:
+  существующий Rust container не имеет рабочего linker (`cc`); попытка
+  одноразового container была остановлена и сам container удалён. Linux test
+  source написан, но не компилировался и не запускался. Активная goal CLI и
+  подключение Litterkeep для этой проверки не использовались.
+
 ### 2026-09-29: G18 duplicate RCPT local SUCCESS intent correlation, PARTIAL T402
 
 - Добавлена Store regression: два SMTP RCPT, разрешающиеся в один локальный

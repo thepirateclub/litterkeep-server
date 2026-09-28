@@ -15,7 +15,7 @@ impl Store {
     /// Добавляет delivered report ровно один раз для исходного RCPT intent.
     pub(crate) fn append_dsn_success_report_once(
         &mut self,
-        target: crate::dsn_target::DsnSuccessTarget,
+        target: crate::dsn_target::DsnTarget,
         raw: &[u8],
         key: crate::queue::DsnSuccessReportKey,
     ) -> io::Result<u64> {
@@ -37,10 +37,8 @@ impl Store {
             ));
         }
         let (mailboxes, outbound) = match target {
-            crate::dsn_target::DsnSuccessTarget::LocalMailbox(mailbox) => {
-                (vec![mailbox], Vec::new())
-            }
-            crate::dsn_target::DsnSuccessTarget::OutboundAddress(recipient) => {
+            crate::dsn_target::DsnTarget::LocalMailbox(mailbox) => (vec![mailbox], Vec::new()),
+            crate::dsn_target::DsnTarget::OutboundAddress(recipient) => {
                 (Vec::new(), vec![(String::new(), recipient)])
             }
         };

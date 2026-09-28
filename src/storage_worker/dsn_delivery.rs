@@ -14,16 +14,22 @@ pub(super) fn append(
     request: dsn::ReportRequest<'_>,
     report_key: &crate::queue::DsnReportKey,
 ) -> io::Result<Option<u64>> {
-    let Some(mailbox) = local_route::local_mailbox(request.reverse_path) else {
-        return Ok(None);
+    let target = match (
+        local_route::local_mailbox(request.reverse_path),
+        request.reverse_path.is_empty(),
+    ) {
+        (Some(mailbox), _) if accounts.exists(&mailbox) => {
+            crate::dsn_target::DsnTarget::LocalMailbox(mailbox)
+        }
+        (Some(_), _) | (None, true) => return Ok(None),
+        (None, false) => {
+            crate::dsn_target::DsnTarget::OutboundAddress(request.reverse_path.to_owned())
+        }
     };
-    if !accounts.exists(&mailbox) {
-        return Ok(None);
-    }
     let Some(report) = dsn::render_request(request) else {
         return Ok(None);
     };
-    store.append_dsn_report_once(&mailbox, &report, report_key)
+    store.append_dsn_report_once(target, &report, report_key)
 }
 
 /// Публикует один committed local SUCCESS intent через Store owner.
@@ -45,11 +51,11 @@ pub(super) fn append_success(
         context.reverse_path.is_empty(),
     ) {
         (Some(mailbox), _) if accounts.exists(&mailbox) => {
-            crate::dsn_target::DsnSuccessTarget::LocalMailbox(mailbox)
+            crate::dsn_target::DsnTarget::LocalMailbox(mailbox)
         }
         (Some(_), _) | (None, true) => return Ok(None),
         (None, false) => {
-            crate::dsn_target::DsnSuccessTarget::OutboundAddress(context.reverse_path.clone())
+            crate::dsn_target::DsnTarget::OutboundAddress(context.reverse_path.clone())
         }
     };
     let Some(report) = dsn::render_delivery_success(

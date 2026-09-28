@@ -75,7 +75,7 @@ fn committed_success_report_acknowledges_intent_once_across_reopen() {
     let mut store = Store::open(&directory).expect("open report writer");
     let report_transaction_id = store
         .append_dsn_success_report_once(
-            crate::dsn_target::DsnSuccessTarget::LocalMailbox("alice".into()),
+            crate::dsn_target::DsnTarget::LocalMailbox("alice".into()),
             &report,
             key,
         )
@@ -88,7 +88,7 @@ fn committed_success_report_acknowledges_intent_once_across_reopen() {
     assert_eq!(
         reopened
             .append_dsn_success_report_once(
-                crate::dsn_target::DsnSuccessTarget::LocalMailbox("alice".into()),
+                crate::dsn_target::DsnTarget::LocalMailbox("alice".into()),
                 b"duplicate",
                 key,
             )
@@ -110,7 +110,7 @@ fn report_without_a_committed_source_intent_is_rejected() {
     let directory = root();
     let mut store = Store::open(&directory).expect("open Store");
     let result = store.append_dsn_success_report_once(
-        crate::dsn_target::DsnSuccessTarget::LocalMailbox("alice".into()),
+        crate::dsn_target::DsnTarget::LocalMailbox("alice".into()),
         b"not a report",
         DsnSuccessReportKey {
             source_transaction_id: 99,
@@ -148,7 +148,7 @@ fn crash_before_report_commit_keeps_source_intent_retryable() {
         assert!(
             store
                 .append_dsn_success_report_once(
-                    crate::dsn_target::DsnSuccessTarget::LocalMailbox("alice".into()),
+                    crate::dsn_target::DsnTarget::LocalMailbox("alice".into()),
                     b"interrupted report",
                     key,
                 )
@@ -165,7 +165,7 @@ fn crash_before_report_commit_keeps_source_intent_retryable() {
     );
     let report_transaction_id = reopened
         .append_dsn_success_report_once(
-            crate::dsn_target::DsnSuccessTarget::LocalMailbox("alice".into()),
+            crate::dsn_target::DsnTarget::LocalMailbox("alice".into()),
             b"retry report",
             key,
         )

@@ -13,6 +13,15 @@ T405: после включения RFC 3461 wire capability независим�
 с Litterkeep app. Более ранние T349/T350 фиксируют старое состояние отказа до
 включения capability и не описывают текущий сервер.
 
+T406: собственная реализация теперь публикует failure DSN внешнему исходному
+отправителю через durable outbound job с пустым reverse-path. Linux-only тест
+проверяет permanent RCPT отказ, сохранённость задания после reopen, второе
+SMTP соединение, multipart/report и отсутствие исходного тела при RET=HDRS.
+Windows full suite (1053 library + 1 CLI, 4 ignored), strict Clippy и rustfmt
+прошли. Сам Linux тест пока не компилировался: доступный Rust container не
+содержит рабочего `cc` linker. Следовательно, T406 остаётся PARTIAL, а не
+сетевой PASS; Litterkeep app не подключался.
+
 Машиночитаемая матрица находится в `docs/acceptance.tsv`. Статус G12 не
 завышается: 44 G12 checks имеют PASS, T23 имеет NOT RUN, T25 имеет BLOCKED.
 Отдельный G17 T28 добавлен в ту же матрицу и не меняет оценку G12.

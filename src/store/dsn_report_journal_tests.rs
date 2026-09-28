@@ -32,18 +32,30 @@ fn report_is_idempotent_across_store_reopen() {
     let directory = root();
     let mut store = Store::open(&directory).expect("open Store");
     let first = store
-        .append_dsn_report_once("alice", b"failure report", &key())
+        .append_dsn_report_once(
+            crate::dsn_target::DsnTarget::LocalMailbox("alice".into()),
+            b"failure report",
+            &key(),
+        )
         .expect("first report")
         .expect("local report");
     let repeated = store
-        .append_dsn_report_once("alice", b"duplicate", &key())
+        .append_dsn_report_once(
+            crate::dsn_target::DsnTarget::LocalMailbox("alice".into()),
+            b"duplicate",
+            &key(),
+        )
         .expect("repeated report");
     assert_eq!(repeated, Some(first));
     drop(store);
 
     let mut reopened = Store::open(&directory).expect("reopen Store");
     let recovered = reopened
-        .append_dsn_report_once("alice", b"duplicate", &key())
+        .append_dsn_report_once(
+            crate::dsn_target::DsnTarget::LocalMailbox("alice".into()),
+            b"duplicate",
+            &key(),
+        )
         .expect("recovered key");
     assert_eq!(recovered, Some(first));
     let messages = reopened.messages("alice").expect("mailbox");
@@ -65,7 +77,11 @@ fn uncommitted_report_mapping_does_not_hide_retry() {
     ));
     assert!(
         store
-            .append_dsn_report_once("alice", b"failure report", &key())
+            .append_dsn_report_once(
+                crate::dsn_target::DsnTarget::LocalMailbox("alice".into()),
+                b"failure report",
+                &key()
+            )
             .is_err()
     );
     drop(store);
@@ -73,7 +89,11 @@ fn uncommitted_report_mapping_does_not_hide_retry() {
     let mut reopened = Store::open(&directory).expect("recover incomplete report");
     assert!(reopened.dsn_report_transactions.is_empty());
     let transaction = reopened
-        .append_dsn_report_once("alice", b"retry report", &key())
+        .append_dsn_report_once(
+            crate::dsn_target::DsnTarget::LocalMailbox("alice".into()),
+            b"retry report",
+            &key(),
+        )
         .expect("retry")
         .expect("committed report");
     let messages = reopened.messages("alice").expect("mailbox");
@@ -92,7 +112,11 @@ fn recovery_trims_incomplete_report_tail_and_keeps_committed_mapping() {
     let directory = root();
     let mut store = Store::open(&directory).expect("open Store");
     let transaction = store
-        .append_dsn_report_once("alice", b"failure report", &key())
+        .append_dsn_report_once(
+            crate::dsn_target::DsnTarget::LocalMailbox("alice".into()),
+            b"failure report",
+            &key(),
+        )
         .expect("append")
         .expect("local report");
     drop(store);
@@ -107,7 +131,11 @@ fn recovery_trims_incomplete_report_tail_and_keeps_committed_mapping() {
 
     let mut reopened = Store::open(&directory).expect("recover journal");
     let retry = reopened
-        .append_dsn_report_once("alice", b"duplicate", &key())
+        .append_dsn_report_once(
+            crate::dsn_target::DsnTarget::LocalMailbox("alice".into()),
+            b"duplicate",
+            &key(),
+        )
         .expect("deduplicated retry");
     assert_eq!(retry, Some(transaction));
     drop(reopened);
@@ -119,7 +147,11 @@ fn committed_duplicate_key_with_different_id_is_corruption() {
     let directory = root();
     let mut store = Store::open(&directory).expect("open Store");
     store
-        .append_dsn_report_once("alice", b"failure report", &key())
+        .append_dsn_report_once(
+            crate::dsn_target::DsnTarget::LocalMailbox("alice".into()),
+            b"failure report",
+            &key(),
+        )
         .expect("append");
     drop(store);
 

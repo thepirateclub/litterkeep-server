@@ -104,12 +104,16 @@ fn publish_dsn(
     payload: &[u8],
     failure: dsn::Failure,
 ) -> io::Result<()> {
-    let Some(mailbox) = local_route::local_mailbox(&delivery.sender) else {
-        return Ok(());
+    let target = match (
+        local_route::local_mailbox(&delivery.sender),
+        delivery.sender.is_empty(),
+    ) {
+        (Some(mailbox), _) if accounts.exists(&mailbox) => {
+            crate::dsn_target::DsnTarget::LocalMailbox(mailbox)
+        }
+        (Some(_), _) | (None, true) => return Ok(()),
+        (None, false) => crate::dsn_target::DsnTarget::OutboundAddress(delivery.sender.clone()),
     };
-    if !accounts.exists(&mailbox) {
-        return Ok(());
-    }
     let Some(report) = dsn::render_with_metadata(
         &delivery.sender,
         &delivery.recipient,
@@ -126,7 +130,7 @@ fn publish_dsn(
         ));
     };
     store
-        .append_dsn_report_once(&mailbox, &report, &key)
+        .append_dsn_report_once(target, &report, &key)
         .map(|_| ())
 }
 

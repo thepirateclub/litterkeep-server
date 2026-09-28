@@ -1,8 +1,8 @@
-//! Цель committed positive DSN внутри Store и outbound queue.
+//! Цель committed DSN внутри Store и outbound queue.
 
-/// Получатель positive report после проверки локальной маршрутизации.
+/// Получатель отчёта после проверки локальной маршрутизации.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum DsnSuccessTarget {
+pub(crate) enum DsnTarget {
     /// Отправитель принадлежит существующему локальному account.
     LocalMailbox(String),
     /// Внешний reverse-path, который надо передать SMTP transport-у.
