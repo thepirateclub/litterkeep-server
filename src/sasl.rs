@@ -12,6 +12,8 @@ pub mod saslprep;
 mod saslprep_data;
 #[path = "sasl/scram_attributes.rs"]
 pub mod scram_attributes;
+#[path = "sasl/scram_client_final.rs"]
+pub mod scram_client_final;
 #[path = "sasl/scram_client_first.rs"]
 pub mod scram_client_first;
 #[path = "sasl/scram_server_first.rs"]

@@ -58,6 +58,12 @@ interoperability пока не реализованы.
 `scram_server_first` формирует `r,s,i`, добавляя 18 криптографически случайных
 октетов Rustls к client nonce; соль и iteration count берутся из сохранённой
 verifier-записи. Builder пока не подключён к SASL lifecycle.
+`scram_client_final` проверяет фиксированные `c,r,[extensions],p`, exact
+GS2 `biws`, полный nonce и canonical 20-octet ClientProof. Он формирует
+AuthMessage из исходных SCRAM transcript строк; полный RFC 5802 §5.1
+known-answer проходит через StoredKey verifier и совпадает с published
+ServerSignature. SASL outcome/state machine и ManageSieve integration всё ещё
+отсутствуют.
 Crypto API проверяет proof с постоянновременным сравнением StoredKey и строит
 server signature; это не заменяет end-to-end проверку протокольного transcript.
 [`RFC 5804 §2.1`](https://www.rfc-editor.org/rfc/rfc5804.html#section-2.1)

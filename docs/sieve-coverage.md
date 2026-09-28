@@ -34,8 +34,11 @@ T323 исправил его ASCII-only value restriction согласно RFC 5
 typed client-first parser с `n,,`, SASLprep username, nonce и optional
 extensions. Server-first/client-final/server-final semantic parsing и SASL
 state machine пока отсутствуют. T324 добавил server-first builder с Rustls
-secure RNG, но он ещё не встроен в ManageSieve lifecycle. Independent wire
-exchange также отсутствует.
+secure RNG, но он ещё не встроен в ManageSieve lifecycle. T325 добавил
+client-final verifier и точный AuthMessage; опубликованный RFC proof и server
+signature проходят как crypto transcript, но server-final SASL outcome и
+reactor state machine не реализованы. Independent wire exchange также
+отсутствует.
 T318 сверил контракт с RFC 5804 §2.1 и RFC 7677: обязательный ManageSieve
 SCRAM-SHA-1 не реализован, более современный SCRAM-SHA-256 также не реализован.
 Детали записаны в [учёте зависимостей](dependencies.md). SCRAM не рекламируется.

@@ -1,5 +1,22 @@
 # Goal ledger
 
+### 2026-09-28: G18 SCRAM client-final proof and transcript, scoped PASS T325
+
+- Добавлен client-final validator fixed order `c,r,extensions,p`. Он проверяет
+  exact `biws` GS2 channel binding для `n,,`, совпадение полного server nonce,
+  optional extension область и canonical Base64 proof ровно 20 байт.
+- `AuthMessage` строится из оригинальных client-first-bare, server-first и
+  client-final-without-proof строк без нормализации. Published RFC 5802 §5.1
+  transcript принят текущим production verifier; server signature совпала с
+  опубликованной `rmF9...` величиной. Отказы nonce/cbind/order/encoding
+  проверяются focused тестами.
+- Windows Rust 1.97.1: 904 библиотечных и 1 CLI тест прошли, 4 игнорированы;
+  fmt/strict Clippy прошли. Linux Docker Rust 1.97.1: 1009 библиотечных и
+  1 CLI тест прошли, 4 игнорированы; fmt/strict Clippy прошли. Контейнер
+  временный (`--rm`).
+- Отдельный server-final wire outcome и SASL state machine всё ещё не
+  подключены к ManageSieve. Capability остаётся выключенной. G18 ACTIVE.
+
 ### 2026-09-28: G18 cryptographic SCRAM server-first challenge, scoped PASS T324
 
 - Добавлен builder RFC 5802 `r,s,i`: объединяет client nonce с 18 случайными
