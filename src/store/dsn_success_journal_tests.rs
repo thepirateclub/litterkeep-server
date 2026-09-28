@@ -158,6 +158,50 @@ fn duplicate_rcpt_tracks_only_each_explicit_success_request() {
     std::fs::remove_dir_all(directory).expect("cleanup");
 }
 
+/// Один local Sieve plan создаёт отдельный intent для каждого RCPT SUCCESS.
+#[test]
+fn duplicate_rcpt_success_requests_keep_independent_recipient_intents() {
+    let directory = root();
+    let addresses = vec!["bob@test".to_owned(), "bob@litterkeep.test".to_owned()];
+    let request = envelope(
+        addresses
+            .iter()
+            .map(|address| recipient(address, success_policy()))
+            .collect(),
+    );
+    let transaction_id = {
+        let mut store = Store::open(&directory).expect("open store");
+        let transaction_id = store
+            .deliver_sieve_many_with_dsn(
+                &["bob".into(), "bob".into()],
+                "alice@test",
+                &addresses,
+                b"Subject: two recipient reports\r\n\r\nbody",
+                Some(&request),
+            )
+            .expect("commit one local delivery");
+        assert_eq!(store.messages("bob").expect("mailbox").len(), 1);
+        transaction_id
+    };
+    let recovered = Store::open(&directory).expect("reopen store");
+    assert_eq!(
+        recovered.pending_dsn_success_notices(),
+        vec![
+            DsnSuccessKey {
+                transaction_id,
+                recipient_index: 0,
+            },
+            DsnSuccessKey {
+                transaction_id,
+                recipient_index: 1,
+            },
+        ]
+    );
+    assert_eq!(recovered.messages("bob").expect("mailbox").len(), 1);
+    drop(recovered);
+    std::fs::remove_dir_all(directory).expect("cleanup");
+}
+
 #[test]
 fn failure_only_policy_does_not_create_success_intent() {
     let directory = root();

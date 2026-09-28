@@ -41,7 +41,12 @@ Success report serializer теперь создаёт отдельный `Action
 NEVER. Store теперь до source commit записывает checksummed success intent для
 каждого eligible RCPT с локальным mailbox target; после recovery видны только
 intents, чья source transaction committed. Unit integration покрывает duplicate
-RCPT policy, discard и crash до commit. Consumer доступен как typed bounded
+RCPT policy, discard и crash до commit. Если несколько RCPT разрешаются в один
+локальный mailbox, Store фиксирует одно сообщение, а независимые SUCCESS intents
+сохраняет по каждому eligible RCPT ordinal; T402 проверяет оба ключа после
+reopen. Для outbound redirect failure текущий queue route по-прежнему хранит
+один source ordinal, поэтому duplicate-origin correlation остаётся GAP (T385).
+Consumer доступен как typed bounded
 StorageWorker operation: он восстанавливает envelope и исходный blob, принимает
 существующий локальный sender account либо передаёт внешний reverse-path через
 durable outbound SMTP job, строит `Action: delivered` и публикует отчёт

@@ -1,5 +1,16 @@
 # Goal ledger
 
+### 2026-09-29: G18 duplicate RCPT local SUCCESS intent correlation, PARTIAL T402
+
+- Добавлена Store regression: два SMTP RCPT, разрешающиеся в один локальный
+  mailbox и оба запрашивающие SUCCESS, создают одну доставленную mailbox-запись,
+  но две раздельные recipient-indexed DSN intents.
+- Reopen Store подтверждает сохранение обоих `(transaction_id, recipient_index)`
+  ключей. Windows Rust 1.97.1 all-target: 1043 passed, 4 ignored; strict Clippy,
+  rustfmt и diff-check прошли. Linux suite не запускался.
+- Это local-success coverage. Один outbound redirect от coalesced account пока
+  хранит один source RCPT ordinal; отдельная failure DSN корреляция остаётся GAP.
+
 ### 2026-09-29: G20 POP3 SCRAM configured-size successful proof, PARTIAL T401
 
 - Добавлен независимый TLS POP3 acceptance для успешного SCRAM-SHA-256 на
