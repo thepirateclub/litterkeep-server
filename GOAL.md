@@ -1,5 +1,25 @@
 # Goal ledger
 
+### 2026-09-28: G19 oversized POP3 SASL continuation bounded discard, T373 PASS
+
+- Reactor больше не закрывает POP3 session только из-за превышения общего
+  входного буфера во время SASL continuation. Для ответа длиннее 1 MiB сервер
+  ограниченно отбрасывает bytes до CRLF, возвращает `-ERR authentication
+  failed` и сохраняет синхронизацию с pipelined командой. Состояние discard
+  хранит только признак предыдущего CR, не тело oversized строки.
+- Три Linux unit-теста покрывают полную строку с pipelined хвостом, CRLF между
+  чтениями и неизменность общего лимита для других состояний. Независимый Python
+  STARTTLS peer отправил continuation длиной 1 MiB + 1 и pipelined CAPA; затем
+  тот же сценарий подтвердил последующий PASS для ранее выбранного USER Bob.
+  Это тест стороннего клиента, не приложение Litterkeep.
+- Rust 1.97.1 Linux полная suite прошла (1112 library + 1 CLI, 4 ignored),
+  strict Clippy и три целевых unit-теста прошли; release listener и Python
+  acceptance прошли. Использованы `./data/g19-pop3-scram-linux`
+  и существующий `rust:1.97-bookworm`; временный listener-контейнер удалён,
+  новый Docker image не создавался. Транспортный input остаётся ограничен 1 MiB:
+  этот отказной сценарий не доказывает поддержку произвольно больших PLAIN
+  payload и не закрывает весь RFC 5034 профиль.
+
 ### 2026-09-28: G19 POP3 AUTH initial-response size fallback, T372 PASS
 
 - Независимый Python peer теперь выбирает AUTH PLAIN initial-response только

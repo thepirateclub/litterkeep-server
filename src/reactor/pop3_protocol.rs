@@ -117,6 +117,12 @@ pub(super) fn write_reply(session: &mut Session, reply: pop3::Reply) -> io::Resu
     Ok(())
 }
 
+/// Отклоняет ограниченный по памяти oversized SASL response и восстанавливает USER.
+pub(super) fn reject_oversized_sasl_response(session: &mut Session) -> io::Result<()> {
+    let reply = session.pop3.authentication_rejected();
+    write_reply(session, reply)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn authenticate(
     session: &mut Session,

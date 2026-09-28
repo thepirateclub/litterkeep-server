@@ -114,6 +114,8 @@ pub(super) struct Session {
     pub(super) pop3: pop3::Session,
     /// Внутренний ключ INBOX нужен для durable применения POP3 DELE на QUIT.
     pub(super) pop3_mailbox: Option<String>,
+    /// POP3 continuation может потоково отбрасываться без роста входного буфера.
+    pub(super) pop3_sasl_input: super::pop3_sasl_input::Pop3SaslInput,
     /// ManageSieve FSM не владеет script catalog и ждёт worker completion.
     pub(super) managesieve: managesieve::Session,
     /// Script literal принадлежит ровно одной ManageSieve session до completion.
@@ -178,6 +180,7 @@ impl Session {
             smtp_utf8: false,
             pop3: pop3::Session::default(),
             pop3_mailbox: None,
+            pop3_sasl_input: super::pop3_sasl_input::Pop3SaslInput::default(),
             managesieve: managesieve::Session::default(),
             managesieve_literal: None,
         };

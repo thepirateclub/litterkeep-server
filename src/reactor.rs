@@ -113,6 +113,8 @@ mod pending;
 mod pop3_completion;
 #[path = "reactor/pop3_protocol.rs"]
 mod pop3_protocol;
+#[path = "reactor/pop3_sasl_input.rs"]
+mod pop3_sasl_input;
 #[path = "reactor/pop3_scram_protocol.rs"]
 mod pop3_scram_protocol;
 #[path = "reactor/protocol.rs"]

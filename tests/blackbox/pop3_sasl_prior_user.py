@@ -89,6 +89,34 @@ def rejected_commands(stream: socket.SocketIO, password: str) -> None:
     exchange(stream, b"AUTH PLAIN " + invalid, b"-ERR authentication failed")
     valid = base64.b64encode(b"\x00missing-account\x00" + password.encode("ascii"))
     exchange(stream, b"AUTH PLAIN " + valid, b"-ERR authentication failed")
+    verify_oversized_continuation(stream)
+
+
+def verify_oversized_continuation(stream: socket.SocketIO) -> None:
+    """Проверяет bounded discard, CRLF boundary и следующую POP3 команду."""
+    exchange(stream, b"AUTH PLAIN", b"+ ")
+    response = b"A" * (1024 * 1024 + 1) + b"\r\nCAPA\r\n"
+    write_all(stream, response)
+    oversized = read_line(stream, "oversized SASL response")
+    if oversized != b"-ERR authentication failed\r\n":
+        raise AssertionError(f"неожиданный oversized SASL отказ: {oversized!r}")
+    capabilities = read_line(stream, "pipelined CAPA after oversized SASL")
+    if not capabilities.startswith(b"+OK"):
+        raise AssertionError(f"CAPA не восстановилась после SASL: {capabilities!r}")
+    while read_line(stream, "CAPA after oversized SASL") != b".\r\n":
+        pass
+
+
+def write_all(stream: socket.SocketIO, payload: bytes) -> None:
+    """Передаёт крупный acceptance payload целиком даже при частичной записи."""
+    remaining = memoryview(payload)
+    while remaining:
+        written = stream.write(remaining)
+        match written:
+            case None | 0:
+                raise ConnectionError("socket перестал принимать POP3 acceptance bytes")
+            case count:
+                remaining = remaining[count:]
 
 
 def authenticate_plain(

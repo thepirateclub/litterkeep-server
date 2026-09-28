@@ -74,7 +74,7 @@ pub(super) fn read_session(
             match bytes.get(..count) {
                 Some(received) => match receive_plaintext(session, received) {
                     Ok(plaintext) => {
-                        session.input.extend_from_slice(&plaintext);
+                        append_plaintext(session, &plaintext)?;
                     }
                     Err(_) => return Ok(true),
                 },
@@ -106,6 +106,25 @@ pub(super) fn read_session(
         session.termination = Some(session::SessionTermination::PeerTlsClose);
     }
     Ok(false)
+}
+
+/// Передаёт расшифрованные bytes ограниченному POP3 continuation буферу.
+fn append_plaintext(session: &mut Session, plaintext: &[u8]) -> io::Result<()> {
+    let awaiting_sasl_response = match session.kind {
+        Kind::Pop3 => session.pop3.awaiting_sasl_response(),
+        Kind::Smtp | Kind::Imap | Kind::ManageSieve => false,
+    };
+    let progress =
+        session
+            .pop3_sasl_input
+            .append(&mut session.input, plaintext, awaiting_sasl_response);
+    match progress {
+        super::pop3_sasl_input::InputProgress::OversizedComplete => {
+            super::pop3_protocol::reject_oversized_sasl_response(session)
+        }
+        super::pop3_sasl_input::InputProgress::Appended
+        | super::pop3_sasl_input::InputProgress::Discarding => Ok(()),
+    }
 }
 
 /// Переносит накопленные protocol bytes в TLS и забирает records для TCP.
