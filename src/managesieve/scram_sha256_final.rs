@@ -28,11 +28,27 @@ fn verify_message(exchange: &ScramExchange, message: &str) -> Outcome {
     let Some(credential) = exchange.sha256_credential.as_ref() else {
         return rejected_encoding();
     };
-    let client_final =
-        match crate::sasl::scram_sha256_client_final::parse(message, &server_first.nonce) {
-            Ok(client_final) => client_final,
-            Err(_) => return rejected_encoding(),
-        };
+    let binding = match exchange.client_first.gs2_header {
+        crate::sasl::scram_client_first::Gs2Header::NoChannelBinding => {
+            exchange.client_first.gs2_header.as_bytes().to_vec()
+        }
+        crate::sasl::scram_client_first::Gs2Header::TlsExporter => {
+            let Some(exporter) = exchange_channel_binding(exchange) else {
+                return rejected_encoding();
+            };
+            let mut binding = exchange.client_first.gs2_header.as_bytes().to_vec();
+            binding.extend_from_slice(exporter);
+            binding
+        }
+    };
+    let client_final = match crate::sasl::scram_sha256_client_final::parse_with_binding(
+        message,
+        &server_first.nonce,
+        &binding,
+    ) {
+        Ok(client_final) => client_final,
+        Err(_) => return rejected_encoding(),
+    };
     let outcome = crate::sasl::scram_sha256_server_final::ServerFinal::complete(
         &exchange.client_first,
         server_first,
@@ -48,6 +64,11 @@ fn verify_message(exchange: &ScramExchange, message: &str) -> Outcome {
             Outcome::Rejected(error.encode())
         }
     }
+}
+
+fn exchange_channel_binding(exchange: &ScramExchange) -> Option<&[u8]> {
+    // Экспортёр хранится в отдельном поле обмена, не в wire-транскрипте.
+    exchange.channel_binding.as_deref()
 }
 
 fn rejected_encoding() -> Outcome {

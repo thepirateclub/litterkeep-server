@@ -1,5 +1,7 @@
 //! ManageSieve состояния до передачи typed запросов storage worker-у.
 
+#[path = "session_authentication.rs"]
+mod session_authentication;
 #[path = "session_sasl.rs"]
 mod session_sasl;
 #[path = "session_scram_sha256.rs"]
@@ -19,6 +21,9 @@ pub(super) enum Phase {
     AwaitingScramSha256Verifier,
     AwaitingScramSha256FirstResponse,
     AwaitingScramSha256Final,
+    AwaitingScramSha256PlusVerifier,
+    AwaitingScramSha256PlusFirstResponse,
+    AwaitingScramSha256PlusFinal,
     Closed,
 }
 
@@ -26,24 +31,54 @@ pub(super) enum Phase {
 pub enum Reply {
     Text(Vec<u8>),
     StartTls,
-    Authenticate { response: String },
+    Authenticate {
+        response: String,
+    },
     AuthenticateChallenge,
-    ScramClientFirst { response: String },
-    ScramChallenge { response: String },
-    ScramAccepted { owner: String, response: Vec<u8> },
-    ScramRejected { response: String },
-    ScramSha256ClientFirst { response: String },
-    ScramSha256Challenge { response: String },
-    ScramSha256Accepted { owner: String, response: Vec<u8> },
-    ScramSha256Rejected { response: String },
+    ScramClientFirst {
+        response: String,
+    },
+    ScramChallenge {
+        response: String,
+    },
+    ScramAccepted {
+        owner: String,
+        response: Vec<u8>,
+    },
+    ScramRejected {
+        response: String,
+    },
+    ScramSha256ClientFirst {
+        response: String,
+        channel_binding: Option<Vec<u8>>,
+    },
+    ScramSha256Challenge {
+        response: String,
+    },
+    ScramSha256Accepted {
+        owner: String,
+        response: Vec<u8>,
+    },
+    ScramSha256Rejected {
+        response: String,
+    },
     Unauthenticated(Vec<u8>),
-    HaveSpace { name: String, size: u64 },
-    Put { name: String, source: String },
+    HaveSpace {
+        name: String,
+        size: u64,
+    },
+    Put {
+        name: String,
+        source: String,
+    },
     List,
     SetActive(Option<String>),
     Get(String),
     Delete(String),
-    Rename { old: String, new: String },
+    Rename {
+        old: String,
+        new: String,
+    },
     Check(String),
 }
 
@@ -51,6 +86,7 @@ pub enum Reply {
 pub struct Session {
     pub(super) phase: Phase,
     pub(super) scram_exchange: Option<ScramExchange>,
+    pub(super) tls_exporter: Option<Vec<u8>>,
 }
 
 /// Временный transcript и verifier одного ManageSieve SASL exchange.
@@ -61,18 +97,25 @@ pub(super) struct ScramExchange {
     pub(super) credential: Option<crate::sasl::scram_sha1_record::ScramSha1Record>,
     pub(super) sha256_server_first: Option<crate::sasl::scram_sha256_server_first::ServerFirst>,
     pub(super) sha256_credential: Option<crate::sasl::scram_sha256_record::ScramSha256Record>,
+    pub(super) channel_binding: Option<Vec<u8>>,
 }
 
 pub fn greeting(tls_active: bool, starttls_available: bool) -> Vec<u8> {
-    capability_lines(tls_active, starttls_available, None, b"OK \"ready\"\r\n")
+    greeting_with_channel_binding(tls_active, starttls_available, false)
 }
 
-fn capability(tls_active: bool, starttls_available: bool, owner: Option<&str>) -> Vec<u8> {
+/// Формирует greeting и рекламирует PLUS только при доступном exporter.
+pub fn greeting_with_channel_binding(
+    tls_active: bool,
+    starttls_available: bool,
+    exporter_available: bool,
+) -> Vec<u8> {
     capability_lines(
         tls_active,
         starttls_available,
-        owner,
-        b"OK \"capability\"\r\n",
+        None,
+        exporter_available,
+        b"OK \"ready\"\r\n",
     )
 }
 
@@ -81,11 +124,17 @@ fn capability_lines(
     tls_active: bool,
     starttls_available: bool,
     owner: Option<&str>,
+    exporter_available: bool,
     ending: &[u8],
 ) -> Vec<u8> {
     let mut output = b"\"IMPLEMENTATION\" \"litterkeep-server\"\r\n".to_vec();
     match (tls_active, starttls_available) {
-        (true, _) => output.extend_from_slice(b"\"SASL\" \"PLAIN SCRAM-SHA-1 SCRAM-SHA-256\"\r\n"),
+        (true, _) => match exporter_available {
+            true => output.extend_from_slice(
+                b"\"SASL\" \"PLAIN SCRAM-SHA-1 SCRAM-SHA-256 SCRAM-SHA-256-PLUS\"\r\n",
+            ),
+            false => output.extend_from_slice(b"\"SASL\" \"PLAIN SCRAM-SHA-1 SCRAM-SHA-256\"\r\n"),
+        },
         (false, true) => output.extend_from_slice(b"\"SASL\" \"\"\r\n"),
         (false, false) => {}
     }

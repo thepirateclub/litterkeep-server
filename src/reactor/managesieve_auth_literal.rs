@@ -10,6 +10,7 @@ pub(super) fn start(tail: &str) -> Start {
             Mechanism::Plain => literal(Operation::AuthenticatePlain, marker),
             Mechanism::ScramSha1 => literal(Operation::AuthenticateScramSha1, marker),
             Mechanism::ScramSha256 => literal(Operation::AuthenticateScramSha256, marker),
+            Mechanism::ScramSha256Plus => literal(Operation::AuthenticateScramSha256Plus, marker),
             Mechanism::Unsupported => Start::NotLiteral,
         },
         None => match size(tail.trim()) {
@@ -37,6 +38,13 @@ pub(super) fn sha256_response(response: String) -> Progress {
     Progress::Complete(crate::managesieve::Command::AuthenticateScramSha256(Some(
         response,
     )))
+}
+
+/// Преобразует SCRAM-SHA-256-PLUS literal в typed command.
+pub(super) fn sha256_plus_response(response: String) -> Progress {
+    Progress::Complete(crate::managesieve::Command::AuthenticateScramSha256Plus(
+        Some(response),
+    ))
 }
 
 /// Преобразует initial-response octets в типизированную команду PLAIN.

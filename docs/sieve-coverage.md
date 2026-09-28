@@ -43,14 +43,15 @@ ManageSieve session/reactor и проверил SHA-1 exchange независи�
 на checkpoint T328 SHA-256/PLUS ещё не реализованы. Детали текущего состояния
 записаны в [учёте зависимостей](dependencies.md).
 
-Текущий профиль после T358 рекламирует SCRAM-SHA-256 только поверх TLS и
-проводит его через отдельный SHA-256 verifier sidecar и Accounts owner worker.
+Текущий профиль рекламирует SCRAM-SHA-256 и, при доступном TLS 1.3 exporter,
+SCRAM-SHA-256-PLUS; оба используют отдельный SHA-256 verifier sidecar и Accounts owner worker.
 Независимые Linux peers по implicit TLS и STARTTLS сверяют server signature,
 неверный proof, UNAUTHENTICATE и повторную работу сессии; STARTTLS путь также
 проверяет пустой SASL список до upgrade и capability после него. Это не проверка
-Litterkeep app. SCRAM-SHA-256-PLUS и channel binding остаются неподдержанными.
-TLS 1.3 `tls-exporter` groundwork проверен отдельно между rustls endpoints,
-однако ManageSieve SASL его пока не использует.
+Litterkeep app. PLUS FSM и channel-binding proof проверены unit тестами, но
+independent wire peer для PLUS ещё отсутствует. TLS 1.3 `tls-exporter` проверен
+между rustls endpoints и используется ManageSieve только после завершённого
+TLS 1.3 handshake.
 
 Для client-to-server literals receiver сначала читает ровно объявленное число
 octets, затем обязательный CRLF конца command line; только после него начинает

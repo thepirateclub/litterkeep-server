@@ -202,7 +202,15 @@ impl Session {
             Kind::Imap => b"* OK IMAP4rev1 litterkeep-server\r\n".to_vec(),
             Kind::Pop3 => b"+OK litterkeep-server ready\r\n".to_vec(),
             Kind::ManageSieve => {
-                crate::managesieve::greeting(self.is_encrypted(), self.can_starttls())
+                let exporter = self
+                    .tls
+                    .as_ref()
+                    .and_then(ServerTls::tls_exporter_channel_binding);
+                crate::managesieve::greeting_with_channel_binding(
+                    self.is_encrypted(),
+                    self.can_starttls(),
+                    exporter.is_some(),
+                )
             }
         };
         self.push(&greeting)?;

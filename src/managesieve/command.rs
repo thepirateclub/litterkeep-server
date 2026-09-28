@@ -9,6 +9,7 @@ pub enum Command {
     AuthenticatePlain(Option<String>),
     AuthenticateScramSha1(Option<String>),
     AuthenticateScramSha256(Option<String>),
+    AuthenticateScramSha256Plus(Option<String>),
     AuthenticateResponse(String),
     Logout,
     HaveSpace { name: String, size: u64 },
@@ -29,6 +30,7 @@ pub enum SaslMechanism {
     Plain,
     ScramSha1,
     ScramSha256,
+    ScramSha256Plus,
     Unsupported,
 }
 
@@ -56,6 +58,7 @@ impl SaslMechanism {
             "PLAIN" => Self::Plain,
             "SCRAM-SHA-1" => Self::ScramSha1,
             "SCRAM-SHA-256" => Self::ScramSha256,
+            "SCRAM-SHA-256-PLUS" => Self::ScramSha256Plus,
             _ => Self::Unsupported,
         }
     }
@@ -143,6 +146,10 @@ fn authenticate(mut words: impl Iterator<Item = String>) -> Command {
                 Command::AuthenticateScramSha256(Some(response))
             }
             (SaslMechanism::ScramSha256, None) => Command::AuthenticateScramSha256(None),
+            (SaslMechanism::ScramSha256Plus, Some(response)) => {
+                Command::AuthenticateScramSha256Plus(Some(response))
+            }
+            (SaslMechanism::ScramSha256Plus, None) => Command::AuthenticateScramSha256Plus(None),
             (SaslMechanism::Unsupported, _) => Command::Invalid,
         },
         _ => Command::Invalid,

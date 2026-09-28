@@ -1,17 +1,39 @@
 //! Состояния ManageSieve команд и SASL challenge-response.
 
 use super::super::{Command, SaslResponse};
-use super::{Phase, Reply, Session, capability, capability_lines, no, noop, ok};
+use super::{Phase, Reply, Session, capability_lines, no, noop, ok};
 
 impl Session {
     /// Применяет одну команду к текущему authenticated/SASL состоянию.
     pub fn apply(&mut self, command: Command, tls_active: bool, starttls_available: bool) -> Reply {
+        self.apply_with_channel_binding(command, tls_active, starttls_available, None)
+    }
+
+    /// Передаёт TLS exporter и применяет команду с доступной GS2 binding.
+    pub fn apply_with_channel_binding(
+        &mut self,
+        command: Command,
+        tls_active: bool,
+        starttls_available: bool,
+        exporter: Option<&[u8]>,
+    ) -> Reply {
+        self.tls_exporter = exporter.map(<[u8]>::to_vec);
         match (&self.phase, command) {
-            (Phase::Plain, Command::Capability) => {
-                Reply::Text(capability(tls_active, starttls_available, None))
-            }
+            (Phase::Plain, Command::Capability) => Reply::Text(super::capability_lines(
+                tls_active,
+                starttls_available,
+                None,
+                self.tls_exporter.is_some(),
+                b"OK \"capability\"\r\n",
+            )),
             (Phase::Authenticated { owner }, Command::Capability) => {
-                Reply::Text(capability(tls_active, starttls_available, Some(owner)))
+                Reply::Text(super::capability_lines(
+                    tls_active,
+                    starttls_available,
+                    Some(owner),
+                    self.tls_exporter.is_some(),
+                    b"OK \"capability\"\r\n",
+                ))
             }
             (Phase::Plain, Command::StartTls) => match (starttls_available, tls_active) {
                 (true, false) => Reply::StartTls,
@@ -27,6 +49,7 @@ impl Session {
                     tls_active,
                     starttls_available,
                     None,
+                    self.tls_exporter.is_some(),
                     b"OK \"unauthenticated\"\r\n",
                 ))
             }
@@ -50,13 +73,37 @@ impl Session {
             (Phase::Plain, Command::AuthenticateScramSha1(_)) => no("encryption required"),
             (Phase::Plain, Command::AuthenticateScramSha256(Some(response))) if tls_active => {
                 self.phase = Phase::AwaitingScramSha256Verifier;
-                Reply::ScramSha256ClientFirst { response }
+                Reply::ScramSha256ClientFirst {
+                    response,
+                    channel_binding: None,
+                }
             }
             (Phase::Plain, Command::AuthenticateScramSha256(None)) if tls_active => {
                 self.phase = Phase::AwaitingScramSha256FirstResponse;
                 Reply::AuthenticateChallenge
             }
             (Phase::Plain, Command::AuthenticateScramSha256(_)) => no("encryption required"),
+            (Phase::Plain, Command::AuthenticateScramSha256Plus(Some(response))) => {
+                match channel_binding_available(tls_active, self.tls_exporter.is_some()) {
+                    true => {
+                        self.phase = Phase::AwaitingScramSha256PlusVerifier;
+                        Reply::ScramSha256ClientFirst {
+                            response,
+                            channel_binding: self.tls_exporter.clone(),
+                        }
+                    }
+                    false => no("channel binding unavailable"),
+                }
+            }
+            (Phase::Plain, Command::AuthenticateScramSha256Plus(None)) => {
+                match channel_binding_available(tls_active, self.tls_exporter.is_some()) {
+                    true => {
+                        self.phase = Phase::AwaitingScramSha256PlusFirstResponse;
+                        Reply::AuthenticateChallenge
+                    }
+                    false => no("channel binding unavailable"),
+                }
+            }
             (Phase::AwaitingPlainResponse, Command::AuthenticateResponse(response)) => {
                 self.phase = Phase::Plain;
                 match SaslResponse::parse(response) {
@@ -76,6 +123,13 @@ impl Session {
             (Phase::AwaitingScramSha256Final, Command::AuthenticateResponse(response)) => {
                 super::session_scram_sha256::final_response(self, response)
             }
+            (
+                Phase::AwaitingScramSha256PlusFirstResponse,
+                Command::AuthenticateResponse(response),
+            ) => super::session_scram_sha256::first_response(self, response),
+            (Phase::AwaitingScramSha256PlusFinal, Command::AuthenticateResponse(response)) => {
+                super::session_scram_sha256::final_response(self, response)
+            }
             (Phase::AwaitingScramFirstResponse, Command::Invalid)
             | (Phase::AwaitingScramFinal, Command::Invalid) => {
                 self.scram_failed();
@@ -84,6 +138,12 @@ impl Session {
             (Phase::AwaitingScramSha256Verifier, Command::Invalid)
             | (Phase::AwaitingScramSha256FirstResponse, Command::Invalid)
             | (Phase::AwaitingScramSha256Final, Command::Invalid) => {
+                self.scram_failed();
+                no("invalid SASL response")
+            }
+            (Phase::AwaitingScramSha256PlusVerifier, Command::Invalid)
+            | (Phase::AwaitingScramSha256PlusFirstResponse, Command::Invalid)
+            | (Phase::AwaitingScramSha256PlusFinal, Command::Invalid) => {
                 self.scram_failed();
                 no("invalid SASL response")
             }
@@ -115,12 +175,10 @@ impl Session {
             _ => no("invalid command for state"),
         }
     }
-
     /// Сообщает reactor-у, какая SASL-фаза владеет следующей строкой.
     pub fn awaiting_plain_response(&self) -> bool {
         matches!(self.phase, Phase::AwaitingPlainResponse)
     }
-
     /// Управляет framing client payload для PLAIN и SCRAM механизмов.
     pub fn awaiting_authentication_response(&self) -> bool {
         matches!(
@@ -130,9 +188,10 @@ impl Session {
                 | Phase::AwaitingScramFinal
                 | Phase::AwaitingScramSha256FirstResponse
                 | Phase::AwaitingScramSha256Final
+                | Phase::AwaitingScramSha256PlusFirstResponse
+                | Phase::AwaitingScramSha256PlusFinal
         )
     }
-
     /// Подхватывает verifier и переводит обмен к проверке client-final.
     pub fn scram_server_first(
         &mut self,
@@ -151,35 +210,6 @@ impl Session {
         self.phase = Phase::AwaitingScramFinal;
         Ok(Reply::ScramChallenge { response })
     }
-
-    /// Привязывает parsed client-first к каноническому локальному account.
-    pub fn begin_scram(
-        &mut self,
-        owner: String,
-        client_first: crate::sasl::scram_client_first::ClientFirst,
-    ) -> bool {
-        match self.phase {
-            Phase::AwaitingScramVerifier => {
-                self.scram_exchange = Some(super::ScramExchange {
-                    owner,
-                    client_first,
-                    server_first: None,
-                    credential: None,
-                    sha256_server_first: None,
-                    sha256_credential: None,
-                });
-                true
-            }
-            _ => false,
-        }
-    }
-
-    /// Сбрасывает exchange после malformed frame, storage ошибки или cancel.
-    pub fn scram_failed(&mut self) {
-        self.scram_exchange = None;
-        self.phase = Phase::Plain;
-    }
-
     /// Завершает mutual proof и выбирает только typed success/error outcome.
     fn finish_scram(&mut self, response: &str) -> Reply {
         let Some(exchange) = self.scram_exchange.take() else {
@@ -195,8 +225,13 @@ impl Session {
                 };
                 let final_data = crate::sasl::encode_base64(server_final.as_bytes());
                 let ending = format!("OK (SASL \"{final_data}\") \"authenticated\"\r\n");
-                let response =
-                    super::capability_lines(true, false, Some(&exchange.owner), ending.as_bytes());
+                let response = super::capability_lines(
+                    true,
+                    false,
+                    Some(&exchange.owner),
+                    self.tls_exporter.is_some(),
+                    ending.as_bytes(),
+                );
                 Reply::ScramAccepted {
                     owner: exchange.owner,
                     response,
@@ -207,7 +242,6 @@ impl Session {
             },
         }
     }
-
     /// Завершает PLAIN verification или явно отказывает для текущего профиля.
     pub fn authenticated(&mut self, owner: String, accepted: bool, tls_active: bool) -> Reply {
         match (&self.phase, accepted, tls_active) {
@@ -219,6 +253,7 @@ impl Session {
                     tls_active,
                     false,
                     Some(&owner),
+                    self.tls_exporter.is_some(),
                     b"OK \"authenticated\"\r\n",
                 ))
             }
@@ -227,7 +262,6 @@ impl Session {
             _ => no("no authentication pending"),
         }
     }
-
     fn scram_first_response(&mut self, response: String) -> Reply {
         match SaslResponse::parse(response) {
             SaslResponse::Cancel => {
@@ -240,7 +274,6 @@ impl Session {
             }
         }
     }
-
     fn scram_final_response(&mut self, response: String) -> Reply {
         match SaslResponse::parse(response) {
             SaslResponse::Cancel => {
@@ -250,4 +283,9 @@ impl Session {
             SaslResponse::Payload(response) => self.finish_scram(&response),
         }
     }
+}
+
+/// PLUS разрешён только в TLS-сессии с успешно полученным exporter.
+fn channel_binding_available(tls_active: bool, exporter_available: bool) -> bool {
+    matches!((tls_active, exporter_available), (true, true))
 }

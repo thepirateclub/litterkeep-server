@@ -9,6 +9,7 @@ pub(super) enum Mechanism {
     Plain,
     ScramSha1,
     ScramSha256,
+    ScramSha256Plus,
     Unsupported,
 }
 
@@ -19,6 +20,7 @@ impl Mechanism {
             crate::managesieve::SaslMechanism::Plain => Self::Plain,
             crate::managesieve::SaslMechanism::ScramSha1 => Self::ScramSha1,
             crate::managesieve::SaslMechanism::ScramSha256 => Self::ScramSha256,
+            crate::managesieve::SaslMechanism::ScramSha256Plus => Self::ScramSha256Plus,
             crate::managesieve::SaslMechanism::Unsupported => Self::Unsupported,
         }
     }
@@ -75,6 +77,9 @@ fn empty_response(mechanism: Mechanism) -> Progress {
         Mechanism::Plain => Progress::Complete(Command::AuthenticatePlain(None)),
         Mechanism::ScramSha1 => Progress::Complete(Command::AuthenticateScramSha1(None)),
         Mechanism::ScramSha256 => Progress::Complete(Command::AuthenticateScramSha256(None)),
+        Mechanism::ScramSha256Plus => {
+            Progress::Complete(Command::AuthenticateScramSha256Plus(None))
+        }
         Mechanism::Unsupported => Progress::Complete(Command::Invalid),
     }
 }
@@ -107,6 +112,7 @@ fn start_response_literal(
         Mechanism::Plain => Operation::AuthenticatePlain,
         Mechanism::ScramSha1 => Operation::AuthenticateScramSha1,
         Mechanism::ScramSha256 => Operation::AuthenticateScramSha256,
+        Mechanism::ScramSha256Plus => Operation::AuthenticateScramSha256Plus,
         Mechanism::Unsupported => Operation::AuthenticateRejected,
     };
     receiver.expected = expected;
@@ -124,6 +130,7 @@ fn parse_quoted_response(arguments: &str, mechanism: Mechanism) -> Progress {
         Mechanism::Plain => parse_plain_response(arguments),
         Mechanism::ScramSha1 => parse_scram_response(arguments),
         Mechanism::ScramSha256 => parse_scram_sha256_response(arguments),
+        Mechanism::ScramSha256Plus => parse_scram_sha256_plus_response(arguments),
         Mechanism::Unsupported => Progress::Complete(Command::Invalid),
     }
 }
@@ -156,6 +163,17 @@ fn parse_scram_sha256_response(arguments: &str) -> Progress {
     match crate::managesieve::parse(&command) {
         Command::AuthenticateScramSha256(Some(response)) => {
             Progress::Complete(Command::AuthenticateScramSha256(Some(response)))
+        }
+        _ => Progress::Invalid,
+    }
+}
+
+/// Передаёт initial response SCRAM-SHA-256-PLUS typed parser-у.
+fn parse_scram_sha256_plus_response(arguments: &str) -> Progress {
+    let command = format!("AUTHENTICATE \"SCRAM-SHA-256-PLUS\" {arguments}");
+    match crate::managesieve::parse(&command) {
+        Command::AuthenticateScramSha256Plus(Some(response)) => {
+            Progress::Complete(Command::AuthenticateScramSha256Plus(Some(response)))
         }
         _ => Progress::Invalid,
     }

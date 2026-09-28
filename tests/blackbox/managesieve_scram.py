@@ -168,7 +168,7 @@ def main() -> None:
             greeting, terminal = read_result(stream)
             if terminal != b'OK "ready"\r\n':
                 raise AssertionError(f"unexpected server greeting: {terminal!r}")
-            if b'"SASL" "PLAIN SCRAM-SHA-1 SCRAM-SHA-256"\r\n' not in greeting:
+            if b'"SASL" "PLAIN SCRAM-SHA-1 SCRAM-SHA-256 SCRAM-SHA-256-PLUS"\r\n' not in greeting:
                 raise AssertionError(f"SCRAM capabilities missing: {greeting!r}")
             verify_success(stream, password)
     with open_tls(options.port, options.ca) as rejection:

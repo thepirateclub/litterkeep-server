@@ -7,6 +7,24 @@ pub struct ClientFirst {
     pub username: String,
     pub nonce: String,
     pub client_first_bare: String,
+    pub gs2_header: Gs2Header,
+}
+
+/// Поддерживаемые GS2 header варианты после строгого разбора client-first.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Gs2Header {
+    NoChannelBinding,
+    TlsExporter,
+}
+
+impl Gs2Header {
+    /// Возвращает wire octets, входящие в SCRAM `c=` binding.
+    pub fn as_bytes(self) -> &'static [u8] {
+        match self {
+            Self::NoChannelBinding => b"n,,",
+            Self::TlsExporter => b"p=tls-exporter,,",
+        }
+    }
 }
 
 /// Профиль намеренно принимает только `n,,`: без authzid и channel binding.
@@ -14,6 +32,18 @@ pub fn parse(message: &str) -> Result<ClientFirst, ClientFirstError> {
     let bare = message
         .strip_prefix("n,,")
         .ok_or(ClientFirstError::UnsupportedGs2Header)?;
+    parse_bare(bare, Gs2Header::NoChannelBinding)
+}
+
+/// Принимает только RFC 7677 PLUS GS2 header без authzid.
+pub fn parse_tls_exporter(message: &str) -> Result<ClientFirst, ClientFirstError> {
+    let bare = message
+        .strip_prefix("p=tls-exporter,,")
+        .ok_or(ClientFirstError::UnsupportedGs2Header)?;
+    parse_bare(bare, Gs2Header::TlsExporter)
+}
+
+fn parse_bare(bare: &str, gs2_header: Gs2Header) -> Result<ClientFirst, ClientFirstError> {
     let attributes = scram_attributes::parse(bare).map_err(ClientFirstError::Attributes)?;
     let fields = match attributes.as_slice() {
         [username, nonce, extensions @ ..]
@@ -36,6 +66,7 @@ pub fn parse(message: &str) -> Result<ClientFirst, ClientFirstError> {
         username: prepared,
         nonce: fields.1.to_owned(),
         client_first_bare: bare.to_owned(),
+        gs2_header,
     })
 }
 

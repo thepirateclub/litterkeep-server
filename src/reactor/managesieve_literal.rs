@@ -35,6 +35,7 @@ enum Operation {
     AuthenticatePlain,
     AuthenticateScramSha1,
     AuthenticateScramSha256,
+    AuthenticateScramSha256Plus,
     AuthenticateMechanism,
     AuthenticateRejected,
     AuthenticateResponse,
@@ -146,13 +147,13 @@ impl LiteralReceiver {
             Operation::AuthenticatePlain => auth_literal::initial_response(source),
             Operation::AuthenticateScramSha1 => auth_literal::initial_scram_response(source),
             Operation::AuthenticateScramSha256 => auth_literal::sha256_response(source),
+            Operation::AuthenticateScramSha256Plus => auth_literal::sha256_plus_response(source),
             Operation::AuthenticateMechanism => Progress::Invalid,
             Operation::AuthenticateRejected => Progress::Complete(Command::Invalid),
             Operation::AuthenticateResponse => auth_literal::challenge_response(source),
         }
     }
 }
-
 /// Выбирает framing для команд с поддерживаемой literal-позицией.
 pub(super) fn start(line: &[u8]) -> Start {
     let Ok(text) = std::str::from_utf8(line) else {

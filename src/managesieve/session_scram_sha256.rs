@@ -10,7 +10,7 @@ impl Session {
         client_first: crate::sasl::scram_client_first::ClientFirst,
     ) -> bool {
         match self.phase {
-            Phase::AwaitingScramSha256Verifier => {
+            Phase::AwaitingScramSha256Verifier | Phase::AwaitingScramSha256PlusVerifier => {
                 self.scram_exchange = Some(ScramExchange {
                     owner,
                     client_first,
@@ -18,6 +18,10 @@ impl Session {
                     credential: None,
                     sha256_server_first: None,
                     sha256_credential: None,
+                    channel_binding: match self.phase {
+                        Phase::AwaitingScramSha256PlusVerifier => self.tls_exporter.clone(),
+                        _ => None,
+                    },
                 });
                 true
             }
@@ -38,7 +42,10 @@ impl Session {
         let response = crate::sasl::encode_base64(server_first.message.as_bytes());
         exchange.sha256_server_first = Some(server_first);
         exchange.sha256_credential = Some(credential);
-        self.phase = Phase::AwaitingScramSha256Final;
+        self.phase = match self.phase {
+            Phase::AwaitingScramSha256PlusVerifier => Phase::AwaitingScramSha256PlusFinal,
+            _ => Phase::AwaitingScramSha256Final,
+        };
         Ok(Reply::ScramSha256Challenge { response })
     }
 }
@@ -51,8 +58,18 @@ pub(super) fn first_response(session: &mut Session, response: String) -> Reply {
             no("authentication cancelled")
         }
         crate::managesieve::SaslResponse::Payload(response) => {
-            session.phase = Phase::AwaitingScramSha256Verifier;
-            Reply::ScramSha256ClientFirst { response }
+            let plus = matches!(session.phase, Phase::AwaitingScramSha256PlusFirstResponse);
+            session.phase = match plus {
+                true => Phase::AwaitingScramSha256PlusVerifier,
+                false => Phase::AwaitingScramSha256Verifier,
+            };
+            Reply::ScramSha256ClientFirst {
+                response,
+                channel_binding: match plus {
+                    true => session.tls_exporter.clone(),
+                    false => None,
+                },
+            }
         }
     }
 }
@@ -89,7 +106,13 @@ fn accept(session: &mut Session, exchange: ScramExchange, server_final: String) 
     };
     let final_data = crate::sasl::encode_base64(server_final.as_bytes());
     let ending = format!("OK (SASL \"{final_data}\") \"authenticated\"\r\n");
-    let response = capability_lines(true, false, Some(&exchange.owner), ending.as_bytes());
+    let response = capability_lines(
+        true,
+        false,
+        Some(&exchange.owner),
+        session.tls_exporter.is_some(),
+        ending.as_bytes(),
+    );
     Reply::ScramSha256Accepted {
         owner: exchange.owner,
         response,

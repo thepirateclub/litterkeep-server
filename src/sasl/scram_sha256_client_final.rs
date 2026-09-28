@@ -25,6 +25,15 @@ pub enum ClientFinalError {
 
 /// Проверяет RFC 5802 поле-порядок и GS2 `n,,` без channel binding.
 pub fn parse(message: &str, expected_nonce: &str) -> Result<ClientFinal, ClientFinalError> {
+    parse_with_binding(message, expected_nonce, b"n,,")
+}
+
+/// Проверяет точное SASL `c=` значение для предоставленного GS2 header и binding.
+pub fn parse_with_binding(
+    message: &str,
+    expected_nonce: &str,
+    expected_binding: &[u8],
+) -> Result<ClientFinal, ClientFinalError> {
     let attributes = scram_attributes::parse(message).map_err(ClientFinalError::Attributes)?;
     let (channel_binding, nonce, proof) = match attributes.as_slice() {
         [channel_binding, nonce, extensions @ .., proof] => match (
@@ -44,7 +53,7 @@ pub fn parse(message: &str, expected_nonce: &str) -> Result<ClientFinal, ClientF
         },
         _ => return Err(ClientFinalError::InvalidFieldSequence),
     };
-    validate_binding(channel_binding)?;
+    validate_binding(channel_binding, expected_binding)?;
     if nonce != expected_nonce {
         return Err(ClientFinalError::NonceMismatch);
     }
@@ -69,11 +78,11 @@ impl ClientFinal {
     }
 }
 
-fn validate_binding(value: &str) -> Result<(), ClientFinalError> {
+fn validate_binding(value: &str, expected: &[u8]) -> Result<(), ClientFinalError> {
     let decoded = crate::mime::decode_base64(value.as_bytes())
         .map_err(|_| ClientFinalError::InvalidChannelBinding)?;
     match (
-        decoded.as_slice() == b"n,,",
+        decoded.as_slice() == expected,
         crate::sasl::encode_base64(&decoded) == value,
     ) {
         (true, true) => Ok(()),

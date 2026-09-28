@@ -35,6 +35,87 @@ fn scram_sha256_invalid_proof_does_not_authenticate() {
     ));
 }
 
+/// PLUS сверяет GS2 header вместе с exporter и проверяет взаимную подпись.
+#[test]
+fn scram_sha256_plus_binds_exact_tls_exporter_and_rejects_mismatch() {
+    let exporter = b"independent tls exporter bytes";
+    let message = "p=tls-exporter,,n=bob,r=plus-client-nonce";
+    let client =
+        crate::sasl::scram_client_first::parse_tls_exporter(message).expect("PLUS client-first");
+    let encoded = crate::sasl::encode_base64(message.as_bytes());
+    let mut session = Session::default();
+    assert!(matches!(
+        session.apply_with_channel_binding(
+            Command::AuthenticateScramSha256Plus(Some(encoded)),
+            true,
+            false,
+            Some(exporter)
+        ),
+        Reply::ScramSha256ClientFirst {
+            channel_binding: Some(_),
+            ..
+        }
+    ));
+    assert!(session.begin_scram_sha256("bob".into(), client.clone()));
+    let record = ScramSha256Record::create(b"pencil").expect("verifier");
+    let challenge = match session
+        .scram_sha256_server_first(reload_record(&record))
+        .expect("challenge")
+    {
+        Reply::ScramSha256Challenge { response } => response,
+        _ => panic!("PLUS challenge expected"),
+    };
+    let server = parse_server_first(&challenge);
+    let final_message = client_final_with_binding(&client, &server, &record, false, exporter);
+    let response = crate::sasl::encode_base64(final_message.as_bytes());
+    assert!(matches!(
+        session.apply_with_channel_binding(Command::AuthenticateResponse(response), true, false, Some(exporter)),
+        Reply::ScramSha256Accepted { owner, .. } if owner == "bob"
+    ));
+
+    let mut rejected = Session::default();
+    let encoded = crate::sasl::encode_base64(message.as_bytes());
+    let _ = rejected.apply_with_channel_binding(
+        Command::AuthenticateScramSha256Plus(Some(encoded)),
+        true,
+        false,
+        Some(exporter),
+    );
+    assert!(rejected.begin_scram_sha256("bob".into(), client.clone()));
+    let second_challenge = match rejected
+        .scram_sha256_server_first(reload_record(&record))
+        .expect("challenge")
+    {
+        Reply::ScramSha256Challenge { response } => response,
+        _ => panic!("second PLUS challenge expected"),
+    };
+    let second_server = parse_server_first(&second_challenge);
+    let wrong =
+        client_final_with_binding(&client, &second_server, &record, false, b"wrong exporter");
+    let response = crate::sasl::encode_base64(wrong.as_bytes());
+    assert!(matches!(
+        rejected.apply_with_channel_binding(
+            Command::AuthenticateResponse(response),
+            true,
+            false,
+            Some(exporter)
+        ),
+        Reply::ScramSha256Rejected { .. }
+    ));
+}
+
+fn parse_server_first(encoded: &str) -> crate::sasl::scram_sha256_server_first::ServerFirst {
+    let decoded = crate::mime::decode_base64(encoded.as_bytes()).expect("base64");
+    let message = String::from_utf8(decoded).expect("UTF-8");
+    let attributes = crate::sasl::scram_attributes::parse(&message).expect("fields");
+    let nonce = attributes
+        .iter()
+        .find(|field| field.name == crate::sasl::scram_attributes::AttributeName::Nonce)
+        .map(|field| field.value.clone())
+        .expect("nonce");
+    crate::sasl::scram_sha256_server_first::ServerFirst { nonce, message }
+}
+
 fn start() -> (
     Session,
     crate::sasl::scram_client_first::ClientFirst,
@@ -80,7 +161,20 @@ fn client_final(
     record: &ScramSha256Record,
     invalid: bool,
 ) -> String {
-    let unsigned = format!("c=biws,r={}", server.nonce);
+    client_final_with_binding(client, server, record, invalid, b"")
+}
+
+fn client_final_with_binding(
+    client: &crate::sasl::scram_client_first::ClientFirst,
+    server: &crate::sasl::scram_sha256_server_first::ServerFirst,
+    record: &ScramSha256Record,
+    invalid: bool,
+    exporter: &[u8],
+) -> String {
+    let mut binding = client.gs2_header.as_bytes().to_vec();
+    binding.extend_from_slice(exporter);
+    let encoded_binding = crate::sasl::encode_base64(&binding);
+    let unsigned = format!("c={encoded_binding},r={}", server.nonce);
     let auth_message = format!(
         "{},{},{}",
         client.client_first_bare, server.message, unsigned
@@ -99,4 +193,8 @@ fn client_final(
             .collect(),
     };
     format!("{unsigned},p={}", crate::sasl::encode_base64(&proof))
+}
+
+fn reload_record(record: &ScramSha256Record) -> ScramSha256Record {
+    ScramSha256Record::parse(&record.encode()).expect("parse verifier copy")
 }

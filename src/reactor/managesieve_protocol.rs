@@ -31,9 +31,7 @@ pub(super) fn line(
         }
     }
     let command = managesieve::parse(std::str::from_utf8(&line).unwrap_or(""));
-    let reply = session
-        .managesieve
-        .apply(command, session.is_encrypted(), session.can_starttls());
+    let reply = apply_session_command(session, command);
     apply(session, reply, slot, generation, worker, owners, request_id)
 }
 
@@ -59,11 +57,7 @@ fn authentication_response(
             return Ok(());
         }
         managesieve_literal::Start::Invalid => {
-            let reply = session.managesieve.apply(
-                managesieve::Command::Invalid,
-                session.is_encrypted(),
-                session.can_starttls(),
-            );
+            let reply = apply_session_command(session, managesieve::Command::Invalid);
             return apply(session, reply, slot, generation, worker, owners, request_id);
         }
         managesieve_literal::Start::NotLiteral => {}
@@ -76,9 +70,7 @@ fn authentication_response(
         Some(response) => managesieve::Command::AuthenticateResponse(response),
         None => managesieve::Command::Invalid,
     };
-    let reply = session
-        .managesieve
-        .apply(command, session.is_encrypted(), session.can_starttls());
+    let reply = apply_session_command(session, command);
     apply(session, reply, slot, generation, worker, owners, request_id)
 }
 
@@ -114,14 +106,28 @@ pub(super) fn literal(
         }
         managesieve_literal::Progress::Complete(command) => {
             session.managesieve_literal = None;
-            let reply =
-                session
-                    .managesieve
-                    .apply(command, session.is_encrypted(), session.can_starttls());
+            let reply = apply_session_command(session, command);
             apply(session, reply, slot, generation, worker, owners, request_id)?;
             Ok(true)
         }
     }
+}
+
+/// Передаёт FSM только реально доступный exporter завершённого TLS handshake.
+fn apply_session_command(
+    session: &mut Session,
+    command: managesieve::Command,
+) -> managesieve::Reply {
+    let exporter = session
+        .tls
+        .as_ref()
+        .and_then(ServerTls::tls_exporter_channel_binding);
+    session.managesieve.apply_with_channel_binding(
+        command,
+        session.is_encrypted(),
+        session.can_starttls(),
+        exporter.as_ref().map(|value| value.as_slice()),
+    )
 }
 
 fn apply(
@@ -153,11 +159,18 @@ fn apply(
                 session, response, slot, generation, worker, owners, request_id,
             )
         }
-        managesieve::Reply::ScramSha256ClientFirst { response } => {
-            managesieve_scram_protocol::start_sha256_lookup(
-                session, response, slot, generation, worker, owners, request_id,
-            )
-        }
+        managesieve::Reply::ScramSha256ClientFirst {
+            response,
+            channel_binding,
+        } => managesieve_scram_protocol::start_sha256_lookup(
+            session,
+            (response, channel_binding),
+            slot,
+            generation,
+            worker,
+            owners,
+            request_id,
+        ),
         managesieve::Reply::ScramChallenge { response } => {
             session.push(format!("\"{response}\"\r\n").as_bytes())
         }

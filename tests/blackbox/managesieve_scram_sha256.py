@@ -146,7 +146,7 @@ def main() -> None:
     secret = password(options.credentials)
     peer, greeting, terminal = connect(options.port, options.ca, options.starttls)
     with peer, peer.makefile("rwb", buffering=0) as stream:
-        capability = b'"SASL" "PLAIN SCRAM-SHA-1 SCRAM-SHA-256"\r\n'
+        capability = b'"SASL" "PLAIN SCRAM-SHA-1 SCRAM-SHA-256 SCRAM-SHA-256-PLUS"\r\n'
         match (terminal == b'OK "ready"\r\n', capability in greeting):
             case (True, True):
                 pass

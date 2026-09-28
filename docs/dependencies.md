@@ -86,9 +86,9 @@ sidecar и предоставляют его через типизированн
 worker; запрос не выводит секрет в Debug. ManageSieve state machine принимает
 initial-response и continuation, а capability рекламирует механизм только
 после TLS. Независимые Linux peers подтвердили mutual proof и server signature
-по implicit TLS и STARTTLS. TLS 1.3 tls-exporter primitive проверен между
-rustls endpoints, но не подключён к ManageSieve; SCRAM-SHA-256-PLUS и Litterkeep
-app interoperability не подтверждены.
+по implicit TLS и STARTTLS. TLS 1.3 tls-exporter проверен между rustls endpoints
+и подключён к ManageSieve SCRAM-SHA-256-PLUS с точной GS2/c= binding-проверкой.
+Сам PLUS over live wire и Litterkeep app interoperability пока не проверены.
 
 IMAP mailbox validation использует собственные generated ranges Unicode
 17.0.0, а не crate. Официальный источник, версия toolchain, SHA-256 и лицензия

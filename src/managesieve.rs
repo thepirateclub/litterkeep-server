@@ -22,4 +22,4 @@ mod session;
 mod tests;
 
 pub use command::{Command, SaslMechanism, SaslResponse, parse, parse_authentication_response};
-pub use session::{Reply, Session, greeting};
+pub use session::{Reply, Session, greeting, greeting_with_channel_binding};

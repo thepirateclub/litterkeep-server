@@ -48,6 +48,7 @@ fn client_first() -> ClientFirst {
         username: "alice".to_owned(),
         nonce: "clientNonce-".to_owned(),
         client_first_bare: "n=alice,r=clientNonce-".to_owned(),
+        gs2_header: crate::sasl::scram_client_first::Gs2Header::NoChannelBinding,
     }
 }
 

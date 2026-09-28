@@ -78,7 +78,7 @@ def main() -> None:
             post_tls = read_until(encrypted, b'OK "ready"\r\n')
             require_capabilities(
                 post_tls,
-                b"PLAIN SCRAM-SHA-1 SCRAM-SHA-256",
+                b"PLAIN SCRAM-SHA-1 SCRAM-SHA-256 SCRAM-SHA-256-PLUS",
                 False,
                 b'OK "ready"\r\n',
             )
@@ -86,7 +86,7 @@ def main() -> None:
             current = read_until(encrypted, b'OK "capability"\r\n')
             require_capabilities(
                 current,
-                b"PLAIN SCRAM-SHA-1 SCRAM-SHA-256",
+                b"PLAIN SCRAM-SHA-1 SCRAM-SHA-256 SCRAM-SHA-256-PLUS",
                 False,
                 b'OK "capability"\r\n',
             )
@@ -111,7 +111,7 @@ def main() -> None:
             )
             require_capabilities(
                 challenged_authentication,
-                b"PLAIN SCRAM-SHA-1 SCRAM-SHA-256",
+                b"PLAIN SCRAM-SHA-1 SCRAM-SHA-256 SCRAM-SHA-256-PLUS",
                 False,
                 b'OK "authenticated"\r\n',
                 owner=b"bob",
@@ -120,7 +120,7 @@ def main() -> None:
             owner_capabilities = read_until(encrypted, b'OK "capability"\r\n')
             require_capabilities(
                 owner_capabilities,
-                b"PLAIN SCRAM-SHA-1 SCRAM-SHA-256",
+                b"PLAIN SCRAM-SHA-1 SCRAM-SHA-256 SCRAM-SHA-256-PLUS",
                 False,
                 b'OK "capability"\r\n',
                 owner=b"bob",
@@ -133,7 +133,7 @@ def main() -> None:
             unauthenticated = read_until(encrypted, b'OK "unauthenticated"\r\n')
             require_capabilities(
                 unauthenticated,
-                b"PLAIN SCRAM-SHA-1 SCRAM-SHA-256",
+                b"PLAIN SCRAM-SHA-1 SCRAM-SHA-256 SCRAM-SHA-256-PLUS",
                 False,
                 b'OK "unauthenticated"\r\n',
             )
@@ -145,7 +145,7 @@ def main() -> None:
             after_unauthenticate = read_until(encrypted, b'OK "capability"\r\n')
             require_capabilities(
                 after_unauthenticate,
-                b"PLAIN SCRAM-SHA-1 SCRAM-SHA-256",
+                b"PLAIN SCRAM-SHA-1 SCRAM-SHA-256 SCRAM-SHA-256-PLUS",
                 False,
                 b'OK "capability"\r\n',
             )
@@ -160,7 +160,7 @@ def main() -> None:
             reauthenticated = read_until(encrypted, b'OK "authenticated"\r\n')
             require_capabilities(
                 reauthenticated,
-                b"PLAIN SCRAM-SHA-1 SCRAM-SHA-256",
+                b"PLAIN SCRAM-SHA-1 SCRAM-SHA-256 SCRAM-SHA-256-PLUS",
                 False,
                 b'OK "authenticated"\r\n',
                 owner=b"bob",
