@@ -1,5 +1,22 @@
 # Goal ledger
 
+### 2026-09-28: G18 failure DSN crash-window audit, GAP T389
+
+- Статическая проверка `src/reactor/outbound_scheduler.rs`,
+  `src/store/outbound_access.rs`, `src/queue_owned.rs` и
+  `src/storage_worker/dsn_delivery.rs` подтвердила порядок: terminal queue state
+  синхронно фиксируется до отдельного `AppendDsn` Store-запроса.
+- `Queue::visible` выдаёт только `Pending`/`Deferred`, а последняя terminal
+  запись не несёт ожидающего DSN notice. Поэтому процесс, остановленный между
+  фиксацией `PermanentFailure` и Store append отчёта, теряет возможность
+  восстановить запрошенный failure report. Success/delay notices тоже не
+  представлены в durable state.
+- Это source audit, не failure-injection или runtime acceptance. EHLO `DSN`
+  остаётся выключенным. Перед полной RFC 3461 поддержкой нужен durable notice
+  outbox, связанный с переходом очереди, и идемпотентная публикация отчёта с
+  recovery для сбоя между append и подтверждением notice.
+- Источники: [RFC 3461 §§5.2.6-5.2.7](https://www.rfc-editor.org/rfc/rfc3461.html).
+
 ### 2026-09-28: G18 RFC 3461 failure DSN fields and RET=HDRS, PARTIAL T388
 
 - Scheduler, event-driven service и bounded queue drain передают сохранённые
