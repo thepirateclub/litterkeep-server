@@ -20,6 +20,13 @@ fn profiles_are_explicit_and_strict() {
 }
 
 #[test]
+/// RFC 3629 задает MIME charset label UTF-8, не произвольное сокращение.
+fn utf8_parser_accepts_registered_label_and_rejects_unregistered_alias() {
+    assert_eq!(Charset::parse("UTF-8"), Ok(Charset::Utf8));
+    assert_eq!(Charset::parse("utf8"), Err("unsupported MIME charset"));
+}
+
+#[test]
 fn iso_8859_2_uses_its_complete_registered_mapping() {
     let charset = Charset::parse("ISO-8859-2").expect("registered MIME charset");
     assert_eq!(
@@ -176,7 +183,6 @@ fn windows_1252_decodes_typographic_range_and_c1_controls() {
     );
 }
 
-#[test]
 #[test]
 fn windows_1253_decodes_greek_and_rejects_undefined_octets() {
     let charset = Charset::parse("WINDOWS-1253").expect("registered MIME charset");

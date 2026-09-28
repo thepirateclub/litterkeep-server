@@ -12,6 +12,15 @@
   from T307; this alias-only stage has no additional wire acceptance claim.
 - G18 remains ACTIVE; broader RFC/registry audit and other protocol gaps remain.
 
+### 2026-09-28: G18 UTF-8 canonical MIME label, scoped PASS T309
+
+- RFC 3629 names `UTF-8` as the MIME charset label. The parser now accepts that
+  registered label case-insensitively and rejects the unregistered shortcut
+  `utf8`; byte decoding stays strict. Unit test added.
+- No network behavior beyond charset-name rejection was tested; prior 41-label
+  matrix uses its own canonical UTF-8 SEARCH charset and remains separate.
+- G18 remains ACTIVE; full protocol and charset conformance remain outstanding.
+
 ### 2026-09-28: G18 RFC 1556 bidi MIME charset aliases, scoped PASS T307
 
 - Добавлены четыре отдельные typed charset profiles: ISO-8859-6-E/I и

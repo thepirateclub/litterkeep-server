@@ -70,7 +70,7 @@ impl Charset {
     pub fn parse(name: &str) -> Result<Self, &'static str> {
         match name.to_ascii_lowercase().as_str() {
             "us-ascii" | "ascii" => Ok(Self::UsAscii),
-            "utf-8" | "utf8" => Ok(Self::Utf8),
+            "utf-8" => Ok(Self::Utf8),
             "iso-8859-1" | "iso_8859-1" | "latin1" | "l1" | "ibm819" | "cp819" | "csisolatin1" => {
                 Ok(Self::Iso8859_1)
             }

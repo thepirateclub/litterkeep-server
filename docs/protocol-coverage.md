@@ -994,6 +994,11 @@ aliases, а Windows-1252 также через RFC 1345 alias `cp1252`. Unit tes
 Это не полная
 поддержка IANA Character Sets registry: неподдерживаемые charset остаются
 ошибкой и не угадываются по префиксу.
+RFC 3629 регистрирует MIME label `UTF-8`; parser больше не принимает короткое
+`utf8` как неформально придуманное имя. UTF-8 byte decoder остается стандартным
+строгим Rust decoder, отдельно unit test фиксирует допустимый registry label.
+Текущая архитектура намеренно не нормализует любые dash/underscore/case формы,
+а добавляет только подтвержденные registered aliases.
 Отдельная
 SMTP -> IMAP wire-проверка доставила RFC 2047 Subject encoded-word варианты UTF-16,
 UTF-16BE/LE и UTF-32 с generic BE BOM, UTF-32BE/LE; UTF-8 SEARCH literal
