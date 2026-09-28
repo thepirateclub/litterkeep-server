@@ -82,7 +82,7 @@ fn failure_envelope() -> crate::smtp::DsnEnvelope {
     crate::smtp::DsnEnvelope {
         reverse_path: "sender@outside.example".into(),
         mail: crate::smtp::MailDsn {
-            return_content: Some(crate::smtp::ReturnContent::Headers),
+            return_content: Some(crate::smtp::ReturnContent::Full),
             ..crate::smtp::MailDsn::default()
         },
         recipients: vec![crate::smtp::RcptTo {
@@ -131,7 +131,9 @@ fn accept_failure_report(listener: TcpListener) {
         b"Action: failed".as_slice(),
         b"Status: 5.1.1".as_slice(),
         b"Diagnostic-Code: smtp; 550 5.1.1 no such recipient".as_slice(),
+        b"Content-Type: message/rfc822".as_slice(),
         b"Subject: external delivery".as_slice(),
+        b"private source body".as_slice(),
     ] {
         assert!(
             body.windows(marker.len()).any(|part| part == marker),
@@ -139,11 +141,6 @@ fn accept_failure_report(listener: TcpListener) {
             String::from_utf8_lossy(marker)
         );
     }
-    assert!(
-        !body
-            .windows(b"private source body".len())
-            .any(|part| part == b"private source body")
-    );
     write_reply(&mut stream, b"250 report accepted\r\n");
     expected_command(&mut reader, "QUIT");
     write_reply(&mut stream, b"221 closing\r\n");

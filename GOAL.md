@@ -8,10 +8,14 @@
 - Windows Rust 1.97.1 all-target: 1061 library + 1 CLI passed, 4 ignored;
   strict Clippy, rustfmt и diff-check прошли. Linux Rust 1.97.1 all-target:
   1185 library + 1 CLI passed, 4 ignored. Специализированная регрессия
-  RET=FULL требует полного исходного byte sequence в message/rfc822 MIME part.
-- Это unit evidence политики сериализатора, не SMTP-wire acceptance. RFC 3461
+  RET=FULL требует полный исходный byte sequence в message/rfc822 MIME part.
+- Linux Store/queue acceptance также запускает независимые downstream SMTP peers:
+  после permanent RCPT failure durable job доставляет внешний DSN с RET=FULL;
+  получатель сверяет MIME type, оригинальные заголовки и исходное тело.
+- Проверка SMTP delivery использует независимый тестовый peer и уже сохранённую
+  typed envelope, но не повторяет ingress negotiation RFC параметров. RFC 3461
   §4.3 задаёт RET как выбор полного содержимого или заголовков для failure DSN;
-  sender negotiation и реальный SMTP transaction не повторялись этим тестом.
+  Litterkeep app interop не проверялся.
 
 ### 2026-09-29: G18 outbound SMTP diagnostic in external failure DSN, PARTIAL T407
 
