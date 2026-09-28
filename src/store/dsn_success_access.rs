@@ -86,6 +86,7 @@ impl Store {
             metadata: crate::queue::DsnDeliveryMetadata {
                 mail: envelope.mail.clone(),
                 recipient: Some(recipient.dsn.clone()),
+                origin_recipients: Vec::new(),
             },
         })
     }

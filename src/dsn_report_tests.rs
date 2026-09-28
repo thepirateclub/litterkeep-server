@@ -19,6 +19,7 @@ fn report_contains_original_envelope_and_recipient() {
             }),
             ..RecipientDsn::default()
         }),
+        origin_recipients: Vec::new(),
     };
     let report = render(
         "alice@litterkeep.test",
@@ -136,6 +137,7 @@ fn delivered_report_requires_explicit_success_policy() {
     let absent = DsnDeliveryMetadata {
         mail: MailDsn::default(),
         recipient: None,
+        origin_recipients: Vec::new(),
     };
     let failure_only = DsnDeliveryMetadata {
         mail: MailDsn::default(),
@@ -145,6 +147,7 @@ fn delivered_report_requires_explicit_success_policy() {
             )),
             original_recipient: None,
         }),
+        origin_recipients: Vec::new(),
     };
     let never = DsnDeliveryMetadata {
         mail: MailDsn::default(),
@@ -152,6 +155,7 @@ fn delivered_report_requires_explicit_success_policy() {
             notify: Some(NotifyPolicy::Never),
             original_recipient: None,
         }),
+        origin_recipients: Vec::new(),
     };
     for metadata in [absent, failure_only, never] {
         assert!(
@@ -179,6 +183,7 @@ fn utf8_original_recipient_keeps_its_registered_address_type() {
             }),
             ..RecipientDsn::default()
         }),
+        origin_recipients: Vec::new(),
     };
     let report = render(
         "alice@litterkeep.test",
@@ -202,6 +207,58 @@ fn utf8_original_recipient_keeps_its_registered_address_type() {
     ));
 }
 
+/// В общем redirect DSN содержит только alias-и, запросившие FAILURE.
+#[test]
+fn grouped_alias_report_filters_each_origin_notify_policy() {
+    let metadata = DsnDeliveryMetadata {
+        mail: MailDsn {
+            envelope_id: Some(b"group-7".to_vec()),
+            ..MailDsn::default()
+        },
+        recipient: None,
+        origin_recipients: vec![
+            Some(RecipientDsn {
+                notify: Some(NotifyPolicy::Never),
+                original_recipient: Some(OriginalRecipient {
+                    address_type: OriginalAddressType::Rfc822,
+                    address: b"silent@origin.test".to_vec(),
+                }),
+            }),
+            Some(RecipientDsn {
+                notify: Some(NotifyPolicy::Conditions(
+                    [NotifyCondition::Failure].into_iter().collect(),
+                )),
+                original_recipient: Some(OriginalRecipient {
+                    address_type: OriginalAddressType::Rfc822,
+                    address: b"notified@origin.test".to_vec(),
+                }),
+            }),
+        ],
+    };
+    let report = render(
+        "alice@litterkeep.test",
+        "redirect@local.test",
+        27,
+        b"Subject: grouped\r\n\r\nbody",
+        ReportOutcome::Failure(Failure::PermanentSmtp),
+        Some(&metadata),
+    );
+    let recipient_field = b"Final-Recipient:";
+    assert_eq!(
+        report
+            .windows(recipient_field.len())
+            .filter(|value| *value == recipient_field)
+            .count(),
+        1
+    );
+    assert!(contains(&report, b"Original-Envelope-ID: group-7\r\n"));
+    assert!(contains(
+        &report,
+        b"Original-Recipient: rfc822; notified@origin.test\r\n"
+    ));
+    assert!(!contains(&report, b"silent@origin.test"));
+}
+
 fn headers_metadata() -> DsnDeliveryMetadata {
     DsnDeliveryMetadata {
         mail: MailDsn {
@@ -209,6 +266,7 @@ fn headers_metadata() -> DsnDeliveryMetadata {
             ..MailDsn::default()
         },
         recipient: None,
+        origin_recipients: Vec::new(),
     }
 }
 
@@ -224,5 +282,6 @@ fn success_metadata(return_content: Option<ReturnContent>) -> DsnDeliveryMetadat
             )),
             original_recipient: None,
         }),
+        origin_recipients: Vec::new(),
     }
 }

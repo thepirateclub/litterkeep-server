@@ -155,6 +155,7 @@ mod tests {
                 notify: Some(notify),
                 original_recipient: None,
             }),
+            origin_recipients: Vec::new(),
         }
     }
 }

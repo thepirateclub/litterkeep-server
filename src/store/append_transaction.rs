@@ -155,6 +155,7 @@ fn append_success_intents(
                         Some(&crate::queue::DsnDeliveryMetadata {
                             mail: value.mail.clone(),
                             recipient: Some(recipient.dsn.clone()),
+                            origin_recipients: Vec::new(),
                         }),
                         crate::smtp::NotifyCondition::Success,
                     )

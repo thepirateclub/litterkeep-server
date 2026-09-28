@@ -69,8 +69,10 @@ pub struct Delivery {
 pub struct DsnDeliveryMetadata {
     /// Параметры MAIL, общие для исходной SMTP transaction.
     pub mail: crate::smtp::MailDsn,
-    /// Параметры RCPT, соответствующие исходному queue route.
+    /// Параметры RCPT, выбранные для передачи одному outbound route.
     pub recipient: Option<crate::smtp::RecipientDsn>,
+    /// Все исходные RCPT policy, сведённые в один локальный Sieve redirect.
+    pub origin_recipients: Vec<Option<crate::smtp::RecipientDsn>>,
 }
 
 /// Идемпотентная идентичность failure DSN для одной durable queue job.

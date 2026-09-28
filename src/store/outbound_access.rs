@@ -40,20 +40,22 @@ impl Store {
                 let Some(envelope) = self.smtp_dsn_envelopes.get(&delivery.transaction_id) else {
                     return Ok(delivery);
                 };
-                let recipient = match delivery.original_recipient_indices.first() {
-                    Some(index) => Some(
+                let origin_recipients = delivery
+                    .original_recipient_indices
+                    .iter()
+                    .map(|index| {
                         envelope
                             .recipients
                             .get(*index)
-                            .ok_or_else(invalid_dsn_index)?
-                            .dsn
-                            .clone(),
-                    ),
-                    None => None,
-                };
+                            .map(|value| Some(value.dsn.clone()))
+                            .ok_or_else(invalid_dsn_index)
+                    })
+                    .collect::<io::Result<Vec<_>>>()?;
+                let recipient = origin_recipients.first().cloned().flatten();
                 delivery.dsn_metadata = Some(Box::new(crate::queue::DsnDeliveryMetadata {
                     mail: envelope.mail.clone(),
                     recipient,
+                    origin_recipients,
                 }));
                 Ok(delivery)
             })

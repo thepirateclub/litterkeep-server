@@ -2,7 +2,7 @@
 
 use crate::{
     queue::DsnDeliveryMetadata,
-    smtp::{NotifyCondition, NotifyPolicy},
+    smtp::{NotifyCondition, NotifyPolicy, RecipientDsn},
 };
 
 /// Проверяет, разрешено ли уведомление заданного outcome для одного RCPT.
@@ -14,13 +14,35 @@ pub fn notification_allowed(
     metadata: Option<&DsnDeliveryMetadata>,
     condition: NotifyCondition,
 ) -> bool {
-    let policy = metadata
-        .and_then(|value| value.recipient.as_ref())
-        .and_then(|value| value.notify.as_ref());
+    notification_allowed_for_recipient(
+        metadata.and_then(|value| value.recipient.as_ref()),
+        condition,
+    )
+}
+
+/// Проверяет одну recipient policy без подмены другими alias-ами.
+pub(crate) fn notification_allowed_for_recipient(
+    recipient: Option<&RecipientDsn>,
+    condition: NotifyCondition,
+) -> bool {
+    let policy = recipient.and_then(|value| value.notify.as_ref());
     match policy {
         None => default_allows(condition),
         Some(NotifyPolicy::Never) => false,
         Some(NotifyPolicy::Conditions(conditions)) => conditions.contains(&condition),
+    }
+}
+
+/// Разрешает failure report, если он запрошен хотя бы одним исходным RCPT.
+pub fn failure_requested(metadata: Option<&DsnDeliveryMetadata>) -> bool {
+    let Some(metadata) = metadata else {
+        return true;
+    };
+    match metadata.origin_recipients.is_empty() {
+        true => notification_allowed(Some(metadata), NotifyCondition::Failure),
+        false => metadata.origin_recipients.iter().any(|recipient| {
+            notification_allowed_for_recipient(recipient.as_ref(), NotifyCondition::Failure)
+        }),
     }
 }
 

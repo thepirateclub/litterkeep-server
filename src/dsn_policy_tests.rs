@@ -48,6 +48,27 @@ fn never_suppresses_every_outcome() {
     }
 }
 
+#[test]
+fn grouped_aliases_request_failure_when_any_origin_requests_it() {
+    let mut metadata = metadata(NotifyPolicy::Never);
+    metadata.origin_recipients = vec![
+        Some(RecipientDsn {
+            notify: Some(NotifyPolicy::Never),
+            original_recipient: None,
+        }),
+        Some(RecipientDsn {
+            notify: Some(NotifyPolicy::Conditions(
+                [NotifyCondition::Failure].into_iter().collect(),
+            )),
+            original_recipient: None,
+        }),
+    ];
+    assert!(dsn::failure_requested(Some(&metadata)));
+
+    metadata.origin_recipients.pop();
+    assert!(!dsn::failure_requested(Some(&metadata)));
+}
+
 fn metadata(notify: NotifyPolicy) -> DsnDeliveryMetadata {
     DsnDeliveryMetadata {
         mail: Default::default(),
@@ -55,5 +76,6 @@ fn metadata(notify: NotifyPolicy) -> DsnDeliveryMetadata {
             notify: Some(notify),
             original_recipient: None,
         }),
+        origin_recipients: Vec::new(),
     }
 }

@@ -98,7 +98,8 @@ fn outbound_job_recovers_its_recipient_policy_after_store_reopen() {
         delivery.dsn_metadata,
         Some(Box::new(crate::queue::DsnDeliveryMetadata {
             mail: expected.mail,
-            recipient: Some(expected_recipient),
+            recipient: Some(expected_recipient.clone()),
+            origin_recipients: vec![Some(expected_recipient.clone())],
         }))
     );
     drop(store);

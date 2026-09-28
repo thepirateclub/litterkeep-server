@@ -11,7 +11,8 @@ use crate::{queue::DsnDeliveryMetadata, smtp::NotifyCondition};
 mod policy;
 #[path = "dsn_report.rs"]
 mod report;
-pub use policy::notification_allowed;
+pub(crate) use policy::notification_allowed_for_recipient;
+pub use policy::{failure_requested, notification_allowed};
 
 /// Окончательная причина, показываемая локальному отправителю.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -71,10 +72,6 @@ pub(crate) enum ReportOutcome {
 ///
 /// RFC 3461 задаёт default FAILURE при отсутствии NOTIFY; явные условия без
 /// FAILURE, включая SUCCESS и DELAY, запрещают failure report, как и NEVER.
-pub fn failure_requested(metadata: Option<&DsnDeliveryMetadata>) -> bool {
-    notification_allowed(metadata, NotifyCondition::Failure)
-}
-
 /// Строит multipart/report для одного окончательно недоставленного recipient.
 ///
 /// Пустой reverse-path обозначает DSN или auto-reply. Для него RFC-профиль
@@ -105,9 +102,9 @@ pub fn render_with_metadata(
     failure: Failure,
     metadata: Option<&DsnDeliveryMetadata>,
 ) -> Option<Vec<u8>> {
-    match reverse_path.is_empty() {
-        true => None,
-        false => Some(report::render(
+    match (reverse_path.is_empty(), has_failure_recipient(metadata)) {
+        (true, _) | (false, false) => None,
+        (false, true) => Some(report::render(
             reverse_path,
             recipient,
             transaction_id,
@@ -115,6 +112,19 @@ pub fn render_with_metadata(
             ReportOutcome::Failure(failure),
             metadata,
         )),
+    }
+}
+
+/// Проверяет, остался ли хотя бы один RCPT, имеющий право получить failure DSN.
+fn has_failure_recipient(metadata: Option<&DsnDeliveryMetadata>) -> bool {
+    let Some(metadata) = metadata else {
+        return true;
+    };
+    match metadata.origin_recipients.is_empty() {
+        true => notification_allowed(Some(metadata), NotifyCondition::Failure),
+        false => metadata.origin_recipients.iter().any(|recipient| {
+            notification_allowed_for_recipient(recipient.as_ref(), NotifyCondition::Failure)
+        }),
     }
 }
 
@@ -159,132 +169,5 @@ pub fn render_request(request: ReportRequest<'_>) -> Option<Vec<u8>> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::smtp::NotifyPolicy;
-
-    #[test]
-    fn null_reverse_path_does_not_create_a_bounce() {
-        assert_eq!(
-            render("", "bob@peer.test", 7, b"body", Failure::PermanentSmtp),
-            None
-        );
-    }
-
-    #[test]
-    fn report_preserves_original_message_bytes() {
-        let original = b"Subject: source\r\n\r\npayload\x00";
-        let report = render(
-            "alice@litterkeep.test",
-            "bob@peer.test",
-            7,
-            original,
-            Failure::PermanentSmtp,
-        )
-        .expect("report");
-        assert!(
-            report
-                .windows(original.len())
-                .any(|window| window == original)
-        );
-        assert!(
-            report
-                .windows(b"report-type=delivery-status".len())
-                .any(|window| { window == b"report-type=delivery-status" })
-        );
-        assert!(
-            report
-                .windows(b"Action: failed".len())
-                .any(|window| window == b"Action: failed")
-        );
-        assert!(
-            report
-                .windows(b"Final-Recipient: rfc822; bob@peer.test".len())
-                .any(|window| window == b"Final-Recipient: rfc822; bob@peer.test")
-        );
-        assert!(
-            !report
-                .windows(b"Final-Recipient: rfc822; <bob@peer.test>".len())
-                .any(|window| window == b"Final-Recipient: rfc822; <bob@peer.test>")
-        );
-    }
-
-    #[test]
-    fn boundary_moves_away_from_source_delimiter() {
-        let source = b"--litterkeep-dsn-7-0\r\nbody";
-        let report = render(
-            "alice@litterkeep.test",
-            "bob@peer.test",
-            7,
-            source,
-            Failure::RetryExhausted,
-        )
-        .expect("report");
-        assert!(
-            report
-                .windows(b"litterkeep-dsn-7-1".len())
-                .any(|window| { window == b"litterkeep-dsn-7-1" })
-        );
-    }
-
-    #[test]
-    fn route_policy_uses_permanent_security_status() {
-        let report = render(
-            "alice@litterkeep.test",
-            "blocked@example.test",
-            9,
-            b"Subject: blocked\r\n\r\nbody",
-            Failure::RoutePolicy,
-        )
-        .expect("report");
-        assert!(
-            report
-                .windows(b"Status: 5.7.1".len())
-                .any(|window| window == b"Status: 5.7.1")
-        );
-    }
-
-    /// При отсутствии запросной политики сохраняется стандартное failure DSN.
-    #[test]
-    fn absent_notify_policy_requests_failure_report() {
-        assert!(failure_requested(None));
-        let metadata = DsnDeliveryMetadata {
-            mail: Default::default(),
-            recipient: None,
-        };
-        assert!(failure_requested(Some(&metadata)));
-    }
-
-    /// Явные NEVER, SUCCESS и DELAY не разрешают failure report.
-    #[test]
-    fn notify_policy_suppresses_failure_unless_failure_is_requested() {
-        assert!(!failure_requested(Some(&metadata(NotifyPolicy::Never))));
-        assert!(!failure_requested(Some(&metadata(conditions(&[
-            NotifyCondition::Success,
-        ])))));
-        assert!(!failure_requested(Some(&metadata(conditions(&[
-            NotifyCondition::Delay,
-        ])))));
-        assert!(failure_requested(Some(&metadata(conditions(&[
-            NotifyCondition::Failure,
-        ])))));
-        assert!(failure_requested(Some(&metadata(conditions(&[
-            NotifyCondition::Success,
-            NotifyCondition::Failure,
-        ])))));
-    }
-
-    fn metadata(notify: NotifyPolicy) -> DsnDeliveryMetadata {
-        DsnDeliveryMetadata {
-            mail: Default::default(),
-            recipient: Some(crate::smtp::RecipientDsn {
-                notify: Some(notify),
-                original_recipient: None,
-            }),
-        }
-    }
-
-    fn conditions(values: &[NotifyCondition]) -> NotifyPolicy {
-        NotifyPolicy::Conditions(values.iter().copied().collect())
-    }
-}
+#[path = "dsn_tests.rs"]
+mod tests;

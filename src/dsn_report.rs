@@ -19,7 +19,6 @@ pub(super) fn render(
     let boundary = boundary(transaction_id, returned);
     let status_type = delivery_status_type(recipient, metadata);
     let message_type = returned_message_type(returned, outcome, metadata);
-    let final_recipient_type = final_recipient_type(recipient);
     let (subject, summary, action, status) = report_fields(outcome);
     let mut output = Vec::with_capacity(returned.len().saturating_add(1024));
     append(
@@ -30,12 +29,14 @@ pub(super) fn render(
          MIME-Version: 1.0\r\nContent-Type: multipart/report; report-type=delivery-status; boundary=\"{boundary}\"\r\n\r\n\
          --{boundary}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n\
          {summary} <{recipient}>.\r\n\r\n--{boundary}\r\n\
-         Content-Type: {status_type}\r\n\r\nReporting-MTA: dns; litterkeep.test\r\n{}\r\n\
-         {}Final-Recipient: {final_recipient_type}; {recipient}\r\nAction: {action}\r\nStatus: {status}\r\n\r\n\
-         --{boundary}\r\nContent-Type: {message_type}\r\n\r\n",
+         Content-Type: {status_type}\r\n\r\nReporting-MTA: dns; litterkeep.test\r\n{}\r\n",
             envelope_id(metadata),
-            original_recipient(metadata),
         ),
+    );
+    append_recipient_groups(&mut output, recipient, action, status, metadata, outcome);
+    append(
+        &mut output,
+        &format!("--{boundary}\r\nContent-Type: {message_type}\r\n\r\n"),
     );
     output.extend_from_slice(returned);
     append(&mut output, &format!("\r\n--{boundary}--\r\n"));
@@ -65,11 +66,8 @@ fn returned_content<'a>(
 }
 
 /// Формирует Orig-Recipient из сохранённого типизированного ORCPT.
-fn original_recipient(metadata: Option<&DsnDeliveryMetadata>) -> String {
-    let Some(value) = metadata
-        .and_then(|item| item.recipient.as_ref())
-        .and_then(|item| item.original_recipient.as_ref())
-    else {
+fn original_recipient(recipient: Option<&crate::smtp::RecipientDsn>) -> String {
+    let Some(value) = recipient.and_then(|item| item.original_recipient.as_ref()) else {
         return String::new();
     };
     let address_type = match value.address_type {
@@ -80,6 +78,67 @@ fn original_recipient(metadata: Option<&DsnDeliveryMetadata>) -> String {
         "Original-Recipient: {address_type}; {}\r\n",
         String::from_utf8_lossy(&value.address)
     )
+}
+
+/// Сериализует отдельную recipient-группу для каждого исходного SMTP RCPT.
+fn append_recipient_groups(
+    output: &mut Vec<u8>,
+    recipient: &str,
+    action: &str,
+    status: &str,
+    metadata: Option<&DsnDeliveryMetadata>,
+    outcome: ReportOutcome,
+) {
+    let Some(metadata) = metadata else {
+        append_recipient_group(output, recipient, None, action, status);
+        return;
+    };
+    match metadata.origin_recipients.is_empty() {
+        true => append_recipient_group(
+            output,
+            recipient,
+            metadata.recipient.as_ref(),
+            action,
+            status,
+        ),
+        false => metadata
+            .origin_recipients
+            .iter()
+            .filter(|origin| origin_notification_allowed(origin.as_ref(), outcome))
+            .for_each(|origin| {
+                append_recipient_group(output, recipient, origin.as_ref(), action, status)
+            }),
+    }
+}
+
+/// Применяет NOTIFY конкретного RCPT к результату формируемого DSN.
+fn origin_notification_allowed(
+    recipient: Option<&crate::smtp::RecipientDsn>,
+    outcome: ReportOutcome,
+) -> bool {
+    let condition = match outcome {
+        ReportOutcome::Delivered => crate::smtp::NotifyCondition::Success,
+        ReportOutcome::Failure(_) => crate::smtp::NotifyCondition::Failure,
+    };
+    crate::dsn::notification_allowed_for_recipient(recipient, condition)
+}
+
+/// Добавляет полный Recipient block без слияния сведений двух alias-ов.
+fn append_recipient_group(
+    output: &mut Vec<u8>,
+    recipient: &str,
+    origin: Option<&crate::smtp::RecipientDsn>,
+    action: &str,
+    status: &str,
+) {
+    let recipient_type = final_recipient_type(recipient);
+    append(output, &original_recipient(origin));
+    append(
+        output,
+        &format!(
+            "Final-Recipient: {recipient_type}; {recipient}\r\nAction: {action}\r\nStatus: {status}\r\n\r\n"
+        ),
+    );
 }
 
 /// Возвращает ENVID в виде декодированного RFC 3461 opaque value.
@@ -97,10 +156,18 @@ fn envelope_id(metadata: Option<&DsnDeliveryMetadata>) -> String {
 
 /// Выбирает глобальный DSN subtype, если адреса требуют UTF-8.
 fn delivery_status_type(recipient: &str, metadata: Option<&DsnDeliveryMetadata>) -> &'static str {
-    let original_is_utf8 = metadata
-        .and_then(|value| value.recipient.as_ref())
-        .and_then(|value| value.original_recipient.as_ref())
-        .is_some_and(|value| value.address_type == OriginalAddressType::Utf8);
+    let original_is_utf8 = metadata.is_some_and(|value| {
+        value.origin_recipients.iter().any(|recipient| {
+            recipient
+                .as_ref()
+                .and_then(|value| value.original_recipient.as_ref())
+                .is_some_and(|value| value.address_type == OriginalAddressType::Utf8)
+        }) || value
+            .recipient
+            .as_ref()
+            .and_then(|value| value.original_recipient.as_ref())
+            .is_some_and(|value| value.address_type == OriginalAddressType::Utf8)
+    });
     match original_is_utf8 || !recipient.is_ascii() {
         true => "message/global-delivery-status",
         false => "message/delivery-status",

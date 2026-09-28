@@ -25,6 +25,7 @@ pub(super) fn requested_for_account(
                 let metadata = DsnDeliveryMetadata {
                     mail: envelope.mail.clone(),
                     recipient: Some(recipient.dsn.clone()),
+                    origin_recipients: Vec::new(),
                 };
                 crate::dsn::notification_allowed(Some(&metadata), NotifyCondition::Success)
             });

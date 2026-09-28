@@ -395,6 +395,34 @@
   refused, and no new independent wire or Litterkeep app test was run.
 - Normative basis: RFC 3461 §§5.2.7-5.2.8 and RFC 3464 §§1.2, 2.3.
 
+### 2026-09-29: G18 RFC 3461 multi-origin failure policy, T385 PARTIAL
+
+- Store now resolves every durable source RCPT ordinal to its typed DSN
+  metadata. A coalesced Sieve redirect preserves the first recipient policy
+  only for the downstream SMTP RCPT command, while failure policy and report
+  serialization retain the full origin set.
+- Failure publication is allowed when at least one source RCPT requests
+  FAILURE (or uses the RFC default). RFC 3464 output contains one recipient
+  field group per eligible origin and omits NOTIFY=NEVER and explicit policies
+  that do not include FAILURE. MAIL ENVID and RET remain common message fields.
+- Regression checks cover mixed NEVER/FAILURE aliases, recipient-group count,
+  ORCPT filtering, and aggregate failure selection. No external relay policy
+  or independent SMTP/IMAP wire test was exercised in this checkpoint.
+- Windows Rust 1.97.1: `cargo test` passed (1052 library + 1 CLI, 4 ignored),
+  strict Clippy and rustfmt passed. Linux Rust 1.97.1 in the existing image:
+  `cargo test` passed (1173 library + 1 CLI, 4 ignored), strict Clippy and
+  rustfmt passed. The initial Linux test shared a target directory with an
+  already-running user container and printed incremental-copy warnings; a
+  repeat on a distinct `./data/g27-sieve-case-insensitive-dsn/target` passed
+  cleanly. Both disposable containers were removed; no image was created.
+- T385 remains PARTIAL: EHLO DSN is not advertised, DSN MAIL/RCPT parameters
+  remain refused, and downstream outbound policy still sends one RCPT command
+  for a coalesced route. No Litterkeep phone acceptance is claimed.
+- RFC basis: [RFC 3461 §§5.2.7.3, 5.2.8](https://www.rfc-editor.org/rfc/rfc3461.html#section-5.2.8)
+  permits shared DSN reporting for recipient aliases while applying each
+  recipient's notification entitlement; [RFC 3464 §2.3](https://www.rfc-editor.org/rfc/rfc3464.html#section-2.3)
+  defines recipient-scoped field groups.
+
 ### 2026-09-28: G18 RFC 3464 Final-Recipient mailbox syntax, T382 PASS
 
 - Исправлен generated failure DSN: `Final-Recipient` теперь содержит

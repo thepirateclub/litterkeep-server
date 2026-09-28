@@ -61,6 +61,7 @@ fn committed_success_report_acknowledges_intent_once_across_reopen() {
             .recipients
             .first()
             .map(|recipient| recipient.dsn.clone()),
+        origin_recipients: Vec::new(),
     };
     let report = dsn::render_delivery_success(
         &request.reverse_path,
