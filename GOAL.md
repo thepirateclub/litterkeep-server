@@ -426,6 +426,27 @@
 - The extra disposable Linux container used the separate
   `./data/g27-sieve-case-insensitive-dsn/target`; it was removed. The active
   user container was left running and no Docker image was created.
+
+### 2026-09-29: G18 SMTP DSN ESMTP negotiation enabled, PARTIAL T385
+
+- EHLO now advertises the parameter-free RFC 3461 `DSN` capability in clear,
+  STARTTLS-capable, and TLS-established profiles. HELO remains basic SMTP and
+  DSN parameters are rejected there. The ESMTP gate no longer rejects typed
+  `MAIL RET/ENVID` and `RCPT NOTIFY/ORCPT` parameters.
+- Linux reactor tests verify capability output, ESMTP acceptance, persistence
+  of decoded ENVID/RET/NOTIFY/ORCPT in the accepted envelope, and continued
+  rejection after HELO. The earlier Store recovery and DSN report tests cover
+  sidecar durability and report generation; this step did not run an
+  independent TCP client against a running server.
+- Windows Rust 1.97.1 full gate: 1053 library + 1 CLI passed, 4 ignored,
+  strict Clippy and rustfmt passed. Linux Rust 1.97.1 full gate: 1176 library
+  + 1 CLI passed, 4 ignored, strict Clippy and rustfmt passed. Linux artifacts
+  used `./data/g18-smtp-dsn-wire-clean/target`, with incremental compilation
+  disabled to avoid the user's concurrent Cargo workload. The disposable
+  container was removed; the existing image and user container were untouched.
+- T385 remains PARTIAL: wire behavior has only reactor unit coverage, not an
+  independent network acceptance. Delivery of delay DSNs and external
+  downstream parameter propagation are not claimed. G18 remains ACTIVE.
 - RFC basis: [RFC 3461 §§5.2.7.3, 5.2.8](https://www.rfc-editor.org/rfc/rfc3461.html#section-5.2.8)
   permits shared DSN reporting for recipient aliases while applying each
   recipient's notification entitlement; [RFC 3464 §2.3](https://www.rfc-editor.org/rfc/rfc3464.html#section-2.3)

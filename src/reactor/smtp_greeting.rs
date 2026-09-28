@@ -36,10 +36,6 @@ pub(super) fn requirement(
         | (smtp::GreetingMode::Basic, smtp::Command::RcptWithDsn(_)) => {
             Some(session.push(b"555 5.5.4 DSN requires EHLO\r\n"))
         }
-        (
-            smtp::GreetingMode::Extended,
-            smtp::Command::MailWithDsn(_, _) | smtp::Command::RcptWithDsn(_),
-        ) => Some(session.push(b"555 5.5.4 unsupported command parameter\r\n")),
         _ => None,
     }
 }
@@ -57,13 +53,13 @@ pub(super) fn helo(session: &mut Session) -> io::Result<()> {
 pub(super) fn ehlo(session: &mut Session) -> io::Result<()> {
     let response: &[u8] = match (session.tls.is_some(), session.can_starttls()) {
         (true, _) => {
-            b"250-litterkeep.test\r\n250-PIPELINING\r\n250-CHUNKING\r\n250-BINARYMIME\r\n250-ENHANCEDSTATUSCODES\r\n250-AUTH PLAIN\r\n250-8BITMIME\r\n250-SMTPUTF8\r\n250 SIZE 26214400\r\n"
+            b"250-litterkeep.test\r\n250-PIPELINING\r\n250-CHUNKING\r\n250-BINARYMIME\r\n250-ENHANCEDSTATUSCODES\r\n250-AUTH PLAIN\r\n250-8BITMIME\r\n250-SMTPUTF8\r\n250-DSN\r\n250 SIZE 26214400\r\n"
         }
         (false, true) => {
-            b"250-litterkeep.test\r\n250-PIPELINING\r\n250-STARTTLS\r\n250-CHUNKING\r\n250-BINARYMIME\r\n250-ENHANCEDSTATUSCODES\r\n250-8BITMIME\r\n250-SMTPUTF8\r\n250 SIZE 26214400\r\n"
+            b"250-litterkeep.test\r\n250-PIPELINING\r\n250-STARTTLS\r\n250-CHUNKING\r\n250-BINARYMIME\r\n250-ENHANCEDSTATUSCODES\r\n250-8BITMIME\r\n250-SMTPUTF8\r\n250-DSN\r\n250 SIZE 26214400\r\n"
         }
         (false, false) => {
-            b"250-litterkeep.test\r\n250-PIPELINING\r\n250-CHUNKING\r\n250-BINARYMIME\r\n250-ENHANCEDSTATUSCODES\r\n250-8BITMIME\r\n250-SMTPUTF8\r\n250 SIZE 26214400\r\n"
+            b"250-litterkeep.test\r\n250-PIPELINING\r\n250-CHUNKING\r\n250-BINARYMIME\r\n250-ENHANCEDSTATUSCODES\r\n250-8BITMIME\r\n250-SMTPUTF8\r\n250-DSN\r\n250 SIZE 26214400\r\n"
         }
     };
     establish(session, smtp::GreetingMode::Extended, response)
