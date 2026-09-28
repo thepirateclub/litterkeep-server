@@ -1,7 +1,3 @@
-//! Сквозные regression проверки исходной SMTP recipient связи в очереди.
-
-use super::*;
-
 /// Каждый outbound job сохраняет исходный RCPT до очереди и повторного open.
 #[test]
 fn redirects_keep_recipient_identity_when_queue_routes_are_identical() {

@@ -1,8 +1,7 @@
 //! Атомарность Sieve delivery plan, mailbox links и outbound queue после replay.
 
 use super::super::{AppendStage, SieveDiagnostic, Store, StoreFailpoint};
-use std::fs;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{fs, time::*};
 
 #[test]
 fn invoice_plan_delivers_to_invoices_and_default_goes_to_inbox() {
@@ -298,5 +297,4 @@ fn directory() -> std::path::PathBuf {
     std::env::temp_dir().join(format!("litterkeep-sieve-delivery-{nonce}"))
 }
 
-#[path = "sieve_origin_queue_tests.rs"]
-mod origin_queue_tests;
+include!("sieve_origin_queue_tests.rs");
