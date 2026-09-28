@@ -1,5 +1,19 @@
 # Goal ledger
 
+### 2026-09-28: G18 cryptographic SCRAM server-first challenge, scoped PASS T324
+
+- Добавлен builder RFC 5802 `r,s,i`: объединяет client nonce с 18 случайными
+  октетами, полученными у secure random provider Rustls, и включает salt/
+  iteration count из сохранённой SCRAM-записи. Base64 suffix printable ASCII,
+  поэтому comma-разделитель nonce исключён.
+- Три focused-теста проверяют формат/параметры, различие двух случайных
+  challenge и отказ на пустом/непечатном suffix. Windows Rust 1.97.1: 900
+  библиотечных и 1 CLI тест прошли, 4 игнорированы; fmt/strict Clippy прошли.
+  Linux Docker Rust 1.97.1: 1005 библиотечных и 1 CLI тест прошли, 4
+  игнорированы; fmt/strict Clippy прошли. Контейнер удалён через `--rm`.
+- Challenge builder пока не подключён к ManageSieve SASL state machine;
+  client-final проверки и capability advertisement отсутствуют. G18 ACTIVE.
+
 ### 2026-09-28: G18 SCRAM client-first message semantics, scoped PASS T323
 
 - `scram_client_first` принимает профиль GS2 `n,,`, требует ordered `n` then

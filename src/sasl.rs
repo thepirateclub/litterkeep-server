@@ -14,6 +14,8 @@ mod saslprep_data;
 pub mod scram_attributes;
 #[path = "sasl/scram_client_first.rs"]
 pub mod scram_client_first;
+#[path = "sasl/scram_server_first.rs"]
+pub mod scram_server_first;
 #[path = "sasl/scram_sha1_record.rs"]
 pub mod scram_sha1_record;
 #[path = "sasl/scram_sha1_verifier.rs"]
@@ -46,7 +48,7 @@ pub fn encode_plain(account: &str, password: &[u8]) -> String {
 }
 
 /// Строит стандартный base64 без переноса строк для SASL command argument.
-fn encode_base64(input: &[u8]) -> String {
+pub(crate) fn encode_base64(input: &[u8]) -> String {
     const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut output = String::with_capacity(input.len().div_ceil(3).saturating_mul(4));
     for chunk in input.chunks(3) {
