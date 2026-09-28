@@ -10465,3 +10465,24 @@ ManageSieve до заявленного набора современных фо
 - Это криптографическая основа, не поддержка SCRAM-SHA-256: verifier storage,
   state machine, протокольный wire acceptance и channel binding пока отсутствуют;
   механизм не рекламируется.
+
+### 2026-09-28: G18 SCRAM-SHA-256 verifier and record, T356 PARTIAL
+
+- Добавлены `ScramSha256Verifier` и независимый versioned
+  `litterkeep-scram-sha256-v1` record. Пароль подготавливается SASLprep до KDF;
+  SaltedPassword выдаётся bounded PBKDF2-HMAC-SHA-256 с локальным диапазоном
+  4096..200000 итераций. Proof проверяется constant-time сравнением StoredKey;
+  ServerKey формирует ответную подпись.
+- Unit regression воспроизводит опубликованный RFC 7677 §3 SCRAM-SHA-256 пример:
+  соль, client proof и server signature; отдельные проверки покрывают неверный
+  proof, SASLprep equivalents, пределы password/cost, строгий parse и record
+  encode/reopen round trip.
+- Windows Rust 1.97.1 all-target: 984 library + 1 CLI passed, 4 ignored;
+  fmt и strict Clippy прошли. Linux Rust 1.97.1 all-target: 1097 library +
+  1 CLI passed, 4 ignored; strict Clippy и release build прошли. Артефакты
+  этапа размещены в `./data/g18-scram-sha256-verifier`; использован прежний
+  Docker image, временные контейнеры удалены, новый image не создавался.
+- Отдельный record ещё не подключён к Accounts Store, ManageSieve command
+  lifecycle или protocol capability. Сквозной wire exchange, TLS resumption
+  policy и SCRAM-SHA-256-PLUS/channel binding не подтверждены; механизм не
+  рекламируется.

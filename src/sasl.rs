@@ -28,6 +28,10 @@ pub mod scram_server_first;
 pub mod scram_sha1_record;
 #[path = "sasl/scram_sha1_verifier.rs"]
 pub mod scram_sha1_verifier;
+#[path = "sasl/scram_sha256_record.rs"]
+pub mod scram_sha256_record;
+#[path = "sasl/scram_sha256_verifier.rs"]
+pub mod scram_sha256_verifier;
 #[path = "sasl/sha1.rs"]
 pub mod sha1;
 #[path = "sasl/sha256.rs"]
