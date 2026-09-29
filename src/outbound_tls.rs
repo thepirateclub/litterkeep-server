@@ -145,7 +145,9 @@ impl Connection {
             Some(DeliveryOutcome::PermanentFailure) => {
                 Err(io::Error::other("TLS SMTP peer rejected"))
             }
-            Some(DeliveryOutcome::Delivered) => Err(io::Error::other("unexpected SMTP outcome")),
+            Some(DeliveryOutcome::Delivered | DeliveryOutcome::Relayed) => {
+                Err(io::Error::other("unexpected successful SMTP outcome"))
+            }
         }
     }
 }

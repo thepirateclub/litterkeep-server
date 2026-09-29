@@ -76,10 +76,10 @@ impl ConnectionPool {
             )
         });
         match result {
-            Ok(DeliveryOutcome::Delivered) => {
+            Ok(outcome @ (DeliveryOutcome::Delivered | DeliveryOutcome::Relayed)) => {
                 self.idle.push(connection);
                 Ok(crate::outbound::DeliveryAttempt {
-                    outcome: DeliveryOutcome::Delivered,
+                    outcome,
                     diagnostic: None,
                 })
             }

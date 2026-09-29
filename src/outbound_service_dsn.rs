@@ -1,4 +1,4 @@
-//! Формирование и постановка идемпотентного failure DSN в Store owner.
+//! Формирование и постановка идемпотентного DSN notice в Store owner.
 
 use crate::{
     dsn,
@@ -15,20 +15,20 @@ pub(super) fn submit(
     ids: &mut u64,
     delivery: OwnedDelivery,
     bytes: Vec<u8>,
-    failure: dsn::Failure,
+    notice: dsn::Notice,
 ) -> io::Result<Phase> {
     let report_key = delivery
         .dsn_report_key()
         .ok_or_else(|| io::Error::other("terminal DSN notice has no idempotency key"))?;
     submit_request(
         storage,
-        Request::Dsn(DsnRequest::Failure {
+        Request::Dsn(DsnRequest::Report {
             request_id: next_id(ids)?,
             reverse_path: delivery.sender.clone(),
             recipient: delivery.recipient.clone(),
             transaction_id: delivery.transaction_id,
             original: bytes,
-            failure,
+            notice,
             dsn_metadata: delivery.dsn_metadata.clone(),
             diagnostic: delivery.dsn_diagnostic.clone(),
             report_key,

@@ -5,14 +5,14 @@ use std::io;
 /// Запрос Store owner-у на публикацию одного DSN outcome.
 #[derive(Debug)]
 pub enum DsnRequest {
-    /// Финальная ошибка исходящей SMTP-доставки.
-    Failure {
+    /// Публикация durable outcome исходящей SMTP-доставки.
+    Report {
         request_id: u64,
         reverse_path: String,
         recipient: String,
         transaction_id: u64,
         original: Vec<u8>,
-        failure: crate::dsn::Failure,
+        notice: crate::dsn::Notice,
         dsn_metadata: Option<Box<crate::queue::DsnDeliveryMetadata>>,
         diagnostic: Option<crate::smtp_reply_diagnostic::SmtpReplyDiagnostic>,
         report_key: crate::queue::DsnReportKey,
@@ -28,7 +28,7 @@ impl DsnRequest {
     /// Возвращает общий request ID для регистрации ожидания в reactor-е.
     pub fn request_id(&self) -> u64 {
         match self {
-            Self::Failure { request_id, .. } | Self::Success { request_id, .. } => *request_id,
+            Self::Report { request_id, .. } | Self::Success { request_id, .. } => *request_id,
         }
     }
 }
@@ -37,7 +37,7 @@ impl DsnRequest {
 #[derive(Debug)]
 pub enum DsnResponse {
     /// Положительное подтверждение либо отсутствие локального sender account.
-    Failure {
+    Report {
         request_id: u64,
         result: io::Result<Option<u64>>,
     },
@@ -52,7 +52,7 @@ impl DsnResponse {
     /// Возвращает ID исходного bounded запроса.
     pub fn request_id(&self) -> u64 {
         match self {
-            Self::Failure { request_id, .. } | Self::Success { request_id, .. } => *request_id,
+            Self::Report { request_id, .. } | Self::Success { request_id, .. } => *request_id,
         }
     }
 }

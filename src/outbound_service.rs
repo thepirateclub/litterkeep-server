@@ -102,7 +102,7 @@ pub(super) enum Phase {
     Blob(OwnedDelivery),
     Start(OwnedDelivery, Vec<u8>),
     Transport(OwnedDelivery, Vec<u8>),
-    Finalize(OwnedDelivery, Vec<u8>, Option<dsn::Failure>),
+    Finalize(OwnedDelivery, Vec<u8>, Option<dsn::Notice>),
     Dsn(OwnedDelivery),
     Acknowledge(OwnedDelivery),
     Finished,
@@ -162,8 +162,8 @@ fn handle_storage(
             Response::OutboundBlob {
                 result: Ok(bytes), ..
             },
-        ) if let Some(failure) = delivery.dsn_failure => {
-            dsn_request::submit(storage, ids, delivery, bytes, failure)
+        ) if let Some(notice) = delivery.dsn_notice => {
+            dsn_request::submit(storage, ids, delivery, bytes, notice)
         }
         (
             Phase::Blob(mut delivery),
@@ -211,9 +211,9 @@ fn handle_storage(
         },
         (
             Phase::Dsn(mut delivery),
-            Response::Dsn(crate::storage_worker::DsnResponse::Failure { result: Ok(_), .. }),
+            Response::Dsn(crate::storage_worker::DsnResponse::Report { result: Ok(_), .. }),
         ) => {
-            delivery.dsn_failure = None;
+            delivery.dsn_notice = None;
             delivery.dsn_diagnostic = None;
             let state = delivery.state;
             submit(
@@ -249,7 +249,7 @@ fn handle_storage(
         )
         | (
             _,
-            Response::Dsn(crate::storage_worker::DsnResponse::Failure {
+            Response::Dsn(crate::storage_worker::DsnResponse::Report {
                 result: Err(error), ..
             }),
         ) => Err(error),
@@ -268,16 +268,17 @@ fn handle_transport(
     match phase {
         Phase::Transport(mut delivery, bytes) => {
             let state = outbound_policy::state(&completion.result, delivery.attempts);
-            let failure = outbound_policy::requested_dsn_failure(
+            let notice = outbound_policy::requested_dsn_notice(
                 &completion.result,
                 delivery.attempts,
                 delivery.dsn_metadata.as_deref(),
             );
             delivery.state = state;
-            delivery.dsn_failure = failure;
-            delivery.dsn_diagnostic = match failure {
-                Some(_) => completion.diagnostic,
+            delivery.dsn_notice = notice;
+            delivery.dsn_diagnostic = match notice {
+                Some(dsn::Notice::Failure(_)) => completion.diagnostic,
                 None => None,
+                Some(dsn::Notice::Relayed) => None,
             };
             delivery.next_attempt_epoch =
                 outbound_policy::next_attempt_epoch(state, delivery.attempts, now_epoch()?);
@@ -289,7 +290,7 @@ fn handle_transport(
                     state,
                 },
             )?;
-            Ok(Phase::Finalize(delivery, bytes, failure))
+            Ok(Phase::Finalize(delivery, bytes, notice))
         }
         _ => Err(io::Error::other("unexpected transport completion")),
     }

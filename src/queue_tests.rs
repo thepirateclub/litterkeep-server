@@ -58,7 +58,7 @@ fn owned_delivery_is_invisible_until_store_commit() {
             recipient: "remote@test".into(),
             original_recipient_indices: Vec::new(),
             dsn_metadata: None,
-            dsn_failure: None,
+            dsn_notice: None,
             dsn_diagnostic: None,
             state: State::Pending
         }]
@@ -103,7 +103,7 @@ fn owned_transition_survives_reopen_and_removes_pending_job() {
         recipient: "remote@test".into(),
         original_recipient_indices: Vec::new(),
         dsn_metadata: None,
-        dsn_failure: None,
+        dsn_notice: None,
         dsn_diagnostic: None,
         state: State::Pending,
     };
@@ -140,7 +140,7 @@ fn interrupted_owned_delivery_is_deferred_on_reopen() {
         recipient: "remote@test".into(),
         original_recipient_indices: Vec::new(),
         dsn_metadata: None,
-        dsn_failure: None,
+        dsn_notice: None,
         dsn_diagnostic: None,
         state: State::Pending,
     };
@@ -182,7 +182,9 @@ fn terminal_failure_notice_is_recovered_as_due_work() {
         recipient: "remote@test".into(),
         original_recipient_indices: vec![0],
         dsn_metadata: None,
-        dsn_failure: Some(crate::dsn::Failure::PermanentSmtp),
+        dsn_notice: Some(crate::dsn::Notice::Failure(
+            crate::dsn::Failure::PermanentSmtp,
+        )),
         dsn_diagnostic: Some(
             crate::smtp_reply_diagnostic::SmtpReplyDiagnostic::new(
                 550,
@@ -210,7 +212,7 @@ fn terminal_failure_notice_is_recovered_as_due_work() {
         .expect("due terminal notice");
     assert_eq!(recovered, vec![delivery.clone()]);
 
-    delivery.dsn_failure = None;
+    delivery.dsn_notice = None;
     delivery.dsn_diagnostic = None;
     Queue::open(&directory)
         .expect("reopen for acknowledgement")
@@ -238,7 +240,7 @@ fn deferred_epoch_survives_reopen_and_gates_due_selection() {
         recipient: "remote@test".into(),
         original_recipient_indices: Vec::new(),
         dsn_metadata: None,
-        dsn_failure: None,
+        dsn_notice: None,
         dsn_diagnostic: None,
         state: State::Deferred,
     };

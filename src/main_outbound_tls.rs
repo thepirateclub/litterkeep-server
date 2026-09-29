@@ -48,7 +48,10 @@ pub(super) fn deliver() -> ExitCode {
         &recipient,
         &message,
     ) {
-        Ok(litterkeep_server::outbound::DeliveryOutcome::Delivered) => ExitCode::SUCCESS,
+        Ok(
+            litterkeep_server::outbound::DeliveryOutcome::Delivered
+            | litterkeep_server::outbound::DeliveryOutcome::Relayed,
+        ) => ExitCode::SUCCESS,
         Ok(litterkeep_server::outbound::DeliveryOutcome::Deferred) => {
             eprintln!("TLS delivery deferred by SMTP peer");
             ExitCode::FAILURE

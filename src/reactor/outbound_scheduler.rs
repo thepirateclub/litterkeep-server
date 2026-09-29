@@ -32,7 +32,7 @@ pub(super) enum Phase {
     Blob(u64, OwnedDelivery),
     Start(u64, OwnedDelivery, Vec<u8>),
     Transport(u64, OwnedDelivery, Vec<u8>),
-    Finalize(u64, OwnedDelivery, Vec<u8>, Option<dsn::Failure>),
+    Finalize(u64, OwnedDelivery, Vec<u8>, Option<dsn::Notice>),
     Dsn(u64, OwnedDelivery),
     AcknowledgeDsn(u64),
     Idle(Instant),
@@ -117,21 +117,22 @@ impl OutboundScheduler {
             self.phase = match phase {
                 Phase::Transport(job_id, mut delivery, bytes) if job_id == completion.id => {
                     let state = outbound_policy::state(&completion.result, delivery.attempts);
-                    let failure = outbound_policy::requested_dsn_failure(
+                    let notice = outbound_policy::requested_dsn_notice(
                         &completion.result,
                         delivery.attempts,
                         delivery.dsn_metadata.as_deref(),
                     );
                     delivery.state = state;
-                    delivery.dsn_failure = failure;
-                    delivery.dsn_diagnostic = match failure {
-                        Some(_) => completion.diagnostic,
+                    delivery.dsn_notice = notice;
+                    delivery.dsn_diagnostic = match notice {
+                        Some(dsn::Notice::Failure(_)) => completion.diagnostic,
                         None => None,
+                        Some(dsn::Notice::Relayed) => None,
                     };
                     delivery.next_attempt_epoch =
                         outbound_policy::next_attempt_epoch(state, delivery.attempts, now_epoch()?);
                     let id = self.submit_transition(storage, &delivery, state, lifecycle)?;
-                    Phase::Finalize(id, delivery, bytes, failure)
+                    Phase::Finalize(id, delivery, bytes, notice)
                 }
                 _ => return Err(io::Error::other("unowned outbound completion")),
             };
@@ -177,8 +178,8 @@ impl OutboundScheduler {
                 Response::OutboundBlob {
                     result: Ok(bytes), ..
                 },
-            ) if let Some(failure) = delivery.dsn_failure => {
-                self.submit_dsn(storage, delivery, bytes, failure, lifecycle)
+            ) if let Some(notice) = delivery.dsn_notice => {
+                self.submit_dsn(storage, delivery, bytes, notice, lifecycle)
             }
             (
                 Phase::Blob(_, mut delivery),
@@ -227,11 +228,9 @@ impl OutboundScheduler {
             }
             (
                 Phase::Dsn(_, mut delivery),
-                Response::Dsn(crate::storage_worker::DsnResponse::Failure {
-                    result: Ok(_), ..
-                }),
+                Response::Dsn(crate::storage_worker::DsnResponse::Report { result: Ok(_), .. }),
             ) => {
-                delivery.dsn_failure = None;
+                delivery.dsn_notice = None;
                 delivery.dsn_diagnostic = None;
                 let state = delivery.state;
                 let id = self.submit_transition(storage, &delivery, state, lifecycle)?;
@@ -257,7 +256,7 @@ impl OutboundScheduler {
             )
             | (
                 _,
-                Response::Dsn(crate::storage_worker::DsnResponse::Failure {
+                Response::Dsn(crate::storage_worker::DsnResponse::Report {
                     result: Err(error),
                     ..
                 }),

@@ -79,7 +79,7 @@ pub fn run(config: &SeedConfig) -> io::Result<SeedReport> {
                     recipients.push(recipient.clone());
                 }
                 match smtp.deliver_many("alice@litterkeep.test", &recipients, &item.message)? {
-                    DeliveryOutcome::Delivered => {}
+                    DeliveryOutcome::Delivered | DeliveryOutcome::Relayed => {}
                     DeliveryOutcome::Deferred => {
                         return Err(io::Error::other("seed SMTP deferred"));
                     }

@@ -1,7 +1,7 @@
 //! Запись owned delivery и его переходов в durable очередь.
 
 use super::{
-    OwnedDelivery, Queue, State, encode_dsn_failure, encode_sender, queue_owned, validate_token,
+    OwnedDelivery, Queue, State, encode_dsn_notice, encode_sender, queue_owned, validate_token,
 };
 use std::{
     fs::OpenOptions,
@@ -70,7 +70,7 @@ impl Queue {
             sender_token,
             delivery.recipient,
             queue_owned::encode_recipient_indices(&delivery.original_recipient_indices),
-            encode_dsn_failure(delivery.dsn_failure),
+            encode_dsn_notice(delivery.dsn_notice),
             delivery
                 .dsn_diagnostic
                 .as_ref()

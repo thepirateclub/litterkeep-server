@@ -41,9 +41,9 @@ pub fn drain_at(
     let result = (|| {
         for mut delivery in store.due_outbound(now_epoch)?.into_iter().take(limit) {
             let payload = store.outbound_blob(&delivery)?;
-            if let Some(failure) = delivery.dsn_failure {
-                publish_dsn(store, accounts, &delivery, &payload, failure)?;
-                delivery.dsn_failure = None;
+            if let Some(notice) = delivery.dsn_notice {
+                publish_dsn(store, accounts, &delivery, &payload, notice)?;
+                delivery.dsn_notice = None;
                 delivery.dsn_diagnostic = None;
                 store.transition_outbound(&delivery, delivery.state)?;
                 record(&mut report, delivery.state);
@@ -56,41 +56,42 @@ pub fn drain_at(
             delivery.state = State::InFlight;
             store.transition_outbound(&delivery, State::InFlight)?;
             let attempt = pool.deliver_detailed(&delivery.sender, &delivery.recipient, &payload);
-            let (state, dsn_failure, diagnostic) = match attempt {
+            let (state, dsn_notice, diagnostic) = match attempt {
                 Ok(attempt) => {
                     let result = Ok(attempt.outcome);
                     let state = outbound_policy::state(&result, delivery.attempts);
-                    let failure = outbound_policy::requested_dsn_failure(
+                    let notice = outbound_policy::requested_dsn_notice(
                         &result,
                         delivery.attempts,
                         delivery.dsn_metadata.as_deref(),
                     );
-                    let diagnostic = match failure {
-                        Some(_) => attempt.diagnostic,
+                    let diagnostic = match notice {
+                        Some(dsn::Notice::Failure(_)) => attempt.diagnostic,
                         None => None,
+                        Some(dsn::Notice::Relayed) => None,
                     };
-                    (state, failure, diagnostic)
+                    (state, notice, diagnostic)
                 }
                 Err(error) => {
                     let result = Err(error);
                     let state = outbound_policy::state(&result, delivery.attempts);
-                    let failure = outbound_policy::requested_dsn_failure(
+                    let notice = outbound_policy::requested_dsn_notice(
                         &result,
                         delivery.attempts,
                         delivery.dsn_metadata.as_deref(),
                     );
-                    (state, failure, None)
+                    (state, notice, None)
                 }
             };
             delivery.state = state;
-            delivery.dsn_failure = dsn_failure;
+            delivery.dsn_notice = dsn_notice;
             delivery.dsn_diagnostic = diagnostic;
             delivery.next_attempt_epoch =
                 outbound_policy::next_attempt_epoch(state, delivery.attempts, now_epoch);
             store.transition_outbound(&delivery, state)?;
-            if let Some(failure) = dsn_failure {
-                publish_dsn(store, accounts, &delivery, &payload, failure)?;
-                delivery.dsn_failure = None;
+            if let Some(notice) = delivery.dsn_notice {
+                publish_dsn(store, accounts, &delivery, &payload, notice)?;
+                delivery.dsn_notice = None;
                 delivery.dsn_diagnostic = None;
                 store.transition_outbound(&delivery, state)?;
             }
@@ -125,7 +126,7 @@ fn publish_dsn(
     accounts: &Accounts,
     delivery: &crate::queue::OwnedDelivery,
     payload: &[u8],
-    failure: dsn::Failure,
+    notice: dsn::Notice,
 ) -> io::Result<()> {
     let target = match (
         local_route::local_mailbox(&delivery.sender),
@@ -137,12 +138,12 @@ fn publish_dsn(
         (Some(_), _) | (None, true) => return Ok(()),
         (None, false) => crate::dsn_target::DsnTarget::OutboundAddress(delivery.sender.clone()),
     };
-    let Some(report) = dsn::render_with_diagnostic(
+    let Some(report) = dsn::render_notice_with_diagnostic(
         &delivery.sender,
         &delivery.recipient,
         delivery.transaction_id,
         payload,
-        failure,
+        notice,
         delivery.dsn_metadata.as_deref(),
         delivery.dsn_diagnostic.as_ref(),
     ) else {

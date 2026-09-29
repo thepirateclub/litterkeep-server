@@ -2,7 +2,6 @@
 
 use super::super::{AppendStage, SieveDiagnostic, Store, StoreFailpoint};
 use std::{fs, time::*};
-
 #[test]
 fn invoice_plan_delivers_to_invoices_and_default_goes_to_inbox() {
     let root = directory();
@@ -53,7 +52,7 @@ fn redirect_cancels_implicit_keep_and_preserves_envelope_sender() {
         recipient: "remote@peer.test".into(),
         original_recipient_indices: vec![0],
         dsn_metadata: None,
-        dsn_failure: None,
+        dsn_notice: None,
         dsn_diagnostic: None,
         state: crate::queue::State::Pending,
     };

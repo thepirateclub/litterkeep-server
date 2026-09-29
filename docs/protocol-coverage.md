@@ -82,8 +82,13 @@ mailbox delivery. Задержанные уведомления пока не с
 RCPT с одним forward destination outbound worker передаёт исходные MAIL
 `RET`/`ENVID` и RCPT `NOTIFY`/`ORCPT`, если downstream EHLO объявил `DSN`;
 xtext сохраняет исходные octets; UTF-8 ORCPT сериализуется 7-bit-safe RFC 6533
-unitext. RFC параметры не отправляются peer без capability, но обязательные
-локальные `relayed` DSN по RFC 3461 §5.2.2 пока не создаются. Multi-origin
+unitext. Если downstream не объявил `DSN`, параметры не отправляются; для
+single-origin маршрута с явным `NOTIFY=SUCCESS` durable очередь публикует
+`Action: relayed`, `Status: 2.0.0` (T414). Linux Store-to-SMTP acceptance
+передаёт исходник и report двум независимым SMTP session, проверяет поля report,
+отсутствие тела и очистку очереди; отдельные тесты проверяют reopen journal.
+Это не Litterkeep-клиент. Downstream DSN-aware
+SUCCESS/DELAY отчёты и полная multi-origin
 aliases остаются в durable retry (`Deferred`) после EHLO и до MAIL/RCPT, пока
 не реализована стратегия RFC 3461 §5.2.7.3, включая
 `expanded` report; это сохраняет письмо, но требует исправления/операторского

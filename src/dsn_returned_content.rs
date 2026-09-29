@@ -13,7 +13,7 @@ pub(super) fn returned_message_type(
     metadata: Option<&DsnDeliveryMetadata>,
 ) -> &'static str {
     let headers_only = match outcome {
-        ReportOutcome::Delivered => true,
+        ReportOutcome::Delivered | ReportOutcome::Relayed => true,
         ReportOutcome::Failure(_) => metadata
             .and_then(|value| value.mail.return_content)
             .is_some_and(|value| value == ReturnContent::Headers),

@@ -13,6 +13,9 @@ mod queue_enqueue;
 mod queue_origin_tests;
 #[path = "queue_owned.rs"]
 mod queue_owned;
+#[cfg(test)]
+#[path = "queue_relay_notice_tests.rs"]
+mod relay_notice_tests;
 #[derive(Debug)]
 pub struct Queue {
     path: PathBuf,
@@ -75,7 +78,7 @@ pub struct DsnDeliveryMetadata {
     pub origin_recipients: Vec<Option<crate::smtp::RecipientDsn>>,
 }
 
-/// Идемпотентная идентичность failure DSN для одной durable queue job.
+/// Идемпотентная идентичность DSN notice для одной durable queue job.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct DsnReportKey {
     /// Глобальный ID исходной Store transaction.
@@ -84,8 +87,8 @@ pub struct DsnReportKey {
     pub recipient: String,
     /// Все исходные SMTP RCPT, сведённые в этот durable маршрут.
     pub original_recipient_indices: Vec<usize>,
-    /// Терминальная причина, включённая в сохраняемый report.
-    pub failure: crate::dsn::Failure,
+    /// Outcome, включённый в сохраняемый report.
+    pub notice: crate::dsn::Notice,
 }
 
 /// Идемпотентная идентичность committed SMTP local-success уведомления.
@@ -133,9 +136,9 @@ pub struct OwnedDelivery {
     pub original_recipient_indices: Vec<usize>,
     /// Typed DSN данные исходной transaction, подставляемые Store при чтении.
     pub dsn_metadata: Option<Box<DsnDeliveryMetadata>>,
-    /// Failure DSN, который ещё должен быть опубликован после recovery.
-    pub dsn_failure: Option<crate::dsn::Failure>,
-    /// Ответ удалённого SMTP peer, зафиксированный вместе с failure notice.
+    /// DSN notice, который ещё должен быть опубликован после recovery.
+    pub dsn_notice: Option<crate::dsn::Notice>,
+    /// Ответ удалённого SMTP peer, зафиксированный вместе с notice.
     pub(crate) dsn_diagnostic: Option<crate::smtp_reply_diagnostic::SmtpReplyDiagnostic>,
     pub state: State,
 }
@@ -143,11 +146,11 @@ pub struct OwnedDelivery {
 impl OwnedDelivery {
     /// Формирует стабильный ключ отчёта из durable identity queue job.
     pub fn dsn_report_key(&self) -> Option<DsnReportKey> {
-        self.dsn_failure.map(|failure| DsnReportKey {
+        self.dsn_notice.map(|notice| DsnReportKey {
             transaction_id: self.transaction_id,
             recipient: self.recipient.clone(),
             original_recipient_indices: self.original_recipient_indices.clone(),
-            failure,
+            notice,
         })
     }
 }
@@ -224,9 +227,9 @@ impl Queue {
     }
 }
 
-/// Кодирует durable failure notice без свободного текстового значения.
-fn encode_dsn_failure(failure: Option<crate::dsn::Failure>) -> &'static str {
-    match failure {
+/// Кодирует durable notice без свободного текстового значения.
+fn encode_dsn_notice(notice: Option<crate::dsn::Notice>) -> &'static str {
+    match notice {
         Some(value) => value.journal_tag(),
         None => "-",
     }

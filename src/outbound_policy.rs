@@ -18,7 +18,7 @@ const MAX_RETRY_SECONDS: u64 = 3_600;
 /// Выбирает durable state после одной завершённой SMTP попытки.
 pub fn state(result: &io::Result<DeliveryOutcome>, attempts: u8) -> State {
     match result {
-        Ok(DeliveryOutcome::Delivered) => State::Delivered,
+        Ok(DeliveryOutcome::Delivered | DeliveryOutcome::Relayed) => State::Delivered,
         Err(error) if error.kind() == io::ErrorKind::InvalidInput => State::PermanentFailure,
         Ok(DeliveryOutcome::Deferred) | Err(_) => match attempts >= MAX_ATTEMPTS {
             true => State::PermanentFailure,
@@ -45,7 +45,7 @@ pub fn next_attempt_epoch(state: State, attempts: u8, now_epoch: u64) -> u64 {
 /// Строит typed DSN cause только для terminal failure текущего job.
 pub fn dsn_failure(result: &io::Result<DeliveryOutcome>, attempts: u8) -> Option<dsn::Failure> {
     match (result, attempts >= MAX_ATTEMPTS) {
-        (Ok(DeliveryOutcome::Delivered), _) => None,
+        (Ok(DeliveryOutcome::Delivered | DeliveryOutcome::Relayed), _) => None,
         (Ok(DeliveryOutcome::PermanentFailure), _) => Some(dsn::Failure::PermanentSmtp),
         (Err(error), _) if error.kind() == io::ErrorKind::InvalidInput => {
             Some(dsn::Failure::RoutePolicy)
@@ -62,6 +62,20 @@ pub fn requested_dsn_failure(
     metadata: Option<&DsnDeliveryMetadata>,
 ) -> Option<dsn::Failure> {
     dsn_failure(result, attempts).filter(|_| dsn::failure_requested(metadata))
+}
+
+/// Создаёт RFC 3461 relay notice после подтверждённой доставки без DSN peer.
+pub fn requested_dsn_notice(
+    result: &io::Result<DeliveryOutcome>,
+    attempts: u8,
+    metadata: Option<&DsnDeliveryMetadata>,
+) -> Option<dsn::Notice> {
+    match result {
+        Ok(DeliveryOutcome::Relayed) if dsn::success_requested(metadata) => {
+            Some(dsn::Notice::Relayed)
+        }
+        _ => requested_dsn_failure(result, attempts, metadata).map(dsn::Notice::Failure),
+    }
 }
 
 #[cfg(test)]
@@ -146,6 +160,25 @@ mod tests {
         );
         let never = dsn_metadata(NotifyPolicy::Never);
         assert_eq!(requested_dsn_failure(&failure, 1, Some(&never)), None);
+    }
+
+    /// Только explicit SUCCESS создаёт local relay report после принятия peer.
+    #[test]
+    fn relayed_notice_requires_explicit_success_policy() {
+        let relayed = Ok(DeliveryOutcome::Relayed);
+        let success = dsn_metadata(NotifyPolicy::Conditions(
+            [NotifyCondition::Success].into_iter().collect(),
+        ));
+        let failure = dsn_metadata(NotifyPolicy::Conditions(
+            [NotifyCondition::Failure].into_iter().collect(),
+        ));
+
+        assert_eq!(
+            requested_dsn_notice(&relayed, 1, Some(&success)),
+            Some(dsn::Notice::Relayed)
+        );
+        assert_eq!(requested_dsn_notice(&relayed, 1, Some(&failure)), None);
+        assert_eq!(requested_dsn_notice(&relayed, 1, None), None);
     }
 
     fn dsn_metadata(notify: NotifyPolicy) -> DsnDeliveryMetadata {

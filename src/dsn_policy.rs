@@ -46,6 +46,19 @@ pub fn failure_requested(metadata: Option<&DsnDeliveryMetadata>) -> bool {
     }
 }
 
+/// Проверяет явный SUCCESS хотя бы одного исходного получателя.
+pub fn success_requested(metadata: Option<&DsnDeliveryMetadata>) -> bool {
+    let Some(metadata) = metadata else {
+        return false;
+    };
+    match metadata.origin_recipients.is_empty() {
+        true => notification_allowed(Some(metadata), NotifyCondition::Success),
+        false => metadata.origin_recipients.iter().any(|recipient| {
+            notification_allowed_for_recipient(recipient.as_ref(), NotifyCondition::Success)
+        }),
+    }
+}
+
 /// Применяет RFC default при отсутствии параметра NOTIFY.
 fn default_allows(condition: NotifyCondition) -> bool {
     match condition {

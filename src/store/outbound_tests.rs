@@ -5,6 +5,13 @@ use std::fs;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[cfg(target_os = "linux")]
+#[path = "outbound_relay_dsn_tests.rs"]
+mod relay_delivery;
+#[cfg(target_os = "linux")]
+#[path = "outbound_service_tests.rs"]
+mod service_delivery;
+
 static RUN: AtomicU64 = AtomicU64::new(0);
 
 /// Создаёт изолированный Store root для одной queue handoff проверки.

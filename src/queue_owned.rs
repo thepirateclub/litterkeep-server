@@ -12,7 +12,7 @@ type ParsedOwned<'a> = (
     &'a str,
     &'a str,
     Vec<usize>,
-    Option<crate::dsn::Failure>,
+    Option<crate::dsn::Notice>,
     Option<crate::smtp_reply_diagnostic::SmtpReplyDiagnostic>,
 );
 
@@ -49,7 +49,7 @@ impl Queue {
             .into_values()
             .filter(|delivery| visible(delivery, committed))
             .filter(|delivery| {
-                delivery.dsn_failure.is_some() || delivery.next_attempt_epoch <= now_epoch
+                delivery.dsn_notice.is_some() || delivery.next_attempt_epoch <= now_epoch
             })
             .collect())
     }
@@ -104,7 +104,7 @@ fn parse_owned(line: &str) -> io::Result<Option<OwnedDelivery>> {
         sender,
         recipient,
         original_recipient_indices,
-        dsn_failure,
+        dsn_notice,
         dsn_diagnostic,
     ) = match candidate.parse::<u8>() {
         Ok(attempts) => parse_versioned(attempts, fourth, &mut fields)?,
@@ -126,7 +126,7 @@ fn parse_owned(line: &str) -> io::Result<Option<OwnedDelivery>> {
         recipient: recipient.into(),
         original_recipient_indices,
         dsn_metadata: None,
-        dsn_failure,
+        dsn_notice,
         dsn_diagnostic,
         state,
     }))
@@ -167,10 +167,10 @@ fn parse_current_fields<'a>(
         None | Some("-") => Vec::new(),
         Some(value) => parse_recipient_indices(value)?,
     };
-    let dsn_failure = match fields.next() {
+    let dsn_notice = match fields.next() {
         None | Some("-") => None,
         Some(value) => Some(
-            crate::dsn::Failure::from_journal_tag(value)
+            crate::dsn::Notice::from_journal_tag(value)
                 .ok_or_else(|| invalid("bad owned DSN notice"))?,
         ),
     };
@@ -187,7 +187,7 @@ fn parse_current_fields<'a>(
             sender,
             recipient,
             original_recipient_indices,
-            dsn_failure,
+            dsn_notice,
             dsn_diagnostic,
         )),
         Some(_) => Err(invalid("bad current owned queue record")),
@@ -262,12 +262,14 @@ fn parse_legacy<'a>(
 }
 
 fn visible(delivery: &OwnedDelivery, committed: &HashSet<u64>) -> bool {
+    let retryable = matches!(delivery.state, State::Pending | State::Deferred);
+    let report_pending = delivery.dsn_notice.is_some();
     match (
         committed.contains(&delivery.transaction_id),
-        matches!(delivery.state, State::Pending | State::Deferred)
-            || delivery.dsn_failure.is_some(),
+        retryable,
+        report_pending,
     ) {
-        (true, true) => true,
-        (true, false) | (false, _) => false,
+        (true, true, _) | (true, false, true) => true,
+        (true, false, false) | (false, _, _) => false,
     }
 }

@@ -1,10 +1,10 @@
-//! Идемпотентная публикация failure DSN через общую Store-транзакцию.
+//! Идемпотентная публикация DSN notice через общую Store-транзакцию.
 
 use super::{AppendExtensions, AppendMetadata, Store};
 use std::io;
 
 impl Store {
-    /// Публикует один failure DSN для queue job и возвращает его transaction ID.
+    /// Публикует один DSN notice для queue job и возвращает transaction ID.
     pub(crate) fn append_dsn_report_once(
         &mut self,
         target: crate::dsn_target::DsnTarget,

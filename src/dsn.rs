@@ -12,7 +12,7 @@ mod policy;
 #[path = "dsn_report.rs"]
 mod report;
 pub(crate) use policy::notification_allowed_for_recipient;
-pub use policy::{failure_requested, notification_allowed};
+pub use policy::{failure_requested, notification_allowed, success_requested};
 
 /// Окончательная причина, показываемая локальному отправителю.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -20,6 +20,34 @@ pub enum Failure {
     PermanentSmtp,
     RoutePolicy,
     RetryExhausted,
+}
+
+/// Тип сохраняемого уведомления, независимый от конкретной причины отказа.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum Notice {
+    Failure(Failure),
+    Relayed,
+}
+
+impl Notice {
+    /// Стабильный токен для журналов очереди и идемпотентности.
+    pub(crate) fn journal_tag(self) -> &'static str {
+        match self {
+            Self::Failure(failure) => failure.journal_tag(),
+            Self::Relayed => "relayed",
+        }
+    }
+
+    /// Читает новый формат и сохранённые ранее failure-only записи.
+    pub(crate) fn from_journal_tag(value: &str) -> Option<Self> {
+        match Failure::from_journal_tag(value) {
+            Some(failure) => Some(Self::Failure(failure)),
+            None => match value {
+                "relayed" => Some(Self::Relayed),
+                _ => None,
+            },
+        }
+    }
 }
 
 impl Failure {
@@ -43,7 +71,7 @@ impl Failure {
     }
 }
 
-/// Полный неизменяемый контекст сериализации одного failure DSN.
+/// Полный неизменяемый контекст сериализации одного DSN notice.
 pub struct ReportRequest<'a> {
     /// Исходный reverse-path, которому принадлежит DSN.
     pub reverse_path: &'a str,
@@ -53,8 +81,8 @@ pub struct ReportRequest<'a> {
     pub transaction_id: u64,
     /// Байты принятого исходного письма.
     pub original: &'a [u8],
-    /// Типизированная окончательная причина отказа.
-    pub failure: Failure,
+    /// Типизированный исход delivery, а не произвольная строка отчёта.
+    pub notice: Notice,
     /// Сохранённые MAIL/RCPT параметры RFC 3461, если они известны.
     pub metadata: Option<&'a DsnDeliveryMetadata>,
     /// Последний полученный SMTP diagnostic, если отказ ответил удалённый peer.
@@ -68,6 +96,8 @@ pub(crate) enum ReportOutcome {
     Failure(Failure),
     /// Локальное письмо уже стало доступно клиенту получателя.
     Delivered,
+    /// Успешное принятие сообщения следующей SMTP-системой.
+    Relayed,
 }
 
 /// Решает, разрешает ли сохранённая RCPT policy failure report.
@@ -139,6 +169,40 @@ pub(crate) fn render_with_diagnostic(
     }
 }
 
+/// Формирует сохранённое failure либо relay уведомление с одной общей policy.
+pub(crate) fn render_notice_with_diagnostic(
+    reverse_path: &str,
+    recipient: &str,
+    transaction_id: u64,
+    original: &[u8],
+    notice: Notice,
+    metadata: Option<&DsnDeliveryMetadata>,
+    diagnostic: Option<&crate::smtp_reply_diagnostic::SmtpReplyDiagnostic>,
+) -> Option<Vec<u8>> {
+    let requested = match notice {
+        Notice::Failure(_) => failure_requested(metadata),
+        Notice::Relayed => success_requested(metadata),
+    };
+    match (reverse_path.is_empty(), requested) {
+        (false, true) => {
+            let outcome = match notice {
+                Notice::Failure(failure) => ReportOutcome::Failure(failure),
+                Notice::Relayed => ReportOutcome::Relayed,
+            };
+            Some(report::render_with_diagnostic(
+                reverse_path,
+                recipient,
+                transaction_id,
+                original,
+                outcome,
+                metadata,
+                diagnostic,
+            ))
+        }
+        (true, _) | (false, false) => None,
+    }
+}
+
 /// Проверяет, остался ли хотя бы один RCPT, имеющий право получить failure DSN.
 fn has_failure_recipient(metadata: Option<&DsnDeliveryMetadata>) -> bool {
     let Some(metadata) = metadata else {
@@ -182,17 +246,20 @@ pub fn render_delivery_success(
 
 /// Строит отчёт из агрегированного контекста без потери RCPT-корреляции.
 pub fn render_request(request: ReportRequest<'_>) -> Option<Vec<u8>> {
-    render_with_diagnostic(
+    render_notice_with_diagnostic(
         request.reverse_path,
         request.recipient,
         request.transaction_id,
         request.original,
-        request.failure,
+        request.notice,
         request.metadata,
         request.diagnostic,
     )
 }
 
+#[cfg(test)]
+#[path = "dsn_relay_tests.rs"]
+mod relay_tests;
 #[cfg(test)]
 #[path = "dsn_tests.rs"]
 mod tests;

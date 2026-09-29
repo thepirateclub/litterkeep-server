@@ -173,7 +173,7 @@ pub(crate) fn expect_success<R: BufRead>(
             io::ErrorKind::ConnectionAborted,
             "SMTP peer sent 421 and is closing the channel",
         )),
-        ReplyResult::Rejected(DeliveryOutcome::Delivered) => {
+        ReplyResult::Rejected(DeliveryOutcome::Delivered | DeliveryOutcome::Relayed) => {
             Err(io::Error::other("unexpected SMTP outcome"))
         }
     }

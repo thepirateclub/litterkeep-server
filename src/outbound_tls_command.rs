@@ -30,7 +30,7 @@ pub(super) fn expect_success(
         outbound::ReplyResult::Rejected(DeliveryOutcome::PermanentFailure) => {
             Err(io::Error::other("TLS SMTP peer rejected"))
         }
-        outbound::ReplyResult::Rejected(DeliveryOutcome::Delivered) => {
+        outbound::ReplyResult::Rejected(DeliveryOutcome::Delivered | DeliveryOutcome::Relayed) => {
             Err(io::Error::other("unexpected SMTP outcome"))
         }
         outbound::ReplyResult::Closing => Err(io::Error::new(

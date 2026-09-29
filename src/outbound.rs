@@ -99,6 +99,8 @@ impl TransportLimits {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DeliveryOutcome {
     Delivered,
+    /// Peer принял письмо без DSN расширения; локальный relay notice обязателен.
+    Relayed,
     Deferred,
     PermanentFailure,
 }
@@ -198,7 +200,9 @@ impl Connection {
             Some(DeliveryOutcome::PermanentFailure) => {
                 Err(io::Error::other("SMTP peer rejected command"))
             }
-            Some(DeliveryOutcome::Delivered) => Err(io::Error::other("unexpected SMTP outcome")),
+            Some(DeliveryOutcome::Delivered | DeliveryOutcome::Relayed) => {
+                Err(io::Error::other("unexpected successful SMTP outcome"))
+            }
         }
     }
 }

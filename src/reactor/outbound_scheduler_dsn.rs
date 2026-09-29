@@ -1,4 +1,4 @@
-//! Публикация recovery-safe failure DSN из scheduler-а.
+//! Публикация recovery-safe DSN notice из scheduler-а.
 
 use super::{Orchestrator, OutboundScheduler, Phase, Session, scheduler_lifecycle};
 use crate::runtime::Event;
@@ -17,7 +17,7 @@ impl OutboundScheduler {
         storage: &WakingStorageWorker,
         delivery: OwnedDelivery,
         bytes: Vec<u8>,
-        failure: dsn::Failure,
+        notice: dsn::Notice,
         lifecycle: &mut Orchestrator<Session>,
     ) -> io::Result<Phase> {
         let report_key = delivery
@@ -29,13 +29,13 @@ impl OutboundScheduler {
             .ok_or_else(|| io::Error::other("outbound scheduler request IDs exhausted"))?;
         submit(
             storage,
-            Request::Dsn(DsnRequest::Failure {
+            Request::Dsn(DsnRequest::Report {
                 request_id: id,
                 reverse_path: delivery.sender.clone(),
                 recipient: delivery.recipient.clone(),
                 transaction_id: delivery.transaction_id,
                 original: bytes,
-                failure,
+                notice,
                 dsn_metadata: delivery.dsn_metadata.clone(),
                 diagnostic: delivery.dsn_diagnostic.clone(),
                 report_key,

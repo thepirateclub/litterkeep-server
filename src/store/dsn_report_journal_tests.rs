@@ -23,7 +23,7 @@ fn key() -> DsnReportKey {
         transaction_id: 7,
         recipient: "bob@example.test".into(),
         original_recipient_indices: vec![2, 4],
-        failure: crate::dsn::Failure::PermanentSmtp,
+        notice: crate::dsn::Notice::Failure(crate::dsn::Failure::PermanentSmtp),
     }
 }
 
@@ -64,6 +64,38 @@ fn report_is_idempotent_across_store_reopen() {
         messages.first().map(|message| message.bytes.as_slice()),
         Some(b"failure report".as_slice())
     );
+    drop(reopened);
+    fs::remove_dir_all(directory).expect("cleanup");
+}
+
+/// Relay notice identity survives the Store journal and deduplicates after restart.
+#[test]
+fn relayed_notice_key_is_idempotent_across_store_reopen() {
+    let directory = root();
+    let mut relay_key = key();
+    relay_key.notice = crate::dsn::Notice::Relayed;
+    let mut store = Store::open(&directory).expect("open Store");
+    let first = store
+        .append_dsn_report_once(
+            crate::dsn_target::DsnTarget::LocalMailbox("alice".into()),
+            b"relayed report",
+            &relay_key,
+        )
+        .expect("first relay notice")
+        .expect("local relay notice");
+    drop(store);
+
+    let mut reopened = Store::open(&directory).expect("reopen Store");
+    let repeated = reopened
+        .append_dsn_report_once(
+            crate::dsn_target::DsnTarget::LocalMailbox("alice".into()),
+            b"duplicate relay report",
+            &relay_key,
+        )
+        .expect("recovered relay key");
+
+    assert_eq!(repeated, Some(first));
+    assert_eq!(reopened.messages("alice").expect("messages").len(), 1);
     drop(reopened);
     fs::remove_dir_all(directory).expect("cleanup");
 }

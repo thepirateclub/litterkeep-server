@@ -65,7 +65,11 @@ impl Connection {
         if let Some(outcome) = self.expect_command(ReplyExpectation::Recipient)? {
             return Ok(outcome);
         }
-        self.transfer_body(message, binary)
+        let outcome = self.transfer_body(message, binary)?;
+        match (outcome, dsn, relay_success_requested(metadata)) {
+            (DeliveryOutcome::Delivered, false, true) => Ok(DeliveryOutcome::Relayed),
+            (other, _, _) => Ok(other),
+        }
     }
 
     /// Передаёт body через единственный допустимый DATA или BINARYMIME путь.
@@ -113,4 +117,9 @@ impl Connection {
             &mut self.close_after_response,
         ))
     }
+}
+
+/// Определяет явный запрос SUCCESS исходным единственным RCPT.
+fn relay_success_requested(metadata: Option<&crate::queue::DsnDeliveryMetadata>) -> bool {
+    crate::dsn::success_requested(metadata)
 }

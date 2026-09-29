@@ -233,17 +233,17 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
             request_id,
             result: store.check_sieve_script(&source),
         },
-        Request::Dsn(super::message::DsnRequest::Failure {
+        Request::Dsn(super::message::DsnRequest::Report {
             request_id,
             reverse_path,
             recipient,
             transaction_id,
             original,
-            failure,
+            notice,
             dsn_metadata,
             diagnostic,
             report_key,
-        }) => Response::Dsn(super::message::DsnResponse::Failure {
+        }) => Response::Dsn(super::message::DsnResponse::Report {
             request_id,
             result: super::dsn_delivery::append(
                 store,
@@ -253,7 +253,7 @@ pub(super) fn respond(store: &mut Store, accounts: &Accounts, request: Request) 
                     recipient: &recipient,
                     transaction_id,
                     original: &original,
-                    failure,
+                    notice,
                     metadata: dsn_metadata.as_deref(),
                     diagnostic: diagnostic.as_ref(),
                 },

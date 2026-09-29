@@ -1,11 +1,17 @@
 //! Сериализация MIME-отчёта RFC 3464 с параметрами RFC 3461.
 
 use crate::{
-    dsn::{Failure, ReportOutcome},
+    dsn::ReportOutcome,
     queue::DsnDeliveryMetadata,
     smtp::{OriginalAddressType, ReturnContent},
     smtp_reply_diagnostic::SmtpReplyDiagnostic,
 };
+
+#[path = "dsn_report_fields.rs"]
+mod fields;
+#[cfg(test)]
+use crate::dsn::Failure;
+use fields::report_fields;
 
 #[path = "dsn_returned_content.rs"]
 mod returned_content;
@@ -15,7 +21,7 @@ use returned_content::{returned_content_contains, returned_message_type};
 #[path = "dsn_recipient.rs"]
 mod recipient;
 
-/// Формирует failure DSN multipart/report для одного исходного RCPT.
+/// Формирует RFC 3464 multipart/report для одного исходного RCPT.
 pub(super) fn render(
     reverse_path: &str,
     recipient: &str,
@@ -88,7 +94,7 @@ fn returned_content<'a>(
     metadata: Option<&DsnDeliveryMetadata>,
 ) -> &'a [u8] {
     let headers_only = match outcome {
-        ReportOutcome::Delivered => true,
+        ReportOutcome::Delivered | ReportOutcome::Relayed => true,
         ReportOutcome::Failure(_) => metadata
             .and_then(|value| value.mail.return_content)
             .is_some_and(|value| value == ReturnContent::Headers),
@@ -164,7 +170,7 @@ fn origin_notification_allowed(
     outcome: ReportOutcome,
 ) -> bool {
     let condition = match outcome {
-        ReportOutcome::Delivered => crate::smtp::NotifyCondition::Success,
+        ReportOutcome::Delivered | ReportOutcome::Relayed => crate::smtp::NotifyCondition::Success,
         ReportOutcome::Failure(_) => crate::smtp::NotifyCondition::Failure,
     };
     crate::dsn::notification_allowed_for_recipient(recipient, condition)
@@ -240,36 +246,6 @@ fn delivery_status_type(recipient: &str, metadata: Option<&DsnDeliveryMetadata>)
     match original_is_utf8 || !recipient.is_ascii() {
         true => "message/global-delivery-status",
         false => "message/delivery-status",
-    }
-}
-
-/// Выбирает обычный или SMTPUTF8 media type для возвращённых заголовков.
-/// Возвращает согласованные поля текста, Action и Status для outcome.
-fn report_fields(
-    outcome: ReportOutcome,
-) -> (&'static str, &'static str, &'static str, &'static str) {
-    match outcome {
-        ReportOutcome::Delivered => (
-            "Success",
-            "Your message was successfully delivered to",
-            "delivered",
-            "2.0.0",
-        ),
-        ReportOutcome::Failure(failure) => match failure {
-            Failure::PermanentSmtp => ("Failure", "Delivery failed for", "failed", "5.0.0"),
-            Failure::RoutePolicy => (
-                "Failure",
-                "Delivery was denied by recipient policy for",
-                "failed",
-                "5.7.1",
-            ),
-            Failure::RetryExhausted => (
-                "Failure",
-                "Delivery retry budget was exhausted for",
-                "failed",
-                "4.4.0",
-            ),
-        },
     }
 }
 

@@ -1,5 +1,29 @@
 # Goal ledger
 
+### 2026-09-29: G18 single-origin relay SUCCESS notice without downstream DSN, PARTIAL T414
+
+- Исходящий SMTP transport различает принятую relay доставку (`Relayed`) от
+  обычного downstream DSN-aware результата. Для peer без `DSN` при явном
+  `NOTIFY=SUCCESS` сохраняемый `Notice::Relayed` приводит к RFC 3464
+  `Action: relayed`, `Status: 2.0.0`; исходное тело не возвращается. Без явного
+  SUCCESS report не создаётся. DSN параметры не отправляются peer без
+  capability.
+- Queue journal и ключ Store idempotency обобщены до typed `DsnNotice`; старые
+  failure tags остаются читаемыми, новый `relayed` tag восстанавливается как
+  due work после перезапуска. Linux Store acceptance проходит исходное письмо и
+  report через две независимые SMTP session, проверяет MIME поля, отсутствие
+  тела source и очистку durable queue. Отдельно проверены worker outcome и
+  Store idempotency после reopen.
+- Windows Rust 1.97.1 `cargo test --all-targets`: 1075 passed, 4 ignored;
+  strict Clippy прошёл. Linux Docker Rust 1.97.1: 1199 library + 1 CLI passed,
+  4 ignored; strict Clippy и `cargo fmt --check` прошли. Использован
+  существующий `rust:1.97-bookworm`, target `./data/g18-relayed-linux-target`,
+  CARGO_HOME `./data/g23-cargo-home`; `--rm` удалил созданный контейнер,
+  образ не создавался. Клиент Litterkeep не проверялся.
+- T414 закрывает только одно-origin relay SUCCESS при peer без DSN. Delay DSN,
+  downstream DSN-aware SUCCESS/DELAY processing, multi-origin relay strategy и
+  реальная совместимость клиента остаются GAP; G18 остаётся PARTIAL.
+
 ### 2026-09-29: G18 downstream single-origin DSN forwarding, PARTIAL T413
 
 - Outbound `Job` теперь переносит durable typed DSN metadata из Store через
@@ -22,10 +46,10 @@
   и `./data/g36-outbound-dsn-target`; компоненты rustfmt/clippy установлены
   только в одноразовый слой контейнера. `--rm` удалил контейнер, образ не
   создавался. Изменены два существующих Clippy lint-а без suppression.
-- T413/G18 остаётся PARTIAL: обязательная relay-result обработка для peer без
-  DSN, multi-origin alias strategy, downstream SUCCESS/DELAY, независимая
-  forwarding acceptance на implicit TLS и Litterkeep app interoperability
-  остаются непроверенными.
+- Исторический T413 был PARTIAL до T414: одно-origin relay-result для peer без
+  DSN теперь реализован. Multi-origin alias strategy, downstream SUCCESS/DELAY,
+  независимая forwarding acceptance на implicit TLS и Litterkeep app
+  interoperability остаются непроверенными.
 
 ### 2026-09-29: G18 RFC 3464 multi-origin failure groups, PARTIAL T412
 

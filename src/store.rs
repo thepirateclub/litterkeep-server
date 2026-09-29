@@ -84,9 +84,6 @@ mod outbound_access;
 #[cfg(all(test, target_os = "linux"))]
 #[path = "store/outbound_failure_dsn_tests.rs"]
 mod outbound_failure_dsn_tests;
-#[cfg(all(test, target_os = "linux"))]
-#[path = "store/outbound_service_tests.rs"]
-mod outbound_service_tests;
 #[cfg(test)]
 #[path = "store/outbound_tests.rs"]
 mod outbound_tests;

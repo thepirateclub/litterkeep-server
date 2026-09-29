@@ -215,20 +215,20 @@ mod tests {
         accounts.create("alice", b"test-password").expect("account");
         let worker = StorageWorker::start(&root, 1).expect("worker");
         worker
-            .submit(Request::Dsn(message::DsnRequest::Failure {
+            .submit(Request::Dsn(message::DsnRequest::Report {
                 request_id: 9,
                 reverse_path: "alice@litterkeep.test".into(),
                 recipient: "remote@peer.test".into(),
                 transaction_id: 42,
                 original: b"Subject: source\r\n\r\nbody".to_vec(),
-                failure: crate::dsn::Failure::PermanentSmtp,
+                notice: crate::dsn::Notice::Failure(crate::dsn::Failure::PermanentSmtp),
                 dsn_metadata: None,
                 diagnostic: None,
                 report_key: crate::queue::DsnReportKey {
                     transaction_id: 42,
                     recipient: "remote@peer.test".into(),
                     original_recipient_indices: Vec::new(),
-                    failure: crate::dsn::Failure::PermanentSmtp,
+                    notice: crate::dsn::Notice::Failure(crate::dsn::Failure::PermanentSmtp),
                 },
             }))
             .expect("accepted");
@@ -240,7 +240,7 @@ mod tests {
         };
         assert!(matches!(
             response,
-            Response::Dsn(message::DsnResponse::Failure {
+            Response::Dsn(message::DsnResponse::Report {
                 request_id: 9,
                 result: Ok(Some(_))
             })

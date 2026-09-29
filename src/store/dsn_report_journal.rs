@@ -75,7 +75,7 @@ pub(super) fn recover(root: &Path) -> io::Result<()> {
 
 fn parse(line: &str) -> io::Result<(u64, DsnReportKey)> {
     let mut fields = line.split_whitespace();
-    let (Some(report), Some(transaction), Some(ordinal), Some(failure), Some(recipient), Some(sum)) = (
+    let (Some(report), Some(transaction), Some(ordinal), Some(notice), Some(recipient), Some(sum)) = (
         fields.next(),
         fields.next(),
         fields.next(),
@@ -94,14 +94,14 @@ fn parse(line: &str) -> io::Result<(u64, DsnReportKey)> {
         "-" => Vec::new(),
         value => parse_ordinals(value)?,
     };
-    let failure = crate::dsn::Failure::from_journal_tag(failure)
-        .ok_or_else(|| invalid("unknown DSN report failure tag"))?;
+    let notice = crate::dsn::Notice::from_journal_tag(notice)
+        .ok_or_else(|| invalid("unknown DSN report notice tag"))?;
     let recipient = decode_hex(recipient)?;
     let key = DsnReportKey {
         transaction_id,
         recipient,
         original_recipient_indices,
-        failure,
+        notice,
     };
     validate_key(&key)?;
     let expected = u64::from_str_radix(sum, 16).map_err(|_| invalid("bad DSN report checksum"))?;
@@ -116,7 +116,7 @@ fn payload(report: u64, key: &DsnReportKey) -> String {
     format!(
         "{report} {} {ordinal} {} {}",
         key.transaction_id,
-        key.failure.journal_tag(),
+        key.notice.journal_tag(),
         encode_hex(key.recipient.as_bytes())
     )
 }
