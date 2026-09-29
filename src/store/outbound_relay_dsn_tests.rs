@@ -66,6 +66,94 @@ fn non_dsn_downstream_acceptance_creates_deliverable_relay_notice() {
     std::fs::remove_dir_all(path).expect("remove test data");
 }
 
+/// Два временных отказа сохраняют и публикуют delay DSN до следующего retry.
+#[test]
+fn repeated_temporary_failures_publish_delayed_report_and_keep_retry() {
+    let path = test_path();
+    let mut envelope = envelope();
+    let recipient = envelope
+        .recipients
+        .first_mut()
+        .expect("one forwarding recipient");
+    recipient.dsn.notify = Some(NotifyPolicy::Conditions(
+        [NotifyCondition::Delay].into_iter().collect(),
+    ));
+    let source = b"Subject: delayed\r\n\r\nprivate source body\r\n";
+    let mut store = Store::open(&path).expect("open Store");
+    store
+        .append_many_with_sieve(
+            &[],
+            source,
+            &[(envelope.reverse_path.clone(), "forward@peer.test".into())],
+            &[],
+            Some(&envelope),
+            &[vec![0]],
+        )
+        .expect("commit forwarding delivery");
+    drop(store);
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("peer listener");
+    let address = listener.local_addr().expect("peer address");
+    let peer = thread::spawn(move || {
+        reject_temporary_mail(&listener);
+        reject_temporary_mail(&listener);
+    });
+
+    let first =
+        outbound_service::drain(&path, &address.to_string(), 1).expect("first temporary attempt");
+    assert_eq!(first.deferred, 1);
+    make_deferred_job_due(&path);
+    let second =
+        outbound_service::drain(&path, &address.to_string(), 1).expect("second temporary attempt");
+    assert_eq!(second.deferred, 1);
+    let queued = Store::open(&path).expect("reopen delayed queue");
+    let jobs = queued.pending_outbound().expect("pending jobs");
+    assert!(jobs.iter().any(|job| job.sender.is_empty()));
+    assert!(
+        jobs.iter()
+            .any(|job| job.state == crate::queue::State::Deferred)
+    );
+    let report_job = jobs
+        .iter()
+        .find(|job| job.sender.is_empty())
+        .cloned()
+        .expect("durable delayed report job");
+    let report_payload = queued.outbound_blob(&report_job).expect("report payload");
+    assert!(contains(&report_payload, b"Action: delayed"));
+    assert!(contains(&report_payload, b"Status: 4.0.0"));
+    assert!(!contains(&report_payload, b"private source body"));
+    drop(queued);
+
+    peer.join().expect("independent SMTP peers");
+    std::fs::remove_dir_all(path).expect("remove test data");
+}
+
+/// Делает сохранённую retry запись due без wall-clock ожидания в тесте.
+fn make_deferred_job_due(path: &std::path::Path) {
+    let mut store = Store::open(path).expect("open retry Store");
+    let mut delivery = store
+        .pending_outbound()
+        .expect("pending retry")
+        .into_iter()
+        .next()
+        .expect("one original route");
+    delivery.next_attempt_epoch = 0;
+    store
+        .transition_outbound(&delivery, crate::queue::State::Deferred)
+        .expect("persist test deadline");
+}
+
+/// Отказывает на MAIL временным 421, чтобы transport немедленно закрыл канал.
+fn reject_temporary_mail(listener: &TcpListener) {
+    let (mut stream, mut reader) = session(listener);
+    command(&mut reader, "EHLO");
+    stream.write_all(b"250 peer.test\r\n").expect("EHLO reply");
+    command(&mut reader, "MAIL FROM:");
+    stream
+        .write_all(b"421 4.3.2 temporary peer shutdown\r\n")
+        .expect("temporary MAIL reply");
+}
+
 fn envelope() -> DsnEnvelope {
     DsnEnvelope {
         reverse_path: "sender@outside.test".into(),
@@ -146,6 +234,9 @@ fn accept_relay_notice(listener: &TcpListener) {
 
 fn session(listener: &TcpListener) -> (TcpStream, BufReader<TcpStream>) {
     let (mut stream, _) = listener.accept().expect("accept SMTP session");
+    stream
+        .set_read_timeout(Some(std::time::Duration::from_secs(10)))
+        .expect("bounded test peer wait");
     stream
         .write_all(b"220 independent peer\r\n")
         .expect("greeting");

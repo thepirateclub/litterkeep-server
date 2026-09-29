@@ -82,8 +82,10 @@ mailbox delivery. T416 добавляет optional локальный delayed DS
 временно неудачной попытки, если NOTIFY omitted либо origin policy разрешает
 DELAY. Он сохраняется как durable queue notice, имеет `Action: delayed` и
 `Status: 4.0.0`, не включает исходное сообщение и не отменяет последующий retry.
-Policy, MIME и queue recovery проверены unit tests; последовательный
-transport/Store сценарий с двумя временными отказами и Linux runtime acceptance
+Policy, MIME и queue recovery проверены unit tests. Linux Store/outbound-service
+integration выполняет два независимых временных 421 ответа и подтверждает
+durable null-sender report job, его delayed поля и сохранённый retryable original.
+Повторная передача созданного DSN отдельным SMTP peer-у и Litterkeep acceptance
 пока не проверены. Для одного source
 RCPT с одним forward destination outbound worker передаёт исходные MAIL
 `RET`/`ENVID` и RCPT `NOTIFY`/`ORCPT`, если downstream EHLO объявил `DSN`;
