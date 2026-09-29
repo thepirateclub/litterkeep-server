@@ -32,7 +32,11 @@ pub(super) fn condition(value: &Condition) -> Result<(), &'static str> {
             strings(&matcher.keys)?;
             comparator(&matcher.comparator)
         }
-        Condition::Envelope { matcher, .. } => {
+        Condition::Envelope { parts, matcher, .. } => {
+            parts.iter().try_for_each(|part| match part {
+                super::super::ast::EnvelopePartSelector::Variable(source) => validate(source),
+                super::super::ast::EnvelopePartSelector::Static(_) => Ok(()),
+            })?;
             strings(&matcher.keys)?;
             comparator(&matcher.comparator)
         }

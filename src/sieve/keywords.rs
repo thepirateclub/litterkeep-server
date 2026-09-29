@@ -82,6 +82,25 @@ pub(super) enum ComparatorWord {
     Unknown,
 }
 
+/// Значения string-list selector-а SMTP envelope test-а.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum EnvelopePartWord {
+    From,
+    To,
+    Unknown,
+}
+
+impl EnvelopePartWord {
+    /// Разбирает MAIL FROM и RCPT TO без зависимости от ASCII-регистра.
+    pub(super) fn parse(value: &str) -> Self {
+        match value.to_ascii_lowercase().as_str() {
+            "from" => Self::From,
+            "to" => Self::To,
+            _ => Self::Unknown,
+        }
+    }
+}
+
 /// Объявляемые расширения базового обработчика Sieve.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum CapabilityWord {

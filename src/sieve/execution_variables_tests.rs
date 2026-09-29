@@ -224,3 +224,25 @@ fn address_comparator_selector_is_expanded_at_condition_time() {
 
     assert!(plan.discard);
 }
+
+#[test]
+fn envelope_part_selector_uses_current_variable_at_test_time() {
+    let source = r#"require ["envelope", "variables"]; set "part" "from"; if envelope "${part}" "sender@example.com" { keep; } else { discard; }"#;
+    let script = parse(source).expect("dynamic envelope selector");
+    let (plan, _) = execute_state(&script, &[], 0, "sender@example.com", "bob@example.com")
+        .expect("resolve envelope selector");
+
+    assert!(plan.keep);
+    assert!(!plan.discard);
+}
+
+#[test]
+fn unsupported_expanded_envelope_part_fails_evaluation() {
+    let source = r#"require ["envelope", "variables"]; set "part" "sender"; if envelope "${part}" "sender@example.com" { keep; }"#;
+    let script = parse(source).expect("deferred envelope selector");
+
+    assert!(matches!(
+        execute_state(&script, &[], 0, "sender@example.com", "bob@example.com"),
+        Err(ExecutionError::VariableRuntime)
+    ));
+}

@@ -1,8 +1,8 @@
 //! Раскрывает строковые аргументы test-ов при достижении условия.
 
 use super::ExecutionError;
-use crate::sieve::ast::{Comparator, MatchType, StringMatch};
-use crate::sieve::keywords::ComparatorWord;
+use crate::sieve::ast::{Comparator, EnvelopePart, EnvelopePartSelector, MatchType, StringMatch};
+use crate::sieve::keywords::{ComparatorWord, EnvelopePartWord};
 use crate::sieve::variables::{VariableError, VariableStore};
 
 /// Раскрывает все элементы списка с одним снимком match variables.
@@ -49,6 +49,29 @@ pub(super) fn expand_matcher(
         comparator,
         keys,
     })
+}
+
+/// Раскрывает envelope-part string и сверяет результат с поддерживаемым enum.
+pub(super) fn expand_envelope_part(
+    selector: &EnvelopePartSelector,
+    store: &VariableStore,
+    captures: &[Vec<u8>],
+    enabled: bool,
+) -> Result<EnvelopePart, ExecutionError> {
+    match selector {
+        EnvelopePartSelector::Static(part) => Ok(*part),
+        EnvelopePartSelector::Variable(source) if enabled => {
+            let expanded = store
+                .expand_octets(source, captures)
+                .map_err(variable_error)?;
+            match EnvelopePartWord::parse(&expanded) {
+                EnvelopePartWord::From => Ok(EnvelopePart::From),
+                EnvelopePartWord::To => Ok(EnvelopePart::To),
+                EnvelopePartWord::Unknown => Err(ExecutionError::VariableRuntime),
+            }
+        }
+        EnvelopePartSelector::Variable(_) => Err(ExecutionError::VariableRuntime),
+    }
 }
 
 fn clone_match_type(value: &MatchType) -> MatchType {

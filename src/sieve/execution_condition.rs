@@ -108,7 +108,13 @@ pub(super) fn matches(
                 variables.octets(),
                 context.variables_enabled,
             )?;
-            for selected in parts {
+            for selector in parts {
+                let selected = variable_arguments::expand_envelope_part(
+                    selector,
+                    store,
+                    variables.octets(),
+                    context.variables_enabled,
+                )?;
                 let value = match selected {
                     EnvelopePart::From => context.envelope_from,
                     EnvelopePart::To => context.envelope_to,

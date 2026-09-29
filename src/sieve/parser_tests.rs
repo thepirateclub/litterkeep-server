@@ -90,6 +90,16 @@ fn dynamic_comparator_requires_variables_and_valid_namespace() {
     assert!(parse("require \"variables\"; if string :comparator \"${environment.cmp}\" \"x\" \"x\" { keep; }").is_err());
 }
 
+#[test]
+fn dynamic_envelope_part_requires_variables_and_valid_namespace() {
+    assert!(
+        parse("require \"envelope\"; if envelope \"${part}\" \"sender@example.com\" { keep; }")
+            .is_err()
+    );
+    assert!(parse("require [\"envelope\", \"variables\"]; if envelope \"${part}\" \"sender@example.com\" { keep; }").is_ok());
+    assert!(parse("require [\"envelope\", \"variables\"]; if envelope \"${environment.part}\" \"sender@example.com\" { keep; }").is_err());
+}
+
 /// RFC 5228 требует объявления subaddress до использования address :user.
 #[test]
 fn subaddress_projection_requires_and_accepts_its_capability() {

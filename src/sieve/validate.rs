@@ -1,6 +1,8 @@
 //! Статическая policy validation до атомарной публикации script версии.
 
 use super::ast::{Action, AddressPart, Capability, Command, Condition, Script};
+#[path = "validate_dynamic.rs"]
+mod dynamic;
 #[path = "validate_namespace.rs"]
 mod namespace;
 #[path = "vacation_validation.rs"]
@@ -201,7 +203,7 @@ fn condition_valid(
     depth: usize,
     policy: ValidationPolicy,
 ) -> Result<(), &'static str> {
-    if !policy.variables && condition_has_dynamic_comparator(condition) {
+    if !policy.variables && dynamic::has_string_selector(condition) {
         return Err("variables extension must be required");
     }
     if policy.variables {
@@ -244,25 +246,6 @@ fn condition_valid(
             .try_for_each(|value| condition_valid(value, depth.saturating_add(1), policy)),
         Condition::True | Condition::False | Condition::Exists { .. } | Condition::Size { .. } => {
             Ok(())
-        }
-    }
-}
-
-/// Отклоняет string-valued comparator selector без Variables до runtime.
-fn condition_has_dynamic_comparator(condition: &Condition) -> bool {
-    match condition {
-        Condition::Header { matcher, .. }
-        | Condition::Address { matcher, .. }
-        | Condition::Envelope { matcher, .. }
-        | Condition::String { matcher, .. } => {
-            matches!(matcher.comparator, super::ast::Comparator::Variable(_))
-        }
-        Condition::Not(nested) => condition_has_dynamic_comparator(nested),
-        Condition::AllOf(values) | Condition::AnyOf(values) => {
-            values.iter().any(condition_has_dynamic_comparator)
-        }
-        Condition::True | Condition::False | Condition::Exists { .. } | Condition::Size { .. } => {
-            false
         }
     }
 }

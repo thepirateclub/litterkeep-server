@@ -27,6 +27,13 @@ pub enum EnvelopePart {
     To,
 }
 
+/// Сохраняет envelope-part string до момента динамической оценки RFC 5229.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum EnvelopePartSelector {
+    Static(EnvelopePart),
+    Variable(String),
+}
+
 /// Верхнеуровневая команда языка.
 #[derive(Debug, Eq, PartialEq)]
 pub enum Command {
@@ -105,7 +112,7 @@ pub enum Condition {
         matcher: StringMatch,
     },
     Envelope {
-        parts: Vec<EnvelopePart>,
+        parts: Vec<EnvelopePartSelector>,
         part: AddressPart,
         matcher: StringMatch,
     },

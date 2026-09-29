@@ -2,8 +2,8 @@
 
 use super::address_options;
 use super::ast::{
-    Action, Capability, Command, Comparator, Condition, EnvelopePart, MatchType, Script,
-    SizeRelation, StringMatch,
+    Action, Capability, Command, Comparator, Condition, EnvelopePart, EnvelopePartSelector,
+    MatchType, Script, SizeRelation, StringMatch,
 };
 use super::keywords::{CapabilityWord, CommandWord, ComparatorWord, MatchTag, SizeTag, TestWord};
 use super::lexer::Token;
@@ -165,7 +165,7 @@ fn envelope(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
     let (part, match_type, comparator) = address_options::parse(input)?;
     let parts = string_list(input)?
         .into_iter()
-        .map(envelope_part)
+        .map(envelope_part_selector)
         .collect::<Result<Vec<_>, _>>()?;
     Ok(Condition::Envelope {
         parts,
@@ -179,14 +179,16 @@ fn envelope(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
 }
 
 /// Переводит wire selector в enum до передачи теста executor-у.
-fn envelope_part(value: String) -> Result<EnvelopePart, &'static str> {
-    match (
-        value.eq_ignore_ascii_case("from"),
-        value.eq_ignore_ascii_case("to"),
-    ) {
-        (true, false) => Ok(EnvelopePart::From),
-        (false, true) => Ok(EnvelopePart::To),
-        _ => Err("unsupported sieve envelope part"),
+fn envelope_part_selector(value: String) -> Result<EnvelopePartSelector, &'static str> {
+    match super::keywords::EnvelopePartWord::parse(&value) {
+        super::keywords::EnvelopePartWord::From => {
+            Ok(EnvelopePartSelector::Static(EnvelopePart::From))
+        }
+        super::keywords::EnvelopePartWord::To => Ok(EnvelopePartSelector::Static(EnvelopePart::To)),
+        super::keywords::EnvelopePartWord::Unknown if value.contains("${") => {
+            Ok(EnvelopePartSelector::Variable(value))
+        }
+        super::keywords::EnvelopePartWord::Unknown => Err("unsupported sieve envelope part"),
     }
 }
 

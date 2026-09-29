@@ -1,5 +1,24 @@
 # Goal ledger
 
+### 2026-09-29: G18 RFC 5229 dynamic envelope-part selectors, PARTIAL T442
+
+- AST сохраняет envelope-part arguments как static/variable enum, не теряя
+  исходную строку. При `require "variables"` selector раскрывается в момент
+  `envelope` test-а и разрешается только в `from`/`to`; неизвестное значение
+  вызывает typed runtime failure. Dynamic selector без Variables и ссылка на
+  неразрешённый namespace отклоняются при загрузке.
+- Parser/runtime regressions покрывают capability gating, namespace policy,
+  текущее значение переменной и отказ на неподдерживаемом раскрытом значении.
+  Windows Rust 1.97.1 all-target: 1 137 library + 1 CLI прошли, 4 ignored;
+  strict Clippy, rustfmt и diff-check прошли. Linux Docker Rust 1.97.1
+  all-target: 1 263 library + 1 CLI прошли, 4 ignored; переиспользованы
+  `rust:1.97-bookworm`, `./data/g23-cargo-home` и
+  `./data/g18-rfc5229-envelope-selector-target`; контейнер `--rm`, image не
+  создавался.
+- T442 закрывает последний известный RFC 5229 dynamic selector из матрицы,
+  кроме `encoded-character`; расширение всё ещё не рекламируется до общего
+  conformance/ManageSieve acceptance, G18 остаётся ACTIVE.
+
 ### 2026-09-29: G18 RFC 5229 dynamic comparator selectors, PARTIAL T441
 
 - `:comparator` сохраняет строку с переменной и раскрывает её в момент оценки
