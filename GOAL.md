@@ -11882,6 +11882,26 @@ ManageSieve до заявленного набора современных фо
 - Это проверка отдельного expansion core, не AST/runtime интеграция. `set`,
   string test, modifiers, parser diagnostics и capability остаются незавершёнными.
 
+### 2026-09-29: G18 RFC 5229 numeric captures and Sieve wildcard backtracking, T428 PARTIAL
+
+- Повторная сверка с первичным RFC 5229 исправила ошибочную трактовку T426/T427:
+  numeric match-variable допускает ведущие нули; десятичный индекс вне списка
+  captures раскрывается в пустую строку. Переполняющее `usize` значение также
+  безопасно трактуется как отсутствующий индекс. `${01}` теперь эквивалентен `${1}`.
+- Исправлен glob capture matcher: bounded backtracking выбирает кратчайшие
+  подходящие значения wildcard-ов, удаляет captures устаревших ветвей и
+  сохраняет capture-порядок. Добавлены тесты отката ранней `*` и нескольких `*`.
+  Бюджет matcher-а ограничивает суммарное число шагов.
+- Sieve glob tests: 7/7; полный Windows Rust 1.97.1 all-target: 1098 library
+  + 1 CLI passed, 4 ignored; строгий Clippy, rustfmt и `git diff --check` pass.
+- Linux Docker Rust 1.97.1 all-target: 1224 library + 1 CLI passed, 4 ignored.
+  Использованы существующий `rust:1.97-bookworm`, `./data/g23-cargo-home` и
+  `./data/g18-rfc5229-target`; одноразовый контейнер `--rm` удалён, новый образ
+  не создавался. Linux Clippy/rustfmt в образе не проверялись.
+- Это исправляет matcher/capture semantics, но Variables extension всё ещё
+  отсутствует в AST/parser/actions, не объявляет `set`/`string`/modifiers и не
+  рекламируется; полная RFC conformance не заявляется.
+
 ### 2026-09-29: G18 RFC 5229 implementation-boundary audit, T423 PARTIAL
 
 - Rechecked the current Variables design against the RFC Editor's RFC 5229 text.

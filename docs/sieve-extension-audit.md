@@ -16,7 +16,7 @@ IANA registry и не заменяет отдельные acceptance для ка
 | `subaddress` | RFC 3598 | Реализовано, рекламируется | Проверить все допустимые recipient-part варианты и межклиентские адресные соглашения. |
 | `copy` | RFC 3894 | Реализовано, рекламируется | Проверить комбинации с actions и доставкой на независимом профиле. |
 | `vacation-seconds` | RFC 6131 | Реализовано, рекламируется | Остальные границы vacation и взаимодействие с расширениями требуют отдельного профиля. |
-| `variables` | [RFC 5229](https://www.rfc-editor.org/rfc/rfc5229.html) | Есть capture-aware matcher state и отдельно тестируемое per-script store/one-pass expansion ядро; Sieve AST/actions не подключены, capability не рекламируется | Typed string templates, подключение expansion к каждой строковой позиции во время выполнения; `set` grammar/runtime; `string` test; modifier-ы; namespace/capture validation `${0}`..`${9}`. |
+| `variables` | [RFC 5229](https://www.rfc-editor.org/rfc/rfc5229.html) | Есть capture-aware matcher state и отдельно тестируемое per-script store/one-pass expansion ядро; Sieve AST/actions не подключены, capability не рекламируется | Typed string templates, подключение expansion к каждой строковой позиции во время выполнения; `set` grammar/runtime; `string` test; modifier-ы; namespace validation и полный decimal capture-index. |
 | `body` | [RFC 5173](https://www.rfc-editor.org/rfc/rfc5173.html) | Не реализовано, не рекламируется | MIME-aware `:raw`, `:content`, `:text`; не допускать совпадений через границы частей и ограничить CPU/память. |
 | `reject`, `ereject` | [RFC 5429](https://www.rfc-editor.org/rfc/rfc5429.html) | Не реализовано, не рекламируется | Нужна Sieve evaluation до SMTP принятия DATA для protocol-level refusal; post-accept DSN не эквивалентен `ereject`. |
 | `imap4flags` | [RFC 5232](https://www.rfc-editor.org/rfc/rfc5232.html) | Не реализовано, не рекламируется | Реализовать `setflag`, `addflag`, `removeflag`, `hasflag` и `:flags` с durable mailbox flag mutation. |
@@ -47,7 +47,8 @@ runtime expansion на момент достижения команды, `set` �
 неявного trim, и все шесть modifier-ов с RFC precedence и запретом двух
 modifier-ов одного precedence. Runtime должен поддержать минимум 128 distinct
 переменных, 32 ASCII-символа имени и 4000 символов значения, а также `${0}`
-и `${1}`..`${9}`; больший match-index должен отклоняться при validation.
+и decimal match-index-ы; leading zeroes допустимы, отсутствующий index
+раскрывается в пустую строку.
 Нужно отдельно зафиксировать поведение Unicode character length и bounded
 memory expansion. Пока эти требования не проверены совместно, `variables`
 должно оставаться не рекламируемым.
@@ -56,16 +57,20 @@ T425 добавил самостоятельный `VariableStore`: ASCII-рег
 до 128 переменных, имена до 32 символов, сохранённые значения обрезаются до
 4000 Unicode scalar values. `expand` выполняет один проход, раскрывает numeric
 captures и именованные ссылки, оставляет некорректные ссылки и возвращает пустую
-строку для неизвестных валидных имён. Отдельный локальный предел результата -
+строку для неизвестных валидных имён. Numeric references принимают любое
+decimal-представление индекса, включая leading zeroes; недоступный или
+переполняющий машинный тип индекс раскрывается в пустую строку. Отдельный
+локальный предел результата -
 65 536 символов; его превышение возвращает typed error. Это протестированное
 ядро библиотеки, но не часть AST/executor pipeline. В частности, lexer пока не
 передаёт provenance escaping/encoded-character, parser не валидирует ссылки
 выше `${9}` и не подключён к typed ошибкам engine. T426 добавил typed errors в
-engine для таких индексов и для валидной namespace-ссылки без включённого
-namespace extension; parser-time diagnostics ещё отсутствуют. `set` и `string`
-отсутствуют. Уточнён lexical предел числовой ссылки: разрешена одна цифра,
-поэтому `${01}` отклоняется так же, как `${10}`, а не нормализуется в `${1}`.
-Поэтому capability остаётся скрытым.
+engine для валидной namespace-ссылки без включённого namespace extension;
+parser-time diagnostics ещё отсутствуют. Предыдущие T426/T427 неверно
+трактовали numeric references как одиночную цифру или syntax error; RFC 5229
+разрешает leading zeroes и раскрывает недоступный index в пустую строку.
+Расхождение исправлено в T428. `set` и `string` отсутствуют, поэтому
+capability остаётся скрытым.
 
 ## Базовый RFC 5228: адресные списки
 

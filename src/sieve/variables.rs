@@ -17,7 +17,6 @@ pub enum VariableError {
     InvalidName,
     TooManyVariables,
     ExpansionLimit,
-    UnsupportedCaptureIndex,
     UnsupportedNamespace,
 }
 
@@ -148,13 +147,8 @@ fn resolve<'a>(
         return Ok(None);
     }
     if reference.bytes().all(|byte| byte.is_ascii_digit()) {
-        return match reference.as_bytes() {
-            [digit] => {
-                let index = usize::from(digit.saturating_sub(b'0'));
-                Ok(Some(captures.get(index).map(String::as_str).unwrap_or("")))
-            }
-            _ => Err(VariableError::UnsupportedCaptureIndex),
-        };
+        let index = reference.parse::<usize>().unwrap_or(usize::MAX);
+        return Ok(Some(captures.get(index).map(String::as_str).unwrap_or("")));
     }
     if !valid_name(reference) {
         return match valid_namespace(reference) {
@@ -236,21 +230,19 @@ mod tests {
     }
 
     #[test]
-    fn numeric_references_select_single_digit_captures_only() {
+    fn numeric_references_allow_leading_zeroes_and_out_of_range_is_empty() {
         let store = VariableStore::default();
         let captures = vec!["whole".to_owned(), "list".to_owned()];
 
         assert_eq!(
-            store.expand("${0}:${1}:${9}", &captures).expect("bounded"),
-            "whole:list:"
+            store
+                .expand("${0}:${1}:${01}:${9}", &captures)
+                .expect("bounded"),
+            "whole:list:list:"
         );
         assert_eq!(
-            store.expand("${10}", &captures),
-            Err(VariableError::UnsupportedCaptureIndex)
-        );
-        assert_eq!(
-            store.expand("${01}", &captures),
-            Err(VariableError::UnsupportedCaptureIndex)
+            store.expand("${10}:${999999999999999999999999}", &captures),
+            Ok(":".to_owned())
         );
         assert_eq!(
             store.expand("${vendor.value}", &captures),
