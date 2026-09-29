@@ -11851,3 +11851,18 @@ ManageSieve до заявленного набора современных фо
 - Documentation-only checkpoint. No protocol conformance or runtime support is
   claimed; code tests were not rerun because no code remains changed in this
   checkpoint. G18 stays ACTIVE.
+
+### 2026-09-29: G18 Sieve address-list evaluation beyond 64 entries, T424 PARTIAL
+
+- Removed an undocumented `take(64)` from Sieve address projection. RFC 5228
+  requires the address test to match any address in supported structured
+  headers; the former cap silently produced false negatives for later entries.
+  Parsing remains bounded by the server's 25 MiB message limit.
+- A regression builds a 65-mailbox address-list and verifies the final mailbox
+  is retained. Windows Rust 1.97.1 all-target: 1089 library + 1 CLI passed, 4
+  ignored; strict Clippy, rustfmt and diff check pass. Linux Docker Rust 1.97.1
+  all-target: 1215 library + 1 CLI passed, 4 ignored; release build passes.
+  Existing image and `./data` Cargo/target paths reused; disposable container
+  used `--rm`; no image created. Linux Clippy/rustfmt unavailable in image.
+- This proves removal of one Sieve address projection cap, not all RFC 5228
+  semantics or Litterkeep application interoperability; G18 remains ACTIVE.

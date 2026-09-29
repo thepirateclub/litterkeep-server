@@ -5,14 +5,11 @@
 
 use super::ast::AddressPart;
 
-const MAX_ADDRESSES: usize = 64;
-
 /// Возвращает допустимые части mailbox из одного заголовочного значения.
 pub(super) fn values(header: &str, part: AddressPart) -> Vec<String> {
     match crate::mime::envelope_address::parse_value(header) {
         Ok(mailboxes) => mailboxes
             .into_iter()
-            .take(MAX_ADDRESSES)
             .filter_map(|mailbox| project(mailbox.local, mailbox.domain, part))
             .collect(),
         Err(_) => Vec::new(),
@@ -69,6 +66,23 @@ mod tests {
                 AddressPart::All
             ),
             vec!["alice@example.test", "bob@example.test"]
+        );
+    }
+
+    /// RFC 5228 требует проверять каждый mailbox без скрытого предела в 64 записи.
+    #[test]
+    fn address_projection_includes_mailboxes_after_the_old_limit() {
+        let header = (0..65)
+            .map(|number| format!("user{number}@example.test"))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let parsed = values(&header, AddressPart::All);
+
+        assert_eq!(parsed.len(), 65);
+        assert_eq!(
+            parsed.last().map(String::as_str),
+            Some("user64@example.test")
         );
     }
 }
