@@ -11950,6 +11950,22 @@ ManageSieve до заявленного набора современных фо
   capability identifiers, не весь Sieve grammar и не RFC 5229 Variables; G18
   остаётся ACTIVE.
 
+### 2026-09-29: G18 RFC 5229 modifier engine, T432 PARTIAL
+
+- Добавлено ограниченное применение `:lower`, `:upper`, `:lowerfirst`,
+  `:upperfirst`, `:quotewildcard` и `:length` перед сохранением значения
+  `VariableStore`. Modifiers исполняются по RFC precedence, конфликт одной
+  группы возвращается typed `InvalidModifiers`; case conversion остаётся ASCII,
+  длина измеряется Unicode scalar values.
+- 5 новых тестов проверяют precedence, ASCII casing, Unicode length,
+  wildcard-экранирование и конфликт; Variables suite 11/11. Windows Rust 1.97.1
+  all-target: 1 109 library + 1 CLI прошли, 4 ignored; strict Clippy, rustfmt и
+  diff check прошли. Linux Docker all-target: 1 235 library + 1 CLI прошли,
+  4 ignored; существующий образ/registry reused, disposable `--rm` контейнер,
+  target `./data/g18-rfc5229-modifier-target`, image не создавался.
+- Это engine API, ещё не `set` AST/parser, `string` test или раскрытие остальных
+  string arguments. `variables` не рекламируется и остаётся GAP; G18 ACTIVE.
+
 ### 2026-09-29: G18 RFC 5229 implementation-boundary audit, T423 PARTIAL
 
 - Rechecked the current Variables design against the RFC Editor's RFC 5229 text.
