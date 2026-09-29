@@ -40,7 +40,8 @@ pub(super) fn string_list(input: &mut VecDeque<Token>) -> Result<Vec<String>, &'
 /// Читает ровно одну quoted string, не принимая atom как неявную строку.
 pub(super) fn one_string(input: &mut VecDeque<Token>) -> Result<String, &'static str> {
     match input.pop_front() {
-        Some(Token::String(value)) => Ok(value),
+        Some(Token::String(value)) => String::from_utf8(value)
+            .map_err(|_| "non-UTF-8 sieve string is not supported by the text AST"),
         _ => Err("sieve string expected"),
     }
 }

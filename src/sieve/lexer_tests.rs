@@ -1,6 +1,6 @@
 //! Проверяет нормативные границы quoted-string и whitespace Sieve.
 
-use super::{Token, tokenize};
+use super::{Token, tokenize, tokenize_octets};
 
 /// RFC 5228 сохраняет CRLF в строке и снимает обратную косую черту у `\x`.
 #[test]
@@ -44,8 +44,24 @@ fn multiline_string_preserves_payload_and_unstuffs_leading_dots() {
     );
     assert_eq!(
         tokenize("text:\r\n.\r\n").expect("пустая строка"),
-        vec![Token::String(String::new())]
+        vec![Token::String(Vec::new())]
     );
+}
+
+/// Строковый token сохраняет не-UTF-8 октеты без подмены или потери.
+#[test]
+fn quoted_string_retains_arbitrary_nonzero_octets() {
+    assert_eq!(
+        tokenize_octets(b"\"A\xff\x80Z\"").expect("octet string"),
+        vec![Token::String(vec![b'A', 0xff, 0x80, b'Z'])]
+    );
+}
+
+/// Комментарий принимает произвольные октеты, но syntax atom остаётся ASCII.
+#[test]
+fn source_octets_are_non_utf8_only_inside_strings_or_comments() {
+    assert!(tokenize_octets(b"keep; # comment \xff\r\n").is_ok());
+    assert!(tokenize_octets(b"\xff; keep;").is_err());
 }
 
 /// Разделитель допускает SP/HTAB и hash-comment, но не bracket-comment.

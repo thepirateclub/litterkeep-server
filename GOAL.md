@@ -1,5 +1,29 @@
 # Goal ledger
 
+### 2026-09-29: G18 RFC 5228 lexer octet preservation, PARTIAL
+
+- Lexer принимает byte-slice и сохраняет quoted/multiline tokens как
+  `Vec<u8>`; регрессия подтверждает байты `FF 80` без lossy conversion. Syntax
+  atoms остаются ASCII, NUL и bare CR/LF отвергаются. Parser пока отклоняет
+  non-UTF-8 tokens при переходе к текстовому AST, поэтому это только первый
+  внутренний этап, а не сквозная RFC реализация.
+- `cargo test --lib quoted_string_`: 6 passed, включая две новые lexer byte
+  regressions; `cargo test --all-targets`: 1 139 library + 1 CLI passed,
+  4 ignored; `cargo clippy --all-targets -- -D warnings` и `cargo fmt --check`
+  прошли. Первоначальный ошибочный filter запустил ноль тестов и не засчитан.
+  Linux/Docker acceptance пока NOT RUN. Пользовательская правка
+  `tests/blackbox/smtp_data_line_bound.py` сохранена; Docker не использовался,
+  контейнеров и образов не создавалось.
+- RFC 5228 §2.4.2.4 требует сначала обработать quoted-string
+  escape/dot-unstuffing, затем `encoded-character`; RFC 5229 expansion следует
+  после этого. `docs/sieve-extension-audit.md` уточнён: нужен сквозной
+  byte-string тип от parser/AST до сравнения/actions. `variables` остаётся не
+  рекламируемым. Первичный источник:
+  [RFC 5228 §2.4.2.4](https://www.rfc-editor.org/rfc/rfc5228.html#section-2.4.2.4).
+- Следующий кодовый этап: провести байтовое значение через parser и AST,
+  затем добавить RFC encoded-character vectors и byte-exact runtime tests;
+  capability не подключать до сквозной проверки.
+
 ### 2026-09-29: G18 ManageSieve dynamic-selector wire acceptance, PARTIAL T443
 
 - Независимый wire client загружает и активирует Sieve script через

@@ -16,7 +16,7 @@ IANA registry и не заменяет отдельные acceptance для ка
 | `subaddress` | RFC 3598 | Реализовано, рекламируется | Проверить все допустимые recipient-part варианты и межклиентские адресные соглашения. |
 | `copy` | RFC 3894 | Реализовано, рекламируется | Проверить комбинации с actions и доставкой на независимом профиле. |
 | `vacation-seconds` | RFC 6131 | Реализовано, рекламируется | Остальные границы vacation и взаимодействие с расширениями требуют отдельного профиля. |
-| `variables` | [RFC 5229](https://www.rfc-editor.org/rfc/rfc5229.html) | Частично: `set` AST/parser/runtime, per-script store, modifiers, capture references и `string` test работают; common condition/action strings, comparator и envelope-part arguments раскрываются во время выполнения; capability не рекламируется | RFC 5228 `encoded-character` expansion (раздел 2.4.2.4), совместный acceptance профиль и ManageSieve discovery/interoperability. |
+| `variables` | [RFC 5229](https://www.rfc-editor.org/rfc/rfc5229.html) | Частично: `set` AST/parser/runtime, per-script store, modifiers, capture references и `string` test работают; common condition/action strings, comparator и envelope-part arguments раскрываются во время выполнения; capability не рекламируется | RFC 5228 `encoded-character` expansion и произвольные октеты Sieve string, совместный acceptance профиль и ManageSieve discovery/interoperability. |
 | `body` | [RFC 5173](https://www.rfc-editor.org/rfc/rfc5173.html) | Не реализовано, не рекламируется | MIME-aware `:raw`, `:content`, `:text`; не допускать совпадений через границы частей и ограничить CPU/память. |
 | `reject`, `ereject` | [RFC 5429](https://www.rfc-editor.org/rfc/rfc5429.html) | Не реализовано, не рекламируется | Нужна Sieve evaluation до SMTP принятия DATA для protocol-level refusal; post-accept DSN не эквивалентен `ereject`. |
 | `imap4flags` | [RFC 5232](https://www.rfc-editor.org/rfc/rfc5232.html) | Не реализовано, не рекламируется | Реализовать `setflag`, `addflag`, `removeflag`, `hasflag` и `:flags` с durable mailbox flag mutation. |
@@ -55,7 +55,17 @@ literal-dollar single-pass образец. Compile-time проход AST отв�
 enum-значения; неизвестный результат вызывает runtime failure. Envelope-part
 string list также раскрывается в точке `envelope` test-а и повторно разбирается
 в `from`/`to`. Расширение всё ещё не рекламируется: RFC 5228
-`encoded-character` expansion (раздел 2.4.2.4) не реализован. T443 добавил
+`encoded-character` expansion (раздел 2.4.2.4) не реализован. Lexer уже
+сохраняет quoted/multiline string token как `Vec<u8>` и отдельный тест
+подтверждает lossless non-UTF-8 octets. Parser пока конвертирует token в
+`String` и явно отвергает не-UTF-8 значение; AST и `VariableStore` также пока
+текстовые. Поэтому произвольный `hex` octet ещё не проходит общий script путь.
+Исправление требует сквозного byte-string типа от parser/AST до сравнения и
+действий, с проверкой UTF-8 только на границах, которые действительно требуют
+текста (например, mailbox/address). Нормативный порядок:
+quoted-string escape и dot-unstuffing, затем `encoded-character`, затем RFC 5229
+variable expansion. Нельзя применять lossy UTF-8 к `hex` или объявлять Variables
+доступным до byte-exact tests. T443 добавил
 ограниченный ManageSieve -> SMTP -> IMAP wire acceptance для dynamic selectors,
 однако тест вручную использует `require "variables"`, которое не рекламируется.
 Это не подтверждает совместимость клиента, полную RFC conformance матрицу или
