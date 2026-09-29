@@ -50,8 +50,19 @@ impl ConnectionPool {
         recipient: &str,
         message: &[u8],
     ) -> io::Result<outbound::DeliveryAttempt> {
+        self.deliver_detailed_with_dsn(sender, recipient, message, None)
+    }
+
+    /// Передаёт durable DSN metadata в реальную SMTP transaction.
+    pub(crate) fn deliver_detailed_with_dsn(
+        &mut self,
+        sender: &str,
+        recipient: &str,
+        message: &[u8],
+        metadata: Option<&crate::queue::DsnDeliveryMetadata>,
+    ) -> io::Result<outbound::DeliveryAttempt> {
         let mut connection = self.acquire()?;
-        let result = connection.deliver(sender, recipient, message);
+        let result = connection.deliver_with_dsn(sender, recipient, message, metadata);
         let diagnostic = connection.last_diagnostic().map(|value| {
             value.with_remote_mta(crate::smtp_reply_diagnostic::RemoteMtaIdentity::from_ip(
                 self.address.ip(),

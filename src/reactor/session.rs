@@ -229,9 +229,8 @@ impl Session {
             (self.kind, self.pop3.awaiting_sasl_response()),
             (Kind::Pop3, true)
         );
-        match (sasl_challenge, next_size > MAX_OUTPUT) {
-            (false, true) => return Err(io::Error::other("session output limit")),
-            _ => {}
+        if let (false, true) = (sasl_challenge, next_size > MAX_OUTPUT) {
+            return Err(io::Error::other("session output limit"));
         }
         self.output
             .try_reserve(bytes.len())

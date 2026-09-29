@@ -53,6 +53,7 @@ fn worker_denies_unrouted_recipient_before_opening_socket() {
             sender: "alice@litterkeep.test".into(),
             recipient: "alice@litterkeep.test".into(),
             payload: b"body".to_vec(),
+            dsn_metadata: None,
         })
         .expect("submit");
     let error = completion(&worker).result.expect_err("route denied");
@@ -66,6 +67,7 @@ fn job(id: u64, payload: &[u8]) -> Job {
         sender: "alice@test".into(),
         recipient: "bob@peer.test".into(),
         payload: payload.to_vec(),
+        dsn_metadata: None,
     }
 }
 

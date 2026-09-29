@@ -73,13 +73,22 @@ peer подтвердил `MAIL FROM:<>`, внешний RCPT, `Action: delivere
 процесса от 100 ms до 30 s и сбрасывает её после успешного прохода; deterministic
 unit tests проверяют границы и cap. Расписание повтора отдельного intent пока
 не durable и не сохраняется между перезапусками; dead-letter policy остаётся GAP.
-Delay report scheduling, downstream SMTP parameter propagation и полная
+Delay report scheduling, downstream-generated SUCCESS/DELAY reports и полная
 сквозная семантика повторной доставки остаются неподдержанными. RFC 3461 §5.2.3 требует
 `delivered` DSN при локальной доставке с `NOTIFY=SUCCESS`; RFC считает её
 успешной, когда письмо уже доступно для IMAP/POP retrieval. SMTP принимает
 запросы по wire-протоколу, а committed SUCCESS intents создаются для локальной
-mailbox delivery. Задержанные уведомления пока не создаются, а relay-путь не
-передаёт RFC 3461 параметры следующему MTA. Внутренние
+mailbox delivery. Задержанные уведомления пока не создаются. Для одного source
+RCPT с одним forward destination outbound worker передаёт исходные MAIL
+`RET`/`ENVID` и RCPT `NOTIFY`/`ORCPT`, если downstream EHLO объявил `DSN`;
+xtext сохраняет исходные octets; UTF-8 ORCPT сериализуется 7-bit-safe RFC 6533
+unitext. RFC параметры не отправляются peer без capability, но обязательные
+локальные `relayed` DSN по RFC 3461 §5.2.2 пока не создаются. Multi-origin
+aliases остаются в durable retry (`Deferred`) после EHLO и до MAIL/RCPT, пока
+не реализована стратегия RFC 3461 §5.2.7.3, включая
+`expanded` report; это сохраняет письмо, но требует исправления/операторского
+наблюдения и не является приемлемым окончательным поведением.
+Внутренние
 typed delivered serializer, commit-linked success intent, Store-owner consumer
 и доставка отчёта локально/через явно настроенный relay реализованы. Внешняя
 capability DSN объявлена и negotiation проверена T405, однако это частичная,
@@ -98,8 +107,8 @@ unitext к одному семантическому UTF-8 адресу, не с
 Независимый Linux peer подтвердил точный отказ 555 5.5.4 для xtext и буквального
 Unicode unitext до включения wire-поддержки; этот отказ является историческим.
 Native UTF-8 form policy и SMTPUTF8-specific form constraints остаются
-неполными. Уведомления о задержке не реализованы, downstream SMTP parameter
-propagation не проверена. Positive SUCCESS report доступен для поддерживаемых
+неполными. Уведомления о задержке и downstream-generated SUCCESS/DELAY reports
+не реализованы. Positive SUCCESS report доступен для поддерживаемых
 committed intents, запрошенных через SMTP `NOTIFY=SUCCESS`.
 
 Исторические T385/T404 acceptance-записи фиксируют прежние контрольные точки,

@@ -61,19 +61,24 @@ impl Pool {
         }
     }
 
-    /// Передаёт транспортный diagnostic обоим mutually exclusive pool owner-ам.
-    pub(crate) fn deliver_detailed(
+    /// Прокидывает durable DSN policy в выбранный pool без смены route identity.
+    pub(crate) fn deliver_detailed_with_dsn(
         &mut self,
         sender: &str,
         recipient: &str,
         payload: &[u8],
+        metadata: Option<&crate::queue::DsnDeliveryMetadata>,
     ) -> io::Result<outbound::DeliveryAttempt> {
         let recipient = crate::redirect_policy::Recipient::parse(recipient)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
         let recipient = recipient.canonical();
         match self {
-            Self::Plain(pool) => pool.deliver_detailed(sender, &recipient, payload),
-            Self::ImplicitTls(pool) => pool.deliver_detailed(sender, &recipient, payload),
+            Self::Plain(pool) => {
+                pool.deliver_detailed_with_dsn(sender, &recipient, payload, metadata)
+            }
+            Self::ImplicitTls(pool) => {
+                pool.deliver_detailed_with_dsn(sender, &recipient, payload, metadata)
+            }
         }
     }
 

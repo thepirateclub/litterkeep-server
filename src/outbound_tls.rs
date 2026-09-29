@@ -3,12 +3,14 @@
 //! Это standalone transport для route, где policy требует implicit TLS. Он не
 //! разделяет plaintext pool: TLS identity является отдельным ключом ресурса.
 use crate::outbound::{self, DeliveryOutcome};
+#[path = "outbound_tls_delivery.rs"]
+mod delivery;
 use rustls::{
     ClientConfig, ClientConnection, RootCertStore, StreamOwned,
     pki_types::{CertificateDer, ServerName},
 };
 use std::{
-    io::{self, BufReader, Write},
+    io::{self, BufReader},
     net::TcpStream,
     sync::Arc,
 };
@@ -73,112 +75,6 @@ impl Connection {
         timeouts: outbound::SmtpTimeouts,
     ) -> io::Result<Self> {
         Self::connect_with_timeouts(address, server_name, ca_der, timeouts)
-    }
-
-    /// Выполняет одну SMTP transaction, не меняя TLS identity соединения.
-    pub fn deliver(
-        &mut self,
-        sender: &str,
-        recipient: &str,
-        message: &[u8],
-    ) -> io::Result<DeliveryOutcome> {
-        self.last_diagnostic = None;
-        self.deliver_recipients(sender, &[recipient], message)
-    }
-
-    /// Передаёт один DATA нескольким RCPT без размножения MIME payload.
-    pub fn deliver_many(
-        &mut self,
-        sender: &str,
-        recipients: &[String],
-        message: &[u8],
-    ) -> io::Result<DeliveryOutcome> {
-        let recipients = recipients.iter().map(String::as_str).collect::<Vec<_>>();
-        self.deliver_recipients(sender, &recipients, message)
-    }
-
-    fn deliver_recipients(
-        &mut self,
-        sender: &str,
-        recipients: &[&str],
-        message: &[u8],
-    ) -> io::Result<DeliveryOutcome> {
-        let binary_transfer = outbound::has_binary_transfer(message);
-        let valid_message = match binary_transfer {
-            true => outbound::validate_binary(message),
-            false => outbound::validate_data(message).is_ok(),
-        };
-        if !valid_message {
-            return Ok(DeliveryOutcome::PermanentFailure);
-        }
-        let envelope_requires_smtp_utf8 = crate::smtp::requires_smtp_utf8(sender)
-            || recipients
-                .iter()
-                .any(|recipient| crate::smtp::requires_smtp_utf8(recipient));
-        let mail_command = match outbound::build_mail_command(
-            sender,
-            envelope_requires_smtp_utf8,
-            message,
-            &self.capabilities,
-        ) {
-            outbound::MailCommand::Ready(command) => command,
-            outbound::MailCommand::PermanentFailure => {
-                return Ok(DeliveryOutcome::PermanentFailure);
-            }
-        };
-        self.command(&mail_command)?;
-        if let Some(outcome) = self.expect_command(outbound::ReplyExpectation::Mail)? {
-            return Ok(outcome);
-        }
-        for recipient in recipients {
-            self.command(&format!("RCPT TO:<{recipient}>\r\n"))?;
-            if let Some(outcome) = self.expect_command(outbound::ReplyExpectation::Recipient)? {
-                return Ok(outcome);
-            }
-        }
-        if binary_transfer {
-            self.stream
-                .get_ref()
-                .sock
-                .set_write_timeout(Some(self.timeouts.data_block()))?;
-            let timeouts = self.timeouts;
-            let reply = outbound::bdat::send(
-                &mut self.stream,
-                message,
-                |reader, command, payload, last| {
-                    let phase = match last {
-                        true => outbound::ReplyExpectation::BdatLast,
-                        false => outbound::ReplyExpectation::Bdat,
-                    };
-                    reader
-                        .get_ref()
-                        .sock
-                        .set_read_timeout(Some(timeouts.response(phase)))?;
-                    let stream = reader.get_mut();
-                    stream.write_all(command)?;
-                    stream.write_all(payload)?;
-                    stream.flush()
-                },
-            )?;
-            return Ok(outbound::bdat::delivery_outcome(
-                reply,
-                &mut self.close_after_response,
-            ));
-        }
-        self.command("DATA\r\n")?;
-        if let Some(outcome) = self.expect_command(outbound::ReplyExpectation::Data)? {
-            return Ok(outcome);
-        }
-        let stream = self.stream.get_mut();
-        stream
-            .sock
-            .set_write_timeout(Some(self.timeouts.data_block()))?;
-        outbound::write_data(stream, message)?;
-        stream.flush()?;
-        match self.expect_command(outbound::ReplyExpectation::Message)? {
-            None => Ok(DeliveryOutcome::Delivered),
-            Some(outcome) => Ok(outcome),
-        }
     }
 
     /// Аутентифицирует локальный submission-клиент механизмом SASL PLAIN.

@@ -16,6 +16,10 @@ mod connect;
 pub(crate) use connect::{connect_bounded, connect_bounded_with_timeouts, parse_route};
 #[path = "outbound_data.rs"]
 mod data;
+#[path = "outbound_delivery.rs"]
+mod delivery;
+#[path = "outbound_dsn_format.rs"]
+mod dsn_format;
 #[path = "outbound_ehlo.rs"]
 mod ehlo;
 #[path = "outbound_mail.rs"]
@@ -33,6 +37,9 @@ pub(crate) use data::DataValidationError;
 #[cfg(test)]
 pub(crate) use data::has_8bit_body;
 pub(crate) use data::{validate_data, write_data};
+pub(crate) use dsn_format::{
+    mail_suffix as dsn_mail_suffix, recipient_suffix as dsn_recipient_suffix,
+};
 pub(crate) use ehlo::negotiate_ehlo;
 pub(crate) use ehlo::{EhloCapabilities, EhloExtension, EhloNegotiation, SizeAdvertisement};
 #[cfg(test)]
@@ -127,80 +134,6 @@ impl Connection {
 
     fn connect_addr_with_limits(address: SocketAddr, limits: TransportLimits) -> io::Result<Self> {
         connect::connect_addr_with_limits(address, limits)
-    }
-
-    /// Выполняет ровно одну SMTP envelope transaction на уже проверенном канале.
-    pub fn deliver(
-        &mut self,
-        sender: &str,
-        recipient: &str,
-        message: &[u8],
-    ) -> io::Result<DeliveryOutcome> {
-        self.last_diagnostic = None;
-        let binary_transfer = has_binary_transfer(message);
-        let valid_message = match binary_transfer {
-            true => validate_binary(message),
-            false => validate_data(message).is_ok(),
-        };
-        if !valid_message {
-            return Ok(DeliveryOutcome::PermanentFailure);
-        }
-        let envelope_requires_smtp_utf8 =
-            crate::smtp::requires_smtp_utf8(sender) || crate::smtp::requires_smtp_utf8(recipient);
-        let mail_command = match build_mail_command(
-            sender,
-            envelope_requires_smtp_utf8,
-            message,
-            &self.capabilities,
-        ) {
-            MailCommand::Ready(command) => command,
-            MailCommand::PermanentFailure => return Ok(DeliveryOutcome::PermanentFailure),
-        };
-        self.command(&mail_command)?;
-        if let Some(outcome) = self.expect_command(ReplyExpectation::Mail)? {
-            return Ok(outcome);
-        }
-        self.command(&format!("RCPT TO:<{recipient}>\r\n"))?;
-        if let Some(outcome) = self.expect_command(ReplyExpectation::Recipient)? {
-            return Ok(outcome);
-        }
-        if binary_transfer {
-            self.writer
-                .set_write_timeout(Some(self.timeouts.data_block()))?;
-            let timeouts = self.timeouts;
-            let reply = bdat::send(
-                &mut self.reader,
-                message,
-                |reader, command, payload, last| {
-                    let phase = match last {
-                        true => ReplyExpectation::BdatLast,
-                        false => ReplyExpectation::Bdat,
-                    };
-                    reader
-                        .get_ref()
-                        .set_read_timeout(Some(timeouts.response(phase)))?;
-                    self.writer.write_all(command)?;
-                    self.writer.write_all(payload)?;
-                    self.writer.flush()
-                },
-            )?;
-            return Ok(bdat::delivery_outcome(
-                reply,
-                &mut self.close_after_response,
-            ));
-        }
-        self.command("DATA\r\n")?;
-        if let Some(outcome) = self.expect_command(ReplyExpectation::Data)? {
-            return Ok(outcome);
-        }
-        self.writer
-            .set_write_timeout(Some(self.timeouts.data_block()))?;
-        write_data(&mut self.writer, message)?;
-        self.writer.flush()?;
-        match self.expect_command(ReplyExpectation::Message)? {
-            Some(outcome) => Ok(outcome),
-            None => Ok(DeliveryOutcome::Delivered),
-        }
     }
 
     /// Завершает standalone-соединение. Ошибка QUIT не отменяет уже принятый DATA.

@@ -1,5 +1,32 @@
 # Goal ledger
 
+### 2026-09-29: G18 downstream single-origin DSN forwarding, PARTIAL T413
+
+- Outbound `Job` теперь переносит durable typed DSN metadata из Store через
+  обычный и TLS pool. EHLO parser распознаёт `DSN` без параметров. Для одного
+  source RCPT с одним forwarding destination transport отправляет сохранённые
+  MAIL `RET`/`ENVID`, RCPT `NOTIFY`/`ORCPT` только при объявленной peer
+  capability. RFC 3461 xtext сохраняет ASCII octets; RFC 6533 UTF-8 ORCPT
+  сериализуется 7-bit-safe unitext с проверкой UTF-8 и CR/LF/NUL.
+- Два независимых локальных TCP peer теста, подключённых через реальный
+  OutboundWorker, проверили точные MAIL/RCPT wire-команды с завершённым DATA и
+  deferred multi-origin без MAIL/RCPT. Formatter tests проверяют omission DSN
+  параметров без capability, RFC 6533 unitext и отказ malformed UTF-8/CRLF.
+  Grouped jobs сейчас переходят в durable Deferred после EHLO и до MAIL/RCPT,
+  пока не реализована выбранная политика RFC 3461 §5.2.7.3.
+- Windows Rust 1.97.1: 1070 library + 1 CLI tests pass, 4 ignored; строгий
+  Clippy и rustfmt pass. Linux Docker Rust 1.97.1: 1194 library + 1 CLI pass,
+  4 ignored; rustfmt и strict Clippy pass. Предыдущая flake в Store journal
+  прошла отдельно и при повторном full suite.
+- Использованы существующий `rust:1.97-bookworm`, `./data/g31-rust-cargo-home`
+  и `./data/g36-outbound-dsn-target`; компоненты rustfmt/clippy установлены
+  только в одноразовый слой контейнера. `--rm` удалил контейнер, образ не
+  создавался. Изменены два существующих Clippy lint-а без suppression.
+- T413/G18 остаётся PARTIAL: обязательная relay-result обработка для peer без
+  DSN, multi-origin alias strategy, downstream SUCCESS/DELAY, независимая
+  forwarding acceptance на implicit TLS и Litterkeep app interoperability
+  остаются непроверенными.
+
 ### 2026-09-29: G18 RFC 3464 multi-origin failure groups, PARTIAL T412
 
 - Добавлена unit-регрессия сериализатора: для двух исходных RCPT с явным

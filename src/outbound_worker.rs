@@ -12,6 +12,15 @@ pub struct Job {
     pub sender: String,
     pub recipient: String,
     pub payload: Vec<u8>,
+    /// Сохранённые исходные MAIL/RCPT DSN параметры forwarding job-а.
+    pub dsn_metadata: Option<crate::queue::DsnDeliveryMetadata>,
+}
+
+/// Backpressure outcome не возвращает крупный SMTP payload обратно caller-у.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SubmitError {
+    Full,
+    Disconnected,
 }
 
 /// Completion сохраняет outcome отдельно от владения connection pool.
@@ -93,8 +102,11 @@ impl OutboundWorker {
     }
 
     /// Не ждёт свободного slot: reactor сохраняет backpressure в своём state.
-    pub fn submit(&self, job: Job) -> Result<(), TrySendError<Job>> {
-        self.jobs.try_send(job)
+    pub fn submit(&self, job: Job) -> Result<(), SubmitError> {
+        self.jobs.try_send(job).map_err(|error| match error {
+            TrySendError::Full(_) => SubmitError::Full,
+            TrySendError::Disconnected(_) => SubmitError::Disconnected,
+        })
     }
 
     /// Возвращает готовый completion без polling loop в ожидании transport-а.
@@ -122,7 +134,12 @@ where
     F: FnMut(),
 {
     for job in incoming {
-        let attempt = pool.deliver_detailed(&job.sender, &job.recipient, &job.payload);
+        let attempt = pool.deliver_detailed_with_dsn(
+            &job.sender,
+            &job.recipient,
+            &job.payload,
+            job.dsn_metadata.as_ref(),
+        );
         let (result, diagnostic) = match attempt {
             Ok(attempt) => (Ok(attempt.outcome), attempt.diagnostic),
             Err(error) => (Err(error), None),

@@ -9,6 +9,7 @@ pub(crate) enum EhloExtension {
     Chunking,
     BinaryMime,
     SmtpUtf8,
+    Dsn,
     SizeUnspecified,
     SizeUnlimited,
     SizeMaximum(u64),
@@ -70,6 +71,7 @@ impl EhloCapabilities {
                 | EhloExtension::Chunking
                 | EhloExtension::BinaryMime
                 | EhloExtension::SmtpUtf8 => None,
+                EhloExtension::Dsn => None,
             })
             .unwrap_or_default()
     }
@@ -130,7 +132,14 @@ fn parse_extension(line: &str) -> io::Result<Option<EhloExtension>> {
     let Some(keyword) = tokens.next() else {
         return Ok(None);
     };
-    match keyword.to_ascii_uppercase().as_str() {
+    let keyword = keyword.to_ascii_uppercase();
+    if keyword == "DSN" {
+        return match tokens.next() {
+            None => Ok(Some(EhloExtension::Dsn)),
+            Some(_) => Ok(None),
+        };
+    }
+    match keyword.as_str() {
         "8BITMIME" => Ok(Some(EhloExtension::EightBitMime)),
         "CHUNKING" => Ok(Some(EhloExtension::Chunking)),
         "BINARYMIME" => Ok(Some(EhloExtension::BinaryMime)),
@@ -253,6 +262,23 @@ mod tests {
                 .expect("zero-padded SIZE capability")
                 .size_advertisement(),
             SizeAdvertisement::Maximum(10)
+        );
+    }
+
+    /// DSN является самостоятельной capability, а её параметры запрещены.
+    #[test]
+    fn dsn_extension_is_recognized_without_parameters() {
+        let mut reply = Cursor::new(b"250-peer.test\r\n250 DSN\r\n");
+        assert!(
+            read_ehlo(&mut reply)
+                .expect("DSN capability")
+                .supports(EhloExtension::Dsn)
+        );
+        let mut parameterized = Cursor::new(b"250-peer.test\r\n250 DSN RET\r\n");
+        assert!(
+            !read_ehlo(&mut parameterized)
+                .expect("unknown parameterized keyword")
+                .supports(EhloExtension::Dsn)
         );
     }
 }

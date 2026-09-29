@@ -206,6 +206,7 @@ impl OutboundScheduler {
                         sender: delivery.sender.clone(),
                         recipient: delivery.recipient.clone(),
                         payload: bytes.clone(),
+                        dsn_metadata: delivery.dsn_metadata.as_deref().cloned(),
                     })
                     .map_err(|_| {
                         io::Error::new(io::ErrorKind::WouldBlock, "outbound worker is full")

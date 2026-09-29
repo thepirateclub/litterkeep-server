@@ -108,7 +108,7 @@ T23 не запускался, потому что отдельный third-part
 тестом. Сырые локальные измерения сохранены под `data/g12-clean` и не входят в
 Git, поскольку содержат локальный PKI и runtime artifacts.
 
-## Обновление RFC 3461/3464, T412
+## Обновление RFC 3461/3464, T412-T413
 
 Старые строки T385/T404 в `acceptance.tsv` являются историческими checkpoint-
 ами. Текущее состояние отличается: SMTP DSN negotiation независимо проверена
@@ -116,5 +116,8 @@ Git, поскольку содержат локальный PKI и runtime artif
 группу для каждого eligible исходного RCPT. T412 проверяет две такие группы
 unit-регрессией и полным Windows/Linux Rust gate. Независимый сетевой сценарий
 с несколькими report-группами ещё не запускался; это не проверка приложения
-Litterkeep. Delay DSN и передачу DSN-параметров downstream relay сервер пока
-не поддерживает.
+Litterkeep. В T413 независимые TCP peers подтвердили forwarding MAIL/RCPT DSN
+параметров для одного source recipient и Deferred multi-origin до MAIL/RCPT.
+RFC 6533 UTF-8 ORCPT кодируется как 7-bit-safe unitext. Реакция на peer без DSN,
+downstream SUCCESS/DELAY reports и multi-origin forwarding policy остаются
+неполными.

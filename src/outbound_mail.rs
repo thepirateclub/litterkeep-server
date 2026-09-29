@@ -21,6 +21,7 @@ pub(crate) fn build_mail_command(
     envelope_requires_smtp_utf8: bool,
     message: &[u8],
     capabilities: &EhloCapabilities,
+    dsn: Option<&crate::smtp::MailDsn>,
 ) -> MailCommand {
     let contains_binary_transfer = crate::mime::tree::parse(message)
         .is_ok_and(|tree| tree.contains_binary_transfer_encoding());
@@ -63,8 +64,10 @@ pub(crate) fn build_mail_command(
         true => return MailCommand::PermanentFailure,
         false => "",
     };
-    let command =
-        format!("MAIL FROM:<{sender}>{size_parameter}{body_parameter}{utf8_header_parameter}\r\n");
+    let command = format!(
+        "MAIL FROM:<{sender}>{size_parameter}{body_parameter}{utf8_header_parameter}{}\r\n",
+        super::dsn_mail_suffix(dsn, capabilities.supports(EhloExtension::Dsn))
+    );
     let command_limit = crate::smtp::command_line_limit(command.as_bytes());
     match command.len() <= command_limit {
         true => MailCommand::Ready(command),
@@ -86,7 +89,7 @@ mod tests {
     fn size_is_omitted_when_peer_did_not_advertise_the_extension() {
         let peer = capabilities(b"250-peer.test\r\n250 PIPELINING\r\n");
         assert!(matches!(
-            build_mail_command("alice@test", false, b"Subject: x\r\n\r\nbody", &peer),
+            build_mail_command("alice@test", false, b"Subject: x\r\n\r\nbody", &peer, None),
             MailCommand::Ready(command) if command == "MAIL FROM:<alice@test>\r\n"
         ));
     }
@@ -97,7 +100,7 @@ mod tests {
         let message = b"Subject: x\r\n\r\n.body";
         let expected_size = message.len().saturating_add(2);
         assert!(matches!(
-            build_mail_command("alice@test", false, message, &peer),
+            build_mail_command("alice@test", false, message, &peer, None),
             MailCommand::Ready(command)
                 if command == format!("MAIL FROM:<alice@test> SIZE={expected_size}\r\n")
         ));
@@ -107,7 +110,7 @@ mod tests {
     fn fixed_size_limit_rejects_before_creating_mail_command() {
         let peer = capabilities(b"250-peer.test\r\n250 SIZE 10\r\n");
         assert!(matches!(
-            build_mail_command("alice@test", false, b"Subject: x\r\n\r\nbody", &peer),
+            build_mail_command("alice@test", false, b"Subject: x\r\n\r\nbody", &peer, None),
             MailCommand::PermanentFailure
         ));
     }
@@ -118,7 +121,7 @@ mod tests {
         let message = "Content-Transfer-Encoding: 8bit\r\n\r\nПривет".as_bytes();
         let size = message.len().saturating_add(2);
         assert!(matches!(
-            build_mail_command("alice@test", false, message, &peer),
+            build_mail_command("alice@test", false, message, &peer, None),
             MailCommand::Ready(command)
                 if command == format!(
                     "MAIL FROM:<alice@test> SIZE={size} BODY=8BITMIME\r\n"
@@ -131,7 +134,7 @@ mod tests {
         let peer = capabilities(b"250-peer.test\r\n250 SIZE 0\r\n");
         assert_eq!(peer.size_advertisement(), SizeAdvertisement::NoFixedLimit);
         assert!(matches!(
-            build_mail_command("alice@test", false, b"body", &peer),
+            build_mail_command("alice@test", false, b"body", &peer, None),
             MailCommand::Ready(command) if command == "MAIL FROM:<alice@test> SIZE=6\r\n"
         ));
     }
@@ -140,7 +143,7 @@ mod tests {
     fn size_above_u64_is_retained_and_declared_for_bounded_local_messages() {
         let peer = capabilities(b"250-peer.test\r\n250 SIZE 18446744073709551616\r\n");
         assert!(matches!(
-            build_mail_command("alice@test", false, b"body", &peer),
+            build_mail_command("alice@test", false, b"body", &peer, None),
             MailCommand::Ready(command)
                 if command == "MAIL FROM:<alice@test> SIZE=6\r\n"
         ));
@@ -153,7 +156,7 @@ mod tests {
         let message = b"MIME-Version: 1.0\r\nContent-Type: application/octet-stream\r\nContent-Transfer-Encoding: binary\r\n\r\n\0\xffpayload";
 
         assert!(matches!(
-            build_mail_command("alice@test", false, message, &peer),
+            build_mail_command("alice@test", false, message, &peer, None),
             MailCommand::PermanentFailure
         ));
     }
@@ -166,7 +169,7 @@ mod tests {
         let message = b"Content-Type: application/octet-stream\r\nContent-Transfer-Encoding: binary\r\n\r\n\0\xff";
 
         assert!(matches!(
-            build_mail_command("alice@test", false, message, &peer),
+            build_mail_command("alice@test", false, message, &peer, None),
             MailCommand::Ready(command)
                 if command == format!("MAIL FROM:<alice@test> SIZE={} BODY=BINARYMIME\r\n", message.len())
         ));

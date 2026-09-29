@@ -15,6 +15,7 @@ fn utf8_header_requires_both_peer_capabilities_and_sends_both_parameters() {
             false,
             "Subject: Привет\r\n\r\nbody".as_bytes(),
             &peer,
+            None,
         ),
         MailCommand::Ready(command)
             if command == "MAIL FROM:<alice@test> BODY=8BITMIME SMTPUTF8\r\n"
@@ -28,6 +29,7 @@ fn utf8_header_requires_both_peer_capabilities_and_sends_both_parameters() {
             false,
             "Subject: Привет\r\n\r\nbody".as_bytes(),
             &missing_utf8,
+            None,
         ),
         MailCommand::PermanentFailure
     ));
@@ -41,7 +43,7 @@ fn utf8_envelope_requires_smtputf8_and_8bitmime_capabilities() {
     ))
     .expect("capabilities");
     assert!(matches!(
-        outbound::build_mail_command("алиса@test", true, b"Subject: plain\r\n\r\nbody", &peer),
+        outbound::build_mail_command("алиса@test", true, b"Subject: plain\r\n\r\nbody", &peer, None),
         MailCommand::Ready(command)
             if command == "MAIL FROM:<алиса@test> SMTPUTF8\r\n"
     ));
@@ -53,7 +55,8 @@ fn utf8_envelope_requires_smtputf8_and_8bitmime_capabilities() {
             "alice@test",
             true,
             b"Subject: plain\r\n\r\nbody",
-            &missing_utf8
+            &missing_utf8,
+            None
         ),
         MailCommand::PermanentFailure
     ));

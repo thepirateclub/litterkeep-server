@@ -87,10 +87,10 @@ impl Pop3SaslInput {
         self.discarding = false;
         self.previous_was_carriage_return = false;
         let remainder_start = line_end.saturating_add(1);
-        if let Some(remainder) = received.get(remainder_start..) {
-            if input.try_reserve(remainder.len()).is_ok() {
-                input.extend_from_slice(remainder);
-            }
+        if let Some(remainder) = received.get(remainder_start..)
+            && input.try_reserve(remainder.len()).is_ok()
+        {
+            input.extend_from_slice(remainder);
         }
         InputProgress::AllocationFailureComplete
     }
