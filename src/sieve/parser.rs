@@ -43,6 +43,7 @@ fn capability(value: String) -> Capability {
         CapabilityWord::Envelope => Capability::Envelope,
         CapabilityWord::Vacation => Capability::Vacation,
         CapabilityWord::VacationSeconds => Capability::VacationSeconds,
+        CapabilityWord::Variables => Capability::Variables,
         _ => Capability::Unsupported(value),
     }
 }
@@ -100,6 +101,7 @@ fn action(
         CommandWord::FileInto => actions::fileinto(input)?,
         CommandWord::Redirect => actions::redirect(input)?,
         CommandWord::Vacation => actions::vacation(input)?,
+        CommandWord::Set => actions::set(input)?,
         CommandWord::If => {
             output.push(if_command(input)?);
             return Ok(());

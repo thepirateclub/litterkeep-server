@@ -1,5 +1,26 @@
 # Goal ledger
 
+### 2026-09-29: G18 RFC 5229 Variables `set` parser and runtime, PARTIAL T434
+
+- `set` is now parsed into a typed action only when `variables` is required. The
+  parser recognizes all six case-insensitive modifiers, rejects unknown tags,
+  invalid constant names and conflicting modifier precedence groups. Runtime
+  evaluation uses one execution-local store, expands named and byte-backed match
+  captures at the action statement, then applies modifiers and stores the value.
+  Non-UTF-8 captures are decoded only when referenced; invalid selected octets
+  fail the Sieve action instead of being lossily rewritten.
+- Four execution regressions and a parser capability/name/modifier regression
+  pass. Windows Rust 1.97.1 `cargo test --all-targets`: 1,115 library + 1 CLI
+  passed, 4 ignored. Linux Docker Rust 1.97.1: 1,241 library + 1 CLI passed,
+  4 ignored. Strict Clippy, rustfmt, diff check pass on Windows. Reused
+  `rust:1.97-bookworm`, `./data/g23-cargo-home` and
+  `./data/g18-rfc5229-set-expanded-target`; container used `--rm`, no image was
+  created.
+- The implementation is partial: RFC 5229 expansion for other string-valued
+  arguments and its `string` test remain absent. ManageSieve does not advertise
+  `variables`; no full RFC 5229 conformance or application interoperability is
+  claimed. G18 remains ACTIVE.
+
 ### 2026-09-29: G12 Sieve glob byte captures foundation, PARTIAL T421
 
 - Вынесен glob matcher в отдельную ответственность и добавлен capture API для

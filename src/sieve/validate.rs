@@ -37,26 +37,35 @@ pub(super) fn script(script: &Script) -> Result<(), &'static str> {
         .requires
         .iter()
         .any(|value| matches!(value, Capability::VacationSeconds));
-    commands(
-        &script.commands,
-        0,
-        &mut count,
+    let variables = script
+        .requires
+        .iter()
+        .any(|value| matches!(value, Capability::Variables));
+    let policy = ValidationPolicy {
         fileinto,
         copy,
         subaddress,
         envelope,
-    )?;
+        variables,
+    };
+    commands(&script.commands, 0, &mut count, policy)?;
     vacation_validation::actions(&script.commands, vacation, vacation_seconds)
+}
+
+#[derive(Clone, Copy)]
+struct ValidationPolicy {
+    fileinto: bool,
+    copy: bool,
+    subaddress: bool,
+    envelope: bool,
+    variables: bool,
 }
 
 fn commands(
     items: &[Command],
     depth: usize,
     count: &mut usize,
-    fileinto: bool,
-    copy: bool,
-    subaddress: bool,
-    envelope: bool,
+    policy: ValidationPolicy,
 ) -> Result<(), &'static str> {
     if depth > 16 {
         return Err("sieve nesting limit exceeded");
@@ -67,31 +76,15 @@ fn commands(
             return Err("sieve command limit exceeded");
         }
         match command {
-            Command::Action(action) => action_valid(action, fileinto, copy)?,
+            Command::Action(action) => action_valid(action, policy)?,
             Command::If {
                 condition,
                 then_commands,
                 else_commands,
             } => {
-                condition_valid(condition, depth, subaddress, envelope)?;
-                commands(
-                    then_commands,
-                    depth.saturating_add(1),
-                    count,
-                    fileinto,
-                    copy,
-                    subaddress,
-                    envelope,
-                )?;
-                commands(
-                    else_commands,
-                    depth.saturating_add(1),
-                    count,
-                    fileinto,
-                    copy,
-                    subaddress,
-                    envelope,
-                )?;
+                condition_valid(condition, depth, policy)?;
+                commands(then_commands, depth.saturating_add(1), count, policy)?;
+                commands(else_commands, depth.saturating_add(1), count, policy)?;
             }
         }
     }
@@ -99,12 +92,12 @@ fn commands(
 }
 
 /// Проверяет ограничения mailbox и обязательное объявление optional fileinto.
-fn action_valid(action: &Action, fileinto: bool, copy: bool) -> Result<(), &'static str> {
+fn action_valid(action: &Action, policy: ValidationPolicy) -> Result<(), &'static str> {
     match action {
-        Action::FileInto(_) if !fileinto => Err("fileinto extension must be required"),
+        Action::FileInto(_) if !policy.fileinto => Err("fileinto extension must be required"),
         Action::FileInto(name) if safe_name(name) => Ok(()),
-        Action::FileIntoCopy(_) if !fileinto => Err("fileinto extension must be required"),
-        Action::FileIntoCopy(_) | Action::RedirectCopy(_) if !copy => {
+        Action::FileIntoCopy(_) if !policy.fileinto => Err("fileinto extension must be required"),
+        Action::FileIntoCopy(_) | Action::RedirectCopy(_) if !policy.copy => {
             Err("copy extension must be required")
         }
         Action::FileIntoCopy(name) if safe_name(name) => Ok(()),
@@ -112,6 +105,13 @@ fn action_valid(action: &Action, fileinto: bool, copy: bool) -> Result<(), &'sta
             if valid_redirect_address(address) =>
         {
             Ok(())
+        }
+        Action::Set(_) if !policy.variables => Err("variables extension must be required"),
+        Action::Set(action) => {
+            super::variables::VariableStore::validate_name(&action.name)
+                .map_err(|_| "invalid variables name")?;
+            super::variables::VariableStore::validate_modifiers(&action.modifiers)
+                .map_err(|_| "conflicting variables modifiers")
         }
         Action::FileInto(_)
         | Action::FileIntoCopy(_)
@@ -183,8 +183,7 @@ fn has_route_or_group_syntax(value: &str) -> bool {
 fn condition_valid(
     condition: &Condition,
     depth: usize,
-    subaddress: bool,
-    envelope: bool,
+    policy: ValidationPolicy,
 ) -> Result<(), &'static str> {
     if depth > 16 {
         return Err("sieve nesting limit exceeded");
@@ -194,26 +193,24 @@ fn condition_valid(
         Condition::Address {
             part: AddressPart::User | AddressPart::Detail,
             ..
-        } if !subaddress => Err("subaddress extension must be required"),
+        } if !policy.subaddress => Err("subaddress extension must be required"),
         Condition::Address { names, matcher, .. } => string_match_valid(names, matcher),
-        Condition::Envelope { .. } if !envelope => Err("envelope extension must be required"),
+        Condition::Envelope { .. } if !policy.envelope => {
+            Err("envelope extension must be required")
+        }
         Condition::Envelope {
             part: AddressPart::User | AddressPart::Detail,
             ..
-        } if !subaddress => Err("subaddress extension must be required"),
+        } if !policy.subaddress => Err("subaddress extension must be required"),
         Condition::Envelope { matcher, .. } => matcher_keys_valid(matcher),
         Condition::Exists { names } if names.is_empty() => Err("empty sieve exists list"),
-        Condition::Not(value) => {
-            condition_valid(value, depth.saturating_add(1), subaddress, envelope)
-        }
+        Condition::Not(value) => condition_valid(value, depth.saturating_add(1), policy),
         Condition::AllOf(values) | Condition::AnyOf(values) if values.is_empty() => {
             Err("empty sieve condition list")
         }
-        Condition::AllOf(values) | Condition::AnyOf(values) => {
-            values.iter().try_for_each(|value| {
-                condition_valid(value, depth.saturating_add(1), subaddress, envelope)
-            })
-        }
+        Condition::AllOf(values) | Condition::AnyOf(values) => values
+            .iter()
+            .try_for_each(|value| condition_valid(value, depth.saturating_add(1), policy)),
         Condition::True | Condition::False | Condition::Exists { .. } | Condition::Size { .. } => {
             Ok(())
         }

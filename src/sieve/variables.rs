@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 #[path = "variables/modifier.rs"]
 mod modifier;
-pub use modifier::VariableModifier;
+pub use super::ast::VariableModifier;
 
 /// RFC 5229 требует поддержку как минимум 128 различных имён.
 pub const MAX_VARIABLES: usize = 128;
@@ -23,6 +23,7 @@ pub enum VariableError {
     ExpansionLimit,
     UnsupportedNamespace,
     InvalidModifiers,
+    CaptureEncoding,
 }
 
 /// Per-script именованные значения с ASCII-регистронезависимыми именами.
@@ -32,11 +33,22 @@ pub struct VariableStore {
 }
 
 impl VariableStore {
+    /// Проверяет имя до публикации скрипта, как требует RFC 5229 §4.
+    pub fn validate_name(name: &str) -> Result<(), VariableError> {
+        match valid_name(name) {
+            true => Ok(()),
+            false => Err(VariableError::InvalidName),
+        }
+    }
+
+    /// Проверяет конфликт modifiers на этапе валидации Sieve script.
+    pub fn validate_modifiers(modifiers: &[VariableModifier]) -> Result<(), VariableError> {
+        modifier::validate_unique_groups(modifiers)
+    }
+
     /// Сохраняет значение, обрезая его по символам до RFC-минимума 4000.
     pub fn set(&mut self, name: &str, value: &str) -> Result<(), VariableError> {
-        if !valid_name(name) {
-            return Err(VariableError::InvalidName);
-        }
+        Self::validate_name(name)?;
         let key = name.to_ascii_lowercase();
         if !self.values.contains_key(&key) && self.values.len() >= MAX_VARIABLES {
             return Err(VariableError::TooManyVariables);
@@ -65,10 +77,21 @@ impl VariableStore {
         captures: &[String],
         modifiers: &[VariableModifier],
     ) -> Result<(), VariableError> {
-        if !valid_name(name) {
-            return Err(VariableError::InvalidName);
-        }
+        Self::validate_name(name)?;
         let expanded = self.expand(source, captures)?;
+        self.set_modified(name, &expanded, modifiers)
+    }
+
+    /// Выполняет тот же порядок, сохраняя octet captures до нужной ссылки.
+    pub fn set_expanded_octets(
+        &mut self,
+        name: &str,
+        source: &str,
+        captures: &[Vec<u8>],
+        modifiers: &[VariableModifier],
+    ) -> Result<(), VariableError> {
+        Self::validate_name(name)?;
+        let expanded = expand(&self.values, source, CaptureSource::Octets(captures))?;
         self.set_modified(name, &expanded, modifiers)
     }
 
@@ -81,8 +104,14 @@ impl VariableStore {
 
     /// Раскрывает ссылки ровно одним проходом; неизвестные имена дают пустую строку.
     pub fn expand(&self, source: &str, captures: &[String]) -> Result<String, VariableError> {
-        expand(source, &self.values, captures)
+        expand(&self.values, source, CaptureSource::Strings(captures))
     }
+}
+
+#[derive(Clone, Copy)]
+enum CaptureSource<'a> {
+    Strings(&'a [String]),
+    Octets(&'a [Vec<u8>]),
 }
 
 /// Проверяет identifier из RFC 5228: ASCII-буква или `_`, затем буквы, цифры, `_`.
@@ -100,9 +129,9 @@ fn valid_name(name: &str) -> bool {
 
 /// Выполняет подстановки без повторного раскрытия вставленных значений.
 fn expand(
-    source: &str,
     values: &HashMap<String, String>,
-    captures: &[String],
+    source: &str,
+    captures: CaptureSource<'_>,
 ) -> Result<String, VariableError> {
     let mut output = String::with_capacity(source.len());
     let mut output_chars = 0_usize;
@@ -172,14 +201,14 @@ fn push_bounded(
 fn resolve<'a>(
     reference: &str,
     values: &'a HashMap<String, String>,
-    captures: &'a [String],
+    captures: CaptureSource<'a>,
 ) -> Result<Option<&'a str>, VariableError> {
     if reference.is_empty() {
         return Ok(None);
     }
     if reference.bytes().all(|byte| byte.is_ascii_digit()) {
         let index = reference.parse::<usize>().unwrap_or(usize::MAX);
-        return Ok(Some(captures.get(index).map(String::as_str).unwrap_or("")));
+        return capture_value(captures, index);
     }
     if !valid_name(reference) {
         return match valid_namespace(reference) {
@@ -193,6 +222,24 @@ fn resolve<'a>(
             .map(String::as_str)
             .unwrap_or(""),
     ))
+}
+
+/// Декодирует лишь тот octet capture, который действительно запрошен.
+fn capture_value<'a>(
+    captures: CaptureSource<'a>,
+    index: usize,
+) -> Result<Option<&'a str>, VariableError> {
+    match captures {
+        CaptureSource::Strings(values) => {
+            Ok(Some(values.get(index).map(String::as_str).unwrap_or("")))
+        }
+        CaptureSource::Octets(values) => match values.get(index) {
+            Some(bytes) => std::str::from_utf8(bytes)
+                .map(Some)
+                .map_err(|_| VariableError::CaptureEncoding),
+            None => Ok(Some("")),
+        },
+    }
 }
 
 /// Отличает зарезервированный namespace syntax от просто некорректной ссылки.

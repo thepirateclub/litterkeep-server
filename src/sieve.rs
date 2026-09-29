@@ -65,8 +65,8 @@ mod validate;
 mod variables;
 
 pub use ast::{
-    Action, AddressPart, Comparator, Condition, EnvelopePart, MatchType, Script, SizeRelation,
-    StringMatch, VacationAction, VacationInterval,
+    Action, AddressPart, Comparator, Condition, EnvelopePart, MatchType, Script, SetAction,
+    SizeRelation, StringMatch, VacationAction, VacationInterval, VariableModifier,
 };
 pub use execution::{
     DeliveryPlan, ExecutionError, MAX_REDIRECTS_PER_EVALUATION, execute, execute_with_envelope,

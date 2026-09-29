@@ -32,7 +32,6 @@ fn invalid_script_does_not_become_a_delivery_plan() {
 #[test]
 fn selected_unimplemented_extension_requirements_fail_closed() {
     for source in [
-        "require \"variables\"; keep;",
         "require \"body\"; keep;",
         "require \"reject\"; keep;",
         "require \"imap4flags\"; keep;",
@@ -45,6 +44,16 @@ fn selected_unimplemented_extension_requirements_fail_closed() {
             "accepted unsupported extension: {source}"
         );
     }
+}
+
+/// RFC 5229 требует Variables для `set` и запрещает некорректные modifiers.
+#[test]
+fn variables_set_requires_capability_and_valid_constant_name() {
+    assert!(parse("set \"name\" \"value\";").is_err());
+    assert!(parse("require \"variables\"; set \"9bad\" \"value\";").is_err());
+    assert!(parse("require \"variables\"; set :vendor \"name\" \"value\";").is_err());
+    assert!(parse("require \"variables\"; set :upper :lower \"name\" \"value\";").is_err());
+    assert!(parse("require \"variables\"; set :LeNgTh \"name\" \"value\";").is_ok());
 }
 
 /// RFC 5228 требует объявления subaddress до использования address :user.

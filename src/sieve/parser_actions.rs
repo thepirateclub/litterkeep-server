@@ -8,6 +8,8 @@ use std::collections::VecDeque;
 
 #[path = "parser_vacation.rs"]
 mod vacation_action;
+#[path = "parser_variables.rs"]
+mod variables_action;
 
 /// Разбирает optional RFC 3894 `:copy` перед обязательным mailbox string.
 pub(super) fn fileinto(input: &mut VecDeque<Token>) -> Result<Action, &'static str> {
@@ -34,4 +36,9 @@ pub(super) fn redirect(input: &mut VecDeque<Token>) -> Result<Action, &'static s
 /// Делегирует разбор RFC 5230 опций отдельной grammar-функции.
 pub(super) fn vacation(input: &mut VecDeque<Token>) -> Result<Action, &'static str> {
     vacation_action::parse(input)
+}
+
+/// Делегирует grammar RFC 5229 с shared modifier enum.
+pub(super) fn set(input: &mut VecDeque<Token>) -> Result<Action, &'static str> {
+    variables_action::parse_set(input)
 }

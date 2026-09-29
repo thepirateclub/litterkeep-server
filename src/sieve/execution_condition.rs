@@ -27,6 +27,11 @@ impl MatchVariables {
         self.values.extend(wildcards);
     }
 
+    /// Предоставляет byte captures, чтобы Variables декодировал только запрошенную ссылку.
+    pub(super) fn octets(&self) -> &[Vec<u8>] {
+        &self.values
+    }
+
     /// Возвращает capture по RFC индексу, не индексируя коллекцию напрямую.
     #[cfg(test)]
     fn get(&self, index: usize) -> Option<&[u8]> {

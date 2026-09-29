@@ -1,18 +1,8 @@
 //! Реализация порядка и преобразований RFC 5229 для `set` modifiers.
 
+use super::super::ast::VariableModifier;
 use super::VariableError;
 use std::collections::HashSet;
-
-/// Именованный modifier, распознанный parser-ом до исполнения `set`.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum VariableModifier {
-    Lower,
-    Upper,
-    LowerFirst,
-    UpperFirst,
-    QuoteWildcard,
-    Length,
-}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum PrecedenceGroup {
@@ -57,7 +47,7 @@ pub(super) fn apply(source: &str, modifiers: &[VariableModifier]) -> Result<Stri
 }
 
 /// RFC 5229 запрещает больше одного modifier-а одной группы precedence.
-fn validate_unique_groups(modifiers: &[VariableModifier]) -> Result<(), VariableError> {
+pub(super) fn validate_unique_groups(modifiers: &[VariableModifier]) -> Result<(), VariableError> {
     let mut groups = HashSet::new();
     for modifier in modifiers {
         if !groups.insert(modifier.group()) {

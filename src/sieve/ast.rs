@@ -16,6 +16,7 @@ pub enum Capability {
     Envelope,
     Vacation,
     VacationSeconds,
+    Variables,
     Unsupported(String),
 }
 
@@ -47,7 +48,27 @@ pub enum Action {
     Redirect(String),
     RedirectCopy(String),
     Vacation(VacationAction),
+    Set(SetAction),
     Stop,
+}
+
+/// Typed RFC 5229 `set` action с constant name и строкой значения.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SetAction {
+    pub name: String,
+    pub value: String,
+    pub modifiers: Vec<VariableModifier>,
+}
+
+/// RFC 5229 modifier, сохранённый в parsed `set` action.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum VariableModifier {
+    Lower,
+    Upper,
+    LowerFirst,
+    UpperFirst,
+    QuoteWildcard,
+    Length,
 }
 
 /// Параметры RFC 5230, сохранённые без потери исходных Sieve strings.

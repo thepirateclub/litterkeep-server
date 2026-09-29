@@ -13,6 +13,7 @@ pub(super) enum CommandWord {
     FileInto,
     Redirect,
     Vacation,
+    Set,
     Unknown,
 }
 
@@ -30,6 +31,7 @@ impl CommandWord {
             "fileinto" => Self::FileInto,
             "redirect" => Self::Redirect,
             "vacation" => Self::Vacation,
+            "set" => Self::Set,
             _ => Self::Unknown,
         }
     }
@@ -87,6 +89,7 @@ pub(super) enum CapabilityWord {
     Envelope,
     Vacation,
     VacationSeconds,
+    Variables,
     Unknown,
 }
 
@@ -101,6 +104,7 @@ impl CapabilityWord {
             "envelope" => Self::Envelope,
             "vacation" => Self::Vacation,
             "vacation-seconds" => Self::VacationSeconds,
+            "variables" => Self::Variables,
             _ => Self::Unknown,
         }
     }
@@ -121,6 +125,33 @@ pub(super) enum MatchTag {
 pub(super) enum CopyTag {
     Copy,
     Unknown,
+}
+
+/// RFC 5229 modifier tags распознаются до чтения positional strings.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum VariableModifierTag {
+    Lower,
+    Upper,
+    LowerFirst,
+    UpperFirst,
+    QuoteWildcard,
+    Length,
+    Unknown,
+}
+
+impl VariableModifierTag {
+    /// Sieve tags нечувствительны к ASCII-регистру.
+    pub(super) fn parse(value: &str) -> Self {
+        match value.to_ascii_lowercase().as_str() {
+            ":lower" => Self::Lower,
+            ":upper" => Self::Upper,
+            ":lowerfirst" => Self::LowerFirst,
+            ":upperfirst" => Self::UpperFirst,
+            ":quotewildcard" => Self::QuoteWildcard,
+            ":length" => Self::Length,
+            _ => Self::Unknown,
+        }
+    }
 }
 
 impl CopyTag {
