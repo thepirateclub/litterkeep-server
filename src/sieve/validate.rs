@@ -1,6 +1,8 @@
 //! Статическая policy validation до атомарной публикации script версии.
 
 use super::ast::{Action, AddressPart, Capability, Command, Condition, Script};
+#[path = "validate_namespace.rs"]
+mod namespace;
 #[path = "vacation_validation.rs"]
 mod vacation_validation;
 
@@ -99,6 +101,9 @@ fn commands(
 
 /// Проверяет ограничения mailbox и обязательное объявление optional fileinto.
 fn action_valid(action: &Action, policy: ValidationPolicy) -> Result<(), &'static str> {
+    if policy.variables {
+        namespace::action(action)?;
+    }
     match action {
         Action::FileInto(_) if !policy.fileinto => Err("fileinto extension must be required"),
         Action::FileInto(name) if safe_name(name) => Ok(()),
@@ -196,6 +201,9 @@ fn condition_valid(
     depth: usize,
     policy: ValidationPolicy,
 ) -> Result<(), &'static str> {
+    if policy.variables {
+        namespace::condition(condition)?;
+    }
     if depth > 16 {
         return Err("sieve nesting limit exceeded");
     }

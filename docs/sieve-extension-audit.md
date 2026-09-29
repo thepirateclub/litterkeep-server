@@ -16,7 +16,7 @@ IANA registry и не заменяет отдельные acceptance для ка
 | `subaddress` | RFC 3598 | Реализовано, рекламируется | Проверить все допустимые recipient-part варианты и межклиентские адресные соглашения. |
 | `copy` | RFC 3894 | Реализовано, рекламируется | Проверить комбинации с actions и доставкой на независимом профиле. |
 | `vacation-seconds` | RFC 6131 | Реализовано, рекламируется | Остальные границы vacation и взаимодействие с расширениями требуют отдельного профиля. |
-| `variables` | [RFC 5229](https://www.rfc-editor.org/rfc/rfc5229.html) | Частично: `set` AST/parser/runtime, per-script store, modifiers, capture references и `string` test работают; capability не рекламируется | Расширение всех обычных string-позиций (header/address/envelope/exists аргументы, fileinto/redirect/vacation), quoting/encoded-character provenance, parser-time диагностика namespaces и end-to-end ManageSieve проверка. |
+| `variables` | [RFC 5229](https://www.rfc-editor.org/rfc/rfc5229.html) | Частично: `set` AST/parser/runtime, per-script store, modifiers, capture references и `string` test работают; common condition/action strings раскрываются во время выполнения; capability не рекламируется | RFC 5228 `encoded-character` expansion (раздел 2.4.2.4), строки для статически типизированных comparator/envelope-part selector-ов, совместный acceptance профиль и ManageSieve discovery/interoperability. |
 | `body` | [RFC 5173](https://www.rfc-editor.org/rfc/rfc5173.html) | Не реализовано, не рекламируется | MIME-aware `:raw`, `:content`, `:text`; не допускать совпадений через границы частей и ограничить CPU/память. |
 | `reject`, `ereject` | [RFC 5429](https://www.rfc-editor.org/rfc/rfc5429.html) | Не реализовано, не рекламируется | Нужна Sieve evaluation до SMTP принятия DATA для protocol-level refusal; post-accept DSN не эквивалентен `ereject`. |
 | `imap4flags` | [RFC 5232](https://www.rfc-editor.org/rfc/rfc5232.html) | Не реализовано, не рекламируется | Реализовать `setflag`, `addflag`, `removeflag`, `hasflag` и `:flags` с durable mailbox flag mutation. |
@@ -38,7 +38,7 @@ T422 подключил эти результаты к per-script execution stat
 ошибочное сопоставление не перезаписывает состояние, а составные тесты
 сохраняют обязательные порядок слева направо и short-circuit.
 
-**Текущий остаток RFC 5229 после T439.** `set`, `string`, modifier-ы, один
+**Текущий остаток RFC 5229 после T440.** `set`, `string`, modifier-ы, один
 проход раскрытия, numeric captures с ведущими нулями, неизвестные имена и
 per-script scope теперь связаны с parser/runtime. `string` сохраняет пробелы,
 сравнивает оба списка, обновляет captures успешного `:matches` и участвует в
@@ -46,10 +46,13 @@ short-circuit. Условия `header`, `address`, `envelope` и `exists` рас
 свои string arguments непосредственно перед оценкой, только если требуется
 `variables`. `fileinto`, `redirect` и все string-поля `vacation` раскрываются
 в точке action и повторно проходят проверки path, mailbox и MIME; redirect по-
-прежнему проходит Store allowlist/hop-limit. Расширение всё ещё не рекламируется:
-lexer теряет provenance backslash
-quoting и encoded-character. Namespace ошибки обнаруживаются во время runtime,
-не при загрузке скрипта. Нет полной conformance матрицы или независимой
+прежнему проходит Store allowlist/hop-limit. RFC 5229 backslash quoting уже
+снимается лексером до expansion; регрессия покрывает `\${foo}`, `\\${foo}` и
+literal-dollar single-pass образец. Compile-time проход AST отвергает namespace,
+если его capability не требуется; `${variables.unknown}` считается неизвестным
+именем и раскрывается в пустую строку. Расширение всё ещё не рекламируется:
+RFC 5228 `encoded-character` expansion (раздел 2.4.2.4) и динамические comparator/envelope-part
+selectors не реализованы. Нет полной conformance матрицы или независимой
 ManageSieve interoperability проверки.
 
 Историческая запись T421-T429 ниже описывает состояние на даты тех этапов;

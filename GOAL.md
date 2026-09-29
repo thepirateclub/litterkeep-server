@@ -1,5 +1,27 @@
 # Goal ledger
 
+### 2026-09-29: G18 RFC 5229 namespace load-time validation, PARTIAL T440
+
+- Если script требует `variables`, AST namespace pass проверяет string arguments
+  у всех actions/conditions до публикации. Namespace без требуемого capability
+  отклоняется при загрузке, включая недостижимые ветви; без Variables обычные
+  строки остаются literal. Namespace `variables.*` объявлен самим Variables,
+  но не содержит модифицируемых значений, поэтому неизвестные имена дают empty.
+- Regression покрывает namespace в `set` и test-аргументах, включённое и
+  выключенное extension, а также RFC 5229 backslash quoting до expansion,
+  `\${foo}`, `\\${foo}` и literal-dollar одно-проходный образец. Windows
+  Rust 1.97.1 all-target: 1 130 library + 1 CLI прошли, 4 ignored; strict
+  Clippy, rustfmt и diff-check прошли. Linux Docker all-target после одного
+  несвязанного transient `NotFound` в Store test, прошедшего изолированно:
+  1 256 library + 1 CLI прошли, 4 ignored при полном повторном прогоне; новый
+  source assertion по unreachable branch также прошёл targeted тестом.
+  Существующий образ/cache, target `./data/g18-rfc5229-namespace-target`,
+  одноразовые контейнеры `--rm`, image не создавался.
+- Обход namespace вынесен в отдельные `variables/namespace.rs` и
+  `validate_namespace.rs`; `validate.rs` остаётся короче 300 строк. RFC 5228
+  `encoded-character` expansion и подстановки comparator/envelope-part selector
+  ещё остаются; Variables не рекламируется, G18 ACTIVE.
+
 ### 2026-09-29: G18 RFC 5229 dynamic `vacation` strings, PARTIAL T439
 
 - Vacation `:subject`, `:from`, `:addresses`, `:handle` и reason раскрываются

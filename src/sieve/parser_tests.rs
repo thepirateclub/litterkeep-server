@@ -65,6 +65,21 @@ fn variables_string_test_requires_extension_and_accepts_list_arguments() {
     assert!(script.is_ok());
 }
 
+#[test]
+fn variable_namespace_references_are_checked_when_the_script_is_loaded() {
+    assert!(parse("require \"variables\"; set \"name\" \"${environment.domain}\";").is_err());
+    assert!(parse("require \"variables\"; set \"name\" \"${variables.unknown}\";").is_ok());
+    assert!(
+        parse("require \"variables\"; if header :is \"${environment.field}\" \"x\" { keep; }")
+            .is_err()
+    );
+    assert!(
+        parse("require \"variables\"; if false { set \"value\" \"${environment.field}\"; }")
+            .is_err()
+    );
+    assert!(parse("if header :is \"${environment.field}\" \"x\" { keep; }").is_ok());
+}
+
 /// RFC 5228 требует объявления subaddress до использования address :user.
 #[test]
 fn subaddress_projection_requires_and_accepts_its_capability() {

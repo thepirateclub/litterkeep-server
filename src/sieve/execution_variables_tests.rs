@@ -173,3 +173,23 @@ fn redirect_expands_and_revalidates_one_mailbox_before_planning() {
         Err(ExecutionError::VariableRuntime)
     );
 }
+
+#[test]
+fn declared_variables_namespace_has_empty_unknown_values() {
+    let script = parse("require \"variables\"; set \"result\" \"${variables.unknown}\";")
+        .expect("the Variables namespace is declared");
+    let (_, values) = execute_state(&script, &[], 0, "", "").expect("expand namespace");
+
+    assert_eq!(values.get("result"), Some(""));
+}
+
+#[test]
+fn sieve_quoting_precedes_single_pass_variable_expansion() {
+    let source = r#"require "variables"; set "foo" "ACME"; set "quoted" "\${foo}"; set "escaped" "\\${foo}"; set "dollar" "$"; set "literal" "${dollar}{beep}";"#;
+    let script = parse(source).expect("quoted variable references");
+    let (_, values) = execute_state(&script, &[], 0, "", "").expect("execute string actions");
+
+    assert_eq!(values.get("quoted"), Some("ACME"));
+    assert_eq!(values.get("escaped"), Some(r#"\ACME"#));
+    assert_eq!(values.get("literal"), Some("${beep}"));
+}

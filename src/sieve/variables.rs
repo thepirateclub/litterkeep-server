@@ -4,6 +4,8 @@ use std::collections::HashMap;
 
 #[path = "variables/modifier.rs"]
 mod modifier;
+#[path = "variables/namespace.rs"]
+mod namespace;
 pub use super::ast::VariableModifier;
 
 /// RFC 5229 требует поддержку как минимум 128 различных имён.
@@ -44,6 +46,11 @@ impl VariableStore {
     /// Проверяет конфликт modifiers на этапе валидации Sieve script.
     pub fn validate_modifiers(modifiers: &[VariableModifier]) -> Result<(), VariableError> {
         modifier::validate_unique_groups(modifiers)
+    }
+
+    /// Проверяет namespace references до публикации исполняемого script-а.
+    pub fn validate_namespace_references(value: &str) -> Result<(), VariableError> {
+        namespace::validate_references(value)
     }
 
     /// Сохраняет значение, обрезая его по символам до RFC-минимума 4000.
@@ -221,7 +228,7 @@ fn resolve<'a>(
     }
     if !valid_name(reference) {
         return match valid_namespace(reference) {
-            true => Err(VariableError::UnsupportedNamespace),
+            true => namespace::resolve(reference),
             false => Ok(None),
         };
     }
