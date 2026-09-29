@@ -7,15 +7,23 @@ pub(super) fn actions(
     items: &[Command],
     required: bool,
     seconds_required: bool,
+    variables_required: bool,
 ) -> Result<(), &'static str> {
     let mut count = 0;
-    visit(items, required, seconds_required, &mut count)
+    visit(
+        items,
+        required,
+        seconds_required,
+        variables_required,
+        &mut count,
+    )
 }
 
 fn visit(
     items: &[Command],
     required: bool,
     seconds_required: bool,
+    variables_required: bool,
     count: &mut usize,
 ) -> Result<(), &'static str> {
     for command in items {
@@ -33,15 +41,27 @@ fn visit(
                 if *count > 1 {
                     return Err("vacation may appear only once per script");
                 }
-                addresses(action)?;
+                addresses(action, variables_required)?;
             }
             Command::If {
                 then_commands,
                 else_commands,
                 ..
             } => {
-                visit(then_commands, required, seconds_required, count)?;
-                visit(else_commands, required, seconds_required, count)?;
+                visit(
+                    then_commands,
+                    required,
+                    seconds_required,
+                    variables_required,
+                    count,
+                )?;
+                visit(
+                    else_commands,
+                    required,
+                    seconds_required,
+                    variables_required,
+                    count,
+                )?;
             }
             Command::Action(_) => {}
         }
@@ -49,22 +69,35 @@ fn visit(
     Ok(())
 }
 
-fn addresses(action: &VacationAction) -> Result<(), &'static str> {
+fn addresses(action: &VacationAction, variables_required: bool) -> Result<(), &'static str> {
     if let Some(from) = action.from.as_deref() {
-        match (unsafe_header(from), mailbox_list(from)) {
-            (false, true) => {}
-            _ => return Err("invalid vacation from mailbox-list"),
+        if unsafe_header(from) {
+            return Err("invalid vacation from mailbox-list");
+        }
+        if !dynamic(from, variables_required) && !mailbox_list(from) {
+            return Err("invalid vacation from mailbox-list");
         }
     }
     for address in &action.addresses {
-        if unsafe_header(address) || !single_mailbox(address) {
+        if unsafe_header(address)
+            || (!dynamic(address, variables_required) && !single_mailbox(address))
+        {
             return Err("invalid vacation address");
         }
     }
-    if action.mime {
+    if action.mime && !dynamic(&action.reason, variables_required) {
         super::super::vacation_mime::validate_reason(action.reason.as_bytes())?;
     }
     Ok(())
+}
+
+/// Проверяет уже раскрытые mailboxes и MIME entity непосредственно перед планом.
+pub(super) fn validate_expanded(action: &VacationAction) -> Result<(), &'static str> {
+    addresses(action, false)
+}
+
+fn dynamic(value: &str, variables_required: bool) -> bool {
+    variables_required && value.contains("${")
 }
 
 fn mailbox_list(value: &str) -> bool {

@@ -235,7 +235,13 @@ fn apply(action: &Action, state: &mut ExecutionState) -> Result<(), ExecutionErr
             }
             state.plan.redirects.push(address);
         }
-        Action::Vacation(action) => state.plan.vacations.push(action.clone()),
+        Action::Vacation(action) => {
+            let expanded = dynamic::vacation(action, state)?;
+            if super::validate::validate_expanded_vacation(&expanded).is_err() {
+                return Err(ExecutionError::VariableRuntime);
+            }
+            state.plan.vacations.push(expanded);
+        }
         Action::Set(action) => {
             let captures = state.match_variables.octets();
             state
@@ -267,3 +273,7 @@ mod work_limit_tests;
 #[cfg(test)]
 #[path = "execution_variables_tests.rs"]
 mod variables_tests;
+
+#[cfg(test)]
+#[path = "execution_vacation_variables_tests.rs"]
+mod vacation_variables_tests;

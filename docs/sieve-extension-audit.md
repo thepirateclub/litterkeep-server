@@ -38,17 +38,16 @@ T422 подключил эти результаты к per-script execution stat
 ошибочное сопоставление не перезаписывает состояние, а составные тесты
 сохраняют обязательные порядок слева направо и short-circuit.
 
-**Текущий остаток RFC 5229 после T438.** `set`, `string`, modifier-ы, один
+**Текущий остаток RFC 5229 после T439.** `set`, `string`, modifier-ы, один
 проход раскрытия, numeric captures с ведущими нулями, неизвестные имена и
 per-script scope теперь связаны с parser/runtime. `string` сохраняет пробелы,
 сравнивает оба списка, обновляет captures успешного `:matches` и участвует в
 short-circuit. Условия `header`, `address`, `envelope` и `exists` раскрывают
 свои string arguments непосредственно перед оценкой, только если требуется
-`variables`. `fileinto` targets раскрываются и повторно проверяются по path
-segments; `redirect` раскрывает адрес и требует ровно один mailbox до обычной
-Store allowlist/hop-limit проверки. Расширение всё ещё не рекламируется:
-динамические аргументы `vacation` пока не раскрываются,
-а lexer теряет provenance backslash
+`variables`. `fileinto`, `redirect` и все string-поля `vacation` раскрываются
+в точке action и повторно проходят проверки path, mailbox и MIME; redirect по-
+прежнему проходит Store allowlist/hop-limit. Расширение всё ещё не рекламируется:
+lexer теряет provenance backslash
 quoting и encoded-character. Namespace ошибки обнаруживаются во время runtime,
 не при загрузке скрипта. Нет полной conformance матрицы или независимой
 ManageSieve interoperability проверки.

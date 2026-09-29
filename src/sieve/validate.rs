@@ -49,7 +49,13 @@ pub(super) fn script(script: &Script) -> Result<(), &'static str> {
         variables,
     };
     commands(&script.commands, 0, &mut count, policy)?;
-    vacation_validation::actions(&script.commands, vacation, vacation_seconds)
+    vacation_validation::actions(&script.commands, vacation, vacation_seconds, variables)
+}
+
+pub(super) fn validate_expanded_vacation(
+    action: &super::ast::VacationAction,
+) -> Result<(), &'static str> {
+    vacation_validation::validate_expanded(action)
 }
 
 #[derive(Clone, Copy)]

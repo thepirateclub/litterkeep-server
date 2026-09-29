@@ -1,5 +1,22 @@
 # Goal ledger
 
+### 2026-09-29: G18 RFC 5229 dynamic `vacation` strings, PARTIAL T439
+
+- Vacation `:subject`, `:from`, `:addresses`, `:handle` и reason раскрываются
+  только при `require "variables"`, непосредственно при выполнении action.
+  Статическая validation пропускает только аргумент с variable reference;
+  после expansion повторно проверяются mailbox-list/single mailbox и MIME
+  entity. Ответный renderer сохраняет собственную независимую проверку MIME.
+- Три regressions покрывают все string-поля, корректный MIME entity, запрет
+  header injection через динамический `:from` и запрещённый MIME `Bcc` field.
+  Windows Rust 1.97.1 all-target: 1 127 library + 1 CLI прошли, 4 ignored;
+  strict Clippy, rustfmt и diff-check прошли. Linux Docker all-target: 1 253
+  library + 1 CLI прошли, 4 ignored; existing image/cache, target
+  `./data/g18-rfc5229-vacation-target`, disposable `--rm`, image не создавался.
+- RFC 5229 escaping/encoded-character provenance, namespace compile-time
+  diagnostics и достоверное ManageSieve capability advertisement ещё не
+  завершены; `variables` остаётся скрытой, G18 ACTIVE.
+
 ### 2026-09-29: G18 RFC 5229 dynamic `redirect` target, PARTIAL T438
 
 - `redirect` и `redirect :copy` раскрывают строку адреса в точке действия при
