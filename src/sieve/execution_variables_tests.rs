@@ -64,6 +64,20 @@ fn string_test_expands_variables_and_preserves_script_whitespace() {
     assert!(!plan.discard);
 }
 
+/// String test сохраняет бинарные литералы при включённом Variables extension.
+#[test]
+fn string_test_compares_non_utf8_literal_octets_without_conversion() {
+    let script = crate::sieve::parse_octets(
+        b"require \"variables\"; if string :is \"A\xff\x80Z\" \"A\xff\x80Z\" { keep; } else { discard; }",
+    )
+    .expect("binary string values remain in the AST");
+    let (plan, _) = execute_state(&script, &[], 0, "", "")
+        .expect("binary constants do not require text expansion");
+
+    assert!(plan.keep);
+    assert!(!plan.discard);
+}
+
 #[test]
 fn string_matches_updates_captures_and_short_circuits_anyof() {
     let script = parse(

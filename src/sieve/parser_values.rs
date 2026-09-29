@@ -37,6 +37,38 @@ pub(super) fn string_list(input: &mut VecDeque<Token>) -> Result<Vec<String>, &'
     }
 }
 
+/// Читает RFC 5228 string-list, сохраняя payload строк без UTF-8-декодирования.
+pub(super) fn octet_string_list(input: &mut VecDeque<Token>) -> Result<Vec<Vec<u8>>, &'static str> {
+    match input.front() {
+        Some(Token::OpenList) => {
+            let _ = input.pop_front();
+            let mut values = vec![one_octet_string(input)?];
+            loop {
+                match input.front() {
+                    Some(Token::Comma) => {
+                        let _ = input.pop_front();
+                        values.push(one_octet_string(input)?);
+                    }
+                    Some(Token::CloseList) => {
+                        let _ = input.pop_front();
+                        return Ok(values);
+                    }
+                    _ => return Err("invalid sieve string list separator"),
+                }
+            }
+        }
+        _ => one_octet_string(input).map(|value| vec![value]),
+    }
+}
+
+/// Читает единственную string token, сохраняя произвольные nonzero octets.
+fn one_octet_string(input: &mut VecDeque<Token>) -> Result<Vec<u8>, &'static str> {
+    match input.pop_front() {
+        Some(Token::String(value)) => Ok(value),
+        _ => Err("sieve string expected"),
+    }
+}
+
 /// Читает ровно одну quoted string, не принимая atom как неявную строку.
 pub(super) fn one_string(input: &mut VecDeque<Token>) -> Result<String, &'static str> {
     match input.pop_front() {

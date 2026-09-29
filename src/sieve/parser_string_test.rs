@@ -2,7 +2,7 @@
 
 use super::super::ast::{Condition, StringMatch};
 use super::super::lexer::Token;
-use super::super::parser_values::string_list;
+use super::super::parser_values::octet_string_list;
 use super::match_options;
 use std::collections::VecDeque;
 
@@ -10,11 +10,11 @@ use std::collections::VecDeque;
 pub(super) fn parse(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
     let (match_type, comparator) = match_options(input)?;
     Ok(Condition::String {
-        sources: string_list(input)?,
+        sources: octet_string_list(input)?,
         matcher: StringMatch {
             match_type,
             comparator,
-            keys: string_list(input)?,
+            keys: octet_string_list(input)?,
         },
     })
 }

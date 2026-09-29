@@ -8,11 +8,10 @@ const MAX_GLOB_STEPS: usize = 1_000_000;
 
 /// Сопоставляет полную строку и возвращает captures wildcard-ов по порядку.
 pub(super) fn captures(
-    value: &str,
-    pattern: &str,
+    value: &[u8],
+    pattern: &[u8],
     comparator: &Comparator,
 ) -> Result<Option<Vec<Vec<u8>>>, GlobError> {
-    let value = value.as_bytes();
     let (tokens, capture_count) = tokens(pattern);
     let mut capture_ranges = vec![None; capture_count];
     let mut choices = Vec::new();
@@ -188,8 +187,8 @@ fn equal_octet(value: u8, expected: u8, comparator: &Comparator) -> bool {
 }
 
 /// Нумерует только wildcard-ы, которые не экранированы обратной косой чертой.
-fn tokens(pattern: &str) -> (Vec<GlobToken>, usize) {
-    let mut bytes = pattern.as_bytes().iter().copied().peekable();
+fn tokens(pattern: &[u8]) -> (Vec<GlobToken>, usize) {
+    let mut bytes = pattern.iter().copied().peekable();
     let mut tokens = Vec::new();
     let mut capture_count = 0_usize;
     while let Some(byte) = bytes.next() {

@@ -28,7 +28,7 @@ pub(super) fn expand_matcher(
     captures: &[Vec<u8>],
     enabled: bool,
 ) -> Result<StringMatch, ExecutionError> {
-    let keys = expand_strings(&matcher.keys, store, captures, enabled)?;
+    let keys = expand_octet_strings(&matcher.keys, store, captures, enabled)?;
     let comparator = match &matcher.comparator {
         Comparator::AsciiCasemap => Comparator::AsciiCasemap,
         Comparator::Octet => Comparator::Octet,
@@ -49,6 +49,30 @@ pub(super) fn expand_matcher(
         comparator,
         keys,
     })
+}
+
+/// Раскрывает matcher values только после строгого перехода к UTF-8 при Variables.
+pub(super) fn expand_octet_strings(
+    values: &[Vec<u8>],
+    store: &VariableStore,
+    captures: &[Vec<u8>],
+    enabled: bool,
+) -> Result<Vec<Vec<u8>>, ExecutionError> {
+    values
+        .iter()
+        .map(|value| match enabled {
+            false => Ok(value.clone()),
+            true if !value.windows(2).any(|marker| marker == b"${") => Ok(value.clone()),
+            true => {
+                let text =
+                    std::str::from_utf8(value).map_err(|_| ExecutionError::VariableRuntime)?;
+                store
+                    .expand_octets(text, captures)
+                    .map(|expanded| expanded.into_bytes())
+                    .map_err(variable_error)
+            }
+        })
+        .collect()
 }
 
 /// Раскрывает envelope-part string и сверяет результат с поддерживаемым enum.

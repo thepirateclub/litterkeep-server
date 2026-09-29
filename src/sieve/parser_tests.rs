@@ -123,6 +123,22 @@ fn string_list_requires_nonempty_comma_separated_values() {
     assert!(execute(&script, &[("Subject".into(), "x".into())], 0).is_ok());
 }
 
+/// Parser переносит raw non-UTF-8 string octets в byte-valued matcher AST.
+#[test]
+fn parser_preserves_non_utf8_header_match_key_octets() {
+    let script =
+        crate::sieve::parse_octets(b"if header :contains \"X-Test\" \"A\xff\x80Z\" { keep; }")
+            .expect("RFC 5228 string octets parse without text conversion");
+    let Some(crate::sieve::ast::Command::If {
+        condition: crate::sieve::Condition::Header { matcher, .. },
+        ..
+    }) = script.commands.first()
+    else {
+        panic!("header test must remain in the typed AST");
+    };
+    assert_eq!(matcher.keys.first(), Some(&b"A\xff\x80Z".to_vec()));
+}
+
 /// Require declarations остаются перед каждой командой расширения.
 #[test]
 fn require_declarations_must_precede_every_command() {

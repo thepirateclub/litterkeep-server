@@ -17,10 +17,6 @@ pub(super) enum Token {
     Comma,
 }
 
-pub(super) fn tokenize(source: &str) -> Result<Vec<Token>, &'static str> {
-    tokenize_octets(source.as_bytes())
-}
-
 /// Лексически разбирает script без UTF-8-преобразования строковых октетов.
 pub(super) fn tokenize_octets(source: &[u8]) -> Result<Vec<Token>, &'static str> {
     validate_source_octets(source)?;

@@ -8,7 +8,7 @@ fn glob_work_limit_is_not_misreported_as_a_sieve_non_match() {
     let matcher = StringMatch {
         match_type: MatchType::Matches,
         comparator: Comparator::Octet,
-        keys: vec!["*a".repeat(1_100)],
+        keys: vec!["*a".repeat(1_100).into_bytes()],
     };
     let script = Script {
         requires: Vec::new(),

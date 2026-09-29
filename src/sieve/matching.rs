@@ -19,7 +19,11 @@ pub(super) enum MatchError {
 }
 
 /// Сравнивает ключи по порядку, чтобы runtime получил captures успешного ключа.
-pub(super) fn evaluate(value: &str, matcher: &StringMatch) -> Result<MatchOutcome, MatchError> {
+/// Сравнивает RFC 5228 строки как октеты, не требуя валидного UTF-8 payload.
+pub(super) fn evaluate_octets(
+    value: &[u8],
+    matcher: &StringMatch,
+) -> Result<MatchOutcome, MatchError> {
     if matches!(matcher.comparator, Comparator::Variable(_)) {
         return Err(MatchError::UnresolvedComparator);
     }
@@ -47,7 +51,7 @@ pub(super) fn evaluate(value: &str, matcher: &StringMatch) -> Result<MatchOutcom
     Ok(MatchOutcome::NoMatch)
 }
 
-fn equal(value: &str, key: &str, comparator: &Comparator) -> bool {
+fn equal(value: &[u8], key: &[u8], comparator: &Comparator) -> bool {
     match comparator {
         Comparator::AsciiCasemap => value.eq_ignore_ascii_case(key),
         Comparator::Octet => value == key,
@@ -55,26 +59,33 @@ fn equal(value: &str, key: &str, comparator: &Comparator) -> bool {
     }
 }
 
-fn contains(value: &str, key: &str, comparator: &Comparator) -> bool {
+fn contains(value: &[u8], key: &[u8], comparator: &Comparator) -> bool {
     if key.is_empty() {
         return true;
     }
     match comparator {
-        Comparator::AsciiCasemap => contains_ascii_casemap(value, key),
-        Comparator::Octet => value.contains(key),
+        Comparator::AsciiCasemap => contains_folded(value, key, true),
+        Comparator::Octet => contains_folded(value, key, false),
         Comparator::Variable(_) => false,
     }
 }
 
-/// Выполняет ASCII-casemap поиск за O(n + m), не копируя всё поле заголовка.
-fn contains_ascii_casemap(value: &str, key: &str) -> bool {
+/// Выполняет линейный поиск и при необходимости приводит только ASCII-регистр.
+fn contains_folded(value: &[u8], key: &[u8], ascii_case_insensitive: bool) -> bool {
+    if key.is_empty() {
+        return true;
+    }
     let pattern = key
-        .bytes()
-        .map(|byte| byte.to_ascii_lowercase())
+        .iter()
+        .copied()
+        .map(|byte| fold_ascii(byte, ascii_case_insensitive))
         .collect::<Vec<_>>();
     let prefix = prefix_lengths(&pattern);
     let mut matched = 0_usize;
-    for byte in value.bytes().map(|value| value.to_ascii_lowercase()) {
+    for byte in value
+        .iter()
+        .map(|value| fold_ascii(*value, ascii_case_insensitive))
+    {
         while matched > 0 && pattern.get(matched).copied() != Some(byte) {
             matched = prefix.get(matched.saturating_sub(1)).copied().unwrap_or(0);
         }
@@ -87,6 +98,13 @@ fn contains_ascii_casemap(value: &str, key: &str) -> bool {
         }
     }
     false
+}
+
+fn fold_ascii(value: u8, enabled: bool) -> u8 {
+    match enabled {
+        true => value.to_ascii_lowercase(),
+        false => value,
+    }
 }
 
 /// Строит KMP prefix table, сохраняя линейную стоимость последующих mismatches.
@@ -112,7 +130,7 @@ mod tests {
     use super::*;
 
     fn outcome(value: &str, matcher: &StringMatch) -> MatchOutcome {
-        evaluate(value, matcher).expect("bounded comparator work")
+        evaluate_octets(value.as_bytes(), matcher).expect("bounded comparator work")
     }
 
     #[test]
@@ -183,7 +201,7 @@ mod tests {
         let matcher = StringMatch {
             match_type: MatchType::Contains,
             comparator: Comparator::AsciiCasemap,
-            keys: vec![key],
+            keys: vec![key.into_bytes()],
         };
 
         assert!(matches!(outcome(&value, &matcher), MatchOutcome::NoMatch));
@@ -192,8 +210,29 @@ mod tests {
     /// KMP сравнивает только ASCII case; прочие UTF-8 octets остаются точными.
     #[test]
     fn contains_casemap_folds_ascii_without_changing_non_ascii_octets() {
-        assert!(contains("INVOICE-2026", "voice", &Comparator::AsciiCasemap));
-        assert!(!contains("École", "éCOLE", &Comparator::AsciiCasemap));
-        assert!(contains("École", "Éco", &Comparator::AsciiCasemap));
+        assert!(contains_folded(b"INVOICE-2026", b"voice", true));
+        assert!(!contains_folded(
+            "École".as_bytes(),
+            "éCOLE".as_bytes(),
+            true
+        ));
+        assert!(contains_folded("École".as_bytes(), "Éco".as_bytes(), true));
+    }
+
+    #[test]
+    fn octet_comparator_matches_invalid_utf8_without_conversion() {
+        let matcher = StringMatch {
+            match_type: MatchType::Is,
+            comparator: Comparator::Octet,
+            keys: vec![b"A\xff\x80Z".to_vec()],
+        };
+        assert!(matches!(
+            evaluate_octets(b"A\xff\x80Z", &matcher),
+            Ok(MatchOutcome::Match)
+        ));
+        assert!(matches!(
+            evaluate_octets(b"A\xffZ", &matcher),
+            Ok(MatchOutcome::NoMatch)
+        ));
     }
 }

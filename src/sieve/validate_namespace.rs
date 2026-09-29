@@ -29,7 +29,7 @@ pub(super) fn condition(value: &Condition) -> Result<(), &'static str> {
     match value {
         Condition::Header { names, matcher } | Condition::Address { names, matcher, .. } => {
             strings(names)?;
-            strings(&matcher.keys)?;
+            octets(&matcher.keys)?;
             comparator(&matcher.comparator)
         }
         Condition::Envelope { parts, matcher, .. } => {
@@ -37,12 +37,12 @@ pub(super) fn condition(value: &Condition) -> Result<(), &'static str> {
                 super::super::ast::EnvelopePartSelector::Variable(source) => validate(source),
                 super::super::ast::EnvelopePartSelector::Static(_) => Ok(()),
             })?;
-            strings(&matcher.keys)?;
+            octets(&matcher.keys)?;
             comparator(&matcher.comparator)
         }
         Condition::String { sources, matcher } => {
-            strings(sources)?;
-            strings(&matcher.keys)?;
+            octets(sources)?;
+            octets(&matcher.keys)?;
             comparator(&matcher.comparator)
         }
         Condition::Exists { names } => strings(names),
@@ -56,6 +56,18 @@ pub(super) fn condition(value: &Condition) -> Result<(), &'static str> {
 
 fn strings(values: &[String]) -> Result<(), &'static str> {
     values.iter().try_for_each(|value| validate(value))
+}
+
+/// До byte-oriented Variables expansion отказывает на бинарных аргументах.
+fn octets(values: &[Vec<u8>]) -> Result<(), &'static str> {
+    for value in values {
+        if value.windows(2).any(|marker| marker == b"${") {
+            let text = std::str::from_utf8(value)
+                .map_err(|_| "non-UTF-8 variable reference is invalid")?;
+            validate(text)?;
+        }
+    }
+    Ok(())
 }
 
 fn optional(value: Option<&str>) -> Result<(), &'static str> {

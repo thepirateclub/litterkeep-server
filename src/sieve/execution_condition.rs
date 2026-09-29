@@ -170,17 +170,17 @@ pub(super) fn matches(
 
 /// Раскрывает оба списка в точке теста и сохраняет capture только успешного ключа.
 fn string_matches(
-    sources: &[String],
+    sources: &[Vec<u8>],
     matcher: &StringMatch,
     store: &VariableStore,
     variables: &mut MatchVariables,
 ) -> Result<bool, ExecutionError> {
     let expanded_sources =
-        variable_arguments::expand_strings(sources, store, variables.octets(), true)?;
+        variable_arguments::expand_octet_strings(sources, store, variables.octets(), true)?;
     let expanded_matcher =
         variable_arguments::expand_matcher(matcher, store, variables.octets(), true)?;
     for source in &expanded_sources {
-        if match_value(source, &expanded_matcher, variables)? {
+        if match_octets(source, &expanded_matcher, variables)? {
             return Ok(true);
         }
     }
@@ -240,7 +240,15 @@ fn match_value(
     matcher: &StringMatch,
     variables: &mut MatchVariables,
 ) -> Result<bool, ExecutionError> {
-    let outcome = matching::evaluate(value, matcher).map_err(|error| match error {
+    match_octets(value.as_bytes(), matcher, variables)
+}
+
+fn match_octets(
+    value: &[u8],
+    matcher: &StringMatch,
+    variables: &mut MatchVariables,
+) -> Result<bool, ExecutionError> {
+    let outcome = matching::evaluate_octets(value, matcher).map_err(|error| match error {
         matching::MatchError::WorkLimit => ExecutionError::MatcherLimit,
         matching::MatchError::UnresolvedComparator => ExecutionError::VariableRuntime,
     })?;
@@ -248,7 +256,7 @@ fn match_value(
         MatchOutcome::NoMatch => Ok(false),
         MatchOutcome::Match => Ok(true),
         MatchOutcome::Captured(captures) => {
-            variables.replace(value.as_bytes(), captures);
+            variables.replace(value, captures);
             Ok(true)
         }
     }

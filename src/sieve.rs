@@ -78,7 +78,16 @@ pub use variables::{VariableError, VariableStore};
 
 /// Разбирает и валидирует script до его сохранения или исполнения.
 pub fn parse(source: &str) -> Result<Script, &'static str> {
-    let tokens = lexer::tokenize(source)?;
+    parse_octets(source.as_bytes())
+}
+
+/// Разбирает wire script без потери октетов внутри строк и комментариев.
+pub fn parse_octets(source: &[u8]) -> Result<Script, &'static str> {
+    let tokens = lexer::tokenize_octets(source)?;
+    parse_tokens(tokens)
+}
+
+fn parse_tokens(tokens: Vec<lexer::Token>) -> Result<Script, &'static str> {
     let script = parser::parse(tokens)?;
     validate::script(&script)?;
     Ok(script)

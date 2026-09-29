@@ -1,6 +1,10 @@
 //! Проверяет нормативные границы quoted-string и whitespace Sieve.
 
-use super::{Token, tokenize, tokenize_octets};
+use super::{Token, tokenize_octets};
+
+fn tokenize(source: &str) -> Result<Vec<Token>, &'static str> {
+    tokenize_octets(source.as_bytes())
+}
 
 /// RFC 5228 сохраняет CRLF в строке и снимает обратную косую черту у `\x`.
 #[test]

@@ -117,7 +117,7 @@ pub enum Condition {
         matcher: StringMatch,
     },
     String {
-        sources: Vec<String>,
+        sources: Vec<Vec<u8>>,
         matcher: StringMatch,
     },
     Exists {
@@ -154,7 +154,7 @@ pub enum Comparator {
 pub struct StringMatch {
     pub match_type: MatchType,
     pub comparator: Comparator,
-    pub keys: Vec<String>,
+    pub keys: Vec<Vec<u8>>,
 }
 
 /// Направление сравнения размера исходного сообщения в октетах.

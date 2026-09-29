@@ -1,5 +1,28 @@
 # Goal ledger
 
+### 2026-09-29: G18 RFC 5229 byte-valued parser, AST and matcher, PARTIAL T445
+
+- `parse_octets(&[u8])` теперь является production API; Sieve `StringMatch` keys
+  и `Condition::String.sources` сохраняют октеты. `is`, `contains` и `matches`
+  сопоставляют их без преобразования lossy UTF-8; поиск подстроки использует
+  линейный KMP. End-to-end unit regressions проходят от parser до runtime для
+  литерала с октетами `FF 80`.
+- Граница остаётся частичной: byte literals без `${` сохраняются как есть.
+  Если interpolation marker есть, Variables path пока требует корректный
+  UTF-8 и использует строковый VariableStore. Actions/set/vacation AST остаются
+  строковыми, `encoded-character` не декодируется, ManageSieve wire raw octets
+  не проверялись. Capability `variables` не рекламируется.
+- Windows Rust 1.97.1: `cargo fmt --check`, `cargo test --all-targets`
+  (1142 library + 1 CLI passed, 4 ignored) и strict Clippy прошли.
+  Linux `rust:1.97-bookworm`: `cargo test --locked --all-targets` (1268 library
+  + 1 CLI passed, 4 ignored) и strict Clippy с `CARGO_INCREMENTAL=0` прошли.
+  Использованы локальные `./data/g23-cargo-home` и
+  `./data/g18-rfc5229-byte-ast-target`; временные контейнеры `--rm`, образ не
+  создавался. Изменение `tests/blackbox/smtp_data_line_bound.py` сохранено и
+  не включено в этап.
+
+### 2026-09-29: G18 RFC 5228 lexer octet preservation, PARTIAL
+
 ### 2026-09-29: G18 RFC 5228 lexer octet preservation, PARTIAL
 
 - Lexer принимает byte-slice и сохраняет quoted/multiline tokens как

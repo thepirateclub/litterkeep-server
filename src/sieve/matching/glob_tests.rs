@@ -4,7 +4,7 @@ use super::*;
 
 #[test]
 fn captures_are_shortest_and_preserve_pattern_order() {
-    let result = captures("abcxdefx", "*x*", &Comparator::Octet)
+    let result = captures(b"abcxdefx", b"*x*", &Comparator::Octet)
         .expect("within work budget")
         .expect("match");
     assert_eq!(result, vec![b"abc".to_vec(), b"defx".to_vec()]);
@@ -14,7 +14,7 @@ fn captures_are_shortest_and_preserve_pattern_order() {
 fn question_capture_is_one_octet_for_base_comparators() {
     for comparator in [Comparator::Octet, Comparator::AsciiCasemap] {
         assert_eq!(
-            captures("é", "??", &comparator)
+            captures("é".as_bytes(), b"??", &comparator)
                 .expect("within work budget")
                 .expect("two UTF-8 octets"),
             vec![vec![0xc3], vec![0xa9]]
@@ -25,18 +25,18 @@ fn question_capture_is_one_octet_for_base_comparators() {
 #[test]
 fn escaped_wildcard_is_literal_and_not_captured() {
     assert_eq!(
-        captures("invoice*", r"invoice\*", &Comparator::Octet),
+        captures(b"invoice*", br"invoice\*", &Comparator::Octet),
         Ok(Some(Vec::new()))
     );
     assert_eq!(
-        captures("invoice-2026", r"invoice\*", &Comparator::Octet),
+        captures(b"invoice-2026", br"invoice\*", &Comparator::Octet),
         Ok(None)
     );
 }
 
 #[test]
 fn failed_prefix_can_expand_the_latest_star_without_losing_captures() {
-    let result = captures("abx-tail", "*b*tail", &Comparator::Octet)
+    let result = captures(b"abx-tail", b"*b*tail", &Comparator::Octet)
         .expect("within work budget")
         .expect("match");
     assert_eq!(result, vec![b"a".to_vec(), b"x-".to_vec()]);
@@ -44,7 +44,7 @@ fn failed_prefix_can_expand_the_latest_star_without_losing_captures() {
 
 #[test]
 fn retrying_an_earlier_star_discards_stale_later_captures() {
-    let result = captures("abx-tail", "*b*x*tail", &Comparator::Octet)
+    let result = captures(b"abx-tail", b"*b*x*tail", &Comparator::Octet)
         .expect("within work budget")
         .expect("match");
     assert_eq!(result, vec![b"a".to_vec(), b"".to_vec(), b"-".to_vec()]);
@@ -52,7 +52,7 @@ fn retrying_an_earlier_star_discards_stale_later_captures() {
 
 #[test]
 fn retrying_the_first_star_recomputes_all_following_captures() {
-    let result = captures("a--x-c", "*-x-*", &Comparator::Octet)
+    let result = captures(b"a--x-c", b"*-x-*", &Comparator::Octet)
         .expect("within work budget")
         .expect("match");
     assert_eq!(result, vec![b"a-".to_vec(), b"c".to_vec()]);
@@ -60,7 +60,7 @@ fn retrying_the_first_star_recomputes_all_following_captures() {
 
 #[test]
 fn multiple_stars_retain_shortest_capture_partition() {
-    let result = captures("a-b-c", "*-*-*", &Comparator::Octet)
+    let result = captures(b"a-b-c", b"*-*-*", &Comparator::Octet)
         .expect("within work budget")
         .expect("match");
     assert_eq!(result, vec![b"a".to_vec(), b"b".to_vec(), b"c".to_vec()]);
@@ -75,7 +75,7 @@ fn bounded_matcher_agrees_with_exhaustive_nongreedy_reference_corpus() {
             let pattern_text = std::str::from_utf8(pattern).expect("ASCII pattern");
             let value_text = std::str::from_utf8(value).expect("ASCII value");
             let expected = reference(pattern, value, 0, Vec::new());
-            let actual = captures(value_text, pattern_text, &Comparator::Octet)
+            let actual = captures(value, pattern, &Comparator::Octet)
                 .expect("small corpus stays within work budget");
             assert_eq!(
                 actual, expected,

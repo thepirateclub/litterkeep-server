@@ -38,7 +38,7 @@ T422 подключил эти результаты к per-script execution stat
 ошибочное сопоставление не перезаписывает состояние, а составные тесты
 сохраняют обязательные порядок слева направо и short-circuit.
 
-**Текущий остаток RFC 5229 после T443.** `set`, `string`, modifier-ы, один
+**Текущий остаток RFC 5229 после T445.** `set`, `string`, modifier-ы, один
 проход раскрытия, numeric captures с ведущими нулями, неизвестные имена и
 per-script scope теперь связаны с parser/runtime. `string` сохраняет пробелы,
 сравнивает оба списка, обновляет captures успешного `:matches` и участвует в
@@ -55,21 +55,25 @@ literal-dollar single-pass образец. Compile-time проход AST отв�
 enum-значения; неизвестный результат вызывает runtime failure. Envelope-part
 string list также раскрывается в точке `envelope` test-а и повторно разбирается
 в `from`/`to`. Расширение всё ещё не рекламируется: RFC 5228
-`encoded-character` expansion (раздел 2.4.2.4) не реализован. Lexer уже
-сохраняет quoted/multiline string token как `Vec<u8>` и отдельный тест
-подтверждает lossless non-UTF-8 octets. Parser пока конвертирует token в
-`String` и явно отвергает не-UTF-8 значение; AST и `VariableStore` также пока
-текстовые. Поэтому произвольный `hex` octet ещё не проходит общий script путь.
-Исправление требует сквозного byte-string типа от parser/AST до сравнения и
-действий, с проверкой UTF-8 только на границах, которые действительно требуют
-текста (например, mailbox/address). Нормативный порядок:
+`encoded-character` expansion (раздел 2.4.2.4) не реализован. Production
+`parse_octets(&[u8])` сохраняет quoted/multiline string bytes; `StringMatch`
+keys и `Condition::String.sources` в AST также byte-valued. `is`, `contains` и
+`matches` сравнивают октеты без lossy UTF-8, а подстрочный поиск использует
+линейный KMP. Parser-to-runtime regression подтверждает literal с октетами
+`FF 80`. Actions и `VariableStore` при этом всё ещё текстовые: байтовое значение
+без `${` сохраняется, но interpolation при наличии marker-а пока требует
+UTF-8. Поэтому произвольный `hex` octet ещё не проходит весь script путь, а
+переменная не может безопасно интерполироваться в произвольный binary literal.
+Нормативный порядок:
 quoted-string escape и dot-unstuffing, затем `encoded-character`, затем RFC 5229
 variable expansion. Нельзя применять lossy UTF-8 к `hex` или объявлять Variables
-доступным до byte-exact tests. T443 добавил
+доступным до byte-exact tests для всего профиля. T443 добавил
 ограниченный ManageSieve -> SMTP -> IMAP wire acceptance для dynamic selectors,
 однако тест вручную использует `require "variables"`, которое не рекламируется.
 Это не подтверждает совместимость клиента, полную RFC conformance матрицу или
-готовность включить Variables capability.
+готовность включить Variables capability. T445 проверяет parser-to-condition
+runtime path на unit-уровне, но не ManageSieve wire acceptance с raw bytes и не
+полный Sieve script path через actions.
 
 Историческая запись T421-T429 ниже описывает состояние на даты тех этапов;
 её выводы о полном отсутствии `set`/`string` superseded текущим статусом выше.

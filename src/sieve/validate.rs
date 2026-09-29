@@ -213,7 +213,7 @@ fn condition_valid(
         return Err("sieve nesting limit exceeded");
     }
     match condition {
-        Condition::Header { names, matcher } => string_match_valid(names, matcher),
+        Condition::Header { names, matcher } => string_match_valid(names.len(), matcher),
         Condition::String { .. } if !policy.variables => {
             Err("variables extension must be required")
         }
@@ -221,13 +221,13 @@ fn condition_valid(
             if sources.is_empty() {
                 return Err("empty sieve string source list");
             }
-            string_match_valid(sources, matcher)
+            string_match_valid(sources.len(), matcher)
         }
         Condition::Address {
             part: AddressPart::User | AddressPart::Detail,
             ..
         } if !policy.subaddress => Err("subaddress extension must be required"),
-        Condition::Address { names, matcher, .. } => string_match_valid(names, matcher),
+        Condition::Address { names, matcher, .. } => string_match_valid(names.len(), matcher),
         Condition::Envelope { .. } if !policy.envelope => {
             Err("envelope extension must be required")
         }
@@ -251,10 +251,10 @@ fn condition_valid(
 }
 
 fn string_match_valid(
-    names: &[String],
+    value_count: usize,
     matcher: &super::ast::StringMatch,
 ) -> Result<(), &'static str> {
-    if names.is_empty() {
+    if value_count == 0 {
         return Err("empty sieve string matcher");
     }
     matcher_keys_valid(matcher)

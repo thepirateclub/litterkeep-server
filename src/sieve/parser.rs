@@ -3,13 +3,17 @@
 use super::address_options;
 use super::ast::{
     Action, Capability, Command, Comparator, Condition, EnvelopePart, EnvelopePartSelector,
-    MatchType, Script, SizeRelation, StringMatch,
+    MatchType, Script, StringMatch,
 };
-use super::keywords::{CapabilityWord, CommandWord, ComparatorWord, MatchTag, SizeTag, TestWord};
+use super::keywords::{CapabilityWord, CommandWord, ComparatorWord, MatchTag, TestWord};
 use super::lexer::Token;
-use super::parser_values::{atom, expect, one_string, string_list, terminated_strings};
+use super::parser_values::{
+    atom, expect, octet_string_list, one_string, string_list, terminated_strings,
+};
 #[path = "parser_actions.rs"]
 mod actions;
+#[path = "parser_size.rs"]
+mod size_parser;
 #[path = "parser_string_test.rs"]
 mod string_test_parser;
 use std::collections::VecDeque;
@@ -126,7 +130,7 @@ fn condition(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
         TestWord::Exists => Ok(Condition::Exists {
             names: string_list(input)?,
         }),
-        TestWord::Size => size(input),
+        TestWord::Size => size_parser::parse(input),
         TestWord::String => string_test_parser::parse(input),
         TestWord::Not => Ok(Condition::Not(Box::new(condition(input)?))),
         TestWord::AllOf => conditions(input, Condition::AllOf),
@@ -142,7 +146,7 @@ fn header(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
         matcher: StringMatch {
             match_type,
             comparator,
-            keys: string_list(input)?,
+            keys: octet_string_list(input)?,
         },
     })
 }
@@ -155,7 +159,7 @@ fn address(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
         matcher: StringMatch {
             match_type,
             comparator,
-            keys: string_list(input)?,
+            keys: octet_string_list(input)?,
         },
     })
 }
@@ -173,7 +177,7 @@ fn envelope(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
         matcher: StringMatch {
             match_type,
             comparator,
-            keys: string_list(input)?,
+            keys: octet_string_list(input)?,
         },
     })
 }
@@ -242,38 +246,6 @@ fn parse_comparator(value: &str) -> Result<Comparator, &'static str> {
         }
         _ => Err("unsupported sieve comparator"),
     }
-}
-
-fn size(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
-    let relation = match SizeTag::parse(&atom(input)?) {
-        SizeTag::Over => SizeRelation::Over,
-        SizeTag::Under => SizeRelation::Under,
-        _ => return Err("sieve size relation expected"),
-    };
-    Ok(Condition::Size {
-        relation,
-        limit: size_limit(&atom(input)?)?,
-    })
-}
-
-/// RFC-стиль `K`, `M`, `G` quantifier переводится в октеты с проверкой overflow.
-fn size_limit(value: &str) -> Result<usize, &'static str> {
-    let (number, factor) = match value.chars().last() {
-        Some('K' | 'k') => (value.get(..value.len().saturating_sub(1)), 1_024_usize),
-        Some('M' | 'm') => (value.get(..value.len().saturating_sub(1)), 1_048_576_usize),
-        Some('G' | 'g') => (
-            value.get(..value.len().saturating_sub(1)),
-            1_073_741_824_usize,
-        ),
-        Some(_) => (Some(value), 1),
-        None => (None, 1),
-    };
-    number
-        .ok_or("invalid sieve size")?
-        .parse::<usize>()
-        .map_err(|_| "invalid sieve size")?
-        .checked_mul(factor)
-        .ok_or("sieve size overflow")
 }
 
 fn conditions(

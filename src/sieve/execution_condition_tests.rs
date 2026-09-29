@@ -23,7 +23,7 @@ fn header_match() -> Condition {
         matcher: StringMatch {
             match_type: MatchType::Matches,
             comparator: Comparator::AsciiCasemap,
-            keys: vec!["[*] *".to_owned()],
+            keys: vec![b"[*] *".to_vec()],
         },
     }
 }
@@ -79,7 +79,7 @@ fn failed_match_does_not_replace_previous_captures() {
         matcher: StringMatch {
             match_type: MatchType::Matches,
             comparator: Comparator::Octet,
-            keys: vec!["other*".to_owned()],
+            keys: vec![b"other*".to_vec()],
         },
     };
 
