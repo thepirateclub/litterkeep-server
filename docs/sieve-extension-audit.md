@@ -60,7 +60,10 @@ captures и именованные ссылки, оставляет некорр
 65 536 символов; его превышение возвращает typed error. Это протестированное
 ядро библиотеки, но не часть AST/executor pipeline. В частности, lexer пока не
 передаёт provenance escaping/encoded-character, parser не валидирует ссылки
-выше `${9}`, `set` и `string` отсутствуют. Поэтому capability остаётся скрытым.
+выше `${9}` и не подключён к typed ошибкам engine. T426 добавил typed errors в
+engine для таких индексов и для валидной namespace-ссылки без включённого
+namespace extension; parser-time diagnostics ещё отсутствуют. `set` и `string`
+отсутствуют. Поэтому capability остаётся скрытым.
 
 ## Базовый RFC 5228: адресные списки
 

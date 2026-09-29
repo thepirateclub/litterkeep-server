@@ -11859,6 +11859,20 @@ ManageSieve до заявленного набора современных фо
   создавался. Linux Clippy/rustfmt в образе отсутствуют.
 - Это проверенное reusable ядро, но не RFC 5229 conformance; G18 остаётся ACTIVE.
 
+### 2026-09-29: G18 RFC 5229 expansion reference errors, T426 PARTIAL
+
+- Уточнено поведение expansion engine: syntactically valid numeric ссылки выше
+  поддерживаемого диапазона `${0}`..`${9}` возвращают отдельную typed ошибку,
+  а syntactically valid namespace-ссылка завершается `UnsupportedNamespace`,
+  пока соответствующее extension не подключено. Невалидные ссылки остаются
+  буквальными, включая dotted text с незаконным identifier.
+- Все 6 unit tests Variables engine проходят; полный Windows Rust 1.97.1
+  all-target: 1095 library + 1 CLI passed, 4 ignored. Strict Clippy, rustfmt и
+  diff check pass.
+- Это hardening отдельно тестируемого ядра. Parser-time diagnostics, expansion
+  из Sieve AST и Variables capability по-прежнему отсутствуют; RFC 5229
+  conformance не заявляется, G18 остаётся ACTIVE.
+
 ### 2026-09-29: G18 RFC 5229 implementation-boundary audit, T423 PARTIAL
 
 - Rechecked the current Variables design against the RFC Editor's RFC 5229 text.

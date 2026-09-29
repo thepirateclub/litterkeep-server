@@ -17,6 +17,8 @@ pub enum VariableError {
     InvalidName,
     TooManyVariables,
     ExpansionLimit,
+    UnsupportedCaptureIndex,
+    UnsupportedNamespace,
 }
 
 /// Per-script именованные значения с ASCII-регистронезависимыми именами.
@@ -100,7 +102,7 @@ fn expand(
             push_bounded(&mut output, &mut output_chars, literal_reference)?;
             return Ok(output);
         };
-        match resolve(reference, values, captures) {
+        match resolve(reference, values, captures)? {
             Some(value) => push_bounded(&mut output, &mut output_chars, value)?,
             None => {
                 // Сохраняем некорректный префикс, затем ищем вложенную ссылку.
@@ -141,26 +143,58 @@ fn resolve<'a>(
     reference: &str,
     values: &'a HashMap<String, String>,
     captures: &'a [String],
-) -> Option<&'a str> {
+) -> Result<Option<&'a str>, VariableError> {
     if reference.is_empty() {
-        return None;
+        return Ok(None);
     }
     if reference.bytes().all(|byte| byte.is_ascii_digit()) {
-        let index = reference.parse::<usize>().ok()?;
+        let index = reference
+            .parse::<usize>()
+            .map_err(|_| VariableError::UnsupportedCaptureIndex)?;
         if index > 9 {
-            return None;
+            return Err(VariableError::UnsupportedCaptureIndex);
         }
-        return Some(captures.get(index).map(String::as_str).unwrap_or(""));
+        return Ok(Some(captures.get(index).map(String::as_str).unwrap_or("")));
     }
     if !valid_name(reference) {
-        return None;
+        return match valid_namespace(reference) {
+            true => Err(VariableError::UnsupportedNamespace),
+            false => Ok(None),
+        };
     }
-    Some(
+    Ok(Some(
         values
             .get(&reference.to_ascii_lowercase())
             .map(String::as_str)
             .unwrap_or(""),
-    )
+    ))
+}
+
+/// Отличает зарезервированный namespace syntax от просто некорректной ссылки.
+fn valid_namespace(reference: &str) -> bool {
+    let mut components = reference.split('.');
+    let Some(first) = components.next() else {
+        return false;
+    };
+    if !valid_name(first) {
+        return false;
+    }
+    let mut count = 1_usize;
+    for component in components {
+        if component.is_empty() || !valid_variable_component(component) {
+            return false;
+        }
+        count = count.saturating_add(1);
+    }
+    count >= 2
+}
+
+/// Проверяет обычный identifier либо decimal match-variable component.
+fn valid_variable_component(value: &str) -> bool {
+    match value.bytes().all(|byte| byte.is_ascii_digit()) {
+        true => !value.is_empty(),
+        false => valid_name(value),
+    }
 }
 
 #[cfg(test)]
@@ -195,9 +229,9 @@ mod tests {
 
         assert_eq!(
             store
-                .expand("${doh!} ${BAD${Company}", &[])
+                .expand("${doh!} ${foo.bar!} ${BAD${Company}", &[])
                 .expect("bounded"),
-            "${doh!} ${BADACME"
+            "${doh!} ${foo.bar!} ${BADACME"
         );
     }
 
@@ -209,6 +243,14 @@ mod tests {
         assert_eq!(
             store.expand("${0}:${01}:${9}", &captures).expect("bounded"),
             "whole:list:"
+        );
+        assert_eq!(
+            store.expand("${10}", &captures),
+            Err(VariableError::UnsupportedCaptureIndex)
+        );
+        assert_eq!(
+            store.expand("${vendor.value}", &captures),
+            Err(VariableError::UnsupportedNamespace)
         );
     }
 
