@@ -38,7 +38,7 @@ T422 подключил эти результаты к per-script execution stat
 ошибочное сопоставление не перезаписывает состояние, а составные тесты
 сохраняют обязательные порядок слева направо и short-circuit.
 
-**Текущий остаток RFC 5229 после T442.** `set`, `string`, modifier-ы, один
+**Текущий остаток RFC 5229 после T443.** `set`, `string`, modifier-ы, один
 проход раскрытия, numeric captures с ведущими нулями, неизвестные имена и
 per-script scope теперь связаны с parser/runtime. `string` сохраняет пробелы,
 сравнивает оба списка, обновляет captures успешного `:matches` и участвует в
@@ -55,8 +55,11 @@ literal-dollar single-pass образец. Compile-time проход AST отв�
 enum-значения; неизвестный результат вызывает runtime failure. Envelope-part
 string list также раскрывается в точке `envelope` test-а и повторно разбирается
 в `from`/`to`. Расширение всё ещё не рекламируется: RFC 5228
-`encoded-character` expansion (раздел 2.4.2.4) не реализован. Нет полной conformance
-матрицы или независимой ManageSieve interoperability проверки.
+`encoded-character` expansion (раздел 2.4.2.4) не реализован. T443 добавил
+ограниченный ManageSieve -> SMTP -> IMAP wire acceptance для dynamic selectors,
+однако тест вручную использует `require "variables"`, которое не рекламируется.
+Это не подтверждает совместимость клиента, полную RFC conformance матрицу или
+готовность включить Variables capability.
 
 Историческая запись T421-T429 ниже описывает состояние на даты тех этапов;
 её выводы о полном отсутствии `set`/`string` superseded текущим статусом выше.

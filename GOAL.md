@@ -1,5 +1,24 @@
 # Goal ledger
 
+### 2026-09-29: G18 ManageSieve dynamic-selector wire acceptance, PARTIAL T443
+
+- Независимый wire client загружает и активирует Sieve script через
+  ManageSieve CHECKSCRIPT/PUTSCRIPT/SETACTIVE, отправляет письмо через SMTP и
+  проверяет mailbox через IMAP. Runtime selector-ы `${cmp}` и `${part}` дают
+  доставку только в `Invoices`, INBOX остаётся пустым. Greeting проверяется на
+  отсутствие Variables: это server-path evidence, не совместимость клиента.
+- На том же Linux Rust listener прошёл обновлённый ManageSieve literal -> SMTP
+  -> IMAP black-box. Исправлен test-client framing: после literal bytes он
+  отправляет завершающий CRLF; greeting и RFC 5804 `DELETESCRIPT active`
+  проверяются по фактическому capability list и ответу `NO (ACTIVE)`.
+  Серверная логика при этом не менялась.
+- Использованы существующий `rust:1.97-bookworm`, `./data/g23-cargo-home`,
+  `./data/g18-sieve-dynamic-selector-target` и local fixtures в `./data`.
+  Оба listener container остановлены и отсутствуют; образы не создавались.
+  Клиент был независимым Python-клиентом, приложение Litterkeep не подключалось.
+  G18 остаётся ACTIVE: Variables не рекламируется, RFC 5228
+  `encoded-character` и полный профиль остаются незакрытыми.
+
 ### 2026-09-29: G18 RFC 5229 dynamic envelope-part selectors, PARTIAL T442
 
 - AST сохраняет envelope-part arguments как static/variable enum, не теряя

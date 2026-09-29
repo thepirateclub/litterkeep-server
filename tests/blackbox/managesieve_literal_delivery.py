@@ -60,7 +60,7 @@ def check_script(client: socket.socket, source: bytes, expected: bytes) -> None:
         command(client, marker) == b'OK "ready for literal data"\r\n',
         "CHECKSCRIPT literal не получил continuation",
     )
-    client.sendall(source)
+    client.sendall(source + b"\r\n")
     require(
         read_until(client, b"\r\n") == expected,
         f"CHECKSCRIPT вернул неверный результат для {source!r}",
@@ -72,7 +72,7 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
         greeting = read_until(plain, b'OK "ready"\r\n')
         require(b'"STARTTLS"' in greeting, "ManageSieve не объявил STARTTLS")
         require(
-            b'"SIEVE" "fileinto subaddress envelope copy vacation"' in greeting,
+            b'"SIEVE" "fileinto subaddress envelope copy vacation vacation-seconds"' in greeting and b'variables' not in greeting,
             "ManageSieve не объявил Sieve capabilities",
         )
         bob_password = os.environ.get("LITTERKEEP_BOB_PASSWORD", "bob-password")
@@ -197,7 +197,7 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
             marker = f'PUTSCRIPT "invoices" {{{len(source)}+}}\r\n'.encode()
             client.sendall(marker)
             client.sendall(first_chunk)
-            client.sendall(second_chunk)
+            client.sendall(second_chunk + b"\r\n")
             require(
                 read_until(client, b"\r\n") == b'OK "completed"\r\n',
                 "PUTSCRIPT literal не сохранён",
@@ -209,7 +209,7 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
             invalid_source = b'keep; require "fileinto";'
             invalid_marker = f'PUTSCRIPT "broken" {{{len(invalid_source)}+}}\r\n'.encode()
             client.sendall(invalid_marker)
-            client.sendall(invalid_source)
+            client.sendall(invalid_source + b"\r\n")
             require(
                 read_until(client, b"\r\n") == b'NO "operation failed"\r\n',
                 "PUTSCRIPT сохранил require после обычной команды",
@@ -222,7 +222,7 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
             scratch = b"keep;"
             scratch_marker = f'PUTSCRIPT "scratch" {{{len(scratch)}+}}\r\n'.encode()
             client.sendall(scratch_marker)
-            client.sendall(scratch)
+            client.sendall(scratch + b"\r\n")
             require(
                 read_until(client, b"\r\n") == b'OK "completed"\r\n',
                 "PUTSCRIPT scratch не сохранён",
@@ -236,7 +236,7 @@ def configure_sieve(options: argparse.Namespace, context: ssl.SSLContext) -> Non
                 "DELETESCRIPT не сохранён",
             )
             require(
-                command(client, b'DELETESCRIPT "invoices"\r\n') == b'NO "operation failed"\r\n',
+                command(client, b'DELETESCRIPT "invoices"\r\n') == b'NO (ACTIVE) "active script cannot be deleted"\r\n',
                 "DELETESCRIPT удалил active script",
             )
             require(command(client, b"NOOP\r\n") == b'OK "noop"\r\n', "NOOP не принят")

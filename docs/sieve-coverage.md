@@ -646,3 +646,16 @@ Unit-тесты проверяют decoder, RFC 2047 и RFC 2231 parser integrat
 RFC 2047 Base64 encoded-word темы `Привет` декодируется из CP866 octets, а
 RFC 2231 `filename*` возвращает `Привет.txt`. Это parser unit acceptance;
 отправка такого сообщения через SMTP и просмотр через IMAP/POP3 не проверены.
+
+В T443 независимый Python wire client загрузил script через ManageSieve
+CHECKSCRIPT/PUTSCRIPT/SETACTIVE, где comparator и `envelope` part раскрывались
+из переменных, затем отправил письмо через SMTP и прочитал результат через
+IMAP: единственная копия оказалась в `Invoices`, а INBOX остался пустым. Этот
+test намеренно подтверждает, что greeting не рекламирует частичный `variables`;
+script требует capability вручную. Следовательно, проверен internal server
+path, но не interoperability совместимого клиента и не готовность расширения
+к рекламе. В существующем literal black-box исправлено завершение RFC 5804
+literal: клиент после declared bytes теперь посылает завершающий CRLF; ожидаемый
+отказ удалить active script сверяется с RFC `NO (ACTIVE)`. Оба acceptance
+выполнены независимым клиентом к Linux Docker listener-у, приложение Litterkeep
+не использовалось.
