@@ -1,5 +1,17 @@
 # Goal ledger
 
+### 2026-09-29: G12 unimplemented Sieve extensions fail closed, PARTIAL T420
+
+- Добавлена регрессия для `require` неподдержанных Variables, Body, Reject,
+  IMAP4flags, IMAP events, mailboxid, Mailbox metadata и Special-use. Ни одна из
+  этих capability не принимается parser/validator-ом молча. Скрипты используют
+  корректный базовый `keep`, поэтому исход теста проверяет именно capability.
+- Целевой Windows Rust 1.97.1 тест
+  `sieve::parser_tests::selected_unimplemented_extension_requirements_fail_closed`
+  прошёл (1/1), `git diff --check` прошёл. CAPABILITY и production behavior не
+  расширялись; это fail-closed регрессия, не реализация расширений и не PASS.
+  T420 PARTIAL, G12 ACTIVE.
+
 ### 2026-09-29: G12 modern Sieve extension inventory, PARTIAL T419
 
 - Сверен фактический `SIEVE` capability ManageSieve с текущими источниками:

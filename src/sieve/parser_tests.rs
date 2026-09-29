@@ -28,6 +28,25 @@ fn invalid_script_does_not_become_a_delivery_plan() {
     }
 }
 
+/// Неизвестные или ещё не реализованные расширения не принимаются молча.
+#[test]
+fn selected_unimplemented_extension_requirements_fail_closed() {
+    for source in [
+        "require \"variables\"; keep;",
+        "require \"body\"; keep;",
+        "require \"reject\"; keep;",
+        "require \"imap4flags\"; keep;",
+        "require \"mailboxid\"; keep;",
+        "require \"mailbox\"; keep;",
+        "require \"special-use\"; keep;",
+    ] {
+        assert!(
+            parse(source).is_err(),
+            "accepted unsupported extension: {source}"
+        );
+    }
+}
+
 /// RFC 5228 требует объявления subaddress до использования address :user.
 #[test]
 fn subaddress_projection_requires_and_accepts_its_capability() {
