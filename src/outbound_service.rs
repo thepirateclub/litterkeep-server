@@ -278,7 +278,7 @@ fn handle_transport(
             delivery.dsn_diagnostic = match notice {
                 Some(dsn::Notice::Failure(_)) => completion.diagnostic,
                 None => None,
-                Some(dsn::Notice::Relayed) => None,
+                Some(dsn::Notice::Relayed | dsn::Notice::Delayed) => None,
             };
             delivery.next_attempt_epoch =
                 outbound_policy::next_attempt_epoch(state, delivery.attempts, now_epoch()?);

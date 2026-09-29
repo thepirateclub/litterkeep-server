@@ -19,6 +19,12 @@ pub(super) fn report_fields(
             "relayed",
             "2.0.0",
         ),
+        ReportOutcome::Delayed => (
+            "Delayed",
+            "Delivery is still being attempted for",
+            "delayed",
+            "4.0.0",
+        ),
         ReportOutcome::Failure(failure) => match failure {
             Failure::PermanentSmtp => ("Failure", "Delivery failed for", "failed", "5.0.0"),
             Failure::RoutePolicy => (

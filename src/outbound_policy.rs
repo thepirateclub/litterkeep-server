@@ -70,6 +70,23 @@ pub fn requested_dsn_notice(
     attempts: u8,
     metadata: Option<&DsnDeliveryMetadata>,
 ) -> Option<dsn::Notice> {
+    match (
+        result,
+        attempts,
+        state(result, attempts),
+        dsn::delay_requested(metadata),
+    ) {
+        (_, 2, State::Deferred, true) => Some(dsn::Notice::Delayed),
+        _ => requested_non_delay_notice(result, attempts, metadata),
+    }
+}
+
+/// Выбирает relay-success либо окончательный failure notice.
+fn requested_non_delay_notice(
+    result: &io::Result<DeliveryOutcome>,
+    attempts: u8,
+    metadata: Option<&DsnDeliveryMetadata>,
+) -> Option<dsn::Notice> {
     match result {
         Ok(DeliveryOutcome::Relayed) if dsn::success_requested(metadata) => {
             Some(dsn::Notice::Relayed)
@@ -96,6 +113,30 @@ mod tests {
         assert_eq!(next_attempt_epoch(State::Deferred, 1, 100), 160);
         assert_eq!(next_attempt_epoch(State::Deferred, 3, 100), 340);
         assert_eq!(next_attempt_epoch(State::Delivered, 1, 100), 0);
+    }
+
+    /// Delay notice создаётся после второй временной неудачи только по policy.
+    #[test]
+    fn delayed_notice_requires_retrying_attempt_and_delay_permission() {
+        let allowed = dsn_metadata(NotifyPolicy::Conditions(
+            [NotifyCondition::Delay].into_iter().collect(),
+        ));
+        let denied = dsn_metadata(NotifyPolicy::Conditions(
+            [NotifyCondition::Failure].into_iter().collect(),
+        ));
+        let temporary = Ok(DeliveryOutcome::Deferred);
+
+        assert_eq!(
+            requested_dsn_notice(&temporary, 2, Some(&allowed)),
+            Some(dsn::Notice::Delayed)
+        );
+        assert_eq!(
+            requested_dsn_notice(&temporary, 2, None),
+            Some(dsn::Notice::Delayed)
+        );
+        assert_eq!(requested_dsn_notice(&temporary, 2, Some(&denied)), None);
+        assert_eq!(requested_dsn_notice(&temporary, 1, Some(&allowed)), None);
+        assert_eq!(requested_dsn_notice(&temporary, 3, Some(&allowed)), None);
     }
 
     /// Фиксирует весь экспоненциальный ряд и его безопасную верхнюю границу.

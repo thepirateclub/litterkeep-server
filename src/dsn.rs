@@ -12,7 +12,7 @@ mod policy;
 #[path = "dsn_report.rs"]
 mod report;
 pub(crate) use policy::notification_allowed_for_recipient;
-pub use policy::{failure_requested, notification_allowed, success_requested};
+pub use policy::{delay_requested, failure_requested, notification_allowed, success_requested};
 
 /// Окончательная причина, показываемая локальному отправителю.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -27,6 +27,7 @@ pub enum Failure {
 pub enum Notice {
     Failure(Failure),
     Relayed,
+    Delayed,
 }
 
 impl Notice {
@@ -35,6 +36,7 @@ impl Notice {
         match self {
             Self::Failure(failure) => failure.journal_tag(),
             Self::Relayed => "relayed",
+            Self::Delayed => "delayed",
         }
     }
 
@@ -44,6 +46,7 @@ impl Notice {
             Some(failure) => Some(Self::Failure(failure)),
             None => match value {
                 "relayed" => Some(Self::Relayed),
+                "delayed" => Some(Self::Delayed),
                 _ => None,
             },
         }
@@ -98,6 +101,8 @@ pub(crate) enum ReportOutcome {
     Delivered,
     /// Успешное принятие сообщения следующей SMTP-системой.
     Relayed,
+    /// Повторная доставка пока ожидается после временного отказа.
+    Delayed,
 }
 
 /// Решает, разрешает ли сохранённая RCPT policy failure report.
@@ -182,12 +187,14 @@ pub(crate) fn render_notice_with_diagnostic(
     let requested = match notice {
         Notice::Failure(_) => failure_requested(metadata),
         Notice::Relayed => success_requested(metadata),
+        Notice::Delayed => delay_requested(metadata),
     };
     match (reverse_path.is_empty(), requested) {
         (false, true) => {
             let outcome = match notice {
                 Notice::Failure(failure) => ReportOutcome::Failure(failure),
                 Notice::Relayed => ReportOutcome::Relayed,
+                Notice::Delayed => ReportOutcome::Delayed,
             };
             Some(report::render_with_diagnostic(
                 reverse_path,

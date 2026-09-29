@@ -73,12 +73,18 @@ peer подтвердил `MAIL FROM:<>`, внешний RCPT, `Action: delivere
 процесса от 100 ms до 30 s и сбрасывает её после успешного прохода; deterministic
 unit tests проверяют границы и cap. Расписание повтора отдельного intent пока
 не durable и не сохраняется между перезапусками; dead-letter policy остаётся GAP.
-Delay report scheduling, downstream-generated SUCCESS/DELAY reports и полная
-сквозная семантика повторной доставки остаются неподдержанными. RFC 3461 §5.2.3 требует
+Downstream-generated SUCCESS/DELAY reports и полная сквозная семантика повторной
+доставки остаются неподдержанными. RFC 3461 §5.2.3 требует
 `delivered` DSN при локальной доставке с `NOTIFY=SUCCESS`; RFC считает её
 успешной, когда письмо уже доступно для IMAP/POP retrieval. SMTP принимает
 запросы по wire-протоколу, а committed SUCCESS intents создаются для локальной
-mailbox delivery. Задержанные уведомления пока не создаются. Для одного source
+mailbox delivery. T416 добавляет optional локальный delayed DSN после второй
+временно неудачной попытки, если NOTIFY omitted либо origin policy разрешает
+DELAY. Он сохраняется как durable queue notice, имеет `Action: delayed` и
+`Status: 4.0.0`, не включает исходное сообщение и не отменяет последующий retry.
+Policy, MIME и queue recovery проверены unit tests; последовательный
+transport/Store сценарий с двумя временными отказами и Linux runtime acceptance
+пока не проверены. Для одного source
 RCPT с одним forward destination outbound worker передаёт исходные MAIL
 `RET`/`ENVID` и RCPT `NOTIFY`/`ORCPT`, если downstream EHLO объявил `DSN`;
 xtext сохраняет исходные octets; UTF-8 ORCPT сериализуется 7-bit-safe RFC 6533

@@ -66,6 +66,33 @@ fn grouped_relay_report_filters_origins_by_success_policy() {
     assert!(!report.contains("second@origin.test"));
 }
 
+/// Delay report следует RFC 3464 и не содержит третью MIME часть с письмом.
+#[test]
+fn delayed_report_is_temporary_and_omits_original_message() {
+    let metadata = DsnDeliveryMetadata {
+        mail: Default::default(),
+        recipient: Some(recipient_with_notify(NotifyCondition::Delay, "alice")),
+        origin_recipients: Vec::new(),
+    };
+    let report = render_notice_with_diagnostic(
+        "alice@origin.test",
+        "bob@forward.test",
+        53,
+        b"Subject: private subject\r\n\r\nprivate body",
+        Notice::Delayed,
+        Some(&metadata),
+        None,
+    )
+    .expect("explicit NOTIFY=DELAY");
+    let report = String::from_utf8(report).expect("ASCII report");
+
+    assert!(report.contains("Action: delayed\r\nStatus: 4.0.0\r\n"));
+    assert!(report.contains("Delivery is still being attempted"));
+    assert!(!report.contains("Content-Type: message/delivery-status\r\n\r\n--"));
+    assert!(!report.contains("private subject"));
+    assert!(!report.contains("private body"));
+}
+
 /// Строит origin policy с уникальным ORCPT для проверки группировки.
 fn recipient_with_notify(condition: NotifyCondition, local: &str) -> RecipientDsn {
     RecipientDsn {

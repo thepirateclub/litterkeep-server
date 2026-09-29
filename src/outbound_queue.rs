@@ -68,7 +68,7 @@ pub fn drain_at(
                     let diagnostic = match notice {
                         Some(dsn::Notice::Failure(_)) => attempt.diagnostic,
                         None => None,
-                        Some(dsn::Notice::Relayed) => None,
+                        Some(dsn::Notice::Relayed | dsn::Notice::Delayed) => None,
                     };
                     (state, notice, diagnostic)
                 }

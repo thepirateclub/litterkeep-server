@@ -1,5 +1,26 @@
 # Goal ledger
 
+### 2026-09-29: G18 RFC 3461 delayed DSN after retry, PARTIAL T416
+
+- После второй временно неудачной SMTP попытки job, которая остаётся в
+  `Deferred`, может сформировать durable `Notice::Delayed`. Политика разрешает
+  уведомление при omitted NOTIFY или явном DELAY; FAILURE-only, SUCCESS-only и
+  NEVER его не получают. Порог является локальной optional policy, а не
+  требованием RFC. Повторная попытка остаётся запланированной; обычный terminal
+  failure после исчерпания попыток создаёт отдельный failure notice.
+- RFC 3464 сериализует `Action: delayed`, `Status: 4.0.0`; третья MIME часть с
+  исходным письмом опущена. Notice имеет отдельный journal tag и восстанавливается
+  как due work после перезапуска; idempotency key различает его от последующего
+  failure notice. Unit tests проверяют policy, MIME-поля и recovery.
+- Windows Rust 1.97.1 all-target: 1080 library + 1 CLI passed, 4 ignored;
+  strict Clippy, rustfmt и diff-check прошли. Linux Docker Rust 1.97.1 all-target:
+  1205 library + 1 CLI passed, 4 ignored; strict Clippy и rustfmt прошли.
+  Переиспользованы `rust:1.97-bookworm`, `./data/g23-cargo-home` и
+  `./data/g18-relayed-linux-target`; контейнер `--rm`, образ не создавался.
+- Сквозное SMTP/Store выполнение с двумя последовательными временными отказами,
+  независимый клиент Litterkeep и полный RFC 3461 lifecycle не проверены. T416
+  PARTIAL, G18 ACTIVE.
+
 ### 2026-09-29: G18 multi-origin relay DSN local strategy, PARTIAL T415
 
 - При route, объединяющем несколько исходных RCPT policy, downstream SMTP

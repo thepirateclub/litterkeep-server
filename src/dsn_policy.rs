@@ -59,6 +59,19 @@ pub fn success_requested(metadata: Option<&DsnDeliveryMetadata>) -> bool {
     }
 }
 
+/// Проверяет, разрешена ли опциональная задержанная DSN хотя бы одному origin.
+pub fn delay_requested(metadata: Option<&DsnDeliveryMetadata>) -> bool {
+    let Some(metadata) = metadata else {
+        return true;
+    };
+    match metadata.origin_recipients.is_empty() {
+        true => notification_allowed(Some(metadata), NotifyCondition::Delay),
+        false => metadata.origin_recipients.iter().any(|recipient| {
+            notification_allowed_for_recipient(recipient.as_ref(), NotifyCondition::Delay)
+        }),
+    }
+}
+
 /// Применяет RFC default при отсутствии параметра NOTIFY.
 fn default_allows(condition: NotifyCondition) -> bool {
     match condition {

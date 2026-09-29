@@ -76,8 +76,13 @@ pub(super) fn render_with_diagnostic(
         metadata,
         (outcome, diagnostic),
     );
-    append(&mut output, &returned_part_header(&boundary, message_type));
-    output.extend_from_slice(returned);
+    match outcome {
+        ReportOutcome::Delayed => {}
+        ReportOutcome::Delivered | ReportOutcome::Relayed | ReportOutcome::Failure(_) => {
+            append(&mut output, &returned_part_header(&boundary, message_type));
+            output.extend_from_slice(returned);
+        }
+    }
     append(&mut output, &format!("\r\n--{boundary}--\r\n"));
     output
 }
@@ -94,7 +99,7 @@ fn returned_content<'a>(
     metadata: Option<&DsnDeliveryMetadata>,
 ) -> &'a [u8] {
     let headers_only = match outcome {
-        ReportOutcome::Delivered | ReportOutcome::Relayed => true,
+        ReportOutcome::Delivered | ReportOutcome::Relayed | ReportOutcome::Delayed => true,
         ReportOutcome::Failure(_) => metadata
             .and_then(|value| value.mail.return_content)
             .is_some_and(|value| value == ReturnContent::Headers),
@@ -171,6 +176,7 @@ fn origin_notification_allowed(
 ) -> bool {
     let condition = match outcome {
         ReportOutcome::Delivered | ReportOutcome::Relayed => crate::smtp::NotifyCondition::Success,
+        ReportOutcome::Delayed => crate::smtp::NotifyCondition::Delay,
         ReportOutcome::Failure(_) => crate::smtp::NotifyCondition::Failure,
     };
     crate::dsn::notification_allowed_for_recipient(recipient, condition)
