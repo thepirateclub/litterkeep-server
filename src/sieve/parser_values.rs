@@ -62,7 +62,7 @@ pub(super) fn octet_string_list(input: &mut VecDeque<Token>) -> Result<Vec<Vec<u
 }
 
 /// Читает единственную string token, сохраняя произвольные nonzero octets.
-fn one_octet_string(input: &mut VecDeque<Token>) -> Result<Vec<u8>, &'static str> {
+pub(super) fn one_octet_string(input: &mut VecDeque<Token>) -> Result<Vec<u8>, &'static str> {
     match input.pop_front() {
         Some(Token::String(value)) => Ok(value),
         _ => Err("sieve string expected"),

@@ -17,7 +17,7 @@ IANA registry и не заменяет отдельные acceptance для ка
 | `copy` | RFC 3894 | Реализовано, рекламируется | Проверить комбинации с actions и доставкой на независимом профиле. |
 | `vacation-seconds` | RFC 6131 | Реализовано, рекламируется | Остальные границы vacation и взаимодействие с расширениями требуют отдельного профиля. |
 | `variables` | [RFC 5229](https://www.rfc-editor.org/rfc/rfc5229.html) | Частично: `set` AST/parser/runtime, per-script store, modifiers, capture references и `string` test работают; common condition/action strings, comparator и envelope-part arguments раскрываются во время выполнения; capability не рекламируется | Переменные в произвольных byte strings, совместный acceptance профиль и ManageSieve discovery/interoperability. |
-| `encoded-character` | [RFC 5228 §2.4.2.4](https://www.rfc-editor.org/rfc/rfc5228.html#section-2.4.2.4) | Частично: `parse_octets` декодирует `${hex:...}`/`${unicode:...}` во всех строковых token-ах после quoted escape и dot-unstuffing, если capability объявлена через `require`; capability не рекламируется | Передавать произвольные октеты через все action AST/runtime значения; тестировать raw-byte ManageSieve scripts и полную RFC матрицу; только затем решать об advertisement. |
+| `encoded-character` | [RFC 5228 §2.4.2.4](https://www.rfc-editor.org/rfc/rfc5228.html#section-2.4.2.4) | Частично: `parse_octets` декодирует `${hex:...}`/`${unicode:...}` во всех строковых token-ах после quoted escape и dot-unstuffing; matcher и fileinto/redirect actions хранят byte-valued аргументы; capability не рекламируется | Провести октеты через vacation/set и прочие AST/runtime границы; тестировать raw-byte ManageSieve scripts и полную RFC матрицу; только затем решать об advertisement. |
 | `body` | [RFC 5173](https://www.rfc-editor.org/rfc/rfc5173.html) | Не реализовано, не рекламируется | MIME-aware `:raw`, `:content`, `:text`; не допускать совпадений через границы частей и ограничить CPU/память. |
 | `reject`, `ereject` | [RFC 5429](https://www.rfc-editor.org/rfc/rfc5429.html) | Не реализовано, не рекламируется | Нужна Sieve evaluation до SMTP принятия DATA для protocol-level refusal; post-accept DSN не эквивалентен `ereject`. |
 | `imap4flags` | [RFC 5232](https://www.rfc-editor.org/rfc/rfc5232.html) | Не реализовано, не рекламируется | Реализовать `setflag`, `addflag`, `removeflag`, `hasflag` и `:flags` с durable mailbox flag mutation. |
@@ -62,10 +62,13 @@ string list также раскрывается в точке `envelope` test-а
 keys и `Condition::String.sources` в AST также byte-valued. `is`, `contains` и
 `matches` сравнивают октеты без lossy UTF-8, а подстрочный поиск использует
 линейный KMP. Parser-to-runtime regression подтверждает literal с октетами
-`FF 80`. Actions и `VariableStore` при этом всё ещё текстовые: байтовое значение
-без `${` сохраняется, но interpolation при наличии marker-а пока требует
-UTF-8. Поэтому произвольный `hex` octet ещё не проходит весь script путь, а
-переменная не может безопасно интерполироваться в произвольный binary literal.
+`FF 80`. После T447 аргументы `fileinto` и `redirect` также сохраняются как
+октеты в AST; runtime преобразует их в UTF-8 при проверке mailbox/address,
+поэтому бинарный target синтаксически принимается, но завершается typed runtime
+error. Vacation/set AST и `VariableStore` остаются текстовыми: byte literal с
+interpolation marker-ом пока требует UTF-8. Поэтому произвольный `hex` octet
+ещё не проходит весь script путь, а переменная не может безопасно
+интерполироваться в произвольный binary literal.
 Нормативный порядок:
 quoted-string escape и dot-unstuffing, затем `encoded-character`, затем RFC 5229
 variable expansion. Нельзя применять lossy UTF-8 к `hex` или объявлять Variables
@@ -77,13 +80,14 @@ variable expansion. Нельзя применять lossy UTF-8 к `hex` или 
 runtime path на unit-уровне, но не ManageSieve wire acceptance с raw bytes и не
 полный Sieve script path через actions.
 
-**RFC 5228 encoded-character после T446.** Начальный `require
+**RFC 5228 encoded-character после T447.** Начальный `require
 "encoded-character"` включает замену `${hex:...}` на octets и `${unicode:...}`
 на UTF-8 scalar values после лексического unescaping и dot-unstuffing. Имена
 sequence case-insensitive; malformed input остаётся буквальным, nested
 sequence обрабатывается по RFC, well-formed недопустимая Unicode scalar
 sequence даёт parse error. Парсер передаёт результат в byte-valued matcher
-AST. Однако action аргументы и несколько других AST полей пока требуют UTF-8,
+AST; fileinto/redirect сохраняют байты до проверки UTF-8 на runtime boundary.
+Vacation/set аргументы и несколько других AST полей пока требуют UTF-8,
 поэтому расширение распознаётся для явно требующих его scripts, но не
 публикуется в ManageSieve capability list. Это не полный extension profile.
 

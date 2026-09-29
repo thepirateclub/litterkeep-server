@@ -14,6 +14,15 @@ pub(super) fn expand(value: &str, state: &ExecutionState) -> Result<String, Exec
         .map_err(|_error| ExecutionError::VariableRuntime)
 }
 
+/// Преобразует action octets в текст на границе mailbox/address runtime API.
+pub(super) fn expand_octets(
+    value: &[u8],
+    state: &ExecutionState,
+) -> Result<String, ExecutionError> {
+    let text = std::str::from_utf8(value).map_err(|_| ExecutionError::VariableRuntime)?;
+    expand(text, state)
+}
+
 /// Раскрывает каждое строковое поле vacation, не меняя числовые policy tags.
 pub(super) fn vacation(
     action: &VacationAction,

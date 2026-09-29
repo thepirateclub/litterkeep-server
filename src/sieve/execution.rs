@@ -200,7 +200,7 @@ fn apply(action: &Action, state: &mut ExecutionState) -> Result<(), ExecutionErr
             state.plan.discard = true;
         }
         Action::FileInto(folder) => {
-            let folder = dynamic::expand(folder, state)?;
+            let folder = dynamic::expand_octets(folder, state)?;
             if !super::validate::safe_name(&folder) {
                 return Err(ExecutionError::VariableRuntime);
             }
@@ -208,7 +208,7 @@ fn apply(action: &Action, state: &mut ExecutionState) -> Result<(), ExecutionErr
             state.plan.folders.push(folder);
         }
         Action::FileIntoCopy(folder) => {
-            let folder = dynamic::expand(folder, state)?;
+            let folder = dynamic::expand_octets(folder, state)?;
             if !super::validate::safe_name(&folder) {
                 return Err(ExecutionError::VariableRuntime);
             }
@@ -218,7 +218,7 @@ fn apply(action: &Action, state: &mut ExecutionState) -> Result<(), ExecutionErr
             if state.plan.redirects.len() >= MAX_REDIRECTS_PER_EVALUATION {
                 return Err(ExecutionError::RedirectLimit);
             }
-            let address = dynamic::expand(address, state)?;
+            let address = dynamic::expand_octets(address, state)?;
             if !super::validate::valid_redirect_address(&address) {
                 return Err(ExecutionError::VariableRuntime);
             }
@@ -229,7 +229,7 @@ fn apply(action: &Action, state: &mut ExecutionState) -> Result<(), ExecutionErr
             if state.plan.redirects.len() >= MAX_REDIRECTS_PER_EVALUATION {
                 return Err(ExecutionError::RedirectLimit);
             }
-            let address = dynamic::expand(address, state)?;
+            let address = dynamic::expand_octets(address, state)?;
             if !super::validate::valid_redirect_address(&address) {
                 return Err(ExecutionError::VariableRuntime);
             }

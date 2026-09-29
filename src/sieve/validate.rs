@@ -108,21 +108,14 @@ fn action_valid(action: &Action, policy: ValidationPolicy) -> Result<(), &'stati
     }
     match action {
         Action::FileInto(_) if !policy.fileinto => Err("fileinto extension must be required"),
-        Action::FileInto(name) if safe_name(name) => Ok(()),
+        Action::FileInto(name) => fileinto_target(name),
         Action::FileIntoCopy(_) if !policy.fileinto => Err("fileinto extension must be required"),
         Action::FileIntoCopy(_) | Action::RedirectCopy(_) if !policy.copy => {
             Err("copy extension must be required")
         }
-        Action::FileIntoCopy(name) if safe_name(name) => Ok(()),
-        Action::Redirect(address) | Action::RedirectCopy(address)
-            if policy.variables && address.contains("${") =>
-        {
-            Ok(())
-        }
-        Action::Redirect(address) | Action::RedirectCopy(address)
-            if valid_redirect_address(address) =>
-        {
-            Ok(())
+        Action::FileIntoCopy(name) => fileinto_target(name),
+        Action::Redirect(address) | Action::RedirectCopy(address) => {
+            redirect_target(address, policy.variables)
         }
         Action::Set(_) if !policy.variables => Err("variables extension must be required"),
         Action::Set(action) => {
@@ -131,11 +124,26 @@ fn action_valid(action: &Action, policy: ValidationPolicy) -> Result<(), &'stati
             super::variables::VariableStore::validate_modifiers(&action.modifiers)
                 .map_err(|_| "conflicting variables modifiers")
         }
-        Action::FileInto(_)
-        | Action::FileIntoCopy(_)
-        | Action::Redirect(_)
-        | Action::RedirectCopy(_) => Err("unsafe sieve action target"),
         Action::Keep | Action::Discard | Action::Stop | Action::Vacation(_) => Ok(()),
+    }
+}
+
+/// Проверяет mailbox path как UTF-8; бинарные Sieve-строки откладывает runtime.
+fn fileinto_target(value: &[u8]) -> Result<(), &'static str> {
+    match std::str::from_utf8(value) {
+        Ok(name) if safe_name(name) => Ok(()),
+        Err(_) => Ok(()),
+        _ => Err("unsafe sieve action target"),
+    }
+}
+
+/// Проверяет redirect адрес либо оставляет бинарное значение для runtime error.
+fn redirect_target(value: &[u8], variables: bool) -> Result<(), &'static str> {
+    match std::str::from_utf8(value) {
+        Err(_) => Ok(()),
+        Ok(address) if variables && address.contains("${") => Ok(()),
+        Ok(address) if valid_redirect_address(address) => Ok(()),
+        _ => Err("unsafe sieve action target"),
     }
 }
 

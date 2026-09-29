@@ -1,5 +1,22 @@
 # Goal ledger
 
+### 2026-09-29: G18 RFC 5228 fileinto/redirect octet AST, PARTIAL T447
+
+- Аргументы `fileinto`, `fileinto :copy`, `redirect` и `redirect :copy` теперь
+  сохраняют raw octets через parser и AST. UTF-8 требуется только на
+  mailbox/address runtime boundary: корректный `${unicode:...}` доходит до
+  delivery plan, а binary target принимается как валидная Sieve string и при
+  исполнении даёт typed runtime error вместо parse error.
+- Vacation и Variables `set` поля пока текстовые; ManageSieve wire acceptance
+  для action octets не запускался. `encoded-character`/`variables` не
+  рекламируются.
+- Windows Rust 1.97.1: `cargo fmt --check`, `cargo test --all-targets`
+  (1154 library + 1 CLI passed, 4 ignored), strict Clippy и diff-check прошли.
+  Linux Docker Rust 1.97.1: locked all-target (1280 library + 1 CLI passed,
+  4 ignored), strict Clippy прошли. Переиспользованы локальные Cargo cache и
+  target под `./data`; тестовые контейнеры `--rm`, новый image не создавался.
+  Изменение в `tests/blackbox/smtp_data_line_bound.py` сохранено отдельно.
+
 ### 2026-09-29: G18 RFC 5228 encoded-character string decoding, PARTIAL T446
 
 - Добавлено декодирование `${hex:...}` в произвольные октеты и

@@ -4,6 +4,9 @@
 //! расположен в отдельном файле, чтобы сетевой ManageSieve и storage owner
 //! могли использовать ровно один проверяемый контракт.
 
+#[cfg(test)]
+#[path = "sieve/action_octet_tests.rs"]
+mod action_octet_tests;
 #[path = "sieve/address.rs"]
 mod address;
 #[path = "sieve/address_options.rs"]

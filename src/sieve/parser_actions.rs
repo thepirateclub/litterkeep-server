@@ -3,7 +3,7 @@
 use super::super::ast::Action;
 use super::super::keywords::CopyTag;
 use super::super::lexer::Token;
-use super::super::parser_values::one_string;
+use super::super::parser_values::one_octet_string;
 use std::collections::VecDeque;
 
 #[path = "parser_vacation.rs"]
@@ -16,9 +16,9 @@ pub(super) fn fileinto(input: &mut VecDeque<Token>) -> Result<Action, &'static s
     match input.front() {
         Some(Token::Atom(tag)) if CopyTag::parse(tag) == CopyTag::Copy => {
             let _ = input.pop_front();
-            Ok(Action::FileIntoCopy(one_string(input)?))
+            Ok(Action::FileIntoCopy(one_octet_string(input)?))
         }
-        _ => Ok(Action::FileInto(one_string(input)?)),
+        _ => Ok(Action::FileInto(one_octet_string(input)?)),
     }
 }
 
@@ -27,9 +27,9 @@ pub(super) fn redirect(input: &mut VecDeque<Token>) -> Result<Action, &'static s
     match input.front() {
         Some(Token::Atom(tag)) if CopyTag::parse(tag) == CopyTag::Copy => {
             let _ = input.pop_front();
-            Ok(Action::RedirectCopy(one_string(input)?))
+            Ok(Action::RedirectCopy(one_octet_string(input)?))
         }
-        _ => Ok(Action::Redirect(one_string(input)?)),
+        _ => Ok(Action::Redirect(one_octet_string(input)?)),
     }
 }
 

@@ -8,7 +8,7 @@ pub(super) fn action(action: &Action) -> Result<(), &'static str> {
         Action::FileInto(value)
         | Action::FileIntoCopy(value)
         | Action::Redirect(value)
-        | Action::RedirectCopy(value) => validate(value),
+        | Action::RedirectCopy(value) => validate_octets(value),
         Action::Set(action) => validate(&action.value),
         Action::Vacation(action) => {
             validate(&action.reason)?;
@@ -22,6 +22,16 @@ pub(super) fn action(action: &Action) -> Result<(), &'static str> {
         }
         Action::Keep | Action::Discard | Action::Stop => Ok(()),
     }
+}
+
+/// Проверяет namespaces у action string, не требуя UTF-8 для literal octets.
+fn validate_octets(value: &[u8]) -> Result<(), &'static str> {
+    if value.windows(2).any(|marker| marker == b"${") {
+        let text =
+            std::str::from_utf8(value).map_err(|_| "non-UTF-8 variable reference is invalid")?;
+        validate(text)?;
+    }
+    Ok(())
 }
 
 /// Проверяет строки теста и рекурсивно обходит composed conditions.
