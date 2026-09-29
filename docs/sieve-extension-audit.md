@@ -63,14 +63,23 @@ decimal-представление индекса, включая leading zeroes
 локальный предел результата -
 65 536 символов; его превышение возвращает typed error. Это протестированное
 ядро библиотеки, но не часть AST/executor pipeline. В частности, lexer пока не
-передаёт provenance escaping/encoded-character, parser не валидирует ссылки
-выше `${9}` и не подключён к typed ошибкам engine. T426 добавил typed errors в
+передаёт provenance escaping/encoded-character, parser не разбирает и не
+валидирует variable references, а engine не подключён к typed ошибкам parser-а.
+T426 добавил typed errors в
 engine для валидной namespace-ссылки без включённого namespace extension;
 parser-time diagnostics ещё отсутствуют. Предыдущие T426/T427 неверно
 трактовали numeric references как одиночную цифру или syntax error; RFC 5229
 разрешает leading zeroes и раскрывает недоступный index в пустую строку.
 Расхождение исправлено в T428. `set` и `string` отсутствуют, поэтому
 capability остаётся скрытым.
+
+T428 также заменил greedy glob capture matching на backtracking, чтобы
+соблюдать non-greedy распределение wildcard captures и сбрасывать значения
+неудачных ветвей. Поиск ограничен одним миллионом шагов. Сейчас исчерпание
+этого локального бюджета представляется как `NoMatch`, поэтому дорогой, но
+валидный шаблон может дать false negative. Это защитное ограничение профиля,
+не RFC-семантика; для полной совместимости нужен typed runtime resource error
+или алгоритм с доказанной стоимостью без изменения результата сравнения.
 
 ## Базовый RFC 5228: адресные списки
 

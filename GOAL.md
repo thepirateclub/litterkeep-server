@@ -11901,6 +11901,10 @@ ManageSieve до заявленного набора современных фо
 - Это исправляет matcher/capture semantics, но Variables extension всё ещё
   отсутствует в AST/parser/actions, не объявляет `set`/`string`/modifiers и не
   рекламируется; полная RFC conformance не заявляется.
+- Ограничение: при исчерпании 1 000 000 шагов glob matcher сейчас возвращает
+  `NoMatch`; дорогой валидный шаблон может дать false negative. Это не RFC
+  семантика и записано как открытая задача для typed resource error или
+  гарантированно корректного bounded алгоритма.
 
 ### 2026-09-29: G18 RFC 5229 implementation-boundary audit, T423 PARTIAL
 
