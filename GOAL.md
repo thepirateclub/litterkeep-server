@@ -11922,6 +11922,19 @@ ManageSieve до заявленного набора современных фо
   `./data/g18-rfc5229-budget-target`; disposable `--rm` container удалён,
   новых образов нет. G18 остаётся ACTIVE.
 
+### 2026-09-29: G18 Sieve glob reference corpus, T430 PARTIAL
+
+- Добавлен независимый non-greedy reference matcher и исчерпывающая проверка
+  всех 42 315 пар: шаблоны длиной до 5 из `a`, `b`, `*`, `?` и значения длиной
+  до 4 из `a`, `b`. Сверяются и факт совпадения, и каждый wildcard capture.
+- Все 8 glob tests проходят. Это усиливает регрессионную базу RFC 5228/5229,
+  не меняет runtime semantics и не означает полного Sieve conformance.
+- Полный Windows Rust 1.97.1 `cargo test --all-targets`: 1 101 библиотечный
+  и 1 CLI-тест прошли, 4 пропущены; strict Clippy, rustfmt и `git diff --check`
+  прошли. Linux Docker `rust:1.97-bookworm`: 1 227 библиотечных и 1 CLI-тест
+  прошли, 4 пропущены. Переиспользованы существующий образ и `./data`; контейнер
+  запущен с `--rm`, образ не создавался. Linux Clippy/rustfmt в образе отсутствуют.
+
 ### 2026-09-29: G18 RFC 5229 implementation-boundary audit, T423 PARTIAL
 
 - Rechecked the current Variables design against the RFC Editor's RFC 5229 text.
