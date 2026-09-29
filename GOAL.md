@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-29: G18 RFC 5229 dynamic comparator selectors, PARTIAL T441
+
+- `:comparator` сохраняет строку с переменной и раскрывает её в момент оценки
+  условия, после чего значение повторно разбирается в поддерживаемый enum.
+  Dynamic selector без `require "variables"` отклоняется при загрузке;
+  неизвестный раскрытый comparator приводит к typed `VariableRuntime`.
+- Регрессии проверяют `string` и `address` comparator-ы, текущее значение
+  переменной, compile-time требование Variables/namespace и runtime отказ на
+  неподдерживаемом имени. Windows Rust 1.97.1 all-target: 1 134 library +
+  1 CLI прошли, 4 ignored; strict Clippy, rustfmt и diff-check прошли. Linux
+  Docker Rust 1.97.1 all-target: 1 260 library + 1 CLI прошли, 4 ignored;
+  использованы существующий `rust:1.97-bookworm`, `./data/g23-cargo-home` и
+  `./data/g18-rfc5229-comparator-target`; одноразовый `--rm`, image не создан.
+- RFC 5229 профиль остаётся частичным: comparator завершён для текущих двух
+  comparator-ов; envelope-part selector strings, RFC 5228 `encoded-character`,
+  полный acceptance и ManageSieve discovery/interoperability открыты. Variables
+  не рекламируется, G18 остаётся ACTIVE.
+
 ### 2026-09-29: G18 RFC 5229 namespace load-time validation, PARTIAL T440
 
 - Если script требует `variables`, AST namespace pass проверяет string arguments

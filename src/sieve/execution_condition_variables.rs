@@ -2,6 +2,7 @@
 
 use super::ExecutionError;
 use crate::sieve::ast::{Comparator, MatchType, StringMatch};
+use crate::sieve::keywords::ComparatorWord;
 use crate::sieve::variables::{VariableError, VariableStore};
 
 /// Раскрывает все элементы списка с одним снимком match variables.
@@ -28,9 +29,24 @@ pub(super) fn expand_matcher(
     enabled: bool,
 ) -> Result<StringMatch, ExecutionError> {
     let keys = expand_strings(&matcher.keys, store, captures, enabled)?;
+    let comparator = match &matcher.comparator {
+        Comparator::AsciiCasemap => Comparator::AsciiCasemap,
+        Comparator::Octet => Comparator::Octet,
+        Comparator::Variable(value) if enabled => {
+            let expanded = store
+                .expand_octets(value, captures)
+                .map_err(variable_error)?;
+            match ComparatorWord::parse(&expanded) {
+                ComparatorWord::AsciiCasemap => Comparator::AsciiCasemap,
+                ComparatorWord::Octet => Comparator::Octet,
+                ComparatorWord::Unknown => return Err(ExecutionError::VariableRuntime),
+            }
+        }
+        Comparator::Variable(_) => return Err(ExecutionError::VariableRuntime),
+    };
     Ok(StringMatch {
         match_type: clone_match_type(&matcher.match_type),
-        comparator: clone_comparator(&matcher.comparator),
+        comparator,
         keys,
     })
 }
@@ -40,13 +56,6 @@ fn clone_match_type(value: &MatchType) -> MatchType {
         MatchType::Is => MatchType::Is,
         MatchType::Contains => MatchType::Contains,
         MatchType::Matches => MatchType::Matches,
-    }
-}
-
-fn clone_comparator(value: &Comparator) -> Comparator {
-    match value {
-        Comparator::AsciiCasemap => Comparator::AsciiCasemap,
-        Comparator::Octet => Comparator::Octet,
     }
 }
 

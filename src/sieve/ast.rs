@@ -138,6 +138,8 @@ pub enum MatchType {
 pub enum Comparator {
     AsciiCasemap,
     Octet,
+    /// RFC 5229 string-argument comparator, раскрываемый при оценке test-а.
+    Variable(String),
 }
 
 /// Одна typed match-спецификация с ограниченным набором ключей.

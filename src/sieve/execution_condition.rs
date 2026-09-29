@@ -236,6 +236,7 @@ fn match_value(
 ) -> Result<bool, ExecutionError> {
     let outcome = matching::evaluate(value, matcher).map_err(|error| match error {
         matching::MatchError::WorkLimit => ExecutionError::MatcherLimit,
+        matching::MatchError::UnresolvedComparator => ExecutionError::VariableRuntime,
     })?;
     match outcome {
         MatchOutcome::NoMatch => Ok(false),

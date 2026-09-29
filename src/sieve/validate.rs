@@ -201,6 +201,9 @@ fn condition_valid(
     depth: usize,
     policy: ValidationPolicy,
 ) -> Result<(), &'static str> {
+    if !policy.variables && condition_has_dynamic_comparator(condition) {
+        return Err("variables extension must be required");
+    }
     if policy.variables {
         namespace::condition(condition)?;
     }
@@ -241,6 +244,25 @@ fn condition_valid(
             .try_for_each(|value| condition_valid(value, depth.saturating_add(1), policy)),
         Condition::True | Condition::False | Condition::Exists { .. } | Condition::Size { .. } => {
             Ok(())
+        }
+    }
+}
+
+/// Отклоняет string-valued comparator selector без Variables до runtime.
+fn condition_has_dynamic_comparator(condition: &Condition) -> bool {
+    match condition {
+        Condition::Header { matcher, .. }
+        | Condition::Address { matcher, .. }
+        | Condition::Envelope { matcher, .. }
+        | Condition::String { matcher, .. } => {
+            matches!(matcher.comparator, super::ast::Comparator::Variable(_))
+        }
+        Condition::Not(nested) => condition_has_dynamic_comparator(nested),
+        Condition::AllOf(values) | Condition::AnyOf(values) => {
+            values.iter().any(condition_has_dynamic_comparator)
+        }
+        Condition::True | Condition::False | Condition::Exists { .. } | Condition::Size { .. } => {
+            false
         }
     }
 }

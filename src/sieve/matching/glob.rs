@@ -183,6 +183,7 @@ fn equal_octet(value: u8, expected: u8, comparator: &Comparator) -> bool {
     match comparator {
         Comparator::AsciiCasemap => value.eq_ignore_ascii_case(&expected),
         Comparator::Octet => value == expected,
+        Comparator::Variable(_) => false,
     }
 }
 

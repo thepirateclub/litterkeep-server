@@ -235,6 +235,9 @@ fn parse_comparator(value: &str) -> Result<Comparator, &'static str> {
     match ComparatorWord::parse(value) {
         ComparatorWord::AsciiCasemap => Ok(Comparator::AsciiCasemap),
         ComparatorWord::Octet => Ok(Comparator::Octet),
+        ComparatorWord::Unknown if value.contains("${") => {
+            Ok(Comparator::Variable(value.to_owned()))
+        }
         _ => Err("unsupported sieve comparator"),
     }
 }

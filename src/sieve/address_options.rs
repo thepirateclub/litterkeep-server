@@ -66,6 +66,9 @@ fn comparator(value: &str) -> Result<Comparator, &'static str> {
     match super::keywords::ComparatorWord::parse(value) {
         super::keywords::ComparatorWord::AsciiCasemap => Ok(Comparator::AsciiCasemap),
         super::keywords::ComparatorWord::Octet => Ok(Comparator::Octet),
+        super::keywords::ComparatorWord::Unknown if value.contains("${") => {
+            Ok(Comparator::Variable(value.to_owned()))
+        }
         _ => Err("unsupported sieve comparator"),
     }
 }

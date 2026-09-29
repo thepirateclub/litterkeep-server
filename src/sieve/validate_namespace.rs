@@ -29,12 +29,17 @@ pub(super) fn condition(value: &Condition) -> Result<(), &'static str> {
     match value {
         Condition::Header { names, matcher } | Condition::Address { names, matcher, .. } => {
             strings(names)?;
-            strings(&matcher.keys)
+            strings(&matcher.keys)?;
+            comparator(&matcher.comparator)
         }
-        Condition::Envelope { matcher, .. } => strings(&matcher.keys),
+        Condition::Envelope { matcher, .. } => {
+            strings(&matcher.keys)?;
+            comparator(&matcher.comparator)
+        }
         Condition::String { sources, matcher } => {
             strings(sources)?;
-            strings(&matcher.keys)
+            strings(&matcher.keys)?;
+            comparator(&matcher.comparator)
         }
         Condition::Exists { names } => strings(names),
         Condition::Not(nested) => condition(nested),
@@ -53,6 +58,15 @@ fn optional(value: Option<&str>) -> Result<(), &'static str> {
     match value {
         Some(value) => validate(value),
         None => Ok(()),
+    }
+}
+
+fn comparator(value: &super::super::ast::Comparator) -> Result<(), &'static str> {
+    match value {
+        super::super::ast::Comparator::Variable(source) => validate(source),
+        super::super::ast::Comparator::AsciiCasemap | super::super::ast::Comparator::Octet => {
+            Ok(())
+        }
     }
 }
 

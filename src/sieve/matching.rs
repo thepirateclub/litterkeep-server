@@ -15,10 +15,14 @@ pub(super) enum MatchOutcome {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum MatchError {
     WorkLimit,
+    UnresolvedComparator,
 }
 
 /// Сравнивает ключи по порядку, чтобы runtime получил captures успешного ключа.
 pub(super) fn evaluate(value: &str, matcher: &StringMatch) -> Result<MatchOutcome, MatchError> {
+    if matches!(matcher.comparator, Comparator::Variable(_)) {
+        return Err(MatchError::UnresolvedComparator);
+    }
     for key in &matcher.keys {
         let outcome = match &matcher.match_type {
             MatchType::Is => match equal(value, key, &matcher.comparator) {
@@ -47,6 +51,7 @@ fn equal(value: &str, key: &str, comparator: &Comparator) -> bool {
     match comparator {
         Comparator::AsciiCasemap => value.eq_ignore_ascii_case(key),
         Comparator::Octet => value == key,
+        Comparator::Variable(_) => false,
     }
 }
 
@@ -57,6 +62,7 @@ fn contains(value: &str, key: &str, comparator: &Comparator) -> bool {
     match comparator {
         Comparator::AsciiCasemap => contains_ascii_casemap(value, key),
         Comparator::Octet => value.contains(key),
+        Comparator::Variable(_) => false,
     }
 }
 

@@ -193,3 +193,34 @@ fn sieve_quoting_precedes_single_pass_variable_expansion() {
     assert_eq!(values.get("escaped"), Some(r#"\ACME"#));
     assert_eq!(values.get("literal"), Some("${beep}"));
 }
+
+#[test]
+fn comparator_selector_is_expanded_before_string_matching() {
+    let source = r#"require "variables"; set "cmp" "i;octet"; if string :comparator "${cmp}" :is "a" "A" { keep; } else { discard; }"#;
+    let script = parse(source).expect("dynamic comparator selector");
+    let (plan, _) = execute_state(&script, &[], 0, "", "").expect("resolve comparator selector");
+
+    assert!(plan.discard);
+}
+
+#[test]
+fn unsupported_expanded_comparator_fails_the_sieve_evaluation() {
+    let source = r#"require "variables"; set "cmp" "i;unknown"; if string :comparator "${cmp}" :is "a" "a" { keep; }"#;
+    let script = parse(source).expect("deferred comparator selector");
+
+    assert!(matches!(
+        execute_state(&script, &[], 0, "", ""),
+        Err(ExecutionError::VariableRuntime)
+    ));
+}
+
+#[test]
+fn address_comparator_selector_is_expanded_at_condition_time() {
+    let source = r#"require "variables"; set "cmp" "i;octet"; if address :comparator "${cmp}" :is "From" "a@example.com" { keep; } else { discard; }"#;
+    let script = parse(source).expect("dynamic address comparator");
+    let headers = vec![("From".to_owned(), "A@example.com".to_owned())];
+    let (plan, _) =
+        execute_state(&script, &headers, 0, "", "").expect("resolve address comparator");
+
+    assert!(plan.discard);
+}

@@ -80,6 +80,16 @@ fn variable_namespace_references_are_checked_when_the_script_is_loaded() {
     assert!(parse("if header :is \"${environment.field}\" \"x\" { keep; }").is_ok());
 }
 
+#[test]
+fn dynamic_comparator_requires_variables_and_valid_namespace() {
+    assert!(parse("if string :comparator \"${cmp}\" \"x\" \"x\" { keep; }").is_err());
+    assert!(
+        parse("require \"variables\"; if string :comparator \"${cmp}\" \"x\" \"x\" { keep; }")
+            .is_ok()
+    );
+    assert!(parse("require \"variables\"; if string :comparator \"${environment.cmp}\" \"x\" \"x\" { keep; }").is_err());
+}
+
 /// RFC 5228 требует объявления subaddress до использования address :user.
 #[test]
 fn subaddress_projection_requires_and_accepts_its_capability() {
