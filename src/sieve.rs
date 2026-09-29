@@ -18,6 +18,8 @@ mod auto_submitted_tests;
 #[cfg(test)]
 #[path = "sieve/copy_tests.rs"]
 mod copy_tests;
+#[path = "sieve/encoded_character.rs"]
+mod encoded_character;
 #[cfg(test)]
 #[path = "sieve/envelope_tests.rs"]
 mod envelope_tests;
@@ -83,7 +85,10 @@ pub fn parse(source: &str) -> Result<Script, &'static str> {
 
 /// Разбирает wire script без потери октетов внутри строк и комментариев.
 pub fn parse_octets(source: &[u8]) -> Result<Script, &'static str> {
-    let tokens = lexer::tokenize_octets(source)?;
+    let mut tokens = lexer::tokenize_octets(source)?;
+    if encoded_character::is_required(&tokens) {
+        encoded_character::decode_tokens(&mut tokens)?;
+    }
     parse_tokens(tokens)
 }
 

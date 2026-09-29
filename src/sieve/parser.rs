@@ -50,6 +50,7 @@ fn capability(value: String) -> Capability {
         CapabilityWord::Vacation => Capability::Vacation,
         CapabilityWord::VacationSeconds => Capability::VacationSeconds,
         CapabilityWord::Variables => Capability::Variables,
+        CapabilityWord::EncodedCharacter => Capability::EncodedCharacter,
         _ => Capability::Unsupported(value),
     }
 }

@@ -111,6 +111,7 @@ pub(super) enum CapabilityWord {
     Vacation,
     VacationSeconds,
     Variables,
+    EncodedCharacter,
     Unknown,
 }
 
@@ -126,6 +127,7 @@ impl CapabilityWord {
             "vacation" => Self::Vacation,
             "vacation-seconds" => Self::VacationSeconds,
             "variables" => Self::Variables,
+            "encoded-character" => Self::EncodedCharacter,
             _ => Self::Unknown,
         }
     }

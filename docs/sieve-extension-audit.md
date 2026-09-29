@@ -16,7 +16,8 @@ IANA registry и не заменяет отдельные acceptance для ка
 | `subaddress` | RFC 3598 | Реализовано, рекламируется | Проверить все допустимые recipient-part варианты и межклиентские адресные соглашения. |
 | `copy` | RFC 3894 | Реализовано, рекламируется | Проверить комбинации с actions и доставкой на независимом профиле. |
 | `vacation-seconds` | RFC 6131 | Реализовано, рекламируется | Остальные границы vacation и взаимодействие с расширениями требуют отдельного профиля. |
-| `variables` | [RFC 5229](https://www.rfc-editor.org/rfc/rfc5229.html) | Частично: `set` AST/parser/runtime, per-script store, modifiers, capture references и `string` test работают; common condition/action strings, comparator и envelope-part arguments раскрываются во время выполнения; capability не рекламируется | RFC 5228 `encoded-character` expansion и произвольные октеты Sieve string, совместный acceptance профиль и ManageSieve discovery/interoperability. |
+| `variables` | [RFC 5229](https://www.rfc-editor.org/rfc/rfc5229.html) | Частично: `set` AST/parser/runtime, per-script store, modifiers, capture references и `string` test работают; common condition/action strings, comparator и envelope-part arguments раскрываются во время выполнения; capability не рекламируется | Переменные в произвольных byte strings, совместный acceptance профиль и ManageSieve discovery/interoperability. |
+| `encoded-character` | [RFC 5228 §2.4.2.4](https://www.rfc-editor.org/rfc/rfc5228.html#section-2.4.2.4) | Частично: `parse_octets` декодирует `${hex:...}`/`${unicode:...}` во всех строковых token-ах после quoted escape и dot-unstuffing, если capability объявлена через `require`; capability не рекламируется | Передавать произвольные октеты через все action AST/runtime значения; тестировать raw-byte ManageSieve scripts и полную RFC матрицу; только затем решать об advertisement. |
 | `body` | [RFC 5173](https://www.rfc-editor.org/rfc/rfc5173.html) | Не реализовано, не рекламируется | MIME-aware `:raw`, `:content`, `:text`; не допускать совпадений через границы частей и ограничить CPU/память. |
 | `reject`, `ereject` | [RFC 5429](https://www.rfc-editor.org/rfc/rfc5429.html) | Не реализовано, не рекламируется | Нужна Sieve evaluation до SMTP принятия DATA для protocol-level refusal; post-accept DSN не эквивалентен `ereject`. |
 | `imap4flags` | [RFC 5232](https://www.rfc-editor.org/rfc/rfc5232.html) | Не реализовано, не рекламируется | Реализовать `setflag`, `addflag`, `removeflag`, `hasflag` и `:flags` с durable mailbox flag mutation. |
@@ -55,7 +56,8 @@ literal-dollar single-pass образец. Compile-time проход AST отв�
 enum-значения; неизвестный результат вызывает runtime failure. Envelope-part
 string list также раскрывается в точке `envelope` test-а и повторно разбирается
 в `from`/`to`. Расширение всё ещё не рекламируется: RFC 5228
-`encoded-character` expansion (раздел 2.4.2.4) не реализован. Production
+`encoded-character` expansion (раздел 2.4.2.4) частично реализован после T446,
+но не рекламируется из-за неполного byte-valued action path. Production
 `parse_octets(&[u8])` сохраняет quoted/multiline string bytes; `StringMatch`
 keys и `Condition::String.sources` в AST также byte-valued. `is`, `contains` и
 `matches` сравнивают октеты без lossy UTF-8, а подстрочный поиск использует
@@ -74,6 +76,16 @@ variable expansion. Нельзя применять lossy UTF-8 к `hex` или 
 готовность включить Variables capability. T445 проверяет parser-to-condition
 runtime path на unit-уровне, но не ManageSieve wire acceptance с raw bytes и не
 полный Sieve script path через actions.
+
+**RFC 5228 encoded-character после T446.** Начальный `require
+"encoded-character"` включает замену `${hex:...}` на octets и `${unicode:...}`
+на UTF-8 scalar values после лексического unescaping и dot-unstuffing. Имена
+sequence case-insensitive; malformed input остаётся буквальным, nested
+sequence обрабатывается по RFC, well-formed недопустимая Unicode scalar
+sequence даёт parse error. Парсер передаёт результат в byte-valued matcher
+AST. Однако action аргументы и несколько других AST полей пока требуют UTF-8,
+поэтому расширение распознаётся для явно требующих его scripts, но не
+публикуется в ManageSieve capability list. Это не полный extension profile.
 
 Историческая запись T421-T429 ниже описывает состояние на даты тех этапов;
 её выводы о полном отсутствии `set`/`string` superseded текущим статусом выше.

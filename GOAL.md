@@ -1,5 +1,25 @@
 # Goal ledger
 
+### 2026-09-29: G18 RFC 5228 encoded-character string decoding, PARTIAL T446
+
+- Добавлено декодирование `${hex:...}` в произвольные октеты и
+  `${unicode:...}` в последовательность UTF-8 Unicode scalar только при
+  начальном, регистрозависимом `require "encoded-character"`. Обработка идёт
+  после quoted escape и
+  multiline dot-unstuffing, до построения AST. RFC vectors покрывают malformed
+  literal, nested encoding, case-insensitive sequence names, multiple Unicode
+  scalars, NUL/octet output, invalid Unicode scalar и unescaping order.
+- Это не полная поддержка capability: некоторые action/string AST границы
+  требуют UTF-8, поэтому `encoded-character` не рекламируется. Не проверены
+  ManageSieve raw-byte wire scripts, полный Unicode conformance corpus и
+  сквозные binary action values. Variables также остаётся скрытым.
+- Windows Rust 1.97.1: `cargo fmt --check`, `cargo test --all-targets`
+  (1150 library + 1 CLI passed, 4 ignored) и strict Clippy прошли. Linux
+  `rust:1.97-bookworm`: locked all-target (1276 library + 1 CLI passed,
+  4 ignored) и strict Clippy прошли. Использованы `./data/g23-cargo-home` и
+  `./data/g18-rfc5229-byte-ast-target`; контейнеры `--rm`, image не создан.
+  Независимый пользовательский diff сохранён.
+
 ### 2026-09-29: G18 RFC 5229 byte-valued parser, AST and matcher, PARTIAL T445
 
 - `parse_octets(&[u8])` теперь является production API; Sieve `StringMatch` keys

@@ -17,6 +17,7 @@ pub enum Capability {
     Vacation,
     VacationSeconds,
     Variables,
+    EncodedCharacter,
     Unsupported(String),
 }
 
