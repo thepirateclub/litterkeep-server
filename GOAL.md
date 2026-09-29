@@ -11838,6 +11838,27 @@ ManageSieve до заявленного набора современных фо
   string test, advertised Variables capability, and full RFC 5229 conformance
   remain unimplemented; G18 stays ACTIVE.
 
+### 2026-09-29: G18 RFC 5229 variable store and expansion core, T425 PARTIAL
+
+- Добавлен отдельный библиотечный `VariableStore` с ASCII-case-insensitive
+  именами, поддержкой минимум 128 переменных, 32 символов имени и 4000 Unicode
+  символов значения. Значения сверх лимита обрезаются по символам. One-pass
+  expansion обрабатывает `${name}` и numeric captures, неизвестные корректные
+  имена дают пустую строку, некорректные ссылки остаются буквальными.
+- Для защиты от раздувания результата установлен явный локальный предел 65 536
+  символов с typed `ExpansionLimit`; в RFC capability это не заявляется.
+  Capability `variables` по-прежнему не рекламируется: новый engine ещё не
+  подключён к AST, Sieve strings, `set`, `string` и modifiers; validation
+  `${10}` и namespaces также не реализована.
+- Windows Rust 1.97.1 all-target: 1095 library + 1 CLI passed, 4 ignored;
+  strict Clippy, rustfmt и diff check pass. Linux Docker Rust 1.97.1 all-target:
+  1221 library + 1 CLI passed, 4 ignored; release build passes. Повторное
+  использование общей старой target-папки дало incremental-cache copy error;
+  успешный прогон выполнен в `./data/g18-variables-linux-target`. Существующий
+  image и Cargo cache переиспользованы, контейнер с `--rm` удалён, image не
+  создавался. Linux Clippy/rustfmt в образе отсутствуют.
+- Это проверенное reusable ядро, но не RFC 5229 conformance; G18 остаётся ACTIVE.
+
 ### 2026-09-29: G18 RFC 5229 implementation-boundary audit, T423 PARTIAL
 
 - Rechecked the current Variables design against the RFC Editor's RFC 5229 text.

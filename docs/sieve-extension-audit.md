@@ -16,7 +16,7 @@ IANA registry и не заменяет отдельные acceptance для ка
 | `subaddress` | RFC 3598 | Реализовано, рекламируется | Проверить все допустимые recipient-part варианты и межклиентские адресные соглашения. |
 | `copy` | RFC 3894 | Реализовано, рекламируется | Проверить комбинации с actions и доставкой на независимом профиле. |
 | `vacation-seconds` | RFC 6131 | Реализовано, рекламируется | Остальные границы vacation и взаимодействие с расширениями требуют отдельного профиля. |
-| `variables` | [RFC 5229](https://www.rfc-editor.org/rfc/rfc5229.html) | Есть внутренняя capture-aware matcher основа и per-script byte capture state, extension не реализовано и не рекламируется | Typed string templates и expansion в момент выполнения; `set` с проверкой имён; `string` test над source/key списками; полный набор modifier-ов; проверяемые лимиты и validation `${0}`..`${9}`. |
+| `variables` | [RFC 5229](https://www.rfc-editor.org/rfc/rfc5229.html) | Есть capture-aware matcher state и отдельно тестируемое per-script store/one-pass expansion ядро; Sieve AST/actions не подключены, capability не рекламируется | Typed string templates, подключение expansion к каждой строковой позиции во время выполнения; `set` grammar/runtime; `string` test; modifier-ы; namespace/capture validation `${0}`..`${9}`. |
 | `body` | [RFC 5173](https://www.rfc-editor.org/rfc/rfc5173.html) | Не реализовано, не рекламируется | MIME-aware `:raw`, `:content`, `:text`; не допускать совпадений через границы частей и ограничить CPU/память. |
 | `reject`, `ereject` | [RFC 5429](https://www.rfc-editor.org/rfc/rfc5429.html) | Не реализовано, не рекламируется | Нужна Sieve evaluation до SMTP принятия DATA для protocol-level refusal; post-accept DSN не эквивалентен `ereject`. |
 | `imap4flags` | [RFC 5232](https://www.rfc-editor.org/rfc/rfc5232.html) | Не реализовано, не рекламируется | Реализовать `setflag`, `addflag`, `removeflag`, `hasflag` и `:flags` с durable mailbox flag mutation. |
@@ -51,6 +51,16 @@ modifier-ов одного precedence. Runtime должен поддержать
 Нужно отдельно зафиксировать поведение Unicode character length и bounded
 memory expansion. Пока эти требования не проверены совместно, `variables`
 должно оставаться не рекламируемым.
+
+T425 добавил самостоятельный `VariableStore`: ASCII-регистронезависимые имена,
+до 128 переменных, имена до 32 символов, сохранённые значения обрезаются до
+4000 Unicode scalar values. `expand` выполняет один проход, раскрывает numeric
+captures и именованные ссылки, оставляет некорректные ссылки и возвращает пустую
+строку для неизвестных валидных имён. Отдельный локальный предел результата -
+65 536 символов; его превышение возвращает typed error. Это протестированное
+ядро библиотеки, но не часть AST/executor pipeline. В частности, lexer пока не
+передаёт provenance escaping/encoded-character, parser не валидирует ссылки
+выше `${9}`, `set` и `string` отсутствуют. Поэтому capability остаётся скрытым.
 
 ## Базовый RFC 5228: адресные списки
 

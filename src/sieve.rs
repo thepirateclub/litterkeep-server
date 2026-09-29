@@ -58,6 +58,8 @@ mod vacation_policy;
 mod vacation_tests;
 #[path = "sieve/validate.rs"]
 mod validate;
+#[path = "sieve/variables.rs"]
+mod variables;
 
 pub use ast::{
     Action, AddressPart, Comparator, Condition, EnvelopePart, MatchType, Script, SizeRelation,
@@ -66,6 +68,10 @@ pub use ast::{
 pub use execution::{
     DeliveryPlan, ExecutionError, MAX_REDIRECTS_PER_EVALUATION, execute, execute_with_envelope,
 };
+pub use variables::{
+    MAX_EXPANDED_STRING_CHARS, MAX_VARIABLE_NAME_CHARS, MAX_VARIABLE_VALUE_CHARS, MAX_VARIABLES,
+};
+pub use variables::{VariableError, VariableStore};
 
 /// Разбирает и валидирует script до его сохранения или исполнения.
 pub fn parse(source: &str) -> Result<Script, &'static str> {
