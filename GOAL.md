@@ -11966,6 +11966,23 @@ ManageSieve до заявленного набора современных фо
 - Это engine API, ещё не `set` AST/parser, `string` test или раскрытие остальных
   string arguments. `variables` не рекламируется и остаётся GAP; G18 ACTIVE.
 
+### 2026-09-29: G18 RFC 5229 expanded set engine, T433 PARTIAL
+
+- Добавлен атомарный `VariableStore::set_expanded`: проверяет constant-name,
+  раскрывает текущие именованные и numeric match variables одним проходом,
+  применяет modifiers в RFC порядке и сохраняет с существующим 4 000-character
+  truncation. Runtime callers получают один нормативный путь без возможности
+  случайно применить modifiers до expansion.
+- Regression использует сохранённую переменную и capture `${1}`, затем проверяет
+  lower/upperfirst precedence и `:quotewildcard`. Windows Rust 1.97.1 all-target:
+  1 110 library + 1 CLI прошли, 4 ignored; strict Clippy, rustfmt и diff check
+  прошли. Linux Docker all-target: 1 236 library + 1 CLI прошли, 4 ignored;
+  существующий образ/registry reused, `--rm`, target `./data/g18-rfc5229-set-expanded-target`,
+  image не создавался.
+- Это всё ещё standalone engine API: Sieve `set` AST/parser/runtime, `string`
+  test и expansion в остальных script strings отсутствуют. Capability не
+  рекламируется; G18 остаётся ACTIVE.
+
 ### 2026-09-29: G18 RFC 5229 implementation-boundary audit, T423 PARTIAL
 
 - Rechecked the current Variables design against the RFC Editor's RFC 5229 text.

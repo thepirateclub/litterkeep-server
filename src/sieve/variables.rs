@@ -57,6 +57,21 @@ impl VariableStore {
         self.set(name, &modified)
     }
 
+    /// Раскрывает текущие ссылки, применяет modifiers и лишь затем сохраняет.
+    pub fn set_expanded(
+        &mut self,
+        name: &str,
+        source: &str,
+        captures: &[String],
+        modifiers: &[VariableModifier],
+    ) -> Result<(), VariableError> {
+        if !valid_name(name) {
+            return Err(VariableError::InvalidName);
+        }
+        let expanded = self.expand(source, captures)?;
+        self.set_modified(name, &expanded, modifiers)
+    }
+
     /// Возвращает значение без различия регистра ASCII в имени.
     pub fn get(&self, name: &str) -> Option<&str> {
         self.values

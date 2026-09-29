@@ -107,3 +107,28 @@ fn set_modified_applies_case_and_unicode_length_before_storage() {
 
     assert_eq!(store.get("SUMMARY"), Some("9"));
 }
+
+/// RFC 5229 раскрывает текущее значение до применения `set` modifiers.
+#[test]
+fn set_expanded_uses_current_values_captures_then_modifies_once() {
+    let mut store = VariableStore::default();
+    store
+        .set("greeting", "juMBlEd lETteRS")
+        .expect("valid name");
+    let captures = vec!["unused".to_owned(), "*".to_owned()];
+
+    store
+        .set_expanded(
+            "result",
+            "${greeting} ${1}",
+            &captures,
+            &[
+                VariableModifier::UpperFirst,
+                VariableModifier::Lower,
+                VariableModifier::QuoteWildcard,
+            ],
+        )
+        .expect("expand before modifiers");
+
+    assert_eq!(store.get("result"), Some("Jumbled letters \\*"));
+}
