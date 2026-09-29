@@ -1,5 +1,21 @@
 # Goal ledger
 
+### 2026-09-29: G18 RFC 5229 dynamic `redirect` target, PARTIAL T438
+
+- `redirect` и `redirect :copy` раскрывают строку адреса в точке действия при
+  включённом Variables, затем executor требует ровно один допустимый RFC 5322
+  mailbox до добавления в DeliveryPlan. Дальнейшая Store allowlist и hop-limit
+  policy остаётся неизменной и применяется как прежде; неверная динамическая
+  строка приводит к атомарному runtime fallback.
+- Регрессия принимает подстановку одного адреса и отклоняет раскрытие в два
+  mailbox. Windows Rust 1.97.1 all-target: 1 124 library + 1 CLI прошли,
+  4 ignored; strict Clippy, rustfmt и diff-check прошли. Linux Docker all-target:
+  1 250 library + 1 CLI прошли, 4 ignored; существующий образ/cache,
+  `./data/g18-rfc5229-redirect-target`, disposable `--rm`, новый image не
+  создавался.
+- Динамические `vacation` строки ещё не подключены; корректность всей RFC 5229
+  string provenance и capability discovery остаётся незавершённой. G18 ACTIVE.
+
 ### 2026-09-29: G18 RFC 5229 dynamic `fileinto` target, PARTIAL T437
 
 - `fileinto` и `fileinto :copy` раскрывают mailbox string при достижении action

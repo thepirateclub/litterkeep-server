@@ -102,6 +102,11 @@ fn action_valid(action: &Action, policy: ValidationPolicy) -> Result<(), &'stati
         }
         Action::FileIntoCopy(name) if safe_name(name) => Ok(()),
         Action::Redirect(address) | Action::RedirectCopy(address)
+            if policy.variables && address.contains("${") =>
+        {
+            Ok(())
+        }
+        Action::Redirect(address) | Action::RedirectCopy(address)
             if valid_redirect_address(address) =>
         {
             Ok(())
@@ -123,7 +128,7 @@ fn action_valid(action: &Action, policy: ValidationPolicy) -> Result<(), &'stati
 
 /// Проверяет capability, единственность script-wide и адресные параметры.
 /// Применяет RFC 5322 mailbox parser и запрещает sieve-address route/group формы.
-fn valid_redirect_address(value: &str) -> bool {
+pub(super) fn valid_redirect_address(value: &str) -> bool {
     if has_route_or_group_syntax(value) {
         return false;
     }

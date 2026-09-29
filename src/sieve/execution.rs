@@ -218,14 +218,22 @@ fn apply(action: &Action, state: &mut ExecutionState) -> Result<(), ExecutionErr
             if state.plan.redirects.len() >= MAX_REDIRECTS_PER_EVALUATION {
                 return Err(ExecutionError::RedirectLimit);
             }
+            let address = dynamic::expand(address, state)?;
+            if !super::validate::valid_redirect_address(&address) {
+                return Err(ExecutionError::VariableRuntime);
+            }
             cancel_implicit_keep(state);
-            state.plan.redirects.push(address.clone());
+            state.plan.redirects.push(address);
         }
         Action::RedirectCopy(address) => {
             if state.plan.redirects.len() >= MAX_REDIRECTS_PER_EVALUATION {
                 return Err(ExecutionError::RedirectLimit);
             }
-            state.plan.redirects.push(address.clone());
+            let address = dynamic::expand(address, state)?;
+            if !super::validate::valid_redirect_address(&address) {
+                return Err(ExecutionError::VariableRuntime);
+            }
+            state.plan.redirects.push(address);
         }
         Action::Vacation(action) => state.plan.vacations.push(action.clone()),
         Action::Set(action) => {

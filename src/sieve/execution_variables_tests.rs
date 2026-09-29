@@ -154,3 +154,22 @@ fn fileinto_expands_target_and_revalidates_mailbox_segments() {
         Err(ExecutionError::VariableRuntime)
     );
 }
+
+#[test]
+fn redirect_expands_and_revalidates_one_mailbox_before_planning() {
+    let script = parse(
+        "require \"variables\"; set \"recipient\" \"alice@example.test\"; redirect \"${recipient}\";",
+    )
+    .expect("valid dynamic redirect template");
+    let (plan, _) = execute_state(&script, &[], 0, "", "").expect("valid address");
+    assert_eq!(plan.redirects, vec!["alice@example.test"]);
+
+    let unsafe_script = parse(
+        "require \"variables\"; set \"recipient\" \"alice@example.test, attacker@example.test\"; redirect \"${recipient}\";",
+    )
+    .expect("address validation is deferred until interpolation");
+    assert_eq!(
+        execute_state(&unsafe_script, &[], 0, "", "").map(|_| ()),
+        Err(ExecutionError::VariableRuntime)
+    );
+}
