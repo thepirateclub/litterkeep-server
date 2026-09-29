@@ -11816,3 +11816,24 @@ ManageSieve до заявленного набора современных фо
   containers were removed, the existing Rust image was reused, and no image was
   created. Litterkeep app interoperability and full RFC 5228 coverage remain
   unverified; G18 stays ACTIVE.
+
+### 2026-09-29: G18 Sieve runtime match capture state, T422 PARTIAL
+
+- The bounded condition evaluator now carries per-script byte captures from a
+  successful `:matches` through nested command branches. Capture zero stores the
+  matched input; later entries preserve wildcard order. Failed comparisons do
+  not replace prior state, and `allof`/`anyof` retain left-to-right
+  short-circuit behavior so skipped tests have no capture side effects.
+- Regression tests cover a decoded Subject wildcard capture, preservation on a
+  failed comparison, and the absence of captures from an `anyof` test skipped
+  after an earlier success.
+- Windows Rust 1.97.1 all-target: 1088 library tests + 1 CLI passed, 4 ignored;
+  strict Clippy, rustfmt and `git diff --check` pass. Linux Rust 1.97.1
+  all-target: 1214 library + 1 CLI passed, 4 ignored; optimized release build
+  passes. Existing `rust:1.97-bookworm`, `./data/g23-cargo-home`, and
+  `./data/g18-relayed-linux-target` reused. Disposable containers used `--rm`
+  and were removed; no image was created. Linux Clippy and rustfmt are not
+  installed in this image's toolchain and were not run.
+- This is runtime capture state only. Sieve `set`, interpolation, modifiers,
+  string test, advertised Variables capability, and full RFC 5229 conformance
+  remain unimplemented; G18 stays ACTIVE.

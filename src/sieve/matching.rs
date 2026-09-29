@@ -4,20 +4,36 @@ use super::ast::{Comparator, MatchType, StringMatch};
 #[path = "matching/glob.rs"]
 mod glob;
 
-/// Сверяет одно значение со всеми script-ключами без привязки к protocol I/O.
-pub(super) fn matches(value: &str, matcher: &StringMatch) -> bool {
-    matcher
-        .keys
-        .iter()
-        .any(|key| one(value, key, &matcher.match_type, &matcher.comparator))
+/// Результат сравнения сохраняет captures только успешного wildcard match-а.
+pub(super) enum MatchOutcome {
+    NoMatch,
+    Match,
+    Captured(Vec<Vec<u8>>),
 }
 
-fn one(value: &str, key: &str, kind: &MatchType, comparator: &Comparator) -> bool {
-    match kind {
-        MatchType::Is => equal(value, key, comparator),
-        MatchType::Contains => contains(value, key, comparator),
-        MatchType::Matches => glob::captures(value, key, comparator).is_some(),
+/// Сравнивает ключи по порядку, чтобы runtime получил captures успешного ключа.
+pub(super) fn evaluate(value: &str, matcher: &StringMatch) -> MatchOutcome {
+    for key in &matcher.keys {
+        let outcome = match &matcher.match_type {
+            MatchType::Is => match equal(value, key, &matcher.comparator) {
+                true => MatchOutcome::Match,
+                false => MatchOutcome::NoMatch,
+            },
+            MatchType::Contains => match contains(value, key, &matcher.comparator) {
+                true => MatchOutcome::Match,
+                false => MatchOutcome::NoMatch,
+            },
+            MatchType::Matches => match glob::captures(value, key, &matcher.comparator) {
+                Some(captures) => MatchOutcome::Captured(captures),
+                None => MatchOutcome::NoMatch,
+            },
+        };
+        match outcome {
+            MatchOutcome::NoMatch => {}
+            result => return result,
+        }
     }
+    MatchOutcome::NoMatch
 }
 
 fn equal(value: &str, key: &str, comparator: &Comparator) -> bool {
@@ -93,8 +109,14 @@ mod tests {
             comparator: Comparator::Octet,
             ..insensitive.clone()
         };
-        assert!(matches("Invoice-2026", &insensitive));
-        assert!(!matches("Invoice-2026", &octet));
+        assert!(!matches!(
+            evaluate("Invoice-2026", &insensitive),
+            MatchOutcome::NoMatch
+        ));
+        assert!(matches!(
+            evaluate("Invoice-2026", &octet),
+            MatchOutcome::NoMatch
+        ));
     }
 
     #[test]
@@ -109,8 +131,8 @@ mod tests {
                 keys: vec!["??".into()],
                 ..one_octet.clone()
             };
-            assert!(!matches("é", &one_octet));
-            assert!(matches("é", &two_octets));
+            assert!(matches!(evaluate("é", &one_octet), MatchOutcome::NoMatch));
+            assert!(!matches!(evaluate("é", &two_octets), MatchOutcome::NoMatch));
         }
     }
 
@@ -125,9 +147,18 @@ mod tests {
             keys: vec![r"invoice\?".into()],
             ..star.clone()
         };
-        assert!(matches("invoice*", &star));
-        assert!(!matches("invoice-2026", &star));
-        assert!(matches("invoice?", &question));
+        assert!(!matches!(
+            evaluate("invoice*", &star),
+            MatchOutcome::NoMatch
+        ));
+        assert!(matches!(
+            evaluate("invoice-2026", &star),
+            MatchOutcome::NoMatch
+        ));
+        assert!(!matches!(
+            evaluate("invoice?", &question),
+            MatchOutcome::NoMatch
+        ));
     }
 
     /// Отрицательный ASCII-casemap поиск не должен сравнивать needle в каждом окне.
@@ -141,7 +172,7 @@ mod tests {
             keys: vec![key],
         };
 
-        assert!(!matches(&value, &matcher));
+        assert!(matches!(evaluate(&value, &matcher), MatchOutcome::NoMatch));
     }
 
     /// KMP сравнивает только ASCII case; прочие UTF-8 octets остаются точными.

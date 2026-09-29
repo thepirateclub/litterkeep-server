@@ -1,8 +1,8 @@
 //! Bounded исполнение AST в DeliveryPlan без доступа к сети и файловой системе.
 
-use super::address;
-use super::ast::{Action, Command, Condition, EnvelopePart, Script, VacationAction};
-use super::matching;
+use super::ast::{Action, Command, Script, VacationAction};
+#[path = "execution_condition.rs"]
+mod condition;
 use std::fmt;
 
 /// Максимум redirect действий за одну оценку Sieve script.
@@ -71,14 +71,6 @@ enum KeepState {
     Explicit,
 }
 
-/// Неизменяемый контекст одного сообщения и его SMTP envelope.
-struct MessageContext<'a> {
-    headers: &'a [(String, String)],
-    size: usize,
-    envelope_from: &'a str,
-    envelope_to: &'a str,
-}
-
 /// Запускает script над заголовками и исходным размером с fixed budget команд.
 pub fn execute(
     script: &Script,
@@ -106,15 +98,17 @@ pub fn execute_with_envelope(
     let mut stopped = false;
     let mut remaining = 128;
     let mut keep_state = KeepState::Implicit;
-    let context = MessageContext {
+    let context = condition::MessageContext {
         headers,
         size: message_size,
         envelope_from,
         envelope_to,
     };
+    let mut match_variables = condition::MatchVariables::default();
     commands(
         &script.commands,
         &context,
+        &mut match_variables,
         &mut plan,
         &mut stopped,
         &mut remaining,
@@ -125,7 +119,8 @@ pub fn execute_with_envelope(
 
 fn commands(
     items: &[Command],
-    context: &MessageContext<'_>,
+    context: &condition::MessageContext<'_>,
+    match_variables: &mut condition::MatchVariables,
     plan: &mut DeliveryPlan,
     stopped: &mut bool,
     remaining: &mut usize,
@@ -146,11 +141,19 @@ fn commands(
                 then_commands,
                 else_commands,
             } => {
-                let selected = match matches(condition, context) {
+                let selected = match condition::matches(condition, context, match_variables) {
                     true => then_commands,
                     false => else_commands,
                 };
-                commands(selected, context, plan, stopped, remaining, keep_state)?;
+                commands(
+                    selected,
+                    context,
+                    match_variables,
+                    plan,
+                    stopped,
+                    remaining,
+                    keep_state,
+                )?;
             }
         }
     }
@@ -201,92 +204,5 @@ fn cancel_implicit_keep(plan: &mut DeliveryPlan, keep_state: &mut KeepState) {
     if let KeepState::Implicit = keep_state {
         plan.keep = false;
         *keep_state = KeepState::Cancelled;
-    }
-}
-
-fn matches(condition: &Condition, context: &MessageContext<'_>) -> bool {
-    match condition {
-        Condition::True => true,
-        Condition::False => false,
-        Condition::Header { names, matcher } => context
-            .headers
-            .iter()
-            .any(|(candidate, value)| header_matches(candidate, value, names, matcher)),
-        Condition::Address {
-            names,
-            part,
-            matcher,
-        } => context
-            .headers
-            .iter()
-            .any(|(candidate, value)| address_matches(candidate, value, names, *part, matcher)),
-        Condition::Envelope {
-            parts,
-            part,
-            matcher,
-        } => parts.iter().any(|selected| {
-            let address = match selected {
-                EnvelopePart::From => context.envelope_from,
-                EnvelopePart::To => context.envelope_to,
-            };
-            address::envelope_value(address, *part)
-                .iter()
-                .any(|value| matching::matches(value, matcher))
-        }),
-        Condition::Exists { names } => names.iter().all(|name| {
-            context
-                .headers
-                .iter()
-                .any(|(candidate, _)| candidate.eq_ignore_ascii_case(name))
-        }),
-        Condition::Size { relation, limit } => match relation {
-            super::ast::SizeRelation::Over => context.size > *limit,
-            super::ast::SizeRelation::Under => context.size < *limit,
-        },
-        Condition::Not(value) => !matches(value, context),
-        Condition::AllOf(values) => values.iter().all(|value| matches(value, context)),
-        Condition::AnyOf(values) => values.iter().any(|value| matches(value, context)),
-    }
-}
-
-fn address_matches(
-    candidate: &str,
-    value: &str,
-    names: &[String],
-    part: super::ast::AddressPart,
-    matcher: &super::ast::StringMatch,
-) -> bool {
-    let kind = crate::mime::header_block::HeaderName::parse(candidate);
-    if !kind.is_address_list() {
-        return false;
-    }
-    if !names
-        .iter()
-        .any(|name| crate::mime::header_block::HeaderName::parse(name) == kind)
-    {
-        return false;
-    }
-    address::values(value, part)
-        .iter()
-        .any(|value| matching::matches(value, matcher))
-}
-
-/// Сначала проверяет имя header, затем его значение, не смешивая условия.
-fn header_matches(
-    candidate: &str,
-    value: &str,
-    names: &[String],
-    matcher: &super::ast::StringMatch,
-) -> bool {
-    if !names
-        .iter()
-        .any(|name| candidate.eq_ignore_ascii_case(name))
-    {
-        return false;
-    }
-    let normalized = value.trim_matches([' ', '\t']);
-    match crate::mime::search_text::decode_header_value(normalized.as_bytes()) {
-        Some(decoded) => matching::matches(&decoded, matcher),
-        None => false,
     }
 }
