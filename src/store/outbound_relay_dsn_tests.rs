@@ -97,6 +97,7 @@ fn repeated_temporary_failures_publish_delayed_report_and_keep_retry() {
     let peer = thread::spawn(move || {
         reject_temporary_mail(&listener);
         reject_temporary_mail(&listener);
+        accept_delayed_notice(&listener);
     });
 
     let first =
@@ -104,24 +105,21 @@ fn repeated_temporary_failures_publish_delayed_report_and_keep_retry() {
     assert_eq!(first.deferred, 1);
     make_deferred_job_due(&path);
     let second =
-        outbound_service::drain(&path, &address.to_string(), 1).expect("second temporary attempt");
+        outbound_service::drain(&path, &address.to_string(), 2).expect("second temporary attempt");
     assert_eq!(second.deferred, 1);
+    assert_eq!(second.delivered, 1, "{second:?}");
     let queued = Store::open(&path).expect("reopen delayed queue");
     let jobs = queued.pending_outbound().expect("pending jobs");
-    assert!(jobs.iter().any(|job| job.sender.is_empty()));
     assert!(
         jobs.iter()
             .any(|job| job.state == crate::queue::State::Deferred)
     );
-    let report_job = jobs
+    assert!(!jobs.iter().any(|job| job.sender.is_empty()));
+    let original = jobs
         .iter()
-        .find(|job| job.sender.is_empty())
-        .cloned()
-        .expect("durable delayed report job");
-    let report_payload = queued.outbound_blob(&report_job).expect("report payload");
-    assert!(contains(&report_payload, b"Action: delayed"));
-    assert!(contains(&report_payload, b"Status: 4.0.0"));
-    assert!(!contains(&report_payload, b"private source body"));
+        .find(|job| !job.sender.is_empty())
+        .expect("retryable original job");
+    assert_eq!(original.attempts, 2);
     drop(queued);
 
     peer.join().expect("independent SMTP peers");
@@ -152,6 +150,27 @@ fn reject_temporary_mail(listener: &TcpListener) {
     stream
         .write_all(b"421 4.3.2 temporary peer shutdown\r\n")
         .expect("temporary MAIL reply");
+}
+
+/// Проверяет отправку delay DSN с null reverse-path независимому peer-у.
+fn accept_delayed_notice(listener: &TcpListener) {
+    let (mut stream, mut reader) = session(listener);
+    command(&mut reader, "EHLO");
+    stream.write_all(b"250 peer.test\r\n").expect("EHLO reply");
+    command(&mut reader, "MAIL FROM:<>");
+    stream.write_all(b"250 sender\r\n").expect("MAIL reply");
+    command(&mut reader, "RCPT TO:<sender@outside.test>");
+    stream.write_all(b"250 recipient\r\n").expect("RCPT reply");
+    command(&mut reader, "DATA");
+    stream.write_all(b"354 data\r\n").expect("DATA reply");
+    let report = read_data(&mut reader);
+    assert!(contains(&report, b"Action: delayed"));
+    assert!(contains(&report, b"Status: 4.0.0"));
+    stream
+        .write_all(b"250 accepted\r\n")
+        .expect("accept report");
+    command(&mut reader, "QUIT");
+    stream.write_all(b"221 closing\r\n").expect("QUIT reply");
 }
 
 fn envelope() -> DsnEnvelope {

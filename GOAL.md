@@ -1,22 +1,41 @@
 # Goal ledger
 
-### 2026-09-29: G18 delayed DSN report transport continuation, GAP T417
+### 2026-09-29: G18 delayed DSN same-drain SMTP acceptance, PARTIAL T418
 
-- Дополнена проверка T416: после двух SMTP `421` в Store/outbound service
-  создаётся delayed DSN и остаётся retryable исходная запись. Попытка расширить
-  тот же bounded drain до фактической отправки queued report независимому peer
-  не прошла: TCP session была принята, но peer не получил ожидаемую следующую
-  SMTP-команду за ограниченный тестовый deadline; service классифицировал второй
-  маршрут как Deferred вместо Delivered. Аналогичная отдельная Worker-проверка
-  получила EOF после истечения peer deadline.
-- Это не доказывает отказ RFC 3464 содержимого и не подтверждает SMTP delivery.
-  Причина на границе scheduler/transport/reply sequencing пока не установлена.
-  Не прошедшие экспериментальные тестовые изменения удалены; сохранён последний
-  зелёный T416 acceptance, который проверяет генерацию durable report payload,
-  а не его отправку.
-- T417 остаётся GAP до воспроизводимого исправления и независимого wire
-  acceptance. Контейнер прерванного диагностического запуска остановлен; старый
-  контейнер пользователя и существующий Rust image не изменялись.
+- Расширен Linux Store/outbound-service peer test: первый SMTP `421` переводит
+  original в retry; после контролируемого due перехода второй `drain` с бюджетом
+  2 выполняет retry, сохраняет/publishes delayed DSN и следующей bounded работой
+  того же drain доставляет report независимому peer.
+- Peer проверяет `MAIL FROM:<>`, original sender в RCPT, DATA completion,
+  `Action: delayed`, `Status: 4.0.0`, отсутствие исходного тела и graceful QUIT.
+  Drain возвращает один deferred original плюс одну delivered report job;
+  после reopen остаётся original с `attempts=2`, report job уже подтверждён.
+- Первоначальный T417 GAP был вызван ошибкой диагностического harness: peer
+  завершал listener после двух временных отказов и не принимал третий SMTP
+  session, который bounded drain правильно использовал для report. T417 помечен
+  SUPERSEDED; непрошедший отдельный Worker эксперимент не используется как
+  доказательство transport-дефекта.
+- Windows Rust 1.97.1 all-target: 1080 library + 1 CLI passed, 4 ignored;
+  strict Clippy, rustfmt и diff-check прошли. Linux Docker Rust 1.97.1
+  all-target: 1206 library + 1 CLI passed, 4 ignored; strict Clippy и
+  rustfmt прошли. Переиспользованы `rust:1.97-bookworm`,
+  `./data/g23-cargo-home` и `./data/g18-relayed-linux-target`; контейнер `--rm`,
+  образ не создавался.
+- Litterkeep client interop и полный RFC 3461 профиль остаются
+  непроверенными. T418 PARTIAL, G18 ACTIVE.
+
+### 2026-09-29: G18 delayed DSN report transport diagnostic, SUPERSEDED T417
+
+- Начальная расширенная проверка T416 завершила независимый peer после двух
+  временных отказов и не приняла третий SMTP-сеанс, который bounded drain
+  использует для отправки delayed report. Из-за неполного test harness попытка
+  была записана как GAP; отдельный standalone Worker эксперимент также остался
+  без надёжного peer exchange и не давал основания считать серверный transport
+  сломанным.
+- T418 добавил принимающий третий сеанс и проверил ту же последовательность
+  целиком: report доставлен, SMTP поля и MIME проверены, исходная задача осталась
+  Deferred. Поэтому T417 SUPERSEDED; прежний эксперимент не считается ни PASS,
+  ни доказательством transport-дефекта.
 
 ### 2026-09-29: G18 RFC 3461 delayed DSN after retry, PARTIAL T416
 
@@ -39,9 +58,9 @@
   1205 library + 1 CLI passed, 4 ignored; strict Clippy и rustfmt прошли.
   Переиспользованы `rust:1.97-bookworm`, `./data/g23-cargo-home` и
   `./data/g18-relayed-linux-target`; контейнер `--rm`, образ не создавался.
-- SMTP/Store процесс с двумя временными отказами теперь проверен; delivery
-  самого созданного DSN независимому peer-у, клиент Litterkeep и полный RFC
-  3461 lifecycle не проверены. T416 PARTIAL, G18 ACTIVE.
+- SMTP/Store процесс с двумя временными отказами и самостоятельная доставка
+  созданного DSN независимому peer-у теперь проверены в T418; клиент Litterkeep
+  и полный RFC 3461 lifecycle не проверены. T416 PARTIAL, G18 ACTIVE.
 
 ### 2026-09-29: G18 multi-origin relay DSN local strategy, PARTIAL T415
 

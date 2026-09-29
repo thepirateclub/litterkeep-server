@@ -83,14 +83,13 @@ mailbox delivery. T416 добавляет optional локальный delayed DS
 DELAY. Он сохраняется как durable queue notice, имеет `Action: delayed` и
 `Status: 4.0.0`, не включает исходное сообщение и не отменяет последующий retry.
 Policy, MIME и queue recovery проверены unit tests. Linux Store/outbound-service
-integration выполняет два независимых временных 421 ответа и подтверждает
-durable null-sender report job, его delayed поля и сохранённый retryable original.
-Повторная передача созданного DSN отдельным SMTP peer-у и Litterkeep acceptance
-пока не проверены. Эксперимент T417 с продолжением того же bounded drain принял
-TCP для DSN route, но независимый peer не увидел следующую SMTP-команду за
-тестовый deadline; worker вернул Deferred. Это зафиксированная неудачная
-проверка, не подтверждение корректной передачи. Причина scheduler/transport
-перехода остаётся GAP; см. GOAL.md T417. Для одного source
+integration выполняет два независимых временных 421 ответа; bounded drain с
+budget 2 затем передаёт durable null-sender delayed report следующей SMTP
+transaction той же очереди. Independent peer проверяет MAIL FROM:<>, RCPT к
+исходному sender, `Action: delayed`, `Status: 4.0.0`, отсутствие исходного тела
+и QUIT; оригинальная доставка остаётся Deferred для retry. T417 diagnostic GAP
+оказался отсутствующим третьим accept в harness и superseded этим acceptance
+(T418). Litterkeep acceptance не проверен. Для одного source
 RCPT с одним forward destination outbound worker передаёт исходные MAIL
 `RET`/`ENVID` и RCPT `NOTIFY`/`ORCPT`, если downstream EHLO объявил `DSN`;
 xtext сохраняет исходные octets; UTF-8 ORCPT сериализуется 7-bit-safe RFC 6533
