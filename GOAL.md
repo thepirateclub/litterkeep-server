@@ -11873,6 +11873,15 @@ ManageSieve до заявленного набора современных фо
   из Sieve AST и Variables capability по-прежнему отсутствуют; RFC 5229
   conformance не заявляется, G18 остаётся ACTIVE.
 
+### 2026-09-29: G18 RFC 5229 single-digit capture syntax, T427 PARTIAL
+
+- Исправлен lexical разбор числовой ссылки: engine принимает только одну
+  цифру `${0}`..`${9}`; `${01}` больше не нормализуется в capture `${1}`.
+- Тесты Sieve Variables (6/6), strict Clippy, rustfmt и `git diff --check`
+  проходят на Windows Rust 1.97.1.
+- Это проверка отдельного expansion core, не AST/runtime интеграция. `set`,
+  string test, modifiers, parser diagnostics и capability остаются незавершёнными.
+
 ### 2026-09-29: G18 RFC 5229 implementation-boundary audit, T423 PARTIAL
 
 - Rechecked the current Variables design against the RFC Editor's RFC 5229 text.

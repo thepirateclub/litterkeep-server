@@ -148,13 +148,13 @@ fn resolve<'a>(
         return Ok(None);
     }
     if reference.bytes().all(|byte| byte.is_ascii_digit()) {
-        let index = reference
-            .parse::<usize>()
-            .map_err(|_| VariableError::UnsupportedCaptureIndex)?;
-        if index > 9 {
-            return Err(VariableError::UnsupportedCaptureIndex);
-        }
-        return Ok(Some(captures.get(index).map(String::as_str).unwrap_or("")));
+        return match reference.as_bytes() {
+            [digit] => {
+                let index = usize::from(digit.saturating_sub(b'0'));
+                Ok(Some(captures.get(index).map(String::as_str).unwrap_or("")))
+            }
+            _ => Err(VariableError::UnsupportedCaptureIndex),
+        };
     }
     if !valid_name(reference) {
         return match valid_namespace(reference) {
@@ -236,16 +236,20 @@ mod tests {
     }
 
     #[test]
-    fn numeric_references_select_captures_and_out_of_range_is_empty() {
+    fn numeric_references_select_single_digit_captures_only() {
         let store = VariableStore::default();
         let captures = vec!["whole".to_owned(), "list".to_owned()];
 
         assert_eq!(
-            store.expand("${0}:${01}:${9}", &captures).expect("bounded"),
+            store.expand("${0}:${1}:${9}", &captures).expect("bounded"),
             "whole:list:"
         );
         assert_eq!(
             store.expand("${10}", &captures),
+            Err(VariableError::UnsupportedCaptureIndex)
+        );
+        assert_eq!(
+            store.expand("${01}", &captures),
             Err(VariableError::UnsupportedCaptureIndex)
         );
         assert_eq!(
