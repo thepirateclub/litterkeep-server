@@ -251,3 +251,6 @@ fn read_message(reader: &mut BufReader<StreamOwned<ServerConnection, TcpStream>>
         }
     }
 }
+
+#[path = "outbound_tls_dsn_tests.rs"]
+mod dsn_tests;

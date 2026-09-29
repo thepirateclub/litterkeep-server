@@ -26,9 +26,11 @@ impl Connection {
         metadata: Option<&crate::queue::DsnDeliveryMetadata>,
     ) -> io::Result<DeliveryOutcome> {
         self.last_diagnostic = None;
-        if metadata.is_some_and(|value| value.origin_recipients.len() > 1) {
-            return Ok(DeliveryOutcome::Deferred);
-        }
+        let multiple_origins = has_multiple_origins(metadata);
+        let transport_metadata = match multiple_origins {
+            true => None,
+            false => metadata,
+        };
         let binary = has_binary_transfer(message);
         let valid = match binary {
             true => validate_binary(message),
@@ -40,7 +42,7 @@ impl Connection {
         let utf8 =
             crate::smtp::requires_smtp_utf8(sender) || crate::smtp::requires_smtp_utf8(recipient);
         let dsn = self.capabilities.supports(EhloExtension::Dsn);
-        let suffix = match metadata.map(|value| value.origin_recipients.as_slice()) {
+        let suffix = match transport_metadata.map(|value| value.origin_recipients.as_slice()) {
             Some([origin]) => match dsn_recipient_suffix(origin.as_ref(), dsn) {
                 Some(suffix) => suffix,
                 None => return Ok(DeliveryOutcome::PermanentFailure),
@@ -52,7 +54,7 @@ impl Connection {
             utf8,
             message,
             &self.capabilities,
-            metadata.map(|value| &value.mail),
+            transport_metadata.map(|value| &value.mail),
         ) {
             MailCommand::Ready(command) => command,
             MailCommand::PermanentFailure => return Ok(DeliveryOutcome::PermanentFailure),
@@ -66,8 +68,16 @@ impl Connection {
             return Ok(outcome);
         }
         let outcome = self.transfer_body(message, binary)?;
-        match (outcome, dsn, relay_success_requested(metadata)) {
-            (DeliveryOutcome::Delivered, false, true) => Ok(DeliveryOutcome::Relayed),
+        let relay_notice_required = match (dsn, multiple_origins) {
+            (false, _) | (true, true) => true,
+            (true, false) => false,
+        };
+        match (
+            outcome,
+            relay_notice_required,
+            crate::dsn::success_requested(metadata),
+        ) {
+            (DeliveryOutcome::Delivered, true, true) => Ok(DeliveryOutcome::Relayed),
             (other, _, _) => Ok(other),
         }
     }
@@ -119,7 +129,7 @@ impl Connection {
     }
 }
 
-/// Определяет явный запрос SUCCESS исходным единственным RCPT.
-fn relay_success_requested(metadata: Option<&crate::queue::DsnDeliveryMetadata>) -> bool {
-    crate::dsn::success_requested(metadata)
+/// Обнаруживает маршрут, объединяющий больше одной исходной RCPT policy.
+pub(crate) fn has_multiple_origins(metadata: Option<&crate::queue::DsnDeliveryMetadata>) -> bool {
+    metadata.is_some_and(|value| value.origin_recipients.len() > 1)
 }

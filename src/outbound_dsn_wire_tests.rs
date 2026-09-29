@@ -117,7 +117,7 @@ fn worker_reports_relayed_after_acceptance_by_peer_without_dsn() {
 }
 
 #[test]
-fn worker_defers_multi_origin_alias_without_starting_remote_transaction() {
+fn worker_uses_local_multi_origin_strategy_and_reports_relayed() {
     let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
     let address = listener.local_addr().expect("address");
     let peer = thread::spawn(move || {
@@ -125,9 +125,25 @@ fn worker_defers_multi_origin_alias_without_starting_remote_transaction() {
         stream.write_all(b"220 peer ready\r\n").expect("greeting");
         let mut reader = BufReader::new(stream.try_clone().expect("clone"));
         read_line(&mut reader, "EHLO");
-        stream.write_all(b"250 peer.test\r\n").expect("EHLO");
-        read_line(&mut reader, "RSET");
-        stream.write_all(b"250 reset\r\n").expect("RSET");
+        stream
+            .write_all(b"250-peer.test\r\n250-DSN\r\n250 SIZE 100000\r\n")
+            .expect("EHLO");
+        let mail = read_line(&mut reader, "MAIL FROM:");
+        assert_eq!(
+            (mail.contains("RET="), mail.contains("ENVID=")),
+            (false, false)
+        );
+        stream.write_all(b"250 sender\r\n").expect("MAIL");
+        let recipient = read_line(&mut reader, "RCPT TO:");
+        assert_eq!(
+            (recipient.contains("NOTIFY="), recipient.contains("ORCPT=")),
+            (false, false)
+        );
+        stream.write_all(b"250 recipient\r\n").expect("RCPT");
+        read_line(&mut reader, "DATA");
+        stream.write_all(b"354 data\r\n").expect("DATA");
+        read_data(&mut reader);
+        stream.write_all(b"250 accepted\r\n").expect("accepted");
         read_line(&mut reader, "QUIT");
         stream.write_all(b"221 closing\r\n").expect("QUIT");
     });
@@ -146,7 +162,7 @@ fn worker_defers_multi_origin_alias_without_starting_remote_transaction() {
             dsn_metadata: Some(metadata),
         })
         .expect("job");
-    assert_eq!(completion(&worker), DeliveryOutcome::Deferred);
+    assert_eq!(completion(&worker), DeliveryOutcome::Relayed);
     worker.shutdown().expect("worker shutdown");
     peer.join().expect("peer");
 }

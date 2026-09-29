@@ -18,6 +18,7 @@ pub(crate) use connect::{connect_bounded, connect_bounded_with_timeouts, parse_r
 mod data;
 #[path = "outbound_delivery.rs"]
 mod delivery;
+pub(crate) use delivery::has_multiple_origins;
 #[path = "outbound_dsn_format.rs"]
 mod dsn_format;
 #[path = "outbound_ehlo.rs"]

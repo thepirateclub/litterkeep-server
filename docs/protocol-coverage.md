@@ -84,15 +84,18 @@ RCPT с одним forward destination outbound worker передаёт исхо
 xtext сохраняет исходные octets; UTF-8 ORCPT сериализуется 7-bit-safe RFC 6533
 unitext. Если downstream не объявил `DSN`, параметры не отправляются; для
 single-origin маршрута с явным `NOTIFY=SUCCESS` durable очередь публикует
-`Action: relayed`, `Status: 2.0.0` (T414). Linux Store-to-SMTP acceptance
+`Action: relayed`, `Status: 2.0.0` (T414). Для нескольких исходных origins
+используется локальная стратегия RFC 3461 §5.2.7.3: ни один из исходных DSN
+параметров не передаётся downstream, даже если тот объявил DSN; durable source
+policy сохраняется локально, а `Relayed` report включает только origins с
+явным SUCCESS. Независимые plain TCP peer, implicit-TLS peer и serializer unit
+проверяют пропуск параметров и фильтрацию групп (T415). Linux Store-to-SMTP acceptance
 передаёт исходник и report двум независимым SMTP session, проверяет поля report,
 отсутствие тела и очистку очереди; отдельные тесты проверяют reopen journal.
-Это не Litterkeep-клиент. Downstream DSN-aware
-SUCCESS/DELAY отчёты и полная multi-origin
-aliases остаются в durable retry (`Deferred`) после EHLO и до MAIL/RCPT, пока
-не реализована стратегия RFC 3461 §5.2.7.3, включая
-`expanded` report; это сохраняет письмо, но требует исправления/операторского
-наблюдения и не является приемлемым окончательным поведением.
+Это не Litterkeep-клиент. Downstream DSN-aware SUCCESS/DELAY отчёты и полный
+multi-origin alias/`expanded` lifecycle остаются неподдержанными; локальная
+стратегия T415 исключает неоднозначную передачу policies, но не проверяет
+взаимодействие с независимым DSN-aware downstream MTA в системном acceptance.
 Внутренние
 typed delivered serializer, commit-linked success intent, Store-owner consumer
 и доставка отчёта локально/через явно настроенный relay реализованы. Внешняя

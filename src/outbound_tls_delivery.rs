@@ -47,9 +47,11 @@ impl Connection {
         metadata: Option<&crate::queue::DsnDeliveryMetadata>,
     ) -> io::Result<DeliveryOutcome> {
         let binary = outbound::has_binary_transfer(message);
-        if metadata.is_some_and(|value| value.origin_recipients.len() > 1) {
-            return Ok(DeliveryOutcome::Deferred);
-        }
+        let multiple_origins = outbound::has_multiple_origins(metadata);
+        let transport_metadata = match multiple_origins {
+            true => None,
+            false => metadata,
+        };
         let valid = match binary {
             true => outbound::validate_binary(message),
             false => outbound::validate_data(message).is_ok(),
@@ -62,19 +64,20 @@ impl Connection {
                 .iter()
                 .any(|recipient| crate::smtp::requires_smtp_utf8(recipient));
         let dsn = self.capabilities.supports(outbound::EhloExtension::Dsn);
-        let recipient_suffix = match metadata.map(|value| value.origin_recipients.as_slice()) {
-            Some([origin]) => match outbound::dsn_recipient_suffix(origin.as_ref(), dsn) {
-                Some(suffix) => suffix,
-                None => return Ok(DeliveryOutcome::PermanentFailure),
-            },
-            _ => String::new(),
-        };
+        let recipient_suffix =
+            match transport_metadata.map(|value| value.origin_recipients.as_slice()) {
+                Some([origin]) => match outbound::dsn_recipient_suffix(origin.as_ref(), dsn) {
+                    Some(suffix) => suffix,
+                    None => return Ok(DeliveryOutcome::PermanentFailure),
+                },
+                _ => String::new(),
+            };
         let mail = match outbound::build_mail_command(
             sender,
             utf8,
             message,
             &self.capabilities,
-            metadata.map(|value| &value.mail),
+            transport_metadata.map(|value| &value.mail),
         ) {
             outbound::MailCommand::Ready(command) => command,
             outbound::MailCommand::PermanentFailure => {
@@ -88,7 +91,19 @@ impl Connection {
         if let Some(outcome) = self.send_recipients(recipients, &recipient_suffix)? {
             return Ok(outcome);
         }
-        self.send_body(message, binary)
+        let outcome = self.send_body(message, binary)?;
+        let relay_notice_required = match (dsn, multiple_origins) {
+            (false, _) | (true, true) => true,
+            (true, false) => false,
+        };
+        match (
+            outcome,
+            relay_notice_required,
+            crate::dsn::success_requested(metadata),
+        ) {
+            (DeliveryOutcome::Delivered, true, true) => Ok(DeliveryOutcome::Relayed),
+            (other, _, _) => Ok(other),
+        }
     }
 
     /// Сериализует recipient-scoped DSN для каждого разрешённого RCPT.

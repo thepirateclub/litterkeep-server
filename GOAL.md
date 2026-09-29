@@ -1,5 +1,29 @@
 # Goal ledger
 
+### 2026-09-29: G18 multi-origin relay DSN local strategy, PARTIAL T415
+
+- При route, объединяющем несколько исходных RCPT policy, downstream SMTP
+  transaction больше не откладывается. Применяется локальная стратегия RFC
+  3461 §5.2.7.3: исходные ENVID/RET/NOTIFY/ORCPT не передаются следующему peer,
+  даже если он объявил DSN; исходная политика остаётся durable у Store owner.
+  После принятой доставки результат `Relayed` инициирует локальный RFC 3464
+  report только для origins с явным `NOTIFY=SUCCESS`; failure policy каждого
+  origin по-прежнему используется при отказе downstream RCPT.
+- Plain OutboundWorker независимый TCP peer и implicit-TLS pool тест проверяют
+  точные команды без downstream DSN параметров, принятие DATA и `Relayed`.
+  Unit test отчёта подтверждает включение SUCCESS origin и исключение
+  FAILURE-only origin.
+- Windows Rust 1.97.1 all-target: 1077 library + 1 CLI passed, 4 ignored;
+  strict Clippy и rustfmt прошли. Linux Docker Rust 1.97.1 all-target:
+  1202 library + 1 CLI passed, 4 ignored; strict Clippy и rustfmt прошли.
+  Переиспользованы `rust:1.97-bookworm`, `./data/g23-cargo-home` и
+  `./data/g18-relayed-linux-target`; контейнер запущен с `--rm`, образ не
+  создавался, тестировался независимый peer, Litterkeep client interop не
+  заявляется.
+- Ограничение: DSN-aware downstream-generated SUCCESS/DELAY и расширение
+  нескольких исходных адресов в полный RFC 3461 alias/expanded lifecycle ещё
+  не реализованы. T415 PARTIAL, G18 остаётся ACTIVE.
+
 ### 2026-09-29: G18 single-origin relay SUCCESS notice without downstream DSN, PARTIAL T414
 
 - Исходящий SMTP transport различает принятую relay доставку (`Relayed`) от
@@ -20,9 +44,10 @@
   существующий `rust:1.97-bookworm`, target `./data/g18-relayed-linux-target`,
   CARGO_HOME `./data/g23-cargo-home`; `--rm` удалил созданный контейнер,
   образ не создавался. Клиент Litterkeep не проверялся.
-- T414 закрывает только одно-origin relay SUCCESS при peer без DSN. Delay DSN,
-  downstream DSN-aware SUCCESS/DELAY processing, multi-origin relay strategy и
-  реальная совместимость клиента остаются GAP; G18 остаётся PARTIAL.
+- T414 закрывает только одно-origin relay SUCCESS при peer без DSN. T415
+  добавляет локальную multi-origin стратегию. Delay DSN, downstream DSN-aware
+  SUCCESS/DELAY processing и реальная совместимость клиента остаются GAP; G18
+  остаётся PARTIAL.
 
 ### 2026-09-29: G18 downstream single-origin DSN forwarding, PARTIAL T413
 
