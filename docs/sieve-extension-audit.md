@@ -16,7 +16,7 @@ IANA registry и не заменяет отдельные acceptance для ка
 | `subaddress` | RFC 3598 | Реализовано, рекламируется | Проверить все допустимые recipient-part варианты и межклиентские адресные соглашения. |
 | `copy` | RFC 3894 | Реализовано, рекламируется | Проверить комбинации с actions и доставкой на независимом профиле. |
 | `vacation-seconds` | RFC 6131 | Реализовано, рекламируется | Остальные границы vacation и взаимодействие с расширениями требуют отдельного профиля. |
-| `variables` | [RFC 5229](https://www.rfc-editor.org/rfc/rfc5229.html) | Не реализовано, не рекламируется | Typed string templates, scopes, match captures, modifiers, expansion limits и контроль рекурсивного expansion. |
+| `variables` | [RFC 5229](https://www.rfc-editor.org/rfc/rfc5229.html) | Есть внутренняя capture-aware matcher основа, extension не реализовано и не рекламируется | Typed string templates, scopes, match captures в runtime, modifiers, expansion limits и контроль expansion. |
 | `body` | [RFC 5173](https://www.rfc-editor.org/rfc/rfc5173.html) | Не реализовано, не рекламируется | MIME-aware `:raw`, `:content`, `:text`; не допускать совпадений через границы частей и ограничить CPU/память. |
 | `reject`, `ereject` | [RFC 5429](https://www.rfc-editor.org/rfc/rfc5429.html) | Не реализовано, не рекламируется | Нужна Sieve evaluation до SMTP принятия DATA для protocol-level refusal; post-accept DSN не эквивалентен `ereject`. |
 | `imap4flags` | [RFC 5232](https://www.rfc-editor.org/rfc/rfc5232.html) | Не реализовано, не рекламируется | Реализовать `setflag`, `addflag`, `removeflag`, `hasflag` и `:flags` с durable mailbox flag mutation. |
@@ -30,3 +30,11 @@ RFC Editor указывает для RFC 5228 обновления RFC 5229, 542
 прочие стандарты Sieve, их dependencies и errata требуют дальнейшего аудита.
 На дату этой записи корректная позиция сервера - частичная реализация с узким
 списком рекламируемых extensions, не полный современный Sieve профиль.
+
+T421 добавил в `src/sieve/matching/glob.rs` helper, который возвращает byte
+captures для `*` и `?` по мере выполнения существующего whole-string matcher.
+Он сохраняет октетную ширину текущих comparator-ов, pattern order, escaped
+wildcards и кратчайший успешный ранний wildcard. Boolean `:matches` использует
+тот же алгоритм. Это пока не подключено к переменным script runtime: `set`,
+подстановка строк, modifiers, `string` test и `${0}`..`${9}` остаются
+неподдержанными; `variables` намеренно не входит в capability.

@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-29: G12 Sieve glob byte captures foundation, PARTIAL T421
+
+- Вынесен glob matcher в отдельную ответственность и добавлен capture API для
+  `*`/`?`: byte ranges копируются только после полного match, escaped wildcard не
+  захватывает данные, а matcher сохраняет shortest-first поведение ранних `*`.
+  Существующий boolean `:matches` использует тот же код, поэтому не создаётся
+  второй алгоритм с отличающейся истиной/ложью семантикой.
+- Четыре focused tests проверяют wildcard order/minimum, UTF-8 как octets для
+  поддерживаемых comparator-ов, escapes и backtracking. Windows Rust 1.97.1
+  all-target: 1085 passed, 4 ignored; Linux Docker Rust 1.97.1 all-target:
+  1211 passed, 4 ignored. Strict Clippy, rustfmt и diff-check прошли на обеих
+  платформах. Linux использовал существующие `rust:1.97-bookworm` и
+  `./data/g23-cargo-home`, `./data/g18-relayed-linux-target`; `--rm`, image не
+  создавался.
+- Capture helper ещё не связан с Sieve variable state. `set`, interpolation,
+  modifiers и `${0}`..`${9}` не реализованы; CAPABILITY не изменена. T421 PARTIAL,
+  G12 ACTIVE.
+
 ### 2026-09-29: G12 unimplemented Sieve extensions fail closed, PARTIAL T420
 
 - Добавлена регрессия для `require` неподдержанных Variables, Body, Reject,
