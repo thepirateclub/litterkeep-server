@@ -222,9 +222,20 @@ impl Session {
     }
 
     pub(super) fn push(&mut self, bytes: &[u8]) -> io::Result<()> {
-        if self.output.len().saturating_add(bytes.len()) > MAX_OUTPUT {
-            return Err(io::Error::other("session output limit"));
+        let Some(next_size) = self.output.len().checked_add(bytes.len()) else {
+            return Err(io::Error::other("session output size overflow"));
+        };
+        let sasl_challenge = matches!(
+            (self.kind, self.pop3.awaiting_sasl_response()),
+            (Kind::Pop3, true)
+        );
+        match (sasl_challenge, next_size > MAX_OUTPUT) {
+            (false, true) => return Err(io::Error::other("session output limit")),
+            _ => {}
         }
+        self.output
+            .try_reserve(bytes.len())
+            .map_err(io::Error::other)?;
         self.output.extend_from_slice(bytes);
         Ok(())
     }
@@ -259,7 +270,10 @@ impl Session {
 
     /// Ограничивает командные буферы; DATA потоково обрабатывается построчно.
     pub(super) fn input_limit_exceeded(&self) -> bool {
-        self.input.len() > session_input_limit(self)
+        match (self.kind, self.pop3.awaiting_sasl_response()) {
+            (Kind::Pop3, true) => false,
+            _ => self.input.len() > session_input_limit(self),
+        }
     }
 
     pub(super) fn needs_write(&self) -> bool {

@@ -1,4 +1,4 @@
-"""Проверяет успешный POP3 SCRAM-SHA-256 обмен на границе 700 KiB."""
+"""Проверяет POP3 SCRAM-SHA-256 transcript больше прежних входных caps."""
 
 import argparse
 import base64
@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import BinaryIO
 
 
-MAX_SCRAM_MESSAGE = 700 * 1024
-MAX_POP3_LINE = 1024 * 1024
+SCRAM_NONCE_SIZE = 2 * 1024 * 1024
+MAX_POP3_LINE = 4 * 1024 * 1024
 
 
 class FixtureAccount(Enum):
@@ -132,7 +132,7 @@ def authenticate_large(stream: BinaryIO, password: str) -> None:
     stream.write(b"AUTH SCRAM-SHA-256\r\n")
     expect(stream, b"+ ", "AUTH start")
     prefix = b"n=bob,r="
-    client_nonce = b"A" * (MAX_SCRAM_MESSAGE - len(prefix))
+    client_nonce = b"A" * (SCRAM_NONCE_SIZE - len(prefix))
     first_bare = prefix + client_nonce
     stream.write(base64.b64encode(b"n,," + first_bare) + b"\r\n")
     challenge = expect(stream, b"+ ", "large server-first")
@@ -172,7 +172,7 @@ def main() -> None:
     parser.add_argument("--credentials", type=Path, required=True)
     options = parser.parse_args()
     run(options.host, options.port, options.ca, credentials(options.credentials))
-    print("PASS POP3 SCRAM-SHA-256 maximum configured transcript")
+    print("PASS POP3 SCRAM-SHA-256 2 MiB nonce transcript")
 
 
 if __name__ == "__main__":

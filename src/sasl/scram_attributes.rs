@@ -1,9 +1,5 @@
-//! Ограниченный синтаксический разбор атрибутов SCRAM RFC 5802.
+//! Разбор SCRAM RFC 5802 без byte cap и с конечным числом атрибутов.
 
-/// Ограничивает SCRAM transcript так, чтобы Base64 client-final помещался в POP3 input budget.
-pub const MAX_MESSAGE_SIZE: usize = 700 * 1024;
-/// Client-final включает server nonce и channel binding сверх принятого client-first.
-pub const MAX_CLIENT_FINAL_SIZE: usize = MAX_MESSAGE_SIZE + 136;
 /// Максимальное число атрибутов в одном SCRAM сообщении.
 pub const MAX_ATTRIBUTE_COUNT: usize = 26;
 
@@ -33,7 +29,6 @@ pub struct Attribute {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ParseError {
     EmptyMessage,
-    MessageTooLarge,
     TooManyAttributes,
     InvalidAttribute,
     DuplicateAttribute,
@@ -42,21 +37,18 @@ pub enum ParseError {
 
 /// Разбирает список `name=value`, отвергая повторы и неизвестные обязательные расширения.
 pub fn parse(message: &str) -> Result<Vec<Attribute>, ParseError> {
-    parse_with_limit(message, MAX_MESSAGE_SIZE)
+    parse_attributes(message)
 }
 
-/// Разбирает client-final с запасом для добавленного server nonce и TLS binding.
+/// Разбирает client-final тем же grammar без искусственного предела длины.
 pub fn parse_client_final(message: &str) -> Result<Vec<Attribute>, ParseError> {
-    parse_with_limit(message, MAX_CLIENT_FINAL_SIZE)
+    parse_attributes(message)
 }
 
-/// Разбирает атрибуты до переданного профильного предела, не меняя grammar.
-fn parse_with_limit(message: &str, limit: usize) -> Result<Vec<Attribute>, ParseError> {
+/// Разбирает длинные opaque поля за линейное время и ограничивает число атрибутов.
+fn parse_attributes(message: &str) -> Result<Vec<Attribute>, ParseError> {
     if message.is_empty() {
         return Err(ParseError::EmptyMessage);
-    }
-    if message.len() > limit {
-        return Err(ParseError::MessageTooLarge);
     }
     if message.split(',').take(MAX_ATTRIBUTE_COUNT + 1).count() > MAX_ATTRIBUTE_COUNT {
         return Err(ParseError::TooManyAttributes);

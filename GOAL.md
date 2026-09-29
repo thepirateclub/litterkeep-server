@@ -1,5 +1,24 @@
 # Goal ledger
 
+### 2026-09-29: G20 POP3 SCRAM transcript beyond fixed wire caps, PARTIAL T409
+
+- Удалены фиксированные 700 KiB/700 KiB+136 parser limits и 1 MiB ceiling
+  накопителя POP3 SASL continuation. Для POP3 SASL challenge не применяется
+  общий MAX_OUTPUT; input/output Vec резервируются fallibly, а ошибка input
+  reserve дренирует текущую строку до CRLF и отклоняет только AUTH session.
+- SCRAM unit tests принимают 2 MiB opaque nonce и client-final field.
+  Независимый Python TLS peer отправляет 2 MiB nonce: transcript Base64
+  превышает 1 MiB; клиент независимо считает proof, проверяет server signature
+  и доходит до `STAT`/`QUIT`. Linux Rust 1.97.1 all-target: 1185 library + 1
+  CLI passed, 4 ignored; Windows: 1061 library + 1 CLI passed, 4 ignored;
+  strict Windows Clippy, rustfmt и diff-check прошли.
+- T377 продвинут до PARTIAL, не PASS. Реальная проверка покрывает 2 MiB, но
+  декодирование и атрибуты пока создают пропорциональные копии, поэтому
+  исчерпание памяти и полный произвольный диапазон не проверены. Использованы
+  существующий `rust:1.97-bookworm`, локальные `./data/g32-pop3-unbounded-sasl`
+  и `./data/g32-pop3-unbounded-target`; disposable контейнер автоматически
+  удалён, образ и постоянный контейнер не создавались.
+
 ### 2026-09-29: G18 failure DSN RET=FULL MIME return, PARTIAL T408
 
 - Добавлена регрессия failure DSN с `RET=FULL`: сериализованный report

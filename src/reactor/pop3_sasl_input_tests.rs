@@ -1,41 +1,44 @@
-//! Проверки bounded discard для длинных POP3 SASL continuation строк.
+//! Проверки длинных POP3 SASL continuation и пути нехватки памяти.
 
 use super::{InputProgress, Pop3SaslInput};
 use crate::reactor::MAX_INPUT;
 
 #[test]
-fn oversized_complete_response_preserves_pipelined_command() {
-    let mut input = vec![b'A'; MAX_INPUT.saturating_add(1)];
-    input.extend_from_slice(b"\r\nNOOP\r\n");
+fn sasl_response_can_exceed_the_general_session_input_budget() {
+    let mut input = Vec::new();
+    let mut received = vec![b'A'; MAX_INPUT.saturating_add(1)];
+    received.extend_from_slice(b"\r\n");
     let mut state = Pop3SaslInput::default();
 
-    let progress = state.append(&mut input, &[], true);
+    let progress = state.append(&mut input, &received, true);
 
-    assert!(matches!(progress, InputProgress::OversizedComplete));
-    assert_eq!(input, b"NOOP\r\n");
+    assert!(matches!(progress, InputProgress::Appended));
+    assert_eq!(input.len(), received.len());
 }
 
 #[test]
-fn oversized_response_is_discarded_across_reads_with_crlf_split() {
-    let mut input = vec![b'A'; MAX_INPUT.saturating_add(1)];
-    let mut state = Pop3SaslInput::default();
-    let first = state.append(&mut input, &[], true);
+fn allocation_failure_discards_until_crlf_and_preserves_following_command() {
+    let mut input = Vec::new();
+    let mut state = Pop3SaslInput {
+        discarding: true,
+        previous_was_carriage_return: false,
+    };
 
+    let first = state.append(&mut input, b"partial\r", true);
     assert!(matches!(first, InputProgress::Discarding));
-    assert!(input.is_empty());
-
-    let second = state.append(&mut input, b"tail\r", true);
-    assert!(matches!(second, InputProgress::Discarding));
     assert!(input.is_empty());
 
     let final_read = state.append(&mut input, b"\nSTAT\r\n", true);
 
-    assert!(matches!(final_read, InputProgress::OversizedComplete));
+    assert!(matches!(
+        final_read,
+        InputProgress::AllocationFailureComplete
+    ));
     assert_eq!(input, b"STAT\r\n");
 }
 
 #[test]
-fn other_protocol_input_still_uses_the_general_limit() {
+fn other_protocol_input_keeps_the_general_budget_owner() {
     let mut input = Vec::new();
     let state = &mut Pop3SaslInput::default();
     let progress = state.append(&mut input, &vec![b'X'; MAX_INPUT.saturating_add(1)], false);

@@ -1,15 +1,13 @@
 //! Ограниченное накопление и потоковое отбрасывание POP3 SASL-строк.
 
-use super::MAX_INPUT;
-
 /// Результат добавления данных в буфер POP3 session.
 pub(super) enum InputProgress {
-    /// Данные накоплены в пределах обычного входного лимита.
+    /// Данные SASL ответа сохранены в пределах доступной памяти.
     Appended,
-    /// Длинная SASL-строка отбрасывается до её CRLF без роста памяти.
+    /// При нехватке памяти остаток одной SASL строки отбрасывается до CRLF.
     Discarding,
-    /// Граница длинной SASL-строки найдена, session готова к ошибочному ответу.
-    OversizedComplete,
+    /// Входная строка завершилась после отказа выделения памяти.
+    AllocationFailureComplete,
 }
 
 /// Владение границей одной слишком длинной SASL continuation строки.
@@ -20,7 +18,7 @@ pub(super) struct Pop3SaslInput {
 }
 
 impl Pop3SaslInput {
-    /// Накопляет обычные данные либо ограниченно удаляет слишком длинный ответ.
+    /// Накопляет SASL ответ без фиксированного лимита или безопасно удаляет его.
     pub(super) fn append(
         &mut self,
         input: &mut Vec<u8>,
@@ -29,44 +27,34 @@ impl Pop3SaslInput {
     ) -> InputProgress {
         match self.discarding {
             true => self.discard_until_crlf(input, received),
-            false => self.append_with_limit(input, received, awaiting_sasl_response),
+            false => self.append_response(input, received, awaiting_sasl_response),
         }
     }
 
-    fn append_with_limit(
+    fn append_response(
         &mut self,
         input: &mut Vec<u8>,
         received: &[u8],
         awaiting_sasl_response: bool,
     ) -> InputProgress {
-        input.extend_from_slice(received);
-        match (awaiting_sasl_response, input.len() > MAX_INPUT) {
-            (true, true) => self.begin_discard(input),
-            _ => InputProgress::Appended,
+        if !awaiting_sasl_response {
+            input.extend_from_slice(received);
+            return InputProgress::Appended;
+        }
+        match input.try_reserve(received.len()) {
+            Ok(()) => {
+                input.extend_from_slice(received);
+                InputProgress::Appended
+            }
+            Err(_) => self.begin_discard(input, received),
         }
     }
 
-    fn begin_discard(&mut self, input: &mut Vec<u8>) -> InputProgress {
-        match input.windows(2).position(|pair| pair == b"\r\n") {
-            Some(end) => self.finish_complete_line(input, end),
-            None => {
-                self.discarding = true;
-                self.previous_was_carriage_return = input.last() == Some(&b'\r');
-                input.clear();
-                InputProgress::Discarding
-            }
-        }
-    }
-
-    fn finish_complete_line(&self, input: &mut Vec<u8>, line_end: usize) -> InputProgress {
-        let line_size = line_end.saturating_add(2);
-        match line_size > MAX_INPUT {
-            true => {
-                let _ = input.drain(..line_size);
-                InputProgress::OversizedComplete
-            }
-            false => InputProgress::Appended,
-        }
+    fn begin_discard(&mut self, input: &mut Vec<u8>, received: &[u8]) -> InputProgress {
+        self.discarding = true;
+        self.previous_was_carriage_return = input.last() == Some(&b'\r');
+        *input = Vec::new();
+        self.discard_until_crlf(input, received)
     }
 
     fn discard_until_crlf(&mut self, input: &mut Vec<u8>, received: &[u8]) -> InputProgress {
@@ -100,9 +88,11 @@ impl Pop3SaslInput {
         self.previous_was_carriage_return = false;
         let remainder_start = line_end.saturating_add(1);
         if let Some(remainder) = received.get(remainder_start..) {
-            input.extend_from_slice(remainder);
+            if input.try_reserve(remainder.len()).is_ok() {
+                input.extend_from_slice(remainder);
+            }
         }
-        InputProgress::OversizedComplete
+        InputProgress::AllocationFailureComplete
     }
 }
 

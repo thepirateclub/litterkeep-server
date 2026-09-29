@@ -40,9 +40,15 @@ fn rejects_duplicate_fields_and_mandatory_extensions() {
 }
 
 #[test]
-fn bounds_message_and_attribute_count_before_unbounded_collection() {
-    let oversized = "x".repeat(MAX_MESSAGE_SIZE + 1);
-    assert_eq!(parse(&oversized), Err(ParseError::MessageTooLarge));
+fn accepts_large_opaque_fields_and_bounds_attribute_count() {
+    let large_nonce = format!("r={}", "A".repeat(2 * 1024 * 1024));
+    assert_eq!(
+        parse(&large_nonce)
+            .expect("large nonce")
+            .first()
+            .map(|item| item.value.len()),
+        Some(2 * 1024 * 1024)
+    );
     let many = std::iter::repeat_n("x=value", MAX_ATTRIBUTE_COUNT + 1)
         .collect::<Vec<_>>()
         .join(",");
@@ -50,17 +56,9 @@ fn bounds_message_and_attribute_count_before_unbounded_collection() {
 }
 
 #[test]
-fn client_final_allows_nonce_and_binding_overhead_but_remains_bounded() {
-    let exact = format!("x={}", "a".repeat(MAX_CLIENT_FINAL_SIZE - 2));
-    let oversized = format!("{exact}a");
-
-    assert_eq!(exact.len(), MAX_CLIENT_FINAL_SIZE);
-    assert!(parse_client_final(&exact).is_ok());
-    assert_eq!(
-        parse_client_final(&oversized),
-        Err(ParseError::MessageTooLarge)
-    );
-    assert_eq!(parse(&exact), Err(ParseError::MessageTooLarge));
+fn client_final_accepts_large_transcripts_without_a_profile_cap() {
+    let transcript = format!("x={}", "a".repeat(2 * 1024 * 1024));
+    assert!(parse_client_final(&transcript).is_ok());
 }
 
 #[test]

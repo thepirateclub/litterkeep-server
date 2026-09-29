@@ -119,8 +119,8 @@ fn append_plaintext(session: &mut Session, plaintext: &[u8]) -> io::Result<()> {
             .pop3_sasl_input
             .append(&mut session.input, plaintext, awaiting_sasl_response);
     match progress {
-        super::pop3_sasl_input::InputProgress::OversizedComplete => {
-            super::pop3_protocol::reject_oversized_sasl_response(session)
+        super::pop3_sasl_input::InputProgress::AllocationFailureComplete => {
+            super::pop3_protocol::reject_sasl_resource_failure(session)
         }
         super::pop3_sasl_input::InputProgress::Appended
         | super::pop3_sasl_input::InputProgress::Discarding => Ok(()),
