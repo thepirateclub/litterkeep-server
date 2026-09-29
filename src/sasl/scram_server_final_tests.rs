@@ -3,14 +3,20 @@ use super::*;
 
 #[test]
 fn valid_published_client_proof_produces_the_published_server_signature() {
-    let (client, server, response, verifier) = rfc_exchange();
+    let (client, server, verifier) = rfc_exchange();
+    let message = rfc_message(&server);
+    let response =
+        crate::sasl::scram_client_final::parse(&message, &server.nonce).expect("RFC client-final");
     let final_message = ServerFinal::complete(&client, &server, &response, &verifier);
     assert_eq!(final_message.encode(), "v=rmF9pqV8S7suAoZWja4dJRkFsKQ=");
 }
 
 #[test]
 fn invalid_client_proof_produces_typed_invalid_proof_error() {
-    let (client, server, mut response, verifier) = rfc_exchange();
+    let (client, server, verifier) = rfc_exchange();
+    let message = rfc_message(&server);
+    let mut response =
+        crate::sasl::scram_client_final::parse(&message, &server.nonce).expect("RFC client-final");
     response.proof = [0; 20];
     let final_message = ServerFinal::complete(&client, &server, &response, &verifier);
     assert_eq!(final_message, ServerFinal::Error(ServerError::InvalidProof));
@@ -55,7 +61,7 @@ fn every_server_error_variant_maps_to_its_rfc_wire_token() {
 }
 
 /// Строит полный известный RFC 5802 §5.1 SCRAM-SHA-1 пример.
-fn rfc_exchange() -> (ClientFirst, ServerFirst, ClientFinal, ScramSha1Verifier) {
+fn rfc_exchange() -> (ClientFirst, ServerFirst, ScramSha1Verifier) {
     let client = crate::sasl::scram_client_first::parse("n,,n=user,r=fyko+d2lbbFgONRv9qkxdawL")
         .expect("RFC client-first");
     let server = ServerFirst {
@@ -63,12 +69,11 @@ fn rfc_exchange() -> (ClientFirst, ServerFirst, ClientFinal, ScramSha1Verifier) 
         message: "r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j,s=QSXCR+Q6sek8bf92,i=4096"
             .to_owned(),
     };
-    let response = crate::sasl::scram_client_final::parse(
-        "c=biws,r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j,p=v0X8v3Bz2T0CJGbJQyF0X+HI4Ts=",
-        &server.nonce,
-    )
-    .expect("RFC client-final");
     let salt = crate::mime::decode_base64(b"QSXCR+Q6sek8bf92").expect("RFC salt");
     let verifier = ScramSha1Verifier::derive(b"pencil", &salt, 4096).expect("RFC verifier");
-    (client, server, response, verifier)
+    (client, server, verifier)
+}
+
+fn rfc_message(server: &ServerFirst) -> String {
+    format!("c=biws,r={},p=v0X8v3Bz2T0CJGbJQyF0X+HI4Ts=", server.nonce)
 }

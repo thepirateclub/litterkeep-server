@@ -1,5 +1,22 @@
 # Goal ledger
 
+### 2026-09-29: G20 borrowed SCRAM attributes and transcript, PARTIAL T410
+
+- SCRAM attribute values теперь заимствуются из исходного сообщения вместо
+  отдельной `String` на каждое поле. SHA-1 и SHA-256 client-final хранят срез
+  unsigned transcript, а AuthMessage формируется единым заранее выделенным
+  буфером. Регрессия подтверждает, что 2 MiB значение указывает прямо в исходные
+  байты.
+- Windows Rust 1.97.1: 1061 library + 1 CLI passed, 4 ignored; Linux Rust 1.97.1:
+  1185 library + 1 CLI passed, 4 ignored. 55 SCRAM unit tests, strict Windows
+  Clippy, fmt и diff-check прошли. Независимый Linux TLS peer повторно завершил
+  POP3 SCRAM-SHA-256 с 2 MiB nonce и дошёл до STAT/QUIT.
+- Это уменьшает временные копии, но не peak-memory proof: Base64 decode и
+  сохранённый client-first transcript по-прежнему требуют память, пропорциональную
+  сообщению. T377 остаётся PARTIAL; Litterkeep app interop не заявляется.
+- Повторно использованы существующий `rust:1.97-bookworm` и каталоги `./data`;
+  одноразовый listener удалён, образ не создавался.
+
 ### 2026-09-29: G20 POP3 SCRAM transcript beyond fixed wire caps, PARTIAL T409
 
 - Удалены фиксированные 700 KiB/700 KiB+136 parser limits и 1 MiB ceiling

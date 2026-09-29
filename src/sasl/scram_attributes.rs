@@ -18,11 +18,11 @@ pub enum AttributeName {
     Extension(char),
 }
 
-/// Одно уникальное имя и opaque значение из SCRAM attribute list.
+/// Одно уникальное имя и заимствованное opaque значение из SCRAM attribute list.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Attribute {
+pub struct Attribute<'a> {
     pub name: AttributeName,
-    pub value: String,
+    pub value: &'a str,
 }
 
 /// Причина отказа парсера без включения пользовательских данных в ошибку.
@@ -36,17 +36,17 @@ pub enum ParseError {
 }
 
 /// Разбирает список `name=value`, отвергая повторы и неизвестные обязательные расширения.
-pub fn parse(message: &str) -> Result<Vec<Attribute>, ParseError> {
+pub fn parse(message: &str) -> Result<Vec<Attribute<'_>>, ParseError> {
     parse_attributes(message)
 }
 
 /// Разбирает client-final тем же grammar без искусственного предела длины.
-pub fn parse_client_final(message: &str) -> Result<Vec<Attribute>, ParseError> {
+pub fn parse_client_final(message: &str) -> Result<Vec<Attribute<'_>>, ParseError> {
     parse_attributes(message)
 }
 
 /// Разбирает длинные opaque поля за линейное время и ограничивает число атрибутов.
-fn parse_attributes(message: &str) -> Result<Vec<Attribute>, ParseError> {
+fn parse_attributes(message: &str) -> Result<Vec<Attribute<'_>>, ParseError> {
     if message.is_empty() {
         return Err(ParseError::EmptyMessage);
     }
@@ -76,14 +76,11 @@ fn parse_attributes(message: &str) -> Result<Vec<Attribute>, ParseError> {
         }
         if attributes
             .iter()
-            .any(|attribute: &Attribute| attribute.name == name)
+            .any(|attribute: &Attribute<'_>| attribute.name == name)
         {
             return Err(ParseError::DuplicateAttribute);
         }
-        attributes.push(Attribute {
-            name,
-            value: value.to_owned(),
-        });
+        attributes.push(Attribute { name, value });
     }
     Ok(attributes)
 }

@@ -17,7 +17,7 @@ impl ServerFinal {
     pub fn complete(
         client: &ClientFirst,
         server: &ServerFirst,
-        response: &ClientFinal,
+        response: &ClientFinal<'_>,
         verifier: &ScramSha256Verifier,
     ) -> Self {
         let auth_message = response.auth_message(client, server);

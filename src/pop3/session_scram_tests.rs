@@ -35,7 +35,7 @@ fn rejects_bad_client_proof_after_server_final_challenge() {
     let nonce = attributes
         .iter()
         .find(|attribute| attribute.name == crate::sasl::scram_attributes::AttributeName::Nonce)
-        .map(|attribute| attribute.value.as_str())
+        .map(|attribute| attribute.value)
         .expect("server nonce");
     let invalid = crate::sasl::encode_base64(
         format!("c=biws,r={nonce},p=AAAAAAAAAAAAAAAAAAAAAAAAAAA=").as_bytes(),

@@ -9,15 +9,15 @@ fn parses_known_fields_and_preserves_base64_padding() {
         vec![
             Attribute {
                 name: AttributeName::ChannelBinding,
-                value: "biws".to_owned(),
+                value: "biws",
             },
             Attribute {
                 name: AttributeName::Nonce,
-                value: "clientNonce".to_owned(),
+                value: "clientNonce",
             },
             Attribute {
                 name: AttributeName::Proof,
-                value: "AA==".to_owned(),
+                value: "AA==",
             },
         ]
     );
@@ -58,7 +58,12 @@ fn accepts_large_opaque_fields_and_bounds_attribute_count() {
 #[test]
 fn client_final_accepts_large_transcripts_without_a_profile_cap() {
     let transcript = format!("x={}", "a".repeat(2 * 1024 * 1024));
-    assert!(parse_client_final(&transcript).is_ok());
+    let parsed = parse_client_final(&transcript).expect("large transcript");
+    let attribute = parsed.first().expect("extension field");
+    assert!(std::ptr::eq(
+        attribute.value.as_ptr(),
+        transcript.as_bytes().get(2).expect("first value byte")
+    ));
 }
 
 #[test]

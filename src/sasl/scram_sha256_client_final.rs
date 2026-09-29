@@ -8,8 +8,8 @@ use super::{
 
 /// Client proof имеет фиксированную длину SHA-256.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ClientFinal {
-    pub client_final_without_proof: String,
+pub struct ClientFinal<'a> {
+    pub client_final_without_proof: &'a str,
     pub proof: [u8; 32],
 }
 
@@ -24,16 +24,19 @@ pub enum ClientFinalError {
 }
 
 /// Проверяет RFC 5802 поле-порядок и GS2 `n,,` без channel binding.
-pub fn parse(message: &str, expected_nonce: &str) -> Result<ClientFinal, ClientFinalError> {
+pub fn parse<'a>(
+    message: &'a str,
+    expected_nonce: &str,
+) -> Result<ClientFinal<'a>, ClientFinalError> {
     parse_with_binding(message, expected_nonce, b"n,,")
 }
 
 /// Проверяет точное SASL `c=` значение для предоставленного GS2 header и binding.
-pub fn parse_with_binding(
-    message: &str,
+pub fn parse_with_binding<'a>(
+    message: &'a str,
     expected_nonce: &str,
     expected_binding: &[u8],
-) -> Result<ClientFinal, ClientFinalError> {
+) -> Result<ClientFinal<'a>, ClientFinalError> {
     let attributes =
         scram_attributes::parse_client_final(message).map_err(ClientFinalError::Attributes)?;
     let (channel_binding, nonce, proof) = match attributes.as_slice() {
@@ -45,11 +48,9 @@ pub fn parse_with_binding(
                 .iter()
                 .all(|extension| matches!(extension.name, AttributeName::Extension(_))),
         ) {
-            (AttributeName::ChannelBinding, AttributeName::Nonce, AttributeName::Proof, true) => (
-                channel_binding.value.as_str(),
-                nonce.value.as_str(),
-                proof.value.as_str(),
-            ),
+            (AttributeName::ChannelBinding, AttributeName::Nonce, AttributeName::Proof, true) => {
+                (channel_binding.value, nonce.value, proof.value)
+            }
             _ => return Err(ClientFinalError::InvalidFieldSequence),
         },
         _ => return Err(ClientFinalError::InvalidFieldSequence),
@@ -63,19 +64,26 @@ pub fn parse_with_binding(
         .rsplit_once(",p=")
         .ok_or(ClientFinalError::InvalidFieldSequence)?;
     Ok(ClientFinal {
-        client_final_without_proof: without_proof.to_owned(),
+        client_final_without_proof: without_proof,
         proof,
     })
 }
 
-impl ClientFinal {
+impl ClientFinal<'_> {
     /// Собирает исходные поля SCRAM transcript без нормализации.
     pub fn auth_message(&self, client: &ClientFirst, server: &ServerFirst) -> Vec<u8> {
-        format!(
-            "{},{},{}",
-            client.client_first_bare, server.message, self.client_final_without_proof
-        )
-        .into_bytes()
+        let mut message = Vec::with_capacity(
+            client.client_first_bare.len()
+                + server.message.len()
+                + self.client_final_without_proof.len()
+                + 2,
+        );
+        message.extend_from_slice(client.client_first_bare.as_bytes());
+        message.push(b',');
+        message.extend_from_slice(server.message.as_bytes());
+        message.push(b',');
+        message.extend_from_slice(self.client_final_without_proof.as_bytes());
+        message
     }
 }
 

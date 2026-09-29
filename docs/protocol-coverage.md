@@ -1440,8 +1440,14 @@ budget, а challenge в SASL phase обходит generic MAX_OUTPUT. Входн
 signature и доходит до maildrop (`STAT`, `QUIT`). Base64 строки больше бывшего
 1 MiB continuation ceiling. Ранее T375/T378/T379 проверяли 16/256/700 KiB,
 а T401 подтверждал успешную аутентификацию на 700 KiB. Это реальная точка
-2 MiB, не доказательство всего диапазона: UTF-8/Base64/атрибуты SCRAM создают
-пропорциональные allocations, и исчерпание памяти не прогонялось. RFC 5802
+2 MiB, не доказательство всего диапазона. Base64 decode и сохранённый
+client-first state всё ещё требуют память,
+пропорциональную сообщению; allocator exhaustion не прогонялся. В T410
+attribute parser переведён на borrowed slices, final parser хранит unsigned
+transcript как срез, а AuthMessage копируется только один раз в выходной буфер.
+Регрессия pointer identity подтверждает отсутствие копии отдельного 2 MiB
+атрибута. Это сокращает временные копии, но не peak-memory footprint всего
+обмена. RFC 5802
 §5.1 не задаёт максимальную длину nonce, поэтому T377 теперь PARTIAL, а не
 PASS; крайние размеры, ограничение совокупной памяти и отказ allocator-а
 требуют дальнейшего отдельного аудита.

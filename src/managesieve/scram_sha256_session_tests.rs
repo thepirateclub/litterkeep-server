@@ -111,9 +111,12 @@ fn parse_server_first(encoded: &str) -> crate::sasl::scram_sha256_server_first::
     let nonce = attributes
         .iter()
         .find(|field| field.name == crate::sasl::scram_attributes::AttributeName::Nonce)
-        .map(|field| field.value.clone())
+        .map(|field| field.value.to_owned())
         .expect("nonce");
-    crate::sasl::scram_sha256_server_first::ServerFirst { nonce, message }
+    crate::sasl::scram_sha256_server_first::ServerFirst {
+        nonce: nonce.to_owned(),
+        message,
+    }
 }
 
 fn start() -> (
@@ -145,13 +148,16 @@ fn start() -> (
     let nonce = attributes
         .iter()
         .find(|attribute| attribute.name == crate::sasl::scram_attributes::AttributeName::Nonce)
-        .map(|attribute| attribute.value.clone())
+        .map(|attribute| attribute.value.to_owned())
         .expect("server nonce");
     (
         session,
         client,
         record,
-        crate::sasl::scram_sha256_server_first::ServerFirst { nonce, message },
+        crate::sasl::scram_sha256_server_first::ServerFirst {
+            nonce: nonce.to_owned(),
+            message,
+        },
     )
 }
 

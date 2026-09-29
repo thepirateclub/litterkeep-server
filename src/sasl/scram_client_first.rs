@@ -53,7 +53,7 @@ fn parse_bare(bare: &str, gs2_header: Gs2Header) -> Result<ClientFirst, ClientFi
                     .iter()
                     .all(|extension| matches!(extension.name, AttributeName::Extension(_))) =>
         {
-            (username.value.as_str(), nonce.value.as_str())
+            (username.value, nonce.value)
         }
         _ => return Err(ClientFirstError::InvalidFieldSequence),
     };

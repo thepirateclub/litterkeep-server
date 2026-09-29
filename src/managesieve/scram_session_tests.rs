@@ -70,14 +70,14 @@ fn start_exchange() -> (
     let nonce = attributes
         .iter()
         .find(|attribute| attribute.name == crate::sasl::scram_attributes::AttributeName::Nonce)
-        .map(|attribute| attribute.value.clone())
+        .map(|attribute| attribute.value.to_owned())
         .expect("server nonce");
     (
         session,
         client_first,
         credential,
         crate::sasl::scram_server_first::ServerFirst {
-            nonce,
+            nonce: nonce.to_owned(),
             message: server_message,
         },
     )
