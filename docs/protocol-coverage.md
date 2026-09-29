@@ -86,7 +86,11 @@ Policy, MIME и queue recovery проверены unit tests. Linux Store/outbou
 integration выполняет два независимых временных 421 ответа и подтверждает
 durable null-sender report job, его delayed поля и сохранённый retryable original.
 Повторная передача созданного DSN отдельным SMTP peer-у и Litterkeep acceptance
-пока не проверены. Для одного source
+пока не проверены. Эксперимент T417 с продолжением того же bounded drain принял
+TCP для DSN route, но независимый peer не увидел следующую SMTP-команду за
+тестовый deadline; worker вернул Deferred. Это зафиксированная неудачная
+проверка, не подтверждение корректной передачи. Причина scheduler/transport
+перехода остаётся GAP; см. GOAL.md T417. Для одного source
 RCPT с одним forward destination outbound worker передаёт исходные MAIL
 `RET`/`ENVID` и RCPT `NOTIFY`/`ORCPT`, если downstream EHLO объявил `DSN`;
 xtext сохраняет исходные octets; UTF-8 ORCPT сериализуется 7-bit-safe RFC 6533
