@@ -23,6 +23,7 @@ pub struct DeliveryPlan {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ExecutionError {
     CommandLimit,
+    MatcherLimit,
     RedirectLimit,
     RedirectRouteDenied,
     RedirectLoop,
@@ -33,6 +34,7 @@ impl ExecutionError {
     pub fn code(self) -> &'static str {
         match self {
             Self::CommandLimit => "command-limit",
+            Self::MatcherLimit => "matcher-work-limit",
             Self::RedirectLimit => "redirect-limit",
             Self::RedirectRouteDenied => "redirect-route-denied",
             Self::RedirectLoop => "redirect-loop",
@@ -43,6 +45,7 @@ impl ExecutionError {
     pub fn from_code(value: &str) -> Option<Self> {
         match value {
             "command-limit" => Some(Self::CommandLimit),
+            "matcher-work-limit" => Some(Self::MatcherLimit),
             "redirect-limit" => Some(Self::RedirectLimit),
             "redirect-route-denied" => Some(Self::RedirectRouteDenied),
             "redirect-loop" => Some(Self::RedirectLoop),
@@ -55,6 +58,7 @@ impl fmt::Display for ExecutionError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(match self {
             Self::CommandLimit => "sieve execution limit exceeded",
+            Self::MatcherLimit => "sieve matcher work limit exceeded",
             Self::RedirectLimit => "sieve redirect limit exceeded",
             Self::RedirectRouteDenied => "sieve redirect route denied",
             Self::RedirectLoop => "sieve redirect hop limit exceeded",
@@ -141,7 +145,7 @@ fn commands(
                 then_commands,
                 else_commands,
             } => {
-                let selected = match condition::matches(condition, context, match_variables) {
+                let selected = match condition::matches(condition, context, match_variables)? {
                     true => then_commands,
                     false => else_commands,
                 };
@@ -206,3 +210,7 @@ fn cancel_implicit_keep(plan: &mut DeliveryPlan, keep_state: &mut KeepState) {
         *keep_state = KeepState::Cancelled;
     }
 }
+
+#[cfg(test)]
+#[path = "execution_work_limit_tests.rs"]
+mod work_limit_tests;

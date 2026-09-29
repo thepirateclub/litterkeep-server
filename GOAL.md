@@ -11906,6 +11906,22 @@ ManageSieve до заявленного набора современных фо
   семантика и записано как открытая задача для typed resource error или
   гарантированно корректного bounded алгоритма.
 
+### 2026-09-29: G18 Sieve matcher budget error propagation, T429 PARTIAL
+
+- Исчерпание glob work budget теперь возвращает typed matcher error, проходит
+  через condition evaluation и становится `ExecutionError::MatcherLimit`, а не
+  Sieve `NoMatch`. Существующий delivery planning fallback сохраняет implicit keep
+  и добавляет typed diagnostic, не публикуя частичный delivery plan.
+- Регрессионные тесты проходят от matcher до Store: delivery отвергает частичный
+  `discard`, оставляет сообщение в INBOX, записывает `MatcherLimit`, а diagnostic
+  сохраняется и читается после переоткрытия Store.
+- Windows Rust 1.97.1 all-target: 1100 library + 1 CLI passed, 4 ignored;
+  strict Clippy, rustfmt и diff check pass. Linux Docker Rust 1.97.1 all-target:
+  1226 library + 1 CLI passed, 4 ignored; Linux Clippy/rustfmt не установлены.
+  Использованы `rust:1.97-bookworm`, `./data/g23-cargo-home` и отдельный
+  `./data/g18-rfc5229-budget-target`; disposable `--rm` container удалён,
+  новых образов нет. G18 остаётся ACTIVE.
+
 ### 2026-09-29: G18 RFC 5229 implementation-boundary audit, T423 PARTIAL
 
 - Rechecked the current Variables design against the RFC Editor's RFC 5229 text.

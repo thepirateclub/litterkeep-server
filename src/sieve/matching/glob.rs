@@ -11,7 +11,7 @@ pub(super) fn captures(
     value: &str,
     pattern: &str,
     comparator: &Comparator,
-) -> Option<Vec<Vec<u8>>> {
+) -> Result<Option<Vec<Vec<u8>>>, GlobError> {
     let value = value.as_bytes();
     let (tokens, capture_count) = tokens(pattern);
     let mut capture_ranges = vec![None; capture_count];
@@ -23,21 +23,31 @@ pub(super) fn captures(
     loop {
         steps = steps.saturating_add(1);
         if steps > MAX_GLOB_STEPS {
-            return None;
+            return Err(GlobError::WorkLimit);
         }
         match tokens.get(pattern_position).copied() {
-            None if value_position == value.len() => return materialize(value, capture_ranges),
+            None if value_position == value.len() => {
+                return Ok(materialize(value, capture_ranges));
+            }
             None => {
-                pattern_position = retry(
+                let Some(next_pattern) = retry(
                     &mut choices,
                     &mut capture_ranges,
                     &mut value_position,
                     value.len(),
                     &mut steps,
-                )?;
+                )?
+                else {
+                    return Ok(None);
+                };
+                pattern_position = next_pattern;
             }
             Some(GlobToken::Many(capture)) => {
-                record_capture(&mut capture_ranges, capture, value_position..value_position)?;
+                let Some(()) =
+                    record_capture(&mut capture_ranges, capture, value_position..value_position)
+                else {
+                    return Ok(None);
+                };
                 choices.push(StarChoice {
                     next_pattern: pattern_position.saturating_add(1),
                     capture,
@@ -49,18 +59,26 @@ pub(super) fn captures(
             Some(GlobToken::One(capture)) => match value.get(value_position) {
                 Some(_) => {
                     let end = value_position.saturating_add(1);
-                    record_capture(&mut capture_ranges, capture, value_position..end)?;
+                    let Some(()) =
+                        record_capture(&mut capture_ranges, capture, value_position..end)
+                    else {
+                        return Ok(None);
+                    };
                     value_position = end;
                     pattern_position = pattern_position.saturating_add(1);
                 }
                 None => {
-                    pattern_position = retry(
+                    let Some(next_pattern) = retry(
                         &mut choices,
                         &mut capture_ranges,
                         &mut value_position,
                         value.len(),
                         &mut steps,
-                    )?;
+                    )?
+                    else {
+                        return Ok(None);
+                    };
+                    pattern_position = next_pattern;
                 }
             },
             Some(GlobToken::Literal(expected)) => match value.get(value_position) {
@@ -69,13 +87,17 @@ pub(super) fn captures(
                     pattern_position = pattern_position.saturating_add(1);
                 }
                 _ => {
-                    pattern_position = retry(
+                    let Some(next_pattern) = retry(
                         &mut choices,
                         &mut capture_ranges,
                         &mut value_position,
                         value.len(),
                         &mut steps,
-                    )?;
+                    )?
+                    else {
+                        return Ok(None);
+                    };
+                    pattern_position = next_pattern;
                 }
             },
         }
@@ -89,13 +111,15 @@ fn retry(
     value_position: &mut usize,
     value_length: usize,
     steps: &mut usize,
-) -> Option<usize> {
+) -> Result<Option<usize>, GlobError> {
     loop {
         *steps = steps.saturating_add(1);
         if *steps > MAX_GLOB_STEPS {
-            return None;
+            return Err(GlobError::WorkLimit);
         }
-        let choice = choices.last_mut()?;
+        let Some(choice) = choices.last_mut() else {
+            return Ok(None);
+        };
         if choice.next_end > value_length {
             let _ = choices.pop();
             continue;
@@ -104,9 +128,16 @@ fn retry(
         choice.next_end = end.saturating_add(1);
         *value_position = end;
         clear_captures_after(captures, choice.capture);
-        record_capture(captures, choice.capture, choice.start..end)?;
-        return Some(choice.next_pattern);
+        let Some(()) = record_capture(captures, choice.capture, choice.start..end) else {
+            return Ok(None);
+        };
+        return Ok(Some(choice.next_pattern));
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum GlobError {
+    WorkLimit,
 }
 
 /// Очищает captures, инвалидированные изменением длины более ранней `*`.

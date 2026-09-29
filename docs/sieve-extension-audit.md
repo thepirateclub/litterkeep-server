@@ -75,11 +75,12 @@ capability остаётся скрытым.
 
 T428 также заменил greedy glob capture matching на backtracking, чтобы
 соблюдать non-greedy распределение wildcard captures и сбрасывать значения
-неудачных ветвей. Поиск ограничен одним миллионом шагов. Сейчас исчерпание
-этого локального бюджета представляется как `NoMatch`, поэтому дорогой, но
-валидный шаблон может дать false negative. Это защитное ограничение профиля,
-не RFC-семантика; для полной совместимости нужен typed runtime resource error
-или алгоритм с доказанной стоимостью без изменения результата сравнения.
+неудачных ветвей. Поиск ограничен одним миллионом шагов. T429 исправил путь
+исчерпания бюджета: matcher возвращает typed work-limit error, evaluator
+передаёт его как `ExecutionError::MatcherLimit`, а delivery planner выбирает
+implicit keep и пишет diagnostic вместо ложного `NoMatch`. Store integration
+test проверяет, что частичный `discard` не применяется, письмо остаётся в
+INBOX, а typed diagnostic читается после переоткрытия Store.
 
 ## Базовый RFC 5228: адресные списки
 

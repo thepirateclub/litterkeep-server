@@ -11,8 +11,14 @@ pub(super) enum MatchOutcome {
     Captured(Vec<Vec<u8>>),
 }
 
+/// Ошибка comparator-а, которую executor обязан передать в delivery layer.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum MatchError {
+    WorkLimit,
+}
+
 /// Сравнивает ключи по порядку, чтобы runtime получил captures успешного ключа.
-pub(super) fn evaluate(value: &str, matcher: &StringMatch) -> MatchOutcome {
+pub(super) fn evaluate(value: &str, matcher: &StringMatch) -> Result<MatchOutcome, MatchError> {
     for key in &matcher.keys {
         let outcome = match &matcher.match_type {
             MatchType::Is => match equal(value, key, &matcher.comparator) {
@@ -24,16 +30,17 @@ pub(super) fn evaluate(value: &str, matcher: &StringMatch) -> MatchOutcome {
                 false => MatchOutcome::NoMatch,
             },
             MatchType::Matches => match glob::captures(value, key, &matcher.comparator) {
-                Some(captures) => MatchOutcome::Captured(captures),
-                None => MatchOutcome::NoMatch,
+                Ok(Some(captures)) => MatchOutcome::Captured(captures),
+                Ok(None) => MatchOutcome::NoMatch,
+                Err(glob::GlobError::WorkLimit) => return Err(MatchError::WorkLimit),
             },
         };
         match outcome {
             MatchOutcome::NoMatch => {}
-            result => return result,
+            result => return Ok(result),
         }
     }
-    MatchOutcome::NoMatch
+    Ok(MatchOutcome::NoMatch)
 }
 
 fn equal(value: &str, key: &str, comparator: &Comparator) -> bool {
@@ -98,6 +105,10 @@ fn prefix_lengths(pattern: &[u8]) -> Vec<usize> {
 mod tests {
     use super::*;
 
+    fn outcome(value: &str, matcher: &StringMatch) -> MatchOutcome {
+        evaluate(value, matcher).expect("bounded comparator work")
+    }
+
     #[test]
     fn glob_is_case_policy_aware_without_backtracking() {
         let insensitive = StringMatch {
@@ -110,11 +121,11 @@ mod tests {
             ..insensitive.clone()
         };
         assert!(!matches!(
-            evaluate("Invoice-2026", &insensitive),
+            outcome("Invoice-2026", &insensitive),
             MatchOutcome::NoMatch
         ));
         assert!(matches!(
-            evaluate("Invoice-2026", &octet),
+            outcome("Invoice-2026", &octet),
             MatchOutcome::NoMatch
         ));
     }
@@ -131,8 +142,8 @@ mod tests {
                 keys: vec!["??".into()],
                 ..one_octet.clone()
             };
-            assert!(matches!(evaluate("é", &one_octet), MatchOutcome::NoMatch));
-            assert!(!matches!(evaluate("é", &two_octets), MatchOutcome::NoMatch));
+            assert!(matches!(outcome("é", &one_octet), MatchOutcome::NoMatch));
+            assert!(!matches!(outcome("é", &two_octets), MatchOutcome::NoMatch));
         }
     }
 
@@ -147,16 +158,13 @@ mod tests {
             keys: vec![r"invoice\?".into()],
             ..star.clone()
         };
-        assert!(!matches!(
-            evaluate("invoice*", &star),
-            MatchOutcome::NoMatch
-        ));
+        assert!(!matches!(outcome("invoice*", &star), MatchOutcome::NoMatch));
         assert!(matches!(
-            evaluate("invoice-2026", &star),
+            outcome("invoice-2026", &star),
             MatchOutcome::NoMatch
         ));
         assert!(!matches!(
-            evaluate("invoice?", &question),
+            outcome("invoice?", &question),
             MatchOutcome::NoMatch
         ));
     }
@@ -172,7 +180,7 @@ mod tests {
             keys: vec![key],
         };
 
-        assert!(matches!(evaluate(&value, &matcher), MatchOutcome::NoMatch));
+        assert!(matches!(outcome(&value, &matcher), MatchOutcome::NoMatch));
     }
 
     /// KMP сравнивает только ASCII case; прочие UTF-8 octets остаются точными.

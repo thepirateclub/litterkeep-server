@@ -1,5 +1,6 @@
 //! Оценка Sieve tests и per-execution match-variable state.
 
+use super::ExecutionError;
 use crate::sieve::address;
 use crate::sieve::ast::{AddressPart, Condition, EnvelopePart, SizeRelation, StringMatch};
 use crate::sieve::matching::{self, MatchOutcome};
@@ -38,51 +39,75 @@ pub(super) fn matches(
     condition: &Condition,
     context: &MessageContext<'_>,
     variables: &mut MatchVariables,
-) -> bool {
+) -> Result<bool, ExecutionError> {
     match condition {
-        Condition::True => true,
-        Condition::False => false,
-        Condition::Header { names, matcher } => context
-            .headers
-            .iter()
-            .any(|(candidate, value)| header_matches(candidate, value, names, matcher, variables)),
+        Condition::True => Ok(true),
+        Condition::False => Ok(false),
+        Condition::Header { names, matcher } => {
+            for (candidate, value) in context.headers {
+                if header_matches(candidate, value, names, matcher, variables)? {
+                    return Ok(true);
+                }
+            }
+            Ok(false)
+        }
         Condition::Address {
             names,
             part,
             matcher,
-        } => context.headers.iter().any(|(candidate, value)| {
-            address_matches(candidate, value, names, *part, matcher, variables)
-        }),
+        } => {
+            for (candidate, value) in context.headers {
+                if address_matches(candidate, value, names, *part, matcher, variables)? {
+                    return Ok(true);
+                }
+            }
+            Ok(false)
+        }
         Condition::Envelope {
             parts,
             part,
             matcher,
-        } => parts.iter().any(|selected| {
-            let value = match selected {
-                EnvelopePart::From => context.envelope_from,
-                EnvelopePart::To => context.envelope_to,
-            };
-            address::envelope_value(value, *part)
-                .iter()
-                .any(|entry| match_value(entry, matcher, variables))
-        }),
-        Condition::Exists { names } => names.iter().all(|name| {
+        } => {
+            for selected in parts {
+                let value = match selected {
+                    EnvelopePart::From => context.envelope_from,
+                    EnvelopePart::To => context.envelope_to,
+                };
+                for entry in address::envelope_value(value, *part) {
+                    if match_value(&entry, matcher, variables)? {
+                        return Ok(true);
+                    }
+                }
+            }
+            Ok(false)
+        }
+        Condition::Exists { names } => Ok(names.iter().all(|name| {
             context
                 .headers
                 .iter()
                 .any(|(candidate, _)| candidate.eq_ignore_ascii_case(name))
-        }),
-        Condition::Size { relation, limit } => match relation {
+        })),
+        Condition::Size { relation, limit } => Ok(match relation {
             SizeRelation::Over => context.size > *limit,
             SizeRelation::Under => context.size < *limit,
-        },
-        Condition::Not(value) => !matches(value, context, variables),
-        Condition::AllOf(values) => values
-            .iter()
-            .all(|value| matches(value, context, variables)),
-        Condition::AnyOf(values) => values
-            .iter()
-            .any(|value| matches(value, context, variables)),
+        }),
+        Condition::Not(value) => Ok(!matches(value, context, variables)?),
+        Condition::AllOf(values) => {
+            for value in values {
+                if !matches(value, context, variables)? {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        }
+        Condition::AnyOf(values) => {
+            for value in values {
+                if matches(value, context, variables)? {
+                    return Ok(true);
+                }
+            }
+            Ok(false)
+        }
     }
 }
 
@@ -93,20 +118,23 @@ fn address_matches(
     part: AddressPart,
     matcher: &StringMatch,
     variables: &mut MatchVariables,
-) -> bool {
+) -> Result<bool, ExecutionError> {
     let kind = crate::mime::header_block::HeaderName::parse(candidate);
     if !kind.is_address_list() {
-        return false;
+        return Ok(false);
     }
     if !names
         .iter()
         .any(|name| crate::mime::header_block::HeaderName::parse(name) == kind)
     {
-        return false;
+        return Ok(false);
     }
-    address::values(value, part)
-        .iter()
-        .any(|entry| match_value(entry, matcher, variables))
+    for entry in address::values(value, part) {
+        if match_value(&entry, matcher, variables)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// Проверяет имя header и его декодированное значение в одном проходе.
@@ -116,28 +144,35 @@ fn header_matches(
     names: &[String],
     matcher: &StringMatch,
     variables: &mut MatchVariables,
-) -> bool {
+) -> Result<bool, ExecutionError> {
     if !names
         .iter()
         .any(|name| candidate.eq_ignore_ascii_case(name))
     {
-        return false;
+        return Ok(false);
     }
     let normalized = value.trim_matches([' ', '\t']);
     match crate::mime::search_text::decode_header_value(normalized.as_bytes()) {
         Some(decoded) => match_value(&decoded, matcher, variables),
-        None => false,
+        None => Ok(false),
     }
 }
 
 /// Обновляет match variables только для successful wildcard comparator.
-fn match_value(value: &str, matcher: &StringMatch, variables: &mut MatchVariables) -> bool {
-    match matching::evaluate(value, matcher) {
-        MatchOutcome::NoMatch => false,
-        MatchOutcome::Match => true,
+fn match_value(
+    value: &str,
+    matcher: &StringMatch,
+    variables: &mut MatchVariables,
+) -> Result<bool, ExecutionError> {
+    let outcome = matching::evaluate(value, matcher).map_err(|error| match error {
+        matching::MatchError::WorkLimit => ExecutionError::MatcherLimit,
+    })?;
+    match outcome {
+        MatchOutcome::NoMatch => Ok(false),
+        MatchOutcome::Match => Ok(true),
         MatchOutcome::Captured(captures) => {
             variables.replace(value.as_bytes(), captures);
-            true
+            Ok(true)
         }
     }
 }

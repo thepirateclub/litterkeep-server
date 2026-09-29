@@ -28,7 +28,7 @@ fn successful_header_matches_replace_match_variables() {
     let headers = vec![("Subject".to_owned(), "[Invoices] update".to_owned())];
     let mut variables = MatchVariables::default();
 
-    assert!(matches(&header_match(), &context(&headers), &mut variables));
+    assert!(matches(&header_match(), &context(&headers), &mut variables).expect("within budget"));
     assert_eq!(variables.get(0), Some(&b"[Invoices] update"[..]));
     assert_eq!(variables.get(1), Some(&b"Invoices"[..]));
     assert_eq!(variables.get(2), Some(&b"update"[..]));
@@ -41,7 +41,7 @@ fn anyof_does_not_evaluate_or_capture_from_skipped_tests() {
     let condition = Condition::AnyOf(vec![Condition::True, header_match()]);
     let mut variables = MatchVariables::default();
 
-    assert!(matches(&condition, &context(&headers), &mut variables));
+    assert!(matches(&condition, &context(&headers), &mut variables).expect("within budget"));
     assert_eq!(variables.get(0), None);
 }
 
@@ -49,7 +49,7 @@ fn anyof_does_not_evaluate_or_capture_from_skipped_tests() {
 fn failed_match_does_not_replace_previous_captures() {
     let headers = vec![("Subject".to_owned(), "[Invoices] update".to_owned())];
     let mut variables = MatchVariables::default();
-    assert!(matches(&header_match(), &context(&headers), &mut variables));
+    assert!(matches(&header_match(), &context(&headers), &mut variables).expect("within budget"));
     let previous = variables.get(1).map(ToOwned::to_owned);
     let failed = Condition::Header {
         names: vec!["Subject".to_owned()],
@@ -60,6 +60,6 @@ fn failed_match_does_not_replace_previous_captures() {
         },
     };
 
-    assert!(!matches(&failed, &context(&headers), &mut variables));
+    assert!(!matches(&failed, &context(&headers), &mut variables).expect("within budget"));
     assert_eq!(variables.get(1), previous.as_deref());
 }

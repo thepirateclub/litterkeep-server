@@ -38,6 +38,66 @@ fn reopen_trims_incomplete_tail_and_preserves_committed_diagnostic() {
 }
 
 #[test]
+fn matcher_work_limit_falls_back_and_persists_its_typed_diagnostic() {
+    let root = directory();
+    let mut store = Store::open(&root).expect("open");
+    let pattern = "*a".repeat(1_100);
+    let source = format!("if header :matches \"Subject\" \"{pattern}\" {{ discard; }}");
+    store
+        .put_sieve_script("bob", "matcher-limit", source)
+        .expect("put");
+    store
+        .activate_sieve_script("bob", Some("matcher-limit"))
+        .expect("activate");
+
+    store
+        .deliver_sieve_many(
+            &["bob".into()],
+            "alice@litterkeep.test",
+            &["bob@litterkeep.test".into()],
+            format!("Subject: {}b\r\n\r\nbody", "a".repeat(1_100)).as_bytes(),
+        )
+        .expect("runtime limit uses safe fallback");
+
+    assert_eq!(
+        store
+            .snapshot_folder("bob", "INBOX")
+            .expect("fallback mailbox")
+            .snapshot
+            .messages
+            .len(),
+        1,
+        "runtime error must not apply the partial discard action"
+    );
+    let diagnostics = store.sieve_diagnostics("bob").expect("diagnostics");
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(
+        diagnostics.first().map(|item| item.error),
+        Some(ExecutionError::MatcherLimit)
+    );
+    drop(store);
+    let mut store = Store::open(&root).expect("recover typed diagnostic");
+    assert_eq!(
+        store
+            .sieve_diagnostics("bob")
+            .expect("recovered diagnostics")
+            .first()
+            .map(|item| item.error),
+        Some(ExecutionError::MatcherLimit)
+    );
+    assert_eq!(
+        store
+            .snapshot_folder("bob", "INBOX")
+            .expect("recovered fallback mailbox")
+            .snapshot
+            .messages
+            .len(),
+        1
+    );
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
 fn reopen_rejects_corrupt_complete_diagnostic_frame() {
     let root = directory();
     let store = Store::open(&root).expect("open");
