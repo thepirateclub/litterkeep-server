@@ -52,6 +52,7 @@ impl ExecutionError {
             "redirect-limit" => Some(Self::RedirectLimit),
             "redirect-route-denied" => Some(Self::RedirectRouteDenied),
             "redirect-loop" => Some(Self::RedirectLoop),
+            "variables-runtime-error" => Some(Self::VariableRuntime),
             _ => None,
         }
     }
@@ -161,11 +162,15 @@ fn commands(
                 then_commands,
                 else_commands,
             } => {
-                let selected =
-                    match condition::matches(condition, context, &mut state.match_variables)? {
-                        true => then_commands,
-                        false => else_commands,
-                    };
+                let selected = match condition::matches(
+                    condition,
+                    context,
+                    &state.variables,
+                    &mut state.match_variables,
+                )? {
+                    true => then_commands,
+                    false => else_commands,
+                };
                 commands(selected, context, state)?;
             }
         }

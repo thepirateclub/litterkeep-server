@@ -190,6 +190,15 @@ fn condition_valid(
     }
     match condition {
         Condition::Header { names, matcher } => string_match_valid(names, matcher),
+        Condition::String { .. } if !policy.variables => {
+            Err("variables extension must be required")
+        }
+        Condition::String { sources, matcher } => {
+            if sources.is_empty() {
+                return Err("empty sieve string source list");
+            }
+            string_match_valid(sources, matcher)
+        }
         Condition::Address {
             part: AddressPart::User | AddressPart::Detail,
             ..

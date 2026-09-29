@@ -10,6 +10,8 @@ use super::lexer::Token;
 use super::parser_values::{atom, expect, one_string, string_list, terminated_strings};
 #[path = "parser_actions.rs"]
 mod actions;
+#[path = "parser_string_test.rs"]
+mod string_test_parser;
 use std::collections::VecDeque;
 
 pub(super) fn parse(tokens: Vec<Token>) -> Result<Script, &'static str> {
@@ -125,6 +127,7 @@ fn condition(input: &mut VecDeque<Token>) -> Result<Condition, &'static str> {
             names: string_list(input)?,
         }),
         TestWord::Size => size(input),
+        TestWord::String => string_test_parser::parse(input),
         TestWord::Not => Ok(Condition::Not(Box::new(condition(input)?))),
         TestWord::AllOf => conditions(input, Condition::AllOf),
         TestWord::AnyOf => conditions(input, Condition::AnyOf),
@@ -188,7 +191,9 @@ fn envelope_part(value: String) -> Result<EnvelopePart, &'static str> {
 }
 
 /// Разбирает разрешённые match-tags без смешивания с аргументами test-а.
-fn match_options(input: &mut VecDeque<Token>) -> Result<(MatchType, Comparator), &'static str> {
+pub(super) fn match_options(
+    input: &mut VecDeque<Token>,
+) -> Result<(MatchType, Comparator), &'static str> {
     let mut kind = MatchType::Is;
     let mut selected_comparator = Comparator::AsciiCasemap;
     let mut has_kind = false;

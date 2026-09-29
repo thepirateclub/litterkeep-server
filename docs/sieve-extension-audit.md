@@ -16,7 +16,7 @@ IANA registry и не заменяет отдельные acceptance для ка
 | `subaddress` | RFC 3598 | Реализовано, рекламируется | Проверить все допустимые recipient-part варианты и межклиентские адресные соглашения. |
 | `copy` | RFC 3894 | Реализовано, рекламируется | Проверить комбинации с actions и доставкой на независимом профиле. |
 | `vacation-seconds` | RFC 6131 | Реализовано, рекламируется | Остальные границы vacation и взаимодействие с расширениями требуют отдельного профиля. |
-| `variables` | [RFC 5229](https://www.rfc-editor.org/rfc/rfc5229.html) | Есть capture-aware matcher state и отдельно тестируемое per-script store/one-pass expansion ядро; Sieve AST/actions не подключены, capability не рекламируется | Typed string templates, подключение expansion к каждой строковой позиции во время выполнения; `set` grammar/runtime; `string` test; modifier-ы; namespace validation и полный decimal capture-index. |
+| `variables` | [RFC 5229](https://www.rfc-editor.org/rfc/rfc5229.html) | Частично: `set` AST/parser/runtime, per-script store, modifiers, capture references и `string` test работают; capability не рекламируется | Расширение всех обычных string-позиций (header/address/envelope/exists аргументы, fileinto/redirect/vacation), quoting/encoded-character provenance, parser-time диагностика namespaces и end-to-end ManageSieve проверка. |
 | `body` | [RFC 5173](https://www.rfc-editor.org/rfc/rfc5173.html) | Не реализовано, не рекламируется | MIME-aware `:raw`, `:content`, `:text`; не допускать совпадений через границы частей и ограничить CPU/память. |
 | `reject`, `ereject` | [RFC 5429](https://www.rfc-editor.org/rfc/rfc5429.html) | Не реализовано, не рекламируется | Нужна Sieve evaluation до SMTP принятия DATA для protocol-level refusal; post-accept DSN не эквивалентен `ereject`. |
 | `imap4flags` | [RFC 5232](https://www.rfc-editor.org/rfc/rfc5232.html) | Не реализовано, не рекламируется | Реализовать `setflag`, `addflag`, `removeflag`, `hasflag` и `:flags` с durable mailbox flag mutation. |
@@ -38,7 +38,19 @@ T422 подключил эти результаты к per-script execution stat
 ошибочное сопоставление не перезаписывает состояние, а составные тесты
 сохраняют обязательные порядок слева направо и short-circuit.
 
-Это ещё не RFC 5229 implementation. До включения capability должны быть
+**Текущий остаток RFC 5229 после T435.** `set`, `string`, modifier-ы, один
+проход раскрытия, numeric captures с ведущими нулями, неизвестные имена и
+per-script scope теперь связаны с parser/runtime. `string` сохраняет пробелы,
+сравнивает оба списка, обновляет captures успешного `:matches` и участвует в
+short-circuit. Расширение всё ещё не рекламируется: обычные строки остальных
+условий и действий пока не раскрываются, а lexer теряет provenance backslash
+quoting и encoded-character. Namespace ошибки обнаруживаются во время runtime,
+не при загрузке скрипта. Нет полной conformance матрицы или независимой
+ManageSieve interoperability проверки.
+
+Историческая запись T421-T429 ниже описывает состояние на даты тех этапов;
+её выводы о полном отсутствии `set`/`string` superseded текущим статусом выше.
+До включения capability требовалось:
 реализованы интерпретация variable-ref за один проход (неизвестная переменная
 становится пустой строкой, некорректная ссылка остаётся как есть), case-
 insensitive имена, расширение только после обработки quoting/encoded-character,

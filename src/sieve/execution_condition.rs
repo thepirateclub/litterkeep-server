@@ -4,6 +4,7 @@ use super::ExecutionError;
 use crate::sieve::address;
 use crate::sieve::ast::{AddressPart, Condition, EnvelopePart, SizeRelation, StringMatch};
 use crate::sieve::matching::{self, MatchOutcome};
+use crate::sieve::variables::{VariableError, VariableStore};
 
 /// Неизменяемый контекст одного сообщения и его SMTP envelope.
 pub(super) struct MessageContext<'a> {
@@ -43,6 +44,7 @@ impl MatchVariables {
 pub(super) fn matches(
     condition: &Condition,
     context: &MessageContext<'_>,
+    store: &VariableStore,
     variables: &mut MatchVariables,
 ) -> Result<bool, ExecutionError> {
     match condition {
@@ -86,6 +88,9 @@ pub(super) fn matches(
             }
             Ok(false)
         }
+        Condition::String { sources, matcher } => {
+            string_matches(sources, matcher, store, variables)
+        }
         Condition::Exists { names } => Ok(names.iter().all(|name| {
             context
                 .headers
@@ -96,10 +101,10 @@ pub(super) fn matches(
             SizeRelation::Over => context.size > *limit,
             SizeRelation::Under => context.size < *limit,
         }),
-        Condition::Not(value) => Ok(!matches(value, context, variables)?),
+        Condition::Not(value) => Ok(!matches(value, context, store, variables)?),
         Condition::AllOf(values) => {
             for value in values {
-                if !matches(value, context, variables)? {
+                if !matches(value, context, store, variables)? {
                     return Ok(false);
                 }
             }
@@ -107,13 +112,46 @@ pub(super) fn matches(
         }
         Condition::AnyOf(values) => {
             for value in values {
-                if matches(value, context, variables)? {
+                if matches(value, context, store, variables)? {
                     return Ok(true);
                 }
             }
             Ok(false)
         }
     }
+}
+
+/// Раскрывает оба списка в точке теста и сохраняет capture только успешного ключа.
+fn string_matches(
+    sources: &[String],
+    matcher: &StringMatch,
+    store: &VariableStore,
+    variables: &mut MatchVariables,
+) -> Result<bool, ExecutionError> {
+    let captures = variables.octets().to_vec();
+    for source in sources {
+        let expanded_source = store
+            .expand_octets(source, &captures)
+            .map_err(variable_error)?;
+        for key in &matcher.keys {
+            let expanded_key = store
+                .expand_octets(key, &captures)
+                .map_err(variable_error)?;
+            let expanded_matcher = StringMatch {
+                match_type: matcher.match_type.clone(),
+                comparator: matcher.comparator.clone(),
+                keys: vec![expanded_key],
+            };
+            if match_value(&expanded_source, &expanded_matcher, variables)? {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
+fn variable_error(_error: VariableError) -> ExecutionError {
+    ExecutionError::VariableRuntime
 }
 
 fn address_matches(

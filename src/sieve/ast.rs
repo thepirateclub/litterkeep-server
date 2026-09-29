@@ -109,6 +109,10 @@ pub enum Condition {
         part: AddressPart,
         matcher: StringMatch,
     },
+    String {
+        sources: Vec<String>,
+        matcher: StringMatch,
+    },
     Exists {
         names: Vec<String>,
     },

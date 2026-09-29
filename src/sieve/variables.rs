@@ -106,6 +106,15 @@ impl VariableStore {
     pub fn expand(&self, source: &str, captures: &[String]) -> Result<String, VariableError> {
         expand(&self.values, source, CaptureSource::Strings(captures))
     }
+
+    /// Раскрывает обычный string argument с octet match captures по RFC 5229.
+    pub fn expand_octets(
+        &self,
+        source: &str,
+        captures: &[Vec<u8>],
+    ) -> Result<String, VariableError> {
+        expand(&self.values, source, CaptureSource::Octets(captures))
+    }
 }
 
 #[derive(Clone, Copy)]

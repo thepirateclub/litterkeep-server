@@ -53,3 +53,52 @@ fn referenced_non_utf8_octet_capture_fails_without_lossy_conversion() {
         Err(ExecutionError::VariableRuntime)
     );
 }
+
+#[test]
+fn string_test_expands_variables_and_preserves_script_whitespace() {
+    let source = "require \"variables\"; set \"state\" \"pending\"; if string :is \" ${state} \" \" pending \" { keep; } else { discard; }";
+    let script = parse(source).expect("valid string test");
+    let (plan, _) = execute_state(&script, &[], 0, "", "").expect("execute string test");
+
+    assert!(plan.keep);
+    assert!(!plan.discard);
+}
+
+#[test]
+fn string_matches_updates_captures_and_short_circuits_anyof() {
+    let script = parse(
+        "require \"variables\"; if anyof (true, string :matches \"invoice-42\" \"invoice-*\") { set \"capture\" \"${1}\"; }",
+    )
+    .expect("valid short-circuit script");
+    let (_, variables) = execute_state(&script, &[], 0, "", "").expect("execute test");
+    assert_eq!(variables.get("capture"), Some(""));
+
+    let script = parse(
+        "require \"variables\"; if string :matches \"invoice-42\" \"invoice-*\" { set \"capture\" \"${1}\"; }",
+    )
+    .expect("valid string capture script");
+    let (_, variables) = execute_state(&script, &[], 0, "", "").expect("execute capture");
+    assert_eq!(variables.get("capture"), Some("42"));
+}
+
+#[test]
+fn string_test_rejects_referenced_non_utf8_octet_capture() {
+    let script = parse(
+        "require \"variables\"; if header :matches \"Subject\" \"??\" { if string :is \"${1}\" \"x\" { keep; } }",
+    )
+    .expect("valid octet script");
+    let headers = vec![("Subject".to_owned(), "é".to_owned())];
+
+    assert_eq!(
+        execute_state(&script, &headers, 0, "", "").map(|_| ()),
+        Err(ExecutionError::VariableRuntime)
+    );
+}
+
+#[test]
+fn variable_runtime_error_uses_a_recoverable_durable_code() {
+    assert_eq!(
+        ExecutionError::from_code("variables-runtime-error"),
+        Some(ExecutionError::VariableRuntime)
+    );
+}

@@ -1,5 +1,24 @@
 # Goal ledger
 
+### 2026-09-29: G18 RFC 5229 `string` test, PARTIAL T435
+
+- Добавлен typed test `string` со списками source/key, общими match/comparator
+  tags, runtime expansion во время оценки и точным сохранением whitespace.
+  Успешный `:matches` обновляет те же byte match-variables; left-to-right
+  short-circuit не исполняет пропущенные тесты. `variables` обязателен.
+- Добавлены проверки exact whitespace и расширения переменных, list arguments,
+  capture extraction, short-circuit и ошибки запрошенного invalid UTF-8 capture.
+  Runtime diagnostic `variables-runtime-error` также теперь восстанавливается
+  из своего durable code. Windows Rust 1.97.1 all-target: 1 120 library + 1
+  CLI прошли, 4 ignored; strict Clippy, rustfmt, diff check прошли. Linux Docker
+  all-target: 1 246 library + 1 CLI прошли, 4 ignored; existing
+  `rust:1.97-bookworm`/Cargo cache reused, отдельный target
+  `./data/g18-rfc5229-string-target`, disposable `--rm`, image не создавался.
+  Это частичный RFC 5229 слой, не полный профиль.
+- ManageSieve пока не рекламирует `variables`: прочие строковые аргументы
+  условий/действий ещё не раскрываются, lexer не сохраняет escaping provenance,
+  а namespace errors не выявляются при загрузке script. G18 остаётся ACTIVE.
+
 ### 2026-09-29: G18 RFC 5229 Variables `set` parser and runtime, PARTIAL T434
 
 - `set` is now parsed into a typed action only when `variables` is required. The

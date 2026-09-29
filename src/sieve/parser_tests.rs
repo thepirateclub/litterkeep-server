@@ -56,6 +56,15 @@ fn variables_set_requires_capability_and_valid_constant_name() {
     assert!(parse("require \"variables\"; set :LeNgTh \"name\" \"value\";").is_ok());
 }
 
+#[test]
+fn variables_string_test_requires_extension_and_accepts_list_arguments() {
+    assert!(parse("if string \"source\" \"source\" { keep; }").is_err());
+    let script = parse(
+        "require \"variables\"; if string :matches [\" source \", \"other\"] [\"*source*\", \"none\"] { keep; }",
+    );
+    assert!(script.is_ok());
+}
+
 /// RFC 5228 требует объявления subaddress до использования address :user.
 #[test]
 fn subaddress_projection_requires_and_accepts_its_capability() {
