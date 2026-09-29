@@ -16,20 +16,19 @@ submission, IMAP и POP3; ManageSieve включён в общую команд�
 
 ## SMTP
 
-RFC 3461 `DSN` пока не рекламируется. MAIL `RET`/`ENVID` и RCPT
-`NOTIFY`/`ORCPT` разбираются в typed поля, но корректные параметризованные
-команды отвергаются ответом `555 5.5.4`: wire-путь не принимает их как
-доставку и не обещает DSN-семантику. Внутри SMTP transaction typed envelope
-уже проходит через DATA/BDAT и bounded request к единственному Store owner;
-Store сохраняет его в commit-linked sidecar и восстанавливает после reopen.
-Это внутреннее сохранение намерения отправителя, а не поддержка DSN на SMTP
-wire-пути.
+RFC 3461 `DSN` рекламируется через EHLO; независимые raw-socket peers
+подтвердили capability, принятие MAIL `RET`/`ENVID` и RCPT `NOTIFY`/`ORCPT`,
+завершение DATA и отказ этих параметров после HELO. Принятый typed envelope
+проходит через DATA/BDAT к единственному Store owner; Store сохраняет его в
+commit-linked sidecar и восстанавливает после reopen. Это доказывает wire
+negotiation и envelope persistence, но не полную семантику итоговых уведомлений
+для каждого маршрута или Litterkeep app interoperability.
 
 RFC 3461 требует применить запросы условий `NOTIFY`, возврата содержимого и
 корреляции envelope/получателя либо не заявлять о поддержке. Внутреннее
 планирование failure report после окончательного отказа и часть MIME-семантики
-уже реализованы и проверены, но только для очереди и Store owner, не через
-параметризованный SMTP wire-путь. Failure notice теперь сохраняется вместе с
+уже реализованы и проверены. Сочетание параметров SMTP wire-path с каждым
+итоговым сценарием доставки всё ещё покрыто частично. Failure notice теперь сохраняется вместе с
 terminal queue transition и восстанавливается после перезапуска; DSN append
 идемпотентен по committed Store transaction, а очередь очищает notice отдельным
 durable acknowledgement. Unit/failpoint tests и полный Windows/Linux suite
@@ -46,10 +45,11 @@ RCPT policy, discard и crash до commit. Если несколько RCPT ра
 сохраняет по каждому eligible RCPT ordinal; T402 проверяет оба ключа после
 reopen. Для outbound redirect queue route теперь хранит все source ordinals,
 если несколько RCPT того же локального mailbox сведены в одну Sieve evaluation.
-Recovery, deferred retry и DSN idempotency key сохраняют список. Однако Store
-пока прикрепляет к transport только policy первого ordinal, а failure DSN
-serializer формирует один per-recipient блок; полный multi-origin DSN остаётся
-GAP (T385/T404). EHLO `DSN` не рекламируется, SMTP DSN параметры отвергаются.
+Recovery, deferred retry и DSN idempotency key сохраняют список. Store
+восстанавливает typed metadata для каждого origin, а failure serializer
+формирует отдельный RFC 3464 recipient block для каждого origin, который имеет
+право на уведомление. Исторические T385/T404 ниже описывают checkpoint до этих
+исправлений, а не текущее поведение.
 Consumer доступен как typed bounded
 StorageWorker operation: он восстанавливает envelope и исходный blob, принимает
 существующий локальный sender account либо передаёт внешний reverse-path через
@@ -73,61 +73,57 @@ peer подтвердил `MAIL FROM:<>`, внешний RCPT, `Action: delivere
 процесса от 100 ms до 30 s и сбрасывает её после успешного прохода; deterministic
 unit tests проверяют границы и cap. Расписание повтора отдельного intent пока
 не durable и не сохраняется между перезапусками; dead-letter policy остаётся GAP.
-Delay report scheduling, полная сквозная семантика повторной доставки и RFC
-3461 wire negotiation остаются неподдержанными. RFC 3461 §5.2.3 требует
+Delay report scheduling, downstream SMTP parameter propagation и полная
+сквозная семантика повторной доставки остаются неподдержанными. RFC 3461 §5.2.3 требует
 `delivered` DSN при локальной доставке с `NOTIFY=SUCCESS`; RFC считает её
-успешной, когда письмо уже доступно для IMAP/POP retrieval. Текущая SMTP
-реализация DSN не рекламирует и корректные DSN-параметры отвергает, поэтому
-клиент не может запросить эту функцию по RFC 3461 wire-протоколу. Внутренние
+успешной, когда письмо уже доступно для IMAP/POP retrieval. SMTP принимает
+запросы по wire-протоколу, а committed SUCCESS intents создаются для локальной
+mailbox delivery. Задержанные уведомления пока не создаются, а relay-путь не
+передаёт RFC 3461 параметры следующему MTA. Внутренние
 typed delivered serializer, commit-linked success intent, Store-owner consumer
-и доставка отчёта локально/через явно настроенный relay реализованы, но не
-означают заявленную внешнему клиенту DSN capability.
+и доставка отчёта локально/через явно настроенный relay реализованы. Внешняя
+capability DSN объявлена и negotiation проверена T405, однако это частичная,
+не полная реализация RFC 3461.
 Независимый Linux wire
-peer подтвердил отсутствие capability, точный refusal-код для MAIL/RCPT и
-восстановление сессии; после добавления RFC 6533 xtext второй независимый Linux
-socket peer подтвердил тот же точный отказ `555 5.5.4` для `ORCPT=utf-8` и
-recovery через NOOP/RSET/QUIT. Отдельный Linux Store integration test подтвердил
+peer зафиксировал прежнее отсутствие capability и отказ MAIL/RCPT до включения
+расширения; более поздний T405 проверил текущую EHLO negotiation. Ранний
+независимый Linux socket peer также проверил отказ `555 5.5.4` для `ORCPT=utf-8`
+до включения wire-поддержки. Отдельный Linux Store integration test подтвердил
 durable round-trip typed envelope. RFC 6533 задаёт для `utf-8` ORCPT три разные
 формы xtext, unitext и native UTF-8 с разными условиями SMTPUTF8. Теперь
 внутренний parser декодирует 7-bit-safe `utf-8-addr-xtext` и
 `utf-8-addr-unitext`, проверяя результат как UTF-8 mailbox; sidecar v2 сохраняет
 его type и octets, а version 1 продолжает читаться. Parser сводит xtext и
 unitext к одному семантическому UTF-8 адресу, не сохраняя способ кодирования.
-Независимый Linux peer подтвердил
-точный отказ 555 5.5.4 отдельно для xtext и буквального Unicode unitext;
-это не wire support, DSN команды всё ещё отвергаются. Native UTF-8 form policy,
-SMTPUTF8-specific form constraints и уведомления о задержке остаются
-неподдержанными. Positive SUCCESS report реализован только для внутреннего
-commit-linked intent, не как доступная клиенту RFC 3461 capability.
+Независимый Linux peer подтвердил точный отказ 555 5.5.4 для xtext и буквального
+Unicode unitext до включения wire-поддержки; этот отказ является историческим.
+Native UTF-8 form policy и SMTPUTF8-specific form constraints остаются
+неполными. Уведомления о задержке не реализованы, downstream SMTP parameter
+propagation не проверена. Positive SUCCESS report доступен для поддерживаемых
+committed intents, запрошенных через SMTP `NOTIFY=SUCCESS`.
 
-Дополнительный аудит очереди выявил отдельный барьер перед wire acceptance:
-DSN sidecar хранит исходный envelope, а queue jobs теперь durable сохраняют
-ordinal исходного RCPT, из Sieve plan породившего redirect. Recovery regression
-проверяет два одинаковых конечных адреса с различными исходными RCPT. Это пока
-только связь для обычных отдельных mailbox-планов: повторные SMTP RCPT,
-сведённые в один локальный mailbox, по-прежнему выполняют Sieve один раз, и их
-несколько исходных ordinal не агрегируются в одном job. Scheduler теперь
-восстанавливает recipient-scoped policy из sidecar через transaction ID и
-ordinal и применяет failure часть NOTIFY: без параметра default failure report
-разрешён; NEVER и список условий без FAILURE его подавляют. Это проверено
-unit policy test и Store reopen test. Общая внутренняя eligibility policy теперь
-также покрывает SUCCESS/FAILURE/DELAY: default не запрашивает SUCCESS,
-разрешает обязательный FAILURE и допускает опциональный DELAY; явный список
-ограничивает outcome, NEVER подавляет всё. Три дополнительных unit-вектора
-проверяют эти правила. Это не генерация delivered/delayed reports и не wire
-acceptance: команды
-DSN по-прежнему отвергаются. Генератор внутренних failure reports теперь
-переносит `Original-Envelope-ID` и типизированный `Original-Recipient`,
+Исторические T385/T404 acceptance-записи фиксируют прежние контрольные точки,
+а не текущее состояние. Сейчас durable queue jobs сохраняют все исходные RCPT
+ordinal для сгруппированного redirect, Store восстанавливает typed DSN metadata
+каждого источника, а failure policy выбирает подходящие источники и
+сериализует отдельную RFC 3464 recipient-группу для каждого из них. T412 добавил
+регрессию для двух eligible FAILURE-источников и двух recipient-групп. T405
+независимо проверил wire negotiation, но multi-origin report подтверждён
+unit/Store тестами, не отдельным сетевым acceptance.
+Eligibility policy покрывает SUCCESS/FAILURE/DELAY: default не запрашивает
+SUCCESS, разрешает обязательный FAILURE и допускает опциональный DELAY; явный
+список ограничивает outcome, NEVER подавляет всё. Delay reports не генерируются.
+Генератор failure reports переносит `Original-Envelope-ID` и типизированный `Original-Recipient`,
 сохраняет отдельный `Final-Recipient`, соблюдает разделение per-message и
 per-recipient блоков, а при сохранённом `RET=HDRS` не включает тело письма.
 Для UTF-8 адресов используется RFC 6533 `message/global-delivery-status`, а
 для UTF-8 заголовков только `RET=HDRS` используется `message/global-headers`;
 ASCII-варианты используют стандартные DSN media types. Эти правила проверены
-unit regressions на Windows и Linux, но не независимым wire-клиентом.
-Задержанные reports, группировка нескольких RCPT и сквозная проверка
-параметров остаются GAP; `DSN` остаётся выключенным. Failure-report crash window
-закрыт durable intent и idempotent report key (T389), но независимый crash-kill
-runtime acceptance ещё не проводился.
+unit regressions на Windows и Linux; independent SMTP/IMAP acceptance ранее
+проверил один failure report, а T405 отдельно подтвердил DSN negotiation.
+Задержанные reports и полная downstream relay семантика остаются GAP. Failure-
+report crash window закрыт durable intent и idempotent report key (T389), но
+независимый crash-kill runtime acceptance ещё не проводился.
 RFC 3461 §§4.3, 5.2.6, 5.2.7 и 6 описывает эти требования.
 См. [RFC 3461](https://www.rfc-editor.org/rfc/rfc3461.html).
 
@@ -137,9 +133,10 @@ RFC 3461 §§4.3, 5.2.6, 5.2.7 и 6 описывает эти требовани
 путь ManageSieve STARTTLS redirect, SMTP submission, файловая очередь, ответ
 внешнего peer `550 5.1.1`, возврат через RSET/QUIT и чтение созданного failure
 DSN стандартным IMAP STARTTLS клиентом из Alice INBOX. Клиент проверяет MIME
-report type, `Action: failed` и точное поле `Final-Recipient`. Проверен
-RFC 3464 generated-report field syntax, но не RFC 3461 ESMTP negotiation или
-запросная семантика: capability `DSN` по-прежнему не рекламируется.
+report type, `Action: failed` и точное поле `Final-Recipient`. Этот сценарий
+проверяет generated-report syntax и чтение через IMAP, а T405 отдельно
+проверяет RFC 3461 ESMTP negotiation. Их сочетание пока не доказывает полный
+объём условий и downstream relay семантики.
 См. [RFC 3464 §2.3.2](https://www.rfc-editor.org/rfc/rfc3464.html#section-2.3.2).
 
 Submission поддерживает implicit TLS и STARTTLS, EHLO, AUTH PLAIN, MAIL SIZE,

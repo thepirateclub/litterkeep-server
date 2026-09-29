@@ -1,5 +1,24 @@
 # Goal ledger
 
+### 2026-09-29: G18 RFC 3464 multi-origin failure groups, PARTIAL T412
+
+- Добавлена unit-регрессия сериализатора: для двух исходных RCPT с явным
+  `NOTIFY=FAILURE` один failure DSN содержит две отдельные recipient-группы,
+  оба `Original-Recipient` и один общий `Original-Envelope-ID`.
+- Точечный `cargo test --lib failure_report_keeps_every_origin_recipient_group`
+  и группа `cargo test --lib dsn_report` прошли. Полный Windows Rust 1.97.1
+  all-target: 1063 library + 1 CLI, 4 ignored. Полный Linux Rust 1.97.1:
+  1187 library + 1 CLI, 4 ignored. Строгий Clippy, rustfmt и `git diff --check`
+  прошли.
+- Исправлена актуальная RFC-сводка: T385/T404 обозначены историческими
+  checkpoint-ами; multi-origin report теперь описан как реализованный и
+  проверенный unit/Store тестами. Независимая wire acceptance нескольких
+  report-групп ещё не проводилась. Delay DSN и downstream SMTP parameter
+  propagation остаются GAP; T385/G18 остаётся PARTIAL.
+- Linux прогон использовал существующий `rust:1.97-bookworm`, `./data` и
+  отдельный `./data/g35-dsn-groups-target`. Одноразовый контейнер с `--rm`
+  удалён; новых Docker images не создавалось.
+
 ### 2026-09-29: G20 owned client-first SCRAM transcript, PARTIAL T411
 
 - Добавлены consuming parser-ы SCRAM client-first. POP3 и ManageSieve передают

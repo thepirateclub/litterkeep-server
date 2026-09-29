@@ -294,3 +294,6 @@ fn contains(haystack: &[u8], needle: &[u8]) -> bool {
 
 #[path = "dsn_report_ret_full_tests.rs"]
 mod ret_full_tests;
+
+#[path = "dsn_report_multi_origin_tests.rs"]
+mod multi_origin_tests;
