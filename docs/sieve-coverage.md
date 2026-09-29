@@ -5,6 +5,10 @@ keep/discard, header/address/size tests и diagnostics. ManageSieve поддер
 STARTTLS, SASL PLAIN, SCRAM-SHA-1 and SCRAM-SHA-256, literals, CHECKSCRIPT, PUTSCRIPT, LISTSCRIPTS, GETSCRIPT,
 SETACTIVE, DELETESCRIPT и RENAMESCRIPT.
 
+Выверенный список рекламируемых extensions и выбранные gaps современных RFC
+сведены в [отдельный inventory](sieve-extension-audit.md); capability не
+объявляет неподдержанные actions/tests.
+
 RFC 5804 §2.1 string initial-response для AUTHENTICATE PLAIN теперь принимает
 и в bounded client-to-server literal форме. Literal проходит через ту же
 TLS-before-auth политику; независимая Linux проверка до TLS подтверждает

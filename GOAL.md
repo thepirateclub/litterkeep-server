@@ -1,5 +1,20 @@
 # Goal ledger
 
+### 2026-09-29: G12 modern Sieve extension inventory, PARTIAL T419
+
+- Сверен фактический `SIEVE` capability ManageSieve с текущими источниками:
+  `fileinto subaddress envelope copy vacation vacation-seconds`. Создан отдельный
+  RFC inventory выбранных современных расширений, которые не рекламируются и
+  не должны приниматься за реализованные: Variables, Body, Reject/Ereject,
+  IMAP4flags, IMAP events, mailboxid, Mailbox metadata и Special-use delivery.
+- Для каждого gap зафиксирована техническая граница следующего этапа; в
+  частности `ereject` требует отказа в SMTP до принятия DATA и не может быть
+  подменён поздним DSN после доставки в Store.
+- Это аудит покрытия документацией, не реализация этих расширений и не PASS.
+  RFC Editor подтверждает обновления RFC 5228 документами RFC 5229, 5429, 6785
+  и 9042; полный IANA Sieve registry и все сочетания extensions ещё не проверены.
+  T419 PARTIAL, G12 ACTIVE.
+
 ### 2026-09-29: G18 delayed DSN same-drain SMTP acceptance, PARTIAL T418
 
 - Расширен Linux Store/outbound-service peer test: первый SMTP `421` переводит
