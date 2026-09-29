@@ -20,6 +20,24 @@ fn copy_actions_preserve_implicit_keep_and_require_the_extension() {
     assert!(parse("redirect :copy \"remote@peer.test\";").is_err());
 }
 
+/// RFC 5228 требует нечувствительности tagged arguments к ASCII-регистру.
+#[test]
+fn copy_tag_is_ascii_case_insensitive_for_both_actions() {
+    let fileinto = parse("require [\"fileinto\", \"copy\"]; fileinto :CoPy \"Archive\";")
+        .expect("mixed-case fileinto copy parses");
+    let redirect = parse("require \"copy\"; redirect :COPY \"remote@peer.test\";")
+        .expect("uppercase redirect copy parses");
+
+    assert_eq!(
+        execute(&fileinto, &[], 0).expect("execute").folders,
+        vec!["Archive"]
+    );
+    assert_eq!(
+        execute(&redirect, &[], 0).expect("execute").redirects,
+        vec!["remote@peer.test"]
+    );
+}
+
 /// Следующий `discard` по-прежнему отменяет implicit keep после копирования.
 #[test]
 fn fileinto_copy_does_not_change_following_rule_semantics() {

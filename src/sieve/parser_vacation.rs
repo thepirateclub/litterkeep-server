@@ -18,7 +18,7 @@ enum Parameter {
 
 /// Преобразует wire tags в Enum до проверки повторов и значений.
 fn parameter(value: &str) -> Option<Parameter> {
-    match value {
+    match value.to_ascii_lowercase().as_str() {
         ":days" => Some(Parameter::Days),
         ":seconds" => Some(Parameter::Seconds),
         ":subject" => Some(Parameter::Subject),

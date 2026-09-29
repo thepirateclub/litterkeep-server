@@ -54,6 +54,9 @@ mod vacation_mime;
 #[path = "sieve/vacation_policy.rs"]
 mod vacation_policy;
 #[cfg(test)]
+#[path = "sieve/vacation_tag_case_tests.rs"]
+mod vacation_tag_case_tests;
+#[cfg(test)]
 #[path = "sieve/vacation_tests.rs"]
 mod vacation_tests;
 #[path = "sieve/validate.rs"]

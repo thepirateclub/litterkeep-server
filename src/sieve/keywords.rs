@@ -93,7 +93,8 @@ pub(super) enum CapabilityWord {
 impl CapabilityWord {
     /// Распознаёт идентификатор расширения, не меняя исходное неизвестное имя.
     pub(super) fn parse(value: &str) -> Self {
-        match value.to_ascii_lowercase().as_str() {
+        // RFC 5228 §6.1 делает capability string регистрозависимым.
+        match value {
             "fileinto" => Self::FileInto,
             "copy" => Self::Copy,
             "subaddress" => Self::Subaddress,
@@ -113,6 +114,23 @@ pub(super) enum MatchTag {
     Matches,
     Comparator,
     Unknown,
+}
+
+/// Tagged argument RFC 3894 :copy для delivery actions.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum CopyTag {
+    Copy,
+    Unknown,
+}
+
+impl CopyTag {
+    /// Разбирает тег без учёта ASCII-регистра, как требует грамматика Sieve.
+    pub(super) fn parse(value: &str) -> Self {
+        match value.to_ascii_lowercase().as_str() {
+            ":copy" => Self::Copy,
+            _ => Self::Unknown,
+        }
+    }
 }
 
 impl MatchTag {

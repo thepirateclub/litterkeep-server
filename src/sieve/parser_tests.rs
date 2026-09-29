@@ -81,13 +81,13 @@ fn require_declarations_must_precede_every_command() {
 /// Проверяет ASCII-регистр у синтаксических токенов, но не у строковых данных.
 #[test]
 fn syntax_tokens_ignore_case_while_string_values_remain_exact() {
-    let source = "REQUIRE \"FiLeInTo\"; IF HEADER :IS :COMPARATOR \"I;ASCII-CASEMAP\" \"Subject\" \"Invoice\" { FILEINTO \"Invoices/2026\"; } eLsE { KEEP; }";
+    let source = "REQUIRE \"fileinto\"; IF HEADER :IS :COMPARATOR \"i;ascii-casemap\" \"Subject\" \"Invoice\" { FILEINTO \"Invoices/2026\"; } eLsE { KEEP; }";
     let script = parse(source).expect("case-insensitive syntax");
     let plan = execute(&script, &[("Subject".into(), "Invoice".into())], 0)
         .expect("execute matching header");
     assert_eq!(plan.folders.as_slice(), &["Invoices/2026"]);
     assert!(parse("IF HEADER :IS \"subject\" \"invoice\" { KEEP; }").is_ok());
-    assert!(parse("REQUIRE \"FILEINTO\"; FILEINTO \"Invoices\";").is_ok());
+    assert!(parse("REQUIRE \"FILEINTO\"; FILEINTO \"Invoices\";").is_err());
 }
 
 /// Address tags и comparator names также являются case-insensitive tokens.

@@ -11935,6 +11935,21 @@ ManageSieve до заявленного набора современных фо
   прошли, 4 пропущены. Переиспользованы существующий образ и `./data`; контейнер
   запущен с `--rm`, образ не создавался. Linux Clippy/rustfmt в образе отсутствуют.
 
+### 2026-09-29: G18 Sieve case-insensitive tagged arguments, T431 PARTIAL
+
+- RFC 5228 §2.1 и §8.1 устанавливает нечувствительность syntax tokens кроме
+  строк; §6.1 отдельно делает capability identifiers регистрозависимыми.
+  Исправлен wire parsing `:copy` у `fileinto`/`redirect` и параметров RFC 5230
+  `vacation`; parser теперь также отвергает неверный регистр capability.
+- Новые mixed-case регрессии подтверждают успешный parse и ожидаемый delivery
+  plan. Проверки: copy 3/3, vacation 16/16, capability 2/2; Windows all-target
+  1 104 library и 1 CLI прошли, 4 ignored; strict Clippy, rustfmt и diff check прошли.
+  Linux Docker на существующем rust:1.97-bookworm: 1 230 library и 1 CLI прошли,
+  4 ignored; контейнер `--rm`, без создания образа, target в `./data`.
+- Исправление покрывает только эти tags, vacation parameters и точность
+  capability identifiers, не весь Sieve grammar и не RFC 5229 Variables; G18
+  остаётся ACTIVE.
+
 ### 2026-09-29: G18 RFC 5229 implementation-boundary audit, T423 PARTIAL
 
 - Rechecked the current Variables design against the RFC Editor's RFC 5229 text.
