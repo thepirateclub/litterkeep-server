@@ -11837,3 +11837,17 @@ ManageSieve до заявленного набора современных фо
 - This is runtime capture state only. Sieve `set`, interpolation, modifiers,
   string test, advertised Variables capability, and full RFC 5229 conformance
   remain unimplemented; G18 stays ACTIVE.
+
+### 2026-09-29: G18 RFC 5229 implementation-boundary audit, T423 PARTIAL
+
+- Rechecked the current Variables design against the RFC Editor's RFC 5229 text.
+  The extension is still not advertised. The audit now records single-pass
+  reference expansion, case-insensitive names, quoting/encoded-character order,
+  runtime-at-command expansion, unknown-reference behavior, `set` restrictions,
+  `string` semantics, modifier precedence, and minimum implementation limits.
+- The audit explicitly requires `${0}` and `${1}`..`${9}`, rejects unsupported
+  higher capture indices, and calls out Unicode character-length behavior and
+  bounded expansion as acceptance criteria before capability advertisement.
+- Documentation-only checkpoint. No protocol conformance or runtime support is
+  claimed; code tests were not rerun because no code remains changed in this
+  checkpoint. G18 stays ACTIVE.
