@@ -58,7 +58,7 @@ pub(super) fn client_first(session: &mut Session, encoded: &str) -> Reply {
     let Some(message) = decode(encoded) else {
         return reject(session, "authentication failed");
     };
-    let client = match scram_client_first::parse(&message) {
+    let client = match scram_client_first::parse_owned(message) {
         Ok(client) => client,
         Err(_) => return reject(session, "authentication failed"),
     };

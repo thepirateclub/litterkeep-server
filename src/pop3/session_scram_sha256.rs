@@ -54,7 +54,7 @@ pub(super) fn client_first(session: &mut Session, encoded: &str, plus: bool) -> 
     let Some(message) = decode(encoded) else {
         return reject(session, "authentication failed");
     };
-    let client = match parse_client_first(&message, plus) {
+    let client = match parse_client_first(message, plus) {
         Ok(client) => client,
         Err(_) => return reject(session, "authentication failed"),
     };
@@ -176,12 +176,12 @@ fn expected_channel_binding(exchange: &Exchange) -> Option<Vec<u8>> {
 
 /// Не допускает смешения обычного SCRAM и channel-binding GS2 заголовков.
 fn parse_client_first(
-    message: &str,
+    message: String,
     plus: bool,
 ) -> Result<ClientFirst, scram_client_first::ClientFirstError> {
     match plus {
-        true => scram_client_first::parse_tls_exporter(message),
-        false => scram_client_first::parse(message),
+        true => scram_client_first::parse_tls_exporter_owned(message),
+        false => scram_client_first::parse_owned(message),
     }
 }
 

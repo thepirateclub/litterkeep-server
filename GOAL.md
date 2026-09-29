@@ -1,5 +1,23 @@
 # Goal ledger
 
+### 2026-09-29: G20 owned client-first SCRAM transcript, PARTIAL T411
+
+- Добавлены consuming parser-ы SCRAM client-first. POP3 и ManageSieve передают
+  владение уже декодированным `String`; GS2 prefix удаляется на месте, client
+  nonce хранится как диапазон внутри bare transcript. Большой client-first
+  больше не копируется целиком вместе с отдельной копией nonce.
+- Регрессия на 2 MiB проверяет pointer identity исходной allocation, bare
+  transcript и nonce. Windows Rust 1.97.1 all-target: 1062 library + 1 CLI
+  passed, 4 ignored; Linux Rust 1.97.1 all-target: 1186 library + 1 CLI passed,
+  4 ignored. 56 SCRAM-тестов, строгий Clippy, fmt и diff-check прошли.
+- Независимый Linux POP3 TLS peer снова завершил SCRAM-SHA-256 на 2 MiB nonce,
+  проверил server signature и выполнил STAT/QUIT. Пиковая память всего сетевого
+  стека не измерялась; этот результат не доказывает общий верхний предел
+  доступной памяти или поведение при allocator failure. Litterkeep app interop
+  не заявляется.
+- Использованы существующий `rust:1.97-bookworm` и `./data`; disposable listener
+  автоматически удалён, Docker image не создавался.
+
 ### 2026-09-29: G20 borrowed SCRAM attributes and transcript, PARTIAL T410
 
 - SCRAM attribute values теперь заимствуются из исходного сообщения вместо

@@ -24,7 +24,7 @@ fn secure_challenges_are_unique_and_keep_nonce_printable() {
     let second = ServerFirst::create(&client, &credential).expect("secure challenge");
 
     assert_ne!(first.nonce, second.nonce);
-    assert!(first.nonce.starts_with(&client.nonce));
+    assert!(first.nonce.starts_with(client.nonce()));
     assert!(
         first
             .nonce
@@ -44,12 +44,8 @@ fn rejects_empty_or_nonprintable_server_nonce_suffix() {
 
 /// Создаёт фиксированные client-first поля для изолированного challenge теста.
 fn client_first() -> ClientFirst {
-    ClientFirst {
-        username: "alice".to_owned(),
-        nonce: "clientNonce-".to_owned(),
-        client_first_bare: "n=alice,r=clientNonce-".to_owned(),
-        gs2_header: crate::sasl::scram_client_first::Gs2Header::NoChannelBinding,
-    }
+    crate::sasl::scram_client_first::parse("n,,n=alice,r=clientNonce-")
+        .expect("client-first transcript")
 }
 
 /// Получает SCRAM verifier без тестовых обходов закрытых ключей.

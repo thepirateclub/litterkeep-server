@@ -6,7 +6,7 @@ fn parses_rfc_example_shape_and_retains_exact_authentication_transcript() {
     let wire = "n,,n=user,r=fyko+d2lbbFgONRv9qkxdawL";
     let parsed = parse(wire).expect("client-first message");
     assert_eq!(parsed.username, "user");
-    assert_eq!(parsed.nonce, "fyko+d2lbbFgONRv9qkxdawL");
+    assert_eq!(parsed.nonce(), "fyko+d2lbbFgONRv9qkxdawL");
     assert_eq!(
         parsed.client_first_bare,
         "n=user,r=fyko+d2lbbFgONRv9qkxdawL"
@@ -17,8 +17,26 @@ fn parses_rfc_example_shape_and_retains_exact_authentication_transcript() {
 fn ignores_optional_extensions_without_changing_the_authentication_transcript() {
     let parsed = parse("n,,n=user,r=clientNonce,x=optional").expect("optional extension");
     assert_eq!(parsed.username, "user");
-    assert_eq!(parsed.nonce, "clientNonce");
+    assert_eq!(parsed.nonce(), "clientNonce");
     assert_eq!(parsed.client_first_bare, "n=user,r=clientNonce,x=optional");
+}
+
+#[test]
+fn owned_large_client_first_reuses_transcript_allocation_for_nonce() {
+    let wire = format!("n,,n=user,r={}", "A".repeat(2 * 1024 * 1024));
+    let expected_allocation = wire.as_ptr();
+    let expected_nonce_offset = wire.find("r=").expect("nonce attribute") + 2;
+    let parsed = parse_owned(wire).expect("large owned client-first");
+
+    assert!(std::ptr::eq(
+        parsed.client_first_bare.as_ptr(),
+        expected_allocation
+    ));
+    assert!(std::ptr::eq(
+        parsed.nonce().as_ptr(),
+        expected_allocation.wrapping_add(expected_nonce_offset - 3)
+    ));
+    assert_eq!(parsed.nonce().len(), 2 * 1024 * 1024);
 }
 
 #[test]

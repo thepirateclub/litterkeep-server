@@ -1446,8 +1446,11 @@ client-first state всё ещё требуют память,
 attribute parser переведён на borrowed slices, final parser хранит unsigned
 transcript как срез, а AuthMessage копируется только один раз в выходной буфер.
 Регрессия pointer identity подтверждает отсутствие копии отдельного 2 MiB
-атрибута. Это сокращает временные копии, но не peak-memory footprint всего
-обмена. RFC 5802
+атрибута. В T411 POP3 и ManageSieve также передают владение decoded client-first
+строкой; GS2 prefix сдвигается на месте, а nonce становится диапазоном внутри
+сохранённого bare transcript, без отдельной копии. 2 MiB pointer-identity test и
+повторный независимый TLS proof acceptance проходят. Это сокращает копии
+transcript-а, но peak-memory footprint всего обмена не измерялся. RFC 5802
 §5.1 не задаёт максимальную длину nonce, поэтому T377 теперь PARTIAL, а не
 PASS; крайние размеры, ограничение совокупной памяти и отказ allocator-а
 требуют дальнейшего отдельного аудита.

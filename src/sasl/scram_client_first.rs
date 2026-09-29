@@ -5,9 +5,18 @@ use super::scram_attributes::{self, AttributeName, ParseError};
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClientFirst {
     pub username: String,
-    pub nonce: String,
     pub client_first_bare: String,
+    nonce_range: std::ops::Range<usize>,
     pub gs2_header: Gs2Header,
+}
+
+impl ClientFirst {
+    /// Возвращает nonce как срез общего client-first transcript без копирования.
+    pub fn nonce(&self) -> &str {
+        self.client_first_bare
+            .get(self.nonce_range.clone())
+            .expect("nonce range is validated while parsing client-first")
+    }
 }
 
 /// Поддерживаемые GS2 header варианты после строгого разбора client-first.
@@ -32,7 +41,12 @@ pub fn parse(message: &str) -> Result<ClientFirst, ClientFirstError> {
     let bare = message
         .strip_prefix("n,,")
         .ok_or(ClientFirstError::UnsupportedGs2Header)?;
-    parse_bare(bare, Gs2Header::NoChannelBinding)
+    parse_bare(bare.to_owned(), Gs2Header::NoChannelBinding)
+}
+
+/// Принимает во владение уже декодированное сообщение без копии большого nonce.
+pub fn parse_owned(message: String) -> Result<ClientFirst, ClientFirstError> {
+    parse_owned_with_prefix(message, "n,,", Gs2Header::NoChannelBinding)
 }
 
 /// Принимает только RFC 7677 PLUS GS2 header без authzid.
@@ -40,11 +54,29 @@ pub fn parse_tls_exporter(message: &str) -> Result<ClientFirst, ClientFirstError
     let bare = message
         .strip_prefix("p=tls-exporter,,")
         .ok_or(ClientFirstError::UnsupportedGs2Header)?;
-    parse_bare(bare, Gs2Header::TlsExporter)
+    parse_bare(bare.to_owned(), Gs2Header::TlsExporter)
 }
 
-fn parse_bare(bare: &str, gs2_header: Gs2Header) -> Result<ClientFirst, ClientFirstError> {
-    let attributes = scram_attributes::parse(bare).map_err(ClientFirstError::Attributes)?;
+/// Принимает во владение PLUS transcript после проверки точного GS2 header.
+pub fn parse_tls_exporter_owned(message: String) -> Result<ClientFirst, ClientFirstError> {
+    parse_owned_with_prefix(message, "p=tls-exporter,,", Gs2Header::TlsExporter)
+}
+
+/// Удаляет только известный GS2 prefix на месте и передаёт владение bare полем.
+fn parse_owned_with_prefix(
+    mut message: String,
+    prefix: &str,
+    gs2_header: Gs2Header,
+) -> Result<ClientFirst, ClientFirstError> {
+    if !message.starts_with(prefix) {
+        return Err(ClientFirstError::UnsupportedGs2Header);
+    }
+    message.drain(..prefix.len());
+    parse_bare(message, gs2_header)
+}
+
+fn parse_bare(bare: String, gs2_header: Gs2Header) -> Result<ClientFirst, ClientFirstError> {
+    let attributes = scram_attributes::parse(&bare).map_err(ClientFirstError::Attributes)?;
     let fields = match attributes.as_slice() {
         [username, nonce, extensions @ ..]
             if username.name == AttributeName::Username
@@ -62,10 +94,13 @@ fn parse_bare(bare: &str, gs2_header: Gs2Header) -> Result<ClientFirst, ClientFi
         crate::sasl::saslprep::prepare(&username, crate::sasl::saslprep::SaslPrepContext::Query)
             .map_err(|_| ClientFirstError::InvalidUsername)?;
     validate_nonce(fields.1)?;
+    let nonce_start = fields.1.as_ptr() as usize - bare.as_ptr() as usize;
+    let nonce_end = nonce_start + fields.1.len();
+    drop(attributes);
     Ok(ClientFirst {
         username: prepared,
-        nonce: fields.1.to_owned(),
-        client_first_bare: bare.to_owned(),
+        client_first_bare: bare,
+        nonce_range: nonce_start..nonce_end,
         gs2_header,
     })
 }

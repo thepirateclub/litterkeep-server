@@ -21,7 +21,7 @@ pub fn create(client: &ClientFirst, credential: &ScramSha256Record) -> io::Resul
         .fill(&mut entropy)
         .map_err(|_| io::Error::other("SCRAM nonce generation failed"))?;
     let suffix = crate::sasl::encode_base64(&entropy);
-    let nonce = format!("{}{suffix}", client.nonce);
+    let nonce = format!("{}{suffix}", client.nonce());
     let salt = crate::sasl::encode_base64(credential.salt());
     let message = format!("r={nonce},s={salt},i={}", credential.iterations());
     Ok(ServerFirst { nonce, message })

@@ -16,7 +16,7 @@ pub(super) fn start_lookup(
         Some(message) => message,
         None => return invalid_first(session),
     };
-    let client_first = match crate::sasl::scram_client_first::parse(&message) {
+    let client_first = match crate::sasl::scram_client_first::parse_owned(message) {
         Ok(client_first) => client_first,
         Err(_) => return invalid_first(session),
     };
@@ -51,8 +51,8 @@ pub(super) fn start_sha256_lookup(
         None => return invalid_first(session),
     };
     let parsed_client_first = match channel_binding {
-        Some(_) => crate::sasl::scram_client_first::parse_tls_exporter(&message),
-        None => crate::sasl::scram_client_first::parse(&message),
+        Some(_) => crate::sasl::scram_client_first::parse_tls_exporter_owned(message),
+        None => crate::sasl::scram_client_first::parse_owned(message),
     };
     let client_first = match parsed_client_first {
         Ok(client_first) => client_first,

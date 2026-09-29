@@ -31,7 +31,7 @@ impl ServerFirst {
         suffix: &str,
     ) -> io::Result<Self> {
         validate_nonce_suffix(suffix)?;
-        let nonce = format!("{}{suffix}", client.nonce);
+        let nonce = format!("{}{suffix}", client.nonce());
         let salt = crate::sasl::encode_base64(credential.salt());
         let message = format!("r={nonce},s={salt},i={}", credential.iterations());
         Ok(Self { nonce, message })
