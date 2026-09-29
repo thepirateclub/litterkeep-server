@@ -135,3 +135,22 @@ fn ordinary_conditions_do_not_expand_without_variables_requirement() {
 
     assert!(plan.discard);
 }
+
+#[test]
+fn fileinto_expands_target_and_revalidates_mailbox_segments() {
+    let script = parse(
+        "require [\"variables\", \"fileinto\"]; set \"folder\" \"Invoices/2026\"; fileinto \"${folder}\";",
+    )
+    .expect("valid expanded fileinto target");
+    let (plan, _) = execute_state(&script, &[], 0, "", "").expect("execute fileinto");
+    assert_eq!(plan.folders, vec!["Invoices/2026"]);
+
+    let unsafe_script = parse(
+        "require [\"variables\", \"fileinto\"]; set \"folder\" \"../outside\"; fileinto \"${folder}\";",
+    )
+    .expect("static template contains no traversal segment");
+    assert_eq!(
+        execute_state(&unsafe_script, &[], 0, "", "").map(|_| ()),
+        Err(ExecutionError::VariableRuntime)
+    );
+}

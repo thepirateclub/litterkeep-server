@@ -244,7 +244,7 @@ fn matcher_keys_valid(matcher: &super::ast::StringMatch) -> Result<(), &'static 
     Ok(())
 }
 
-fn safe_name(name: &str) -> bool {
+pub(super) fn safe_name(name: &str) -> bool {
     if name.is_empty() {
         return false;
     }

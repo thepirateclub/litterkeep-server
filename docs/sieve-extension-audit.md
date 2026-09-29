@@ -44,8 +44,10 @@ per-script scope теперь связаны с parser/runtime. `string` сох�
 сравнивает оба списка, обновляет captures успешного `:matches` и участвует в
 short-circuit. Условия `header`, `address`, `envelope` и `exists` раскрывают
 свои string arguments непосредственно перед оценкой, только если требуется
-`variables`. Расширение всё ещё не рекламируется: динамические аргументы
-действий `fileinto`, `redirect`, `vacation` пока не раскрываются, а lexer теряет provenance backslash
+`variables`. `fileinto` targets также раскрываются при выполнении и проходят
+повторную path-segment validation. Расширение всё ещё не рекламируется:
+динамические аргументы действий `redirect` и `vacation` пока не раскрываются,
+а lexer теряет provenance backslash
 quoting и encoded-character. Namespace ошибки обнаруживаются во время runtime,
 не при загрузке скрипта. Нет полной conformance матрицы или независимой
 ManageSieve interoperability проверки.

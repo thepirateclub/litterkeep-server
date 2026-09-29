@@ -1,5 +1,19 @@
 # Goal ledger
 
+### 2026-09-29: G18 RFC 5229 dynamic `fileinto` target, PARTIAL T437
+
+- `fileinto` и `fileinto :copy` раскрывают mailbox string при достижении action
+  в script с `require "variables"`. После expansion повторно проверяются
+  mailbox path segments, так что переменная не обходит запрет пустых сегментов
+  и traversal `.`/`..`. Без Variables сохраняется исходный буквальный target.
+- Регрессия проверяет `Invoices/2026` и запрещённый `${folder} -> ../outside`.
+  Windows Rust 1.97.1 all-target: 1 123 library + 1 CLI прошли, 4 ignored;
+  strict Clippy, rustfmt и diff-check прошли. Linux Docker all-target: 1 249
+  library + 1 CLI прошли, 4 ignored; existing image/cache, отдельный target
+  `./data/g18-rfc5229-fileinto-target`, container `--rm`, image не создавался.
+- Динамические `redirect` и `vacation` строки ещё не подключены; Variables
+  capability не рекламируется. G18 остаётся ACTIVE.
+
 ### 2026-09-29: G18 RFC 5229 ordinary condition-string expansion, PARTIAL T436
 
 - Подключено раскрытие string arguments в `header`, `address`, `envelope` и

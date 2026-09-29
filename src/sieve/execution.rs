@@ -4,6 +4,8 @@ use super::ast::{Action, Capability, Command, Script, VacationAction};
 use super::variables::{VariableError, VariableStore};
 #[path = "execution_condition.rs"]
 mod condition;
+#[path = "execution_dynamic.rs"]
+mod dynamic;
 use std::fmt;
 
 /// Максимум redirect действий за одну оценку Sieve script.
@@ -88,6 +90,7 @@ struct ExecutionState {
     keep_state: KeepState,
     match_variables: condition::MatchVariables,
     variables: VariableStore,
+    variables_enabled: bool,
 }
 
 /// Запускает script над заголовками и исходным размером с fixed budget команд.
@@ -131,6 +134,10 @@ fn execute_state(
         keep_state: KeepState::Implicit,
         match_variables: condition::MatchVariables::default(),
         variables: VariableStore::default(),
+        variables_enabled: script
+            .requires
+            .iter()
+            .any(|capability| matches!(capability, Capability::Variables)),
     };
     let context = condition::MessageContext {
         headers,
@@ -193,10 +200,20 @@ fn apply(action: &Action, state: &mut ExecutionState) -> Result<(), ExecutionErr
             state.plan.discard = true;
         }
         Action::FileInto(folder) => {
+            let folder = dynamic::expand(folder, state)?;
+            if !super::validate::safe_name(&folder) {
+                return Err(ExecutionError::VariableRuntime);
+            }
             cancel_implicit_keep(state);
-            state.plan.folders.push(folder.clone());
+            state.plan.folders.push(folder);
         }
-        Action::FileIntoCopy(folder) => state.plan.folders.push(folder.clone()),
+        Action::FileIntoCopy(folder) => {
+            let folder = dynamic::expand(folder, state)?;
+            if !super::validate::safe_name(&folder) {
+                return Err(ExecutionError::VariableRuntime);
+            }
+            state.plan.folders.push(folder);
+        }
         Action::Redirect(address) => {
             if state.plan.redirects.len() >= MAX_REDIRECTS_PER_EVALUATION {
                 return Err(ExecutionError::RedirectLimit);
