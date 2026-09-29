@@ -102,3 +102,36 @@ fn variable_runtime_error_uses_a_recoverable_durable_code() {
         Some(ExecutionError::VariableRuntime)
     );
 }
+
+#[test]
+fn header_exists_address_and_envelope_expand_arguments_at_test_time() {
+    let script = parse(
+        "require [\"variables\", \"envelope\"]; set \"header_name\" \"Subject\"; set \"wanted\" \"Invoice\"; set \"recipient_field\" \"To\"; set \"recipient\" \"alice@example.test\"; if header :is \"${header_name}\" \"${wanted}\" { if exists \"${header_name}\" { if address :is \"${recipient_field}\" \"${recipient}\" { if envelope :is \"to\" \"${recipient}\" { keep; } } } } else { discard; }",
+    )
+    .expect("valid expanded-condition script");
+    let headers = vec![
+        ("Subject".to_owned(), "Invoice".to_owned()),
+        ("To".to_owned(), "Alice <alice@example.test>".to_owned()),
+    ];
+    let (plan, _) = execute_state(
+        &script,
+        &headers,
+        0,
+        "sender@example.test",
+        "alice@example.test",
+    )
+    .expect("execute expanded tests");
+
+    assert!(plan.keep);
+    assert!(!plan.discard);
+}
+
+#[test]
+fn ordinary_conditions_do_not_expand_without_variables_requirement() {
+    let script = parse("if header :is \"${field}\" \"Invoice\" { discard; }")
+        .expect("base Sieve string remains literal");
+    let headers = vec![("${field}".to_owned(), "Invoice".to_owned())];
+    let (plan, _) = execute_state(&script, &headers, 0, "", "").expect("execute base test");
+
+    assert!(plan.discard);
+}

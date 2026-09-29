@@ -1,6 +1,6 @@
 //! Bounded исполнение AST в DeliveryPlan без доступа к сети и файловой системе.
 
-use super::ast::{Action, Command, Script, VacationAction};
+use super::ast::{Action, Capability, Command, Script, VacationAction};
 use super::variables::{VariableError, VariableStore};
 #[path = "execution_condition.rs"]
 mod condition;
@@ -137,6 +137,10 @@ fn execute_state(
         size: message_size,
         envelope_from,
         envelope_to,
+        variables_enabled: script
+            .requires
+            .iter()
+            .any(|capability| matches!(capability, Capability::Variables)),
     };
     commands(&script.commands, &context, &mut state)?;
     Ok((state.plan, state.variables))

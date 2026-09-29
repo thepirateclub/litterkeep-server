@@ -1,5 +1,24 @@
 # Goal ledger
 
+### 2026-09-29: G18 RFC 5229 ordinary condition-string expansion, PARTIAL T436
+
+- Подключено раскрытие string arguments в `header`, `address`, `envelope` и
+  `exists` непосредственно перед оценкой соответствующего test-а. Источники,
+  списки заголовков и comparator keys используют общий ограниченный expansion
+  алгоритм и текущие captures. Без `require "variables"` все аргументы
+  остаются буквальными строками RFC 5228.
+- Интеграционная регрессия задаёт через `set` имена header/address и ключи,
+  затем проверяет `header`, `exists`, `address` и SMTP-envelope `to`. Отдельный
+  тест подтверждает literal semantics без Variables capability. Windows Rust
+  1.97.1 all-target: 1 122 library + 1 CLI прошли, 4 ignored; strict Clippy,
+  rustfmt, diff-check прошли. Linux Docker all-target: 1 248 library + 1 CLI
+  прошли, 4 ignored; использованы существующие image/cache, target
+  `./data/g18-rfc5229-condition-strings-target`, контейнер `--rm`, новый image
+  не создавался.
+- Не раскрываются динамические аргументы `fileinto`, `redirect`, `vacation`;
+  quoting/encoded-character provenance и load-time namespace диагностика всё
+  ещё отсутствуют. `variables` не рекламируется, G18 остаётся ACTIVE.
+
 ### 2026-09-29: G18 RFC 5229 `string` test, PARTIAL T435
 
 - Добавлен typed test `string` со списками source/key, общими match/comparator

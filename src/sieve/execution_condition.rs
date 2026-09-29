@@ -4,7 +4,9 @@ use super::ExecutionError;
 use crate::sieve::address;
 use crate::sieve::ast::{AddressPart, Condition, EnvelopePart, SizeRelation, StringMatch};
 use crate::sieve::matching::{self, MatchOutcome};
-use crate::sieve::variables::{VariableError, VariableStore};
+use crate::sieve::variables::VariableStore;
+#[path = "execution_condition_variables.rs"]
+mod variable_arguments;
 
 /// Неизменяемый контекст одного сообщения и его SMTP envelope.
 pub(super) struct MessageContext<'a> {
@@ -12,6 +14,7 @@ pub(super) struct MessageContext<'a> {
     pub(super) size: usize,
     pub(super) envelope_from: &'a str,
     pub(super) envelope_to: &'a str,
+    pub(super) variables_enabled: bool,
 }
 
 /// Captures последнего успешного `:matches` в текущем script execution.
@@ -51,8 +54,20 @@ pub(super) fn matches(
         Condition::True => Ok(true),
         Condition::False => Ok(false),
         Condition::Header { names, matcher } => {
+            let names = variable_arguments::expand_strings(
+                names,
+                store,
+                variables.octets(),
+                context.variables_enabled,
+            )?;
+            let matcher = variable_arguments::expand_matcher(
+                matcher,
+                store,
+                variables.octets(),
+                context.variables_enabled,
+            )?;
             for (candidate, value) in context.headers {
-                if header_matches(candidate, value, names, matcher, variables)? {
+                if header_matches(candidate, value, &names, &matcher, variables)? {
                     return Ok(true);
                 }
             }
@@ -63,8 +78,20 @@ pub(super) fn matches(
             part,
             matcher,
         } => {
+            let names = variable_arguments::expand_strings(
+                names,
+                store,
+                variables.octets(),
+                context.variables_enabled,
+            )?;
+            let matcher = variable_arguments::expand_matcher(
+                matcher,
+                store,
+                variables.octets(),
+                context.variables_enabled,
+            )?;
             for (candidate, value) in context.headers {
-                if address_matches(candidate, value, names, *part, matcher, variables)? {
+                if address_matches(candidate, value, &names, *part, &matcher, variables)? {
                     return Ok(true);
                 }
             }
@@ -75,13 +102,19 @@ pub(super) fn matches(
             part,
             matcher,
         } => {
+            let matcher = variable_arguments::expand_matcher(
+                matcher,
+                store,
+                variables.octets(),
+                context.variables_enabled,
+            )?;
             for selected in parts {
                 let value = match selected {
                     EnvelopePart::From => context.envelope_from,
                     EnvelopePart::To => context.envelope_to,
                 };
                 for entry in address::envelope_value(value, *part) {
-                    if match_value(&entry, matcher, variables)? {
+                    if match_value(&entry, &matcher, variables)? {
                         return Ok(true);
                     }
                 }
@@ -91,12 +124,20 @@ pub(super) fn matches(
         Condition::String { sources, matcher } => {
             string_matches(sources, matcher, store, variables)
         }
-        Condition::Exists { names } => Ok(names.iter().all(|name| {
-            context
-                .headers
-                .iter()
-                .any(|(candidate, _)| candidate.eq_ignore_ascii_case(name))
-        })),
+        Condition::Exists { names } => {
+            let names = variable_arguments::expand_strings(
+                names,
+                store,
+                variables.octets(),
+                context.variables_enabled,
+            )?;
+            Ok(names.iter().all(|name| {
+                context
+                    .headers
+                    .iter()
+                    .any(|(candidate, _)| candidate.eq_ignore_ascii_case(name))
+            }))
+        }
         Condition::Size { relation, limit } => Ok(match relation {
             SizeRelation::Over => context.size > *limit,
             SizeRelation::Under => context.size < *limit,
@@ -128,30 +169,16 @@ fn string_matches(
     store: &VariableStore,
     variables: &mut MatchVariables,
 ) -> Result<bool, ExecutionError> {
-    let captures = variables.octets().to_vec();
-    for source in sources {
-        let expanded_source = store
-            .expand_octets(source, &captures)
-            .map_err(variable_error)?;
-        for key in &matcher.keys {
-            let expanded_key = store
-                .expand_octets(key, &captures)
-                .map_err(variable_error)?;
-            let expanded_matcher = StringMatch {
-                match_type: matcher.match_type.clone(),
-                comparator: matcher.comparator.clone(),
-                keys: vec![expanded_key],
-            };
-            if match_value(&expanded_source, &expanded_matcher, variables)? {
-                return Ok(true);
-            }
+    let expanded_sources =
+        variable_arguments::expand_strings(sources, store, variables.octets(), true)?;
+    let expanded_matcher =
+        variable_arguments::expand_matcher(matcher, store, variables.octets(), true)?;
+    for source in &expanded_sources {
+        if match_value(source, &expanded_matcher, variables)? {
+            return Ok(true);
         }
     }
     Ok(false)
-}
-
-fn variable_error(_error: VariableError) -> ExecutionError {
-    ExecutionError::VariableRuntime
 }
 
 fn address_matches(

@@ -9,6 +9,7 @@ fn context<'a>(headers: &'a [(String, String)]) -> MessageContext<'a> {
         size: 0,
         envelope_from: "",
         envelope_to: "",
+        variables_enabled: false,
     }
 }
 
