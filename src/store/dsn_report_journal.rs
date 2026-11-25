@@ -162,12 +162,8 @@ fn decode_hex(value: &str) -> io::Result<String> {
         return Err(invalid("odd DSN report recipient encoding"));
     }
     let mut bytes = Vec::with_capacity(value.len() / 2);
-    let digits = value.as_bytes().chunks_exact(2);
-    for pair in digits {
-        let (Some(high), Some(low)) = (pair.first(), pair.get(1)) else {
-            return Err(invalid("short DSN report recipient encoding"));
-        };
-        bytes.push((hex_digit(*high)? << 4) | hex_digit(*low)?);
+    for pair in value.as_bytes().as_chunks::<2>().0 {
+        bytes.push((hex_digit(pair[0])? << 4) | hex_digit(pair[1])?);
     }
     String::from_utf8(bytes).map_err(|_| invalid("DSN report recipient is not UTF-8"))
 }

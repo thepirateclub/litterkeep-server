@@ -85,14 +85,8 @@ fn decode_shift(value: &str) -> Result<String, &'static str> {
         return Err("odd UTF-16 byte count");
     }
     let mut units = Vec::new();
-    for pair in bytes.chunks_exact(2) {
-        let Some(high) = pair.first().copied() else {
-            return Err("missing UTF-16 high byte");
-        };
-        let Some(low) = pair.get(1).copied() else {
-            return Err("missing UTF-16 low byte");
-        };
-        units.push(u16::from_be_bytes([high, low]));
+    for pair in bytes.as_chunks::<2>().0 {
+        units.push(u16::from_be_bytes(*pair));
     }
     char::decode_utf16(units)
         .collect::<Result<String, _>>()

@@ -73,12 +73,12 @@ fn hex(value: &str) -> String {
 }
 fn unhex(value: &str) -> io::Result<String> {
     let mut output = Vec::new();
-    let mut bytes = value.as_bytes().chunks_exact(2);
-    for pair in &mut bytes {
+    let (pairs, remainder) = value.as_bytes().as_chunks::<2>();
+    for pair in pairs {
         let text = std::str::from_utf8(pair).map_err(|_| invalid("non-utf8 sieve hex"))?;
         output.push(u8::from_str_radix(text, 16).map_err(|_| invalid("bad sieve hex"))?);
     }
-    if !bytes.remainder().is_empty() {
+    if !remainder.is_empty() {
         return Err(invalid("odd sieve hex"));
     }
     String::from_utf8(output).map_err(|_| invalid("non-utf8 sieve source"))

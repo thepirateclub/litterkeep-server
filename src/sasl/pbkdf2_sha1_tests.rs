@@ -22,7 +22,13 @@ fn rfc_6070_known_answer_vectors_match() {
 /// Разбирает только фиксированные hex-строки тестовых RFC векторов.
 fn decode(value: &str) -> [u8; 20] {
     let mut bytes = [0; 20];
-    for (pair, slot) in value.as_bytes().chunks_exact(2).zip(bytes.iter_mut()) {
+    for (pair, slot) in value
+        .as_bytes()
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .zip(bytes.iter_mut())
+    {
         let text = std::str::from_utf8(pair).expect("hex is ASCII");
         *slot = u8::from_str_radix(text, 16).expect("hex digit pair");
     }

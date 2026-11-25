@@ -20,16 +20,16 @@ pub(super) fn encode_hex(bytes: &[u8]) -> String {
 /// Восстанавливает UTF-8, отвергая неоднозначную или повреждённую hex-строку.
 pub(super) fn decode_hex(value: &str) -> io::Result<String> {
     let mut bytes = Vec::with_capacity(value.len() / 2);
-    let mut octets = value.as_bytes().chunks_exact(2);
-    for pair in &mut octets {
-        let high = pair.first().and_then(|byte| hex_value(*byte));
-        let low = pair.get(1).and_then(|byte| hex_value(*byte));
+    let (pairs, remainder) = value.as_bytes().as_chunks::<2>();
+    for pair in pairs {
+        let high = hex_value(pair[0]);
+        let low = hex_value(pair[1]);
         match (high, low) {
             (Some(high), Some(low)) => bytes.push((high << 4) | low),
             _ => return Err(invalid("invalid encoded mailbox key")),
         }
     }
-    if !octets.remainder().is_empty() {
+    if !remainder.is_empty() {
         return Err(invalid("odd encoded mailbox key"));
     }
     String::from_utf8(bytes).map_err(|_| invalid("encoded mailbox key is not utf8"))

@@ -191,13 +191,13 @@ fn encode_hex(bytes: &[u8]) -> String {
 
 fn decode_hex(value: Option<&str>) -> io::Result<String> {
     let value = value.ok_or_else(|| invalid("missing vacation field"))?;
-    let mut chunks = value.as_bytes().chunks_exact(2);
+    let (pairs, remainder) = value.as_bytes().as_chunks::<2>();
     let mut decoded = Vec::with_capacity(value.len() / 2);
-    for pair in &mut chunks {
+    for pair in pairs {
         let digits = std::str::from_utf8(pair).map_err(|_| invalid("invalid vacation hex"))?;
         decoded.push(u8::from_str_radix(digits, 16).map_err(|_| invalid("invalid vacation hex"))?);
     }
-    if !chunks.remainder().is_empty() {
+    if !remainder.is_empty() {
         return Err(invalid("odd vacation hex length"));
     }
     String::from_utf8(decoded).map_err(|_| invalid("non-utf8 vacation field"))

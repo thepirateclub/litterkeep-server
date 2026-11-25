@@ -25,11 +25,12 @@ pub(super) fn decode(bytes: &[u8], requested_order: ByteOrder) -> Result<String,
         (ByteOrder::DetectBom, _) => (ByteOrder::BigEndian, bytes),
         (order, _) => (order, bytes),
     };
-    if !payload.chunks_exact(2).remainder().is_empty() {
+    let (pairs, remainder) = payload.as_chunks::<2>();
+    if !remainder.is_empty() {
         return Err("odd UTF-16 octet count");
     }
-    let units = payload
-        .chunks_exact(2)
+    let units = pairs
+        .iter()
         .map(|pair| utf16_unit(pair, order))
         .collect::<Result<Vec<_>, _>>()?;
     let mut output = String::with_capacity(payload.len());

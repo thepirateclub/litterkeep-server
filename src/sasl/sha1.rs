@@ -26,11 +26,11 @@ pub fn digest(message: &[u8]) -> [u8; DIGEST_SIZE] {
         0xc3d2_e1f0,
     ];
     let mut words = Vec::with_capacity(80);
-    for block in padded.chunks_exact(64) {
+    for block in padded.as_chunks::<64>().0 {
         compress(block, &mut state, &mut words);
     }
     let mut output = [0_u8; DIGEST_SIZE];
-    for (chunk, word) in output.chunks_exact_mut(4).zip(state) {
+    for (chunk, word) in output.as_chunks_mut::<4>().0.iter_mut().zip(state) {
         chunk.copy_from_slice(&word.to_be_bytes());
     }
     output
@@ -39,9 +39,8 @@ pub fn digest(message: &[u8]) -> [u8; DIGEST_SIZE] {
 /// Расширяет schedule и выполняет 80 раундов одного 512-битного блока.
 fn compress(block: &[u8], state: &mut [u32; 5], words: &mut Vec<u32>) {
     words.clear();
-    for octets in block.chunks_exact(4) {
-        let bytes: [u8; 4] = octets.try_into().expect("four-octet word");
-        words.push(u32::from_be_bytes(bytes));
+    for octets in block.as_chunks::<4>().0 {
+        words.push(u32::from_be_bytes(*octets));
     }
     for round in 16..80 {
         let word = words.get(round - 3).copied().unwrap_or_default()

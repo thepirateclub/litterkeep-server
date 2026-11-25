@@ -196,13 +196,12 @@ fn decode_frame(
     let uid_bytes = protected
         .get(header_size..)
         .ok_or_else(|| invalid("short expunge body"))?;
-    let mut uids = Vec::with_capacity(uid_bytes.len() / 8);
-    for chunk in uid_bytes.chunks_exact(8) {
-        uids.push(u64::from_be_bytes(
-            chunk.try_into().map_err(|_| invalid("short expunge UID"))?,
-        ));
+    let (chunks, remainder) = uid_bytes.as_chunks::<8>();
+    let mut uids = Vec::with_capacity(chunks.len());
+    for chunk in chunks {
+        uids.push(u64::from_be_bytes(*chunk));
     }
-    match uid_bytes.chunks_exact(8).remainder().is_empty() {
+    match remainder.is_empty() {
         true => Ok(Frame {
             transaction_id,
             uids,

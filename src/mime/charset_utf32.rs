@@ -22,13 +22,11 @@ pub(super) fn decode(bytes: &[u8], requested_order: ByteOrder) -> Result<String,
         (ByteOrder::DetectBom, _) => (ByteOrder::BigEndian, bytes),
         (order, _) => (order, bytes),
     };
-    if !payload.chunks_exact(4).remainder().is_empty() {
+    let (units, remainder) = payload.as_chunks::<4>();
+    if !remainder.is_empty() {
         return Err("UTF-32 octet count is not divisible by four");
     }
-    payload
-        .chunks_exact(4)
-        .map(|unit| decode_unit(unit, order))
-        .collect()
+    units.iter().map(|unit| decode_unit(unit, order)).collect()
 }
 
 /// Проверяет границы Unicode scalar после сборки endian-specific unit.
