@@ -1,172 +1,175 @@
-# Архитектура litterkeep-server
+# litterkeep-server architecture
 
-> **О документе.** Как устроен процесс: владение ресурсами, долговечность записи, протоколы и идентичность, ограничения платформы.
+> **About this document.** How the process is built: resource ownership, write durability, protocols and identity, platform limits.
 >
-> Навигация по документации — [docs/README.md](README.md), сводная готовность — [STATUS.md](../STATUS.md).
+> Documentation navigation — [docs/README.md](README.md), project status — [STATUS.md](../STATUS.md).
 
-## Процесс и владение
+## Process and ownership
 
-Сервер — один процесс. Входящие протоколы обслуживает Linux-реактор на
-`poll(2)`, он же владеет TCP-сокетами и состоянием сессий. Сессия имеет slot и
-generation, поэтому completion закрытой или повторно использованной сессии не
-может попасть новому клиенту.
+The server is a single process. Incoming protocols are served by a Linux reactor
+on `poll(2)`, which also owns the TCP sockets and the session state. A session
+has a slot and a generation, so a completion of a closed or reused session can
+never reach a new client.
 
-Реактор не открывает Store и не выполняет файловый ввод-вывод. Он ставит
-ограниченные `Request` в очередь worker-а и ожидает wake socket. Write interest
-запрашивается только при наличии output. Один worker владеет Store и выполняет
-commit и read последовательно, поэтому единственный writer — это структурное
-требование, а не соглашение.
+The reactor does not open the Store and performs no file input/output. It places
+bounded `Request` values on the worker queue and waits on the wake socket. Write
+interest is requested only when there is output. A single worker owns the Store
+and performs commits and reads sequentially, so the single writer is a
+structural requirement rather than a convention.
 
-Одним процессом поднимаются сразу четыре протокола — SMTP submission, IMAP,
-POP3 и ManageSieve, — и все они делят одного владельца Store. Это значит, что
-каталог Sieve-скриптов, SMTP-доставка и IMAP-видимость письма всегда
-согласованы: не существует окна, в котором скрипт применён к доставке, но
-ещё не виден в mailbox.
+Four protocols are brought up in one process — SMTP submission, IMAP, POP3 and
+ManageSieve — and all of them share one Store owner. This means the Sieve
+script catalog, SMTP delivery and IMAP visibility of a message are always
+consistent: there is no window in which a script has been applied to a delivery
+but the message is not yet visible in a mailbox.
 
-Исходящая доставка вынесена в отдельный bounded worker с собственным connection
-pool. Пул не смешивается с маршрутами разных типов: plaintext и TLS-маршруты
-закрепляются за разными pool-ами, чтобы ключ TLS не мог утечь в plaintext
-канал.
+Outgoing delivery is split into a separate bounded worker with its own
+connection pool. Pools are not mixed across route types: plaintext and TLS
+routes are pinned to different pools so that a TLS key can never leak into a
+plaintext channel.
 
-Протокольная сессия является ресурсом оркестратора: `ResourceLease<Session>`
-содержит реальный socket и состояние, а registry хранит только проверяемую
-metadata. Значение ресурса не копируется при передаче и не попадает в
-диагностику control-команд.
+A protocol session is a resource of the orchestrator: `ResourceLease<Session>`
+holds the real socket and state, while the registry stores only verifiable
+metadata. A resource value is never copied on transfer and never appears in
+control diagnostics.
 
-Подробнее о задачах, ожидании и отмене — в
+For details on tasks, waiting and cancellation, see
 [runtime-lifecycle.md](runtime-lifecycle.md).
 
-## Протоколы и идентичность
+## Protocols and identity
 
-Wire-команды декодируются в типизированные enum на границе парсера. TLS
-реализован на `rustls`: сертификат и ключ задаются DER-файлами, конфигурация
-сервера собирается и проверяется до открытия listener-а, поэтому ошибочный
-ключ или сертификат отклоняются до того, как сокет примет первое соединение.
+Wire commands are decoded into typed enums at the parser boundary. TLS is
+implemented on `rustls`: the certificate and key are given as DER files, and the
+server configuration is assembled and validated before the listener opens, so a
+wrong key or certificate is rejected before the socket accepts its first
+connection.
 
-Поддерживаются implicit TLS и STARTTLS. В режиме implicit TLS handshake
-завершается до выдачи любого протокольного greeting-а, поэтому учётные данные
-не передаются открытым текстом. STARTTLS и STLS внутри уже защищённого канала
-не рекламируются.
+Both implicit TLS and STARTTLS are supported. In implicit TLS mode the
+handshake completes before any protocol greeting is sent, so credentials never
+travel in clear text. STARTTLS and STLS are not advertised inside an already
+protected channel.
 
-`Accounts` хранит Argon2id PHC-записи. Проверку пароля выполняет worker, а
-реактор меняет состояние сессии только после соответствующего completion.
-Операции чтения mailbox допустимы только после этой смены состояния: до
-аутентификации реактор не ставит запрос к Store.
+`Accounts` stores Argon2id PHC records. The worker performs the password
+check, and the reactor changes the session state only after the corresponding
+completion. Mailbox read operations are allowed only after that state change:
+before authentication the reactor does not place any request on the Store.
 
-Владелец mailbox, Sieve-скрипта и любой message-операции берётся из
-аутентифицированной сессии, а не из произвольного owner ID клиента. Полный
-адрес внешнего домена не становится ни credential-путём, ни владельцем Store.
+The owner of a mailbox, a Sieve script and any message operation is taken from
+the authenticated session, never from an arbitrary owner ID supplied by the
+client. A full external-domain address never becomes a credential path or a
+Store owner.
 
-Профили конкретных протоколов: [protocol-coverage.md](protocol-coverage.md),
+Protocol-specific profiles: [protocol-coverage.md](protocol-coverage.md),
 [imap-profile.md](imap-profile.md), [sieve-coverage.md](sieve-coverage.md).
 
-## Долговечность
+## Durability
 
-Blob сначала пишется во временный файл и синхронизируется. Затем он атомарно
-публикуется, после чего синхронизируется checksummed journal frame. Неполный
-tail журнала отбрасывается при recovery. Полная повреждённая запись и
-отсутствующий referenced blob являются ошибками. Orphan blob не доставляется.
+A blob is first written to a temporary file and synced. It is then published
+atomically, after which the checksummed journal frame is synced. An incomplete
+journal tail is discarded during recovery. A fully corrupted record and a
+missing referenced blob are errors. An orphan blob is never delivered.
 
-Mailbox links, флаги, папки, подписки, Recent, Sieve, diagnostics, очередь и
-global transaction commits используют framed append-only journals. Mailbox link
-становится видимым только после global commit, поэтому читатель никогда не
-видит половину транзакции.
+Mailbox links, flags, folders, subscriptions, Recent, Sieve, diagnostics, the
+queue and global transaction commits use framed append-only journals. A mailbox
+link becomes visible only after the global commit, so a reader never sees half
+of a transaction.
 
-UID монотонен внутри mailbox и не переиспользуется после EXPUNGE. COPY делит
-immutable blob, MOVE публикует destination и source tombstone одной
-transaction. Pending outbound delivery остаётся владельцем blob до terminal
-transition, поэтому перезапуск не теряет ни письмо, ни его blob.
+A UID is monotonic within a mailbox and is never reused after EXPUNGE. COPY
+shares an immutable blob, MOVE publishes the destination and the source tombstone
+in one transaction. A pending outbound delivery stays the owner of the blob until
+the terminal transition, so a restart loses neither the message nor its blob.
 
-Корень каталога данных помечен `litterkeep-store-v2`. Неизвестный или
-непомеченный каталог с mail data отклоняется: автоматического угадывания
-старого формата нет.
+The root of the data directory is marked `litterkeep-store-v2`. An unknown or
+unmarked directory with mail data is rejected: there is no automatic guessing of
+an older format.
 
-Подробнее о формате — в [storage-format.md](storage-format.md).
+For the format details, see [storage-format.md](storage-format.md).
 
-## Блокировка владельца
+## The owner lock
 
-В Linux единственный владелец дополнительно удерживает advisory `flock(2)` на
-`writer.lock`. Сам файл переживает перезапуск, а блокировка ядра освобождается
-при завершении процесса, поэтому после аварии оставшийся lock-файл не
-блокирует нового владельца.
+On Linux the single owner additionally holds an advisory `flock(2)` on
+`writer.lock`. The file itself survives a restart, and the kernel lock is
+released when the process ends, so a leftover lock file after a crash does not
+block a new owner.
 
-На платформах без `flock` используется эксклюзивный lock-marker: файл
-создаётся при захвате и удаляется при освобождении. Это переносимая реализация
-без подтверждённой crash-safe гарантии: после аварии маркер может остаться и
-потребовать ручного удаления.
+On platforms without `flock` an exclusive lock marker is used: the file is
+created on acquisition and removed on release. This is a portable implementation
+without a confirmed crash-safe guarantee: after a crash the marker may remain
+and require manual removal.
 
-## Исходящая доставка
+## Outgoing delivery
 
-Job исходящей доставки публикуется той же durable Store-транзакцией, что и
-остальные записи, и становится видимым в очереди только после global commit
-ID. Перед SMTP-попыткой job обязан получить durable transition в `InFlight`;
-recovery переводит незавершённый `InFlight` в `Deferred`.
+An outgoing delivery job is published by the same durable Store transaction as
+every other record and becomes visible in the queue only after the global
+commit ID. Before an SMTP attempt the job must receive a durable transition to
+`InFlight`; recovery moves an unfinished `InFlight` into `Deferred`.
 
-На Linux работает single-flight long-lived scheduler в общем `server_loop`.
-Он разделяет владельца Store и маршрутизацию wakeup с входящими протоколами,
-поэтому каждое ожидание представлено реальной версионированной записью в
-общем оркестраторе и видно через `runtime tasks` и `runtime stats`.
+On Linux a single-flight long-lived scheduler runs inside the shared
+`server_loop`. It shares the Store owner and the wake-up routing with the
+incoming protocols, so every wait is represented by a real versioned record in
+the shared orchestrator and is visible through `runtime tasks` and
+`runtime stats`.
 
-Ограниченный `queue-drain` остаётся доступным для диагностики и восстановления.
-Он не заменяет scheduler и не должен запускаться параллельно с сервером: Store
-намеренно допускает только одного writer.
+The bounded `queue-drain` remains available for diagnostics and recovery. It
+does not replace the scheduler and must not run in parallel with the server:
+the Store intentionally permits only one writer.
 
-Маршрут принимает только явный числовой `IP:port`, что исключает скрытый
-blocking DNS из transport worker-а. TCP connect ограничен пятью секундами, а
-остальные фазы — RFC 5321 timeouts.
+A route accepts only an explicit numeric `IP:port`, which excludes hidden
+blocking DNS from the transport worker. The TCP connect is limited to five
+seconds, and the remaining phases use RFC 5321 timeouts.
 
-## Ограничения платформы
+## Platform limits
 
-Реактор опирается на Linux `poll(2)`, поэтому `serve` и остальные
-reactor-команды на Windows не запускаются и завершаются с явным сообщением.
-Windows-хост при этом полноценно используется для сборки, `fmt`, `clippy` и
-тестов: весь набор проверок выполняется там.
+The reactor relies on the Linux `poll(2)`, so `serve` and the other reactor
+commands do not run on Windows and exit with an explicit message. A Windows
+host is nevertheless fully used for building, `fmt`, `clippy` and tests: the
+whole verification suite runs there.
 
-Производственные unsafe-границы ограничены двумя Linux FFI-модулями: вызов
-`poll(2)` в `src/platform/linux_poll.rs` и вызов `flock(2)` в
-`src/platform/linux_lock.rs`. Остальной crate запрещает unsafe через
-`#![deny(unsafe_code)]`. Обоснование — в [decisions.md](decisions.md).
+Production unsafe boundaries are limited to two Linux FFI modules: the `poll(2)`
+call in `src/platform/linux_poll.rs` and the `flock(2)` call in
+`src/platform/linux_lock.rs`. The rest of the crate forbids unsafe through
+`#![deny(unsafe_code)]`. The rationale is in [decisions.md](decisions.md).
 
-## Ограничения ресурсов
+## Resource limits
 
-| Ограничение | Значение |
+| Limit | Value |
 |---|---|
-| SMTP DATA и ответ IMAP | 25 MiB |
-| Бюджет immutable blob на каталог данных | 25 MiB |
-| Размер ответа ManageSieve | ограничен профилем literal |
-| Журнал Sieve-диагностики | 1 MiB |
+| SMTP DATA and IMAP response | 25 MiB |
+| Immutable blob budget per data directory | 25 MiB |
+| ManageSieve response size | bounded by the literal profile |
+| Sieve diagnostics journal | 1 MiB |
 
-Превышение бюджета blob отклоняется до создания временного файла, поэтому
-частичный blob в каталоге данных не появляется. Исчерпание квоты журнала
-диагностики отклоняет transaction до SMTP success.
+Exceeding the blob budget is rejected before the temporary file is created, so
+a partial blob never appears in the data directory. Exhausting the diagnostics
+journal quota rejects the transaction before SMTP success.
 
-## Точки входа
+## Entry points
 
-| Команда | Назначение |
+| Command | Purpose |
 |---|---|
-| `init` | Создать локальные acceptance-аккаунты |
-| `init-smtputf8-test` | Создать Unicode-фикстуру для SMTPUTF8-приёмки |
-| `serve` | SMTP и IMAP в одном реакторе |
-| `serve-tls` | SMTP и IMAP с implicit TLS |
-| `serve-starttls` | SMTP и IMAP с plaintext greeting и обязательным upgrade |
-| `serve-pop3-starttls` | POP3 с STLS |
-| `serve-pop3-tls` | POP3 с implicit TLS |
-| `serve-managesieve-starttls` | ManageSieve с STARTTLS |
-| `serve-all-starttls` | SMTP, IMAP и POP3 с STARTTLS |
-| `serve-all-mail-starttls` | SMTP, IMAP, POP3 и ManageSieve с STARTTLS |
-| `serve-all-mail-tls` | SMTP, IMAP, POP3 и ManageSieve с implicit TLS |
-| `serve-all-mail-outbound-starttls` | То же плюс исходящий scheduler |
-| `serve-all-mail-outbound-tls-starttls` | То же плюс исходящий TLS-маршрут с закреплённым SAN и CA |
-| `queue-drain` | Ограниченный разовый проход исходящей очереди |
-| `check` | Оффлайн-проверка целостности каталога данных |
-| `backup` | Согласованная копия при остановленном владельце |
-| `seed` | Наполнить тестовые ящики по манифесту |
-| `sieve-errors` | Typed-диагностика ошибок Sieve-доставки |
+| `init` | Create the local acceptance accounts |
+| `init-smtputf8-test` | Create the Unicode fixture for SMTPUTF8 acceptance |
+| `serve` | SMTP and IMAP in one reactor |
+| `serve-tls` | SMTP and IMAP with implicit TLS |
+| `serve-starttls` | SMTP and IMAP with a plaintext greeting and a mandatory upgrade |
+| `serve-pop3-starttls` | POP3 with STLS |
+| `serve-pop3-tls` | POP3 with implicit TLS |
+| `serve-managesieve-starttls` | ManageSieve with STARTTLS |
+| `serve-all-starttls` | SMTP, IMAP and POP3 with STARTTLS |
+| `serve-all-mail-starttls` | SMTP, IMAP, POP3 and ManageSieve with STARTTLS |
+| `serve-all-mail-tls` | SMTP, IMAP, POP3 and ManageSieve with implicit TLS |
+| `serve-all-mail-outbound-starttls` | The same plus the outgoing scheduler |
+| `serve-all-mail-outbound-tls-starttls` | The same plus an outgoing TLS route with a pinned SAN and CA |
+| `queue-drain` | One bounded pass over the outgoing queue |
+| `check` | Offline integrity check of the data directory |
+| `backup` | Consistent copy with the owner stopped |
+| `seed` | Fill the test mailboxes from the manifest |
+| `sieve-errors` | Typed diagnostics for Sieve delivery failures |
 | `runtime` | `stats`, `tasks`, `resources`, `inspect`, `cancel` |
-| `deliver`, `deliver-tls` | Отправить один подготовленный RFC822-файл собственным transport-ом |
+| `deliver`, `deliver-tls` | Send one prepared RFC822 file through the own transport |
 
-Полный список с аргументами — `litterkeep-server help`.
+The full list with arguments is in `litterkeep-server help`.
 
 ---
 
-[Навигация по документации](README.md) · [Статус проекта](../STATUS.md) · [README](../README.md)
+[Documentation navigation](README.md) · [Project status](../STATUS.md) · [README](../README.md)

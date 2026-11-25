@@ -1,724 +1,724 @@
-# Sieve и ManageSieve
+# Sieve and ManageSieve
 
-> **О документе.** Профиль Sieve и ManageSieve: рекламируемая capability, RFC 5229 и RFC 5228, приёмка по независимым peers.
+> **About this document.** Sieve and ManageSieve profile: advertised capability, RFC 5229 and RFC 5228, acceptance by independent peers.
 >
-> Навигация по документации — [docs/README.md](README.md), сводная готовность — [STATUS.md](../STATUS.md).
+> Documentation navigation — [docs/README.md](README.md), project status — [STATUS.md](../STATUS.md).
 
-## Оглавление
+## Contents
 
-- [Профиль сервера и рекламируемые расширения](#профиль-сервера-и-рекламируемые-расширения)
-- [Аутентификация ManageSieve: PLAIN и SCRAM](#аутентификация-managesieve-plain-и-scram)
-- [Фрейминг literals и TLS negotiation](#фрейминг-literals-и-tls-negotiation)
-- [Управление каталогом скриптов: SETACTIVE, DELETESCRIPT, RENAMESCRIPT](#управление-каталогом-скриптов-setactive-deletescript-renamescript)
-- [Лексика команд, строковые значения и имена скриптов](#лексика-команд-строковые-значения-и-имена-скриптов)
-- [Квоты каталога и обработка ошибок исполнения](#квоты-каталога-и-обработка-ошибок-исполнения)
-- [RFC 3894 copy и повторный fileinto](#rfc-3894-copy-и-повторный-fileinto)
-- [RFC 5230 vacation: базовый профиль, оставшиеся RFC-пробелы](#rfc-5230-vacation-базовый-профиль-оставшиеся-rfc-пробелы)
-  - [Vacation action: параметры, условия ответа и suppression history](#vacation-action-параметры-условия-ответа-и-suppression-history)
-  - [Redirect-путь и MIME-контракт ответа](#redirect-путь-и-mime-контракт-ответа)
-  - [MIME structured values и параметры Content-Type/Disposition](#mime-structured-values-и-параметры-content-typedisposition)
-  - [RFC 2231 extended payload и профили ISO-8859](#rfc-2231-extended-payload-и-профили-iso-8859)
-  - [Профили windows-125x и windows-874](#профили-windows-125x-и-windows-874)
-  - [Лексер скриптов, комментарии и условия совпадения](#лексер-скриптов-комментарии-и-условия-совпадения)
-  - [Тесты envelope, fileinto и redirect](#тесты-envelope-fileinto-и-redirect)
-  - [Тест header и сравнение строк](#тест-header-и-сравнение-строк)
-  - [Байтовые профили charset и регистронезависимость токенов](#байтовые-профили-charset-и-регистронезависимость-токенов)
-  - [Сквозной wire-тест подстановки variables](#сквозной-wire-тест-подстановки-variables)
+- [Server profile and advertised extensions](#server-profile-and-advertised-extensions)
+- [ManageSieve authentication: PLAIN and SCRAM](#managesieve-authentication-plain-and-scram)
+- [Literal framing and TLS negotiation](#literal-framing-and-tls-negotiation)
+- [Script catalog management: SETACTIVE, DELETESCRIPT, RENAMESCRIPT](#script-catalog-management-setactive-deletescript-renamescript)
+- [Command syntax, string values and script names](#command-syntax-string-values-and-script-names)
+- [Catalog quotas and execution error handling](#catalog-quotas-and-execution-error-handling)
+- [RFC 3894 copy and repeated fileinto](#rfc-3894-copy-and-repeated-fileinto)
+- [RFC 5230 vacation: base profile, remaining RFC gaps](#rfc-5230-vacation-base-profile-remaining-rfc-gaps)
+  - [Vacation action: parameters, reply conditions and suppression history](#vacation-action-parameters-reply-conditions-and-suppression-history)
+  - [Redirect path and the MIME reply contract](#redirect-path-and-the-mime-reply-contract)
+  - [MIME structured values and Content-Type/Disposition parameters](#mime-structured-values-and-content-typedisposition-parameters)
+  - [RFC 2231 extended payload and ISO-8859 profiles](#rfc-2231-extended-payload-and-iso-8859-profiles)
+  - [windows-125x and windows-874 profiles](#windows-125x-and-windows-874-profiles)
+  - [Script lexer, comments and match conditions](#script-lexer-comments-and-match-conditions)
+  - [envelope, fileinto and redirect tests](#envelope-fileinto-and-redirect-tests)
+  - [header test and string comparison](#header-test-and-string-comparison)
+  - [Byte-level charset profiles and token case-insensitivity](#byte-level-charset-profiles-and-token-case-insensitivity)
+  - [End-to-end wire test of variables substitution](#end-to-end-wire-test-of-variables-substitution)
 
-### Профиль сервера и рекламируемые расширения
+### Server profile and advertised extensions
 
-Есть bounded parser/executor для обязательного профиля, fileinto, redirect,
-keep/discard, header/address/size tests и diagnostics. ManageSieve поддерживает
+There is a bounded parser/executor for the mandatory profile, fileinto, redirect,
+keep/discard, header/address/size tests and diagnostics. ManageSieve supports
 STARTTLS, SASL PLAIN, SCRAM-SHA-1 and SCRAM-SHA-256, literals, CHECKSCRIPT, PUTSCRIPT, LISTSCRIPTS, GETSCRIPT,
-SETACTIVE, DELETESCRIPT и RENAMESCRIPT.
+SETACTIVE, DELETESCRIPT and RENAMESCRIPT.
 
-Выверенный список рекламируемых extensions и выбранные gaps современных RFC
-сведены в [отдельный inventory](sieve-extension-audit.md); capability не
-объявляет неподдержанные actions/tests.
+The vetted list of advertised extensions and the selected gaps of the modern RFCs
+are consolidated in a [separate inventory](sieve-extension-audit.md); the capability
+does not advertise unsupported actions/tests.
 
-### Аутентификация ManageSieve: PLAIN и SCRAM
+### ManageSieve authentication: PLAIN and SCRAM
 
-RFC 5804 §2.1 string initial-response для AUTHENTICATE PLAIN теперь принимает
-и в bounded client-to-server literal форме. Literal проходит через ту же
-TLS-before-auth политику; независимая Linux проверка до TLS подтверждает
-разбор аргумента ответом `NO "encryption required"`, но не проверяет пароль.
-SCRAM-SHA-1 подключён к TLS-only capability и ManageSieve AUTHENTICATE.
-Независимый Python TLS peer проверяет client proof, server signature, отказ
-неверного proof и последующий NOOP. Litterkeep app interoperability и STARTTLS
-SCRAM wire acceptance не проверялись.
+The RFC 5804 §2.1 string initial-response for AUTHENTICATE PLAIN is now accepted
+also in bounded client-to-server literal form. The literal passes through the same
+TLS-before-auth policy; an independent Linux check before TLS confirms the
+argument parsing with a `NO "encryption required"` response, but does not check the password.
+SCRAM-SHA-1 is wired to the TLS-only capability and ManageSieve AUTHENTICATE.
+An independent Python TLS peer verifies the client proof, the server signature, the rejection
+of an incorrect proof and a subsequent NOOP. Litterkeep app interoperability and the STARTTLS
+SCRAM wire acceptance were not tested.
 
-RFC 5804 §2.1 challenge/response flow для PLAIN тоже поддержан: отсутствие
-initial-response приводит к пустому quoted challenge; ответ может быть quoted
-строкой либо bounded client literal, а `*` отменяет exchange. T262 проверил
-non-synchronizing literal response независимым Linux STARTTLS peer. T275 отдельно
-проверил synchronizing literal после challenge: клиент получил обязательный
-continuation до отправки payload и затем успешно аутентифицировал Bob. Проверен
-также повторный вход после отмены. Полное соответствие ManageSieve SASL всё ещё
-не достигнуто. T327 добавил typed bounded-worker доступ к verifier через
-единственного владельца Accounts.
-Собственные SHA-1/HMAC-SHA-1/PBKDF2 модули теперь связаны в SCRAM StoredKey и
-ServerKey derivation. Полный пример RFC 5802 §5.1 подтверждает client proof и
-server signature, а iteration/salt границы ограничены до дорогого KDF вызова.
-Argon2 verifier сам по себе не является SCRAM verifier. SASLprep,
-Argon2 `.phc2` account storage и безопасная legacy `.phc` миграция реализованы;
-T317 подтверждает legacy-переход независимым SMTP TLS клиентом, но это не
-проверка ManageSieve SASL. T319 добавил crypto primitive проверки SCRAM proof и
-вычисления server signature. T320 добавил versioned случайно salted sidecar для
-новых аккаунтов и строгую загрузку verifier. T321 backfill-ит sidecar для
-существующего `.phc2` только после успешного парольного входа; legacy `.phc`
-миграция также публикует SCRAM sidecar. T322 добавил bounded syntax parser;
-T323 исправил его ASCII-only value restriction согласно RFC 5802 §7 и добавил
-typed client-first parser с `n,,`, SASLprep username, nonce и optional
-extensions. Server-first/client-final/server-final semantic parsing и SASL
-state machine подключены в T328. T324 добавил server-first builder, T325
-client-final verifier, а T326 typed server-final message. T328 подключил
-ManageSieve session/reactor и проверил SHA-1 exchange независимым TLS peer;
-на checkpoint T328 SHA-256/PLUS ещё не реализованы. Детали текущего состояния
-записаны в [учёте зависимостей](dependencies.md).
+The RFC 5804 §2.1 challenge/response flow for PLAIN is supported as well: the absence of
+an initial-response leads to an empty quoted challenge; the response may be a quoted
+string or a bounded client literal, and `*` cancels the exchange. T262 verified the
+non-synchronizing literal response with an independent Linux STARTTLS peer. T275 separately
+verified the synchronizing literal after the challenge: the client received the mandatory
+continuation before sending the payload and then successfully authenticated Bob. A repeated
+login after a cancellation was verified as well. Full ManageSieve SASL compliance is still
+not reached. T327 added typed bounded-worker access to the verifier through the
+single owner of Accounts.
+The native SHA-1/HMAC-SHA-1/PBKDF2 modules are now wired into the SCRAM StoredKey and
+ServerKey derivation. The full example of RFC 5802 §5.1 confirms the client proof and
+the server signature, and the iteration/salt bounds are limited to a single expensive KDF call.
+An Argon2 verifier by itself is not a SCRAM verifier. SASLprep,
+the Argon2 `.phc2` account storage and the safe legacy `.phc` migration are implemented;
+T317 confirms the legacy transition with an independent SMTP TLS client, but that is not
+a ManageSieve SASL verification. T319 added crypto primitive checks of the SCRAM proof and
+of the server signature computation. T320 added a versioned randomly salted sidecar for
+new accounts and strict verifier loading. T321 backfills the sidecar for
+an existing `.phc2` only after a successful password login; the legacy `.phc`
+migration also publishes a SCRAM sidecar. T322 added a bounded syntax parser;
+T323 fixed its ASCII-only value restriction according to RFC 5802 §7 and added a
+typed client-first parser with `n,,`, the SASLprep username, the nonce and optional
+extensions. Server-first/client-final/server-final semantic parsing and the SCRAM
+state machine are wired in T328. T324 added a server-first builder, T325
+a client-final verifier, and T326 a typed server-final message. T328 wired the
+ManageSieve session/reactor and verified the SHA-1 exchange with an independent TLS peer;
+at the T328 checkpoint SHA-256/PLUS were not yet implemented. The details of the current state
+are recorded in the [dependency ledger](dependencies.md).
 
-Текущий профиль рекламирует SCRAM-SHA-256 и, при доступном TLS 1.3 exporter,
-SCRAM-SHA-256-PLUS; оба используют отдельный SHA-256 verifier sidecar и Accounts owner worker.
-Независимые Linux peers по implicit TLS и STARTTLS сверяют server signature,
-неверный proof, UNAUTHENTICATE и повторную работу сессии; STARTTLS путь также
-проверяет пустой SASL список до upgrade и capability после него. Это не проверка
-Litterkeep app. Отдельный Rustls peer проверяет PLUS по живому implicit-TLS
-socket и сверяет server signature; proof вычисляется общими SHA/HMAC/PBKDF2
-helpers проекта, поэтому криптографическая реализация не независима. TLS 1.3 `tls-exporter` проверен
-между rustls endpoints и используется ManageSieve только после завершённого
+The current profile advertises SCRAM-SHA-256 and, when a TLS 1.3 exporter is available,
+SCRAM-SHA-256-PLUS; both use a separate SHA-256 verifier sidecar and an Accounts owner worker.
+Independent Linux peers over implicit TLS and STARTTLS compare the server signature,
+an incorrect proof, UNAUTHENTICATE and a repeated session run; the STARTTLS path also
+verifies the empty SASL list before the upgrade and the capability after it. This is not a Litterkeep
+app check. A separate Rustls peer verifies PLUS over a live implicit-TLS
+socket and compares the server signature; the proof is computed with the shared
+SHA/HMAC/PBKDF2 helpers of the project, so the cryptographic implementation is not independent. The TLS 1.3 `tls-exporter` is verified
+between rustls endpoints and is used by ManageSieve only after a completed
 TLS 1.3 handshake.
 
-### Фрейминг literals и TLS negotiation
+### Literal framing and TLS negotiation
 
-Для client-to-server literals receiver сначала читает ровно объявленное число
-octets, затем обязательный CRLF конца command line; только после него начинает
-разбор следующей pipelined команды. Это соответствует framing из RFC 5804
-§§1.1 и 4. Конечный string argument не считается завершённым сразу после
-payload. Независимый Linux STARTTLS wire-тест подтвердил ожидание разделителя и
-сохранение следующей команды; интеграция с клиентом Litterkeep этим тестом не
-проверялась. См. [RFC 5804](https://www.rfc-editor.org/rfc/rfc5804.html).
+For client-to-server literals the receiver first reads exactly the declared number of
+octets, then the mandatory CRLF terminating the command line; only after that does it
+start parsing the next pipelined command. This matches the framing of RFC 5804
+§§1.1 and 4. A final string argument is not considered complete right after the
+payload. An independent Linux STARTTLS wire test confirmed the expectation of the
+delimiter and the preservation of the next command; the integration with the Litterkeep client was not
+verified by this test. See [RFC 5804](https://www.rfc-editor.org/rfc/rfc5804.html).
 
-ManageSieve TLS negotiation follows RFC 5804 §§1.7, 2.2: before STARTTLS the
+The ManageSieve TLS negotiation follows RFC 5804 §§1.7, 2.2: before STARTTLS the
 server advertises an empty SASL mechanism list, then after TLS it reissues the
 capability block with SASL PLAIN and without STARTTLS. The same refreshed block
-is sent after successful AUTHENTICATE and includes the authenticated OWNER;
-explicit CAPABILITY preserves OWNER. Repeated STARTTLS is rejected in both
-authenticated and unauthenticated encrypted sessions. Independent Linux
-socket acceptance verifies greeting, explicit CAPABILITY, TLS transition,
-PLAIN authentication and the post-auth transition. Implicit-TLS greeting is
-unit-tested; separate implicit-TLS network acceptance and Litterkeep client
-interoperability remain unverified. Capability generation always returns
+is sent after a successful AUTHENTICATE and includes the authenticated OWNER;
+an explicit CAPABILITY preserves OWNER. A repeated STARTTLS is rejected in both
+authenticated and unauthenticated encrypted sessions. An independent Linux
+socket acceptance verifies the greeting, the explicit CAPABILITY, the TLS transition,
+the PLAIN authentication and the post-auth transition. The implicit-TLS greeting is
+unit-tested; a separate implicit-TLS network acceptance and the Litterkeep client
+interoperability remain unverified. The capability generation always returns
 `VERSION "1.0"` with `IMPLEMENTATION` and `SIEVE`, as required for a server
 implementing this RFC version; unit and Linux socket tests check the greeting
-and common post-transition capability path. The recommended RFC 5804
+and the common post-transition capability path. The recommended RFC 5804
 `UNAUTHENTICATE` extension is advertised in all states. Its command resets the
-ManageSieve FSM and the reactor's separate authenticated-account owner, keeps
+ManageSieve FSM and the separate authenticated-account owner of the reactor, keeps
 TLS active, and returns the refreshed capabilities without OWNER. Unit tests
-and the independent TLS socket acceptance verify command denial after the
-transition and successful reauthentication on the same TLS session.
-RFC 5804 §2.13 NOOP is accepted before
+and the independent TLS socket acceptance verify the command denial after the
+transition and the successful reauthentication on the same TLS session.
+The RFC 5804 §2.13 NOOP is accepted before
 authentication; an optional quoted tag is returned in the required `(TAG
 "...")` response code with quoted-string escaping. Unit tests and the
 independent `tests/blackbox/managesieve_noop_tag.py` Linux socket acceptance
-verify untagged/tagged NOOP, escaping and LOGOUT. NOOP literal tags are
-supported in synchronizing and non-synchronizing forms, while other command
-literal arguments remain unverified. RFC 5804 §2.1 mechanisms PLAIN and
-SCRAM-SHA-1 are advertised after TLS. T328 independently verified SCRAM
-client proof, server signature, invalid-proof response, and subsequent NOOP
-recovery over implicit TLS. STARTTLS SCRAM and Litterkeep app interoperability
+verify the untagged/tagged NOOP, the escaping and LOGOUT. The NOOP literal tags are
+supported in the synchronizing and non-synchronizing forms, while the other command
+literal arguments remain unverified. The RFC 5804 §2.1 mechanisms PLAIN and
+SCRAM-SHA-1 are advertised after TLS. T328 independently verified the SCRAM
+client proof, the server signature, the invalid-proof response and the subsequent NOOP
+recovery over implicit TLS. STARTTLS SCRAM and the Litterkeep app interoperability
 remain unverified.
 
-### Управление каталогом скриптов: SETACTIVE, DELETESCRIPT, RENAMESCRIPT
+### Script catalog management: SETACTIVE, DELETESCRIPT, RENAMESCRIPT
 
-RFC 5804 §2.8 requires `SETACTIVE` to carry an `active-sieve-name`; the empty
-string disables active filtering. The parser now rejects a missing argument and
-maps `""` to the store's `None` deactivation value, while non-empty script names
+The RFC 5804 §2.8 requires `SETACTIVE` to carry an `active-sieve-name`; the empty
+string disables the active filtering. The parser now rejects a missing argument and
+maps `""` to the `None` deactivation value of the store, while non-empty script names
 remain unchanged. Parser tests cover missing, empty, ordinary and extra
-arguments; the independent NOOP wire scenario also asserts that missing
+arguments; the independent NOOP wire scenario also asserts that a missing
 `SETACTIVE` is rejected as a syntax error. RFC 5804 §2.8 additionally says
-disabling with an empty string while no script is active is not an error, and
-recommends `NONEXISTENT` for an unknown script. Store missing-script errors now
+that disabling with an empty string while no script is active is not an error, and
+recommends `NONEXISTENT` for an unknown script. The missing-script errors of the Store now
 retain a typed cause; ManageSieve returns `NO (NONEXISTENT)` without changing
-the original `NotFound` kind used internally. Independent Linux TLS acceptance
-`tests/blackbox/managesieve_setactive.py` verifies empty deactivation before
-activation, unknown-name rejection, activation in LISTSCRIPTS, deactivation of
-that active script, idempotent empty deactivation, and deletion after disable.
-This checks the server and Store owner, not Litterkeep app interoperability.
+the original `NotFound` kind used internally. The independent Linux TLS acceptance
+`tests/blackbox/managesieve_setactive.py` verifies the empty deactivation before
+the activation, the unknown-name rejection, the activation in LISTSCRIPTS, the deactivation of
+that active script, the idempotent empty deactivation and the deletion after the disable.
+This checks the server and the Store owner, not the Litterkeep app interoperability.
 
-RFC 5804 §2.10 forbids deleting the active script and recommends the `ACTIVE`
+The RFC 5804 §2.10 forbids deleting the active script and recommends the `ACTIVE`
 response code. The Store now carries a typed active-script failure to the
 ManageSieve completion layer, which replies `NO (ACTIVE)` without mutating the
 catalog. The same independent TLS scenario attempts DELETESCRIPT while the
-script is active, confirms the error and unchanged ACTIVE listing, then
+script is active, confirms the error and the unchanged ACTIVE listing, then
 deactivates and successfully deletes it. This is server/store wire coverage,
-not Litterkeep app interoperability.
+not the Litterkeep app interoperability.
 
-RFC 5804 §2.11 recommends `ALREADYEXISTS` when RENAMESCRIPT targets an
+The RFC 5804 §2.11 recommends `ALREADYEXISTS` when RENAMESCRIPT targets an
 existing script and permits renaming the active script while keeping it active
-under its new name. Typed Store collision errors now produce
-`NO (ALREADYEXISTS)`; Store reopen coverage verifies collision atomicity and
-durable active-name transfer. Independent Linux TLS acceptance
+under its new name. The typed Store collision errors now produce
+`NO (ALREADYEXISTS)`; the Store reopen coverage verifies the collision atomicity and the
+durable active-name transfer. The independent Linux TLS acceptance
 `tests/blackbox/managesieve_rename.py` verifies the exact collision response,
-both original scripts after rejection, then activates and renames one script
-and confirms its bytes and ACTIVE projection. This is not Litterkeep app
+both original scripts after the rejection, then activates and renames one script
+and confirms its bytes and the ACTIVE projection. This is not the Litterkeep app
 interoperability.
 
-### Лексика команд, строковые значения и имена скриптов
+### Command syntax, string values and script names
 
-ManageSieve command tokenization now rejects malformed quoted strings instead
+The ManageSieve command tokenization now rejects malformed quoted strings instead
 of silently dropping an invalid suffix: unterminated strings and unsupported
-backslash escapes become syntax errors. Parser regression and independent
+backslash escapes become syntax errors. The parser regression and the independent
 Linux wire acceptance in `tests/blackbox/managesieve_noop_tag.py` verify both
-forms while retaining valid NOOP tag behavior. T328 has since implemented and
+forms while retaining the valid NOOP tag behavior. T328 has since implemented and
 independently wire-tested the required SCRAM-SHA-1 mechanism. SCRAM-SHA-256/PLUS,
-STARTTLS SCRAM acceptance and Litterkeep app interoperability remain open.
+the STARTTLS SCRAM acceptance and the Litterkeep app interoperability remain open.
 
-RFC 5804 §1.2 and §4 define command string values as quoted or literal. The
-NOOP optional tag accepts bounded sync and non-sync literal-c2s forms;
-independent Linux wire acceptance checks the continuation exchange, direct
-non-sync payload, exact TAG echoes and pipeline preservation. GETSCRIPT,
+The RFC 5804 §1.2 and §4 define the command string values as quoted or literal. The
+optional tag of NOOP accepts the bounded sync and non-sync literal-c2s forms;
+the independent Linux wire acceptance checks the continuation exchange, the direct
+non-sync payload, the exact TAG echoes and the pipeline preservation. GETSCRIPT,
 DELETESCRIPT and SETACTIVE also accept final sync/non-sync literal-c2s values.
 The zero-octet SETACTIVE literal maps to the same disable state as a quoted
-empty string. Linux unit and wire checks cover command conversion and framing.
-PUTSCRIPT accepts a literal script name followed by quoted or literal source;
-both synchronization modes are covered by Linux unit tests and independent
-wire coverage exercises sync name plus quoted source and non-sync name plus
+empty string. The Linux unit and wire checks cover the command conversion and the framing.
+PUTSCRIPT accepts a literal script name followed by a quoted or literal source;
+both synchronization modes are covered by the Linux unit tests and the independent
+wire coverage exercises a sync name plus a quoted source and a non-sync name plus a
 non-sync source with a pipelined NOOP. An additional independent TLS acceptance
-uses a non-sync literal name plus sync source, then performs successful
+uses a non-sync literal name plus a sync source, then performs a successful
 RENAMESCRIPT with two non-sync literal names and activates the result. After a
 server restart against the same Store, LISTSCRIPTS preserves the renamed ACTIVE
-entry and GETSCRIPT returns byte-identical source. This proves the tested
-literal mutation and persistence paths, not every command string position or
-Litterkeep application interoperability. RENAMESCRIPT receiver unit tests also
-cover mixed forms, empty quoted old name and pipeline preservation.
-HAVESPACE accepts a literal name plus one strict decimal size; independent wire
-coverage confirms parser/state handling before authentication and pipeline
-preservation, not the authenticated quota response. RFC 5804 §2.1 declares both
-AUTHENTICATE mechanism and optional initial response as strings, so either may
-use quoted or literal framing. The receiver now accepts a quoted or sync/non-sync
+entry and GETSCRIPT returns the byte-identical source. This proves the tested
+literal mutation and persistence paths, not every command string position or the
+Litterkeep application interoperability. The RENAMESCRIPT receiver unit tests also
+cover the mixed forms, the empty quoted old name and the pipeline preservation.
+HAVESPACE accepts a literal name plus one strict decimal size; the independent wire
+coverage confirms the parser/state handling before the authentication and the pipeline
+preservation, not the authenticated quota response. The RFC 5804 §2.1 declares both
+the AUTHENTICATE mechanism and the optional initial response as strings, so either may
+use the quoted or literal framing. The receiver now accepts a quoted or sync/non-sync
 literal PLAIN mechanism followed by no response, a quoted response, or a
 sync/non-sync literal response. It consumes the complete command before
 returning the typed unsupported-mechanism result, preserving a pipelined NOOP.
-Linux unit coverage exercises a synchronizing mechanism, and independent TLS
-wire acceptance now separately checks synchronizing literal mechanism and
+The Linux unit coverage exercises a synchronizing mechanism, and the independent TLS
+wire acceptance now separately checks the synchronizing literal mechanism and
 response: the server sends a continuation after each marker, then authenticates
 Bob. The same peer rejects a literal CRAM response and successfully executes
 the following NOOP. The previous non-synchronizing literal/literal combination
-also passed independent wire acceptance.
-Other command string positions not listed above remain unverified or unsupported.
+also passed the independent wire acceptance.
+The other command string positions not listed above remain unverified or unsupported.
 
-RFC 5804 §1.6 ManageSieve script names now reject C0/C1 controls, U+2028/U+2029,
-a leading BOM, and Unicode 17.0.0 unassigned scalars. The server accepts the
+The RFC 5804 §1.6 ManageSieve script names now reject the C0/C1 controls, U+2028/U+2029,
+a leading BOM and the Unicode 17.0.0 unassigned scalars. The server accepts the
 required 128 Unicode-character boundary (up to 512 UTF-8 octets) and does not
-impose a filesystem-style slash restriction. `LISTSCRIPTS` emits names as
-quoted strings with quote and backslash escaped, so a stored name cannot forge
-another response line. Rust unit checks and an independent STARTTLS client
-verify Unicode/special-character round-trip, CRLF/control rejection, the
-128/129 boundary, and exact listing bytes. This does not claim complete
-Net-Unicode NFC is now applied to stored and transmitted script names. Incoming
-decomposed names remain accepted and resolve through their NFC alias. Legacy
-catalogs are normalized in memory; canonical-name collisions fail closed rather
-than silently dropping a script. RFC 5198 private-use guidance remains
-outstanding, as does Litterkeep app interoperability.
+impose a filesystem-style slash restriction. `LISTSCRIPTS` emits the names as
+quoted strings with the quote and the backslash escaped, so a stored name cannot forge
+another response line. The Rust unit checks and an independent STARTTLS client
+verify the Unicode/special-character round-trip, the CRLF/control rejection, the
+128/129 boundary and the exact listing bytes. This does not claim that the complete
+Net-Unicode NFC is now applied to the stored and transmitted script names. The incoming
+decomposed names remain accepted and resolve through their NFC alias. The legacy
+catalogs are normalized in memory; the canonical-name collisions fail closed rather
+than silently dropping a script. The RFC 5198 private-use guidance remains
+outstanding, as does the Litterkeep app interoperability.
 See [RFC 5804 §1.6](https://www.rfc-editor.org/rfc/rfc5804.html#section-1.6)
 and [RFC 5198 §2](https://www.rfc-editor.org/rfc/rfc5198.html#section-2).
 
-### Квоты каталога и обработка ошибок исполнения
+### Catalog quotas and execution error handling
 
-ManageSieve script count, per-script byte size and serialized account catalog
-are bounded in the Store. RFC 5804 §1.5 requires a `NO` response containing
-the `QUOTA` response code when an imposed quota rejects a command. Store quota
-failures now retain a typed source marker across the owner boundary, and
+The ManageSieve script count, the per-script byte size and the serialized account catalog
+are bounded in the Store. The RFC 5804 §1.5 requires a `NO` response containing
+the `QUOTA` response code when an imposed quota rejects a command. The Store quota
+failures now retain a typed source marker across the owner boundary, and the
 mutation completion maps only that marker to `NO (QUOTA)`; even a filesystem
-`StorageFull` error retains the generic failure response. Store tests exercise the
-script-count boundary and reactor response tests distinguish quota from disk
-errors. Independent Linux TLS acceptance
+`StorageFull` error retains the generic failure response. The Store tests exercise the
+script-count boundary and the reactor response tests distinguish the quota from the disk
+errors. The independent Linux TLS acceptance
 `tests/blackbox/managesieve_quota.py` uploaded 16 scripts, checked that the
-17th receives exact `NO (QUOTA) "quota exceeded"`, and verified LISTSCRIPTS
-still returns exactly the original 16. This does not verify Litterkeep client
+17th receives the exact `NO (QUOTA) "quota exceeded"`, and verified that LISTSCRIPTS
+still returns exactly the original 16. This does not verify the Litterkeep client
 interoperability.
 
-При runtime error частичный план доставки отбрасывается атомарно и применяется
-только implicit keep; committed diagnostic хранит account, версию скрипта,
-transaction ID и тип ошибки. Offline-команда `sieve-errors <data-dir>
-<account>` печатает TSV с колонкой `outcome=implicit-keep-only`, явно отражая
-отсутствие частично применённых Sieve actions. Store regression проверяет
-durable диагностику и fallback после повторного открытия; CLI unit regression
-проверяет строку отчёта. Независимый сетевой сценарий подтверждает implicit
-keep при redirect-limit и redirect-loop; после остановки сервера команда
-запущена на тот же persistent store и подтвердила обе committed строки CLI.
-Сервер теперь публикует действующую границу `MAXREDIRECTS "16"` в каждом
-ManageSieve capability block. Capability и executor используют один
-`MAX_REDIRECTS_PER_EVALUATION`; unit boundary test подтверждает 16 успешных
-действий и отказ на 17-м.
+On a runtime error the partial delivery plan is discarded atomically and only
+the implicit keep is applied; the committed diagnostic stores the account, the script version,
+the transaction ID and the error type. The offline command `sieve-errors <data-dir>
+<account>` prints TSV with a column `outcome=implicit-keep-only`, explicitly reflecting
+the absence of partially applied Sieve actions. The Store regression verifies the
+durable diagnostic and the fallback after a reopen; the CLI unit regression
+verifies the report line. An independent network scenario confirms the implicit
+keep on the redirect-limit and the redirect-loop; after stopping the server the command
+was run against the same persistent store and confirmed both committed CLI lines.
+The server now publishes the effective limit `MAXREDIRECTS "16"` in every
+ManageSieve capability block. The capability and the executor use a single
+`MAX_REDIRECTS_PER_EVALUATION`; the unit boundary test confirms 16 successful
+actions and the rejection on the 17th.
 
-### RFC 3894 copy и повторный fileinto
+### RFC 3894 copy and repeated fileinto
 
-RFC 3894 `copy` реализован для `fileinto` и `redirect`; скрипт обязан явно
-заявить `require "copy"`, а `fileinto` дополнительно требует `fileinto`.
-`fileinto :copy` и `redirect :copy` добавляют действие, не отменяя implicit
-keep. Unit tests проверяют capability gating и взаимодействие с последующим
-`discard`. Независимый ManageSieve -> SMTP -> IMAP acceptance проверяет
-`fileinto :copy`: полные RFC822 bytes в INBOX и `Invoices` совпадают. Новый
-`tests/blackbox/sieve_redirect_copy_peer.py` активирует `redirect :copy` через
-ManageSieve, проверяет исходную локальную копию через Bob IMAP, останавливает
-единственного Store owner и дренирует durable job к независимому SMTP peer.
-Peer envelope, точные RFC822 bytes, MIME attachment и его decoded octets
-совпадают с локальной копией. Проверен независимый тестовый peer, не Litterkeep
-или произвольный сторонний MTA. Правило сверено с RFC 3894 §3.
+The RFC 3894 `copy` is implemented for `fileinto` and `redirect`; the script must explicitly
+declare `require "copy"`, and `fileinto` additionally requires `fileinto`.
+`fileinto :copy` and `redirect :copy` add an action without cancelling the implicit
+keep. The unit tests verify the capability gating and the interaction with a subsequent
+`discard`. The independent ManageSieve -> SMTP -> IMAP acceptance verifies
+`fileinto :copy`: the full RFC822 bytes in INBOX and `Invoices` match. The new
+`tests/blackbox/sieve_redirect_copy_peer.py` activates `redirect :copy` through
+ManageSieve, verifies the original local copy through Bob IMAP, stops the
+single Store owner and drains the durable job to an independent SMTP peer.
+The peer envelope, the exact RFC822 bytes, the MIME attachment and its decoded octets
+match the local copy. An independent test peer was verified, not Litterkeep
+or an arbitrary third-party MTA. The rule was checked against the RFC 3894 §3.
 
-Повторный `fileinto` в одну папку не считается ошибкой и не создаёт второго
-экземпляра письма согласно RFC 5228 §2.10.3. Store-level regression проверяет
-сохранение единственной ссылки после restart; независимый ManageSieve -> SMTP
--> IMAP acceptance исполняет два одинаковых `fileinto :copy`, читает обе
-папки и сверяет точные RFC822 bytes.
+A repeated `fileinto` into the same folder is not an error and does not create a second
+instance of the message according to the RFC 5228 §2.10.3. The Store-level regression verifies
+the preservation of the single reference after a restart; the independent ManageSieve -> SMTP
+-> IMAP acceptance executes two identical `fileinto :copy`, reads both
+folders and compares the exact RFC822 bytes.
 
-## RFC 5230 vacation: базовый профиль, оставшиеся RFC-пробелы
+## RFC 5230 vacation: base profile, remaining RFC gaps
 
-### Vacation action: параметры, условия ответа и suppression history
+### Vacation action: parameters, reply conditions and suppression history
 
-Parser/executor поддерживают единственный `vacation` action и его RFC-параметры;
-ManageSieve объявляет `vacation` и `vacation-seconds`. Кроме RFC 5230 `:days`,
-поддерживается RFC 6131 `:seconds`; указать оба параметра нельзя, а seconds
-ограничен допустимым RFC диапазоном до локальной политики. Интервалы переводятся
-в общий durable suppression expiry. Локальная политика ограничивает интервал
-от 60 секунд до 365 дней, включая `:seconds 0`, и использует семь дней по
-умолчанию. Store создаёт отдельный RFC 5322 response с `MAIL FROM:<>`, durable
-suppression claim, loop/list/automated-message guards, RFC 2047 Subject и
-quoted-printable UTF-8 body. `:mime` валидируется с учётом текущего 7BIT-only
-SMTP transport. Unit и
-Store tests проверяют generation, safety и durable suppression. Независимый
-Linux acceptance в `./data/g17-sieve-vacation-rfc45` активировал script через
-ManageSieve, доставил три письма через SMTP, передал ровно один из двух
-допустимых vacation replies независимому SMTP peer и прочитал все три исходных
-RFC822 через IMAP после restart. Peer проверил null reverse-path, адрес и поля
-ответа. Тест подтверждает Sieve/Store/SMTP/IMAP интеграцию, но не интеграцию с
-Litterkeep app или произвольным сторонним MTA.
+The parser/executor support the single `vacation` action and its RFC parameters;
+ManageSieve advertises `vacation` and `vacation-seconds`. Besides the RFC 5230 `:days`,
+the RFC 6131 `:seconds` is supported; both parameters cannot be given at once, and the seconds
+are limited to the valid RFC range up to the local policy. The intervals are converted
+into a common durable suppression expiry. The local policy limits the interval
+from 60 seconds to 365 days, including `:seconds 0`, and uses seven days by
+default. The Store creates a separate RFC 5322 response with `MAIL FROM:<>`, a durable
+suppression claim, the loop/list/automated-message guards, an RFC 2047 Subject and a
+quoted-printable UTF-8 body. `:mime` is validated taking the current 7BIT-only
+SMTP transport into account. The unit and
+Store tests verify the generation, the safety and the durable suppression. The independent
+Linux acceptance in `./data/g17-sieve-vacation-rfc45` activated a script through
+ManageSieve, delivered three messages through SMTP, passed exactly one of the two
+allowed vacation replies to an independent SMTP peer and read all three original
+RFC822 messages through IMAP after a restart. The peer verified the null reverse-path, the
+address and the reply fields. The test confirms the Sieve/Store/SMTP/IMAP integration, but not the integration with the
+Litterkeep app or an arbitrary third-party MTA.
 
-По RFC 5230 §4.5 ответ допускается только когда адрес владельца указан в To,
-Cc, Bcc, Resent-To, Resent-Cc или Resent-Bcc. Конечный RCPT является известным
-адресом владельца, а `:addresses` добавляет дополнительные адреса и не
-ограничивает ответ только ими. Unit и сетевой acceptance проверяют
-дополнительный alias, duplicate suppression и отказ на чужом To.
+According to the RFC 5230 §4.5 a reply is allowed only when the owner address is listed in To,
+Cc, Bcc, Resent-To, Resent-Cc or Resent-Bcc. The final RCPT must be a known
+owner address, and `:addresses` adds the additional addresses without
+restricting the reply to them alone. The unit and network acceptance verify the
+additional alias, the duplicate suppression and the rejection on a foreign To.
 
-История suppression переживает reopen, фиксируется только для committed
-transaction ID и имеет тест на ёмкость минимум 1000 response identities. Queue
-payload и claim публикуются одной Store transaction.
-RFC 5230 §4.2 capacity regression восстановил 1000 уникальных claims с
-максимально допустимыми длинами всех трёх ключей; отдельная проверка recovery
-удаляет неполный tail. При достижении лимита 8 MiB Store компактизирует только
-committed claims, сохраняет последнюю запись для каждого ключа, исключает
-истёкшие claims и удаляет старейшие первыми, не опускаясь ниже 1000 записей.
-Replacement journal использует временный файл и backup; recovery тестируется
-для сбоев до и после публикации нового snapshot. Windows suite: 358 тестов;
-Linux Docker target: 399 тестов, strict Clippy и release build. Не моделировался
-физический отказ диска/ФС во время sync и rename.
-Профиль также проверяет требования RFC 5230:
-deduplication ответов по адресу отправителя и идентичности vacation-ответа,
-период `:days`, максимум не менее 1000 записей истории, ограничения
-автоответов для daemon/list сообщений, один vacation action на script и
-сохранение implicit keep. Генерируемый ответ использует пустой SMTP
-reverse-path и заголовки/связи ответа, определённые стандартом.
-В `Auto-Submitted` распознавание `no` обрезает только RFC WSP (SP/HTAB), чтобы
-Unicode NBSP не снимал защиту от loop-ов; malformed NBSP значения оставляют
-автоответ подавленным. Keyword теперь разбирается в typed value с RFC 3834
-CFWS comments и RFC 2045 token/quoted-string optional parameters; один
-синтаксически валидный `no` допускает ответ, остальные keyword, malformed
-значения и повтор поля подавляют его. Проверки парсера unit-only, отдельного
-runtime acceptance для этих вариантов первоначально не было. Грамматика сверена с
-[RFC 3834 §5.1](https://www.rfc-editor.org/rfc/rfc3834.html#section-5.1) и
+The suppression history survives a reopen, is recorded only for a committed
+transaction ID and has a test for a capacity of at least 1000 response identities. The
+queue payload and the claim are published in a single Store transaction.
+The RFC 5230 §4.2 capacity regression restored 1000 unique claims with
+the maximum allowed lengths of all three keys; a separate recovery
+check removes an incomplete tail. When the 8 MiB limit is reached the Store compacts only
+the committed claims, keeps the last entry for each key, excludes the
+expired claims and deletes the oldest first, without dropping below 1000 entries.
+The replacement journal uses a temporary file and a backup; the recovery is tested
+for the failures before and after the publication of the new snapshot. The Windows suite: 358 tests;
+the Linux Docker target: 399 tests, strict Clippy and the release build. A physical disk/FS failure
+during the sync and the rename was not modelled.
+The profile also verifies the requirements of the RFC 5230:
+the deduplication of the replies by the sender address and the vacation reply identity,
+the `:days` period, a maximum of at least 1000 history entries, the restrictions
+on the auto-replies for the daemon/list messages, one vacation action per script and
+the preservation of the implicit keep. The generated reply uses an empty SMTP
+reverse-path and the reply headers/links defined by the standard.
+In `Auto-Submitted` the recognition of `no` trims only the RFC WSP (SP/HTAB), so that
+a Unicode NBSP does not lift the loop protection; the malformed NBSP values leave the
+auto-reply suppressed. The keyword is now parsed into a typed value with the RFC 3834
+CFWS comments and the RFC 2045 token/quoted-string optional parameters; one
+syntactically valid `no` allows a reply, while the other keywords, the malformed
+values and a repeated field suppress it. The parser checks are unit-only; a separate
+runtime acceptance for these variants did not exist initially. The grammar was checked against
+[RFC 3834 §5.1](https://www.rfc-editor.org/rfc/rfc3834.html#section-5.1) and
 [RFC 2045 §5.1](https://www.rfc-editor.org/rfc/rfc2045.html#section-5.1).
-Отдельный Linux Docker acceptance `tests/blackbox/sieve_autosubmitted_wire.py`
-передал восемь независимых входных сообщений SMTP через активный ManageSieve
-script: два валидных `no` с CFWS/parameters породили ровно два ответа, а
-automated/extension keywords, malformed parameter, duplicate field и NBSP
-ответа не породили. Все восемь исходных писем прочитаны через IMAP; независимый
-SMTP peer проверил null reverse-path и обе envelope destinations. Независимый
-клиент принудительно передал `SMTPUTF8` для всех входных писем, хотя capability
-не рекламируется; это серверный wire acceptance, не conformance-проверка
-объявленного SMTPUTF8 или Litterkeep-клиента.
+A separate Linux Docker acceptance `tests/blackbox/sieve_autosubmitted_wire.py`
+passed eight independent input messages over SMTP through an active ManageSieve
+script: two valid `no` with CFWS/parameters produced exactly two replies, while the
+automated/extension keywords, a malformed parameter, a duplicate field and an NBSP
+produced none. All eight original messages were read through IMAP; an independent
+SMTP peer verified the null reverse-path and both envelope destinations. An independent
+client forced `SMTPUTF8` for all the input messages, although the capability
+is not advertised; this is a server-side wire acceptance, not a conformance check of
+the declared SMTPUTF8 or of a Litterkeep client.
 
-### Redirect-путь и MIME-контракт ответа
+### Redirect path and the MIME reply contract
 
-Обычный Sieve redirect по-прежнему ссылается на blob входящего письма, тогда как
-`Store::enqueue_outbound_payload` создаёт отдельную transaction/blob для
-сгенерированного сообщения. Интеграция стороннего MTA не проверена. Требования
-сверены с RFC 5230 §§4.1-4.7 и 5.1-5.8.
+An ordinary Sieve redirect still references the blob of the incoming message, whereas
+`Store::enqueue_outbound_payload` creates a separate transaction/blob for the
+generated message. The third-party MTA integration is not verified. The requirements
+were checked against the RFC 5230 §§4.1-4.7 and 5.1-5.8.
 
-RFC 5230 `:mime` CHECKSCRIPT теперь отвергает повторяющиеся
-`Content-Transfer-Encoding` и тело, которое не декодируется заявленным
-7bit/base64/quoted-printable. Используется общий типизированный MIME decoder;
-его base64 проверяет финальность padding и нулевые pad bits. Unit regression
-покрывает неверные символы, данные после padding, некорректный QP escape,
-не-ASCII 7bit и duplicate CTE. Независимый
-`tests/blackbox/managesieve_vacation_mime.py` по TLS ManageSieve подтвердил
-CHECKSCRIPT для корректных 7bit, quoted-printable и Base64 entities, а также
-отказ для повреждённого Base64, duplicate CTE и encoded multipart.
-Общий CTE parser принимает только один ASCII token с внешним SP/HTAB; Unicode
-whitespace и tspecials не нормализуются в известное имя encoding. RFC comments
-в MIME entity удаляются до разбора token. Независимый CHECKSCRIPT подтвердил
-приём `base64` с comments и отказ для NBSP после token.
-Перед сохранением :mime-скрипта также проверяется `MIME-Version`: допускается
-не более одного значения версии 1.0, RFC 822 comments удаляются без склейки
-через реальный whitespace внутри значения; неизвестная версия, повторные поля
-и whitespace-разбитая декларация отвергаются. Это не позволяет выдать MIME-
-ответ с неподдерживаемой или ошибочно нормализованной версией. Границы
-проверяются unit-тестами и независимым ManageSieve CHECKSCRIPT acceptance.
+The RFC 5230 `:mime` CHECKSCRIPT now rejects a repeated
+`Content-Transfer-Encoding` and a body that is not decoded by the declared
+7bit/base64/quoted-printable. The common typed MIME decoder is used;
+its base64 checks the finality of the padding and the zero pad bits. A unit regression
+covers the invalid characters, the data after the padding, an incorrect QP escape,
+the non-ASCII 7bit and the duplicate CTE. The independent
+`tests/blackbox/managesieve_vacation_mime.py` over TLS ManageSieve confirmed
+the CHECKSCRIPT for the correct 7bit, quoted-printable and Base64 entities, as well as
+the rejection of a corrupted Base64, a duplicate CTE and an encoded multipart.
+The common CTE parser accepts only one ASCII token with an outer SP/HTAB; the Unicode
+whitespace and the tspecials are not normalized into a known encoding name. The RFC comments
+in a MIME entity are removed before the token is parsed. An independent CHECKSCRIPT
+confirmed the acceptance of `base64` with comments and the rejection of an NBSP after the token.
+The `MIME-Version` is also checked before storing a :mime script: at most
+one version 1.0 value is allowed, the RFC 822 comments are removed without gluing
+through a real whitespace inside the value; an unknown version, the repeated fields
+and a whitespace-split declaration are rejected. This prevents emitting a MIME
+reply with an unsupported or incorrectly normalized version. The boundaries
+are verified by the unit tests and by an independent ManageSieve CHECKSCRIPT acceptance.
 
-Отдельный `vacation_mime` validator применяет ограничения RFC 2045 §§2.7, 6.7
-и 6.8: 7bit body не может содержать NUL, bare CR/LF и строки длиннее 998
-октетов; Base64/QP требуют CRLF, разрешённые encoded octets и строки максимум
-76 символов. QP также запрещает незакодированные завершающие пробелы и табы.
-Unit cases проверяют обе границы строк, NUL, bare LF и SP перед soft break.
-RFC 2045 [§6.7](https://www.rfc-editor.org/rfc/rfc2045.html#section-6.7)
-разрешает whitespace перед завершающим `=` мягкого переноса:
-это часть `qp-segment`, не transport-padding. Независимый ManageSieve CHECKSCRIPT
-принимает такой корректный soft break и отвергает malformed hex escape и
-незакодированные завершающие SP/HTAB. Эти cases проверяют end-to-end парсер
+The separate `vacation_mime` validator applies the restrictions of the RFC 2045 §§2.7, 6.7
+and 6.8: a 7bit body cannot contain NUL, a bare CR/LF and the lines longer than 998
+octets; Base64/QP require CRLF, the permitted encoded octets and the lines of at most
+76 characters. QP also forbids the unencoded trailing spaces and tabs.
+The unit cases verify both line boundaries, NUL, a bare LF and an SP before a soft break.
+The RFC 2045 [§6.7](https://www.rfc-editor.org/rfc/rfc2045.html#section-6.7)
+allows the whitespace before the terminating `=` of a soft line break:
+this is a part of the `qp-segment`, not transport-padding. An independent ManageSieve CHECKSCRIPT
+accepts such a correct soft break and rejects a malformed hex escape and
+an unencoded trailing SP/HTAB. These cases verify the end-to-end parser
 Sieve,
-валидатор MIME и wire response, но не все граничные длины строк, которые
-остаются unit-only.
+the MIME validator and the wire response, but not all the edge-case line lengths that
+remain unit-only.
 
-### MIME structured values и параметры Content-Type/Disposition
+### MIME structured values and Content-Type/Disposition parameters
 
-RFC 2045 §6.4: encoded transfer forbidden for composite `multipart/*` and
-`message/*`. Validator разбирает `Content-Type` в typed media type, отвергает
-base64/QP на этих составных сущностях и повторный Content-Type. Unit cases
-проверяют `multipart/mixed`, `multipart/related`, `message/partial`, comment
-между type и slash, quoted boundary с круглыми скобками, допустимый 7bit
-multipart и повторное поле. Независимый ManageSieve acceptance дополнительно
-подтвердил отказ на encoded `multipart/mixed`; остальные перечисленные
-structured-value границы остаются unit-only.
+The RFC 2045 §6.4: the encoded transfer is forbidden for the composite `multipart/*` and
+`message/*`. The validator parses `Content-Type` into a typed media type, rejects
+base64/QP on these composite entities and a repeated Content-Type. The unit cases
+verify `multipart/mixed`, `multipart/related`, `message/partial`, a comment
+between the type and the slash, a quoted boundary with the parentheses, a permitted 7bit
+multipart and a repeated field. The independent ManageSieve acceptance additionally
+confirmed the rejection of an encoded `multipart/mixed`; the remaining listed
+structured-value boundaries remain unit-only.
 
-Общий MIME structured-value parser удаляет вложенные RFC comments вне
-quoted-string и проверяет `type/subtype` как две непустые RFC token-части,
-разделённые ровно одним slash. Неизвестные, но синтаксически корректные типы
-сохраняются как typed `Other`; пустые, содержащие whitespace/tspecials и
-лишний slash значения отвергаются. Unit tests покрывают comments вокруг
-разделителя и внутри quoted parameter, nested/unterminated comments и
-некорректные token-ы. Независимый TLS ManageSieve CHECKSCRIPT теперь также
-принимает `multipart (outer(inner))/related` с quoted boundary, содержащим
-скобки, и отвергает subtype с запрещённым tspecial. Остальные границы из
-unit-набора ещё не получили отдельного wire case.
+The common MIME structured-value parser removes the nested RFC comments outside
+the quoted-strings and checks `type/subtype` as two non-empty RFC token parts
+separated by exactly one slash. The unknown but syntactically correct types
+are preserved as a typed `Other`; the empty values, the values containing whitespace/tspecials and
+an extra slash are rejected. The unit tests cover the comments around the
+separator and inside a quoted parameter, the nested/unterminated comments and the
+incorrect tokens. An independent TLS ManageSieve CHECKSCRIPT now also
+accepts `multipart (outer(inner))/related` with a quoted boundary containing the
+parentheses, and rejects a subtype with a forbidden tspecial. The remaining boundaries from
+the unit set have not yet received a separate wire case.
 
-Для параметров Content-Type/Content-Disposition проверяются RFC 2045 §5.1
-attribute=value, token/quoted-string и список tspecials. RFC 2231 attribute
-грамматика исключает зарезервированные символы, а continuation номера должны
-начинаться с секции 0 и далее идти без ведущих нулей. Unit cases покрывают
-пробелы/tspecials в unquoted значениях, повреждённые имена, внутреннюю
-неэкранированную кавычку, корректный escaped DQUOTE, пустой quoted value и
-filename continuation. Сетевой MIME acceptance этих новых границ не выполнялся.
-T329 добавил сетевую регрессию conflicting regular/extended filename в
-Content-Disposition и подтвердил, что MIME tree не публикует спорное имя,
-сохраняя оригинальные RFC822 bytes. Это консервативная политика ambiguity, а
-не нормативное правило precedence RFC 2231. Следующий acceptance T330 проверяет
-RFC 2183 §2.8: неизвестный charset отдельного `filename*` пропускается, а
-известный `size=12` и disposition сохраняются; RFC822 literal остаётся точным.
-Неизвестный disposition type должен проецироваться как `attachment`; локальные
-unit-тесты и IMAP STARTTLS acceptance T331 подтверждают fallback и сохранение
-filename при byte-exact сохранении исходного RFC822 literal.
-RFC 2183 `size` принимает только непустые десятичные цифры: `size=12x`
-отбрасывается отдельно, сохраняя валидный `filename`; это покрыто unit и IMAP
-STARTTLS acceptance. Date-параметры закрыты узкими проверками T333-T336;
-T337 отдельно подтверждает, что MIME RFC 2183 сохраняет numeric-only timezone,
-даже когда RFC 5322 Date parser принимает зарегистрированные obsolete zones.
-T333 добавил quoted RFC 2183 date-параметры с календарной валидацией,
-числовой timezone, сверкой weekday и leap-second `:60`; unit и IMAP STARTTLS
-проверили accepted и rejected формы. T334 добавил RFC 5322 pivot для numeric-
-zone obsolete 2/3-digit year. Именованные зоны и некоторые прочие obsolete
-RFC 822 variants всё ещё непокрыты, поэтому полная date-time совместимость не
-заявляется.
-T335 закрепил RFC 5322 ширины day и clock fields, включая optional seconds и
-`:60`; независимый IMAP BODYSTRUCTURE test отвергает однозначные и чрезмерно
-широкие numeric fields.
-Whitespace около `=` в параметрах остается открытым и отдельно не ужесточается.
+For the Content-Type/Content-Disposition parameters the RFC 2045 §5.1 attribute=value,
+token/quoted-string and the list of the tspecials are checked. The RFC 2231 attribute
+grammar excludes the reserved characters, and the continuation numbers must
+start at the section 0 and continue without the leading zeros. The unit cases cover
+the spaces/tspecials in the unquoted values, the corrupted names, an inner unescaped quote,
+a correct escaped DQUOTE, an empty quoted value and a
+filename continuation. A network MIME acceptance of these new boundaries was not performed.
+T329 added a network regression for a conflicting regular/extended filename in
+the Content-Disposition and confirmed that the MIME tree does not publish the disputed name,
+while preserving the original RFC822 bytes. This is a conservative ambiguity policy, not a
+normative precedence rule of the RFC 2231. The next acceptance T330 checks
+the RFC 2183 §2.8: an unknown charset of a single `filename*` is skipped, while
+a known `size=12` and the disposition are preserved; the RFC822 literal remains exact.
+An unknown disposition type must be projected as `attachment`; the local
+unit tests and the IMAP STARTTLS acceptance T331 confirm the fallback and the preservation of the
+filename with a byte-exact preservation of the original RFC822 literal.
+The RFC 2183 `size` accepts only the non-empty decimal digits: `size=12x` is
+discarded separately, preserving a valid `filename`; this is covered by the unit and IMAP
+STARTTLS acceptance. The date parameters are closed by the narrow checks T333-T336;
+T337 separately confirms that the RFC 2183 MIME preserves a numeric-only timezone,
+even when the RFC 5322 Date parser accepts the registered obsolete zones.
+T333 added the quoted RFC 2183 date parameters with a calendar validation,
+a numeric timezone, a weekday comparison and the leap second `:60`; the unit and IMAP STARTTLS
+verified the accepted and the rejected forms. T334 added an RFC 5322 pivot for a numeric-
+zone obsolete 2/3-digit year. The named zones and some other obsolete
+RFC 822 variants are still uncovered, so the full date-time compatibility is not
+claimed.
+T335 fixed the RFC 5322 widths of the day and clock fields, including the optional seconds and
+`:60`; an independent IMAP BODYSTRUCTURE test rejects the ambiguous and the excessively
+wide numeric fields.
+The whitespace around the `=` in the parameters remains open and is not tightened separately.
 
-### RFC 2231 extended payload и профили ISO-8859
+### RFC 2231 extended payload and ISO-8859 profiles
 
-RFC 2231 extended payload decoder принимает только attribute-char или
-percent-encoded octets, а hexadecimal digits в escapes принимаются без учёта
-регистра по ABNF. Unit tests проверяют lowercase/mixed-case UTF-8 escapes в
-общем parser-е и в Sieve vacation `:mime` validator; независимый IMAP wire test
-подтверждает decoded filename в BODYSTRUCTURE. Проверяются mixed encoded и
-unencoded continuation segments. Charset декодируется явным allowlist известных
-профилей: US-ASCII, UTF-8, UTF-32, UTF-32BE, UTF-32LE,
+The RFC 2231 extended payload decoder accepts only the attribute-chars or the
+percent-encoded octets, and the hexadecimal digits in the escapes are accepted regardless of the
+case per the ABNF. The unit tests verify the lowercase/mixed-case UTF-8 escapes in
+the common parser and in the Sieve vacation `:mime` validator; an independent IMAP wire test
+confirms the decoded filename in the BODYSTRUCTURE. The mixed encoded and
+unencoded continuation segments are checked. The charset is decoded by an explicit allowlist of the known
+profiles: US-ASCII, UTF-8, UTF-32, UTF-32BE, UTF-32LE,
 ISO-8859-1, ISO-8859-2, ISO-8859-3, ISO-8859-4,
 ISO-8859-5, ISO-8859-6, ISO-8859-7, ISO-8859-8,
 ISO-8859-9, ISO-8859-10, TIS-620 (ISO-8859-11), ISO-8859-13, ISO-8859-14,
 ISO-8859-15, ISO-8859-16,
 Windows-1250, Windows-1251, Windows-1252, Windows-1253, Windows-1254,
 Windows-1255, Windows-1256, Windows-1257, Windows-1258, Windows-874,
-UTF-16, UTF-16BE и UTF-16LE. UTF-16 и UTF-32 profiles доступны для RFC 2047
-и RFC 2231, но исключены из MIME `text/*` decoding при поиске: UTF-16 по
-RFC 2781, а UTF-32 из-за IANA suitability registration. RFC 2231 начальная
-секция может опускать charset и language:
-непомеченный ASCII payload принимается, а high-bit octets без charset
-отвергаются, поскольку Unicode API не может безопасно угадать их кодировку.
-Языковой tag проверяется на well-formed BCP 47 структуру RFC 5646 и сохраняется
-без изменения регистра в `StructuredValue` и каждом MIME tree entity. Проверка
-не доказывает членство subtags в датированной IANA Language Subtag Registry.
-RFC 2231 charset/language regressions unit-only.
+UTF-16, UTF-16BE and UTF-16LE. The UTF-16 and UTF-32 profiles are available for the RFC 2047
+and RFC 2231, but are excluded from the MIME `text/*` decoding during the search: UTF-16 by
+the RFC 2781, and UTF-32 because of the IANA suitability registration. The RFC 2231 initial
+section may omit the charset and the language:
+an untagged ASCII payload is accepted, while the high-bit octets without a charset
+are rejected, since the Unicode API cannot safely guess their encoding.
+The language tag is checked against the well-formed BCP 47 structure of the RFC 5646 and is preserved
+without a case change in the `StructuredValue` and in every MIME tree entity. The check
+does not prove the subtag membership in the dated IANA Language Subtag Registry.
+The RFC 2231 charset/language regressions are unit-only.
 
-ISO-8859-15 декодирует все 256 октетов по таблице Unicode Consortium и
-принимает IANA labels `ISO_8859-15`, `Latin-9` и `csISO885915` вместе с
-предпочтительным именем. Full-byte regression проверяет евро и все восемь
-замен относительно ISO-8859-1; подключение через сетевой клиент отдельно не
-проверялось. ISO-8859-16 также декодирует полный 256-октетный профиль Latin-10,
-включая румынские comma-below буквы, центральноевропейские замены и IANA aliases
+The ISO-8859-15 decodes all 256 octets according to the table of the Unicode Consortium and
+accepts the IANA labels `ISO_8859-15`, `Latin-9` and `csISO885915` together with
+the preferred name. The full-byte regression verifies the euro and all the eight
+differences relative to the ISO-8859-1; the connection through a network client was not separately
+verified. The ISO-8859-16 also decodes the full 256-octet Latin-10 profile,
+including the Romanian comma-below letters, the Central European differences and the IANA aliases
 `ISO_8859-16:2001`, `ISO_8859-16`, `latin10`, `l10`, `iso-ir-226`,
-`csISO885916`; mapping покрывается full-byte oracle, но сетевое подключение не
-проверялось.
+`csISO885916`; the mapping is covered by a full-byte oracle, but the network connection was not
+verified.
 
-### Профили windows-125x и windows-874
+### windows-125x and windows-874 profiles
 
-Зарегистрированный IANA charset [windows-1250](https://www.iana.org/assignments/charset-reg/windows-1250)
-декодируется по [полной таблице Microsoft/Unicode](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP1250.TXT): все 256 октетов сверяются независимо, пять undefined positions
-0x81/0x83/0x88/0x90/0x98 отклоняются, а IANA alias `cswindows1250` принимается.
-`cp1250` намеренно не считается alias, согласно registry. Новые проверки unit-only.
+The registered IANA charset [windows-1250](https://www.iana.org/assignments/charset-reg/windows-1250)
+is decoded according to the [full Microsoft/Unicode table](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP1250.TXT): all the 256 octets are compared independently, the five undefined positions
+0x81/0x83/0x88/0x90/0x98 are rejected, and the IANA alias `cswindows1250` is accepted.
+The `cp1250` is intentionally not treated as an alias, according to the registry. The new checks are unit-only.
 
-IANA charset `windows-1253` реализуется отдельной Greek mapping: все байты
-проверяются по таблице Microsoft/Unicode, 17 undefined octets не подменяются
-replacement character, принимается alias `cswindows1253`, а `cp1253` не
-принимается. Сетевой client acceptance для этой charset не выполнялся.
+The IANA charset `windows-1253` is implemented by a separate Greek mapping: all the bytes
+are checked against the Microsoft/Unicode table, the 17 undefined octets are not substituted with a
+replacement character, the alias `cswindows1253` is accepted, and the `cp1253` is not
+accepted. A network client acceptance for this charset was not performed.
 
-IANA charset [windows-1254](https://www.iana.org/assignments/charset-reg/windows-1254)
-декодируется по полной [таблице Microsoft/Unicode CP1254](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP1254.TXT).
-Пооктетный oracle проверяет все 256 значений и семь undefined positions;
-турецкие I/Ğ/Ş замены и alias `cswindows1254` проверены, `cp1254` не принимается.
-Сетевой client acceptance для этой charset не выполнялся.
+The IANA charset [windows-1254](https://www.iana.org/assignments/charset-reg/windows-1254)
+is decoded according to the full [Microsoft/Unicode CP1254 table](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP1254.TXT).
+An octet-by-octet oracle verifies all the 256 values and the seven undefined positions;
+the Turkish I/Ğ/Ş differences and the alias `cswindows1254` are verified, the `cp1254` is not accepted.
+A network client acceptance for this charset was not performed.
 
-IANA charset [windows-1255](https://www.iana.org/assignments/charset-reg/windows-1255)
-декодируется по полной [таблице Microsoft/Unicode CP1255](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP1255.TXT).
-Oracle сверяет все октеты, включая Hebrew points, Yiddish ligatures, RTL marks
-и 23 undefined positions; `cswindows1255` принимается, `cp1255` не считается
-зарегистрированным alias. Сетевой client acceptance не выполнялся.
+The IANA charset [windows-1255](https://www.iana.org/assignments/charset-reg/windows-1255)
+is decoded according to the full [Microsoft/Unicode CP1255 table](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP1255.TXT).
+The oracle compares all the octets, including the Hebrew points, the Yiddish ligatures, the RTL marks
+and the 23 undefined positions; the `cswindows1255` is accepted, the `cp1255` is not considered a
+registered alias. A network client acceptance was not performed.
 
-IANA charset [windows-1256](https://www.iana.org/assignments/charset-reg/windows-1256)
-декодируется по полной [таблице Microsoft/Unicode CP1256](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP1256.TXT).
-Независимый oracle проверяет каждый octet, включая арабские расширенные
-буквы, combining marks, ZWNJ/ZWJ и LRM/RLM; `cswindows1256` принимается,
-`cp1256` не является зарегистрированным alias. Сетевой client acceptance
-не выполнялся.
+The IANA charset [windows-1256](https://www.iana.org/assignments/charset-reg/windows-1256)
+is decoded according to the full [Microsoft/Unicode CP1256 table](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP1256.TXT).
+An independent oracle verifies every octet, including the Arabic extended
+letters, the combining marks, ZWNJ/ZWJ and LRM/RLM; the `cswindows1256` is accepted,
+the `cp1256` is not a registered alias. A network client acceptance
+was not performed.
 
-IANA charset [windows-1257](https://www.iana.org/assignments/charset-reg/windows-1257)
-декодируется по [Microsoft/Unicode CP1257 mapping](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP1257.TXT).
-Проверен полный диапазон octet values, 12 undefined positions отклоняются;
-проверяются литовская/латышская диакритика и `cswindows1257`, тогда как
-`cp1257` не принимается как незарегистрированный alias. Сетевой client
-acceptance не выполнялся.
+The IANA charset [windows-1257](https://www.iana.org/assignments/charset-reg/windows-1257)
+is decoded according to the [Microsoft/Unicode CP1257 mapping](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP1257.TXT).
+The full range of the octet values is verified, the 12 undefined positions are rejected;
+the Lithuanian/Latvian diacritics and the `cswindows1257` are checked, whereas
+the `cp1257` is not accepted as an unregistered alias. A network client
+acceptance was not performed.
 
-IANA charset [windows-1258](https://www.iana.org/assignments/charset-reg/windows-1258)
-декодируется по [Microsoft/Unicode CP1258 mapping](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP1258.TXT).
-Пооктетная проверка покрывает все значения, включая combining grave, acute,
-hook, tilde и dot-below; Vietnamese sample сохраняет decomposed scalar order
-без нормализации. `cswindows1258` принимается, `cp1258` по IANA не alias.
-Сетевой client acceptance не выполнялся.
+The IANA charset [windows-1258](https://www.iana.org/assignments/charset-reg/windows-1258)
+is decoded according to the [Microsoft/Unicode CP1258 mapping](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP1258.TXT).
+The octet-by-octet check covers all the values, including the combining grave, acute,
+hook, tilde and dot-below; the Vietnamese sample preserves the decomposed scalar order
+without a normalization. The `cswindows1258` is accepted, the `cp1258` is not an alias per IANA.
+A network client acceptance was not performed.
 
-IANA charset [windows-874](https://www.iana.org/assignments/charset-reg/windows-874)
-реализован по [Microsoft/Unicode CP874 table](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP874.TXT)
-отдельно от TIS-620/ISO-8859-11. Полный octet space и 31 undefined positions
-покрыты тестами; Thai sample и baht sign проверяют назначение, отличающееся
-от ISO-8859-11. `cswindows874` принимается как IANA registry alias, `cp874`
-согласно регистрации не alias. Wire acceptance не выполнялся.
+The IANA charset [windows-874](https://www.iana.org/assignments/charset-reg/windows-874)
+is implemented according to the [Microsoft/Unicode CP874 table](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP874.TXT)
+separately from the TIS-620/ISO-8859-11. The full octet space and the 31 undefined positions
+are covered by the tests; a Thai sample and the baht sign verify the assignment, which differs
+from the ISO-8859-11. The `cswindows874` is accepted as an IANA registry alias, the `cp874`
+according to the registration is not an alias. A wire acceptance was not performed.
 
-Зарегистрированный IANA charset windows-1252 теперь декодируется как отдельный
-профиль, не смешивая его с ISO-8859-1. Проверены все 32 octets диапазона
-0x80..0x9F, RFC 2231 filename с encoded Euro/en dash и MIME body decoding в
-IMAP SEARCH projection. Поддерживается только
-каноническое MIME-имя windows-1252; WHATWG aliases вроде cp1252 не принимаются
-как IANA MIME labels. Новые проверки unit-only.
+The registered IANA charset windows-1252 is now decoded as a separate
+profile, without mixing it with the ISO-8859-1. All the 32 octets of the range
+0x80..0x9F are verified, an RFC 2231 filename with an encoded Euro/en dash and the MIME body decoding in the
+IMAP SEARCH projection. Only the
+canonical MIME name windows-1252 is supported; the WHATWG aliases such as cp1252 are not accepted
+as the IANA MIME labels. The new checks are unit-only.
 
-### Лексер скриптов, комментарии и условия совпадения
+### Script lexer, comments and match conditions
 
-Quoted и `text:` multiline strings принимают CRLF; multiline форма сохраняет
-terminating CRLF тела, снимает один dot-stuffing octet и ограничена 65 536
-байтами. Для `text:` допускаются SP/HTAB и hash-comment перед обязательным
-CRLF, но не bracket-comment. Lexer unit tests и независимый ManageSieve
-CHECKSCRIPT проверяют соответственно payload/dot-stuffing/пустое тело и
-принятие корректного скрипта с отказом на отсутствующий terminator.
-В базовом Sieve `require` разрешён только до первой команды, но несколько
-объявлений `require` подряд допустимы; unit regression проверяет оба правила
-по RFC 5228 §3.2. Quoted-string сохраняет CRLF, допускает `quoted-other`
-escape с удалением обратной косой черты и отвергает NUL; из пробельных
-разделителей вне строк принимаются только SP/HTAB/CRLF. `allof`/`anyof`
-принимают непустой comma-separated `test-list` в круглых скобках; квадратные
-скобки остаются формой непустого `string-list`, где запятая обязательна между
-элементами и не допускается на краях. Unit и ManageSieve CHECKSCRIPT acceptance
-проверяют эти границы по RFC 5228 §§2.4.2, 5.2-5.3 и 8.1-8.2. Это не означает
-полного покрытия grammar RFC 5228 и extensions.
-Hash-comment обязан завершаться CRLF; предварительная проверка также отвергает
-одиночные CR/LF и NUL в quoted strings и обоих видах комментариев. Unit и
-ManageSieve CHECKSCRIPT acceptance проверяют корректный CRLF и отказ на bare LF
-по RFC 5228 §§2.1-2.3, 8.1.
-`:user` и `:detail` реализованы как RFC 5233 `subaddress`; оба требуют явного
-`require "subaddress"`, а ManageSieve greeting и CAPABILITY объявляют это
-расширение. Сервер использует первый `+` в local-part как separator: без него
-`:detail` не создаёт значение для сравнения, а `user+@domain` создаёт пустой
-detail. CHECKSCRIPT и адресные unit tests проверяют эти случаи. Другие политики
-разделителя subaddress пока не настраиваются. ADDRESS-PART, COMPARATOR и
-MATCH-TYPE перед позиционными списками принимаются в любом порядке, как
-предписывает RFC 5228 §2.6.2; повтор одного такого аргумента отвергается.
-Unit-тест проверяет case-sensitive семантику `i;octet`, а ManageSieve
-CHECKSCRIPT и SMTP -> Sieve -> IMAP acceptance проверяют grammar и исполнение
-reordered script. `:matches` сравнивает UTF-8 byte stream с width wildcard `?`
-в один octet для обязательных comparator-ов `i;octet` и `i;ascii-casemap`;
-`\*`/`\?` в Sieve string после lexical unescape становятся literal wildcard.
-Unit и SMTP -> Sieve -> IMAP acceptance проверяют эти правила по RFC 5228 §2.7.1.
-`address` использует общий RFC 5322 parser, проверяет известные address-list
-поля (включая обязательные RFC 5228 From/To/Cc/Bcc/Sender/Resent-From/
-Resent-To), RFC 5322 reply/resent поля и `Disposition-Notification-To` из
-RFC 8098 §2.1, значение которого задано как `mailbox-list`. Mailbox внутри
-групп сравниваются, имя группы не сравнивается. Unit и независимая
-ManageSieve -> SMTP -> IMAP acceptance проверяют MDN-поле; письмо попадает в
-Invoices, а исходная INBOX копия побайтно совпадает благодаря implicit keep и
-`fileinto :copy`. Проверено также, что совпадение с одноимённым Subject не
-подменяет address match. Полевая матрица остаётся конечным allowlist:
-произвольные пользовательские address-list headers не подтверждены.
+The quoted and `text:` multiline strings accept CRLF; the multiline form preserves the
+terminating CRLF of the body, removes one dot-stuffing octet and is limited to the 65 536
+bytes. For the `text:` the SP/HTAB and the hash-comments are allowed before the mandatory
+CRLF, but not the bracket-comments. The lexer unit tests and the independent ManageSieve
+CHECKSCRIPT verify respectively the payload/dot-stuffing/empty body and
+the acceptance of a correct script with the rejection on a missing terminator.
+In the base Sieve the `require` is allowed only before the first command, but several
+consecutive `require` declarations are permitted; a unit regression verifies both the rules
+per the RFC 5228 §3.2. A quoted-string preserves the CRLF, allows a `quoted-other`
+escape with the backslash removed and rejects the NUL; from the whitespace
+separators outside the strings only SP/HTAB/CRLF are accepted. The `allof`/`anyof`
+accept a non-empty comma-separated `test-list` in the parentheses; the square
+brackets remain the form of a non-empty `string-list`, where a comma is mandatory between
+the elements and is not allowed at the edges. The unit and ManageSieve CHECKSCRIPT acceptance
+verify these boundaries per the RFC 5228 §§2.4.2, 5.2-5.3 and 8.1-8.2. This does not imply
+the full coverage of the RFC 5228 grammar and the extensions.
+A hash-comment must end with CRLF; the preliminary check also rejects the
+single CR/LF and the NUL in the quoted strings and in both kinds of the comments. The unit and
+ManageSieve CHECKSCRIPT acceptance verify a correct CRLF and the rejection of a bare LF
+per the RFC 5228 §§2.1-2.3, 8.1.
+The `:user` and `:detail` are implemented as the RFC 5233 `subaddress`; both require an explicit
+`require "subaddress"`, and the ManageSieve greeting and CAPABILITY declare this
+extension. The server uses the first `+` in the local-part as the separator: without it
+the `:detail` does not create a value for the comparison, and the `user+@domain` creates an empty
+detail. The CHECKSCRIPT and the address unit tests verify these cases. The other subaddress separator
+policies are not configurable yet. The ADDRESS-PART, COMPARATOR and
+MATCH-TYPE before the positional lists are accepted in any order, as
+prescribed by the RFC 5228 §2.6.2; a repetition of one such argument is rejected.
+A unit test verifies the case-sensitive semantics of `i;octet`, while the ManageSieve
+CHECKSCRIPT and the SMTP -> Sieve -> IMAP acceptance verify the grammar and the execution of a
+reordered script. The `:matches` compares a UTF-8 byte stream with a width wildcard `?`
+of one octet for the mandatory comparators `i;octet` and `i;ascii-casemap`;
+the `\*`/`\?` in a Sieve string become a literal wildcard after the lexical unescape.
+The unit and SMTP -> Sieve -> IMAP acceptance verify these rules per the RFC 5228 §2.7.1.
+The `address` uses the common RFC 5322 parser, checks the known address-list
+fields (including the mandatory RFC 5228 From/To/Cc/Bcc/Sender/Resent-From/
+Resent-To), the RFC 5322 reply/resent fields and the `Disposition-Notification-To` from
+the RFC 8098 §2.1, whose value is defined as a `mailbox-list`. The mailboxes inside a
+group are compared, the group name is not. The unit and an independent
+ManageSieve -> SMTP -> IMAP acceptance verify the MDN field; the message lands in the
+Invoices, and the original INBOX copy matches byte-for-byte thanks to the implicit keep and
+the `fileinto :copy`. It is also verified that a match with a Subject of the same name
+does not substitute an address match. The field matrix remains a bounded allowlist:
+the arbitrary custom address-list headers are not confirmed.
 
-### Тесты envelope, fileinto и redirect
+### envelope, fileinto and redirect tests
 
-Sieve `envelope` поддерживает `from` и `to`, `ADDRESS-PART`, match-type и
-comparator по RFC 5228 §5.4; script обязан заявить `require "envelope"`.
-ManageSieve объявляет capability. `from` берётся из исходного SMTP MAIL FROM до trace-заголовка;
-null reverse-path сравнивается как пустая строка независимо от ADDRESS-PART.
-`to` берётся из RCPT TO, сопоставленного локальному mailbox, и не выводится из
-MIME `To`. При нескольких SMTP paths к одному mailbox delivery план
-вычисляется один раз по первому соответствующему RCPT. Unit tests проверяют
-capability, from/to и null sender; независимая SMTP -> Sieve -> IMAP acceptance
-использует настоящий RCPT TO как условие помещения в папку.
+The Sieve `envelope` supports `from` and `to`, the `ADDRESS-PART`, the match-type and the
+comparator per the RFC 5228 §5.4; the script must declare `require "envelope"`.
+ManageSieve advertises the capability. The `from` is taken from the original SMTP MAIL FROM before the trace header;
+the null reverse-path is compared as an empty string regardless of the ADDRESS-PART.
+The `to` is taken from the RCPT TO matched to the local mailbox, and is not derived from
+the MIME `To`. With several SMTP paths to one mailbox the delivery plan
+is computed once from the first matching RCPT. The unit tests verify the
+capability, the from/to and the null sender; an independent SMTP -> Sieve -> IMAP acceptance
+uses a real RCPT TO as the condition for placing the message into a folder.
 
-Поддерживаемое optional-действие Sieve `fileinto` отвергается при static
-validation, если script не заявил `require "fileinto"`. Это проверяется unit
-regression и независимым ManageSieve CHECKSCRIPT; тот же сетевой acceptance
-подтверждает доставку с объявленной capability.
+The supported optional Sieve action `fileinto` is rejected during the static
+validation if the script has not declared `require "fileinto"`. This is verified by a unit
+regression and by an independent ManageSieve CHECKSCRIPT; the same network acceptance
+confirms the delivery with the declared capability.
 
-Sieve `redirect` проверяет mailbox по грамматике RFC 5228 §2.4.2.3 через общий
-RFC 5322 parser: допустим один `addr-spec` либо quoted phrase перед
-`<addr-spec>`. Mailbox lists, source routes, groups и некорректные адреса
-отвергаются при static validation. Unit tests и отдельный независимый
+The Sieve `redirect` checks the mailbox by the RFC 5228 §2.4.2.3 grammar through the common
+RFC 5322 parser: one `addr-spec` or a quoted phrase before
+the `<addr-spec>` is allowed. The mailbox lists, the source routes, the groups and the malformed addresses
+are rejected during the static validation. The unit tests and a separate independent
 ManageSieve CHECKSCRIPT `tests/blackbox/managesieve_redirect_validation.py`
-проверяют принятие и отказ. Сквозная доставка redirect после завершения source
-Store через durable queue к независимому SMTP peer проверена в T119:
-сравниваются envelope, полные RFC822 octets с локальной implicit-keep копией и
-байты MIME-вложения. Это не подтверждает взаимодействие с Litterkeep или
-произвольным внешним MTA.
+verify the acceptance and the rejection. The end-to-end redirect delivery after the completion of the source
+Store through a durable queue to an independent SMTP peer was verified in T119:
+the envelope, the full RFC822 octets with the local implicit-keep copy and the
+MIME attachment bytes are compared. This does not confirm the interaction with the Litterkeep or
+an arbitrary external MTA.
 
-### Тест header и сравнение строк
+### header test and string comparison
 
-Sieve `header` декодирует RFC 2047 encoded-word общей MIME-декодировкой до
-сравнения в UTF-8 и игнорирует ведущие/завершающие SP и HTAB по RFC 5228 §5.7.
-Unit покрывает полное преобразование ISO-8859-1 и ISO-8859-2, ASCII subsets
-остальных зарегистрированных предпочитаемых ISO-8859 MIME labels, UTF-8
-encoded-word и краевые пробелы. Для ISO-8859-2 тестируется полный диапазон
-A0..FF и польский текст. ISO-8859-3 декодирует назначенные позиции и отвергает
-undefined octets A5, AE, BE, C3, D0, E3 и F0; прочие неподдержанные high-bit
-таблицы не преобразуются. ISO-8859-4 проверяет все assigned позиции и
-отвергает undefined octets A5, AE, BE, C3, D0, E3 и F0. ISO-8859-5 проверяет
-все 256 байтов, включая C1 controls и кириллическое отображение, отдельное от
-Windows-1251. ISO-8859-6 проверяет арабские буквы и punctuation, сохраняет
-ASCII/C1 controls, а undefined позиции отклоняет как ошибку. ISO-8859-7
-проверяет Greek, Euro, final sigma и undefined байты AE, D2, FF.
-ISO-8859-8 проверяет Hebrew text, directional marks, ASCII/C1 controls,
-все назначенные позиции и отказ для undefined octets. Это visual-order базового
-профиля; RFC 1556 -i/-e остаются отдельными неподдерживаемыми профилями.
-ISO-8859-9 проверяет все 256 октетов по таблице Unicode, турецкие замены
-и сохранение C1 controls; также принимаются IANA aliases `latin5` и `l5`.
-ISO-8859-10 проверяет все 256 октетов Nordic/Latin-6 mapping по таблице Unicode,
-ASCII/C1 controls, Icelandic/Nordic text и IANA aliases `latin6`/`l6`.
-TIS-620 использует официальный sparse mapping с NBSP и Thai letters; тестирует
-Thai sample, C1 range и каждый assigned/undefined octet. Предпочитаемое IANA
-имя TIS-620 указывает ISO-8859-11 как alias; неопределённые DB..DE и FC..FF
-отклоняются.
-ISO-8859-13 проверяет Baltic Rim Unicode mapping для всех 256 байтов,
-включая C1 controls, Baltic letters и изменённые кавычки/диакритические знаки;
-принимаются IANA preferred label и зарегистрированный `csISO885913`.
-ISO-8859-14 проверяет полный Celtic mapping, отличающиеся от Latin-1 letters,
-C1 range и IANA aliases `latin8`, `l8`, `iso-celtic`, `csISO885914`.
-Это реализует обязательный ASCII-subset минимум
+The Sieve `header` decodes the RFC 2047 encoded-word with the common MIME decoding before
+the comparison in UTF-8 and ignores the leading/trailing SP and HTAB per the RFC 5228 §5.7.
+The unit covers the full conversion of the ISO-8859-1 and ISO-8859-2, the ASCII subsets
+of the other registered preferred ISO-8859 MIME labels, a UTF-8
+encoded-word and the edge spaces. For the ISO-8859-2 the whole range
+A0..FF and the Polish text are tested. The ISO-8859-3 decodes the assigned positions and rejects
+the undefined octets A5, AE, BE, C3, D0, E3 and F0; the other unsupported high-bit
+tables are not converted. The ISO-8859-4 checks all the assigned positions and
+rejects the undefined octets A5, AE, BE, C3, D0, E3 and F0. The ISO-8859-5 checks
+all the 256 bytes, including the C1 controls and the Cyrillic rendering, separate from
+the Windows-1251. The ISO-8859-6 checks the Arabic letters and punctuation, preserves the
+ASCII/C1 controls, and rejects the undefined positions as an error. The ISO-8859-7
+checks the Greek, the Euro, the final sigma and the undefined bytes AE, D2, FF.
+The ISO-8859-8 checks the Hebrew text, the directional marks, the ASCII/C1 controls,
+all the assigned positions and the rejection of the undefined octets. This is the visual-order base profile;
+the RFC 1556 -i/-e remain separate unsupported profiles.
+The ISO-8859-9 checks all the 256 octets against the Unicode table, the Turkish differences
+and the preservation of the C1 controls; the IANA aliases `latin5` and `l5` are also accepted.
+The ISO-8859-10 checks all the 256 octets of the Nordic/Latin-6 mapping against the Unicode table,
+the ASCII/C1 controls, the Icelandic/Nordic text and the IANA aliases `latin6`/`l6`.
+The TIS-620 uses the official sparse mapping with the NBSP and the Thai letters; it tests
+a Thai sample, the C1 range and every assigned/undefined octet. The preferred IANA
+name TIS-620 points to the ISO-8859-11 as an alias; the undefined DB..DE and FC..FF
+are rejected.
+The ISO-8859-13 checks the Baltic Rim Unicode mapping for all the 256 bytes,
+including the C1 controls, the Baltic letters and the modified quotes/diacritics;
+the IANA preferred label and the registered `csISO885913` are accepted.
+The ISO-8859-14 checks the full Celtic mapping, the letters differing from the Latin-1,
+the C1 range and the IANA aliases `latin8`, `l8`, `iso-celtic`, `csISO885914`.
+This implements the mandatory ASCII-subset minimum of the
 [RFC 5228 §2.7.2](https://www.rfc-editor.org/rfc/rfc5228.html#section-2.7.2),
-не полный набор конвертеров. Независимая
-ManageSieve -> SMTP -> IMAP acceptance отправляет encoded UTF-8 Subject и
-проверяет его Unicode-сопоставление при выборе папки. RFC 2047 decoder также
-требует непустой `encoded-text` из печатных ASCII octets без SP
-и `?`; Q-escape `=01` остаётся допустимым encoded octet. Unit tests покрывают
-raw whitespace/control/non-ASCII и сохранение повреждённого слова в header
-projection; новые grammar cases отдельно по сети не проверялись. Общий header
-parser распознаёт целый encoded-word только в начале field-body или после
-SP/HTAB и оставляет embedded/слитный токен обычным текстом по RFC 2047 §6.1.
-RFC 2231 §5 encoded-word форма `charset*language` доступна через typed
-`decode_with_metadata`: BCP 47 language сохраняется отдельно от decoded text.
-Обычные `decode`, `decode_header` и `decode_phrase` возвращают только текст;
-raw message headers остаются исходным источником metadata. Новые language-tag
-границы покрыты unit-only, актуальная IANA registry validity не проверяется.
-Эта граница пока покрыта unit-only. Header parser также игнорирует SP/HTAB
-между field-name и `:`, как требует §2.4.2.2;
-сетевой тест подтверждает, что `Subject \t:` маршрутизируется по Sieve, а IMAP
-FETCH возвращает исходный байтовый заголовок без переписывания. Header matcher
-принимает пустой ключ и различает `:contains` (пустая подстрока содержится в
-значении существующего поля) от `:is` (пустое значение не равно непустому).
-Невалидное имя поля в `header` test принимается как заведомо не совпадающее,
-а не как ошибка скрипта; эти случаи проверены unit-тестом и ManageSieve CHECKSCRIPT.
+not the full set of the converters. An independent
+ManageSieve -> SMTP -> IMAP acceptance sends an encoded UTF-8 Subject and
+checks its Unicode matching when choosing the folder. The RFC 2047 decoder also
+requires a non-empty `encoded-text` of the printable ASCII octets without the SP
+and the `?`; the Q-escape `=01` remains a valid encoded octet. The unit tests cover
+the raw whitespace/control/non-ASCII and the preservation of a corrupted word in the header
+projection; the new grammar cases are not separately verified over the network. The common header
+parser recognizes a whole encoded-word only at the beginning of the field-body or after the
+SP/HTAB and leaves an embedded/concatenated token as the plain text per the RFC 2047 §6.1.
+The RFC 2231 §5 encoded-word form `charset*language` is available through the typed
+`decode_with_metadata`: the BCP 47 language is preserved separately from the decoded text.
+The ordinary `decode`, `decode_header` and `decode_phrase` return only the text;
+the raw message headers remain the source of the metadata. The new language-tag
+boundaries are covered unit-only, the current IANA registry validity is not checked.
+This boundary is still covered unit-only. The header parser also ignores the SP/HTAB
+between the field-name and the `:`, as required by §2.4.2.2;
+a network test confirms that the `Subject \t:` is routed by Sieve, and the IMAP
+FETCH returns the original byte header without a rewriting. The header matcher
+accepts an empty key and distinguishes the `:contains` (the empty substring is contained in
+the value of an existing field) from the `:is` (an empty value is not equal to a non-empty one).
+An invalid field name in a `header` test is accepted as never matching,
+not as a script error; these cases are verified by a unit test and a ManageSieve CHECKSCRIPT.
 
-Для `:contains` с обязательным comparator `i;ascii-casemap` применяется KMP:
-поиск идёт за O(n + m), хранит O(m) нормализованных байтов ключа и prefix table,
-не создавая копию всего значения заголовка. Сравнение сворачивает только ASCII
-байты; прочие UTF-8 octets остаются точными. Adversarial unit test проверяет
-линейный промах на большом значении и длинном повторяющемся ключе; в одном
-локальном Windows Rust debug прогоне он изменился с 1.29s на 0.01s. Это одна
-регрессионная замеренная конфигурация, не production benchmark. `i;octet`
-`:contains` и glob `:matches` этой оптимизацией не затронуты; полный профиль
-RFC 5228 и acceptance через приложение Litterkeep не подтверждены.
+For the `:contains` with the mandatory comparator `i;ascii-casemap` the KMP is applied:
+the search runs in O(n + m), keeps the O(m) normalized key bytes and a prefix table,
+without copying the whole header value. The comparison folds only the ASCII
+bytes; the other UTF-8 octets remain exact. An adversarial unit test checks
+a linear miss on a large value and a long repeating key; in one
+local Windows Rust debug run it changed from 1.29s to 0.01s. This is one
+measured regression configuration, not a production benchmark. The `i;octet`
+`:contains` and the glob `:matches` are not affected by this optimization; the full
+RFC 5228 profile and the acceptance through the Litterkeep application are not confirmed.
 
-### Байтовые профили charset и регистронезависимость токенов
+### Byte-level charset profiles and token case-insensitivity
 
-IANA charset [IBM866](https://www.iana.org/assignments/charset-reg/ibm866)
-декодируется по опубликованной [таблице Unicode CP866](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/PC/CP866.TXT).
-Все 256 октетов сверяются с отдельным ожидаемым mapping; проверены русские
-буквы, Ё/ё, украинские Є/є, псевдографика, знак валюты и NBSP. Принимаются
-зарегистрированные имена IBM866, CP866, csIBM866 и 866. Проверка покрывает
-MIME charset decoder unit-тестами; сетевое использование и клиентское
-подключение отдельно не проверялись.
+The IANA charset [IBM866](https://www.iana.org/assignments/charset-reg/ibm866)
+is decoded according to the published [Unicode CP866 table](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/PC/CP866.TXT).
+All the 256 octets are compared with a separate expected mapping; the Russian
+letters, the Ё/ё, the Ukrainian Є/є, the pseudographics, the currency sign and the NBSP are checked. The registered
+names IBM866, CP866, csIBM866 and 866 are accepted. The check covers
+the MIME charset decoder with the unit tests; the network use and the client
+connection were not separately verified.
 
-RFC 5228 §2.4.1 требует нечувствительности всех нестроковых токенов к регистру,
-сохраняя регистр quoted и multiline strings. Parser переводит команды, тесты,
-объявления capability, match/address/size tags и comparator identifiers в
-типизированные enum до построения AST. Регрессионные тесты исполняют верхний и
-смешанный регистр для HEADER, FILEINTO и ADDRESS, одновременно подтверждая,
-что имя папки `Invoices/2026` остается точным. Это только unit-проверка parser и
-executor; независимый ManageSieve wire-клиент и приложение Litterkeep в ней не
-участвовали. Полная совместимость RFC 5228 не заявляется.
+The RFC 5228 §2.4.1 requires the insensitivity of all the non-string tokens to the case,
+preserving the case of the quoted and multiline strings. The parser converts the commands, the tests,
+the capability declarations, the match/address/size tags and the comparator identifiers into
+the typed enums before the AST is built. The regression tests execute the upper and
+the mixed case for HEADER, FILEINTO and ADDRESS, while simultaneously confirming
+that the folder name `Invoices/2026` remains exact. This is only a parser and
+executor unit check; an independent ManageSieve wire client and the Litterkeep application did not take part in it.
+The full RFC 5228 compatibility is not claimed.
 
-UTF-32, UTF-32BE и UTF-32LE зарегистрированные labels декодируются как Unicode
-scalars в RFC 2047 encoded-word и RFC 2231 extended values. Generic UTF-32 по
-IANA использует big-endian при отсутствии BOM и снимает только BE BOM; invalid
-surrogates и scalars выше U+10FFFF отвергаются. Эти labels не допускаются для
-MIME `text/*` decoding, поскольку IANA помечает их неподходящими для MIME text.
-Unit-тесты проверяют decoder, RFC 2047 и RFC 2231 parser integration.
-Независимый STARTTLS SMTP -> файловое хранилище -> IMAP acceptance также
-подтверждает сохранение encoded Subject и выдачу decoded attachment filename
-`😀` в BODYSTRUCTURE. Проверка выполнена скриптом
-`tests/blackbox/smtp_imap_utf32_charset.py`; POP3, Sieve, ManageSieve и
-приложение Litterkeep в этом сценарии не участвовали.
+The registered labels UTF-32, UTF-32BE and UTF-32LE are decoded as the Unicode
+scalars in the RFC 2047 encoded-word and the RFC 2231 extended values. The generic UTF-32 per
+IANA uses the big-endian without a BOM and removes only the BE BOM; the invalid
+surrogates and the scalars above U+10FFFF are rejected. These labels are not allowed for
+the MIME `text/*` decoding, because IANA marks them as unsuitable for the MIME text.
+The unit tests verify the decoder, the RFC 2047 and the RFC 2231 parser integration.
+An independent STARTTLS SMTP -> file store -> IMAP acceptance also
+confirms the preservation of the encoded Subject and the delivery of the decoded attachment filename
+`😀` in the BODYSTRUCTURE. The check was performed by the script
+`tests/blackbox/smtp_imap_utf32_charset.py`; the POP3, Sieve, ManageSieve and the
+Litterkeep application did not take part in this scenario.
 
-Отдельная интеграционная регрессия проверяет IBM866 не только decoder-ом:
-RFC 2047 Base64 encoded-word темы `Привет` декодируется из CP866 octets, а
-RFC 2231 `filename*` возвращает `Привет.txt`. Это parser unit acceptance;
-отправка такого сообщения через SMTP и просмотр через IMAP/POP3 не проверены.
+A separate integration regression checks the IBM866 not only with the decoder:
+the RFC 2047 Base64 encoded-word of the subject `Привет` is decoded from the CP866 octets, and
+the RFC 2231 `filename*` returns `Привет.txt`. This is a parser unit acceptance;
+the sending of such a message through SMTP and the viewing through IMAP/POP3 were not verified.
 
-### Сквозной wire-тест подстановки variables
+### End-to-end wire test of variables substitution
 
-В T443 независимый Python wire client загрузил script через ManageSieve
-CHECKSCRIPT/PUTSCRIPT/SETACTIVE, где comparator и `envelope` part раскрывались
-из переменных, затем отправил письмо через SMTP и прочитал результат через
-IMAP: единственная копия оказалась в `Invoices`, а INBOX остался пустым. Этот
-test намеренно подтверждает, что greeting не рекламирует частичный `variables`;
-script требует capability вручную. Следовательно, проверен internal server
-path, но не interoperability совместимого клиента и не готовность расширения
-к рекламе. В существующем literal black-box исправлено завершение RFC 5804
-literal: клиент после declared bytes теперь посылает завершающий CRLF; ожидаемый
-отказ удалить active script сверяется с RFC `NO (ACTIVE)`. Оба acceptance
-выполнены независимым клиентом к Linux Docker listener-у, приложение Litterkeep
-не использовалось.
+In T443 an independent Python wire client uploaded a script through the ManageSieve
+CHECKSCRIPT/PUTSCRIPT/SETACTIVE, where the comparator and the `envelope` part were expanded
+from the variables, then sent a message through SMTP and read the result through
+IMAP: the single copy ended up in the `Invoices`, and the INBOX remained empty. This
+test intentionally confirms that the greeting does not advertise a partial `variables`;
+the script requires the capability manually. Consequently, the internal server
+path is verified, but not the interoperability of a compatible client and not the readiness of the extension
+for the advertisement. In the existing literal black-box the completion of the RFC 5804
+literal was fixed: the client now sends the terminating CRLF after the declared bytes; the expected
+rejection of the deletion of the active script is checked against the RFC `NO (ACTIVE)`. Both acceptances
+were performed by an independent client against a Linux Docker listener; the Litterkeep application
+was not used.
 
 ---
 
-[Навигация по документации](README.md) · [Статус проекта](../STATUS.md) · [README](../README.md)
+[Documentation navigation](README.md) · [Project status](../STATUS.md) · [README](../README.md)

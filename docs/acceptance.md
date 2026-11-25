@@ -1,162 +1,172 @@
-# Итоговая приёмка
+# Final acceptance
 
-> **О документе.** Итоговая приёмка по задачам: что подтверждено и чем. Машинно-читаемая матрица — в acceptance.tsv.
+> **About this document.** Final acceptance per task: what was confirmed and how. The machine-readable matrix is in acceptance.tsv.
 >
-> Навигация по документации — [docs/README.md](README.md), сводная готовность — [STATUS.md](../STATUS.md).
+> Documentation navigation — [docs/README.md](README.md), project status — [STATUS.md](../STATUS.md).
 
-## Формат матрицы
+## The matrix format
 
-Полная приёмка лежит в [`acceptance.tsv`](acceptance.tsv) — это TSV без
-экранирования, 439 строк данных плюс заголовок колонок:
+The full acceptance is in [`acceptance.tsv`](acceptance.tsv) — it is a TSV
+without escaping, 439 data rows plus the column header:
 
-| Колонка | Значение |
+| Column | Value |
 |---|---|
-| `id` | Идентификатор задачи, например `T383` |
-| `status` | Итог задачи, см. список значений ниже |
-| `layer` | Слой проверки: RFC-профиль, wire-приёмка, хранилище, lifecycle |
-| `evidence` | Чем именно подтверждён результат: команды, версии, объём прогонов и границы, которые остались непроверенными |
+| `id` | Task identifier, for example `T383` |
+| `status` | Task result, see the list of values below |
+| `layer` | Verification layer: RFC profile, wire acceptance, storage, lifecycle |
+| `evidence` | What exactly confirms the result: commands, versions, the extent of the runs and the boundaries that remained unchecked |
 
-Значения `status` и их фактическое количество в текущей матрице:
+The `status` values and their actual count in the current matrix:
 
-| Статус | Сколько | Значение |
+| Status | Count | Value |
 |---|---:|---|
-| `PASS` | 349 | Проверка выполнена и подтверждена независимым наблюдением |
-| `PARTIAL` | 79 | Подтверждена только часть границы, остальное названо явно в `evidence` |
-| `SUPERSEDED` | 7 | Ранняя контрольная точка, заменена более поздней проверкой |
-| `BLOCKED` | 1 | Проверка не могла быть выполнена по внешней причине |
-| `FAIL` | 1 | Проверка выполнена и не прошла |
-| `GAP` | 1 | Зафиксированный пробел без попытки проверки |
-| `NOT RUN` | 1 | Подготовлено, но не запускалось |
+| `PASS` | 349 | The check was performed and confirmed by an independent observation |
+| `PARTIAL` | 79 | Only part of the boundary is confirmed, the rest is named explicitly in `evidence` |
+| `SUPERSEDED` | 7 | An earlier checkpoint replaced by a later check |
+| `BLOCKED` | 1 | The check could not be performed for an external reason |
+| `FAIL` | 1 | The check was performed and did not pass |
+| `GAP` | 1 | A recorded gap without an attempt to check |
+| `NOT RUN` | 1 | Prepared but never executed |
 
-Колонка `evidence` всегда содержит и подтверждение, и явно названные
-ограничения. Строка со статусом `PARTIAL` не означает, что задача не выполнена:
-она означает, что выполненная часть подтверждена, а неподтверждённая граница
-перечислена явно.
+The `evidence` column always contains both the confirmation and the explicitly
+named limitations. A row with the `PARTIAL` status does not mean that the task
+is not done: it means that the performed part is confirmed, and the unconfirmed
+boundary is listed explicitly.
 
-Разделы ниже разбирают приёмку по темам.
+The sections below break the acceptance down by topic.
 
 ## RFC 3461 SMTP DSN negotiation
 
-T405: после включения RFC 3461 wire capability независимые Python raw-socket
-клиенты проверяют `250-DSN` в EHLO, принятие `MAIL RET=HDRS ENVID=...` и
-`RCPT NOTIFY=FAILURE ORCPT=...`, завершённую DATA транзакцию, а также отказ тех
-же параметров после HELO. Запускались
-`tests/blackbox/smtp_dsn_negotiation.py` и
-`tests/blackbox/smtp_dsn_refusal.py` против Linux Rust 1.97.1 release сервера
-в отдельном Store. Это доказывает ESMTP negotiation и envelope acceptance,
-не отправку итоговых DSN через сеть, не downstream relay и не взаимодействие
-с Litterkeep app. Более ранние T349/T350 фиксируют старое состояние отказа до
-включения capability и не описывают текущий сервер.
+T405: after enabling the RFC 3461 wire capability independent Python raw-socket
+clients check `250-DSN` in EHLO, the acceptance of `MAIL RET=HDRS ENVID=...` and
+`RCPT NOTIFY=FAILURE ORCPT=...`, a completed DATA transaction, as well as the
+refusal of the same parameters after HELO. The runs were
+`tests/blackbox/smtp_dsn_negotiation.py` and
+`tests/blackbox/smtp_dsn_refusal.py` against a Linux Rust 1.97.1 release server
+in a separate Store. This proves the ESMTP negotiation and the envelope
+acceptance, not the sending of the final DSN over the network, not a downstream
+relay and not the interaction with the Litterkeep app. The earlier T349/T350
+record the old refusal state before enabling the capability and do not describe
+the current server.
 
-T406: собственная реализация теперь публикует failure DSN внешнему исходному
-отправителю через durable outbound job с пустым reverse-path. Linux-only тест
-проверяет permanent RCPT отказ, сохранённость задания после reopen, второе
-SMTP соединение, multipart/report и отсутствие исходного тела при RET=HDRS.
-Windows full suite (1053 library + 1 CLI, 4 ignored), strict Clippy и rustfmt
-прошли. Сам Linux тест пока не компилировался: доступный Rust container не
-содержит рабочего `cc` linker. Следовательно, T406 остаётся PARTIAL, а не
-сетевой PASS; Litterkeep app не подключался.
+T406: the own implementation now publishes a failure DSN to the external
+original sender through a durable outbound job with an empty reverse-path. The
+Linux-only test checks a permanent RCPT refusal, the preservation of the job
+after the reopen, a second SMTP connection, the multipart/report and the absence
+of the original body with RET=HDRS. The Windows full suite (1053 library + 1
+CLI, 4 ignored), strict Clippy and rustfmt passed. The Linux test itself has
+not been compiled yet: the available Rust container does not contain a working
+`cc` linker. Therefore T406 remains PARTIAL and not a network PASS; the
+Litterkeep app was not connected.
 
-Машиночитаемая матрица находится в `docs/acceptance.tsv`. Статус G12 не
-завышается: 44 G12 checks имеют PASS, T23 имеет NOT RUN, T25 имеет BLOCKED.
-Отдельный G17 T28 добавлен в ту же матрицу и не меняет оценку G12.
+The machine-readable matrix is in `docs/acceptance.tsv`. The G12 status is not
+inflated: 44 G12 checks have PASS, T23 has NOT RUN, T25 has BLOCKED. A separate
+G17 T28 was added to the same matrix and does not change the G12 assessment.
 
-G17 vacation acceptance использовал отдельный Linux Store `data/g17-sieve-vacation-rfc45`.
-Независимый клиент установил active vacation script через ManageSieve, передал
-три исходных сообщения SMTP и проверил после restart через IMAP, что все три
-остались в Bob INBOX. Linux `queue-drain` передал ровно один автоответ
-независимому SMTP peer: второй отвечаемый адрес был подавлен по истории, а
-письмо с чужим To не вызвало ответ. Peer проверил `MAIL FROM:<>`, RCPT и
-Auto-Submitted/To/Subject. Это серверный протокольный acceptance, не проверка
-Litterkeep app и не third-party MTA interoperability.
+The G17 vacation acceptance used a separate Linux Store
+`data/g17-sieve-vacation-rfc45`. An independent client installed an active
+vacation script through ManageSieve, transferred three original messages over
+SMTP and checked after the restart through IMAP that all three remained in the
+Bob INBOX. The Linux `queue-drain` transferred exactly one auto-reply to an
+independent SMTP peer: the second replying address was suppressed by the
+history, and the letter with a foreign To did not trigger a reply. The peer
+checked `MAIL FROM:<>`, RCPT and Auto-Submitted/To/Subject. This is the
+server-side protocol acceptance, not a check of the Litterkeep app and not
+third-party MTA interoperability.
 
-T82 проверяет устаревшую форму SMTP source-route из RFC 5321 §4.1.2 отдельно
-для MAIL FROM и RCPT TO. Независимый STARTTLS peer передал quoted локальные
-адреса с route-элементами, а независимый IMAP STARTTLS peer подтвердил оба
-сообщения в INBOX Bob. Проверка доказывает локальную доставку конечному mailbox;
-внешняя пересылка по source-route не выполняется. Это не проверка
-взаимодействия с Litterkeep app.
+T82 checks the obsolete form of the SMTP source-route from RFC 5321 §4.1.2
+separately for MAIL FROM and RCPT TO. An independent STARTTLS peer transferred
+quoted local addresses with route elements, and an independent IMAP STARTTLS
+peer confirmed both messages in the Bob INBOX. The check proves the local
+delivery to the final mailbox; the external forwarding by the source-route is
+not performed. This is not a check of the interaction with the Litterkeep app.
 
-T83 проверяет IPv4 и зарегистрированную tagged IPv6 форму в MAIL FROM и
-RCPT TO. Независимый STARTTLS клиент различает malformed literal (`501`) и
-синтаксически корректный, но не локальный адрес (`553` для sender и `550` для
-recipient); это подтверждает прохождение parser-а без ослабления локальной
-маршрутизации или включения relay. В тех же запусках source-routed доставка и
-чтение обычного письма Bob через IMAP STARTTLS остаются рабочими. Сценарий:
-`tests/blackbox/smtp_mailbox_syntax.py`.
+T83 checks IPv4 and the registered tagged IPv6 form in MAIL FROM and RCPT TO.
+An independent STARTTLS client distinguishes a malformed literal (`501`) and a
+syntactically correct but non-local address (`553` for the sender and `550` for
+the recipient); this confirms the passage of the parser without weakening the
+local routing or enabling the relay. In the same runs the source-routed
+delivery and the reading of an ordinary Bob letter via IMAP STARTTLS remain
+working. The scenario: `tests/blackbox/smtp_mailbox_syntax.py`.
 
-T98 проверяет RFC 5321 §4.2.2: неизвестные SMTP-команды получают 500,
-аргумент у распознанной DATA - 501; NOOP после отказов остаётся синхронизирован
-в том же соединении. Повторяемый сценарий:
-`tests/blackbox/smtp_unknown_command.py`. Проверка независимым raw-TCP клиентом,
-не приложением Litterkeep.
+T98 checks RFC 5321 §4.2.2: unknown SMTP commands get 500, an argument of a
+recognized DATA gets 501; NOOP after the refusals stays synchronized in the
+same connection. The repeatable scenario:
+`tests/blackbox/smtp_unknown_command.py`. The check by an independent raw-TCP
+client, not the Litterkeep application.
 
-G17 outbound SMTP reply parser принимает bare reply code и пустой reply text
-по RFC 5321 §4.2. Unit-покрытие проверяет форматы строк; независимый TCP peer
-провёл всю delivery транзакцию с пустыми текстами greeting, EHLO, MAIL, RCPT,
-DATA, completion и QUIT. Это не тест с Litterkeep или внешним MTA.
+The G17 outbound SMTP reply parser accepts a bare reply code and an empty reply
+text according to RFC 5321 §4.2. The unit coverage checks the line formats; an
+independent TCP peer ran the whole delivery transaction with empty greeting,
+EHLO, MAIL, RCPT, DATA, completion and QUIT texts. This is not a test with
+Litterkeep or an external MTA.
 
-T100 проверяет RFC 2045 §6.7: буквальные SP/TAB перед завершающим `=` soft
-break сохраняются как содержимое `qp-segment`, а transport-padding перед hard
-CRLF удаляется. Независимые SMTP STARTTLS -> IMAP STARTTLS BINARY.PEEK и
-ManageSieve STARTTLS CHECKSCRIPT подтвердили точные octets и приём корректной
-MIME-формы. Это тесты независимого клиента, не Litterkeep.
+T100 checks RFC 2045 §6.7: the literal SP/TAB before the terminating `=` soft
+break are preserved as the content of the `qp-segment`, and the
+transport-padding before the hard CRLF is removed. Independent SMTP STARTTLS ->
+IMAP STARTTLS BINARY.PEEK and ManageSieve STARTTLS CHECKSCRIPT confirmed the
+exact octets and the acceptance of a correct MIME form. These are the tests of
+an independent client, not Litterkeep.
 
-T292 проверяет RFC 5322 obs-qp в domain-literal: unit test покрывает диапазоны
-obs-NO-WS-CTL, quoted/unquoted NUL/CR/LF; независимый imaplib-клиент
-помещает через APPEND тестовое сообщение с quoted NUL и читает ENVELOPE.
-Ответ использует IMAP synchronizing literal; его 11 октетов содержат decoded
-host без семантически невидимого quoting backslash. Первоначальная проверка
-ошибочно считала backslash частью адреса и была исправлена. Это один контрольный
-символ и один ENVELOPE путь без комментариев. Дополнительная parser regression
-проверяет escaped closer в адресе с trailing comment. Это не полное
-interoperability доказательство RFC 5322/9051.
+T292 checks the RFC 5322 obs-qp in the domain-literal: the unit test covers the
+obs-NO-WS-CTL ranges, the quoted/unquoted NUL/CR/LF; an independent imaplib
+client places a test message with a quoted NUL through APPEND and reads the
+ENVELOPE. The response uses the IMAP synchronizing literal; its 11 octets
+contain the decoded host without the semantically invisible quoting backslash.
+The initial check mistakenly counted the backslash as part of the address and
+was fixed. This is one control character and one ENVELOPE path without
+comments. An additional parser regression checks an escaped closer in an
+address with a trailing comment. This is not a complete interoperability proof
+of RFC 5322/9051.
 
-## Чистый G12 прогон
+## Clean G12 run
 
-На новом container-local `/data` bootstrap создал четыре аккаунта. Повтор не
-изменил passwords, PHC или CA. Seed дал `created=35 existing=0`, повтор и повтор
-после process restart дали `created=0 existing=35`. Независимый Python-клиент
-подтвердил 35 fixture IDs и SHA-256 восьми decoded attachments.
+On a new container-local `/data` bootstrap created four accounts. The repeat
+did not change the passwords, the PHC or the CA. The seed gave
+`created=35 existing=0`, the repeat and the repeat after a process restart gave
+`created=0 existing=35`. An independent Python client confirmed 35 fixture IDs
+and the SHA-256 of eight decoded attachments.
 
-После Android-отправки независимый STARTTLS IMAP-клиент с полным login Bob нашёл
-ровно одно письмо `G12-Litterkeep-UI`. После остановки writer `check` сообщил
-5 mailboxes, 37 links, 36 referenced blobs, 0 orphans и 0 pending deliveries.
-Финальный backup скопировал 63 файла и 14,381,601 bytes; восстановленная копия
-прошла checker. Предыдущий clean backup также подтвердил одинаковые SHA-256
-secret-файла и CA.
+After the Android sending an independent STARTTLS IMAP client with the full
+login Bob found exactly one letter `G12-Litterkeep-UI`. After stopping the
+writer `check` reported 5 mailboxes, 37 links, 36 referenced blobs, 0 orphans
+and 0 pending deliveries. The final backup copied 63 files and 14,381,601
+bytes; the restored copy passed the checker. The previous clean backup also
+confirmed the identical SHA-256 of the secret file and the CA.
 
-## Слои evidence
+## Evidence layers
 
-- `server-protocol`: Rust tests и независимые Python wire clients.
-- `client-integration`: физический TECNO CH6i и установленный litterkeep.
-- `manual-device`: UI-наблюдение без очистки существующих app data/cache.
+- `server-protocol`: Rust tests and independent Python wire clients.
+- `client-integration`: a physical TECNO CH6i and the installed litterkeep.
+- `manual-device`: UI observation without clearing the existing app data/cache.
 
-Litterkeep действительно проверил TLS/CA, подключил Alice, получил каталог
-папок и отправил plain message Bob. Attachment UI отсутствовал, а Bob setup не
-завершился, поэтому получение и скачивание вложения приложением не заявлены.
+Litterkeep indeed checked the TLS/CA, connected Alice, obtained the folder
+catalogue and sent a plain message to Bob. The attachment UI was absent, and
+the Bob setup did not complete, therefore the receiving and downloading of the
+attachment by the application is not claimed.
 
-## Не выполнено
+## Not executed
 
-T23 не запускался, потому что отдельный third-party MTA не был настроен. T25
-заблокирован текущим клиентским UI/вторым account setup, а не серверным Python
-тестом. Сырые локальные измерения сохранены под `data/g12-clean` и не входят в
-Git, поскольку содержат локальный PKI и runtime artifacts.
+T23 was not run because a separate third-party MTA was not configured. T25 is
+blocked by the current client UI/second account setup, and not by the server
+Python test. The raw local measurements are saved under `data/g12-clean` and
+are not included in Git, because they contain the local PKI and runtime
+artifacts.
 
-## Обновление RFC 3461/3464, T412-T413
+## RFC 3461/3464 update, T412-T413
 
-Старые строки T385/T404 в `acceptance.tsv` являются историческими checkpoint-
-ами. Текущее состояние отличается: SMTP DSN negotiation независимо проверена
-в T405, а Store и failure serializer сохраняют и выводят отдельную recipient-
-группу для каждого eligible исходного RCPT. T412 проверяет две такие группы
-unit-регрессией и полным Windows/Linux Rust gate. Независимый сетевой сценарий
-с несколькими report-группами ещё не запускался; это не проверка приложения
-Litterkeep. В T413 независимые TCP peers подтвердили forwarding MAIL/RCPT DSN
-параметров для одного source recipient и Deferred multi-origin до MAIL/RCPT.
-RFC 6533 UTF-8 ORCPT кодируется как 7-bit-safe unitext. Реакция на peer без DSN,
-downstream SUCCESS/DELAY reports и multi-origin forwarding policy остаются
-неполными.
+The old T385/T404 rows in `acceptance.tsv` are historical checkpoints. The
+current state differs: the SMTP DSN negotiation is independently verified in
+T405, and the Store and the failure serializer store and output a separate
+recipient group for each eligible original RCPT. T412 checks two such groups
+by a unit regression and the full Windows/Linux Rust gate. An independent
+network scenario with several report groups has not been run yet; this is not a
+check of the Litterkeep application. In T413 independent TCP peers confirmed
+the forwarding of the MAIL/RCPT DSN parameters for one source recipient and
+the Deferred multi-origin up to MAIL/RCPT. The RFC 6533 UTF-8 ORCPT is encoded
+as 7-bit-safe unitext. The reaction to a peer without DSN, the downstream
+SUCCESS/DELAY reports and the multi-origin forwarding policy remain incomplete.
 
 ---
 
-[Навигация по документации](README.md) · [Статус проекта](../STATUS.md) · [README](../README.md)
+[Documentation navigation](README.md) · [Project status](../STATUS.md) · [README](../README.md)

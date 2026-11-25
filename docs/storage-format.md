@@ -1,26 +1,29 @@
-# Формат файлового хранилища
+# Storage format
 
-> **О документе.** Формат файлового хранилища: журналы, публикация blob, UID и восстановление после сбоя.
+> **About this document.** Filesystem storage format: journals, blob publication, UIDs and crash recovery.
 >
-> Навигация по документации — [docs/README.md](README.md), сводная готовность — [STATUS.md](../STATUS.md).
+> Documentation navigation — [docs/README.md](README.md), project status — [STATUS.md](../STATUS.md).
 
-Корень помечен `litterkeep-store-v2`. Неизвестный или непомеченный каталог с
-mail data отклоняется, автоматического угадывания старого формата нет.
+The root directory is marked `litterkeep-store-v2`. An unknown or unmarked
+directory containing mail data is rejected; there is no automatic guessing of an
+older format.
 
-Immutable message blob публикуется через temporary file, `fsync`, atomic rename
-и directory sync. Mailbox links, flags, folders, subscriptions, Recent, Sieve,
-diagnostics, queue и global transaction commits используют framed append-only
-journals. Полный неверный frame считается corruption, неполный tail безопасно
-обрезается. Mailbox link становится видимым только после global commit.
+An immutable message blob is published through a temporary file, `fsync`, an
+atomic rename and a directory sync. Mailbox links, flags, folders, subscriptions,
+Recent, Sieve, diagnostics, the queue and global transaction commits use framed
+append-only journals. A fully invalid frame counts as corruption; an incomplete
+tail is safely truncated. A mailbox link becomes visible only after the global
+commit.
 
-UID монотонен внутри mailbox и не переиспользуется после EXPUNGE. COPY делит
-immutable blob, MOVE публикует destination и source tombstone одной transaction.
-Pending outbound delivery остаётся владельцем blob до terminal transition.
+A UID is monotonic within a mailbox and is never reused after EXPUNGE. COPY
+shares an immutable blob; MOVE publishes the destination and the source tombstone
+in one transaction. A pending outbound delivery stays the owner of the blob until
+the terminal transition.
 
-`check` берёт exclusive Store lock, выполняет recovery и читает каждый
-referenced blob. Orphans только считаются. `backup` требует остановленного
-writer, исключает runtime lock/locator, синхронизирует копию и запускает checker.
+`check` takes the exclusive Store lock, performs recovery and reads every
+referenced blob. Orphans are only counted. `backup` requires a stopped writer,
+excludes the runtime lock and locator, syncs the copy and runs the checker.
 
 ---
 
-[Навигация по документации](README.md) · [Статус проекта](../STATUS.md) · [README](../README.md)
+[Documentation navigation](README.md) · [Project status](../STATUS.md) · [README](../README.md)

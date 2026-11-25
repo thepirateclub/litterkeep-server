@@ -1,223 +1,227 @@
-# Статус проекта
+# Project status
 
-Страница отвечает на три вопроса: насколько сервер готов, что уже работает и
-проверено, а что ещё запланировано. Детальные протокольные профили остаются в
-[`docs/`](docs/README.md), машинно-читаемая матрица приёмки — в
-[`docs/acceptance.tsv`](docs/acceptance.tsv).
+This page answers three questions: how ready the server is, what already works
+and has been verified, and what is still only planned. The detailed protocol
+profiles stay in [`docs/`](docs/README.md), and the machine-readable acceptance
+matrix is in [`docs/acceptance.tsv`](docs/acceptance.tsv).
 
-> **Коротко:** это самостоятельный почтовый сервер на Rust с собственными
-> протокольными парсерами, MIME/Sieve-разбором и файловым хранилищем. Реализованы
-> и проверены SMTP submission, IMAP4rev1, POP3 и ManageSieve на уровне
-> wire-профиля. Проект не претендует на полноту RFC и не заявляет совместимости
-> с реальными почтовыми клиентами и серверами.
+> **In short:** this is a self-contained Rust mail server with its own protocol
+> parsers, its own MIME and Sieve implementation, and its own filesystem store.
+> SMTP submission, IMAP4rev1, POP3 and ManageSieve are implemented and verified
+> at wire level. The project does not claim full RFC conformance and does not
+> claim interoperability with real mail clients and servers.
 
-A self-hosted Rust mail server with its own protocol parsers, MIME/Sieve
-implementation and filesystem store. SMTP submission, IMAP4rev1, POP3 and
-ManageSieve are implemented and verified at wire level. The project does not
-claim full RFC conformance or interoperability with production mail clients.
+**The Russian version of this page — [docs/ru/STATUS.md](docs/ru/STATUS.md).**
 
-## Как читать этот документ
+## How to read this document
 
-Обозначения взяты из проектной конвенции и используются одинаково во всех
-доках:
+The designations come from the project convention and are used the same way in
+every document:
 
-| Обозначение | Значение |
+| Designation | Meaning |
 |---|---|
-| **PASS** | Есть типизированный парсер, переход состояния реактора или исполнения и профильный тест. Функция подтверждена независимой wire-проверкой. |
-| **PARTIAL** | Намеренно ограниченная семантика. `CAPABILITY` не выдаёт её за более широкое расширение. Граница названа явно. |
-| **NOT STARTED** | Не реализовано и не рекламируется. |
+| **PASS** | There is a typed parser, a reactor or execution state transition and a profile test. The behaviour is confirmed by an independent wire check. |
+| **PARTIAL** | Deliberately limited semantics. `CAPABILITY` does not present it as a broader extension. The boundary is named explicitly. |
+| **NOT STARTED** | Not implemented and not advertised. |
 
-Дата сверки: **2026-11-25**. Источники: `README.md`, `docs/imap-profile.md`,
+Review date: **2026-11-25**. Sources: `README.md`, `docs/imap-profile.md`,
 `docs/protocol-coverage.md`, `docs/sieve-extension-audit.md`,
 `docs/sieve-coverage.md`, `docs/acceptance.md`.
 
-## Сводная готовность
+## Readiness summary
 
-| Подсистема | Статус | Что подтверждено | Детали |
+| Subsystem | Status | What is confirmed | Details |
 |---|---|---|---|
-| SMTP submission | **PASS** | Implicit TLS и STARTTLS, `AUTH PLAIN`, `DSN` через EHLO, `MAIL RET`/`ENVID`, `RCPT NOTIFY`/`ORCPT`, DATA и BDAT, phase timeouts по RFC 5321. Полная семантика итоговых DSN-уведомлений по каждому маршруту остаётся неподтверждённой | [protocol-coverage](docs/protocol-coverage.md#smtp) |
-| IMAP4rev1 | **PARTIAL** | 21 группа команд и свойств; полный профиль ещё не закрыт, точные статусы — в [матрице](docs/imap-profile.md) | [imap-profile](docs/imap-profile.md) |
-| IMAP4rev2 (RFC 9051) | **NOT STARTED** | Целевой baseline следующего этапа. Объявлять нельзя до выполнения обязательной семантики и сетевой приёмки | [imap-profile](docs/imap-profile.md) |
-| POP3 | **PASS** | STARTTLS/STLS и implicit TLS, `USER`/`PASS`, `RETR`/`DELE`, maildrop leases, UIDL через restart | [protocol-coverage](docs/protocol-coverage.md#pop3) |
+| SMTP submission | **PASS** | Implicit TLS and STARTTLS, `AUTH PLAIN`, `DSN` over EHLO, `MAIL RET`/`ENVID`, `RCPT NOTIFY`/`ORCPT`, DATA and BDAT, RFC 5321 phase timeouts. The full semantics of the resulting DSN notifications per route remain unconfirmed | [protocol-coverage](docs/protocol-coverage.md#smtp) |
+| IMAP4rev1 | **PARTIAL** | 21 command and property groups; the full profile is not closed yet, exact statuses are in the [matrix](docs/imap-profile.md) | [imap-profile](docs/imap-profile.md) |
+| IMAP4rev2 (RFC 9051) | **NOT STARTED** | The target baseline of the next stage. It cannot be advertised before the mandatory semantics and the wire acceptance are done | [imap-profile](docs/imap-profile.md) |
+| POP3 | **PASS** | STARTTLS/STLS and implicit TLS, `USER`/`PASS`, `RETR`/`DELE`, maildrop leases, UIDL across a restart | [protocol-coverage](docs/protocol-coverage.md#pop3) |
 | ManageSieve | **PASS** | STARTTLS, SASL PLAIN, SCRAM-SHA-1, SCRAM-SHA-256, SCRAM-SHA-256-PLUS, `CHECKSCRIPT`/`PUTSCRIPT`/`LISTSCRIPTS`/`GETSCRIPT`/`SETACTIVE`/`DELETESCRIPT`/`RENAMESCRIPT`, literals | [sieve-coverage](docs/sieve-coverage.md) |
-| Sieve | **PARTIAL** | Базовый RFC 5228 профиль, `fileinto`, `redirect`, `keep`/`discard`, header/address/size tests, diagnostics. Внутренний профиль RFC 5229 и декодирование RFC 5228 `encoded-character` реализованы, но **не рекламируются** | [sieve-coverage](docs/sieve-coverage.md), [audit](docs/sieve-extension-audit.md) |
-| Файловое хранилище | **PASS** | Формат `litterkeep-store-v2`, durable journals, atomic blob publish, recovery, `check`, `backup` | [storage-format](docs/storage-format.md) |
-| Исходящая доставка | **PASS** | Durable очередь, single-flight scheduler на Linux, retry policy, локальный DSN после permanent failure, TLS route с закреплённым SAN и CA. Проверен явный relay peer; публичные DNS/MX и доставка в интернет не проверялись | [protocol-coverage](docs/protocol-coverage.md#outbound-smtp) |
-| Эксплуатационный контур | **PASS** | `init`, `seed`, `runtime stats/tasks/resources/inspect/cancel`, `check`, `backup`, `sieve-errors` | [architecture](docs/architecture.md) |
+| Sieve | **PARTIAL** | Basic RFC 5228 profile, `fileinto`, `redirect`, `keep`/`discard`, header/address/size tests, diagnostics. The internal RFC 5229 profile and RFC 5228 `encoded-character` decoding are implemented but **not advertised** | [sieve-coverage](docs/sieve-coverage.md), [audit](docs/sieve-extension-audit.md) |
+| Filesystem storage | **PASS** | `litterkeep-store-v2` format, durable journals, atomic blob publication, recovery, `check`, `backup` | [storage-format](docs/storage-format.md) |
+| Outgoing delivery | **PASS** | Durable queue, single-flight scheduler on Linux, retry policy, local DSN after a permanent failure, TLS route with a pinned SAN and CA. Verified against an explicit relay peer; public DNS/MX and internet delivery were not tested | [protocol-coverage](docs/protocol-coverage.md#outbound-smtp) |
+| Operational tooling | **PASS** | `init`, `seed`, `runtime stats/tasks/resources/inspect/cancel`, `check`, `backup`, `sieve-errors` | [architecture](docs/architecture.md) |
 
-## Приёмка в цифрах
+## Acceptance in numbers
 
-Матрица [`docs/acceptance.tsv`](docs/acceptance.tsv) содержит 439 проверок:
+The matrix [`docs/acceptance.tsv`](docs/acceptance.tsv) contains 439 checks:
 
-| Статус | Сколько | Значение |
+| Status | Count | Meaning |
 |---|---:|---|
-| `PASS` | 349 | Проверка выполнена и подтверждена независимым наблюдением |
-| `PARTIAL` | 79 | Подтверждена только часть границы, остальное названо явно |
-| `SUPERSEDED` | 7 | Ранняя контрольная точка, заменена более поздней проверкой |
-| `BLOCKED` | 1 | Проверка не могла быть выполнена по внешней причине |
-| `FAIL` | 1 | Проверка выполнена и не прошла |
-| `GAP` | 1 | Зафиксированный пробел без попытки проверки |
-| `NOT RUN` | 1 | Подготовлено, но не запускалось |
+| `PASS` | 349 | The check was performed and confirmed by an independent observation |
+| `PARTIAL` | 79 | Only part of the boundary is confirmed, the rest is named explicitly |
+| `SUPERSEDED` | 7 | An earlier checkpoint replaced by a later check |
+| `BLOCKED` | 1 | The check could not be performed for an external reason |
+| `FAIL` | 1 | The check was performed and did not pass |
+| `GAP` | 1 | A recorded gap without an attempt to check |
+| `NOT RUN` | 1 | Prepared but never executed |
 
-Формат колонок и смысл статусов разобраны в
-[`docs/acceptance.md`](docs/acceptance.md#формат-матрицы).
+The column format and the meaning of the statuses are explained in
+[`docs/acceptance.md`](docs/acceptance.md#the-matrix-format).
 
-## Что сделано и проверено
+## What is done and verified
 
 ### SMTP submission
 
-Один процесс принимает submission на 1465 (implicit TLS) и 1587 (STARTTLS).
-TLS handshake завершается до выдачи любого greeting-а, поэтому учётные данные
-не уходят открытым текстом. `AUTH PLAIN` работает только после TLS.
+A single process accepts submission on 1465 (implicit TLS) and 1587 (STARTTLS).
+The TLS handshake completes before any greeting is sent, so credentials never
+travel in clear text. `AUTH PLAIN` only works after TLS.
 
-Принят typed envelope и проходит через DATA и BDAT к единственному владельцу
-Store, сохраняется в commit-linked sidecar и восстанавливается после reopen.
-RFC 3461 `DSN` рекламируется через EHLO; независимые raw-socket peers
-подтвердили capability, приём `MAIL RET=HDRS ENVID=...`, `RCPT NOTIFY=FAILURE
-ORCPT=...`, завершение DATA и отказ тех же параметров после HELO.
+The accepted typed envelope passes through DATA and BDAT to the single Store
+owner, is stored in a commit-linked sidecar and is recovered after a reopen.
+RFC 3461 `DSN` is advertised over EHLO; independent raw-socket peers confirmed
+the capability, the acceptance of `MAIL RET=HDRS ENVID=...`, `RCPT
+NOTIFY=FAILURE ORCPT=...`, the completion of DATA and the refusal of the same
+parameters after HELO.
 
-Фаза доставки ограничена RFC 5321 timeouts, настраиваемыми при старте
-процесса. Ошибка ввода-вывода уничтожает грязное соединение, durable job
-переводится в retry policy, а канал не возвращается в pool.
+The delivery phase uses RFC 5321 timeouts that can be configured at process
+start. An I/O error destroys the dirty connection, the durable job moves into the
+retry policy and the channel is not returned to the pool.
 
 ### IMAP4rev1
 
-Работают `CAPABILITY`, `ID`, `NOOP`, `LOGOUT`, `STARTTLS`, `LOGIN`,
-`AUTHENTICATE PLAIN` с SASL-IR, `NAMESPACE`, `ENABLE`, `CREATE`/`DELETE`/
+`CAPABILITY`, `ID`, `NOOP`, `LOGOUT`, `STARTTLS`, `LOGIN`,
+`AUTHENTICATE PLAIN` with SASL-IR, `NAMESPACE`, `ENABLE`, `CREATE`/`DELETE`/
 `RENAME`, `SUBSCRIBE`/`UNSUBSCRIBE`, `SELECT`/`EXAMINE`, `APPEND`, `FETCH`,
 `UID FETCH`, `SEARCH`, `UID SEARCH`, `STORE`, `UID STORE`, `COPY`/`MOVE`,
 `EXPUNGE`/`UID EXPUNGE`, `CLOSE`, `UNSELECT`, `CHECK`, `IDLE`/`DONE`,
-`LIST SPECIAL-USE`, `RETURN`, `CREATE USE`.
+`LIST SPECIAL-USE`, `RETURN` and `CREATE USE` are working.
 
-Ключевые подтверждённые свойства: `APPEND` атомарно сохраняет начальные флаги
-и `INTERNALDATE` вместе с UID; событийный IDLE будит только выбранные сессии и
-после durable APPEND возвращается к обычным командам через `DONE`; durable
-каталог папок отдаёт `SPECIAL-USE` по умолчанию; `RENAME` сохраняет
-стабильные внутренние ID всему поддереву; `DELETE` окончательно выводит ID из
-оборота и отказывает для INBOX или папки с детьми; `LSUB` показывает
-отсутствующие подписки как `\Noselect`; `STATUS` читает счётчики без выбора
-папки; `EXPUNGE` перестраивает sequence numbers, не переиспользуя UID, и
-запрещён после `EXAMINE`.
+Key confirmed properties: `APPEND` atomically preserves the initial flags and
+`INTERNALDATE` together with the UID; the event-driven IDLE wakes only selected
+sessions and returns to normal commands through `DONE` after a durable APPEND;
+the durable folder catalog exposes the default `SPECIAL-USE` folders; `RENAME`
+keeps stable internal IDs for the whole subtree; `DELETE` retires an ID
+permanently and refuses INBOX or a parent that still has children; `LSUB`
+exposes missing subscriptions as `\Noselect`; `STATUS` reads mailbox counters
+without selecting the folder; `EXPUNGE` rebuilds the sequence numbers without
+reusing UIDs and is denied after `EXAMINE`.
 
-Точная построчная матрица со статусом и проверяемой границей — в
+The exact line-by-line matrix with the status and the verifiable boundary is in
 [`docs/imap-profile.md`](docs/imap-profile.md).
 
 ### POP3
 
-`serve-pop3-starttls` на 1110 и `serve-pop3-tls` на 1995. STLS обязателен
-до `PASS`, либо implicit TLS. Проверен порядок команд, отказ `NOOP` вне
-TRANSACTION по RFC 1939 §5, лимит 40 символов на аргумент по RFC 1939 §3,
-`UIDL` переживает restart, удаление через maildrop lease.
+`serve-pop3-starttls` on 1110 and `serve-pop3-tls` on 1995. STLS is mandatory
+before `PASS`, or implicit TLS is used. The command order, the refusal of
+`NOOP` outside TRANSACTION per RFC 1939 §5, the 40-character argument limit per
+RFC 1939 §3, `UIDL` surviving a restart and deletion through a maildrop lease
+are all verified.
 
 ### ManageSieve
 
-Все четыре listener-а в одном процессе, поэтому каталог скриптов, SMTP
-доставка и IMAP-видимость разделяют ровно одного владельца Store. Реализованы
-STARTTLS, SASL PLAIN с initial-response и challenge/response flow, SCRAM-SHA-1,
-SCRAM-SHA-256 и SCRAM-SHA-256-PLUS при наличии TLS 1.3 exporter, синхронные и
-фрагментированные literals, полный набор команд каталога скриптов.
+All four listeners run in the same process, so the script catalog, SMTP delivery
+and IMAP visibility share exactly one Store owner. STARTTLS, SASL PLAIN with
+initial-response and with challenge/response flow, SCRAM-SHA-1, SCRAM-SHA-256
+and SCRAM-SHA-256-PLUS when a TLS 1.3 exporter is available, synchronous and
+fragmented literals and the full set of script catalog commands are
+implemented.
 
 ### Sieve
 
-Рекламируемая capability строго ограничена:
+The advertised capability is strictly limited to:
 `fileinto subaddress envelope copy vacation vacation-seconds`.
 
-Внутренне реализован, но **не рекламируется** профиль RFC 5229: `set`, тест
-`string`, modifier-ы, раскрытие переменных в condition/action strings, цели
-`fileinto`/`redirect`, строки `vacation` и селекторы envelope/comparator.
-Также реализовано декодирование RFC 5228 `encoded-character` (`${hex:...}`,
-`${unicode:...}`), и строковые октеты сохраняются через лексер, сопоставление и
-actions. Реклама этих расширений требует отдельной приёмки.
+The RFC 5229 profile is implemented internally but **not advertised**: `set`,
+the `string` test, modifiers, expansion of variables into condition and action
+strings, `fileinto`/`redirect` targets, vacation strings and envelope and
+comparator selectors. RFC 5228 `encoded-character` decoding (`${hex:...}`,
+`${unicode:...}`) is implemented as well, and string octets are preserved
+through the lexer, matching and actions. Advertising these extensions requires
+a separate acceptance.
 
-Диагностика ошибок доступна владельцу через `sieve-errors`: каждая строка
-содержит delivery transaction, account, фактически исполненную версию скрипта
-и типизированный код ошибки. Журнал ограничен 1 MiB, и исчерпание квоты
-отклоняет transaction до SMTP success, а не принимает письмо без обещанной
-диагностики.
+Delivery errors are available to the owner through `sieve-errors`: every line
+contains the delivery transaction, the account, the script version that was
+actually executed and a typed error code. The journal is limited to 1 MiB, and
+exhausting the quota rejects the transaction before SMTP success rather than
+accepting a message without the promised diagnostics.
 
-### Файловое хранилище
+### Filesystem storage
 
-Blob публикуется через temporary file, `fsync`, atomic rename и directory sync.
-Mailbox links, флаги, папки, подписки, Recent, Sieve, diagnostics, очередь и
-global transaction commits используют framed append-only journals. Полный
-неверный frame считается corruption, неполный tail безопасно обрезается.
+A blob is published through a temporary file, `fsync`, an atomic rename and a
+directory sync. Mailbox links, flags, folders, subscriptions, Recent, Sieve,
+diagnostics, the queue and global transaction commits use framed append-only
+journals. A fully invalid frame counts as corruption, an incomplete tail is
+safely truncated.
 
-UID монотонен внутри mailbox и не переиспользуется после EXPUNGE. COPY делит
-immutable blob, MOVE публикует destination и source tombstone одной
-transaction. Автоматической миграции с ранних dev-форматов нет: неизвестный или
-непомеченный каталог с mail data отклоняется.
+A UID is monotonic within a mailbox and is never reused after EXPUNGE. COPY
+shares an immutable blob, MOVE publishes the destination and the source
+tombstone in one transaction. There is no automatic migration from earlier
+development formats: an unknown or unmarked directory with mail data is
+rejected.
 
-### Эксплуатационный контур
+### Operational tooling
 
-`init` создаёт локальные acceptance-аккаунты с Argon2id PHC и случайными
-паролями в `test-accounts.tsv`. `seed` заполняет тестовые ящики по манифесту
-`tests/fixtures/seed-manifest.tsv` и не удваивает fixtures при повторном
-запуске. `check` берёт эксклюзивную блокировку Store, выполняет штатное
-восстановление и читает каждый blob, на который ссылается mailbox или ожидающая
-доставка; orphan blobs только подсчитываются. `backup` требует остановленного
-Store owner-а.
+`init` creates the local acceptance accounts with Argon2id PHC and random
+passwords in `test-accounts.tsv`. `seed` fills the test mailboxes according to
+the manifest `tests/fixtures/seed-manifest.tsv` and does not double the
+fixtures on a repeated run. `check` takes the exclusive Store lock, performs
+the standard recovery and reads every blob referenced by a mailbox or a pending
+delivery; orphan blobs are only counted. `backup` requires a stopped Store
+owner.
 
-Runtime control socket возвращает только метаданные жизненного цикла: состояние
-задачи, generation-protected ID и удерживаемые ресурсы. Тела писем, пароли и
-TLS-ключи не возвращаются и не логируются.
+The runtime control socket returns only lifecycle metadata: task state,
+generation-protected IDs and held resources. Message bodies, passwords and TLS
+keys are neither returned nor logged.
 
-## Частично реализовано
+## Partially implemented
 
-| Область | Статус | Что ограничено |
+| Area | Status | What is limited |
 |---|---|---|
-| IMAP `CAPABILITY`, `ID`, `NOOP`, `LOGOUT` | PARTIAL | `ID` отвечает `* ID NIL`, чтобы не выдавать отпечаток реализации. Неперечисленные расширения не поддерживаются |
-| IMAP `LIST`, `LSUB`, `STATUS` | PARTIAL | Multi-namespace и breakout naming не реализованы |
-| IMAP `ENABLE` | PARTIAL | Поддержан `UTF8=ACCEPT`; `UTF8=ONLY` не поддерживается и не рекламируется |
-| IMAP `APPEND` | PARTIAL | Международные заголовки подтверждены, но полный RFC 9755 profile gate не закрыт |
-| IMAP `FETCH`, `UID FETCH` | PARTIAL | Ограниченный набор section/partial reads; полный RFC 3501 набор не закрыт |
-| IMAP `SEARCH`, `UID SEARCH` | PARTIAL | Evaluator реализован, но заявка на полный RFC 9051 key group не сделана |
-| IMAP address groups | PARTIAL | `ENVELOPE` и SEARCH address keys реализованы частично |
-| Sieve `variables` (RFC 5229) | PARTIAL | Профиль работает внутренне, capability не рекламируется |
-| Sieve `encoded-character` | PARTIAL | Декодирование работает, capability не рекламируется |
-| POP3 аутентификация | PASS с ограничением | Подтверждён успешный пароль; прочие механизмы не подтверждены |
-| Linux-only reactor | Ограничение платформы | На Windows собирается и тестируется, но `serve` и иные reactor-команды там не запускаются |
+| IMAP `CAPABILITY`, `ID`, `NOOP`, `LOGOUT` | PARTIAL | `ID` answers `* ID NIL` so that it does not expose an implementation fingerprint. Unlisted extensions are not supported |
+| IMAP `LIST`, `LSUB`, `STATUS` | PARTIAL | Multi-namespace and breakout naming are not implemented |
+| IMAP `ENABLE` | PARTIAL | `UTF8=ACCEPT` is supported; `UTF8=ONLY` is neither supported nor advertised |
+| IMAP `APPEND` | PARTIAL | Internationalised headers are confirmed, but the full RFC 9755 profile gate is not closed |
+| IMAP `FETCH`, `UID FETCH` | PARTIAL | A limited set of section and partial reads; the full RFC 3501 set is not closed |
+| IMAP `SEARCH`, `UID SEARCH` | PARTIAL | The evaluator is implemented, but no claim on the full RFC 9051 key group is made |
+| IMAP address groups | PARTIAL | `ENVELOPE` and the SEARCH address keys are implemented in part |
+| Sieve `variables` (RFC 5229) | PARTIAL | The profile works internally, the capability is not advertised |
+| Sieve `encoded-character` | PARTIAL | The decoding works, the capability is not advertised |
+| POP3 authentication | PASS with a limit | A successful password is confirmed; other mechanisms are not |
+| Linux-only reactor | Platform limit | On Windows the project builds and tests, but `serve` and the other reactor commands do not run |
 
-## Запланировано, но не начато
+## Planned but not started
 
-| Расширение / цель | RFC | Что потребуется |
+| Extension or goal | RFC | What it would take |
 |---|---|---|
-| IMAP4rev2 baseline | RFC 9051 | Полный набор key group и обязательная семантика плюс сетевая приёмка |
-| `UTF8=ONLY` | RFC 9755 | Отдельный профиль: reject legacy modified UTF-7 и `NO [CANNOT]` для UTF-8-зависимых команд до `ENABLE` |
-| Sieve `body` | RFC 5173 | MIME-aware `:raw`, `:content`, `:text` без совпадений через границы частей, с ограничением CPU и памяти |
-| Sieve `reject`, `ereject` | RFC 5429 | Оценка Sieve до SMTP-принятия DATA; post-accept DSN не эквивалентен `ereject` |
-| Sieve `imap4flags` | RFC 5232 | `setflag`, `addflag`, `removeflag`, `hasflag` и `:flags` с durable мутацией флагов |
-| Sieve IMAP events | RFC 6785 | Поддержка IMAP-флагов и определённый event context для исполнения |
-| Sieve `mailboxid` | RFC 9042 | Устойчивые mailbox OBJECTID, `:mailboxid` у `fileinto` и `mailboxidexists` |
-| Sieve mailbox metadata | RFC 5490 | `mailboxexists`, metadata-тесты и обработка по metadata |
-| Sieve special-use delivery | RFC 8579 | `specialuse`, `:specialuse` и согласование с typed special-use каталогом |
+| IMAP4rev2 baseline | RFC 9051 | The full key group and the mandatory semantics, plus wire acceptance |
+| `UTF8=ONLY` | RFC 9755 | A separate profile: reject legacy modified UTF-7 and answer `NO [CANNOT]` for UTF-8-dependent commands before `ENABLE` |
+| Sieve `body` | RFC 5173 | MIME-aware `:raw`, `:content`, `:text` without matches across part boundaries, with CPU and memory limits |
+| Sieve `reject`, `ereject` | RFC 5429 | Sieve evaluation before SMTP accepts DATA; a post-accept DSN is not equivalent to `ereject` |
+| Sieve `imap4flags` | RFC 5232 | `setflag`, `addflag`, `removeflag`, `hasflag` and `:flags` with durable flag mutation |
+| Sieve IMAP events | RFC 6785 | IMAP flag support and a defined event context for the execution |
+| Sieve `mailboxid` | RFC 9042 | Stable mailbox OBJECTIDs, `:mailboxid` on `fileinto` and `mailboxidexists` |
+| Sieve mailbox metadata | RFC 5490 | `mailboxexists`, metadata tests and metadata-based processing |
+| Sieve special-use delivery | RFC 8579 | `specialuse`, `:specialuse` and agreement with the typed special-use catalog |
 
-Полный инвентарь расширений с указанием следующей необходимой границы — в
+The full inventory with the next necessary boundary for each extension is in
 [`docs/sieve-extension-audit.md`](docs/sieve-extension-audit.md).
 
-## Осознанные ограничения
+## Deliberate limitations
 
-Это не дефекты и не задачи, а зафиксированные границы проекта.
+These are not defects and not tasks; they are recorded boundaries of the
+project.
 
-- **Не предназначен для публичного интернета.** Считается исследовательской
-  реализацией. Перед внешним exposure требуется front-end с настоящим TLS и
-  политикой против спама.
-- **Один владелец Store.** Параллельный второй writer отклоняется: `check`,
-  `backup` и `sieve-errors` открывают Store как единственный writer и потому
-  не должны идти параллельно с сервером.
-- **Нет автоматической миграции формата.** Переход на `litterkeep-store-v2` из
-  ранних dev-форматов не выполняется.
-- **Windows не запускает сервер.** Реактор опирается на Linux `poll(2)`;
-  Windows-хост используется для сборки, `fmt`, `clippy` и тестов.
-- **Ограничения по размеру.** DATA и ответ IMAP ограничены 25 MiB, бюджет
-  immutable-blob в каталоге данных — тоже 25 MiB. Превышение отклоняется до
-  создания временного blob.
-- **Маршрутизация исходящей почты** принимает только явный числовой `IP:port`:
-  скрытый blocking DNS из transport worker-а исключён.
-- **Один route-профиль для Sieve redirect** — типизированный домен `peer.test`.
-  Запрещённый route даёт implicit keep и Sieve diagnostic, а повреждённый job
-  получает terminal `5.7.1`, а не бессмысленный retry.
+- **Not intended for the public internet.** It is considered a research-grade
+  implementation. Before any external exposure it needs a front-end with real
+  TLS and an anti-abuse policy.
+- **One Store owner.** A second parallel writer is rejected: `check`, `backup`
+  and `sieve-errors` open the Store as the single writer and therefore must not
+  run in parallel with the server.
+- **No automatic format migration.** Moving from earlier development formats to
+  `litterkeep-store-v2` is not performed.
+- **Windows does not run the server.** The reactor relies on the Linux
+  `poll(2)`; a Windows host is used for building, `fmt`, `clippy` and tests.
+- **Size limits.** DATA and the IMAP response are limited to 25 MiB, and the
+  immutable-blob budget in the data directory is also 25 MiB. An excess is
+  rejected before the temporary blob is created.
+- **Outgoing mail routing** accepts only an explicit numeric `IP:port`, which
+  excludes hidden blocking DNS from the transport worker.
+- **One route profile for a Sieve redirect** — the typed domain `peer.test`. A
+  forbidden route yields an implicit keep and a Sieve diagnostic, and a
+  corrupted job gets the terminal code `5.7.1` instead of meaningless retries.
 
-## Как воспроизвести проверку
+## How to reproduce the verification
 
 ```sh
 cargo fmt --check
@@ -227,34 +231,36 @@ cargo build --locked --release --bin litterkeep-server
 cargo run --locked -- help
 ```
 
-Закреплённый тулчейн — Rust **1.97.0** (`rust-toolchain.toml`), он же в
-`Cargo.toml` и в Docker-образе `rust:1.97-bookworm`.
+The pinned toolchain is Rust **1.97.0** (`rust-toolchain.toml`), which is also
+the version in `Cargo.toml` and in the `rust:1.97-bookworm` Docker image.
 
-Тот же набор выполняется в CI на каждом пуше: `fmt` и `clippy` — на ubuntu и
-windows, тесты — на ubuntu и windows, плюс release-сборка. Бейдж вверху
-README показывает текущее состояние.
+The same set runs in CI on every push: `fmt` and `clippy` on ubuntu and
+windows, the tests on ubuntu and windows, plus a release build. The badge at the
+top of the README shows the current state.
 
-Черновые black-box проверки лежат в `tests/blackbox/`. Они требуют живого
-сервера и Linux-окружения; README описывает порядок запуска. Машинно-читаемая
-матрица фактически выполненных проверок — `docs/acceptance.tsv`.
+The black-box checks live in `tests/blackbox/`. They require a running server
+and a Linux environment; the README describes the order to run them. The
+machine-readable matrix of the checks that were actually performed is
+`docs/acceptance.tsv`.
 
-## Где искать подробности
+## Where to look for details
 
-| Документ | О чём |
+| Document | Subject |
 |---|---|
-| [`docs/README.md`](docs/README.md) | Навигация по документации и порядок чтения |
-| [`docs/architecture.md`](docs/architecture.md) | Процесс, владение ресурсами, долговечность |
-| [`docs/runtime-lifecycle.md`](docs/runtime-lifecycle.md) | Задачи, ожидание, пробуждение, отмена |
-| [`docs/storage-format.md`](docs/storage-format.md) | Формат файлового хранилища и recovery |
-| [`docs/decisions.md`](docs/decisions.md) | Принятые архитектурные решения и их цена |
-| [`docs/dependencies.md`](docs/dependencies.md) | Production-зависимости и собственные примитивы |
+| [`docs/README.md`](docs/README.md) | Documentation navigation and reading order |
+| [`docs/ru/README.md`](docs/ru/README.md) | The same navigation in Russian |
+| [`docs/architecture.md`](docs/architecture.md) | Process, resource ownership, durability |
+| [`docs/runtime-lifecycle.md`](docs/runtime-lifecycle.md) | Tasks, waiting, wake-up, cancellation |
+| [`docs/storage-format.md`](docs/storage-format.md) | Storage format and recovery |
+| [`docs/decisions.md`](docs/decisions.md) | Architectural decisions taken and their cost |
+| [`docs/dependencies.md`](docs/dependencies.md) | Production dependencies and the project's own primitives |
 | [`docs/security.md`](docs/security.md) | Security profile |
-| [`docs/client-setup.md`](docs/client-setup.md) | Подключение почтового клиента |
-| [`docs/protocol-coverage.md`](docs/protocol-coverage.md) | Подробное покрытие SMTP, IMAP, POP3, Sieve, outbound |
-| [`docs/imap-profile.md`](docs/imap-profile.md) | Построчная матрица IMAP со статусами |
-| [`docs/sieve-coverage.md`](docs/sieve-coverage.md) | Профиль Sieve и ManageSieve |
-| [`docs/sieve-extension-audit.md`](docs/sieve-extension-audit.md) | Инвентарь расширений Sieve |
-| [`docs/unicode-data.md`](docs/unicode-data.md) | Закреплённая версия Unicode data |
-| [`docs/acceptance.md`](docs/acceptance.md) | Итоговая приёмка по задачам |
-| [`docs/acceptance.tsv`](docs/acceptance.tsv) | Машинно-читаемая матрица приёмки |
-| [`GOAL.md`](GOAL.md) | Журнал разработки по этапам |
+| [`docs/client-setup.md`](docs/client-setup.md) | Connecting a mail client |
+| [`docs/protocol-coverage.md`](docs/protocol-coverage.md) | Detailed coverage of SMTP, IMAP, POP3, Sieve and outbound |
+| [`docs/imap-profile.md`](docs/imap-profile.md) | Line-by-line IMAP matrix with statuses |
+| [`docs/sieve-coverage.md`](docs/sieve-coverage.md) | Sieve and ManageSieve profile |
+| [`docs/sieve-extension-audit.md`](docs/sieve-extension-audit.md) | Inventory of Sieve extensions |
+| [`docs/unicode-data.md`](docs/unicode-data.md) | Pinned Unicode data version |
+| [`docs/acceptance.md`](docs/acceptance.md) | Final acceptance per task |
+| [`docs/acceptance.tsv`](docs/acceptance.tsv) | Machine-readable acceptance matrix |
+| [`GOAL.md`](GOAL.md) | Development journal per stage |

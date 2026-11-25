@@ -1,1900 +1,287 @@
-# Покрытие протоколов
+# Protocol coverage
 
-> **О документе.** Подробное покрытие протоколов: TLS listener composition, SMTP, IMAP, POP3, Sieve и ManageSieve, исходящий SMTP.
+> **About this document.** Detailed protocol coverage: TLS listener composition, SMTP, IMAP, POP3, Sieve and ManageSieve, outbound SMTP.
 >
-> Навигация по документации — [docs/README.md](README.md), сводная готовность — [STATUS.md](../STATUS.md).
+> Documentation navigation — [docs/README.md](README.md), project status — [STATUS.md](../STATUS.md).
 
-## Оглавление
+## Contents
 
 - [TLS listener composition](#tls-listener-composition)
 - [SMTP](#smtp)
-  - [RFC 3461 DSN: negotiation, уведомления и failure reports](#rfc-3461-dsn-negotiation-уведомления-и-failure-reports)
-  - [Submission, PIPELINING и валидация DATA](#submission-pipelining-и-валидация-data)
-  - [Авторизация sender-а и idle deadline](#авторизация-sender-а-и-idle-deadline)
-  - [RFC 3030 CHUNKING и BINARYMIME](#rfc-3030-chunking-и-binarymime)
-  - [TLS closure, STARTTLS pipeline и аутентификация](#tls-closure-starttls-pipeline-и-аутентификация)
-  - [Разбор команд и синтаксис envelope path](#разбор-команд-и-синтаксис-envelope-path)
-  - [Порядок сессии, mailbox grammar и SMTPUTF8](#порядок-сессии-mailbox-grammar-и-smtputf8)
-  - [Postmaster и лимиты envelope](#postmaster-и-лимиты-envelope)
-  - [VRFY, EXPN и расширения ESMTP](#vrfy-expn-и-расширения-esmtp)
+  - [RFC 3461 DSN: negotiation, notifications and failure reports](#rfc-3461-dsn-negotiation-notifications-and-failure-reports)
+  - [Submission, PIPELINING and DATA validation](#submission-pipelining-and-data-validation)
+  - [Sender authorization and idle deadline](#sender-authorization-and-idle-deadline)
+  - [RFC 3030 CHUNKING and BINARYMIME](#rfc-3030-chunking-and-binarymime)
+  - [TLS closure, STARTTLS pipeline and authentication](#tls-closure-starttls-pipeline-and-authentication)
+  - [Command parsing and envelope path syntax](#command-parsing-and-envelope-path-syntax)
+  - [Session order, mailbox grammar and SMTPUTF8](#session-order-mailbox-grammar-and-smtputf8)
+  - [Postmaster and envelope limits](#postmaster-and-envelope-limits)
+  - [VRFY, EXPN and ESMTP extensions](#vrfy-expn-and-esmtp-extensions)
 - [IMAP](#imap)
-  - [Базовый набор команд и SELECT/EXAMINE](#базовый-набор-команд-и-selectexamine)
-  - [TLS closure, аутентификация и UTF8=ACCEPT](#tls-closure-аутентификация-и-utf8accept)
-  - [RFC 2971 ID, LITERAL+ и APPENDLIMIT](#rfc-2971-id-literal-и-appendlimit)
-  - [FETCH, BODYSTRUCTURE и параметры MIME](#fetch-bodystructure-и-параметры-mime)
-  - [Structured MIME, BODY-секции и BINARY](#structured-mime-body-секции-и-binary)
-  - [SEARCH, charset-декодирование и MIME-дерево](#search-charset-декодирование-и-mime-дерево)
-  - [MIME-декодирование, quoted-printable и multipart](#mime-декодирование-quoted-printable-и-multipart)
-  - [FETCH-семантика и разбор адресов RFC 5322](#fetch-семантика-и-разбор-адресов-rfc-5322)
-  - [SEARCH SAVE, ESEARCH и charset-профиль](#search-save-esearch-и-charset-профиль)
-  - [WHATWG-декодеры, aliases и encoded-word матрица](#whatwg-декодеры-aliases-и-encoded-word-матрица)
+  - [Basic command set and SELECT/EXAMINE](#basic-command-set-and-selectexamine)
+  - [TLS closure, authentication and UTF8=ACCEPT](#tls-closure-authentication-and-utf8accept)
+  - [RFC 2971 ID, LITERAL+ and APPENDLIMIT](#rfc-2971-id-literal-and-appendlimit)
+  - [FETCH, BODYSTRUCTURE and MIME parameters](#fetch-bodystructure-and-mime-parameters)
+  - [Structured MIME, BODY sections and BINARY](#structured-mime-body-sections-and-binary)
+  - [SEARCH, charset decoding and the MIME tree](#search-charset-decoding-and-the-mime-tree)
+  - [MIME decoding, quoted-printable and multipart](#mime-decoding-quoted-printable-and-multipart)
+  - [FETCH semantics and RFC 5322 address parsing](#fetch-semantics-and-rfc-5322-address-parsing)
+  - [SEARCH SAVE, ESEARCH and the charset profile](#search-save-esearch-and-the-charset-profile)
+  - [WHATWG decoders, aliases and the encoded-word matrix](#whatwg-decoders-aliases-and-the-encoded-word-matrix)
 - [POP3](#pop3)
-  - [Возможности POP3 и TLS lifecycle](#возможности-pop3-и-tls-lifecycle)
-  - [AUTHORIZATION FSM и разбор аргументов](#authorization-fsm-и-разбор-аргументов)
-  - [CAPA и расширенные коды ответов](#capa-и-расширенные-коды-ответов)
-  - [LIST, UIDL и управление maildrop](#list-uidl-и-управление-maildrop)
-  - [SASL-механизмы POP3](#sasl-механизмы-pop3)
-  - [Размерный профиль RFC 5034 и SCRAM transcript](#размерный-профиль-rfc-5034-и-scram-transcript)
-  - [CAPA после AUTH и границы client-final](#capa-после-auth-и-границы-client-final)
-  - [RFC 6856: UTF8, LANG и обработка сообщений](#rfc-6856-utf8-lang-и-обработка-сообщений)
-- [Sieve и ManageSieve](#sieve-и-managesieve)
-  - [RFC 5804: capability transitions и SASL](#rfc-5804-capability-transitions-и-sasl)
-  - [SCRAM-SHA-256-PLUS и tls-exporter](#scram-sha-256-plus-и-tls-exporter)
-  - [Quota и управление скриптами](#quota-и-управление-скриптами)
-  - [Токенизатор, NOOP и literal-аргументы](#токенизатор-noop-и-literal-аргументы)
-  - [Приём literal-аргументов ManageSieve](#приём-literal-аргументов-managesieve)
+  - [POP3 capabilities and TLS lifecycle](#pop3-capabilities-and-tls-lifecycle)
+  - [AUTHORIZATION FSM and argument parsing](#authorization-fsm-and-argument-parsing)
+  - [CAPA and extended response codes](#capa-and-extended-response-codes)
+  - [LIST, UIDL and maildrop management](#list-uidl-and-maildrop-management)
+  - [POP3 SASL mechanisms](#pop3-sasl-mechanisms)
+  - [The RFC 5034 size profile and the SCRAM transcript](#the-rfc-5034-size-profile-and-the-scram-transcript)
+  - [CAPA after AUTH and client-final boundaries](#capa-after-auth-and-client-final-boundaries)
+  - [RFC 6856: UTF8, LANG and message handling](#rfc-6856-utf8-lang-and-message-handling)
+- [Sieve and ManageSieve](#sieve-and-managesieve)
+  - [RFC 5804: capability transitions and SASL](#rfc-5804-capability-transitions-and-sasl)
+  - [SCRAM-SHA-256-PLUS and tls-exporter](#scram-sha-256-plus-and-tls-exporter)
+  - [Quota and script management](#quota-and-script-management)
+  - [Tokenizer, NOOP and literal arguments](#tokenizer-noop-and-literal-arguments)
+  - [Accepting ManageSieve literal arguments](#accepting-managesieve-literal-arguments)
 - [Outbound SMTP](#outbound-smtp)
-  - [Маршрутизация, scheduler и capabilities peer-а](#маршрутизация-scheduler-и-capabilities-peer-а)
-  - [Лимиты строк, SIZE и BINARYMIME/CHUNKING](#лимиты-строк-size-и-binarymimechunking)
-  - [Фазовая обработка ответов и код 421](#фазовая-обработка-ответов-и-код-421)
-  - [Downgrade EHLO/HELO и socket timeouts](#downgrade-ehlohelo-и-socket-timeouts)
-  - [QUIT, shutdown пула и BDAT timeouts](#quit-shutdown-пула-и-bdat-timeouts)
-  - [Потоковая передача DATA](#потоковая-передача-data)
+  - [Routing, scheduler and peer capabilities](#routing-scheduler-and-peer-capabilities)
+  - [Line limits, SIZE and BINARYMIME/CHUNKING](#line-limits-size-and-binarymimechunking)
+  - [Phased reply handling and code 421](#phased-reply-handling-and-code-421)
+  - [EHLO/HELO downgrade and socket timeouts](#ehlohelo-downgrade-and-socket-timeouts)
+  - [QUIT, pool shutdown and BDAT timeouts](#quit-pool-shutdown-and-bdat-timeouts)
+  - [Streaming DATA transfer](#streaming-data-transfer)
 
 ## TLS listener composition
 
-Linux-команда `serve-all-mail-tls` обслуживает SMTP submission, IMAP, POP3 и
-ManageSieve одним reactor-ом с общим владельцем Store и выполняет TLS handshake
-до выдачи каждого greeting-а. Независимый Linux TLS wire acceptance проверил
-сертификат, greeting, протокольные capabilities и SASL PLAIN для всех четырёх
-listener-ов; STARTTLS/STLS не рекламируются внутри уже защищённого канала.
-Это подтверждает только этот режим запуска. Внешняя совместимость с клиентом
-Litterkeep и полнота RFC-профилей остаются отдельными непроверенными вопросами.
+The Linux command `serve-all-mail-tls` serves SMTP submission, IMAP, POP3 and ManageSieve through one reactor with a shared Store owner and performs the TLS handshake before issuing each greeting. An independent Linux TLS wire acceptance checked the certificate, greeting, protocol capabilities and SASL PLAIN for all four listeners; STARTTLS/STLS are not advertised inside an already protected channel. This confirms only this start-up mode. External compatibility with the Litterkeep client and RFC profile completeness remain separate unverified issues.
 
-[RFC 8314](https://www.rfc-editor.org/rfc/rfc8314.html) рассматривает SMTP
-submission, IMAP и POP3; ManageSieve включён в общую команду как локальное
-архитектурное удобство, но это не расширение утверждений о сфере RFC 8314.
+[RFC 8314](https://www.rfc-editor.org/rfc/rfc8314.html) covers SMTP submission, IMAP and POP3; ManageSieve is included in the shared command as a local architectural convenience, but that is not an extension of the RFC 8314 scope claims.
 
 ## SMTP
 
-### RFC 3461 DSN: negotiation, уведомления и failure reports
+### RFC 3461 DSN: negotiation, notifications and failure reports
 
-RFC 3461 `DSN` рекламируется через EHLO; независимые raw-socket peers
-подтвердили capability, принятие MAIL `RET`/`ENVID` и RCPT `NOTIFY`/`ORCPT`,
-завершение DATA и отказ этих параметров после HELO. Принятый typed envelope
-проходит через DATA/BDAT к единственному Store owner; Store сохраняет его в
-commit-linked sidecar и восстанавливает после reopen. Это доказывает wire
-negotiation и envelope persistence, но не полную семантику итоговых уведомлений
-для каждого маршрута или Litterkeep app interoperability.
+RFC 3461 `DSN` is advertised over EHLO; independent raw-socket peers confirmed the capability, acceptance of MAIL `RET`/`ENVID` and RCPT `NOTIFY`/`ORCPT`, DATA completion and rejection of these parameters after HELO. The accepted typed envelope travels through DATA/BDAT to the single Store owner; the Store keeps it in a commit-linked sidecar and restores it after reopen. This proves wire negotiation and envelope persistence, but not the full semantics of the final notifications for each route or Litterkeep app interoperability.
 
-RFC 3461 требует применить запросы условий `NOTIFY`, возврата содержимого и
-корреляции envelope/получателя либо не заявлять о поддержке. Внутреннее
-планирование failure report после окончательного отказа и часть MIME-семантики
-уже реализованы и проверены. Сочетание параметров SMTP wire-path с каждым
-итоговым сценарием доставки всё ещё покрыто частично. Failure notice теперь сохраняется вместе с
-terminal queue transition и восстанавливается после перезапуска; DSN append
-идемпотентен по committed Store transaction, а очередь очищает notice отдельным
-durable acknowledgement. Unit/failpoint tests и полный Windows/Linux suite
-проверили эти переходы. Независимый runtime crash-kill сценарий ещё не проверен.
-Success report serializer теперь создаёт отдельный `Action: delivered` / `Status:
-2.0.0` outcome и возвращает только заголовки даже при `RET=FULL`; unit vectors
-проверяют также null reverse-path. Сам serializer требует явный `NOTIFY=SUCCESS`
-для конкретного RCPT и не формирует отчёт для omitted policy, FAILURE-only или
-NEVER. Store теперь до source commit записывает checksummed success intent для
-каждого eligible RCPT с локальным mailbox target; после recovery видны только
-intents, чья source transaction committed. Unit integration покрывает duplicate
-RCPT policy, discard и crash до commit. Если несколько RCPT разрешаются в один
-локальный mailbox, Store фиксирует одно сообщение, а независимые SUCCESS intents
-сохраняет по каждому eligible RCPT ordinal; T402 проверяет оба ключа после
-reopen. Для outbound redirect queue route теперь хранит все source ordinals,
-если несколько RCPT того же локального mailbox сведены в одну Sieve evaluation.
-Recovery, deferred retry и DSN idempotency key сохраняют список. Store
-восстанавливает typed metadata для каждого origin, а failure serializer
-формирует отдельный RFC 3464 recipient block для каждого origin, который имеет
-право на уведомление. Исторические T385/T404 ниже описывают checkpoint до этих
-исправлений, а не текущее поведение.
-Consumer доступен как typed bounded
-StorageWorker operation: он восстанавливает envelope и исходный blob, принимает
-существующий локальный sender account либо передаёт внешний reverse-path через
-durable outbound SMTP job, строит `Action: delivered` и публикует отчёт
-идемпотентно. Commit отчёта подтверждает intent и устраняет его
-из pending-представления после recovery; failpoint проверяет retry при сбое до
-commit. Store owner выполняет ограниченный sweep при старте и после каждой
-bounded-команды, поэтому восстановленные intents обрабатываются без отдельного
-протокольного запроса. Ошибки видны в stderr, исходная доставка не отзывается,
-pending intent остаётся для retry. Success intents обходятся по устойчивому
-cursor-у в `BTreeSet`, а StorageWorker продолжает bounded-страницы до 100 записей
-по idle timer-у; independent StorageWorker test с backlog 101 подтверждает
-продолжение без клиентского запроса. Committed report удаляет intent из
-оперативного pending-индекса, recovery фильтрует подтверждённые записи, поэтому
-лимит ограничивает реально просмотренные элементы. Для существующего внешнего reverse-path
-Store создаёт outbound job с пустым SMTP reverse-path; независимый Linux SMTP
-peer подтвердил `MAIL FROM:<>`, внешний RCPT, `Action: delivered`, отсутствие
-исходного тела и удаление job после принятия. Доставка проверена только до
-явно настроенного relay peer: публичный DNS/MX и интернет не проверялись.
-Пакетный sweep после ошибки Store применяет экспоненциальную задержку в памяти
-процесса от 100 ms до 30 s и сбрасывает её после успешного прохода; deterministic
-unit tests проверяют границы и cap. Расписание повтора отдельного intent пока
-не durable и не сохраняется между перезапусками; dead-letter policy остаётся GAP.
-Downstream-generated SUCCESS/DELAY reports и полная сквозная семантика повторной
-доставки остаются неподдержанными. RFC 3461 §5.2.3 требует
-`delivered` DSN при локальной доставке с `NOTIFY=SUCCESS`; RFC считает её
-успешной, когда письмо уже доступно для IMAP/POP retrieval. SMTP принимает
-запросы по wire-протоколу, а committed SUCCESS intents создаются для локальной
-mailbox delivery. T416 добавляет optional локальный delayed DSN после второй
-временно неудачной попытки, если NOTIFY omitted либо origin policy разрешает
-DELAY. Он сохраняется как durable queue notice, имеет `Action: delayed` и
-`Status: 4.0.0`, не включает исходное сообщение и не отменяет последующий retry.
-Policy, MIME и queue recovery проверены unit tests. Linux Store/outbound-service
-integration выполняет два независимых временных 421 ответа; bounded drain с
-budget 2 затем передаёт durable null-sender delayed report следующей SMTP
-transaction той же очереди. Independent peer проверяет MAIL FROM:<>, RCPT к
-исходному sender, `Action: delayed`, `Status: 4.0.0`, отсутствие исходного тела
-и QUIT; оригинальная доставка остаётся Deferred для retry. T417 diagnostic GAP
-оказался отсутствующим третьим accept в harness и superseded этим acceptance
-(T418). Litterkeep acceptance не проверен. Для одного source
-RCPT с одним forward destination outbound worker передаёт исходные MAIL
-`RET`/`ENVID` и RCPT `NOTIFY`/`ORCPT`, если downstream EHLO объявил `DSN`;
-xtext сохраняет исходные octets; UTF-8 ORCPT сериализуется 7-bit-safe RFC 6533
-unitext. Если downstream не объявил `DSN`, параметры не отправляются; для
-single-origin маршрута с явным `NOTIFY=SUCCESS` durable очередь публикует
-`Action: relayed`, `Status: 2.0.0` (T414). Для нескольких исходных origins
-используется локальная стратегия RFC 3461 §5.2.7.3: ни один из исходных DSN
-параметров не передаётся downstream, даже если тот объявил DSN; durable source
-policy сохраняется локально, а `Relayed` report включает только origins с
-явным SUCCESS. Независимые plain TCP peer, implicit-TLS peer и serializer unit
-проверяют пропуск параметров и фильтрацию групп (T415). Linux Store-to-SMTP acceptance
-передаёт исходник и report двум независимым SMTP session, проверяет поля report,
-отсутствие тела и очистку очереди; отдельные тесты проверяют reopen journal.
-Это не Litterkeep-клиент. Downstream DSN-aware SUCCESS/DELAY отчёты и полный
-multi-origin alias/`expanded` lifecycle остаются неподдержанными; локальная
-стратегия T415 исключает неоднозначную передачу policies, но не проверяет
-взаимодействие с независимым DSN-aware downstream MTA в системном acceptance.
-Внутренние
-typed delivered serializer, commit-linked success intent, Store-owner consumer
-и доставка отчёта локально/через явно настроенный relay реализованы. Внешняя
-capability DSN объявлена и negotiation проверена T405, однако это частичная,
-не полная реализация RFC 3461.
-Независимый Linux wire
-peer зафиксировал прежнее отсутствие capability и отказ MAIL/RCPT до включения
-расширения; более поздний T405 проверил текущую EHLO negotiation. Ранний
-независимый Linux socket peer также проверил отказ `555 5.5.4` для `ORCPT=utf-8`
-до включения wire-поддержки. Отдельный Linux Store integration test подтвердил
-durable round-trip typed envelope. RFC 6533 задаёт для `utf-8` ORCPT три разные
-формы xtext, unitext и native UTF-8 с разными условиями SMTPUTF8. Теперь
-внутренний parser декодирует 7-bit-safe `utf-8-addr-xtext` и
-`utf-8-addr-unitext`, проверяя результат как UTF-8 mailbox; sidecar v2 сохраняет
-его type и octets, а version 1 продолжает читаться. Parser сводит xtext и
-unitext к одному семантическому UTF-8 адресу, не сохраняя способ кодирования.
-Независимый Linux peer подтвердил точный отказ 555 5.5.4 для xtext и буквального
-Unicode unitext до включения wire-поддержки; этот отказ является историческим.
-Native UTF-8 form policy и SMTPUTF8-specific form constraints остаются
-неполными. Уведомления о задержке и downstream-generated SUCCESS/DELAY reports
-не реализованы. Positive SUCCESS report доступен для поддерживаемых
-committed intents, запрошенных через SMTP `NOTIFY=SUCCESS`.
+RFC 3461 requires applying `NOTIFY` condition requests, return of content and envelope/recipient correlation, or not claiming support at all. Internal failure report planning after a final rejection and part of the MIME semantics are already implemented and verified. Combining the SMTP wire-path parameters with each final delivery scenario is still only partially covered. The failure notice is now stored together with the terminal queue transition and is restored after a restart; the DSN append is idempotent per committed Store transaction, and the queue clears the notice with a separate durable acknowledgement. Unit/failpoint tests and the full Windows/Linux suite verified these transitions. An independent runtime crash-kill scenario has not been verified yet.
+The success report serializer now creates a separate `Action: delivered` / `Status:
+2.0.0` outcome and returns only headers even with `RET=FULL`; unit vectors also check the null reverse-path. The serializer itself requires an explicit `NOTIFY=SUCCESS` for a specific RCPT and produces no report for an omitted policy, FAILURE-only or NEVER. The Store now writes a checksummed success intent for every eligible RCPT with a local mailbox target before the source commit; after recovery only intents whose source transaction committed are visible. Unit integration covers duplicate RCPT policy, discard and crash before commit. If several RCPT resolve to one local mailbox, the Store commits one message and keeps independent SUCCESS intents per eligible RCPT ordinal; T402 checks both keys after reopen. For an outbound redirect queue route the Store now keeps all source ordinals when several RCPT of the same local mailbox are folded into a single Sieve evaluation. Recovery, deferred retry and the DSN idempotency key keep the list. The Store restores typed metadata for each origin, and the failure serializer produces a separate RFC 3464 recipient block for every origin entitled to a notification. The historical T385/T404 entries below describe the checkpoint before these fixes, not the current behaviour.
+The consumer is available as a typed bounded StorageWorker operation: it restores the envelope and the original blob, accepts an existing local sender account or hands the external reverse-path to a durable outbound SMTP job, builds `Action: delivered` and publishes the report idempotently. Committing the report acknowledges the intent and removes it from the pending view after recovery; a failpoint checks the retry on a failure before commit. The Store owner runs a bounded sweep at start-up and after every bounded command, so restored intents are processed without a separate protocol request. Errors are visible in stderr, the original delivery is not recalled and the pending intent stays for a retry. Success intents are walked through a durable cursor in a `BTreeSet`, and the StorageWorker continues bounded pages of up to 100 records on an idle timer; an independent StorageWorker test with a backlog of 101 confirms the continuation without a client request. A committed report removes the intent from the live pending index, recovery filters the acknowledged entries, so the limit bounds the really inspected items. For an existing external reverse-path the Store creates an outbound job with an empty SMTP reverse-path; an independent Linux SMTP peer confirmed `MAIL FROM:<>`, an external RCPT, `Action: delivered`, the absence of the original body and the removal of the job after acceptance. Delivery is verified only up to an explicitly configured relay peer: public DNS/MX and the internet were not verified. A batch sweep after a Store error applies an exponential in-process delay from 100 ms to 30 s and resets it after a successful pass; deterministic unit tests check the boundaries and the cap. The retry schedule of a single intent is not durable yet and is not kept across restarts; the dead-letter policy remains a GAP.
+Downstream-generated SUCCESS/DELAY reports and the full end-to-end semantics of repeated delivery remain unsupported. RFC 3461 §5.2.3 requires a `delivered` DSN for local delivery with `NOTIFY=SUCCESS`; the RFC counts it as successful once the mail is already available for IMAP/POP retrieval. SMTP accepts the requests over the wire protocol, and committed SUCCESS intents are created for local mailbox delivery. T416 adds an optional local delayed DSN after the second temporarily failed attempt, if NOTIFY is omitted or the origin policy allows DELAY. It is kept as a durable queue notice, carries `Action: delayed` and `Status: 4.0.0`, does not include the original message and does not cancel a later retry.
+The policy, MIME and queue recovery are verified by unit tests. The Linux Store/outbound-service integration performs two independent temporary 421 replies; a bounded drain with a budget of 2 then hands the durable null-sender delayed report to the next SMTP transaction of the same queue. An independent peer checks MAIL FROM:<>, RCPT to the original sender, `Action: delayed`, `Status: 4.0.0`, the absence of the original body and QUIT; the original delivery stays Deferred for retry. The T417 diagnostic GAP turned out to be a missing third accept in the harness and is superseded by this acceptance (T418). Litterkeep acceptance is not verified. For a single source RCPT with one forward destination the outbound worker passes the original MAIL `RET`/`ENVID` and RCPT `NOTIFY`/`ORCPT` if the downstream EHLO advertised `DSN`; xtext preserves the original octets and a UTF-8 ORCPT is serialized as 7-bit-safe RFC 6533 unitext. If the downstream did not advertise `DSN`, the parameters are not sent; for a single-origin route with an explicit `NOTIFY=SUCCESS` the durable queue publishes `Action: relayed`, `Status: 2.0.0` (T414). For several source origins a local RFC 3461 §5.2.7.3 strategy applies: none of the original DSN parameters is passed downstream even if the peer advertised DSN; the durable source policy is kept locally, and the `Relayed` report includes only origins with an explicit SUCCESS. Independent plain TCP, implicit-TLS peers and serializer unit tests check the parameter suppression and the group filtering (T415). The Linux Store-to-SMTP acceptance passes the original and the report to two independent SMTP sessions, checks the report fields, the absence of a body and the queue cleanup; separate tests check the reopen journal. This is not a Litterkeep client. Downstream DSN-aware SUCCESS/DELAY reports and the full multi-origin alias/`expanded` lifecycle remain unsupported; the local T415 strategy excludes ambiguous policy passing, but does not check the interaction with an independent DSN-aware downstream MTA in a system acceptance.
+The internal typed delivered serializer, the commit-linked success intent, the Store-owner consumer and the local or explicitly configured relay report delivery are implemented. The external DSN capability is advertised and the negotiation is verified by T405, but this is a partial, not a full, implementation of RFC 3461.
+An independent Linux wire peer recorded the earlier absence of the capability and the MAIL/RCPT rejection before the extension was enabled; the later T405 verified the current EHLO negotiation. An early independent Linux socket peer also verified the `555 5.5.4` rejection for `ORCPT=utf-8` before wire support was enabled. A separate Linux Store integration test confirmed the durable round-trip of the typed envelope. RFC 6533 defines three different forms for a `utf-8` ORCPT: xtext, unitext and native UTF-8, with different SMTPUTF8 conditions. Now the internal parser decodes the 7-bit-safe `utf-8-addr-xtext` and `utf-8-addr-unitext`, checking the result as a UTF-8 mailbox; sidecar v2 keeps its type and octets, and version 1 is still readable. The parser reduces xtext and unitext to one semantic UTF-8 address without keeping the encoding form. An independent Linux peer confirmed the exact 555 5.5.4 rejection for xtext and for a literal Unicode unitext before wire support was enabled; that rejection is historical. The native UTF-8 form policy and the SMTPUTF8-specific form constraints remain incomplete. Delay notifications and downstream-generated SUCCESS/DELAY reports are not implemented. A positive SUCCESS report is available for supported committed intents requested through SMTP `NOTIFY=SUCCESS`.
 
-Исторические T385/T404 acceptance-записи фиксируют прежние контрольные точки,
-а не текущее состояние. Сейчас durable queue jobs сохраняют все исходные RCPT
-ordinal для сгруппированного redirect, Store восстанавливает typed DSN metadata
-каждого источника, а failure policy выбирает подходящие источники и
-сериализует отдельную RFC 3464 recipient-группу для каждого из них. T412 добавил
-регрессию для двух eligible FAILURE-источников и двух recipient-групп. T405
-независимо проверил wire negotiation, но multi-origin report подтверждён
-unit/Store тестами, не отдельным сетевым acceptance.
-Eligibility policy покрывает SUCCESS/FAILURE/DELAY: default не запрашивает
-SUCCESS, разрешает обязательный FAILURE и допускает опциональный DELAY; явный
-список ограничивает outcome, NEVER подавляет всё. Delay reports не генерируются.
-Генератор failure reports переносит `Original-Envelope-ID` и типизированный `Original-Recipient`,
-сохраняет отдельный `Final-Recipient`, соблюдает разделение per-message и
-per-recipient блоков, а при сохранённом `RET=HDRS` не включает тело письма.
-Для UTF-8 адресов используется RFC 6533 `message/global-delivery-status`, а
-для UTF-8 заголовков только `RET=HDRS` используется `message/global-headers`;
-ASCII-варианты используют стандартные DSN media types. Эти правила проверены
-unit regressions на Windows и Linux; independent SMTP/IMAP acceptance ранее
-проверил один failure report, а T405 отдельно подтвердил DSN negotiation.
-Задержанные reports и полная downstream relay семантика остаются GAP. Failure-
-report crash window закрыт durable intent и idempotent report key (T389), но
-независимый crash-kill runtime acceptance ещё не проводился.
-RFC 3461 §§4.3, 5.2.6, 5.2.7 и 6 описывает эти требования.
-См. [RFC 3461](https://www.rfc-editor.org/rfc/rfc3461.html).
+The historical T385/T404 acceptance entries record earlier checkpoints, not the current state. Now durable queue jobs keep all original RCPT ordinals for a grouped redirect, the Store restores the typed DSN metadata of every source, and the failure policy selects the suitable sources and serializes a separate RFC 3464 recipient group for each of them. T412 added a regression for two eligible FAILURE sources and two recipient groups. T405 independently verified the wire negotiation, but the multi-origin report is confirmed by unit/Store tests, not by a separate network acceptance. The eligibility policy covers SUCCESS/FAILURE/DELAY: the default does not request SUCCESS, allows a mandatory FAILURE and permits an optional DELAY; an explicit list restricts the outcome, NEVER suppresses everything. Delay reports are not generated. The failure report generator carries over `Original-Envelope-ID` and the typed `Original-Recipient`, keeps a separate `Final-Recipient`, respects the split between per-message and per-recipient blocks, and does not include the message body when `RET=HDRS` is stored. For UTF-8 addresses RFC 6533 `message/global-delivery-status` is used, and for UTF-8 headers with only `RET=HDRS` `message/global-headers` is used; the ASCII variants use the standard DSN media types. These rules are verified by unit regressions on Windows and Linux; an independent SMTP/IMAP acceptance earlier checked one failure report, and T405 separately confirmed the DSN negotiation. Delayed reports and the full downstream relay semantics remain a GAP. The failure-report crash window is closed by a durable intent and an idempotent report key (T389), but an independent crash-kill runtime acceptance has not been run yet. RFC 3461 §§4.3, 5.2.6, 5.2.7 and 6 describe these requirements. See [RFC 3461](https://www.rfc-editor.org/rfc/rfc3461.html).
 
-Генерируемый сервером внутренний failure report сериализует `Final-Recipient`
-как `rfc822; mailbox` без SMTP path угловых скобок; unit regression проверяет
-это поле и запрещает прежнюю форму. Независимый Linux acceptance прошёл полный
-путь ManageSieve STARTTLS redirect, SMTP submission, файловая очередь, ответ
-внешнего peer `550 5.1.1`, возврат через RSET/QUIT и чтение созданного failure
-DSN стандартным IMAP STARTTLS клиентом из Alice INBOX. Клиент проверяет MIME
-report type, `Action: failed` и точное поле `Final-Recipient`. Этот сценарий
-проверяет generated-report syntax и чтение через IMAP, а T405 отдельно
-проверяет RFC 3461 ESMTP negotiation. Их сочетание пока не доказывает полный
-объём условий и downstream relay семантики.
-См. [RFC 3464 §2.3.2](https://www.rfc-editor.org/rfc/rfc3464.html#section-2.3.2).
+The server-generated internal failure report serializes `Final-Recipient` as `rfc822; mailbox` without the SMTP path angle brackets; a unit regression checks this field and forbids the previous form. An independent Linux acceptance passed the full ManageSieve STARTTLS redirect, SMTP submission, file queue, external peer `550 5.1.1` reply, return through RSET/QUIT and reading of the generated failure DSN by a standard IMAP STARTTLS client from Alice INBOX. The client checks the MIME report type, `Action: failed` and the exact `Final-Recipient` field. This scenario verifies the generated-report syntax and the reading through IMAP, while T405 separately verifies the RFC 3461 ESMTP negotiation. Their combination does not yet prove the full set of conditions and the downstream relay semantics. See [RFC 3464 §2.3.2](https://www.rfc-editor.org/rfc/rfc3464.html#section-2.3.2).
 
-### Submission, PIPELINING и валидация DATA
+### Submission, PIPELINING and DATA validation
 
-Submission поддерживает implicit TLS и STARTTLS, EHLO, AUTH PLAIN, MAIL SIZE,
-несколько RCPT, DATA с однократным dot-unstuffing, RSET, NOOP и QUIT. Также
-рекламируются RFC 2920 `PIPELINING` и RFC 6152 `8BITMIME`. Независимый
-STARTTLS peer подтвердил PIPELINING: один сетевой write содержит MAIL,
-ошибочный RCPT, успешный RCPT и DATA; ответы должны сохранять порядок, принятый
-адресат не теряется, а письмо читается Bob через IMAP. Остальные SMTP extensions
-оцениваются отдельно. `BODY=8BITMIME` разрешает high-bit octets,
-которые сохраняются до IMAP, а без него DATA с такими octets отклоняется после
-dot terminator. `BODY=7BIT` и режим без BODY ограничивают содержимое US-ASCII.
-DATA parser отдельно отслеживает NUL и после полного dot terminator отвергает
-его кодом `554 5.6.0`; этот октет запрещён в MIME 7bit и 8bit data. Лимит
-размера сохраняет отдельный ответ `552 5.3.4`. Unit-проверка и независимый
-STARTTLS wire-тест подтверждают отказ NUL в обоих режимах, enhanced status,
-возврат в command state, последующую валидную доставку и отсутствие отвергнутых
-сообщений в IMAP. В wire-тесте восстановление подтверждено `NOOP`, не `RSET`.
-Теперь тот же DATA validator отвергает одиночные CR и LF: independent
-STARTTLS peer проверил оба байта при обоих BODY-профилях, ответ `554 5.6.0`,
-последующий NOOP, валидную SMTP delivery и отсутствие четырёх rejected messages
-в IMAP. MIME line endings принимаются только как исходная пара CRLF; отдельный
-BINARYMIME regression сохраняет произвольные NUL/high-bit/bare CR/LF octets в
-BDAT. См. [RFC 2045 §§2.7-2.9](https://www.rfc-editor.org/rfc/rfc2045.html#section-2.7)
-и [RFC 6152 §3](https://www.rfc-editor.org/rfc/rfc6152.html#section-3).
-Незавершённая DATA wire-строка ограничена до чтения CRLF: независимый STARTTLS
-peer отправляет более 26 MiB без разделителя, затем dot terminator, получает
-552 и успешно продолжает той же сессией командой NOOP. Это проверяет bounded
-input и синхронизацию после отказа, но не означает сохранение отвергнутого
-сообщения или проверку приложения Litterkeep. См. [RFC 5321 §4.5.3.1.6](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.1.6).
+Submission supports implicit TLS and STARTTLS, EHLO, AUTH PLAIN, MAIL SIZE, several RCPT, DATA with single dot-unstuffing, RSET, NOOP and QUIT. RFC 2920 `PIPELINING` and RFC 6152 `8BITMIME` are advertised as well. An independent STARTTLS peer confirmed PIPELINING: one network write contains MAIL, a wrong RCPT, a successful RCPT and DATA; the replies must keep the order, the accepted recipient is not lost, and Bob reads the mail through IMAP. The other SMTP extensions are assessed separately. `BODY=8BITMIME` allows high-bit octets, which are preserved up to IMAP, and without it DATA with such octets is rejected after the dot terminator. `BODY=7BIT` and the no-BODY mode restrict the content to US-ASCII. The DATA parser tracks NUL separately and rejects it with `554 5.6.0` after a complete dot terminator; this octet is forbidden in MIME 7bit and 8bit data. The size limit keeps a separate `552 5.3.4` reply. A unit check and an independent STARTTLS wire test confirm the NUL rejection in both modes, the enhanced status, the return to the command state, the subsequent valid delivery and the absence of the rejected messages in IMAP. In the wire test the recovery is confirmed by `NOOP`, not `RSET`. Now the same DATA validator rejects lone CR and LF: an independent STARTTLS peer checked both bytes under both BODY profiles, the `554 5.6.0` reply, the subsequent NOOP, a valid SMTP delivery and the absence of the four rejected messages in IMAP. MIME line endings are accepted only as the original CRLF pair; a separate BINARYMIME regression preserves arbitrary NUL/high-bit/bare CR/LF octets in BDAT. See [RFC 2045 §§2.7-2.9](https://www.rfc-editor.org/rfc/rfc2045.html#section-2.7) and [RFC 6152 §3](https://www.rfc-editor.org/rfc/rfc6152.html#section-3).
+An unfinished DATA wire line is bounded up to the CRLF read: an independent STARTTLS peer sends more than 26 MiB without a separator, then the dot terminator, receives 552 and successfully continues in the same session with a NOOP command. This verifies the bounded input and the synchronization after the rejection, but it does not imply that the rejected message is kept or that the Litterkeep application is verified. See [RFC 5321 §4.5.3.1.6](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.1.6).
 
-### Авторизация sender-а и idle deadline
+### Sender authorization and idle deadline
 
-До TLS AUTH запрещён. Ненулевой envelope sender должен принадлежать
-authenticated owner. RFC 6409 §3.2 разрешённый `MAIL FROM:<>` не отклоняется
-только из-за пустого reverse-path: authenticated identity даёт MSA return path;
-локальная доставка сохраняет `Return-Path: <>`. Независимый implicit-TLS peer
-проверяет также, что чужой ненулевой sender получает `550 5.7.1` согласно
-RFC 6409 §6.1. Local route не является open relay.
+AUTH is forbidden before TLS. A non-zero envelope sender must belong to the authenticated owner. RFC 6409 §3.2 allows `MAIL FROM:<>` and it is not rejected only because of the empty reverse-path: the authenticated identity yields an MSA return path, while local delivery keeps `Return-Path: <>`. An independent implicit-TLS peer also checked that a foreign non-zero sender gets `550 5.7.1` per RFC 6409 §6.1. A local route is not an open relay.
 
-Входящий SMTP command idle deadline составляет пять минут, а DATA body использует
-отдельный трёхминутный срок бездействия на принимаемый блок. Таймер учитывает
-фактические socket reads, не повторную обработку уже буферизованных строк.
-Независимый Linux STARTTLS peer после AUTH дождался TCP EOF через 300.1 секунды
-в command state; отдельный peer после `354` и неполного body block получил EOF
-через 180.1 секунды. Детерминированные lifecycle tests отдельно проверяют
-границу срока, освобождение lease и взаимодействие с pending worker. Это
-server-side timeout acceptance, не тест приложения Litterkeep.
+The incoming SMTP command idle deadline is five minutes, and a DATA body uses a separate three-minute inactivity limit per accepted block. The timer counts actual socket reads, not the reprocessing of already buffered lines. An independent Linux STARTTLS peer after AUTH waited for the TCP EOF for 300.1 seconds in the command state; a separate peer after `354` and an incomplete body block got EOF after 180.1 seconds. Deterministic lifecycle tests separately check the deadline boundary, the lease release and the interaction with a pending worker. This is server-side timeout acceptance, not a test of the Litterkeep application.
 
-Повторная wire-проверка отделяет сброс срока от первоначального deadline:
-после первого неполного DATA block независимый STARTTLS peer ждал 120 секунд,
-передал свежие body octets и получил TCP EOF через 180.1 секунды после второго
-socket read. Тем самым проверено, что новый фактически принятый блок запускает
-полный трёхминутный срок заново, а не только что первоначальный срок истекает.
+A repeated wire check separates the deadline reset from the initial deadline: after the first incomplete DATA block an independent STARTTLS peer waited 120 seconds, sent fresh body octets and got the TCP EOF 180.1 seconds after the second socket read. This verifies that a newly actually accepted block starts the full three-minute period again, not only that the initial period expires.
 
-### RFC 3030 CHUNKING и BINARYMIME
+### RFC 3030 CHUNKING and BINARYMIME
 
-RFC 3030 `CHUNKING` объявляется через EHLO во всех режимах SMTP и принимает
-`BDAT n [LAST]` с точным octet framing, нулевыми и промежуточными chunks.
-Промежуточные chunks получают отдельный 250; `LAST` проверяет согласованный
-7BIT/8BITMIME/BINARYMIME профиль и передаёт message единственному durable
-Store owner.
-Ошибка размера или последовательности переводит envelope в failed state до
-RSET, а отвергнутый payload точно дренируется без потери следующей команды.
-Независимый Linux TLS peer проверил zero-length и два message chunks, успешную
-доставку Alice -> Bob и точное совпадение декодированных MIME attachment bytes;
-второй raw peer проверил capability, отказную BDAT без MAIL/RCPT и сохранение
-границы перед pipelined BDAT и NOOP. После 503 на отвергнутый chunk сервер
-сохраняет failed state: следующий pipelined chunk дренируется и получает 503,
-команды до RSET тоже получают 503. RSET очищает состояние, после него NOOP
-получает 250. Отдельно проверены invalid content на LAST и chunk размера
-26 214 401 октет: ответы 552 отправлены только после drain, затем RSET и NOOP
-успешно восстановили сессию. Перезапуск Store между отправкой и IMAP чтением не
-выполнялся. Inbound объявляет `BINARYMIME` вместе с `CHUNKING`, принимает
-`MAIL ... BODY=BINARYMIME` и завершает только BDAT-транзакции. RFC 3030 text
-parts и multipart preamble/epilogue проверяются на canonical CRLF без DATA
-ограничения строки в 1000 октетов; non-text bodies сохраняются непрозрачно.
-`DATA` после такого MAIL получает 503 и переводит сессию в режим, требующий
-RSET. Если MIME-заголовки содержат UTF-8 field values, BINARYMIME LAST также
-требует установленный в MAIL флаг `SMTPUTF8`; без флага сообщение отклоняется.
-Independent Linux implicit-TLS peer проверил обе ветви: без MAIL SMTPUTF8
-UTF-8 заголовки отклонены на BDAT LAST, с MAIL SMTPUTF8 exact payload принят,
-извлечён через IMAP и пережил restart. Это ранняя forced-parameter проверка;
-новая проверка объявления capability и conforming U-label пути описана ниже.
-Independent peer подтвердил
-полный SMTP -> файловый Store -> IMAP сценарий для NUL, high-bit, bare LF/CR bytes, запрет DATA,
-отказ на noncanonical text, восстановление через RSET, точное чтение Bob и
-повторное чтение после рестарта сервера. Это локальный independent peer, не
-Litterkeep app. Outbound relay реализует RFC 3030 для MIME binary parts:
-требует одновременно peer capabilities `BINARYMIME` и
-`CHUNKING`, валидирует MIME headers и canonical CRLF текстовых частей, объявляет
-точный BDAT payload size и посылает последовательные bounded chunks с ожиданием
-отдельного `250` после каждого. DATA-ограничение 1000 октетов не переносится на
-`text/*` в BINARYMIME: требуется только canonical CRLF; multipart preamble и
-epilogue проверяются без изменения binary body parts. После 4xx/5xx следующий
-chunk не отправляется.
-Plain TCP и implicit TLS independent peers подтвердили точные байты, включая
-NUL/high-bit octets и нетекстовые bare CR/LF; отдельные тесты подтвердили отказ
-без capability и остановку после 451. RFC 5321 MAIL line limit включает
-добавочные RFC 3030 octets и суммируется с RFC 6531 allowance. Это unit peer
-coverage, не outbound доставка на реальный внешний сервер или Litterkeep app.
-См. [RFC 3030 §§2-3](https://www.rfc-editor.org/rfc/rfc3030.html#section-2).
+RFC 3030 `CHUNKING` is announced over EHLO in all SMTP modes and accepts `BDAT n [LAST]` with exact octet framing, zero-length and intermediate chunks. Intermediate chunks get a separate 250; `LAST` checks the negotiated 7BIT/8BITMIME/BINARYMIME profile and passes the message to the single durable Store owner. A size or sequence error moves the envelope into the failed state until RSET, and the rejected payload is drained exactly without losing the next command. An independent Linux TLS peer checked a zero-length and two message chunks, a successful Alice -> Bob delivery and an exact match of the decoded MIME attachment bytes; a second raw peer checked the capability, a rejected BDAT without MAIL/RCPT and the preservation of the boundary before a pipelined BDAT and NOOP. After a 503 on a rejected chunk the server keeps the failed state: the next pipelined chunk is drained and gets 503, and commands before RSET also get 503. RSET clears the state, after it a NOOP gets 250. Invalid content on LAST and a chunk size of 26 214 401 octets were checked separately: the 552 replies were sent only after the drain, then RSET and NOOP successfully restored the session. A Store restart between sending and the IMAP read was not performed. Inbound announces `BINARYMIME` together with `CHUNKING`, accepts `MAIL ... BODY=BINARYMIME` and completes only BDAT transactions. RFC 3030 text parts and the multipart preamble/epilogue are checked for canonical CRLF without the DATA limit of 1000 octets per line; non-text bodies are kept opaque. `DATA` after such a MAIL gets 503 and moves the session into a mode that requires RSET. If the MIME headers contain UTF-8 field values, BINARYMIME LAST also requires the `SMTPUTF8` flag set in MAIL; without the flag the message is rejected. An independent Linux implicit-TLS peer checked both branches: without MAIL SMTPUTF8 UTF-8 headers are rejected at BDAT LAST, with MAIL SMTPUTF8 the exact payload is accepted, extracted through IMAP and survives a restart. This is an early forced-parameter check; the new capability announcement check and the conforming U-label path are described below. An independent peer confirmed the full SMTP -> file Store -> IMAP scenario for NUL, high-bit, bare LF/CR bytes, the DATA ban, the rejection on noncanonical text, the recovery through RSET, Bob's exact read and a repeated read after a server restart. This is a local independent peer, not the Litterkeep app. The outbound relay implements RFC 3030 for MIME binary parts: it requires both peer capabilities `BINARYMIME` and `CHUNKING`, validates the MIME headers and the canonical CRLF of text parts, announces the exact BDAT payload size and sends sequential bounded chunks waiting for a separate `250` after each. The DATA limit of 1000 octets is not carried over to `text/*` in BINARYMIME: only canonical CRLF is required; the multipart preamble and epilogue are checked without changing the binary body parts. After a 4xx/5xx the next chunk is not sent.
+Plain TCP and implicit TLS independent peers confirmed the exact bytes, including NUL/high-bit octets and non-text bare CR/LF; separate tests confirmed the rejection without the capability and the stop after 451. The RFC 5321 MAIL line limit includes the additional RFC 3030 octets and is summed with the RFC 6531 allowance. This is unit peer coverage, not an outbound delivery to a real external server or the Litterkeep app. See [RFC 3030 §§2-3](https://www.rfc-editor.org/rfc/rfc3030.html#section-2).
 
-### TLS closure, STARTTLS pipeline и аутентификация
+### TLS closure, STARTTLS pipeline and authentication
 
-По рекомендации RFC 8314 §3.4 implicit-TLS SMTP-сессия отвечает на
-peer-инициированный `close_notify` после обычного NOOP reply. Независимый Linux
-TLS peer подтверждает SMTP reply и завершает TLS `unwrap()` без SMTP QUIT.
-Отдельный сквозной acceptance проходит SMTP AUTH и DATA через implicit TLS,
-читает успешный `250`, отправляет `close_notify` без QUIT и находит доставленное
-письмо в Bob INBOX через IMAP. Peer close до получения DATA acknowledgement
-отдельно не проверен.
-Отдельное acceptance проверяет тот же lifecycle для IMAP; POP3 проверяется
-отдельно ниже. Это closure coverage, не полный SMTP/TLS профиль.
+Per RFC 8314 §3.4 the implicit-TLS SMTP session answers a peer-initiated `close_notify` after a normal NOOP reply. An independent Linux TLS peer confirms the SMTP reply and finishes the TLS `unwrap()` without an SMTP QUIT. A separate end-to-end acceptance passes SMTP AUTH and DATA through implicit TLS, reads the successful `250`, sends `close_notify` without QUIT and finds the delivered mail in Bob's INBOX through IMAP. A peer close before the DATA acknowledgement is received was not checked separately. A separate acceptance checks the same lifecycle for IMAP; POP3 is checked separately below. This is closure coverage, not a full SMTP/TLS profile.
 
-Дополнительный RFC 2920 §3.2 STARTTLS peer отправил MAIL, единственный
-несуществующий RCPT и DATA одним write. Получены упорядоченные `250`, `550`,
-`503`: DATA не открыл content state без принятого адресата, а следующий NOOP
-и QUIT прошли без потери синхронизации. Это проверка поведения all-rejected
-pipeline, а не общее доказательство всего SMTP расширения.
+An additional RFC 2920 §3.2 STARTTLS peer sent MAIL, a single nonexistent RCPT and DATA in one write. The ordered replies `250`, `550`, `503` were received: DATA did not open the content state without an accepted recipient, and the following NOOP and QUIT passed without losing synchronization. This checks the behaviour of an all-rejected pipeline, not a general proof of the whole SMTP extension.
 
-SMTP AUTH PLAIN поддерживает оба RFC 4954 варианта: initial response в команде
-и отдельный ответ после пустого `334 `. SASL cancel `*` и недекодируемый ответ
-получают 501; после отмены или ошибки command stream восстанавливается. После
-успешной аутентификации повторный AUTH отклоняется кодом 503. Независимый
-Python `smtplib` на STARTTLS проверил continuation, initial-response и recovery;
-другие SASL mechanisms не реализованы и не рекламируются. Ответ continuation
-ограничен общим RFC 5321 максимумом 512 октетов вместе с CRLF: 513 октетов
-получают 500, после чего клиентская сессия возвращается в command state.
-Проверено независимым STARTTLS black-box. См. [RFC 5321 §4.5.3.1.4](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.1.4).
+SMTP AUTH PLAIN supports both RFC 4954 variants: an initial response inside the command and a separate reply after an empty `334 `. The SASL cancel `*` and an undecodable reply get 501; after a cancel or an error the command stream is restored. After a successful authentication a repeated AUTH is rejected with the code 503. An independent Python `smtplib` over STARTTLS verified the continuation, the initial response and the recovery; other SASL mechanisms are not implemented and are not advertised. The continuation reply is limited by the common RFC 5321 maximum of 512 octets together with CRLF: 513 octets get 500, after which the client session returns to the command state. Verified by an independent STARTTLS black-box. See [RFC 5321 §4.5.3.1.4](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.1.4).
 
-Legacy Argon2 migration имеет отдельный независимый implicit-TLS acceptance:
-fixture переносит bootstrap `.phc2` в `.phc`, затем стандартный Python SMTP
-клиент выполняет AUTH PLAIN. После входа `.phc2` появился, а байты `.phc`
-совпали с исходными. Для проверки приоритета второй вход проходит, пока
-legacy-файл временно переименован; тест восстанавливает его даже при ошибке.
-Сценарий `tests/blackbox/smtp_legacy_phc_migration.py` использует отдельное
-`./data/g18-legacy-phc-20260928` и подтверждает только SMTP wire/auth/storage,
-не IMAP/POP3/ManageSieve или Litterkeep app.
+The legacy Argon2 migration has a separate independent implicit-TLS acceptance: the fixture moves the bootstrap `.phc2` into `.phc`, then a standard Python SMTP client performs AUTH PLAIN. After the login `.phc2` appeared, and the `.phc` bytes matched the originals. To check the priority the second login passes while the legacy file is temporarily renamed; the test restores it even on error. The scenario `tests/blackbox/smtp_legacy_phc_migration.py` uses a separate `./data/g18-legacy-phc-20260928` and confirms only SMTP wire/auth/storage, not IMAP/POP3/ManageSieve or the Litterkeep app.
 
-### Разбор команд и синтаксис envelope path
+### Command parsing and envelope path syntax
 
-Аргумент HELO проверяется как единственный RFC 5321 Domain. EHLO принимает
-единственный Domain либо валидный IPv4/IPv6 address-literal; пустой аргумент,
-лишние слова, лишние пробелы и ошибочные DNS labels получают 501. Валидные
-приветствия принимаются независимым Linux raw-TCP клиентом после серии отказов.
+The HELO argument is validated as a single RFC 5321 Domain. EHLO accepts a single Domain or a valid IPv4/IPv6 address-literal; an empty argument, extra words, extra spaces and wrong DNS labels get 501. Valid greetings are accepted by an independent Linux raw-TCP client after a series of rejections.
 
-Неизвестные SMTP-команды получают `500 5.5.2`, а неверный аргумент известной
-команды - `501 5.5.2`. В том же соединении после обоих отказов принимаются
-следующие команды. Это различие кодов задано RFC 5321 §4.2.2 и проверяется
-воспроизводимым Linux raw-TCP сценарием
-[`smtp_unknown_command.py`](../tests/blackbox/smtp_unknown_command.py); тест не
-использует клиент Litterkeep.
-Аргументы HELP/NOOP, где grammar допускает только ASCII, не проходят
-Unicode-aware `trim`: NBSP не маскирует невалидный байт как пустой optional
-argument. `NOOP ` и `HELP ` возвращают 501; затем NOOP/QUIT в том же TCP
-соединении подтверждают recovery. VRFY/EXPN имеют отдельную RFC 6531 String
-грамматику, которая допускает UTF-8 query даже при отсутствии reply marker-а.
-Сервер не возвращает UTF-8 identity в ответе.
-Парсер отдельно понимает RFC 6531 §3.7.4.2 запросы VRFY/EXPN с valueless
-`SMTPUTF8` и UTF-8 query, сохраняет режим reply encoding и отвергает параметр
-со значением. Marker обозначает способность клиента принимать UTF-8 в ответе и
-не запрещает UTF-8 в самом query. Сервер отвечает privacy-safe `252`/`502` и
-не выдаёт non-ASCII identity. Независимый Linux wire test проверил
-ASCII/UTF-8 query с marker-ом и без него, malformed marker и session recovery.
-Это не interoperability-тест конкретного клиента.
+Unknown SMTP commands get `500 5.5.2`, and a wrong argument of a known command gets `501 5.5.2`. In the same connection after both rejections the next commands are accepted. This difference of codes is specified by RFC 5321 §4.2.2 and is checked by a reproducible Linux raw-TCP scenario [`smtp_unknown_command.py`](../tests/blackbox/smtp_unknown_command.py); the test does not use the Litterkeep client. The HELP/NOOP arguments, where the grammar allows only ASCII, do not pass the Unicode-aware `trim`: an NBSP does not mask an invalid byte as an empty optional argument. `NOOP ` and `HELP ` return 501; then NOOP/QUIT in the same TCP connection confirm the recovery. VRFY/EXPN have a separate RFC 6531 String grammar that allows a UTF-8 query even without a reply marker. The server does not return a UTF-8 identity in the reply. The parser separately understands RFC 6531 §3.7.4.2 VRFY/EXPN requests with a valueless `SMTPUTF8` and a UTF-8 query, keeps the reply encoding mode and rejects the parameter with a value. The marker denotes the ability of the client to accept UTF-8 in a reply and does not forbid UTF-8 in the query itself. The server answers with a privacy-safe `252`/`502` and does not disclose a non-ASCII identity. An independent Linux wire test checked an ASCII/UTF-8 query with and without the marker, a malformed marker and the session recovery. This is not an interoperability test of a particular client.
 
-В production `MAIL FROM:` и `RCPT TO:` angle-path начинается сразу после
-двоеточия: пробел и табуляция между delimiter-ом команды и `<` получают 501,
-а последующая команда остаётся синхронизирована. Проверено unit-тестом parser-а
-и независимым raw-TCP клиентом на Linux. См. [RFC 5321 §4.1.2](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.1.2).
-После `>` MAIL-параметры и параметры RCPT могут отделяться только одиночным
-ASCII SP согласно grammar RFC 5321: HTAB, повторный или завершающий пробел
-получают 501. Несколько корректных MAIL-параметров с одиночным SP остаются
-допустимы; независимый raw-TCP клиент проверяет отказ и восстановление сессии.
+In production the `MAIL FROM:` and `RCPT TO:` angle-path starts right after the colon: a space and a tab between the command delimiter and `<` get 501, and the next command stays synchronized. This is checked by a parser unit test and by an independent raw-TCP client on Linux. See [RFC 5321 §4.1.2](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.1.2). After `>` the MAIL parameters and the RCPT parameters can be separated only by a single ASCII SP according to the RFC 5321 grammar: an HTAB, a repeated or a trailing space get 501. Several correct MAIL parameters with a single SP stay allowed; an independent raw-TCP client checks the rejection and the session recovery.
 
-### Порядок сессии, mailbox grammar и SMTPUTF8
+### Session order, mailbox grammar and SMTPUTF8
 
-SMTP session требует HELO/EHLO перед MAIL/RCPT/DATA. HELO включает только базовый
-SMTP режим: ESMTP MAIL-параметры, AUTH и STARTTLS требуют EHLO. Успешные HELO и
-EHLO сбрасывают незавершённый envelope; это проверяется независимым клиентом.
-MAIL во время открытой transaction получает 503 без изменения sender или списка
-получателей; прежний конверт остаётся пригоден для DATA. Это правило порядка
-RFC 5321 проверено unit FSM-тестом и сквозной SMTP-to-IMAP доставкой. Отдельный
-implicit-TLS тест подтвердил приоритет 503 над sender-authorization отказом:
-после активного envelope чужой MAIL получил 503, а DATA завершил первоначальную
-доставку с неизменённым `Return-Path`.
-`RSET` доступен в любой момент, в том числе сразу после STARTTLS и до нового
-EHLO/AUTH. Независимый Linux TLS peer проверил `250` для RSET в этом состоянии,
-а последующие EHLO/NOOP/QUIT подтвердили сохранение синхронизации. См.
-[RFC 5321 §4.1.4](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.1.4).
-Общий SMTP path limit для MAIL FROM и RCPT TO равен 256 октетам вместе с
-угловыми скобками. Парсер принимает граничный path и отвергает path на 257
-октетах; unit и независимые STARTTLS black-box проверяют обе команды.
-Для обычного `local-part@domain` парсер принимает local-part до 64 октетов и
-отклоняет более длинный в MAIL FROM и RCPT TO. Сетевой тест отделяет syntax
-error от последующей проверки sender/recipient policy. Это ограничение длины,
-а не утверждение о полной проверке RFC mailbox grammar или SMTPUTF8.
-ASCII dot-atom и RFC 5321 quoted-string local-part проверяются до policy слоя
-в обеих командах. Quoted-pair декодируется для сопоставления с локальным
-аккаунтом; завершающий `>` и `@` внутри quoted local-part не путаются с
-разделителями path. Независимый STARTTLS peer отправил письмо от
-`"alice"@litterkeep.test` к `"bob"@litterkeep.test`, после чего отдельный IMAP
-peer нашёл письмо в INBOX Bob. Устаревший SMTP source-route `@domain,@domain:`
-принимается после проверки каждого элемента и отбрасывается до локальной
-маршрутизации согласно RFC 5321 §4.1.2; независимый SMTP-to-IMAP тест доказал,
-что конечный mailbox получает письмо, а route не включает forwarding.
-Пустые или неверно разделённые dot-atom точки, пустые доменные labels и DNS
-labels длиннее 63 октетов отклоняются как syntax error. U-label domain
-обрабатывается отдельно по IDNA/SMTPUTF8 правилам, описанным выше.
-IPv4 address-literals и зарегистрированный `IPv6:` tag проверяются отдельно от
-DNS-domain грамматики: десятичные IPv4 octets ограничены диапазоном 0..255,
-IPv6 включая сжатую и IPv4-embedded форму проверяется стандартным Rust IP
-parser-ом. Невалидный IP и незарегистрированный tag получают syntax error.
-Корректные literals доходят до политики: они не совпадают с локальными доменами,
-поэтому sender получает 553, recipient 550, без relay. Это покрывает только
-текущий IPv4/IPv6 синтаксис и не утверждает, что произвольные будущие tags
-поддержаны. Проверенный набор стандартизованных tags сверяется с
-[реестром IANA](https://www.iana.org/assignments/smtp/#smtp-address-literal-tags).
-Входящий SMTPUTF8 path принимает Unicode local-part и IDNA-valid U-label
-домены, требует valueless MAIL параметр `SMTPUTF8` и канонизирует домен в
-A-label перед локальной маршрутизацией. EHLO объявляет SMTPUTF8 вместе с
-обязательной 8BITMIME. Независимые Rust и raw-TCP проверки покрывают parser,
-capability, отсутствие параметра и сброс маркера транзакции через RSET.
-В `smtp::punycode` добавлен самостоятельный RFC 3492 Bootstring encoder/decoder
-с overflow checks и bounded input; все 19 примеров RFC 3492 §7.1 проверяются
-unit-тестом в обоих направлениях, включая исправленное RFC Editor написание
-русского примера I. ASCII-пример S относится только к Bootstring и не является
-IDNA-меткой. Это только переносная кодировка code points. Дополнительно
-`smtp::idna17` классифицирует Unicode
-17 code points по сгенерированному официальному RFC 5892 Derived Property
-набору: PVALID, CONTEXTJ и CONTEXTO остаются разными typed результатами;
-прочие значения дают `DisallowedOrUnassigned`. Тесты проверяют представительные
-символы и каждый класс, а не весь IDNA conformance corpus. RFC 5892 прямо
-отделяет свойство code point от валидности label. `to_alabel` переводит
-проверенную NFC U-label в Punycode A-label и
-проверяет leading/trailing/reserved hyphens и 63-октетный encoded label limit.
-CONTEXTO для U+00B7/U+0375/U+05F3/U+05F4/U+30FB и двух Arabic digit sets
-проверяется по Unicode 17 Scripts таблице и соседним символам; невалидный
-контекст получает отдельную ошибку. CONTEXTJ использует Unicode 17
-Canonical_Combining_Class=Virama и DerivedJoiningType: ZWJ требует предыдущий
-virama, ZWNJ допускает virama или RFC joining context с пропуском Transparent.
-Ошибочный контекст отклоняется. RFC 5893 Bidi Rule использует Unicode 17
-DerivedBidiClass и активируется для всех labels домена, если хотя бы одна
-содержит R, AL или AN. ASCII SMTP address parser использует проверку LDH и
-полный round-trip для входных A-label. `to_alabel_domain` преобразует U-label
-домен в A-label DNS form; SMTP path использует это преобразование до route
-lookup. Встроенная таблица RFC 5892 Derived Property сверена со всеми
-1,112,064 Unicode scalar values из официального Unicode 17 `Idna2008.txt`;
-это exhaustive property comparison, не проверка полной U-label/domain
-conformance suite, RFC 5891 registration workflow или каждой границы Punycode
-и whole-domain алгоритма. DNS MX discovery и удалённая доставка U-label
-доменов здесь не проверены.
-См. [RFC 3492](https://www.rfc-editor.org/rfc/rfc3492.html) и
-[RFC 5890](https://www.rfc-editor.org/rfc/rfc5890.html),
-[RFC 5891](https://www.rfc-editor.org/rfc/rfc5891.html) и
-[RFC 5892](https://www.rfc-editor.org/rfc/rfc5892.html),
-[RFC 5893](https://www.rfc-editor.org/rfc/rfc5893.html).
-MAIL с таким reverse-path требует флаг SMTPUTF8; без него parser возвращает
-отдельную typed policy error, сериализуемую как `550 5.6.7` для отправителя
-согласно RFC 6531 §3.5. Reactor guard отклоняет UTF-8 RCPT без флага активного
-MAIL кодом 553 5.6.7. Независимый Linux TCP peer проверяет enhanced status
-`5.6.7` отдельно для `553` RCPT и `550` MAIL, а также достижение account lookup (550 на
-намеренно отсутствующий UTF-8 account) при корректном SMTPUTF8. Дополнительный
-forced-extension acceptance создал opt-in Unicode account отдельной командой
-dev bootstrap, доставил ему MIME-вложение по SMTP STARTTLS и извлёк его через
-IMAP STARTTLS/SASL PLAIN;
-отдельное чтение после перезапуска подтвердило durable delivery. Вложение
-совпало побайтно, SHA-256 `7f4e114fb71bb6cf784bda9f0d77d06e3ccb15cfdc667bbad322dcef81da20f8`.
-Это историческая T84 forced-extension проверка, созданная до T195: тогда
-SMTPUTF8 намеренно передавался без advertisement и проверялся только внутренний
-путь доставки, не interoperability; её запись в acceptance.tsv помечена
-SUPERSEDED. Актуальный conforming wire acceptance приведён ниже. Сам флаг не
-требует BODY=8BITMIME: 8-bit тела по-прежнему
-разрешаются только BODY=8BITMIME, а UTF-8 заголовки требуют SMTPUTF8. Отдельный conforming STARTTLS клиент далее
-передаёт U-label `пользователь@bücher.test`, читает MIME вложение по IMAP и
-независимо сравнивает точные octets. Account
-credentials, folder catalog, subscriptions, Sieve snapshots и внутренние
-mailbox keys сохраняют bounded UTF-8 идентификаторы в отдельном hex namespace;
-прямой Store/Accounts restart test проверяет эти слои, а conforming acceptance
-выше отдельно проверяет SMTP/IMAP network путь. Ограниченный DATA/transport
-checkpoint разбирает MAIL флаг SMTPUTF8, разрешает UTF-8 field values, но
-оставляет field names ASCII, как требует RFC 6532 §3; outbound требует peer
-capabilities перед MAIL.
-Независимый Linux SMTP peer подтвердил `BODY=8BITMIME SMTPUTF8` и сохранность
-UTF-8 header octets. Conforming U-label SMTP/IMAP delivery проверена отдельным
-клиентом выше. Полная грамматика RFC 6532 для UTF-8 в structured fields и
-совместимость с Litterkeep app остаются непроверенными. Имена полей остаются
-ASCII, не являются RFC 6532 extension.
+An SMTP session requires HELO/EHLO before MAIL/RCPT/DATA. HELO enables only the basic SMTP mode: ESMTP MAIL parameters, AUTH and STARTTLS require EHLO. Successful HELO and EHLO reset an unfinished envelope; this is checked by an independent client. MAIL during an open transaction gets 503 without changing the sender or the recipient list; the previous envelope stays usable for DATA. This ordering rule of RFC 5321 is verified by a unit FSM test and by an end-to-end SMTP-to-IMAP delivery. A separate implicit-TLS test confirmed the priority of 503 over a sender-authorization rejection: after an active envelope a foreign MAIL got 503, and DATA completed the original delivery with an unchanged `Return-Path`. `RSET` is available at any moment, including right after STARTTLS and before a new EHLO/AUTH. An independent Linux TLS peer checked `250` for RSET in this state, and the following EHLO/NOOP/QUIT confirmed that the synchronization was kept. See [RFC 5321 §4.1.4](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.1.4). The common SMTP path limit for MAIL FROM and RCPT TO is 256 octets together with the angle brackets. The parser accepts the boundary path and rejects a path of 257 octets; unit and independent STARTTLS black-box checks verify both commands. For an ordinary `local-part@domain` the parser accepts a local-part of up to 64 octets and rejects a longer one in MAIL FROM and RCPT TO. A network test separates the syntax error from the subsequent sender/recipient policy check. This is a length limit, not a claim of a full RFC mailbox grammar or SMTPUTF8 check. ASCII dot-atom and RFC 5321 quoted-string local-parts are checked before the policy layer in both commands. A quoted-pair is decoded for the comparison with the local account; a closing `>` and an `@` inside a quoted local-part are not confused with the path separators. An independent STARTTLS peer sent a mail from `"alice"@litterkeep.test` to `"bob"@litterkeep.test`, after which a separate IMAP peer found the mail in Bob's INBOX. The obsolete SMTP source-route `@domain,@domain:` is accepted after every element is checked and is discarded before the local routing according to RFC 5321 §4.1.2; an independent SMTP-to-IMAP test proved that the final mailbox receives the mail and that the route does not include forwarding. Empty or wrongly split dot-atom dots, empty domain labels and DNS labels longer than 63 octets are rejected as a syntax error. A U-label domain is handled separately by the IDNA/SMTPUTF8 rules described above. IPv4 address-literals and the registered `IPv6:` tag are checked separately from the DNS-domain grammar: decimal IPv4 octets are limited to the range 0..255, IPv6 including the compressed and the IPv4-embedded form is checked by the standard Rust IP parser. An invalid IP and an unregistered tag get a syntax error. Correct literals reach the policy: they do not match the local domains, so the sender gets 553, the recipient 550, without relay. This covers only the current IPv4/IPv6 syntax and does not claim that arbitrary future tags are supported. The checked set of standardized tags is compared with the [IANA registry](https://www.iana.org/assignments/smtp/#smtp-address-literal-tags). An incoming SMTPUTF8 path accepts a Unicode local-part and IDNA-valid U-label domains, requires the valueless MAIL parameter `SMTPUTF8` and canonicalizes the domain into an A-label before the local routing. EHLO announces SMTPUTF8 together with the mandatory 8BITMIME. Independent Rust and raw-TCP checks cover the parser, the capability, the missing parameter and the reset of the transaction marker through RSET. In `smtp::punycode` a standalone RFC 3492 Bootstring encoder/decoder was added with overflow checks and bounded input; all 19 examples of RFC 3492 §7.1 are verified by a unit test in both directions, including the corrected RFC Editor spelling of the Russian example I. The ASCII example S relates only to Bootstring and is not an IDNA label. This is only a reversible encoding of code points. Additionally `smtp::idna17` classifies Unicode 17 code points by the generated official RFC 5892 Derived Property set: PVALID, CONTEXTJ and CONTEXTO stay distinct typed results; all other values give `DisallowedOrUnassigned`. The tests check representative characters and each class, not the whole IDNA conformance corpus. RFC 5892 clearly separates a code point property from the validity of a label. `to_alabel` converts a checked NFC U-label into a Punycode A-label and checks leading/trailing/reserved hyphens and the 63-octet encoded label limit. CONTEXTO for U+00B7/U+0375/U+05F3/U+05F4/U+30FB and two Arabic digit sets is checked against the Unicode 17 Scripts table and the neighbouring characters; an invalid context gets a separate error. CONTEXTJ uses Unicode 17 Canonical_Combining_Class=Virama and DerivedJoiningType: a ZWJ requires a preceding virama, a ZWNJ allows a virama or an RFC joining context with a skipped Transparent. An erroneous context is rejected. The RFC 5893 Bidi Rule uses Unicode 17 DerivedBidiClass and is activated for all domain labels if at least one of them contains R, AL or AN. The ASCII SMTP address parser uses an LDH check and a full round-trip for incoming A-labels. `to_alabel_domain` converts a U-label domain into the A-label DNS form; the SMTP path uses this conversion before the route lookup. The embedded RFC 5892 Derived Property table is compared with all 1,112,064 Unicode scalar values from the official Unicode 17 `Idna2008.txt`; this is an exhaustive property comparison, not a check of the full U-label/domain conformance suite, the RFC 5891 registration workflow or every boundary of the Punycode and whole-domain algorithms. DNS MX discovery and the remote delivery of U-label domains are not verified here. See [RFC 3492](https://www.rfc-editor.org/rfc/rfc3492.html) and [RFC 5890](https://www.rfc-editor.org/rfc/rfc5890.html), [RFC 5891](https://www.rfc-editor.org/rfc/rfc5891.html) and [RFC 5892](https://www.rfc-editor.org/rfc/rfc5892.html), [RFC 5893](https://www.rfc-editor.org/rfc/rfc5893.html). A MAIL with such a reverse-path requires the SMTPUTF8 flag; without it the parser returns a separate typed policy error, serialized as `550 5.6.7` for the sender according to RFC 6531 §3.5. The reactor guard rejects a UTF-8 RCPT without the flag of an active MAIL with the code 553 5.6.7. An independent Linux TCP peer checks the enhanced status `5.6.7` separately for an RCPT `553` and a MAIL `550`, and also the reaching of the account lookup (550 on a deliberately absent UTF-8 account) with a correct SMTPUTF8. An additional forced-extension acceptance created an opt-in Unicode account with a separate dev bootstrap command, delivered a MIME attachment to it over SMTP STARTTLS and extracted it through IMAP STARTTLS/SASL PLAIN; a separate read after a restart confirmed the durable delivery. The attachment matched byte for byte, SHA-256 `7f4e114fb71bb6cf784bda9f0d77d06e3ccb15cfdc667bbad322dcef81da20f8`. This is the historical T84 forced-extension check created before T195: back then SMTPUTF8 was intentionally transferred without an advertisement and only the internal delivery path was checked, not interoperability; its entry in acceptance.tsv is marked SUPERSEDED. The current conforming wire acceptance is given below. The flag itself does not require BODY=8BITMIME: 8-bit bodies are still allowed only with BODY=8BITMIME, while UTF-8 headers require SMTPUTF8. A separate conforming STARTTLS client below transfers the U-label `пользователь@bücher.test`, reads the MIME attachment over IMAP and independently compares the exact octets. Account credentials, the folder catalog, subscriptions, Sieve snapshots and internal mailbox keys keep bounded UTF-8 identifiers in a separate hex namespace; a direct Store/Accounts restart test checks these layers, while the conforming acceptance above separately checks the SMTP/IMAP network path. The limited DATA/transport checkpoint parses the MAIL flag SMTPUTF8, allows UTF-8 field values, but leaves the field names ASCII, as required by RFC 6532 §3; the outbound requires the peer capabilities before MAIL. An independent Linux SMTP peer confirmed `BODY=8BITMIME SMTPUTF8` and the preservation of the UTF-8 header octets. The conforming U-label SMTP/IMAP delivery is verified by the separate client above. The full RFC 6532 grammar for UTF-8 in structured fields and the compatibility with the Litterkeep app remain unverified. The field names stay ASCII and are not an RFC 6532 extension.
 
-### Postmaster и лимиты envelope
+### Postmaster and envelope limits
 
-RFC 5321 Postmaster принимается как bare `<Postmaster>` без домена и как
-`postmaster@domain` для локально обслуживаемых доменов; регистр reserved local
-name и домена не влияет на route. Независимый STARTTLS тест отправил DATA и
-проверил запись в отдельный durable `postmaster` mailbox без создания
-парольного аккаунта. Административный способ читать этот системный mailbox
-пока не предоставлен, поэтому проверен SMTP acceptance/storage, не операторский
-workflow и не совместимость конкретного почтового клиента.
-Командная строка ограничена 512 октетами с CRLF: независимая проверка принимает
-точно 512, отклоняет 513 ответом 500 и подтверждает синхронизацию следующей
-командой NOOP.
-Envelope допускает не менее 100 успешных RCPT. После заполнения текущего
-буфера сервер отвечает `452 4.5.3` на следующий адрес, не теряя ранее
-принятые адресаты; DATA по прежнему envelope остаётся допустимым. Независимый
-STARTTLS SMTP/IMAP black-box проверил 100 ответов 250, ответ 452 на 101-й,
-успешную отправку и чтение результата Bob по IMAP. Это проверка лимита буфера,
-а не полной семантики адресной политики или распределения ошибок RCPT.
+RFC 5321 Postmaster is accepted as a bare `<Postmaster>` without a domain and as `postmaster@domain` for locally served domains; the case of the reserved local name and of the domain does not affect the route. An independent STARTTLS test sent DATA and checked the record in a separate durable `postmaster` mailbox without creating a password account. No administrative way to read this system mailbox is provided yet, so the SMTP acceptance/storage is verified, not the operator workflow and not the compatibility of a particular mail client. The command line is limited to 512 octets with CRLF: an independent check accepts exactly 512, rejects 513 with 500 and confirms the synchronization with the next NOOP command. The envelope allows at least 100 successful RCPT. After the current buffer is full the server answers `452 4.5.3` to the next address without losing the previously accepted recipients; DATA on the previous envelope stays allowed. An independent STARTTLS SMTP/IMAP black-box checked 100 replies of 250, the 452 reply on the 101st, a successful submission and Bob's IMAP read of the result. This checks the buffer limit, not the full address policy semantics or the RCPT error distribution.
 
-### VRFY, EXPN и расширения ESMTP
+### VRFY, EXPN and ESMTP extensions
 
-RFC 5321 VRFY отвечает `252` без проверки и раскрытия существования mailbox;
-EXPN распознаётся, но возвращает `502`, так как сервер не предоставляет mailing
-list expansion. HELP выдаёт многострочный список поддержанных команд, включая
-AUTH, STARTTLS и BDAT; HELP с аргументом подсказывает вызвать общий список; NOOP
-игнорирует необязательный параметр.
-Независимая проверка подтверждает ответы до и во время активного envelope.
+RFC 5321 VRFY answers `252` without checking or revealing the existence of a mailbox; EXPN is recognized but returns `502`, since the server does not provide mailing list expansion. HELP issues a multi-line list of the supported commands, including AUTH, STARTTLS and BDAT; HELP with an argument suggests calling the general list; NOOP ignores an optional parameter. An independent check confirms the replies before and during an active envelope.
 
-RFC 2034 `ENHANCEDSTATUSCODES` объявляется в каждом варианте EHLO, включая
-plaintext и TLS-состояния. Ответы SMTP классов 2xx, 4xx и 5xx снабжаются
-enhanced code; исключения RFC сохраняются для initial greeting и HELO/EHLO,
-а continuation-коды 3xx его не получают. Многострочный HELP повторяет один
-enhanced code на каждой строке, причём тест сверяет класс enhanced-кода с
-основным SMTP-кодом. Независимый STARTTLS socket peer проверяет
-объявление extension, ответы AUTH/envelope/DATA/QUIT и ошибку неизвестного
-командного слова; это wire coverage RFC 2034, а не полное SMTP acceptance.
+RFC 2034 `ENHANCEDSTATUSCODES` is announced in every EHLO variant, including plaintext and TLS states. SMTP replies of classes 2xx, 4xx and 5xx are supplied with an enhanced code; the RFC exceptions are kept for the initial greeting and HELO/EHLO, and the 3xx continuation codes do not get one. The multi-line HELP repeats the same enhanced code on every line, and the test compares the class of the enhanced code with the base SMTP code. An independent STARTTLS socket peer checks the extension announcement, the AUTH/envelope/DATA/QUIT replies and the error of an unknown command word; this is RFC 2034 wire coverage, not a full SMTP acceptance.
 
-RFC 1870 SIZE объявляется с фактическим фиксированным пределом сообщения.
-Единственный корректный `MAIL FROM ... SIZE=n` разбирается до DATA; значение
-выше предела получает 552, некорректная грамматика или повтор SIZE получают
-501. SIZE расширяет максимальную длину строки MAIL ещё на 26 октетов согласно
-RFC 1870; этот allowance суммируется с дополнительными 10 октетами SMTPUTF8 и
-16 октетами BINARYMIME. Типизированная классификация учитывает регистр и
-комбинации параметров. Boundary unit tests проверяют все восемь комбинаций
-лимитов и полную 538-октетную SIZE-границу. Неподдерживаемые ESMTP параметры
-MAIL/RCPT получают 555, а не игнорируются.
-Независимый STARTTLS black-box проверяет эти ответы и восстановление сессии.
-Отдельная Python wire-проверка на Linux runtime проверила строки ровно 538 и
-564 октета: dispatcher пропустил их к parser-у (555 на дополнительный
-неподдерживаемый параметр), а 539 и 565 октетов были остановлены receiver-ом
-с кодом 500. После каждой границы NOOP получил 250. Это подтверждает реальные
-границы приема SMTP-команд, а не только unit calculation.
-Если размер тела превышает лимит уже во время DATA, сервер прекращает
-накапливать тело, но продолжает потоково читать до завершающей точки; после неё
-возвращает 552 и сохраняет синхронизацию команд. Проверено независимым клиентом
-на теле размером 25 MiB + 1 байт с последующим NOOP.
-Изменение предела MAIL проверено unit-тестами на Windows и полным Linux
-Rust 1.97.1 suite, а также указанным независимым STARTTLS wire peer. См.
-[RFC 1870 §3](https://www.rfc-editor.org/rfc/rfc1870.html#section-3).
-Независимый клиент передал UTF-8 MIME text с `Content-Transfer-Encoding: 8bit`
-через SMTP и сравнил payload octets после IMAP `BODY.PEEK[TEXT]`. Проверены
-также 7BIT rejection, oversized DATA drain и синхронизация последующего NOOP.
-Это проверка конкретного high-bit text сценария, не исчерпывающая сертификация
-RFC 6152 для всех MIME content и SMTP peer комбинаций. SMTPUTF8 отдельно
-рекламируется с 8BITMIME; его U-label acceptance описана выше.
-Строки DATA ограничены 1000 octets вместе с CRLF.
-Граница между заголовками и телом отслеживается инкрементально на каждой
-принятой CRLF-строке. Парсер больше не сканирует накопленное сообщение заново
-для каждого следующего сегмента, поэтому классификация DATA не имеет
-квадратичного числа проходов при большом количестве коротких строк. Состояние
-границы покрыто Linux unit regression; Linux Docker gate прошёл strict Clippy,
-695 library tests, 1 CLI test и doc-tests (1 внешний Unicode corpus test ignored).
-При приёме DATA каждая строка с начальной точкой теряет ровно один
-transparency dot; RFC line bound проверяется после снятия transparency и
-включает CRLF. Linux unit regression проверяет одну, две и три точки, а также
-граничную строку ровно в 1000 октетов и отказ для 1001.
-Отдельный независимый STARTTLS wire acceptance подтвердил ровно 1000 после
-unstuffing для dot-stuffed строки, отказ на 1001 и успешный NOOP после отказа.
-Расширенный acceptance проверил обе границы для 7BIT и BODY=8BITMIME, включая
-high-bit octet; IMAP read-back подтвердил побайтное сохранение принятых строк
-и отсутствие двух отвергнутых длинных сообщений.
-Незавершённая входная DATA-строка, уже превысившая максимально возможный wire
-размер допустимой строки, удаляется из session input buffer и переводит только
-текущую DATA transaction в oversized state. Reactor продолжает считывать до
-terminator, после которого возвращает 552 и сохраняет возможность NOOP. Linux
-STARTTLS peer передал без CRLF данные больше прежнего общего session input cap,
-получил 552 после terminator и 250 на NOOP. Это подтверждает ограниченное
-накопление и синхронизацию, но не измеряет RSS процесса.
-Исходящий SMTP transport применяет transparency из RFC 5321 §4.5.2: удваивает
-точку только в начале строки, передавая окончание DATA отдельно. Независимый
-peer снял transparency и сравнил полное сообщение с источником, включая строки
-с одиночной и двойной точкой и отсутствующий в source завершающий CRLF. Также
-регрессионно подтверждено, что уже имеющийся конечный CRLF не дублируется.
-Перед envelope outbound path проверяет CRLF framing и RFC 5321 максимум 1000
-octets вместе с CRLF (dot-stuffing octet не считается): независимый peer
-подтвердил доставку строки ровно в 1000 октетов и отказ для 1001 без `MAIL`.
-Проверен независимый SMTP peer; межсерверные комбинации и Litterkeep-клиент
-этими тестами не сертифицируются.
+RFC 1870 SIZE is announced with the actual fixed message limit. A single correct `MAIL FROM ... SIZE=n` is parsed until DATA; a value above the limit gets 552, an incorrect grammar or a repeated SIZE gets 501. SIZE extends the maximum MAIL line length by another 26 octets per RFC 1870; this allowance is summed with the additional 10 octets of SMTPUTF8 and 16 octets of BINARYMIME. The typed classification takes the case and the parameter combinations into account. Boundary unit tests check all eight limit combinations and the full 538-octet SIZE boundary. Unsupported ESMTP MAIL/RCPT parameters get 555 and are not ignored. An independent STARTTLS black-box checks these replies and the session recovery. A separate Python wire check on the Linux runtime tested lines of exactly 538 and 564 octets: the dispatcher passed them to the parser (555 for the additional unsupported parameter), while 539 and 565 octets were stopped by the receiver with the code 500. After each boundary a NOOP got 250. This confirms the real SMTP command acceptance boundaries, not only a unit calculation. If the body size exceeds the limit already during DATA, the server stops accumulating the body but keeps reading the stream until the terminating point; after it the server returns 552 and keeps the command synchronization. Verified by an independent client with a body of 25 MiB + 1 byte followed by a NOOP. The MAIL limit change is verified by unit tests on Windows and by the full Linux Rust 1.97.1 suite, and by the mentioned independent STARTTLS wire peer. See [RFC 1870 §3](https://www.rfc-editor.org/rfc/rfc1870.html#section-3). An independent client transferred UTF-8 MIME text with `Content-Transfer-Encoding: 8bit` over SMTP and compared the payload octets after IMAP `BODY.PEEK[TEXT]`. The 7BIT rejection, the oversized DATA drain and the synchronization of a subsequent NOOP were checked as well. This verifies a particular high-bit text scenario, not an exhaustive RFC 6152 certification for all MIME content and SMTP peer combinations. SMTPUTF8 is advertised separately with 8BITMIME; its U-label acceptance is described above. DATA lines are limited to 1000 octets together with CRLF. The boundary between the headers and the body is tracked incrementally on every accepted CRLF line. The parser no longer rescans the accumulated message for every next segment, so the DATA classification does not have a quadratic number of passes with a large number of short lines. The boundary state is covered by a Linux unit regression; the Linux Docker gate passed strict Clippy, 695 library tests, 1 CLI test and doc-tests (1 external Unicode corpus test ignored). On DATA acceptance every line with a leading dot loses exactly one transparency dot; the RFC line bound is checked after the transparency is removed and includes the CRLF. A Linux unit regression checks one, two and three dots, and also the boundary line of exactly 1000 octets and the rejection for 1001. A separate independent STARTTLS wire acceptance confirmed exactly 1000 after the unstuffing of a dot-stuffed line, the rejection on 1001 and a successful NOOP after the rejection. The extended acceptance checked both boundaries for 7BIT and BODY=8BITMIME, including a high-bit octet; the IMAP read-back confirmed the byte-exact preservation of the accepted lines and the absence of the two rejected long messages. An unfinished incoming DATA line that already exceeded the maximum possible wire size of an acceptable line is removed from the session input buffer and moves only the current DATA transaction into the oversized state. The reactor keeps reading until the terminator, after which it returns 552 and keeps the NOOP possibility. A Linux STARTTLS peer transferred data without CRLF larger than the former common session input cap, got 552 after the terminator and 250 on NOOP. This confirms the bounded accumulation and the synchronization, but it does not measure the process RSS. The outgoing SMTP transport applies the transparency from RFC 5321 §4.5.2: it doubles a dot only at the start of a line and passes the end of DATA separately. An independent peer removed the transparency and compared the full message with the source, including lines with a single and a double dot and the missing trailing CRLF in the source. It is also confirmed by regression that an already present trailing CRLF is not duplicated. Before the envelope outbound path the CRLF framing and the RFC 5321 maximum of 1000 octets together with CRLF are checked (the dot-stuffing octet is not counted): an independent peer confirmed the delivery of a line of exactly 1000 octets and the rejection for 1001 without a `MAIL`. An independent SMTP peer is verified; inter-server combinations and the Litterkeep client are not certified by these tests.
 
 ## IMAP
 
-### Базовый набор команд и SELECT/EXAMINE
+### Basic command set and SELECT/EXAMINE
 
-Реализованы STARTTLS/implicit TLS, LOGIN, AUTHENTICATE PLAIN с SASL-IR, LIST,
-LSUB, CREATE/RENAME/DELETE, SELECT/EXAMINE, STATUS, APPEND, SEARCH, FETCH,
-BODYSTRUCTURE, MIME sections/partial, STORE, COPY, MOVE, EXPUNGE, UID EXPUNGE,
-IDLE/DONE и durable Recent. UIDVALIDITY и UID переживают restart.
+STARTTLS/implicit TLS, LOGIN, AUTHENTICATE PLAIN with SASL-IR, LIST, LSUB, CREATE/RENAME/DELETE, SELECT/EXAMINE, STATUS, APPEND, SEARCH, FETCH, BODYSTRUCTURE, MIME sections/partial, STORE, COPY, MOVE, EXPUNGE, UID EXPUNGE, IDLE/DONE and durable Recent are implemented. UIDVALIDITY and UID survive a restart.
 
-По RFC 9051 §6.3.2 повторные SELECT/EXAMINE закрывают прежнюю mailbox до
-попытки нового выбора и перед новыми ответами выдают `* OK [CLOSED]`. Если
-новый выбор не удался, session возвращается к authenticated state без выбранной
-mailbox и без expunge. Независимый Linux STARTTLS acceptance проверяет CLOSED
-ordering, отказ FETCH до новой SELECT и последующий NOOP. При успешном выборе
-сервер также выдаёт обязательный RFC 9051 §6.3.2 untagged LIST с каноническим
-именем папки перед прочими выбранными-mailbox ответами; acceptance проверяет
-SELECT INBOX, SELECT уникальной пользовательской папки и EXAMINE INBOX с
-READ-ONLY completion. Для default Archive это LIST также сообщает `\\Archive`,
-взятую из typed special-use каталога, а не выведенную из имени. Это не заявляет
-полный профиль.
-EXAMINE также возвращает `PERMANENTFLAGS ()`, тогда как read-write SELECT
-сохраняет допустимые системные flags и `\\*`; независимый wire peer проверяет
-обе ветви, чтобы read-only режим не рекламировал постоянные изменения.
-`FLAGS` selection response объединяет system flags и реально сохранённые
-mailbox keywords; acceptance создаёт уникальный keyword через APPEND и видит его
-после SELECT и EXAMINE.
+Per RFC 9051 §6.3.2 a repeated SELECT/EXAMINE closes the previous mailbox before the attempt of a new selection and issues `* OK [CLOSED]` before the new replies. If the new selection failed, the session returns to the authenticated state without a selected mailbox and without expunge. An independent Linux STARTTLS acceptance checks the CLOSED ordering, the FETCH rejection before a new SELECT and the subsequent NOOP. On a successful selection the server also issues the mandatory RFC 9051 §6.3.2 untagged LIST with the canonical folder name before the other selected-mailbox replies; the acceptance checks SELECT INBOX, SELECT of a unique user folder and EXAMINE INBOX with the READ-ONLY completion. For the default Archive this LIST also reports `\\Archive`, taken from the typed special-use catalog and not derived from the name. This does not claim a full profile. EXAMINE also returns `PERMANENTFLAGS ()`, whereas a read-write SELECT keeps the allowed system flags and `\\*`; an independent wire peer checks both branches, so that the read-only mode does not advertise permanent changes. The `FLAGS` selection response combines the system flags and the really stored mailbox keywords; the acceptance creates a unique keyword through APPEND and sees it after SELECT and EXAMINE.
 
-### TLS closure, аутентификация и UTF8=ACCEPT
+### TLS closure, authentication and UTF8=ACCEPT
 
-Implicit-TLS IMAP отвечает на peer-инициированный `close_notify` после
-успешного tagged NOOP reply. Независимый Linux TLS peer завершил `unwrap()`;
-это подтверждает TLS closure для этого сценария, не полный IMAP4rev2 профиль.
+Implicit-TLS IMAP answers a peer-initiated `close_notify` after a successful tagged NOOP reply. An independent Linux TLS peer completed the `unwrap()`; this confirms the TLS closure for this scenario, not a full IMAP4rev2 profile.
 
-`AUTHENTICATE PLAIN` принимает механизм и SASL-IR как IMAP `astring`: atom и
-quoted string; маркер `=` переводится в пустой initial response, отличный от
-отсутствующего ответа с continuation. Пустые PLAIN credentials отвергаются, а
-сессия остаётся пригодной для следующей команды. Независимый STARTTLS `imaplib`
-проверил continuation, atom SASL-IR, quoted mechanism/response, пустой marker,
-capability до/после TLS и отказ plaintext authentication. Другие SASL mechanisms
-и channel binding не реализованы и не рекламируются.
-IMAP quoted-pair принимает только escaped `"` и `\\` по RFC 3501; иной
-символ после обратной косой черты возвращает tagged BAD, сохраняя командный
-тег. Независимый STARTTLS `imaplib` тест подтвердил BAD и успешный NOOP после
-лексической ошибки. UTF8=ACCEPT рекламируется; ENABLE активирует
-connection-local mode: legacy quoted-string отклоняет high-bit UTF-8 до
-negotiation, а quoted mailbox names разрешаются после неё. Независимый STARTTLS
-acceptance проверил positive и negative переходы, включая malformed UTF-8,
-C0/C1 controls и ASCII-only atom. Ограниченный synchronizing-literal receiver
-поддерживает оба LOGIN astring, mailbox аргументы CREATE/DELETE/RENAME,
-SUBSCRIBE/UNSUBSCRIBE, LIST/LSUB/STATUS, COPY/MOVE, SELECT/EXAMINE и UID
-COPY/MOVE, а также SEARCH/UID SEARCH. Независимый raw STARTTLS acceptance
-проверил LOGIN, CREATE, LIST и SELECT; APPEND использует отдельный receiver.
-Это ограниченный набор грамматических позиций: LITERAL+ рекламируется, а
-receiver обрабатывает указанные поддержанные command families, не любые
-аргументы произвольной IMAP-команды.
-Внутренние CRLF учитываются в literal octet count и сохраняются как данные:
-STARTTLS LOGIN получил CRLF-containing password literal, вернул обычный auth
-failure, после чего принял правильный login. Raw NUL отклоняется; LOGIN password
-literals сохраняются побайтно, включая невалидный UTF-8, до authentication
-owner-а. Текстовые username/mailbox/search аргументы требуют корректный UTF-8 в
-выбранном string mode. Это не полная поддержка произвольных literal octets для
-всех команд. Receiver сохраняет байты отдельным типом токена. Независимый STARTTLS
-acceptance проверил tagged BAD для UTF-8 quoted LOGIN, восстановление сессии и
-UTF-8 BODY literal. RFC 9755 explicit SEARCH CHARSET получает BAD; wire-проверены
-обычный и смешанный регистр keyword, после чего implicit UTF-8 SEARCH работает.
-UTF-8 mailbox CREATE/SUBSCRIBE/UNSUBSCRIBE/LIST/LSUB/STATUS/SELECT, APPEND,
-COPY/MOVE/RENAME/DELETE прошли независимую STARTTLS проверку; после COPY/MOVE
-RFC822 bytes совпадают точно. Независимый capability acceptance проверяет
-UTF8=ACCEPT до TLS, после TLS/LOGIN и после ENABLE. Это не закрывает весь
-профиль RFC 9755; оставшиеся обязательства приведены в
-`imap-profile.md`; это не объявляет IMAP4rev2.
-FETCH ENVELOPE учитывает connection-local string mode: до ENABLE Unicode,
-полученный из RFC 2047 encoded-word, кодируется как октетный literal, а после
-ENABLE как UTF-8 quoted-string. Независимый STARTTLS `imaplib` acceptance
-прочитал одно письмо в обеих сессиях и подтвердил точную форму заголовка и
-отсутствие high-bit байтов внутри legacy quoted-string. Это не проверяет
-downgrade исходного RFC822 заголовка, все остальные IMAP response strings или
-полный RFC 9755 профиль. Требование не отправлять UTF-8 в quoted-string до
-явного ENABLE установлено [RFC 9755 §3](https://www.rfc-editor.org/rfc/rfc9755.html#section-3);
-literal остаётся базовой IMAP string формой по [RFC 3501 §4.3](https://www.rfc-editor.org/rfc/rfc3501.html#section-4.3).
-Тот же negotiated mode протянут по всему FETCH BODY/BODYSTRUCTURE дереву:
-Content-ID/Description, MIME type parameters, disposition filename, languages,
-location и вложенный message ENVELOPE проходят mode-aware сериализацию. Unit
-тест покрывает Unicode Content-ID, decoded description, RFC 2231 parameters и
-обе wire формы; независимый STARTTLS клиент проверил до/после ENABLE DESCRIPTION,
-NAME и FILENAME на одном сохранённом MIME-part. Capability проверена новым
-сквозным acceptance; это не закрывает все остальные RFC 9755 обязанности.
-Дополнительная комбинированная STARTTLS проверка включает `ENABLE UTF8=ACCEPT`,
-создаёт mailbox с `é` и запрашивает `LIST RETURN STATUS`: соседние LIST и
-STATUS ответы сохраняют UTF-8 имя и порядок запрошенных числовых полей. Это
-проверка совместной сериализации RFC 9755/RFC 5819, не готовность всего профиля.
-CAPABILITY объявляет `LIST-EXTENDED` по RFC 5258 и `LIST-STATUS` по RFC 5819;
-независимый STARTTLS тест проверяет оба объявления до и после TLS upgrade.
-`RECENT` разрешён как атрибут STATUS по RFC 3501: до SELECT возвращается число
-неполученных durable-сообщений, после SELECT STATUS и LIST RETURN STATUS
-используют один session-owned recent UID набор. Это не снимает ограничения
-частичного IMAP4rev1 профиля.
+`AUTHENTICATE PLAIN` accepts the mechanism and the SASL-IR as an IMAP `astring`: an atom and a quoted string; the `=` marker is translated into an empty initial response, which differs from an absent response with a continuation. Empty PLAIN credentials are rejected and the session stays usable for the next command. An independent STARTTLS `imaplib` checked the continuation, the atom SASL-IR, the quoted mechanism/response, the empty marker, the capability before/after TLS and the rejection of a plaintext authentication. Other SASL mechanisms and channel binding are not implemented and are not advertised. The IMAP quoted-pair accepts only the escaped `"` and `\\` per RFC 3501; any other character after a backslash returns a tagged BAD, keeping the command tag. An independent STARTTLS `imaplib` test confirmed the BAD and a successful NOOP after the lexical error. UTF8=ACCEPT is advertised; ENABLE activates the connection-local mode: a legacy quoted-string rejects a high-bit UTF-8 before the negotiation, and quoted mailbox names are allowed after it. An independent STARTTLS acceptance checked the positive and negative transitions, including a malformed UTF-8, C0/C1 controls and an ASCII-only atom. The limited synchronizing-literal receiver supports both LOGIN astrings, the mailbox arguments of CREATE/DELETE/RENAME, SUBSCRIBE/UNSUBSCRIBE, LIST/LSUB/STATUS, COPY/MOVE, SELECT/EXAMINE and UID COPY/MOVE, as well as SEARCH/UID SEARCH. An independent raw STARTTLS acceptance checked LOGIN, CREATE, LIST and SELECT; APPEND uses a separate receiver. This is a limited set of grammar positions: LITERAL+ is advertised, and the receiver handles the listed supported command families, not the arguments of an arbitrary IMAP command. Internal CRLFs are counted in the literal octet count and are kept as data: a STARTTLS LOGIN received a CRLF-containing password literal, returned an ordinary auth failure, and then accepted the correct login. A raw NUL is rejected; LOGIN password literals are kept byte for byte, including invalid UTF-8, up to the authentication owner. Textual username/mailbox/search arguments require valid UTF-8 in the selected string mode. This is not a full support of arbitrary literal octets for all commands. The receiver keeps the bytes as a separate token type. An independent STARTTLS acceptance checked the tagged BAD for a UTF-8 quoted LOGIN, the session recovery and a UTF-8 BODY literal. RFC 9755 explicit SEARCH CHARSET gets a BAD; the ordinary and the mixed-case keyword were wire-checked, after which the implicit UTF-8 SEARCH works. UTF-8 mailbox CREATE/SUBSCRIBE/UNSUBSCRIBE/LIST/LSUB/STATUS/SELECT, APPEND, COPY/MOVE/RENAME/DELETE passed an independent STARTTLS check; after COPY/MOVE the RFC822 bytes match exactly. An independent capability acceptance checks UTF8=ACCEPT before TLS, after TLS/LOGIN and after ENABLE. This does not close the whole RFC 9755 profile; the remaining obligations are listed in `imap-profile.md`; this does not announce IMAP4rev2. FETCH ENVELOPE respects the connection-local string mode: before ENABLE a Unicode value obtained from an RFC 2047 encoded-word is encoded as an octet literal, and after ENABLE as a UTF-8 quoted-string. An independent STARTTLS `imaplib` acceptance read one mail in both sessions and confirmed the exact header form and the absence of high-bit bytes inside the legacy quoted-string. This does not check the downgrade of the original RFC822 header, all other IMAP response strings or the full RFC 9755 profile. The requirement not to send UTF-8 in a quoted-string before an explicit ENABLE is set by [RFC 9755 §3](https://www.rfc-editor.org/rfc/rfc9755.html#section-3); a literal remains the basic IMAP string form per [RFC 3501 §4.3](https://www.rfc-editor.org/rfc/rfc3501.html#section-4.3). The same negotiated mode is carried through the whole FETCH BODY/BODYSTRUCTURE tree: Content-ID/Description, the MIME type parameters, the disposition filename, the languages, the location and a nested message ENVELOPE pass through a mode-aware serialization. A unit test covers a Unicode Content-ID, a decoded description, RFC 2231 parameters and both wire forms; an independent STARTTLS client checked DESCRIPTION, NAME and FILENAME before/after ENABLE on one stored MIME part. The capability is verified by a new end-to-end acceptance; this does not close all other RFC 9755 obligations. An additional combined STARTTLS check enables `ENABLE UTF8=ACCEPT`, creates a mailbox with `é` and requests `LIST RETURN STATUS`: the adjacent LIST and STATUS replies keep the UTF-8 name and the order of the requested numeric fields. This is a check of the combined RFC 9755/RFC 5819 serialization, not the readiness of the whole profile. CAPABILITY announces `LIST-EXTENDED` per RFC 5258 and `LIST-STATUS` per RFC 5819; an independent STARTTLS test checks both announcements before and after the TLS upgrade. `RECENT` is allowed as a STATUS attribute per RFC 3501: before SELECT the number of unreceived durable messages is returned, after SELECT the STATUS and LIST RETURN STATUS use a single session-owned recent UID set. This does not lift the limitation of the partial IMAP4rev1 profile.
 
-### RFC 2971 ID, LITERAL+ и APPENDLIMIT
+### RFC 2971 ID, LITERAL+ and APPENDLIMIT
 
-RFC 2971 `ID` is advertised and accepted in every IMAP state. The parser
-validates `NIL` or a field/value list, enforces the 30-pair, 30-octet field,
-1024-octet value and unique-name limits, then discards client-supplied identity
-data. The response is always `* ID NIL`, avoiding host/build fingerprinting.
-Independent Linux STARTTLS wire acceptance covers the capability before and
-after TLS, NIL/list requests, synchronizing literals in both field and value
-positions, duplicate-name rejection, privacy response and NOOP recovery. The
-shared bounded literal receiver recognizes the RFC list-opening `(` directly
-before the first literal marker. This implements the identification extension
-only; it does not claim full IMAP4rev2 or all registered extensions.
-The same acceptance sends non-synchronizing literal forms for both fields and
-values without waiting for continuations, after checking the advertised
-capability. RFC 7888 allows non-synchronizing literals in any IMAP command;
-this server caps command-argument literals at 64 KiB and uses the advertised
-APPENDLIMIT for APPEND. The ID test covers small payloads and the global
-oversize boundary. RFC 2971 ID field/value limits are also checked at their
-wire boundaries: 30-octet field and 1024-octet value are accepted, while 31
-and 1025 octets respectively receive tagged BAD without disclosing ID data;
-subsequent NOOP commands confirm session recovery.
+RFC 2971 `ID` is advertised and accepted in every IMAP state. The parser validates `NIL` or a field/value list, enforces the 30-pair, 30-octet field, 1024-octet value and unique-name limits, then discards client-supplied identity data. The response is always `* ID NIL`, avoiding host/build fingerprinting. Independent Linux STARTTLS wire acceptance covers the capability before and after TLS, NIL/list requests, synchronizing literals in both field and value positions, duplicate-name rejection, privacy response and NOOP recovery. The shared bounded literal receiver recognizes the RFC list-opening `(` directly before the first literal marker. This implements the identification extension only; it does not claim full IMAP4rev2 or all registered extensions. The same acceptance sends non-synchronizing literal forms for both fields and values without waiting for continuations, after checking the advertised capability. RFC 7888 allows non-synchronizing literals in any IMAP command; this server caps command-argument literals at 64 KiB and uses the advertised APPENDLIMIT for APPEND. The ID test covers small payloads and the global oversize boundary. RFC 2971 ID field/value limits are also checked at their wire boundaries: 30-octet field and 1024-octet value are accepted, while 31 and 1025 octets respectively receive tagged BAD without disclosing ID data; subsequent NOOP commands confirm session recovery.
 
-RFC 7888 `LITERAL+` включён в CAPABILITY. Synchronizing literal-ы сохраняют
-continuation; non-synchronizing `{n+}` не вызывает continuation и ограничен
-64 KiB для command arguments и APPENDLIMIT для APPEND. Независимый STARTTLS
-клиент проверяет APPEND payload больше 4096 octets и его byte-exact round-trip.
-При превышении объявленного лимита сервер закрывает соединение с
-`BYE [TOOBIG]`, не выделяя недопустимый payload.
-Нулевой APPEND literal получает tagged `NO APPEND cancelled`; independent peer
-проверяет после него `NOOP` и пустой mailbox через `SELECT`, а затем продолжает
-работу в той же STARTTLS-сессии. RFC 3502 MULTIAPPEND реализован поверх общего
-literal receiver: каждый synchronizing literal получает собственный continuation,
-а завершённая команда передаётся одним batch-запросом Store owner-у. Успех
-возвращает APPENDUID с UID-set в порядке добавления; failure injection проверяет,
-что после сбоя первой mailbox frame ни одно сообщение не видно после recovery.
-Независимый STARTTLS `imaplib` сценарий отправляет два сообщения с разными
-флагами и NUL/0xFF в первом body, сверяет UID-set `1 3,4`, затем читает оба
-RFC822 тела побайтно и проверяет FLAGS.
-RFC 3502 §3.1 требует, чтобы нулевой message literal завершал APPEND ответом
-`NO` и отменял всю операцию. Отдельная unit-проверка Store добавляет пакет с
-валидным первым письмом и нулевым вторым, закрывает Store и после reopen
-подтверждает отсутствие обоих сообщений. Независимый STARTTLS peer выполняет
-тот же сценарий через MULTIAPPEND continuation framing и проверяет `NO` плюс
-пустой mailbox после SELECT. Это доказывает отмену пакета без частичной
-публикации, не только одиночный пустой APPEND.
+RFC 7888 `LITERAL+` is included in CAPABILITY. Synchronizing literals keep the continuation; a non-synchronizing `{n+}` does not cause a continuation and is limited to 64 KiB for command arguments and to APPENDLIMIT for APPEND. An independent STARTTLS client checks an APPEND payload larger than 4096 octets and its byte-exact round-trip. When the announced limit is exceeded the server closes the connection with `BYE [TOOBIG]` without allocating an invalid payload. A zero-length APPEND literal gets the tagged `NO APPEND cancelled`; an independent peer checks a following `NOOP` and an empty mailbox through `SELECT`, and then continues working in the same STARTTLS session. RFC 3502 MULTIAPPEND is implemented on top of the shared literal receiver: every synchronizing literal gets its own continuation, and the completed command is passed in one batch request to the Store owner. Success returns an APPENDUID with the UID-set in the append order; failure injection checks that after a failure of the first mailbox frame no message is visible after the recovery. An independent STARTTLS `imaplib` scenario sends two messages with different flags and NUL/0xFF in the first body, compares the UID-set `1 3,4`, then reads both RFC822 bodies byte for byte and checks the FLAGS. RFC 3502 §3.1 requires that a zero-length message literal ends APPEND with a `NO` reply and cancels the whole operation. A separate Store unit check adds a batch with a valid first mail and a zero-length second one, closes the Store and after the reopen confirms the absence of both messages. An independent STARTTLS peer performs the same scenario through the MULTIAPPEND continuation framing and checks the `NO` plus an empty mailbox after SELECT. This proves the cancellation of the batch without a partial publication, not only a single empty APPEND.
 
-RFC 7889 APPENDLIMIT объявляет единый предел `26214400` octets, равный
-действующему `MAX_MESSAGE_SIZE`. STATUS и LIST RETURN STATUS возвращают
-APPENDLIMIT для mailbox; oversize APPEND получает tagged `NO [TOOBIG]` до
-continuation и приёма payload. Независимый STARTTLS клиент проверил capability,
-STATUS, LIST STATUS и отклонение размера `26214401`; полная загрузка сообщения
-ровно предельного размера отдельным wire-тестом не измерялась.
+RFC 7889 APPENDLIMIT announces a single limit of `26214400` octets, equal to the effective `MAX_MESSAGE_SIZE`. STATUS and LIST RETURN STATUS return the APPENDLIMIT for the mailbox; an oversize APPEND gets the tagged `NO [TOOBIG]` before the continuation and the payload acceptance. An independent STARTTLS client checked the capability, STATUS, LIST STATUS and the rejection of the size `26214401`; the full upload of a message of exactly the limit size was not measured by a separate wire test.
 
-### FETCH, BODYSTRUCTURE и параметры MIME
+### FETCH, BODYSTRUCTURE and MIME parameters
 
-`FETCH` принимает одиночные и сгруппированные data items, раскрывает ALL, FAST
-и FULL, обязательно включает ровно один UID item в каждый ответ UID FETCH даже
-если клиент его не запросил, и сохраняет literal как точные октеты. Обычный
-FETCH не получает UID автоматически. Отдельный независимый STARTTLS тест
-проверяет обе границы, а Rust unit tests проверяют автоматическое включение и
-подавление дубликатов.
-RFC 9051 также требует UID в FETCH updates, вызванных UID STORE. Независимый
-STARTTLS тест удаляет первое из двух писем и проверяет прямой ответ UID STORE
-для второго: wire содержит sequence number 1, UID 2, FLAGS и ровно один UID.
-`BODY` и `BODYSTRUCTURE` поддерживаются как отдельные запросы; FULL раскрывается
-в BODY согласно RFC 9051, а не в BODYSTRUCTURE.
-`BODYSTRUCTURE` включает RFC 9051 body-MD5 slot и корректный RFC 2183
-Content-Disposition extension для scalar/message частей; multipart начинает
-extensions с parameter list после subtype. Параметры включая RFC 2231 filename декодируются общим MIME parser-ом;
-невалидное или повторное поле не экспортируется. RFC 2231 percent escapes
-принимают HEXDIG в любом регистре согласно регистронезависимой ABNF. Независимый
-Python `imaplib` через implicit TLS выполнил APPEND и BODYSTRUCTURE FETCH с
-RFC 2231 UTF-8 filename, содержащим lowercase и uppercase escapes, и прямым
-UTF-8 в quoted MIME-параметре `name`; BODYSTRUCTURE вернул оба Unicode значения
-и подтвердил сохранность исходных RFC822 октетов. Прямая форма использует
-RFC 6532 quoted-string extension и не заявляет SMTPUTF8 transfer.
-Отдельный независимый SMTP STARTTLS -> IMAP STARTTLS сценарий проверяет
-segmented RFC 2231 `filename*0*`/`filename*1*` с `UTF-8'en-US'`: BODYSTRUCTURE
-возвращает объединённое Unicode имя `😀 résumé.txt`, а RFC822.HEADER сохраняет
-исходные сегменты и language tag byte-exact. Это подтверждает данный wire
-вектор, но не актуальную registry validity BCP 47 и не Litterkeep app.
-T329 отдельно проверил конфликт regular `filename=` и extended `filename*=` в
-исходном письме независимым Linux STARTTLS клиентом: BODYSTRUCTURE не публикует
-конфликтующее значение, а RFC822 FETCH возвращает исходные байты. Litterkeep
-app interop не подтверждено. RFC 2045 §5.1 и RFC 2231 §7 требуют, чтобы имя,
-`=` и значение parameter шли без пробельных октетов между ними: MIME parser
-отвергает SP/HTAB до или после разделителя в regular, extended и continuation
-формах. Пробелы после `;` и RFC 822 comments отдельно сохраняют допустимую
-семантику. Unit и независимый IMAP wire acceptance подтверждают безопасный
-fallback для Content-Type, отбрасывание повреждённого filename при сохранении
-валидного Content-Disposition в BODYSTRUCTURE и побайтную сохранность исходного
-RFC822. Это не заявляет полную
-совместимость со всеми MIME клиентами или interoperability приложения Litterkeep.
-RFC 2183 §2.8 говорит игнорировать нераспознанные параметры disposition.
-Следующий wire-вектор добавляет неизвестный RFC 2231 charset в `filename*` и
-известный `size=12`: сервер исключает только имя с неподдерживаемым charset,
-сохраняет disposition и SIZE в BODYSTRUCTURE и возвращает исходное RFC822 письмо
-побайтно. Это ограниченный acceptance неизвестного параметра, не заявление о
-полной registry coverage MIME charset.
-Тот же раздел требует трактовать неизвестный disposition type как `attachment`
-и сохранять смысл его параметров. Парсер BODYSTRUCTURE применяет этот fallback
-в типизированном MIME представлении, не переписывая исходный заголовок письма.
-Unit-проверки фиксируют fallback и сохранение filename; до отдельного wire
-acceptance эта узкая проверка не считается клиентской interoperability.
-RFC 2183 §2.7 задаёт `size` как unquoted непустые десятичные цифры. MIME parser
-исключает только некорректный `size` и сохраняет соседние параметры; unit и
-независимый IMAP STARTTLS вектор проверяют нецифровую, quoted и RFC 2231 формы
-рядом с валидным filename.
-RFC 2183 §§2.4-2.6 date-параметры теперь публикуются только как quoted значения
-с корректной Gregorian date, допустимым временем, числовой timezone и согласованным
-weekday. Один strict RFC 5322 baseline parser используется также для IMAP SEARCH;
-unit и независимый IMAP STARTTLS acceptance покрывают все три параметра и
-отбрасывание неверной даты без потери filename; `:60` leap-second также
-проверяется и сохраняется в projection, тогда как календарный SEARCH сохраняет
-тот же день, используя представимое значение секунды. Это не полная RFC 822
-date-time грамматика: некоторые obsolete формы остаются непокрытыми.
-RFC 5322 §4.3 numeric-zone obsolete year forms now use the specified pivot:
-two-digit years 00-49 map to 2000-2049, 50-99 to 1950-1999, and three-digit
-years add 1900. Unit vectors cover both pivot edges and 123 -> 2023; independent
-IMAP STARTTLS BODYSTRUCTURE acceptance verifies a commented year `97` and keeps
-the original RFC822 octets unchanged. Named obsolete zones remain rejected by
-the RFC 2183 numeric-timezone requirement; this does not close all obsolete
-date-time grammar.
-RFC 5322 §3.3 lexical widths now constrain day to one/two ASCII digits and
-hour/minute/second to exactly two; seconds remain optional and `60` is accepted.
-Unit and independent IMAP STARTTLS BODYSTRUCTURE regressions reject wider day,
-one-digit clock fields and a three-digit hour while retaining the valid adjacent
-filename; original message octets remain unchanged.
-RFC 822 CFWS comments in quoted RFC 2183 date parameters are removed before
-calendar validation; nested comments between date-time components are accepted,
-while an unterminated comment invalidates the parameter. Unit tests and an
-independent Python IMAP STARTTLS peer verify the projected date and exact original
-RFC822 octets. This does not implement every obsolete date-time placement or
-relax the required numeric timezone.
-RFC 5322 Date search has a distinct profile from RFC 2183 MIME date parameters:
-`UT`/`GMT` and the eight registered North American obsolete zones are normalized
-to their RFC offsets; military zones use `-0000` as recommended without out-of-band
-data, and unknown 3-5-letter alphabetic names use `-0000` per RFC guidance. The
-complete A-I/K-Z military-zone range is unit-tested in both cases; reserved `J`
-and malformed/overlong names are rejected. RFC 2183 continues to reject every
-alphabetic zone. Unit tests and independent IMAP STARTTLS peers verify UTC day
-boundaries, the exact `SENTON` result, MIME date omission, and byte-exact RFC822
-FETCH. This is not support for unknown historical zone spellings or Litterkeep app
-interoperability; see [RFC 5322 §4.3](https://www.rfc-editor.org/rfc/rfc5322.html#section-4.3)
-and [RFC 2183 §2](https://www.rfc-editor.org/rfc/rfc2183.html#section-2).
-RFC 2231 §4.1 допускает charset/language metadata в начале первой encoded
-continuation секции. Ранее `Content-Disposition` parser терял language hint
-после общего параметрического разбора; `Disposition` теперь сохраняет typed
-BCP 47 tag рядом с декодированным значением, включая при построении MIME tree.
-Unit-регрессии проверяют оба уровня. IMAP BODYSTRUCTURE намеренно не расширен
-нестандартным полем и продолжает сериализовать только декодированное значение
-параметра согласно своему wire-профилю.
+`FETCH` accepts single and grouped data items, expands ALL, FAST and FULL, always includes exactly one UID item in every UID FETCH reply even if the client did not request it, and keeps a literal as exact octets. An ordinary FETCH does not get a UID automatically. A separate independent STARTTLS test checks both boundaries, and Rust unit tests check the automatic inclusion and the suppression of duplicates. RFC 9051 also requires a UID in the FETCH updates caused by a UID STORE. An independent STARTTLS test deletes the first of two mails and checks the direct UID STORE reply for the second one: the wire contains sequence number 1, UID 2, FLAGS and exactly one UID. `BODY` and `BODYSTRUCTURE` are supported as separate requests; FULL is expanded into BODY according to RFC 9051, and not into BODYSTRUCTURE. `BODYSTRUCTURE` includes the RFC 9051 body-MD5 slot and the correct RFC 2183 Content-Disposition extension for scalar/message parts; a multipart starts its extensions with the parameter list after the subtype. The parameters including an RFC 2231 filename are decoded by the common MIME parser; an invalid or repeated field is not exported. RFC 2231 percent escapes accept HEXDIG in any case according to the case-insensitive ABNF. An independent Python `imaplib` over implicit TLS performed an APPEND and a BODYSTRUCTURE FETCH with an RFC 2231 UTF-8 filename containing lowercase and uppercase escapes, and with a direct UTF-8 in the quoted MIME parameter `name`; BODYSTRUCTURE returned both Unicode values and confirmed the preservation of the original RFC822 octets. The direct form uses the RFC 6532 quoted-string extension and does not claim an SMTPUTF8 transfer. A separate independent SMTP STARTTLS -> IMAP STARTTLS scenario checks segmented RFC 2231 `filename*0*`/`filename*1*` with `UTF-8'en-US'`: BODYSTRUCTURE returns the combined Unicode name `😀 résumé.txt`, and RFC822.HEADER keeps the original segments and the language tag byte-exact. This confirms the given wire vector, but not the actual registry validity of BCP 47 and not the Litterkeep app. T329 separately checked the conflict of a regular `filename=` and an extended `filename*=` in the original mail with an independent Linux STARTTLS client: BODYSTRUCTURE does not publish the conflicting value, and the RFC822 FETCH returns the original bytes. Litterkeep app interop is not confirmed. RFC 2045 §5.1 and RFC 2231 §7 require that the name, the `=` and the parameter value go without space octets between them: the MIME parser rejects SP/HTAB before or after the separator in the regular, extended and continuation forms. The spaces after `;` and the RFC 822 comments separately keep the allowed semantics. Unit and independent IMAP wire acceptance confirm a safe fallback for Content-Type, the discarding of a broken filename while keeping a valid Content-Disposition in BODYSTRUCTURE and the byte-exact preservation of the original RFC822. This does not claim full compatibility with all MIME clients or the interoperability of the Litterkeep application. RFC 2183 §2.8 says to ignore unrecognized disposition parameters. The next wire vector adds an unknown RFC 2231 charset in `filename*` and a known `size=12`: the server excludes only the name with the unsupported charset, keeps the disposition and the SIZE in BODYSTRUCTURE and returns the original RFC822 mail byte for byte. This is a limited acceptance of an unknown parameter, not a claim of a full registry coverage of the MIME charset. The same section requires treating an unknown disposition type as `attachment` and keeping the meaning of its parameters. The BODYSTRUCTURE parser applies this fallback in the typed MIME representation, without rewriting the original mail header. Unit checks fix the fallback and the preservation of the filename; until a separate wire acceptance this narrow check is not considered a client interoperability. RFC 2183 §2.7 defines `size` as unquoted non-empty decimal digits. The MIME parser excludes only an incorrect `size` and keeps the neighbouring parameters; unit and an independent IMAP STARTTLS vector check the non-digit, the quoted and the RFC 2231 forms next to a valid filename. RFC 2183 §§2.4-2.6 date parameters are now published only as quoted values with a correct Gregorian date, an allowed time, a numeric timezone and a consistent weekday. One strict RFC 5322 baseline parser is used for IMAP SEARCH as well; unit and independent IMAP STARTTLS acceptance cover all three parameters and the discarding of a wrong date without losing the filename; the `:60` leap-second is checked too and kept in the projection, while the calendar SEARCH keeps the same day using a representable second value. This is not the full RFC 822 date-time grammar: some obsolete forms remain uncovered. RFC 5322 §4.3 numeric-zone obsolete year forms now use the specified pivot: two-digit years 00-49 map to 2000-2049, 50-99 to 1950-1999, and three-digit years add 1900. Unit vectors cover both pivot edges and 123 -> 2023; independent IMAP STARTTLS BODYSTRUCTURE acceptance verifies a commented year `97` and keeps the original RFC822 octets unchanged. Named obsolete zones remain rejected by the RFC 2183 numeric-timezone requirement; this does not close all obsolete date-time grammar. RFC 5322 §3.3 lexical widths now constrain the day to one/two ASCII digits and the hour/minute/second to exactly two; seconds remain optional and `60` is accepted. Unit and independent IMAP STARTTLS BODYSTRUCTURE regressions reject a wider day, one-digit clock fields and a three-digit hour while retaining the valid adjacent filename; the original message octets remain unchanged. RFC 822 CFWS comments in quoted RFC 2183 date parameters are removed before the calendar validation; nested comments between the date-time components are accepted, while an unterminated comment invalidates the parameter. Unit tests and an independent Python IMAP STARTTLS peer verify the projected date and the exact original RFC822 octets. This does not implement every obsolete date-time placement or relax the required numeric timezone. RFC 5322 Date search has a distinct profile from the RFC 2183 MIME date parameters: `UT`/`GMT` and the eight registered North American obsolete zones are normalized to their RFC offsets; military zones use `-0000` as recommended without out-of-band data, and unknown 3-5-letter alphabetic names use `-0000` per the RFC guidance. The complete A-I/K-Z military-zone range is unit-tested in both cases; the reserved `J` and malformed/overlong names are rejected. RFC 2183 continues to reject every alphabetic zone. Unit tests and independent IMAP STARTTLS peers verify the UTC day boundaries, the exact `SENTON` result, the MIME date omission, and the byte-exact RFC822 FETCH. This is not support for unknown historical zone spellings or Litterkeep app interoperability; see [RFC 5322 §4.3](https://www.rfc-editor.org/rfc/rfc5322.html#section-4.3) and [RFC 2183 §2](https://www.rfc-editor.org/rfc/rfc2183.html#section-2). RFC 2231 §4.1 allows charset/language metadata at the beginning of the first encoded continuation section. Earlier the `Content-Disposition` parser lost the language hint after the common parameter parsing; `Disposition` now keeps a typed BCP 47 tag next to the decoded value, including when the MIME tree is built. Unit regressions check both levels. The IMAP BODYSTRUCTURE is deliberately not extended with a non-standard field and keeps serializing only the decoded parameter value according to its wire profile.
 
-### Structured MIME, BODY-секции и BINARY
+### Structured MIME, BODY sections and BINARY
 
-Внешняя whitespace-обрезка structured MIME значений ограничена ASCII SP/HTAB:
-Unicode NBSP перед media type, параметром, unquoted value и disposition token
-отвергается, а NBSP внутри quoted parameter сохраняется как данные. Регрессия
-до фикса воспроизводилась на NBSP перед `text/plain`; после фикса прошли
-параметрические и disposition unit tests, Windows 569 library + 1 binary test,
-fmt и strict Clippy, Linux Docker release build, strict Clippy, 620 library +
-1 binary test и doc-tests. `tests/blackbox/mime_structured_wsp.py` через
-независимый Python `imaplib` APPEND/FETCH подтвердил MIME fallback для NBSP в
-Content-Type, сохранение quoted NBSP и непринятие NBSP перед disposition token,
-Content-Language и Content-Location; NBSP в unstructured Content-Description
-сохранён. Исходные RFC822 literal bytes совпали. Это не проверка совместимости
-Litterkeep.
-`Content-Language` сохраняет
-один или несколько структурно корректных BCP 47 tags; `Content-Location`
-сохраняется как единственный непустой unfolded URI-reference по синтаксису
-RFC 3986. Поддерживаются absolute URI и relative reference; percent-encoding
-проверяется, но не декодируется. Не выполняются разрешение ссылок, загрузка,
-проверка допустимости схем, IRI/Unicode URI или реестр URI. Невалидное либо
-повторное поле не экспортируется. Поля сериализуются строго после disposition
-в RFC 9051 порядке.
-`BODY` использует отдельный basic encoder и не получает extension fields.
-Независимый STARTTLS `imaplib` acceptance сравнил wire-ответы `BODY` и
-`BODYSTRUCTURE`: первый не содержит extensions, второй содержит language,
-location и RFC 2231 attachment filename. Оба профиля возвращают MIME basic
-поля `Content-ID` и `Content-Description`. Описание декодируется по RFC 2047;
-Content-ID принимает единственное поле в формах dot-atom, quoted id-left и
-domain-literal id-right, включая UTF-8 atext по RFC 6532. RFC 5322
-`obs-id-left`/`obs-id-right` CFWS вокруг dot-separated atoms нормализуется;
-obsolete local-part также принимает последовательность atom/quoted-string
-words с точками вне кавычек. Comments и whitespace вокруг quoted/atom words
-и точек семантически невидимы. Контрольные octets и malformed quoted-pairs
-остаются невалидными. Повторные или синтаксически некорректные значения не
-проецируются.
-Независимый STARTTLS acceptance подтвердил quoted id-left, IPv6 domain literal,
-obsolete CFWS и quoted-word формы, включая comments, в обоих профилях; UTF-8
-identifiers и RFC 2047 description проверены unit-тестами. Прочие protocol fields и RFC
-пробелы остаются непокрытыми.
-Единственный корректный `Content-MD5` выводится в scalar/message body-MD5 slot
-после строгой Base64 проверки и проверки длины декодированного digest в 16
-октетов. Значение передаётся без пересчёта и сервер не проверяет совпадение с
-текущими body octets. Повторы или некорректный digest пропускаются. Поле не
-попадает в `BODY` и не занимает multipart extension slot; независимый STARTTLS
-acceptance подтвердил обе wire-проекции.
-`BODY` поддерживает полное сообщение, HEADER/TEXT, HEADER.FIELDS/NOT, числовые
-MIME paths, вложенный `message/rfc822` и partial ranges; durable `\\Seen`
-различает BODY/RFC822, PEEK и EXAMINE. `NAMESPACE`, `UNSELECT` и `ENABLE`
-рекламируются как доступные команды текущего IMAP4rev1 профиля. Независимый
-STARTTLS клиент подтвердил, что ENABLE игнорирует неизвестный capability,
-возвращает пустой `ENABLED` и не меняет CAPABILITY. Сетевая проверка также
-подтвердила отказ от quoted capability и сквозное совпадение байтов вложения;
-отдельная grammar-проверка получает tagged BAD для `ENABLE X%`, сохраняя
-игнорирование корректного неизвестного atom `X-UNKNOWN`;
-проверки BODY/Seen, headers, body, flags и UNSELECT подтверждены отдельно.
-RFC 9051 BINARY, BINARY.PEEK и BINARY.SIZE декодируют MIME CTE до
-partial slicing; BINARY применяет literal8 при NUL, нормализует текст к CRLF
-и выдаёт tagged NO [UNKNOWN-CTE] для неизвестного кодирования. Независимый
-STARTTLS acceptance отправил вложение через SMTP и сравнил все байты BINARY;
-также проверены SIZE, decoded partial, Seen/PEEK и UNKNOWN-CTE. Это не проверка
-клиента Litterkeep. BINARY включён в CAPABILITY в plaintext, TLS и authenticated
-состояниях; отдельный STARTTLS wire acceptance проверил точный capability atom
-до переключения, после него и после LOGIN. Это закрывает только discovery для
-уже реализованного RFC 3516 extension; остальные требования IMAP4rev2 остаются
-непокрытыми.
-Для IMAP4rev1 совместимости `RFC822.HEADER` возвращает заголовки под legacy
-data-item label и не меняет `\\Seen`; `RFC822.TEXT` возвращает точные body
-octets под своим label и durable устанавливает `\\Seen`. Независимый
-SMTP-to-IMAP acceptance проверяет labels, bytes и Seen-переходы.
+The outer whitespace trimming of structured MIME values is limited to ASCII SP/HTAB: a Unicode NBSP before a media type, a parameter, an unquoted value and a disposition token is rejected, while an NBSP inside a quoted parameter is kept as data. The regression before the fix reproduced on an NBSP before `text/plain`; after the fix the parameter and disposition unit tests passed, as well as Windows 569 library + 1 binary test, fmt and strict Clippy, the Linux Docker release build, strict Clippy, 620 library + 1 binary test and doc-tests. `tests/blackbox/mime_structured_wsp.py` through an independent Python `imaplib` APPEND/FETCH confirmed the MIME fallback for an NBSP in Content-Type, the preservation of a quoted NBSP and the rejection of an NBSP before a disposition token, Content-Language and Content-Location; an NBSP in an unstructured Content-Description was preserved. The original RFC822 literal bytes matched. This is not a Litterkeep compatibility check. `Content-Language` keeps one or more structurally correct BCP 47 tags; `Content-Location` is kept as a single non-empty unfolded URI-reference according to the RFC 3986 syntax. Absolute URIs and relative references are supported; percent-encoding is checked but not decoded. No reference resolution, downloading, scheme admissibility check, IRI/Unicode URI or URI registry is performed. An invalid or a repeated field is not exported. The fields are serialized strictly after the disposition in the RFC 9051 order. `BODY` uses a separate basic encoder and gets no extension fields. An independent STARTTLS `imaplib` acceptance compared the wire replies of `BODY` and `BODYSTRUCTURE`: the first contains no extensions, the second contains the language, the location and the RFC 2231 attachment filename. Both profiles return the MIME basic fields `Content-ID` and `Content-Description`. The description is decoded per RFC 2047; Content-ID accepts a single field in the dot-atom, quoted id-left and domain-literal id-right forms, including a UTF-8 atext per RFC 6532. The RFC 5322 `obs-id-left`/`obs-id-right` CFWS around dot-separated atoms is normalized; an obsolete local-part also accepts a sequence of atom/quoted-string words with dots outside the quotes. The comments and the whitespace around the quoted/atom words and the dots are semantically invisible. Control octets and malformed quoted-pairs stay invalid. Repeated or syntactically incorrect values are not projected. An independent STARTTLS acceptance confirmed the quoted id-left, an IPv6 domain literal, the obsolete CFWS and the quoted-word forms, including comments, in both profiles; UTF-8 identifiers and the RFC 2047 description are checked by unit tests. The other protocol fields and RFC spaces remain uncovered. A single correct `Content-MD5` is output in the scalar/message body-MD5 slot after a strict Base64 check and a check of the decoded digest length of 16 octets. The value is passed without recalculation and the server does not check a match with the current body octets. Repeats or an incorrect digest are skipped. The field does not reach `BODY` and does not take the multipart extension slot; an independent STARTTLS acceptance confirmed both wire projections. `BODY` supports the full message, HEADER/TEXT, HEADER.FIELDS/NOT, numeric MIME paths, a nested `message/rfc822` and partial ranges; the durable `\\Seen` distinguishes BODY/RFC822, PEEK and EXAMINE. `NAMESPACE`, `UNSELECT` and `ENABLE` are advertised as available commands of the current IMAP4rev1 profile. An independent STARTTLS client confirmed that ENABLE ignores an unknown capability, returns an empty `ENABLED` and does not change CAPABILITY. The network check also confirmed the rejection of a quoted capability and the end-to-end match of the attachment bytes; a separate grammar check gets a tagged BAD for `ENABLE X%`, keeping the ignoring of the correct unknown atom `X-UNKNOWN`; the BODY/Seen, headers, body, flags and UNSELECT checks are confirmed separately. RFC 9051 BINARY, BINARY.PEEK and BINARY.SIZE decode the MIME CTE before the partial slicing; BINARY applies literal8 with NUL, normalizes the text to CRLF and issues a tagged NO [UNKNOWN-CTE] for an unknown encoding. An independent STARTTLS acceptance sent an attachment over SMTP and compared all the BINARY bytes; SIZE, decoded partial, Seen/PEEK and UNKNOWN-CTE were checked as well. This is not a check of the Litterkeep client. BINARY is included in CAPABILITY in plaintext, TLS and authenticated states; a separate STARTTLS wire acceptance checked the exact capability atom before the switch, after it and after LOGIN. This closes only the discovery for the already implemented RFC 3516 extension; the other IMAP4rev2 requirements remain uncovered. For IMAP4rev1 compatibility `RFC822.HEADER` returns the headers under the legacy data-item label and does not change `\\Seen`; `RFC822.TEXT` returns the exact body octets under its label and durably sets `\\Seen`. An independent SMTP-to-IMAP acceptance checks the labels, the bytes and the Seen transitions.
 
-### SEARCH, charset-декодирование и MIME-дерево
+### SEARCH, charset decoding and the MIME tree
 
-SEARCH использует UTF-8 по умолчанию и поддерживает явные UTF-8/US-ASCII;
-неподдерживаемая кодировка возвращает `NO [BADCHARSET ...]`, а Unicode-criteria
-при US-ASCII отвергаются ответом NO. `BODY`/`TEXT` декодируют Base64 и
-quoted-printable текстовые MIME parts с US-ASCII, UTF-8, ISO-8859-1,
-Windows-1251 или Windows-1252; UTF-16, UTF-16BE и UTF-16LE также реализованы
-для RFC 2047 encoded words и RFC 2231 extended parameters, но не используются
-для поиска в `text/*` body parts согласно RFC 2781. RFC 2047 encoded words
-декодируются в outer и
-MIME-part headers только как полные токены в начале field-body или после LWS.
-Embedded и слитные формы остаются raw text; это новое правило пока unit-only.
-По RFC 2047 §2 delimiter lookahead теперь ограничен 75 символами каждого
-encoded-word. Для 32 768 oversized malformed starters debug unit-test ранее
-занимал 5.21 секунды, после исправления 0.04 секунды на той же Windows-среде;
-Linux test-stage повторил сам вектор за 0.04 секунды. Это bounded-lookahead и
-unit coverage, не измерение production throughput или внешнего клиента.
-RFC 2231 `charset*language` suffix encoded-word сохраняется отдельно в typed
-API, тогда как header/phrase projections возвращают decoded text. Новые
-language suffix grammar cases unit-only.
-RFC 2231 extended parameters сохраняют BCP 47 language metadata в MIME tree;
-проверяется синтаксис RFC 5646, но не актуальная registry validity. Проверки
-metadata и допустимого опущенного charset пока unit-only.
-RFC 2047 encoded-word и RFC 2231 extended parameter также декодируют UTF-16,
-UTF-16BE и UTF-16LE с проверкой byte order, нечётной длины и surrogate pairs.
-Начальный BOM у UTF-16 выбирает порядок и удаляется как signature; без BOM
-используется big-endian после проверки первых двух октетов; generic UTF-16 с
-меньшим числом исходных октетов отклоняется. RFC 2781 регистрирует семейство UTF-16 как
-неподходящее для MIME `text/*`, поэтому SEARCH не декодирует такие body parts.
-Профиль проверен unit-тестами; отдельный socket acceptance не запускался.
-Независимый STARTTLS
-тест подтвердил, что BODY не ищет outer Subject и бинарное
-application/octet-stream вложение, а TEXT включает decoded outer headers.
-Неизвестная charset и невалидная transfer encoding не сравниваются как raw
-octets. Часть с неизвестным Content-Transfer-Encoding рассматривается как
-непрозрачный `application/octet-stream` согласно RFC 2045 §6.4: её тело не
-попадает в текстовый SEARCH projection, а исходные MIME-заголовки сохраняются.
-Независимая SMTP STARTTLS -> IMAP проверка подтвердила fallback type в
-BODYSTRUCTURE, сохранение исходных заголовков и отсутствие совпадения SEARCH
-BODY. IMAP BINARY для такой части завершается `NO [UNKNOWN-CTE]` согласно
-RFC 9051; тот же клиент проверяет response code.
-MIME tree отвергает Base64, quoted-printable и неизвестный CTE на всех
-multipart/message composite entities согласно RFC 2045 §6.4; повторное поле
-CTE отклоняется как неоднозначное, поэтому позднее 8bit не маскирует ранее
-указанное кодирование. Multipart delimiter collection ограничен остатком
-глобального MIME part budget до накопления диапазонов, а не только последующей
-проверкой дерева. При разборе вложенной MIME-части внешний multipart delimiter
-завершает текущую внутреннюю multipart entity даже при отсутствии её close
-delimiter; политика распространяется на любую глубину вложения через
-multipart и message/rfc822. Для верхнего multipart без closing delimiter
-сохраняется отказ. Проверки parser-а unit-only.
-MIME Base64 CTE по RFC 2045 §6.8 игнорирует октеты вне Base64-алфавита,
-сохраняя строгую проверку синтаксиса RFC 2047 encoded-word. Unit-проверки
-покрывают оба профиля. Независимый SMTP STARTTLS -> IMAP STARTTLS клиент
-доставляет multipart с `!#` внутри Base64 body и сверяет точные исходные octets
-через `BINARY.PEEK`; encoded-word decoder этим сценарием не затрагивается.
-Общий MIME header-block parser удаляет CRLF только у реальных строк заголовка,
-сворачивает continuation с WSP и отвергает отдельный CR внутри обычной или
-folded строки. RFC 5322 folding требует CRLF перед WSP; регрессии bare CR
-проверены unit-тестами, отдельный socket acceptance не запускался.
-Имена полей валидируются по [RFC 5322 §3.6.8](https://www.rfc-editor.org/rfc/rfc5322.html#section-3.6.8) `ftext`: печатный US-ASCII без `:`;
-легальная пунктуация extension field names сохраняется, а пробелы, control и
-не-ASCII в имени отвергаются. Независимый STARTTLS клиент через APPEND/FETCH
-подтвердил, что MIME parsing принимает punctuation extension field и сохраняет
-полный RFC822 literal до байта. Это не проверка Litterkeep app.
-RFC 2045 MIME-поля (кроме Content-Disposition) допускают RFC 822 comments;
-Content-Transfer-Encoding удаляет вложенные comments вне quoted-string перед
-разбором token. Сам CTE value ограничен одним RFC 2045 ASCII token: по краям
-принимаются только SP/HTAB, внутренние separators и Unicode whitespace
-отвергаются; неизвестный корректный ASCII token остаётся typed UNKNOWN-CTE.
-Unit-регрессия воспроизводит прежнее принятие NBSP и проверяет отказ после
-исправления. Независимый ManageSieve CHECKSCRIPT подтвердил те же границы в
-vacation `:mime`: comments принимаются, NBSP отвергается. Unit-тест и независимый
-SMTP STARTTLS -> IMAP STARTTLS
-acceptance проверили вложенный comment перед Base64, escaped right parenthesis,
-comment после token, BODYSTRUCTURE encoding и точные декодированные octets.
-Исходные RFC822 bytes при доставке сохранены без нормализации.
+SEARCH uses UTF-8 by default and supports explicit UTF-8/US-ASCII; an unsupported charset returns `NO [BADCHARSET ...]`, and Unicode criteria under US-ASCII are rejected with a NO reply. `BODY`/`TEXT` decode Base64 and quoted-printable text MIME parts with US-ASCII, UTF-8, ISO-8859-1, Windows-1251 or Windows-1252; UTF-16, UTF-16BE and UTF-16LE are also implemented for RFC 2047 encoded words and RFC 2231 extended parameters, but they are not used for searching in `text/*` body parts according to RFC 2781. RFC 2047 encoded words are decoded in outer and MIME-part headers only as complete tokens at the beginning of a field body or after LWS. Embedded and fused forms stay raw text; this new rule is still unit-only. Per RFC 2047 §2 the delimiter lookahead is now limited to 75 characters of each encoded-word. For 32 768 oversized malformed starters the debug unit test earlier took 5.21 seconds, after the fix 0.04 seconds on the same Windows environment; the Linux test stage repeated the vector in 0.04 seconds. This is a bounded lookahead and unit coverage, not a measurement of the production throughput or of an external client. The RFC 2231 `charset*language` suffix of an encoded-word is kept separately in the typed API, while the header/phrase projections return the decoded text. The new language suffix grammar cases are unit-only. RFC 2231 extended parameters keep the BCP 47 language metadata in the MIME tree; the RFC 5646 syntax is checked, but not the actual registry validity. The metadata and the allowed omitted charset checks are still unit-only. RFC 2047 encoded-words and RFC 2231 extended parameters also decode UTF-16, UTF-16BE and UTF-16LE with a byte order check, an odd length and surrogate pairs. The leading BOM of UTF-16 selects the order and is removed as a signature; without a BOM big-endian is used after a check of the first two octets; a generic UTF-16 with fewer source octets is rejected. RFC 2781 registers the UTF-16 family as unsuitable for the MIME `text/*`, so SEARCH does not decode such body parts. The profile is verified by unit tests; a separate socket acceptance was not run. An independent STARTTLS test confirmed that BODY does not search the outer Subject and a binary application/octet-stream attachment, while TEXT includes the decoded outer headers. An unknown charset and an invalid transfer encoding are not compared as raw octets. A part with an unknown Content-Transfer-Encoding is treated as an opaque `application/octet-stream` according to RFC 2045 §6.4: its body does not reach the text SEARCH projection, and the original MIME headers are preserved. An independent SMTP STARTTLS -> IMAP check confirmed the fallback type in BODYSTRUCTURE, the preservation of the original headers and the absence of a SEARCH BODY match. The IMAP BINARY for such a part ends with `NO [UNKNOWN-CTE]` according to RFC 9051; the same client checks the response code. The MIME tree rejects Base64, quoted-printable and an unknown CTE on all multipart/message composite entities according to RFC 2045 §6.4; a repeated CTE field is rejected as ambiguous, so a later 8bit does not mask the earlier given encoding. The multipart delimiter collection is limited by the remainder of the global MIME part budget before the ranges are accumulated, and not only by the later tree check. When a nested MIME part is parsed the outer multipart delimiter ends the current inner multipart entity even without its close delimiter; the policy is applied to any nesting depth through multipart and message/rfc822. For a top-level multipart without a closing delimiter the rejection is kept. The parser checks are unit-only. The MIME Base64 CTE per RFC 2045 §6.8 ignores the octets outside the Base64 alphabet, keeping the strict RFC 2047 encoded-word syntax check. The unit checks cover both profiles. An independent SMTP STARTTLS -> IMAP STARTTLS client delivers a multipart with `!#` inside a Base64 body and compares the exact original octets through `BINARY.PEEK`; the encoded-word decoder is not touched by this scenario. The common MIME header-block parser removes the CRLF only of real header lines, folds the continuations with WSP and rejects a lone CR inside an ordinary or a folded line. RFC 5322 folding requires a CRLF before the WSP; the bare CR regressions are checked by unit tests, a separate socket acceptance was not run. The field names are validated per [RFC 5322 §3.6.8](https://www.rfc-editor.org/rfc/rfc5322.html#section-3.6.8) `ftext`: printable US-ASCII without `:`; the legal punctuation extension field names are preserved, and the spaces, the control and the non-ASCII characters in a name are rejected. An independent STARTTLS client through APPEND/FETCH confirmed that the MIME parsing accepts a punctuation extension field and keeps the full RFC822 literal down to the byte. This is not a check of the Litterkeep app. The RFC 2045 MIME fields (except Content-Disposition) allow RFC 822 comments; Content-Transfer-Encoding removes the nested comments outside the quoted-string before the token parsing. The CTE value itself is limited to a single RFC 2045 ASCII token: only SP/HTAB are accepted at the edges, the inner separators and the Unicode whitespace are rejected; an unknown correct ASCII token stays a typed UNKNOWN-CTE. The unit regression reproduces the earlier NBSP acceptance and checks the rejection after the fix. An independent ManageSieve CHECKSCRIPT confirmed the same boundaries in the vacation `:mime`: the comments are accepted, the NBSP is rejected. The unit test and the independent SMTP STARTTLS -> IMAP STARTTLS acceptance checked a nested comment before a Base64, an escaped right parenthesis, a comment after the token, the BODYSTRUCTURE encoding and the exact decoded octets. The original RFC822 bytes are preserved on delivery without normalization.
 
-### MIME-декодирование, quoted-printable и multipart
+### MIME decoding, quoted-printable and multipart
 
-MIME parser и IMAP BODYSTRUCTURE распознают RFC 6532 `message/global`.
-`7bit`, `8bit` и `binary` используют исходные байты, Base64 и
-quoted-printable декодируют вложенное сообщение в отдельный Arc-owned source,
-чьи offsets разрешаются относительно этого source. ENVELOPE, BODYSTRUCTURE,
-nested BODY HEADER и BINARY part traversal работают на decoded содержимом;
-unknown CTE не разбирается как письмо, а остаётся opaque
-`application/octet-stream`. Вектора проходят unit-тесты, но отдельный network
-black-box `tests/blackbox/imap_message_global.py` теперь выполняет APPEND и
-проверяет на независимом STARTTLS клиенте BODYSTRUCTURE, сохранение Base64
-wire-body через BODY[1], UTF-8 вложенные BODY[1.1]/BODY[1.HEADER], decoded
-BINARY[1.1] и неизменность исходного RFC822 literal. Прогон выполнен на Linux
-Rust 1.97 Docker runtime с отдельным каталогом `./data/g18-message-global-wire`;
-повторён под `ENABLE UTF8=ACCEPT` в `./data/g19-rfc9755-message-global-enabled`.
-В обоих случаях вложенная структура и все octets совпали. Litterkeep app не
-проверялось. Это acceptance конкретного media type, а не полный сертификат MIME
-или IMAP4rev2. RFC 9755 §6 допускает для IMAP4rev1 с включённым UTF8=ACCEPT как
-`message/rfc822` representation, так и RFC 3501 representation; текущий ответ
-`MESSAGE/GLOBAL` остаётся валидным. См.
-[RFC 6532 §3.5](https://www.rfc-editor.org/rfc/rfc6532.html#section-3.5),
-[§3.7](https://www.rfc-editor.org/rfc/rfc6532.html#section-3.7)
-и [RFC 9051 §9](https://www.rfc-editor.org/rfc/rfc9051.html#section-9).
-Quoted-printable decoder удаляет буквальные SP/TAB на концах hard lines и
-объекта, не удаляя закодированные `=20`/`=09`; encoder сериализует пробелы и
-TAB как hex-octets, чтобы перенос строки не менял содержимое. Независимый SMTP
-STARTTLS -> IMAP STARTTLS BINARY.PEEK подтвердил удаление SP/TAB в hard-line
-padding и сохранение decoded `=20`. SP/TAB перед soft break `=CRLF` являются
-содержимым `qp-segment` и сохраняются, тогда как SP/TAB после последнего
-символа hard line удаляются как transport padding. Unit-регрессии проверяют
-обе позиции; новый большой-входной вектор проверяет 8 KiB непрерывного WSP
-перед hard CRLF и soft break. Decoder обрабатывает каждый пробельный участок
-одним проходом, избегая квадратичного повторного lookahead. Отдельные
-[RFC 2045 §6.7](https://www.rfc-editor.org/rfc/rfc2045.html#section-6.7)
-векторы проверяют нормативные примеры и полное тело. Для исходящего
-Sieve vacation отдельный
-ManageSieve -> SMTP submission -> durable queue -> независимый SMTP peer
-сценарий подтвердил UTF-8 round-trip, кодирование буквальных SP/TAB как
-`=20`/`=09` и физические строки не длиннее 76 октетов. Проверялся именно
-независимый peer, не Litterkeep. В этом пути также обнаружено и исправлено
-добавление лишнего пустого CRLF outbound SMTP transport-ом, если MIME payload
-уже завершался CRLF; обычный и TLS transport теперь используют общую запись
-DATA. Проверка существующего Litterkeep клиента и других MTA остаётся открытой.
-При повреждённом quoted-printable `=` escape входящий decoder сохраняет
-буквальный `=` и следующий символ без преобразования, как рекомендует RFC 2045
-§6.7 для robust decoder. Генераторский Sieve `:mime` validator использует
-отдельный strict путь и malformed escape отвергает. Независимый SMTP STARTTLS
-клиент передал `=G1` и неполный `=A`, а IMAP STARTTLS BINARY.PEEK подтвердил
-точные декодированные octets с сохранёнными escape. Независимый ManageSieve
-CHECKSCRIPT принял корректный quoted-printable soft break, включая SP перед
-`=CRLF`, и отверг malformed hex escape и незакодированные завершающие SP/HTAB.
-RFC 2045 §6.7 decoder boundary теперь также проверяет все 256 октетов как
-`=HH` и как robust lowercase `=hh`, а также все 93 literal-safe ASCII значения
-из диапазонов 33..60 и 62..126. Это exhaustive octet mapping, не полное
-покрытие line-length, transport, malformed-input и MIME interoperability
-профиля. Отдельная fail-closed политика отклоняет raw C0 control octets
-(кроме TAB), DEL и high-bit octets, поскольку RFC 2045 §6.7 разрешает их только
-в `=HH` форме. Ошибка BINARY projection передаётся как `NO [UNKNOWN-CTE]`, а
-исходный RFC822 literal остаётся доступен без `\\Seen`. Независимый TLS IMAP
-peer APPEND-ит malformed QP literal с NUL, VT и 0xFF, проверяет этот response
-code, последующий NOOP и неизменённые bytes через `BODY.PEEK[]`. Rust
-регрессии проверяют каждый запрещённый octet и сохранение UNKNOWN-CTE.
-Malformed `=` escape по-прежнему имеет отдельную tolerant recovery policy;
-эта проверка не означает полное покрытие quoted-printable профиля и не
-проверяет доставку таких octets через SMTP или совместимость приложения.
-Внутренний QP encoder для vacation-response также сверяется со всеми
-256 отдельными входными октетами и смешанным полным диапазоном: round-trip,
-hard CRLF и предел 76 символов проверены. Escape token теперь собирается в
-фиксированные stack bytes вместо форматирования временной heap-строки для
-каждого байта; output Vec при необходимости всё ещё может перераспределяться.
-`7bit` и `8bit` CTE проверяют профиль RFC 2045 §§2.7-2.8: не более 998
-октетов между CRLF, отсутствие NUL и одиночных CR/LF; `7bit` дополнительно
-отвергает high-bit octets, `8bit` их сохраняет. `binary` остаётся прозрачным.
-Независимый IMAP STARTTLS APPEND -> BINARY.PEEK принял 998-октетную строку
-7bit и отверг 999-октетную, сохранил high-bit octets для 8bit и отверг их для
-7bit. Проверены NUL для обоих профилей и bare CR/LF. Для последних использован
-прямой IMAP literal: стандартный `imaplib.append()` нормализует line endings
-до отправки и не подходит для этих malformed fixtures. Это проверка IMAP
-хранения и MIME decode, не SMTP DATA acceptance.
-Параметр `multipart` boundary проверяется по RFC 2046 §5.1.1: 1..70 ASCII
-октетов из `bchars`, без завершающего пробела; покрыты длины и запрещённые
-символы unit-тестами. Parser принимает transport-padding у opening/closing
-delimiter и исключает CRLF, непосредственно предшествующий первому delimiter,
-из preamble; собственный CRLF preamble сохраняется. Сканирование останавливается
-на первом close-delimiter, поэтому boundary-похожая строка внутри epilogue не
-создаёт часть и не расходует part budget. Независимый Python `imaplib`
-STARTTLS-клиент отправил padded delimiters и epilogue с последующим boundary-
-похожим MIME-заголовком; BODYSTRUCTURE содержит только ожидаемые две части,
-BODY[1] и BINARY.PEEK вложения совпали, а RFC822 FETCH подтвердил точные исходные
-bytes, включая preamble и epilogue. Это проверка IMAP APPEND/FETCH, не SMTP
-доставки и не клиента Litterkeep.
-Вложенная MIME-часть без Content-Type в `multipart/digest` получает default
-`message/rfc822` по RFC 2046 §5.1.5; само вложенное сообщение использует
-`text/plain` default для своего body. В остальных multipart подтипах отсутствие
-Content-Type по-прежнему даёт `text/plain`. Типизация и вложенные ranges
-проверены unit-тестами. MIME body-part с пустой областью заголовков теперь
-принимается: первая CRLF завершает header area, а последующие октеты точно
-сохраняются как body. Unit-проверка BODYSTRUCTURE подтверждает вложенные
-`MESSAGE/RFC822`, ENVELOPE, `TEXT/PLAIN` и размеры исходных octets для digest
-part. Парсер и протокольная проекция проверены unit-тестами; socket acceptance
-также выполнен независимым STARTTLS `imaplib` peer: после APPEND BODYSTRUCTURE
-содержит `DIGEST` и вложенные `MESSAGE/RFC822`/`TEXT/PLAIN`, а RFC822 FETCH
-побайтно совпадает с headerless digest source. Это проверка независимым
-клиентом, не приложением Litterkeep.
-Второй независимый STARTTLS FETCH проверил RFC 3501 §6.4.5 / RFC 9051 §6.4.5
-для этого embedded message: `BODY.PEEK[1]` возвращает RFC822-содержимое вложения,
-`[1.HEADER]` и `[1.TEXT]` разделяют его заголовок и текст, `[1.1]` адресует
-единственную MIME body-part. Все четыре ответа совпали с точными ожидаемыми
-octets; клиент Litterkeep не запускался.
-Для того же дерева исправлен traversal RFC 9051 `BINARY`: `multipart/digest`
-теперь считается multipart-контейнером, а numeric path после его
-`MESSAGE/RFC822` child продолжается от embedded MIME entity. Независимый STARTTLS
-FETCH подтвердил `BINARY.PEEK[1.1]` декодированный body и `BINARY.SIZE[1.1]` с
-совпадающей длиной. Ранее этот путь завершался `NO`; SMTP и клиент Litterkeep не
-проверялись.
-Unit matrix также проходит embedded `MESSAGE/RFC822`/`MESSAGE/GLOBAL` leaves в
-`multipart/mixed`, `multipart/alternative`, `multipart/related` и
-`multipart/digest`. Дополнительный независимый Linux STARTTLS peer APPEND-ит все
-эти subtype variants и проверяет BODYSTRUCTURE, `BINARY.PEEK[1.1]` после
-quoted-printable decode и совпадающий `BINARY.SIZE[1.1]`. Вариант
-`message/global` проверяется как child `multipart/mixed`; остальные используют
-`message/rfc822`, а digest child остаётся headerless. Это покрытие именно этих
-numeric paths, не полная MIME или IMAP rev2 interoperability и не приложение
-Litterkeep.
-По RFC 9051 §6.4.5 partial offset/count для `BINARY` применяются к уже
-декодированным section octets. Ранний wire probe `<2.4>` вернул `ssag` и origin
-`<2>`, но первые четыре байта совпадают с encoded source prefix и сами по себе
-не отличали порядок decode/slice; этот результат не считается доказательством
-этого порядка. Усиленный probe для всех пяти fixtures запросил offset `8`,
-попадающий внутрь quoted-printable `=20`, и получил `bo`; дополнительно проверены
-offset `0`, частичное усечение у конца (`dy`), ровно EOF, offset за EOF и count,
-превышающий остаток. Проверка подтвердила декодированные offsets и пустой literal
-в двух EOF-случаях.
-В writable mailbox этот же независимый клиент проверяет, что полный и partial
-`BINARY.PEEK` оставляют `\Seen` unset. Partial count `0` отвергается tagged `BAD`
-как для `BINARY.PEEK`, так и для `BODY.PEEK`; после каждого отказа `NOOP` проходит,
-то есть IMAP-сессия остаётся пригодной. Это подтверждение RFC 9051 §6.4.5 для
-указанных FETCH форм, не проверка клиента Litterkeep.
+The MIME parser and IMAP BODYSTRUCTURE recognize RFC 6532 `message/global`. `7bit`, `8bit` and `binary` use the raw bytes, Base64 and quoted-printable decode the nested message into a separate Arc-owned source whose offsets are resolved relative to that source. ENVELOPE, BODYSTRUCTURE, the nested BODY HEADER and the BINARY part traversal work on the decoded content; an unknown CTE is not parsed as a mail and stays an opaque `application/octet-stream`. The vectors pass the unit tests, but the separate network black-box `tests/blackbox/imap_message_global.py` now performs an APPEND and checks on an independent STARTTLS client the BODYSTRUCTURE, the preservation of the Base64 wire-body through BODY[1], the UTF-8 nested BODY[1.1]/BODY[1.HEADER], the decoded BINARY[1.1] and the invariance of the original RFC822 literal. The run was performed on a Linux Rust 1.97 Docker runtime with a separate directory `./data/g18-message-global-wire`; it was repeated under `ENABLE UTF8=ACCEPT` in `./data/g19-rfc9755-message-global-enabled`. In both cases the nested structure and all octets matched. The Litterkeep app was not checked. This is an acceptance of a specific media type, not a full MIME or IMAP4rev2 certificate. RFC 9755 §6 allows for IMAP4rev1 with UTF8=ACCEPT enabled both the `message/rfc822` representation and the RFC 3501 representation; the current `MESSAGE/GLOBAL` answer stays valid. See [RFC 6532 §3.5](https://www.rfc-editor.org/rfc/rfc6532.html#section-3.5), [§3.7](https://www.rfc-editor.org/rfc/rfc6532.html#section-3.7) and [RFC 9051 §9](https://www.rfc-editor.org/rfc/rfc9051.html#section-9). The quoted-printable decoder removes the literal SP/TAB at the ends of the hard lines and of the body, without removing the encoded `=20`/`=09`; the encoder serializes the spaces and the TAB as hex-octets, so that a line break does not change the content. An independent SMTP STARTTLS -> IMAP STARTTLS BINARY.PEEK confirmed the removal of the SP/TAB in the hard-line padding and the preservation of the decoded `=20`. An SP/TAB before a soft break `=CRLF` is a part of the `qp-segment` content and is preserved, while an SP/TAB after the last character of a hard line is removed as transport padding. The unit regressions check both positions; a new large-input vector checks 8 KiB of continuous WSP before a hard CRLF and a soft break. The decoder processes every whitespace stretch in a single pass, avoiding a quadratic repeated lookahead. The separate [RFC 2045 §6.7](https://www.rfc-editor.org/rfc/rfc2045.html#section-6.7) vectors check the normative examples and the full body. For the outgoing Sieve vacation a separate ManageSieve -> SMTP submission -> durable queue -> independent SMTP peer scenario confirmed the UTF-8 round-trip, the encoding of the literal SP/TAB as `=20`/`=09` and the physical lines of at most 76 octets. The independent peer was checked, not Litterkeep. In this path an extra empty CRLF added by the outbound SMTP transport if the MIME payload already ended with a CRLF was also found and fixed; the ordinary and the TLS transport now use a common DATA write. The check of the existing Litterkeep client and of the other MTAs remains open. With a broken quoted-printable `=` escape the incoming decoder keeps the literal `=` and the next character without conversion, as RFC 2045 §6.7 recommends for a robust decoder. The generative Sieve `:mime` validator uses a separate strict path and rejects a malformed escape. An independent SMTP STARTTLS client sent `=G1` and an incomplete `=A`, and the IMAP STARTTLS BINARY.PEEK confirmed the exact decoded octets with the escapes preserved. An independent ManageSieve CHECKSCRIPT accepted a correct quoted-printable soft break, including an SP before `=CRLF`, and rejected a malformed hex escape and unencoded trailing SP/HTAB. The RFC 2045 §6.7 decoder boundary now also checks all 256 octets as `=HH` and as a robust lowercase `=hh`, and all 93 literal-safe ASCII values from the ranges 33..60 and 62..126. This is an exhaustive octet mapping, not a full coverage of the line-length, transport, malformed-input and MIME interoperability profile. A separate fail-closed policy rejects the raw C0 control octets (except TAB), DEL and the high-bit octets, since RFC 2045 §6.7 allows them only in the `=HH` form. The BINARY projection error is passed as `NO [UNKNOWN-CTE]`, and the original RFC822 literal stays available without `\\Seen`. An independent TLS IMAP peer appends a malformed QP literal with NUL, VT and 0xFF, checks this response code, the subsequent NOOP and the unchanged bytes through `BODY.PEEK[]`. The Rust regressions check every forbidden octet and the preservation of the UNKNOWN-CTE. The malformed `=` escape still has a separate tolerant recovery policy; this check does not mean a full coverage of the quoted-printable profile and it does not check the delivery of such octets over SMTP or the application compatibility. The internal QP encoder for the vacation-response is also checked against all 256 separate input octets and a mixed full range: the round-trip, the hard CRLF and the 76 character limit are verified. The escape token is now assembled in fixed stack bytes instead of formatting a temporary heap string for every byte; the output Vec can still be reallocated when needed. The `7bit` and `8bit` CTE check the RFC 2045 §§2.7-2.8 profile: at most 998 octets between the CRLF, no NUL and no lone CR/LF; `7bit` additionally rejects the high-bit octets, `8bit` keeps them. `binary` stays transparent. An independent IMAP STARTTLS APPEND -> BINARY.PEEK accepted a 998-octet 7bit line and rejected a 999-octet one, kept the high-bit octets for 8bit and rejected them for 7bit. The NUL for both profiles and the bare CR/LF are checked. For the latter a direct IMAP literal was used: the standard `imaplib.append()` normalizes the line endings before sending and is not suitable for these malformed fixtures. This is a check of the IMAP storage and the MIME decode, not an SMTP DATA acceptance. The `multipart` boundary parameter is checked per RFC 2046 §5.1.1: 1..70 ASCII octets from `bchars`, without a trailing space; the lengths and the forbidden characters are covered by unit tests. The parser accepts the transport-padding of the opening/closing delimiter and excludes the CRLF directly preceding the first delimiter from the preamble; the own CRLF preamble is kept. The scanning stops at the first close-delimiter, so a boundary-like line inside the epilogue does not create a part and does not consume the part budget. An independent Python `imaplib` STARTTLS client sent padded delimiters and an epilogue with a following boundary-like MIME header; BODYSTRUCTURE contains only the expected two parts, BODY[1] and the BINARY.PEEK of the attachment matched, and the RFC822 FETCH confirmed the exact original bytes, including the preamble and the epilogue. This is a check of the IMAP APPEND/FETCH, not of an SMTP delivery and not of the Litterkeep client. A nested MIME part without a Content-Type in `multipart/digest` gets the default `message/rfc822` per RFC 2046 §5.1.5; the nested message itself uses the `text/plain` default for its body. In the other multipart subtypes the absence of a Content-Type still gives `text/plain`. The typing and the nested ranges are checked by unit tests. A MIME body-part with an empty header area is now accepted: the first CRLF ends the header area, and the following octets are kept exactly as the body. The BODYSTRUCTURE unit check confirms the nested `MESSAGE/RFC822`, the ENVELOPE, the `TEXT/PLAIN` and the sizes of the original octets for the digest part. The parser and the protocol projection are checked by unit tests; a socket acceptance was also performed by an independent STARTTLS `imaplib` peer: after the APPEND the BODYSTRUCTURE contains `DIGEST` and the nested `MESSAGE/RFC822`/`TEXT/PLAIN`, and the RFC822 FETCH matches the headerless digest source byte for byte. This is a check by an independent client, not by the Litterkeep application. A second independent STARTTLS FETCH checked RFC 3501 §6.4.5 / RFC 9051 §6.4.5 for this embedded message: `BODY.PEEK[1]` returns the RFC822 content of the attachment, `[1.HEADER]` and `[1.TEXT]` split its header and text, `[1.1]` addresses the single MIME body-part. All four replies matched the exact expected octets; the Litterkeep client was not run. For the same tree the RFC 9051 `BINARY` traversal is fixed: `multipart/digest` is now counted as a multipart container, and the numeric path after its `MESSAGE/RFC822` child continues from the embedded MIME entity. An independent STARTTLS FETCH confirmed the decoded body of `BINARY.PEEK[1.1]` and `BINARY.SIZE[1.1]` with a matching length. Earlier this path ended with `NO`; SMTP and the Litterkeep client were not checked. The unit matrix also passes the embedded `MESSAGE/RFC822`/`MESSAGE/GLOBAL` leaves in `multipart/mixed`, `multipart/alternative`, `multipart/related` and `multipart/digest`. An additional independent Linux STARTTLS peer appends all these subtype variants and checks the BODYSTRUCTURE, the `BINARY.PEEK[1.1]` after the quoted-printable decode and the matching `BINARY.SIZE[1.1]`. The `message/global` variant is checked as a child of `multipart/mixed`; the others use `message/rfc822`, and the digest child stays headerless. This covers exactly these numeric paths, not the full MIME or IMAP rev2 interoperability and not the Litterkeep application. Per RFC 9051 §6.4.5 the partial offset/count for `BINARY` are applied to the already decoded section octets. An early wire probe `<2.4>` returned `ssag` and the origin `<2>`, but the first four bytes match the encoded source prefix and by themselves did not distinguish the decode/slice order; this result is not counted as a proof of that order. The enhanced probe for all five fixtures requested the offset `8`, which falls inside a quoted-printable `=20`, and got `bo`; in addition the offset `0`, a partial truncation at the end (`dy`), exactly EOF, an offset beyond EOF and a count exceeding the remainder were checked. The check confirmed the decoded offsets and the empty literal in the two EOF cases. In a writable mailbox the same independent client checked that the full and the partial `BINARY.PEEK` leave `\Seen` unset. A partial count `0` is rejected with a tagged `BAD` both for `BINARY.PEEK` and for `BODY.PEEK`; after each rejection a `NOOP` passes, that is the IMAP session stays usable. This is a confirmation of RFC 9051 §6.4.5 for the given FETCH forms, not a check of the Litterkeep client.
 
-### FETCH-семантика и разбор адресов RFC 5322
+### FETCH semantics and RFC 5322 address parsing
 
-Для смешанного `FETCH (BODY[] BINARY[1])` найдено состояние, где `BODY[]` может
-успешно прочитаться, но `BINARY[1]` завершается `NO [UNKNOWN-CTE]`. До исправления
-reactor записывал `\Seen` перед вычислением всех items, поэтому неуспешный FETCH
-мог менять mailbox. Теперь сериализация каждого выбранного сообщения проверяется
-до durable Seen mutation; Linux regression test подтверждает, что такой набор не
-ставит отметку. Независимый Linux STARTTLS клиент отправил смешанный FETCH,
-получил NO [UNKNOWN-CTE], выполнил NOOP и затем подтвердил по FLAGS, что
-\Seen остался unset. Это acceptance независимого клиента, не приложения
-Litterkeep.
-RFC 9051 §6.4.5 рекомендует включать FLAGS в FETCH-ответ, если BODY fetch
-изменил флаги сообщения. После durable Seen update сервер теперь добавляет
-актуальный FLAGS item, только если клиент сам его не запросил. Независимый
-STARTTLS тест подтверждает, что BODY.PEEK не добавляет FLAGS, первый BODY
-возвращает FLAGS с \Seen, а повторный BODY без нового перехода не добавляет их.
-Отдельный BINARY acceptance по RFC 3516 проверяет тот же FLAGS transition для
-decoded leaf data: BINARY.PEEK не ставит Seen, BINARY возвращает точные decoded
-октеты и FLAGS с Seen, повторный BINARY не добавляет FLAGS без нового изменения.
-Для RFC 9051 §6.4.5 partial диапазоны у HEADER.FIELDS и HEADER.FIELDS.NOT
-применяются после формирования подмножества header. Независимый STARTTLS тест
-проверяет оба selector-а на fixtures с разным порядком полей: offset 0 возвращает
-Subject после предшествующего невыбранного поля для HEADER.FIELDS и From после
-исключённого Subject для HEADER.FIELDS.NOT. Проверены exact bytes и response
-origin <0>; тест не заменяет остальные FETCH cases или полную rev2 совместимость.
-Отсутствующий или синтаксически повреждённый `Content-Type` получает
-рекомендуемый RFC 2045 §5.2 fallback `text/plain`/US-ASCII; сырой MIME header
-не переписывается. Независимый STARTTLS клиент отправил оба варианта через SMTP
-и проверил по IMAP BODYSTRUCTURE effective `TEXT/PLAIN`, исходный RFC822 и
-сохранение malformed header без нормализации. Для двух полей Content-Type
-применяется рекомендуемый [RFC 2045 §5.2 fallback](https://www.rfc-editor.org/rfc/rfc2045.html#section-5.2): MIME-проекция становится `TEXT/PLAIN`, оригинальные поля остаются в RFC822. Независимый STARTTLS SMTP→IMAP сценарий подтвердил BODYSTRUCTURE и точный RFC822 round-trip; US-ASCII декодирование body остаётся unit-only.
-RFC 5322 address groups разбираются в типизированные start/member/end элементы:
-FETCH ENVELOPE выдаёт group marker (`NIL NIL group NIL`), mailbox участников
-и end marker (`NIL NIL NIL NIL`), включая пустую группу. SEARCH FROM/TO/CC/BCC
-использует эту же проекцию и находит имя группы и адрес участника. Независимый
-STARTTLS black-box проверил группу с тремя mailbox, пустую Cc-группу и Bcc
-member. В address projection вложенные comments удаляются с учётом quoted-pair,
-скобки внутри quoted display name сохраняются; ENVELOPE и SEARCH не видят текст
-комментариев. Независимый STARTTLS acceptance проверил From/To comments и
-групповую адресацию. Разделитель addr-spec выбирается вне quoted local-part и
-domain-literal: независимый STARTTLS acceptance подтвердил ENVELOPE с
-`"a@b"` в mailbox-компоненте и `example.test` в hostname, а SEARCH нашёл этот
-адрес. Завершающий CFWS после `;` группы допускает комментарий и не включает
-его в ENVELOPE; тест также отвергает mailbox после уже закрытой группы.
-Obsolete source-route в угловом адресе игнорируется по RFC 5322 §4.4:
-ENVELOPE и SEARCH используют только route destination. `obs-domain-list`
-сохраняет допустимые пустые позиции после запятой и требует `@domain` у каждого
-непустого route-элемента; посторонний токен без `@` отклоняется. Unit tests
-проверяют несколько route domains, пустые позиции и ошибочные элементы.
-Независимый wire-клиент для отрицательных случаев не запускался. Другие obsolete
-address forms и несовпадения RFC 5322 по-прежнему ограничивают parser.
-Там же поддержан CFWS вокруг точек в obsolete local-part/domain: wire
-ENVELOPE и SEARCH сворачивают `first (comment) . last @ example . test` к
-`first.last@example.test`. Quoted local-part и domain-literal из этой
-нормализации исключены и проверяются отдельными unit fixtures. Для quoted
-display-name отдельно проверено снятие quoted-pair: `\"` и `\\` в исходном
-header становятся буквальными `"` и `\` в ENVELOPE.
-Quoted display-name отвергает неэкранированную внутреннюю DQUOTE, сохраняя
-decode корректного quoted-pair. Это подтверждено unit regression; независимый
-wire-сценарий для некорректного display-name не запускался.
-При разборе angle-addr scanner держит `@` и `>` внутри квадратного
-domain-literal вне addr-spec и angle-разделителей. Unit regression проверяет
-сохранение обоих символов в ENVELOPE; независимый wire-клиент не запускался.
-Comment removal также сохраняет скобки и содержимое внутри domain-literal, где
-они являются `dtext`, и отвергает unmatched closing bracket. Это покрыто unit
-тестом совместно с `@` и `>`; полный допустимый набор `dtext` не проверен.
-Внутри domain-literal scanner не интерпретирует круглые скобки как comments;
-проверены и balanced, и unbalanced dtext, а obsolete quoted-pair может защитить
-закрывающий `]`. Это unit-only покрытие отдельных байтов, не полного набора
-`dtext`.
-`normalize_dot_cfws` распознаёт escaped `]` внутри obsolete literal и не сворачивает
-следующий ` . ` как адресный CFWS. `strip_comments` проверяет dtext и сохраняет
-исходную quoted-pair до этой нормализации. Parser regression покрывает форму с
-trailing comment; независимое wire-подтверждение этого сочетания отсутствует.
-Проверка `dtext` принимает видимые ASCII-символы, разрешённые пробелы,
-obs-NO-WS-CTL и UTF-8 non-ASCII по RFC 6532. Unit regression покрывает все
-диапазоны obs-NO-WS-CTL и отдельно подтверждает, что NUL/CR/LF допускаются
-только через obsolete quoted-pair. ENVELOPE unit test проверяет synchronizing
-literal с точной длиной для каждого из NUL, CR и LF.
-RFC 5322 obs-qp допускает quoted NUL/CR/LF в исходном поле, но quoting
-backslash семантически невидим. Независимый Python imaplib STARTTLS APPEND/FETCH
-для формы без comments наблюдал synchronizing literal с 11 октетами и без
-backslash; parser regression также проверяет escaped closer после comment
-stripping. Это не полный набор interoperability сценариев. Полный набор
-domain-literal форм и interoperability с Litterkeep не подтверждены.
-После закрывающей `>` angle-addr parser разрешает только CFWS, включая
-комментарии, и отвергает произвольный хвост или второй angle-addr вместо
-молчаливого усечения адреса. Unit regression проверяет оба отказа и сохранение
-допустимого trailing comment; независимый wire-клиент для этого случая ещё не
-запускался.
-RFC 2047 encoded-word распознаётся как слово только в unquoted display-name
-phrase. Пробел между соседними encoded-word не выводится; испорченное слово
-остаётся видимым текстом и не блокирует сообщение; quoted display-name не
-декодируется. Независимый STARTTLS клиент подтвердил ENVELOPE и FROM SEARCH
-для encoded phrase, а также буквальное содержимое quoted-name. В phrase
-контексте Q encoding ограничен ASCII letters/digits и `!*+-/=_`; encoded
-punctuation допустим, а сырой запрещённый знак оставляет слово видимым.
-Границы allowlist проверены unit-only, не независимым клиентом.
-CFWS и разделители phrase обрабатываются только как ASCII SP/HTAB: RFC 6532
-не-ASCII символы, включая NBSP, в display-name не схлопываются в обычный пробел.
-Независимый STARTTLS ENVELOPE acceptance подтвердил точное сохранение NBSP в
-UTF-8 display-name; полный набор интернационализированных address forms ещё не
-покрыт.
-Для obsolete address-list проверены leading/repeated/trailing null members:
-они не формируют ENVELOPE addresses и не сдвигают порядок двух mailbox.
+For a mixed `FETCH (BODY[] BINARY[1])` a state was found where `BODY[]` can be read successfully but `BINARY[1]` ends with `NO [UNKNOWN-CTE]`. Before the fix the reactor wrote `\Seen` before computing all the items, so an unsuccessful FETCH could change the mailbox. Now the serialization of every selected message is checked before the durable Seen mutation; a Linux regression test confirms that such a set does not set the flag. An independent Linux STARTTLS client sent the mixed FETCH, got NO [UNKNOWN-CTE], ran a NOOP and then confirmed through the FLAGS that \Seen stayed unset. This is an acceptance by an independent client, not by the Litterkeep application. RFC 9051 §6.4.5 recommends including FLAGS in a FETCH reply if the BODY fetch changed the message flags. After the durable Seen update the server now adds the current FLAGS item only if the client did not request it itself. An independent STARTTLS test confirms that BODY.PEEK does not add FLAGS, that the first BODY returns FLAGS with \Seen, and that a repeated BODY without a new transition does not add them. A separate BINARY acceptance per RFC 3516 checks the same FLAGS transition for the decoded leaf data: BINARY.PEEK does not set Seen, BINARY returns the exact decoded octets and FLAGS with Seen, a repeated BINARY does not add FLAGS without a new change. For RFC 9051 §6.4.5 the partial ranges of HEADER.FIELDS and HEADER.FIELDS.NOT are applied after the header subset is formed. An independent STARTTLS test checks both selectors on fixtures with a different field order: the offset 0 returns Subject after the preceding unselected field for HEADER.FIELDS and From after the excluded Subject for HEADER.FIELDS.NOT. The exact bytes and the response origin <0> are checked; the test does not replace the other FETCH cases or the full rev2 compatibility. A missing or syntactically broken `Content-Type` gets the recommended RFC 2045 §5.2 fallback `text/plain`/US-ASCII; the raw MIME header is not rewritten. An independent STARTTLS client sent both variants over SMTP and checked the effective `TEXT/PLAIN` through IMAP BODYSTRUCTURE, the original RFC822 and the preservation of the malformed header without normalization. For a duplicated Content-Type field the recommended [RFC 2045 §5.2 fallback](https://www.rfc-editor.org/rfc/rfc2045.html#section-5.2) is applied: the MIME projection becomes `TEXT/PLAIN`, the original fields stay in the RFC822. An independent STARTTLS SMTP→IMAP scenario confirmed the BODYSTRUCTURE and the exact RFC822 round-trip; the US-ASCII body decoding stays unit-only. The RFC 5322 address groups are parsed into typed start/member/end elements: FETCH ENVELOPE issues the group marker (`NIL NIL group NIL`), the mailboxes of the participants and the end marker (`NIL NIL NIL NIL`), including an empty group. SEARCH FROM/TO/CC/BCC uses the same projection and finds the group name and the address of a participant. An independent STARTTLS black-box checked a group with three mailboxes, an empty Cc group and a Bcc member. In the address projection the nested comments are removed with the quoted-pair taken into account, the parentheses inside a quoted display name are preserved; ENVELOPE and SEARCH do not see the comment text. An independent STARTTLS acceptance checked the From/To comments and the group addressing. The addr-spec separator is chosen outside a quoted local-part and a domain-literal: an independent STARTTLS acceptance confirmed an ENVELOPE with `"a@b"` in the mailbox component and `example.test` in the hostname, and the SEARCH found that address. The trailing CFWS after the `;` of a group allows a comment and does not include it in the ENVELOPE; the test also rejects a mailbox after an already closed group. The obsolete source-route in an angle address is ignored per RFC 5322 §4.4: ENVELOPE and SEARCH use only the route destination. The `obs-domain-list` keeps the allowed empty positions after a comma and requires an `@domain` for every non-empty route element; a foreign token without an `@` is rejected. The unit tests check several route domains, the empty positions and the erroneous elements. An independent wire client for the negative cases was not run. The other obsolete address forms and the RFC 5322 mismatches still limit the parser. The CFWS around the dots in an obsolete local-part/domain is supported there as well: the wire ENVELOPE and SEARCH fold `first (comment) . last @ example . test` into `first.last@example.test`. The quoted local-part and the domain-literal are excluded from this normalization and are checked by separate unit fixtures. For a quoted display-name the removal of the quoted-pair was checked separately: `\"` and `\\` in the original header become the literal `"` and `\` in the ENVELOPE. A quoted display-name rejects an unescaped inner DQUOTE, keeping the decode of a correct quoted-pair. This is confirmed by a unit regression; an independent wire scenario for an incorrect display-name was not run. When an angle-addr is parsed the scanner keeps the `@` and the `>` inside a square domain-literal outside the addr-spec and the angle delimiters. A unit regression checks the preservation of both characters in the ENVELOPE; an independent wire client was not run. The comment removal also preserves the parentheses and the content inside a domain-literal, where they are `dtext`, and rejects an unmatched closing bracket. This is covered by a unit test together with the `@` and the `>`; the full allowed set of `dtext` is not checked. Inside a domain-literal the scanner does not interpret the parentheses as comments; both the balanced and the unbalanced dtext are checked, and an obsolete quoted-pair can protect the closing `]`. This is a unit-only coverage of individual bytes, not of the full set of `dtext`. `normalize_dot_cfws` recognizes an escaped `]` inside an obsolete literal and does not fold the following ` . ` as an address CFWS. `strip_comments` checks the dtext and keeps the original quoted-pair before this normalization. The parser regression covers the form with a trailing comment; an independent wire confirmation of this combination is missing. The `dtext` check accepts the visible ASCII characters, the allowed spaces, obs-NO-WS-CTL and the UTF-8 non-ASCII per RFC 6532. A unit regression covers all the obs-NO-WS-CTL ranges and separately confirms that NUL/CR/LF are allowed only through an obsolete quoted-pair. The ENVELOPE unit test checks a synchronizing literal with the exact length for each of NUL, CR and LF. RFC 5322 obs-qp allows a quoted NUL/CR/LF in the original field, but the quoting backslash is semantically invisible. An independent Python imaplib STARTTLS APPEND/FETCH for the form without comments observed a synchronizing literal with 11 octets and without a backslash; the parser regression also checks an escaped closer after the comment stripping. This is not the full set of interoperability scenarios. The full set of the domain-literal forms and the interoperability with Litterkeep are not confirmed. After the closing `>` the angle-addr parser allows only CFWS, including comments, and rejects an arbitrary tail or a second angle-addr instead of silently truncating the address. A unit regression checks both rejections and the preservation of an allowed trailing comment; an independent wire client for this case has not been run yet. An RFC 2047 encoded-word is recognized as a word only in an unquoted display-name phrase. The space between adjacent encoded-words is not emitted; a broken word stays visible text and does not block the message; a quoted display-name is not decoded. An independent STARTTLS client confirmed the ENVELOPE and the FROM SEARCH for an encoded phrase, and also the literal content of a quoted-name. In the phrase context the Q encoding is limited to ASCII letters/digits and `!*+-/=_`; an encoded punctuation is allowed, and a raw forbidden sign leaves the word visible. The allowlist boundaries are checked unit-only, not by an independent client. The CFWS and the phrase separators are handled only as ASCII SP/HTAB: the RFC 6532 non-ASCII characters, including NBSP, in a display-name are not folded into a normal space. An independent STARTTLS ENVELOPE acceptance confirmed the exact preservation of the NBSP in a UTF-8 display-name; the full set of the internationalized address forms is not covered yet. For the obsolete address-list the leading, repeated and trailing null members are checked: they do not form ENVELOPE addresses and do not shift the order of the two mailboxes.
 
-### SEARCH SAVE, ESEARCH и charset-профиль
+### SEARCH SAVE, ESEARCH and the charset profile
 
-`RETURN (SAVE)` сохраняет UIDs в состоянии одной сессии, а `$` SEARCH criterion
-сопоставляет их как для SEARCH, так и UID SEARCH. Успешный SELECT, SAVE-команда
-с ответом NO, EXPUNGE и MOVE сбрасывают/синхронизируют результат; обычный SEARCH
-его не меняет. При одном SAVE ESEARCH response подавляется, а SAVE с MIN/MAX
-сохраняет соответствующий край. Независимый клиент проверяет сохранение,
-UID-проекцию, отсутствие результата в другой сессии и reset после SELECT/error.
-`$` поддерживается для FETCH/STORE, COPY/UID COPY и UID EXPUNGE; пустое
-сохранённое множество проверено как валидный непересекающийся набор. Reactor
-исполняет следующую команду после tagged completion текущей, поэтому зависимая
-команда видит SEARCH SAVE. Независимый STARTTLS клиент отправляет SEARCH SAVE и
-COPY `$` подряд, до чтения ответов, затем подтверждает ровно одно скопированное
-письмо. На этом основании CAPABILITY объявляет ESEARCH и SEARCHRES.
-Явный `SEARCH RETURN` выдаёт ESEARCH с correlator, UID-маркером и опциями
-ALL/COUNT/MIN/MAX. Пустой result set сохраняет запрошенные поля: ALL/MIN/MAX
-не выводятся, COUNT выводится как 0 только если запрошен, ESEARCH response
-при этом остаётся. Пустой `RETURN ()` эквивалентен ALL. Legacy SEARCH остаётся
-для текущего IMAP4rev1 профиля. MIME
-charset вне проверенного набора остаются непроверенными. Независимые Linux
-STARTTLS SMTP -> IMAP acceptance дополнительно доставил 8BITMIME text body с
-`charset=windows-874`, после чего Bob запросил `SEARCH CHARSET UTF-8 BODY` со
-synchronizing literal `ภาษาไทย`; результат включил доставленное сообщение.
-Это доказывает Windows-874 decoding в IMAP MIME text projection и его передачу
-в evaluator. Другой сценарий проверил 29 однобайтовых body charset: ISO-8859-1..10
-и 13..16, TIS-620, ISO-8859-11, IBM866, KOI8-R/U, Windows-874 и Windows-1250..1258. KOI8-R
-и KOI8-U mappings unit-tested для всех 256 octets по RFC 1489 и RFC 2319;
-независимый Python codec проверил русский и украинский текст в SMTP -> IMAP
-SEARCH цепочке. Это не доказывает остальные charset. В частности, известные
-зарегистрированные многобайтовые семейства GBK/GB18030 теперь используют
-строгий собственный decoder без runtime зависимости: GBK и GB18030 labels идут
-через WHATWG GB18030 state machine, двухбайтовый index и 207 four-byte ranges.
-Индекс содержит 23 940 указателей; Rust тест проверяет каждую позицию, а
-независимая SMTP -> IMAP acceptance проверяет Python `gbk` для `简体中文` и
-`gb18030` для `中文𠀀😀`. Таблицы воспроизводятся
-`tools/generate_gb18030_tables.py`; скрипт закрепляет SHA-256 официальных
-WHATWG index-файлов и не участвует в runtime/build. Эта проверка не закрывает
-Big5/Big5-HKSCS теперь также используют собственный строгий decoder и плотный
-O(1) WHATWG index lookup. Все 19 782 pointer positions сверяются с декодером;
-четыре нестандартных одиночных pointer-а корректно разворачиваются в пары
-Unicode scalars. Независимый SMTP -> IMAP charset matrix проверяет обычный Big5
-текст и все четыре expansion mappings через Python `big5hkscs` codec.
-Первичные
-источники: [WHATWG GBK decoder](https://encoding.spec.whatwg.org/#gbk-decoder),
-[two-byte index](https://encoding.spec.whatwg.org/index-gb18030.txt) и
-[four-byte ranges](https://encoding.spec.whatwg.org/index-gb18030-ranges.txt),
-[WHATWG Big5 decoder](https://encoding.spec.whatwg.org/#big5-decoder),
-[Big5 index](https://encoding.spec.whatwg.org/index-big5.txt) и
-[IANA charset registry](https://www.iana.org/assignments/character-sets/).
+`RETURN (SAVE)` keeps the UIDs in the state of one session, and the `$` SEARCH criterion matches them both for SEARCH and for UID SEARCH. A successful SELECT, a SAVE command with a NO reply, EXPUNGE and MOVE reset/synchronize the result; an ordinary SEARCH does not change it. With a single SAVE the ESEARCH response is suppressed, and a SAVE with MIN/MAX keeps the corresponding edge. An independent client checks the keeping, the UID projection, the absence of the result in another session and the reset after SELECT/error. `$` is supported for FETCH/STORE, COPY/UID COPY and UID EXPUNGE; an empty saved set was checked as a valid non-intersecting set. The reactor runs the next command after the tagged completion of the current one, so a dependent command sees the SEARCH SAVE. An independent STARTTLS client sends SEARCH SAVE and a COPY `$` in a row, before reading the replies, and then confirms exactly one copied mail. On this basis CAPABILITY announces ESEARCH and SEARCHRES. An explicit `SEARCH RETURN` issues an ESEARCH with a correlator, a UID marker and the options ALL/COUNT/MIN/MAX. An empty result set keeps the requested fields: ALL/MIN/MAX are not emitted, COUNT is emitted as 0 only if it was requested, and the ESEARCH response still remains. An empty `RETURN ()` is equivalent to ALL. The legacy SEARCH stays for the current IMAP4rev1 profile. The MIME charsets outside the checked set remain unverified. Independent Linux STARTTLS SMTP -> IMAP acceptances additionally delivered an 8BITMIME text body with `charset=windows-874`, after which Bob requested `SEARCH CHARSET UTF-8 BODY` with the synchronizing literal `ภาษาไทย`; the result included the delivered message. This proves the Windows-874 decoding in the IMAP MIME text projection and its passing to the evaluator. Another scenario checked 29 single-byte body charsets: ISO-8859-1..10 and 13..16, TIS-620, ISO-8859-11, IBM866, KOI8-R/U, Windows-874 and Windows-1250..1258. The KOI8-R and KOI8-U mappings are unit-tested for all 256 octets per RFC 1489 and RFC 2319; an independent Python codec checked the Russian and Ukrainian text in the SMTP -> IMAP SEARCH chain. This does not prove the other charsets. In particular, the known registered multibyte families GBK/GB18030 now use a strict own decoder without a runtime dependency: the GBK and GB18030 labels go through the WHATWG GB18030 state machine, the two-byte index and the 207 four-byte ranges. The index contains 23 940 pointers; a Rust test checks every position, and an independent SMTP -> IMAP acceptance checks the Python `gbk` for `简体中文` and `gb18030` for `中文𠀀😀`. The tables are reproduced by `tools/generate_gb18030_tables.py`; the script pins the SHA-256 of the official WHATWG index files and does not take part in the runtime/build. This check does not close Big5/Big5-HKSCS which now also use an own strict decoder and a dense O(1) WHATWG index lookup. All 19 782 pointer positions are compared with the decoder; the four non-standard single pointers are correctly expanded into pairs of Unicode scalars. An independent SMTP -> IMAP charset matrix checks the ordinary Big5 text and all four expansion mappings through the Python `big5hkscs` codec. Primary sources: [WHATWG GBK decoder](https://encoding.spec.whatwg.org/#gbk-decoder), [two-byte index](https://encoding.spec.whatwg.org/index-gb18030.txt) and [four-byte ranges](https://encoding.spec.whatwg.org/index-gb18030-ranges.txt), [WHATWG Big5 decoder](https://encoding.spec.whatwg.org/#big5-decoder), [Big5 index](https://encoding.spec.whatwg.org/index-big5.txt) and [IANA charset registry](https://www.iana.org/assignments/character-sets/).
 
-### WHATWG-декодеры, aliases и encoded-word матрица
+### WHATWG decoders, aliases and the encoded-word matrix
 
-EUC-JP добавлен отдельным strict decoder: ASCII, SS2 half-width katakana,
-двухбайтовый JIS X 0208 и SS3/JIS X 0212 читаются без runtime-зависимости.
-Обе WHATWG таблицы закреплены по SHA-256; runtime acceptance проверяет японский
-текст, kana и отдельные JIS X 0212 знаки. Unit suite сравнивает все 8 836
-wire-позиции каждой ветки с соответствующей таблицей. На этом этапе ещё
-неподдержанными были ISO-2022-JP, Shift_JIS и EUC-KR.
-Первичные источники: [WHATWG EUC-JP decoder](https://encoding.spec.whatwg.org/#euc-jp-decoder),
-[JIS X 0208 index](https://encoding.spec.whatwg.org/index-jis0208.txt) и
-[JIS X 0212 index](https://encoding.spec.whatwg.org/index-jis0212.txt).
-ISO-2022-JP теперь декодируется конечным автоматом WHATWG с typed ASCII,
-Roman, Katakana и JIS X 0208 состояниями; пары JIS используют уже закреплённую
-таблицу X 0208. Некорректные и неполные escape/pair формы отклоняются, а MIME
-текст и каждый RFC 2047 encoded-word должны завершаться в ASCII. Независимый
-SMTP -> IMAP acceptance проверил японский body и ISO-2022-JP RFC 2047 Subject
-через отдельные BODY и SUBJECT criteria. Katakana designation входит в
-WHATWG compatibility decoder, но RFC 1468 явно исключает kana из собственного
-mail profile; поэтому это не заявление полного RFC 1468 conformance. Тесты
-сверяют encoded-word с ASCII reset и отказ без него. Источники: [WHATWG
-ISO-2022-JP decoder](https://encoding.spec.whatwg.org/#iso-2022-jp-decoder),
-[RFC 1468](https://www.rfc-editor.org/rfc/rfc1468.html) и [RFC 2047 §3](https://www.rfc-editor.org/rfc/rfc2047.html#section-3).
-Shift_JIS добавлен как строгий decoder WHATWG §12.3.1: ASCII и U+0080,
-half-width kana, диапазоны lead/trail, JIS X 0208 index и Windows EUDC
-private-use mapping U+E000..U+E757. Тест сверяет все 11 280 синтаксически
-допустимых двухбайтовых pointers с JIS index либо EUDC mapping и все 256
-одиночных octets. Независимый SMTP -> IMAP STARTTLS acceptance использует
-Python `shift_jis` codec и подтверждает поиск японского текста после доставки.
-Приложение Litterkeep этим независимым клиентом не проверялось. Источники:
-[WHATWG Shift_JIS decoder](https://encoding.spec.whatwg.org/#shift_jis-decoder),
-[IANA Character Sets registry](https://www.iana.org/assignments/character-sets/).
-EUC-KR добавлен как строгий decoder WHATWG §13.1. Он использует закреплённый
-index с 23 940 pointer slots, ASCII и пары lead/trail по алгоритму стандарта;
-undefined mappings, malformed и truncated ввод приводят к ошибке. Acceptance
-использует независимый Python `euc_kr` codec и проверяет `안녕하세요` через SMTP
-STARTTLS -> IMAP UTF-8 SEARCH. WHATWG decoder принимает расширенный набор
-Windows-949 lead/trail форм, поэтому эта проверка не утверждает только RFC 1557
-94x94 wire grammar или совместимость с приложением. Источники: [WHATWG EUC-KR
-decoder and index](https://encoding.spec.whatwg.org/#euc-kr-decoder),
-[RFC 1557](https://www.rfc-editor.org/rfc/rfc1557.html) и
-[IANA Character Sets registry](https://www.iana.org/assignments/character-sets/).
-RFC 1556 MIME labels ISO-8859-6-E/I и ISO-8859-8-E/I распознаются отдельными
-typed variants, применяя соответствующую base octet mapping для IMAP SEARCH.
-Suffix E обозначает explicit, I implicit bidi presentation. Сервер не выполняет
-ни контрольную explicit presentation, ни implicit bidi layout algorithm и не
-заявляет визуальный bidi renderer; примеры лишь проверяют mapping, сохранение
-назначенных control code points и прохождение SMTP -> IMAP SEARCH. Источники:
-[RFC 1556](https://www.rfc-editor.org/rfc/rfc1556.html),
-[RFC 2046 §4.1.2](https://www.rfc-editor.org/rfc/rfc2046.html#section-4.1.2) и
-[IANA Character Sets registry](https://www.iana.org/assignments/character-sets/).
-IANA aliases добавлены как отдельные перечисленные варианты только для уже
-поддерживаемых ISO-8859 профилей: `iso_8859-*`, Latin/Greek/Hebrew/Arabic
-имена и `csISO*`; Windows-1251/1252/1255/1256 проверяются через IANA `cs`-
-aliases, а Windows-1252 также через RFC 1345 alias `cp1252`. Unit tests
-проверяют каждый добавленный alias и отклоняют незарегистрированный `x-cp1252`.
-Это не полная
-поддержка IANA Character Sets registry: неподдерживаемые charset остаются
-ошибкой и не угадываются по префиксу.
-RFC 3629 регистрирует MIME label `UTF-8`; parser принимает его и alias `csUTF8`,
-который также указан реестром IANA, используя тот же строгий Rust decoder.
-Независимая SMTP STARTTLS -> IMAP SEARCH матрица передает alias в MIME body и
-находит сообщение; всего проверено 42 charset labels. Rust unit test фиксирует
-обе границы: `csUTF8` принимается, `utf8` отклоняется как незарегистрированное
-имя. Сервер не нормализует произвольные dash/underscore/case формы и добавляет
-только подтвержденные registered aliases. Это не проверка взаимодействия с
-Litterkeep приложением. Источники: [RFC 2978 §2.3](https://www.rfc-editor.org/rfc/rfc2978.html#section-2.3),
-[RFC 3629 §8](https://www.rfc-editor.org/rfc/rfc3629.html#section-8) и
-[IANA Character Sets registry](https://www.iana.org/assignments/character-sets).
-Отдельная
-SMTP -> IMAP wire-проверка доставила RFC 2047 Subject encoded-word варианты UTF-16,
-UTF-16BE/LE и UTF-32 с generic BE BOM, UTF-32BE/LE; UTF-8 SEARCH literal
-нашёл ровно одно соответствующее письмо для каждого label. Это подтверждает
-данный набор encoded-word -> ENVELOPE SEARCH сценариев, а не все MIME charset,
-поля заголовков или Litterkeep interoperability. SEARCH поддерживает
-ASCII quoted strings и synchronizing literals до 64 KiB; независимый STARTTLS
-тест проверил BODY, UID, UTF-8, пустой literal и два последовательных literals
-в HEADER с отдельным continuation для каждого; pipelined command после literal
-сохраняется. Parser acceptance перечисляет все базовые SEARCH keys RFC 9051,
-evaluator покрыт соответствующими unit и сетевыми сценариями. Объявление
-SEARCHRES не означает полной
-совместимости IMAP4rev1 или IMAP4rev2: остаются SEARCH/ESEARCH расширения и
-другие несовпадения формальных грамматик; см. [матрицу IMAP](imap-profile.md).
-`SENTBEFORE`/`SENTON`/`SENTSINCE` извлекают дату из RFC 5322 `Date` header;
-внешние и weekday CFWS trim ограничен SP/HTAB, поэтому NBSP не делает
-malformed дату поисково-валидной. Независимый STARTTLS `imaplib` APPEND/SEARCH
-подтвердил SENTON match только для одной валидной даты из пяти, при четырёх
-NBSP-вариантах заголовка. Это не расширяет обработку obsolete Date syntax.
-Нормы: [RFC 3501 §6.4.5](https://www.rfc-editor.org/rfc/rfc3501.html#section-6.4.5),
-[RFC 5322 §3.3](https://www.rfc-editor.org/rfc/rfc5322.html#section-3.3).
+EUC-JP was added as a separate strict decoder: ASCII, the SS2 half-width katakana, the two-byte JIS X 0208 and SS3/JIS X 0212 are read without a runtime dependency. Both WHATWG tables are pinned by SHA-256; the runtime acceptance checks the Japanese text, the kana and separate JIS X 0212 signs. The unit suite compares all 8 836 wire positions of each branch with the corresponding table. At this stage ISO-2022-JP, Shift_JIS and EUC-KR were still unsupported. Primary sources: [WHATWG EUC-JP decoder](https://encoding.spec.whatwg.org/#euc-jp-decoder), [JIS X 0208 index](https://encoding.spec.whatwg.org/index-jis0208.txt) and [JIS X 0212 index](https://encoding.spec.whatwg.org/index-jis0212.txt). ISO-2022-JP is now decoded by the WHATWG final automaton with the typed ASCII, Roman, Katakana and JIS X 0208 states; the JIS pairs use the already pinned X 0208 table. The incorrect and the incomplete escape/pair forms are rejected, and the MIME text and every RFC 2047 encoded-word must end in ASCII. An independent SMTP -> IMAP acceptance checked the Japanese body and the ISO-2022-JP RFC 2047 Subject through separate BODY and SUBJECT criteria. The Katakana designation is part of the WHATWG compatibility decoder, but RFC 1468 explicitly excludes the kana from its own mail profile; therefore this is not a claim of a full RFC 1468 conformance. The tests compare an encoded-word with an ASCII reset and the rejection without it. Sources: [WHATWG ISO-2022-JP decoder](https://encoding.spec.whatwg.org/#iso-2022-jp-decoder), [RFC 1468](https://www.rfc-editor.org/rfc/rfc1468.html) and [RFC 2047 §3](https://www.rfc-editor.org/rfc/rfc2047.html#section-3). Shift_JIS was added as the strict decoder of WHATWG §12.3.1: ASCII and U+0080, half-width kana, the lead/trail ranges, the JIS X 0208 index and the Windows EUDC private-use mapping U+E000..U+E757. The test compares all 11 280 syntactically valid two-byte pointers with the JIS index or the EUDC mapping and all 256 single octets. An independent SMTP -> IMAP STARTTLS acceptance uses the Python `shift_jis` codec and confirms the search of the Japanese text after the delivery. The Litterkeep application was not checked by this independent client. Sources: [WHATWG Shift_JIS decoder](https://encoding.spec.whatwg.org/#shift_jis-decoder), [IANA Character Sets registry](https://www.iana.org/assignments/character-sets/). EUC-KR was added as the strict decoder of WHATWG §13.1. It uses the pinned index with 23 940 pointer slots, ASCII and the lead/trail pairs by the algorithm of the standard; undefined mappings, malformed and truncated input lead to an error. The acceptance uses an independent Python `euc_kr` codec and checks `안녕하세요` through SMTP STARTTLS -> IMAP UTF-8 SEARCH. The WHATWG decoder accepts the extended set of the Windows-949 lead/trail forms, so this check does not claim only the RFC 1557 94x94 wire grammar or the compatibility with the application. Sources: [WHATWG EUC-KR decoder and index](https://encoding.spec.whatwg.org/#euc-kr-decoder), [RFC 1557](https://www.rfc-editor.org/rfc/rfc1557.html) and [IANA Character Sets registry](https://www.iana.org/assignments/character-sets/). The RFC 1556 MIME labels ISO-8859-6-E/I and ISO-8859-8-E/I are recognized as separate typed variants, applying the corresponding base octet mapping for the IMAP SEARCH. The suffix E denotes an explicit, I an implicit bidi presentation. The server performs neither the explicit control presentation nor the implicit bidi layout algorithm and does not claim a visual bidi renderer; the examples only check the mapping, the preservation of the assigned control code points and the passing of the SMTP -> IMAP SEARCH. Sources: [RFC 1556](https://www.rfc-editor.org/rfc/rfc1556.html), [RFC 2046 §4.1.2](https://www.rfc-editor.org/rfc/rfc2046.html#section-4.1.2) and [IANA Character Sets registry](https://www.iana.org/assignments/character-sets/). The IANA aliases were added as separate enumerated variants only for the already supported ISO-8859 profiles: `iso_8859-*`, the Latin/Greek/Hebrew/Arabic names and `csISO*`; Windows-1251/1252/1255/1256 are checked through the IANA `cs` aliases, and Windows-1252 also through the RFC 1345 alias `cp1252`. The unit tests check every added alias and reject the unregistered `x-cp1252`. This is not a full support of the IANA Character Sets registry: the unsupported charsets remain an error and are not guessed by the prefix. RFC 3629 registers the MIME label `UTF-8`; the parser accepts it and the alias `csUTF8`, which is also listed by the IANA registry, using the same strict Rust decoder. An independent SMTP STARTTLS -> IMAP SEARCH matrix passes the alias in a MIME body and finds the message; in total 42 charset labels were checked. The Rust unit test fixes both boundaries: `csUTF8` is accepted, `utf8` is rejected as an unregistered name. The server does not normalize the arbitrary dash/underscore/case forms and adds only the confirmed registered aliases. This is not a check of the interaction with the Litterkeep application. Sources: [RFC 2978 §2.3](https://www.rfc-editor.org/rfc/rfc2978.html#section-2.3), [RFC 3629 §8](https://www.rfc-editor.org/rfc/rfc3629.html#section-8) and [IANA Character Sets registry](https://www.iana.org/assignments/character-sets). A separate SMTP -> IMAP wire check delivered the RFC 2047 Subject encoded-word variants UTF-16, UTF-16BE/LE and UTF-32 with a generic BE BOM, UTF-32BE/LE; the UTF-8 SEARCH literal found exactly one corresponding mail for each label. This confirms the given set of the encoded-word -> ENVELOPE SEARCH scenarios, and not all the MIME charsets, header fields or the Litterkeep interoperability. SEARCH supports ASCII quoted strings and synchronizing literals up to 64 KiB; an independent STARTTLS test checked BODY, UID, UTF-8, an empty literal and two consecutive literals in HEADER with a separate continuation for each; a pipelined command after a literal is preserved. The parser acceptance enumerates all the base SEARCH keys of RFC 9051, the evaluator is covered by the corresponding unit and network scenarios. The announcement of SEARCHRES does not mean a full IMAP4rev1 or IMAP4rev2 compatibility: the SEARCH/ESEARCH extensions and the other mismatches of the formal grammars remain; see the [IMAP matrix](imap-profile.md). `SENTBEFORE`/`SENTON`/`SENTSINCE` extract the date from the RFC 5322 `Date` header; the outer and the weekday CFWS trim is limited to SP/HTAB, so an NBSP does not make a malformed date search-valid. An independent STARTTLS `imaplib` APPEND/SEARCH confirmed the SENTON match only for one valid date out of five, with four NBSP variants of the header. This does not extend the handling of the obsolete Date syntax. Norms: [RFC 3501 §6.4.5](https://www.rfc-editor.org/rfc/rfc3501.html#section-6.4.5), [RFC 5322 §3.3](https://www.rfc-editor.org/rfc/rfc5322.html#section-3.3).
 
 ## POP3
 
-### Возможности POP3 и TLS lifecycle
+### POP3 capabilities and TLS lifecycle
 
-Поддерживаются STLS и implicit TLS, USER/PASS, STAT, LIST, UIDL, RETR, DELE,
-RSET и QUIT. Maildrop lease исключает двух разрушающих владельцев; DELE
-фиксируется только успешным QUIT.
-Для RFC 8314 есть отдельный implicit-TLS listener `serve-pop3-tls`;
-`POP3_SSL` ранее подтвердил отсутствие plaintext greeting до TLS handshake.
-После успешного POP3 QUIT session cleanup дожидается отправки `+OK`, затем
-инициирует TLS `close_notify` и освобождает socket после flush alert согласно
-рекомендации RFC 8314 §3.4. Независимый TLS socket acceptance проверяет порядок
-ответа и успешный `unwrap()` клиентом. При peer-initiated `close_notify` TLS
-transport сохраняет close state; reactor сначала обрабатывает уже полученные
-POP3-команды и дожидается pending Store completion, затем дренирует ответы,
-инициирует ответный alert и освобождает ресурс через общий lifecycle cleanup.
-Независимый implicit-TLS peer аутентифицировался и захватил maildrop, отправил
-alert без QUIT, завершил `unwrap()`, затем второй клиент успешно захватил тот же
-maildrop; отдельное соединение проверило QUIT reply и ответный alert. Это
-проверка двух POP3 closure путей и освобождения maildrop lease, не всех причин
-закрытия TLS для остальных протоколов. См.
-[RFC 8314 §3.4](https://www.rfc-editor.org/rfc/rfc8314.html#section-3.4).
+STLS and implicit TLS, USER/PASS, STAT, LIST, UIDL, RETR, DELE, RSET and QUIT are supported. The maildrop lease excludes two destructive owners; a DELE is committed only by a successful QUIT. For RFC 8314 there is a separate implicit-TLS listener `serve-pop3-tls`; `POP3_SSL` earlier confirmed the absence of a plaintext greeting before the TLS handshake. After a successful POP3 QUIT the session cleanup waits for the sending of `+OK`, then initiates the TLS `close_notify` and releases the socket after the flush of the alert according to the recommendation of RFC 8314 §3.4. An independent TLS socket acceptance checks the order of the reply and the successful `unwrap()` by the client. With a peer-initiated `close_notify` the TLS transport keeps the close state; the reactor first processes the already received POP3 commands and waits for the pending Store completion, then drains the replies, initiates the response alert and releases the resource through the common lifecycle cleanup. An independent implicit-TLS peer authenticated itself and captured the maildrop, sent the alert without QUIT, completed the `unwrap()`, and then a second client successfully captured the same maildrop; a separate connection checked the QUIT reply and the response alert. This is a check of the two POP3 closure paths and of the maildrop lease release, not of all the reasons of a TLS close for the other protocols. See [RFC 8314 §3.4](https://www.rfc-editor.org/rfc/rfc8314.html#section-3.4).
 
-### AUTHORIZATION FSM и разбор аргументов
+### AUTHORIZATION FSM and argument parsing
 
-AUTHORIZATION FSM требует `USER` перед `PASS`, отклоняет повторный `USER`
-после положительного ответа, а после отклонённого USER или failed PASS очищает
-имя и требует новую команду USER. Независимый STLS клиент проверил этот порядок с ошибочным и затем
-успешным паролем; это не подтверждает прочие authentication mechanisms.
-RFC 1939 §5 разрешает `NOOP` только в TRANSACTION: сервер отклоняет его в
-AUTHORIZATION и после USER, не теряя незавершённую пару USER/PASS; после входа
-отвечает `+OK`. Unit FSM и независимый STARTTLS peer проверяют оба отказа,
-восстановление аутентификации и последующий NOOP в TRANSACTION.
-`USER` принимает ровно один непустой username, а `PASS` сохраняет все октеты
-аргумента после первого разделителя, включая внутренние и крайние пробелы.
-RFC 1939 §3 задаёт максимум 40 символов для каждого аргумента команды;
-сервер принимает USER/PASS ровно на 40 печатных ASCII октетах и отвергает
-41-й, при этом сохраняет пробелы внутри значения PASS. Username больше 40
-октетов ранее ошибочно принимался лишь из-за общего предела RFC 2449 в 255
-октетов для всей строки. RFC 1939 §7.3 разрешает трактовать пробелы `PASS` как
-часть пароля. Unit и независимый STARTTLS peer проверяют границы и продолжение
-USER/PASS после отказа; существующая Windows unit regression сверяет exact
-password bytes в typed auth request;
-независимый STARTTLS peer подтверждает, что неверный пароль с пробелами дошёл
-до credential owner и последующий `USER` восстанавливает AUTHORIZATION.
+The AUTHORIZATION FSM requires `USER` before `PASS`, rejects a repeated `USER` after a positive reply, and after a rejected USER or a failed PASS clears the name and requires a new USER command. An independent STLS client checked this order with a wrong and then a successful password; this does not confirm the other authentication mechanisms. RFC 1939 §5 allows `NOOP` only in TRANSACTION: the server rejects it in AUTHORIZATION and after USER, without losing the unfinished USER/PASS pair; after the login it answers `+OK`. The unit FSM and an independent STARTTLS peer check both rejections, the authentication recovery and the subsequent NOOP in TRANSACTION. `USER` accepts exactly one non-empty username, and `PASS` keeps all the octets of the argument after the first separator, including the inner and the trailing spaces. RFC 1939 §3 sets a maximum of 40 characters for each command argument; the server accepts USER/PASS at exactly 40 printable ASCII octets and rejects the 41st, while keeping the spaces inside the PASS value. A username longer than 40 octets was earlier wrongly accepted only because of the common RFC 2449 limit of 255 octets for the whole line. RFC 1939 §7.3 allows treating the spaces of `PASS` as a part of the password. The unit and an independent STARTTLS peer check the boundaries and the continuation of USER/PASS after the rejection; the existing Windows unit regression compares the exact password bytes in the typed auth request; an independent STARTTLS peer confirms that a wrong password with spaces reached the credential owner and the subsequent `USER` restores the AUTHORIZATION.
 
-### CAPA и расширенные коды ответов
+### CAPA and extended response codes
 
-CAPA включает bounded RFC 2449 командную грамматику: parser требует CRLF,
-printable ASCII и одиночные пробелы; лимит команды составляет 255 октетов
-вместе с CRLF. Независимый STLS клиент принял 255, отверг 256 и проверил
-синхронизацию последующих команд и успешную аутентификацию. Status/greeting и
-каждая строка CAPA/LIST/UIDL ограничиваются 512 октетами вместе с CRLF;
-независимый STLS acceptance проверил эти ответы и сквозную доставку SMTP->POP3.
-`RESP-CODES` сообщает о расширенных кодах ответов; на успешную аутентификацию
-при занятом другим POP3-сеансом maildrop сервер отвечает `-ERR [IN-USE]`.
-Независимая проверка удерживала первую lease и подтвердила код для PASS второго
-клиента в AUTHORIZATION; capability проверена в обоих состояниях.
-Новый независимый Linux STARTTLS peer прочитал полный CAPA multiline frame в
-AUTHORIZATION до TLS, после TLS, после успешного USER и в TRANSACTION. Теги
-`USER`, `UIDL`, `TOP`, `RESP-CODES`, `UTF8` и `LANG` сохранялись во всех
-четырёх состояниях; `STLS` заменялся на `SASL PLAIN` после TLS. Это подтверждает
-эту таблицу CAPA-состояний, но не полный профиль RFC 2449/5034 и не клиента
-Litterkeep.
+CAPA includes the bounded RFC 2449 command grammar: the parser requires CRLF, printable ASCII and single spaces; the command limit is 255 octets together with CRLF. An independent STLS client accepted 255, rejected 256 and checked the synchronization of the subsequent commands and the successful authentication. The status/greeting and every CAPA/LIST/UIDL line are limited to 512 octets together with CRLF; an independent STLS acceptance checked these replies and the end-to-end SMTP->POP3 delivery. `RESP-CODES` reports the extended response codes; on a successful authentication with a maildrop busy in another POP3 session the server answers `-ERR [IN-USE]`. An independent check held the first lease and confirmed the code for the PASS of the second client in AUTHORIZATION; the capability was checked in both states. A new independent Linux STARTTLS peer read the full CAPA multiline frame in AUTHORIZATION before TLS, after TLS, after a successful USER and in TRANSACTION. The tags `USER`, `UIDL`, `TOP`, `RESP-CODES`, `UTF8` and `LANG` were kept in all four states; `STLS` was replaced by `SASL PLAIN` after TLS. This confirms this CAPA state table, but not the full RFC 2449/5034 profile and not the Litterkeep client.
 
-### LIST, UIDL и управление maildrop
+### LIST, UIDL and maildrop management
 
-`LIST n` и `UIDL n` возвращают одиночный `+OK` с номером и данными; без аргумента
-обе команды используют multiline frame. LIST octet size считает CRLF-представление
-сообщения и не включает дублированные dot-stuffing октеты. Независимый Linux
-клиент проверил обе формы, сравнил LIST размер с RETR после удаления dot-stuffing;
-unit-тест отдельно подтвердил LF-only raw message нормализацию.
-UIDL строится из mailbox entry UID, а не из изменяемого заголовка Message-ID.
-Store сохраняет allocator в журнале и не перераспределяет UID после EXPUNGE.
-Регрессия открывает новую POP3-сессию после закрытия и повторного открытия Store,
-сверяет точные UIDL octets, затем удаляет первое сообщение и подтверждает, что
-следующее письмо получает новый идентификатор. Это unit evidence для стабильности
-UIDL поверх durable Store. Дополнительный независимый Linux STARTTLS peer
-T295 доставляет два письма через SMTP, закрывает POP3-соединение без `QUIT`,
-перезапускает сервер на том же bind-mounted `./data` каталоге и сверяет UIDL.
-Затем он удаляет первое письмо через POP3 `DELE`/`QUIT`, доставляет третье через
-SMTP и проверяет, что UID оставшегося письма не изменился и новый UID не совпал
-с прежними. Это протокольное acceptance независимым Python-клиентом, не проверка
-интероперабельности с приложением Litterkeep.
-POP3 нормализует CRLF только как пару: одиночный CR в сохранённом RFC822
-сообщении остаётся частью данных и учитывается в LIST size. Регрессия проверяет
-байты RETR/TOP и размер для CR перед обычным символом и в конце последней строки.
-После DELE отмеченное сообщение исключается из STAT totals и многострочных
-LIST/UIDL, а одиночные LIST n/UIDL n для него возвращают `-ERR`; номера других
-сообщений не перенумеровываются в текущем snapshot. RSET восстанавливает
-видимость, успешный QUIT durable удаляет только отмеченный UID. Повторный
-`DELE n` до RSET также возвращает `-ERR`, как требует RFC 1939 §5. Unit и
-двухсообщенческий SMTP->POP3 black-box проверяют RFC 1939 §§5-6.
-RETR/TOP отдельно ограничивают status, сохраняя допустимые длинные строки тела:
-проверено точное чтение 700-октетной строки. Это ограниченный набор проверок,
-а не сертификация остальных требований RFC 1939/2449 или совместимости клиента.
-Независимый Linux STARTTLS acceptance проверяет RFC 1939 TOP: `TOP 1 0`
-возвращает headers с разделяющей пустой строкой без body, `TOP 1 1` ровно одну
-строку, а запрос больше длины короткого body возвращает всё тело. Сценарий
-передаёт `.first` и `..second` через SMTP; byte-exact POP3 результат одновременно
-проверяет снятие SMTP и POP3 dot-transparency по одному октету на границе.
+`LIST n` and `UIDL n` return a single `+OK` with the number and the data; without an argument both commands use a multiline frame. The LIST octet size counts the CRLF representation of the message and does not include the duplicated dot-stuffing octets. An independent Linux client checked both forms, compared the LIST size with RETR after the removal of the dot-stuffing; a unit test separately confirmed the LF-only raw message normalization. The UIDL is built from the mailbox entry UID, and not from the mutable Message-ID header. The Store keeps the allocator in the journal and does not reallocate the UID after an EXPUNGE. The regression opens a new POP3 session after the closing and the reopening of the Store, compares the exact UIDL octets, then deletes the first message and confirms that the next mail gets a new identifier. This is the unit evidence for the UIDL stability over the durable Store. An additional independent Linux STARTTLS peer T295 delivers two mails over SMTP, closes the POP3 connection without `QUIT`, restarts the server on the same bind-mounted `./data` directory and compares the UIDL. Then it deletes the first mail via POP3 `DELE`/`QUIT`, delivers a third one over SMTP and checks that the UID of the remaining mail did not change and that the new UID did not collide with the previous ones. This is a protocol acceptance by an independent Python client, not a check of the interoperability with the Litterkeep application. POP3 normalizes the CRLF only as a pair: a lone CR in the stored RFC822 message stays a part of the data and is counted in the LIST size. The regression checks the RETR/TOP bytes and the size for a CR before an ordinary character and at the end of the last line. After a DELE the marked message is excluded from the STAT totals and from the multiline LIST/UIDL, and the single LIST n/UIDL n return `-ERR` for it; the numbers of the other messages are not renumbered in the current snapshot. RSET restores the visibility, a successful QUIT durably deletes only the marked UID. A repeated `DELE n` before an RSET also returns `-ERR`, as required by RFC 1939 §5. The unit and the two-message SMTP->POP3 black-box check RFC 1939 §§5-6. RETR/TOP separately limit the status, keeping the allowed long body lines: an exact read of a 700-octet line is verified. This is a limited set of checks, not a certification of the other requirements of RFC 1939/2449 or of the client compatibility. An independent Linux STARTTLS acceptance checks RFC 1939 TOP: `TOP 1 0` returns the headers with a separating empty line and without a body, `TOP 1 1` exactly one line, and a request larger than the length of the short body returns the whole body. The scenario passes `.first` and `..second` over SMTP; the byte-exact POP3 result checks the removal of the SMTP and the POP3 dot-transparency one octet per boundary at the same time.
 
-### SASL-механизмы POP3
+### POP3 SASL mechanisms
 
-`AUTH PLAIN`, `AUTH SCRAM-SHA-1` и `AUTH SCRAM-SHA-256` поддерживаются только
-после TLS: до STLS механизмы отсутствуют в CAPA, после него сервер рекламирует
-`SASL PLAIN SCRAM-SHA-1 SCRAM-SHA-256` и убирает `STLS`. PLAIN поддерживает initial response и
-continuation, отмену через `*`, строгую Base64-проверку и сохранение SASL
-capability после входа. SCRAM-SHA-1 использует canonical Base64, общий
-SASLprep query профиль и Accounts-owned verifier lookup; client proof проверяется
-до передачи отдельного Base64 server-final challenge, за которым следует
-обязательный пустой client response и обычный `+OK` без дополнительного payload.
-Независимый Linux STARTTLS peer проверяет успешный mutual proof, неверный proof,
-обе формы client-first, отказ plaintext CAPA, CAPA после TLS, `-ERR [IN-USE]`
-при занятом maildrop, восстановление соединения и повторный захват lease после
-QUIT. Отдельный peer проверяет PLAIN initial/continuation и CAPA по состояниям.
-SCRAM-SHA-256 использует свой SHA-256 verifier sidecar через Accounts owner,
-выполняет mutual proof и не запрашивает maildrop lease до пустого SASL
-acknowledgement. Отдельный Python STARTTLS peer независимо проверяет SHA-256
-proof/server signature и сохраняет предыдущие SHA-1, неверный proof, lease
-conflict/reuse сценарии. Отдельный peer с проверкой CA завершил тот же
-SCRAM-SHA-256 exchange по implicit TLS, включая CAPA, STAT и QUIT. Это не
-проверка Litterkeep client. SCRAM-SHA-256-PLUS рекламируется только поверх
-завершённого TLS 1.3 с RFC 9266 exporter; GS2 ограничен `p=tls-exporter,,`, а
-canonical `c=` проверяется как точная GS2 header и exporter до proof.
-Независимые Rustls Linux peers проверяют implicit TLS и STARTTLS: сертификат,
-pre/post-upgrade CAPA, exporter, PLUS mutual proof, server signature, STAT и
-QUIT. Peer повторно использует локальные SHA/HMAC/PBKDF2 helpers и не является
-независимым crypto oracle. Остальные SASL
-mechanisms не заявляются; полный RFC 5034 профиль не заявляется.
-Во время незавершённого `AUTH PLAIN` единственная команда отмены SASL exchange
-это строка `*`. Любой иной клиентский ответ обязан быть Base64; обычный SMTP
-текст `NOOP` и повторный `AUTH` не исполняются как вложенные команды, получают
-501, завершают неудачный AUTH и оставляют соединение доступным для следующей
-команды. Независимый STARTTLS peer проверяет обе строки, последующий `NOOP 250`
-и успешный новый continuation login. См. [RFC 4954 §4](https://www.rfc-editor.org/rfc/rfc4954.html#section-4).
-Единственный `=` в initial-response позиции разбирается как пустой ответ согласно
-RFC 5034, а не как некорректный Base64. Для PLAIN пустой payload отклоняется как
-невалидные credentials; независимый TLS socket тест подтвердил повтор AUTH после
-отказа и последующий вход с верным payload.
-По RFC 5034 §4 неудачный AUTH оставляет сессию так, как если бы AUTH не
-выполнялся. Unit-проверки подтверждают сохранение ранее выбранного USER при
-ошибочном SASL payload; независимый Linux STARTTLS acceptance
-`tests/blackbox/pop3_sasl_prior_user.py` подтверждает сохранение USER Bob после
-отказа не рекламируемого `DIGEST-MD5` с корректным Base64 initial response
-(T370), пустого и некорректного initial response,
-cancellation, некорректного continuation и backend-отказов для неверных
-credentials/аккаунта. Затем допустимый 40-октетный PASS доходит до проверки
-credentials и возвращает `authentication failed`, после чего независимый PLAIN
-вход завершается успешно. Отдельная проверка отправляет валидный Base64 PLAIN
-continuation размером 348 октетов (с 256-октетным паролем), больше POP3 лимита
-команды 255; он доходит до проверки credentials, а не отвергается как длинная
-команда. Acceptance peer использует initial-response только если вся AUTH
-команда с CRLF укладывается в 255 октетов; длинный payload переключает на пустой
-`+ ` challenge и continuation согласно RFC 5034 §4. Это подтверждает данный
-размер и тестовый клиентский выбор, не реальное приложение и не максимальный
-SASL payload. continuation длиннее 1 MiB теперь ограниченно отбрасывается до
-CRLF, завершается `-ERR authentication failed` и не теряет следующую pipelined
-команду; Linux unit-тесты покрывают split CRLF, а независимый STARTTLS peer
-проверил payload 1 MiB + 1 и последующий PASS с сохранённым USER. Это задаёт
-серверный предел отклонения, а не подтверждает приём любого возможного PLAIN
-payload, поэтому полного RFC 5034 соответствия по-прежнему нет. Отдельный
-STARTTLS peer проверяет валидный PLAIN continuation с 4096-байтовым паролем,
-верхней границей SCRAM verifier проекта: Base64 response занимает 5468 октетов,
-доходит до проверки credentials и получает ожидаемый отказ на неверном пароле.
-Это подтверждает эту настройку PLAIN, не максимальный SCRAM nonce и не все
-теоретические ответы поддерживаемых механизмов по RFC 5034 §4. Секреты
-берутся из локального fixture, а не передаются
-в argv. Этот сценарий закрывает перечисленные ветви восстановления, не полный
-RFC 5034 профиль и не поддержку других SASL-механизмов.
+`AUTH PLAIN`, `AUTH SCRAM-SHA-1` and `AUTH SCRAM-SHA-256` are supported only after TLS: before STLS the mechanisms are absent in CAPA, after it the server advertises `SASL PLAIN SCRAM-SHA-1 SCRAM-SHA-256` and removes `STLS`. PLAIN supports the initial response and the continuation, the cancel via `*`, the strict Base64 check and the preservation of the SASL capability after the login. SCRAM-SHA-1 uses the canonical Base64, the common SASLprep query profile and the Accounts-owned verifier lookup; the client proof is checked before the transmission of the separate Base64 server-final challenge, after which a mandatory empty client response and an ordinary `+OK` without an additional payload follow. An independent Linux STARTTLS peer checks the successful mutual proof, the wrong proof, both forms of client-first, the rejection of the plaintext CAPA, the CAPA after TLS, the `-ERR [IN-USE]` with a busy maildrop, the connection recovery and the repeated lease capture after the QUIT. A separate peer checks the PLAIN initial/continuation and the CAPA per state. SCRAM-SHA-256 uses its own SHA-256 verifier sidecar through the Accounts owner, performs the mutual proof and does not request the maildrop lease before the empty SASL acknowledgement. A separate Python STARTTLS peer independently checks the SHA-256 proof/server signature and keeps the previous SHA-1, the wrong proof, the lease conflict/reuse scenarios. A separate peer with a CA check completed the same SCRAM-SHA-256 exchange over implicit TLS, including CAPA, STAT and QUIT. This is not a check of the Litterkeep client. SCRAM-SHA-256-PLUS is advertised only over a completed TLS 1.3 with the RFC 9266 exporter; the GS2 is limited to `p=tls-exporter,,`, and the canonical `c=` is checked as an exact GS2 header and exporter before the proof. The independent Rustls Linux peers check the implicit TLS and the STARTTLS: the certificate, the pre/post-upgrade CAPA, the exporter, the PLUS mutual proof, the server signature, the STAT and the QUIT. The peer reuses the local SHA/HMAC/PBKDF2 helpers and is not an independent crypto oracle. The other SASL mechanisms are not claimed; the full RFC 5034 profile is not claimed. During an unfinished `AUTH PLAIN` the only command to cancel the SASL exchange is the line `*`. Any other client reply must be Base64; the plain SMTP text `NOOP` and a repeated `AUTH` are not executed as nested commands, get 501, end the unsuccessful AUTH and leave the connection available for the next command. An independent STARTTLS peer checks both lines, the subsequent `NOOP 250` and a successful new continuation login. See [RFC 4954 §4](https://www.rfc-editor.org/rfc/rfc4954.html#section-4). The single `=` in the initial-response position is parsed as an empty reply according to RFC 5034, and not as an incorrect Base64. For PLAIN an empty payload is rejected as invalid credentials; an independent TLS socket test confirmed the repeated AUTH after the rejection and the subsequent login with the correct payload. Per RFC 5034 §4 an unsuccessful AUTH leaves the session as if AUTH had not been executed. The unit checks confirm the preservation of the previously selected USER with an erroneous SASL payload; an independent Linux STARTTLS acceptance `tests/blackbox/pop3_sasl_prior_user.py` confirms the preservation of the USER Bob after the rejection of the unadvertised `DIGEST-MD5` with a correct Base64 initial response (T370), of an empty and of an incorrect initial response, of the cancellation, of an incorrect continuation and of the backend rejections for wrong credentials/account. Then an allowed 40-octet PASS reaches the credential check and returns `authentication failed`, after which an independent PLAIN login completes successfully. A separate check sends a valid Base64 PLAIN continuation of 348 octets (with a 256-octet password), more than the POP3 command limit of 255; it reaches the credential check and is not rejected as a long command. The acceptance peer uses the initial response only if the whole AUTH command with CRLF fits into 255 octets; a long payload switches to an empty `+ ` challenge and a continuation according to RFC 5034 §4. This confirms the given size and the test client choice, not a real application and not the maximum SASL payload. A continuation longer than 1 MiB is now limited and discarded up to the CRLF, ends with `-ERR authentication failed` and does not lose the next pipelined command; the Linux unit tests cover a split CRLF, and an independent STARTTLS peer checked a payload of 1 MiB + 1 and the subsequent PASS with the preserved USER. This sets the server-side rejection limit and does not confirm the acceptance of any possible PLAIN payload, so the full RFC 5034 conformance is still missing. A separate STARTTLS peer checks a valid PLAIN continuation with a 4096-byte password, the upper bound of the SCRAM verifier of the project: the Base64 response takes 5468 octets, reaches the credential check and gets the expected rejection on the wrong password. This confirms this PLAIN setting, not the maximum SCRAM nonce and not all the theoretical replies of the supported mechanisms per RFC 5034 §4. The secrets are taken from a local fixture and are not passed in argv. This scenario closes the listed recovery branches, not the full RFC 5034 profile and not the support of the other SASL mechanisms.
 
-### Размерный профиль RFC 5034 и SCRAM transcript
+### The RFC 5034 size profile and the SCRAM transcript
 
-Частично закрыт размерный профиль RFC 5034 §4. SCRAM attribute parser больше
-не задаёт конечный размер, POP3 SASL continuation обходит общий 1 MiB input
-budget, а challenge в SASL phase обходит generic MAX_OUTPUT. Входной и
-выходной Vec используют fallible reserve; если накопление входа не удаётся,
-сервер дренирует текущую строку до CRLF и завершает AUTH отказом.
+The size profile of RFC 5034 §4 is partially closed. The SCRAM attribute parser no longer sets a finite size, the POP3 SASL continuation bypasses the common 1 MiB input budget, and the challenge in the SASL phase bypasses the generic MAX_OUTPUT. The input and the output Vec use a fallible reserve; if the input accumulation fails, the server drains the current line up to the CRLF and ends the AUTH with a rejection.
 
-Независимый T409 TLS peer передаёт 2 MiB client nonce, принимает такой же
-длинный server nonce, независимо вычисляет client proof, проверяет server
-signature и доходит до maildrop (`STAT`, `QUIT`). Base64 строки больше бывшего
-1 MiB continuation ceiling. Ранее T375/T378/T379 проверяли 16/256/700 KiB,
-а T401 подтверждал успешную аутентификацию на 700 KiB. Это реальная точка
-2 MiB, не доказательство всего диапазона. Base64 decode и сохранённый
-client-first state всё ещё требуют память,
-пропорциональную сообщению; allocator exhaustion не прогонялся. В T410
-attribute parser переведён на borrowed slices, final parser хранит unsigned
-transcript как срез, а AuthMessage копируется только один раз в выходной буфер.
-Регрессия pointer identity подтверждает отсутствие копии отдельного 2 MiB
-атрибута. В T411 POP3 и ManageSieve также передают владение decoded client-first
-строкой; GS2 prefix сдвигается на месте, а nonce становится диапазоном внутри
-сохранённого bare transcript, без отдельной копии. 2 MiB pointer-identity test и
-повторный независимый TLS proof acceptance проходят. Это сокращает копии
-transcript-а, но peak-memory footprint всего обмена не измерялся. RFC 5802
-§5.1 не задаёт максимальную длину nonce, поэтому T377 теперь PARTIAL, а не
-PASS; крайние размеры, ограничение совокупной памяти и отказ allocator-а
-требуют дальнейшего отдельного аудита.
+The independent T409 TLS peer passes a 2 MiB client nonce, accepts an equally long server nonce, independently computes the client proof, checks the server signature and reaches the maildrop (`STAT`, `QUIT`). The Base64 lines are bigger than the former 1 MiB continuation ceiling. Earlier T375/T378/T379 checked 16/256/700 KiB, and T401 confirmed the successful authentication at 700 KiB. This is a real 2 MiB point, not a proof of the whole range. The Base64 decode and the preserved client-first state still require memory proportional to the message; the allocator exhaustion was not run. In T410 the attribute parser was switched to borrowed slices, the final parser keeps the unsigned transcript as a slice, and the AuthMessage is copied only once into the output buffer. The pointer identity regression confirms the absence of a copy of a separate 2 MiB attribute. In T411 POP3 and ManageSieve also transfer the ownership of the decoded client-first string; the GS2 prefix is shifted in place, and the nonce becomes a range inside the preserved bare transcript, without a separate copy. The 2 MiB pointer-identity test and the repeated independent TLS proof acceptance pass. This reduces the copies of the transcript, but the peak-memory footprint of the whole exchange was not measured. RFC 5802 §5.1 does not set a maximum nonce length, so T377 is now PARTIAL and not PASS; the extreme sizes, the limit of the total memory and the allocator rejection require a further separate audit.
 
-### CAPA после AUTH и границы client-final
+### CAPA after AUTH and client-final boundaries
 
-После успешного AUTH `CAPA` в TRANSACTION сохраняет строку `SASL` и список
-механизмов, как требует RFC 5034 §3, несмотря на запрет повторного AUTH из §4.
-Это подтверждают session unit test и независимый STARTTLS peer после успешного
-PLAIN входа. Проверен указанный переход, а не весь профиль POP3.
+After a successful AUTH the `CAPA` in TRANSACTION keeps the `SASL` line and the list of the mechanisms, as required by RFC 5034 §3, despite the ban of a repeated AUTH from §4. This is confirmed by a session unit test and by an independent STARTTLS peer after a successful PLAIN login. The indicated transition is checked, not the whole POP3 profile.
 
-Для SCRAM client-first проекта (256 KiB) может породить более длинный
-client-final из-за серверного nonce suffix и обязательных SCRAM полей. Отдельный
-bounded лимит client-final это учитывает; T375 проверил предыдущую границу
-16 KiB + 72 октета, а T378 подтвердил client-final 256 KiB + 72 октета до
-проверки proof. Это снимает конфликт размеров на проверенных границах, но не
-подтверждает неограниченные SASL payload или полный RFC 5034 профиль.
+The SCRAM client-first of the project (256 KiB) can produce a longer client-final because of the server nonce suffix and the mandatory SCRAM fields. A separate bounded client-final limit takes this into account; T375 checked the previous boundary of 16 KiB + 72 octets, and T378 confirmed a client-final of 256 KiB + 72 octets before the proof check. This removes the size conflict on the checked boundaries, but does not confirm the unlimited SASL payloads or the full RFC 5034 profile.
 
-### RFC 6856: UTF8, LANG и обработка сообщений
+### RFC 6856: UTF8, LANG and message handling
 
-RFC 6856: capability `UTF8 USER` объявляется в обоих состояниях. Параметр
-`USER` разрешает UTF-8 в аргументах USER/PASS до и после команды `UTF8`;
-число символов credentials ограничено 40 по RFC 1939, а вся POP3 строка
-ограничена 255 октетами по RFC 2449. Независимый Linux STARTTLS peer проверил
-многобайтные USER/PASS до переключения, USER после переключения и восстановление
-через AUTH PLAIN с последующим STAT в той же сессии. Это не проверка реальной
-клиентской реализации. `UTF8` принимается в RFC-состоянии AUTHORIZATION согласно
-§2.1, а `LANG` в AUTHORIZATION и TRANSACTION согласно §3.1. Положительный `USER` оставляет POP3
-сессию в AUTHORIZATION до успешного PASS/AUTH; внутренняя фаза `UserAccepted` не
-является отдельным wire state. Поэтому обе команды допустимы между USER и PASS.
-Они сохраняют pending USER, что проверяется последующим корректно сформированным
-PASS до backend-аутентификации. Успешная команда UTF8 включает raw UTF-8 message
-mode и запрещает последующий STLS.
-Аргументы USER/PASS проходят SASLprep RFC 4013 query profile; создание account
-записывает prepared identity по stored profile, а общий локальный route выдаёт
-такой же ключ для логина и SMTP-доставки. Новые acceptance credentials теперь
-состоят из 20 случайных октетов в hex (40 символов), чтобы POP3 PASS мог их
-передать. Повторный init не меняет уже сохранённые secrets: прежние
-48-символьные тестовые пароли остаются длиннее POP3 PASS limit и требуют
-отдельной смены пароля для USER/PASS входа.
-До переключения `LIST`, `TOP` и `RETR` возвращают
-ошибку для любого high-bit octet и не отправляют такое сообщение как ASCII;
-`[UTF8]` используется, когда обнаружена корректная non-ASCII UTF-8
-последовательность, а непрозрачные high-bit octets получают обычный `-ERR`.
-Независимый Linux SMTP->POP3 socket acceptance отправил 8BITMIME UTF-8 письмо,
-получил `[UTF8]` от LIST/TOP/RETR в ASCII mode, затем включил UTF8 до USER и
-сравнил точные байты RETR. Отдельный IMAP APPEND с единственным `0xFF` проверил
-обычный отказ для LIST/TOP/RETR до UTF8; unit-тест подтвердил, что этот октет
-не выдаётся и после переключения UTF8, поскольку содержимое не является
-валидным UTF-8 и legacy charset conversion не реализован. Новый independent
-STARTTLS сценарий после переключения получает `-ERR` для opaque octets и
-byte-check-ит RETR валидного UTF-8 письма. Acceptance также проверил CAPA
-до/после TLS и отказ STLS после UTF8. MIME-дерево
-рекурсивно обнаруживает `Content-Transfer-Encoding: binary`, включая вложенные
-части всех `multipart/*`; POP3 `TOP` и `RETR` отклоняют такое сообщение даже в
-UTF8 mode. Независимый Linux acceptance сохранил fixture через IMAP APPEND и
-подтвердил отказ обеих команд. Если ограниченный MIME parser не может проверить
-структуру, `TOP` и `RETR` также завершаются `-ERR`, а сообщение сохраняется в
-maildrop. Unit и независимый Linux acceptance проверяют оба отказа для обеих
-команд и сохранение сессии. Это fail-closed политика для malformed или
-неподдержанной MIME-структуры и она может ограничить POP3-доступность таких
-сообщений; IMAP и файловое хранение не затрагиваются. Остальные ограничения RFC
-6856 сохраняются: legacy charset conversion. Создание нового аккаунта проверяет
-старые credential keys и отказывает при найденном SASLprep alias, не выбирая
-один из конфликтующих владельцев. Автоматическая миграция старых account и
-mailbox keys, имя которых меняется при SASLprep, не реализована; такие legacy
-identities нельзя считать проверенными после обновления. Повреждённые
-raw octets сами по себе не считаются UTF-8
-строками. `LANG` объявляется и реализует listing единственной локали `en`, выбор
-`en` и серверной локали через `*`; корректный, но неподдерживаемый basic language
-range получает `-ERR`. Так как поддержана только английская локаль, выбор языка
-не меняет тексты ответов. Многоязычная локализация, остальные RFC 6856 сценарии
-и интеграция с реальным клиентом не проверялись.
-Независимый STARTTLS peer проверил RFC 6856 `LANG` в AUTHORIZATION и
-TRANSACTION, обе выдачи CAPA, listing, `EN`, `*`, отказ `de` и возможность
-продолжить transaction-команды после неуспешного выбора языка.
+RFC 6856: the capability `UTF8 USER` is announced in both states. The `USER` parameter allows UTF-8 in the USER/PASS arguments before and after the `UTF8` command; the number of the credential characters is limited to 40 per RFC 1939, and the whole POP3 line is limited to 255 octets per RFC 2449. An independent Linux STARTTLS peer checked the multibyte USER/PASS before the switch, the USER after the switch and the recovery through AUTH PLAIN with a subsequent STAT in the same session. This is not a check of a real client implementation. `UTF8` is accepted in the RFC AUTHORIZATION state per §2.1, and `LANG` in AUTHORIZATION and TRANSACTION per §3.1. A positive `USER` leaves the POP3 session in AUTHORIZATION until a successful PASS/AUTH; the internal `UserAccepted` phase is not a separate wire state. Therefore both commands are allowed between USER and PASS. They keep the pending USER, which is checked by a subsequent correctly formed PASS before the backend authentication. A successful UTF8 command enables the raw UTF-8 message mode and forbids a subsequent STLS. The USER/PASS arguments pass the RFC 4013 SASLprep query profile; the account creation writes the prepared identity by the stored profile, and the common local route issues the same key for the login and for the SMTP delivery. The new acceptance credentials now consist of 20 random octets in hex (40 characters), so that the POP3 PASS can pass them. A repeated init does not change the already stored secrets: the previous 48-character test passwords stay longer than the POP3 PASS limit and require a separate password change for the USER/PASS login. Before the switch `LIST`, `TOP` and `RETR` return an error for any high-bit octet and do not send such a message as ASCII; `[UTF8]` is used when a correct non-ASCII UTF-8 sequence is detected, and opaque high-bit octets get an ordinary `-ERR`. An independent Linux SMTP->POP3 socket acceptance sent an 8BITMIME UTF-8 mail, got `[UTF8]` from LIST/TOP/RETR in the ASCII mode, then enabled UTF8 before USER and compared the exact RETR bytes. A separate IMAP APPEND with a single `0xFF` checked the ordinary rejection for LIST/TOP/RETR before UTF8; a unit test confirmed that this octet is not emitted even after the UTF8 switch, because the content is not a valid UTF-8 and the legacy charset conversion is not implemented. A new independent STARTTLS scenario after the switch gets `-ERR` for the opaque octets and byte-checks the RETR of a valid UTF-8 mail. The acceptance also checked the CAPA before/after TLS and the rejection of STLS after UTF8. The MIME tree recursively detects `Content-Transfer-Encoding: binary`, including the nested parts of all `multipart/*`; the POP3 `TOP` and `RETR` reject such a message even in the UTF8 mode. An independent Linux acceptance kept the fixture via IMAP APPEND and confirmed the rejection of both commands. If the limited MIME parser cannot check the structure, `TOP` and `RETR` also end with `-ERR`, and the message is kept in the maildrop. The unit and an independent Linux acceptance check both rejections for both commands and the preservation of the session. This is a fail-closed policy for a malformed or unsupported MIME structure and it can limit the POP3 availability of such messages; IMAP and the file storage are not affected. The other limitations of RFC 6856 remain: the legacy charset conversion. The creation of a new account checks the old credential keys and refuses on a found SASLprep alias, without choosing one of the conflicting owners. The automatic migration of the old account and mailbox keys whose name changes under SASLprep is not implemented; such legacy identities cannot be considered verified after the update. The damaged raw octets are not UTF-8 strings by themselves. `LANG` is announced and implements the listing of the single locale `en`, the selection of `en` and of the server locale via `*`; a correct but unsupported basic language range gets `-ERR`. Since only the English locale is supported, the language selection does not change the reply texts. The multilingual localization, the other RFC 6856 scenarios and the integration with a real client were not checked. An independent STARTTLS peer checked the RFC 6856 `LANG` in AUTHORIZATION and TRANSACTION, both CAPA issuances, the listing, `EN`, `*`, the rejection of `de` and the possibility to continue the transaction commands after an unsuccessful language selection.
 
-## Sieve и ManageSieve
+## Sieve and ManageSieve
 
-### RFC 5804: capability transitions и SASL
+### RFC 5804: capability transitions and SASL
 
-Актуальный проверенный профиль и его ограничения описаны отдельно в
-[sieve-coverage.md](sieve-coverage.md), чтобы сохранять компактность этой
-матрицы.
-В частности, независимый Linux socket acceptance проверяет RFC 5804
-capability transitions ManageSieve вокруг STARTTLS и AUTHENTICATE, а отдельный
-peer проверяет NOOP до аутентификации и обязательный echo response code `TAG`
-для quoted string. `UNAUTHENTICATE` сбрасывает состояние и owner, сохраняет TLS
-и допускает повторный AUTHENTICATE; независимый TLS peer это проверяет.
-Implicit-TLS SCRAM-SHA-1 и SCRAM-SHA-256 wire exchanges независимо сверяют proof
-и server signature. После STARTTLS независимый peer проверяет пустой список SASL
-до TLS, публикацию `PLAIN SCRAM-SHA-1 SCRAM-SHA-256` и полный SHA-256 proof plus
-server-signature exchange после TLS upgrade. Capability также объявляет
-`MAXREDIRECTS "16"`, синхронизированный с пределом evaluator-а и проверенный
-unit boundary test-ом.
+The current verified profile and its limitations are described separately in [sieve-coverage.md](sieve-coverage.md), to keep this matrix compact. In particular, an independent Linux socket acceptance checks the RFC 5804 ManageSieve capability transitions around STARTTLS and AUTHENTICATE, and a separate peer checks the NOOP before the authentication and the mandatory echo response code `TAG` for a quoted string. `UNAUTHENTICATE` resets the state and the owner, keeps the TLS and allows a repeated AUTHENTICATE; an independent TLS peer checks this. The implicit-TLS SCRAM-SHA-1 and SCRAM-SHA-256 wire exchanges independently verify the proof and the server signature. After the STARTTLS an independent peer checks the empty SASL list before the TLS, the publication of `PLAIN SCRAM-SHA-1 SCRAM-SHA-256` and the full SHA-256 proof plus server-signature exchange after the TLS upgrade. The capability also announces `MAXREDIRECTS "16"`, synchronized with the limit of the evaluator and verified by a unit boundary test.
 
-### SCRAM-SHA-256-PLUS и tls-exporter
+### SCRAM-SHA-256-PLUS and tls-exporter
 
-SCRAM-SHA-256 использует отдельный verifier sidecar и bounded Accounts owner
-lookup. TLS 1.3 `tls-exporter` primitive сверяется между независимыми rustls
-endpoints с параметрами RFC 9266 и подключён к typed ManageSieve
-SCRAM-SHA-256-PLUS: capability появляется только при доступном exporter,
-GS2 допускает только `p=tls-exporter,,`, а `c=` сверяется с canonical Base64
-точной шапки и exporter до проверки proof. Есть FSM тесты корректного proof,
-server signature и несовпадающего exporter. Независимое PLUS подключение по
-живому TLS socket завершено отдельным Rustls peer-ом: подтверждены CA chain,
-TLS 1.3, capability, RFC 9266 binding и mutual SCRAM signature. Peer повторно
-использует SHA/HMAC/PBKDF2 helpers этой реализации, поэтому не является
-независимым криптографическим oracle. Это не проверка Litterkeep app, полный
-профиль RFC 5804 ещё не закрыт.
+SCRAM-SHA-256 uses a separate verifier sidecar and a bounded Accounts owner lookup. The TLS 1.3 `tls-exporter` primitive is compared between independent rustls endpoints with the RFC 9266 parameters and is connected to the typed ManageSieve SCRAM-SHA-256-PLUS: the capability appears only with an available exporter, the GS2 allows only `p=tls-exporter,,`, and the `c=` is compared with the canonical Base64 of the exact header and the exporter before the proof check. There are FSM tests of a correct proof, a server signature and a mismatching exporter. An independent PLUS connection over a live TLS socket was completed by a separate Rustls peer: the CA chain, TLS 1.3, the capability, the RFC 9266 binding and the mutual SCRAM signature are confirmed. The peer reuses the SHA/HMAC/PBKDF2 helpers of this implementation, so it is not an independent cryptographic oracle. This is not a check of the Litterkeep app, the full RFC 5804 profile is not closed yet.
 
-См. [Sieve/ManageSieve coverage](sieve-coverage.md) и
+See [Sieve/ManageSieve coverage](sieve-coverage.md) and
 [dependency/security notes](dependencies.md).
 
-### Quota и управление скриптами
+### Quota and script management
 
-ManageSieve mutation quota failures now use the RFC 5804 `NO (QUOTA)` response
-code; Store boundary and response-mapping unit tests verify that ordinary disk
-errors do not become quota responses. Independent Linux TLS wire acceptance
-reaches the 17-script boundary and confirms the failed PUTSCRIPT leaves the
-16-entry catalog unchanged. Litterkeep client interoperability remains
-unverified.
-RFC 5804 §2.8 SETACTIVE is checked over the independent TLS path: empty name
-succeeds with no active script, unknown name gets `NO (NONEXISTENT)`,
-LISTSCRIPTS shows activation and removes ACTIVE after empty-name deactivation,
-and a repeated deactivation succeeds. This is server/store evidence, not
-Litterkeep interoperability.
-The same TLS acceptance attempts DELETESCRIPT on the active script, expects
-`NO (ACTIVE)`, confirms the script remains active, then deletes it successfully
-after deactivation, as specified by RFC 5804 §2.10.
-RFC 5804 §2.11 rename collision returns `NO (ALREADYEXISTS)` without changing
-either script; renaming an active script preserves its ACTIVE designation under
-the new name. Store reopen and independent Linux TLS acceptance verify both
-properties, including exact script source bytes. Litterkeep interoperability
-is not verified.
+ManageSieve mutation quota failures now use the RFC 5804 `NO (QUOTA)` response code; Store boundary and response-mapping unit tests verify that ordinary disk errors do not become quota responses. Independent Linux TLS wire acceptance reaches the 17-script boundary and confirms the failed PUTSCRIPT leaves the 16-entry catalog unchanged. Litterkeep client interoperability remains unverified. RFC 5804 §2.8 SETACTIVE is checked over the independent TLS path: empty name succeeds with no active script, unknown name gets `NO (NONEXISTENT)`, LISTSCRIPTS shows activation and removes ACTIVE after empty-name deactivation, and a repeated deactivation succeeds. This is server/store evidence, not Litterkeep interoperability. The same TLS acceptance attempts DELETESCRIPT on the active script, expects `NO (ACTIVE)`, confirms the script remains active, then deletes it successfully after deactivation, as specified by RFC 5804 §2.10. RFC 5804 §2.11 rename collision returns `NO (ALREADYEXISTS)` without changing either script; renaming an active script preserves its ACTIVE designation under the new name. Store reopen and independent Linux TLS acceptance verify both properties, including exact script source bytes. Litterkeep interoperability is not verified.
 
-### Токенизатор, NOOP и literal-аргументы
+### Tokenizer, NOOP and literal arguments
 
-ManageSieve tokenizer rejects unterminated quoted strings and unsupported
-quoted-string escapes as syntax errors instead of accepting a valid command
-prefix. Parser tests and the independent Linux wire scenario verify both
-negative cases. T328 subsequently connected SCRAM-SHA-1 to ManageSieve TLS
-authentication and an independent TLS wire test; STARTTLS and application
-interoperability are not established.
-NOOP accepts an optional RFC 5804 string as either quoted text or synchronizing
-and non-synchronizing client literals. Linux reactor tests cover literal
-consumption and pipeline boundaries; independent wire acceptance confirms the
-continuation and exact TAG responses. This does not establish literal support
-for other ManageSieve command arguments. GETSCRIPT, DELETESCRIPT and SETACTIVE
-also accept a final synchronizing or non-synchronizing literal string, including
-the zero-length SETACTIVE disable form. Linux reactor tests verify typed command
-conversion; independent wire acceptance checks continuation and state handling.
-PUTSCRIPT accepts a literal name followed by quoted or literal source, with
-sync/non-sync framing and a following pipelined NOOP covered. RENAMESCRIPT
-accepts either name as a sync or non-sync literal independently; receiver tests
-cover two sync names, mixed quoted/literal names, UTF-8 and pipeline retention.
-HAVESPACE accepts a bounded literal name followed by one decimal size; receiver
-tests check split input, strict numeric arity and pipeline preservation.
+ManageSieve tokenizer rejects unterminated quoted strings and unsupported quoted-string escapes as syntax errors instead of accepting a valid command prefix. Parser tests and the independent Linux wire scenario verify both negative cases. T328 subsequently connected SCRAM-SHA-1 to ManageSieve TLS authentication and an independent TLS wire test; STARTTLS and application interoperability are not established. NOOP accepts an optional RFC 5804 string as either quoted text or synchronizing and non-synchronizing client literals. Linux reactor tests cover literal consumption and pipeline boundaries; independent wire acceptance confirms the continuation and exact TAG responses. This does not establish literal support for other ManageSieve command arguments. GETSCRIPT, DELETESCRIPT and SETACTIVE also accept a final synchronizing or non-synchronizing literal string, including the zero-length SETACTIVE disable form. Linux reactor tests verify typed command conversion; independent wire acceptance checks continuation and state handling. PUTSCRIPT accepts a literal name followed by quoted or literal source, with sync/non-sync framing and a following pipelined NOOP covered. RENAMESCRIPT accepts either name as a sync or non-sync literal independently; receiver tests cover two sync names, mixed quoted/literal names, UTF-8 and pipeline retention. HAVESPACE accepts a bounded literal name followed by one decimal size; receiver tests check split input, strict numeric arity and pipeline preservation.
 
-### Приём literal-аргументов ManageSieve
+### Accepting ManageSieve literal arguments
 
-Independent Linux TLS acceptance now verifies successful Store mutation through
-literal arguments: PUTSCRIPT receives a non-synchronizing literal name and a
-synchronizing source literal, RENAMESCRIPT consumes two non-synchronizing
-literal names, and SETACTIVE keeps the renamed script active. After restarting
-the same server against the same data directory, LISTSCRIPTS and GETSCRIPT
-confirm the active name and exact source bytes. This closes only the tested
-literal positions and durable path; other uncovered string positions remain
-unsupported, and Litterkeep application interoperability is not claimed.
+Independent Linux TLS acceptance now verifies successful Store mutation through literal arguments: PUTSCRIPT receives a non-synchronizing literal name and a synchronizing source literal, RENAMESCRIPT consumes two non-synchronizing literal names, and SETACTIVE keeps the renamed script active. After restarting the same server against the same data directory, LISTSCRIPTS and GETSCRIPT confirm the active name and exact source bytes. This closes only the tested literal positions and durable path; other uncovered string positions remain unsupported, and Litterkeep application interoperability is not claimed.
 
 ## Outbound SMTP
 
-### Маршрутизация, scheduler и capabilities peer-а
+### Routing, scheduler and peer capabilities
 
-Маршрут задаётся явно как IP:port и typed TLS policy. Scheduler durable,
-single-flight, применяет bounded retry/backoff и DSN. Pool повторно выдаёт только
-чистое соединение после success либо подтверждённого RSET.
-После EHLO клиент разбирает multiline reply и typed extension keywords. Для
-сообщения с high-bit octets в MIME body отправляется `BODY=8BITMIME`, если peer
-рекламировал `8BITMIME`; без capability доставка завершается permanent failure
-до `MAIL`. Для валидных UTF-8 header values и Unicode local-part в sender или
-recipient envelope клиент требует от peer `SMTPUTF8` вместе с `8BITMIME` и
-добавляет `SMTPUTF8` к MAIL. При нескольких адресатах флаг устанавливается,
-если хотя бы один forward-path интернационализирован. Только UTF-8 заголовки
-дополнительно требуют `BODY=8BITMIME`; ASCII message с Unicode envelope не
-получает ненужный BODY параметр. RFC 6531 extension не отправляется, если peer
-не объявил обе capabilities. Targeted builder tests проверяют envelope-only
-случай и отказ peer без SMTPUTF8; прежний независимый Linux SMTP peer проверял
-wire параметры для UTF-8 headers. Сквозной outbound MTA и Litterkeep app не
-проверялись.
+The route is set explicitly as an IP:port and a typed TLS policy. The scheduler is durable, single-flight, applies a bounded retry/backoff and the DSN. The pool issues only a clean connection again after a success or a confirmed RSET. After the EHLO the client parses the multiline reply and the typed extension keywords. For a message with high-bit octets in the MIME body the `BODY=8BITMIME` is sent, if the peer advertised `8BITMIME`; without the capability the delivery ends as a permanent failure before `MAIL`. For valid UTF-8 header values and a Unicode local-part in the sender or the recipient envelope the client requires `SMTPUTF8` from the peer together with `8BITMIME` and adds `SMTPUTF8` to MAIL. With several recipients the flag is set if at least one forward-path is internationalized. UTF-8 headers alone additionally require `BODY=8BITMIME`; an ASCII message with a Unicode envelope does not get the unnecessary BODY parameter. The RFC 6531 extension is not sent if the peer did not announce both capabilities. The targeted builder tests check the envelope-only case and the rejection of a peer without SMTPUTF8; the earlier independent Linux SMTP peer checked the wire parameters for UTF-8 headers. The end-to-end outbound MTA and the Litterkeep app were not checked.
 
-### Лимиты строк, SIZE и BINARYMIME/CHUNKING
+### Line limits, SIZE and BINARYMIME/CHUNKING
 
-Outbound SMTP ограничивает каждую строку greeting и reply, включая каждую
-строку multiline EHLO, значением RFC 5321 §4.5.3.1.5: не более 512 октетов с
-CRLF. Reader не накапливает сверх лимита и закрывает соединение при превышении
-или неверном окончании строки. Независимый peer подтвердил приём точной
-границы 512 и отказ для 513 октетов в greeting и EHLO до `MAIL`.
-Как SMTP SIZE client outbound transport разбирает EHLO `SIZE`, `SIZE 0` и
-числовой maximum. При объявленном расширении `MAIL FROM` содержит точное число
-передаваемых message octets, включая добавленный terminal CRLF, но без
-terminator и dot-stuffing; без объявления параметр не отправляется. Размер
-выше фиксированного maximum отвергается до `MAIL`. Независимый peer проверяет
-wire command и все три исхода. Implicit-TLS unit peer проверяет совместное
-использование `SIZE` и `BODY=8BITMIME`.
-Для валидного MIME-дерева с `Content-Transfer-Encoding: binary` relay никогда
-не подменяет payload командой DATA/8BITMIME. Если peer не объявляет одновременно
-`BINARYMIME` и `CHUNKING`, команда MAIL не отправляется, и job получает
-permanent failure согласно допустимой политике [RFC 3030 §3](https://www.rfc-editor.org/rfc/rfc3030.html#section-3).
-При наличии обеих extensions используется точное BDAT framing; автоматическое
-преобразование в Base64 пока не выполняется.
-По RFC 1870 EHLO numeric `SIZE` не ограничен 20 цифрами; это ограничение
-применяется к value команды MAIL. Peer limit выше диапазона `u64` сохраняется
-отдельным typed случаем, поэтому корректное capability не теряется. Rust и
-независимый peer тесты проверяют 21-значный предел и точное MAIL declaration;
-см. [RFC 1870 §3](https://www.rfc-editor.org/rfc/rfc1870.html#section-3).
+Outbound SMTP limits every greeting and reply line, including every line of a multiline EHLO, with the value of RFC 5321 §4.5.3.1.5: at most 512 octets with CRLF. The reader does not accumulate beyond the limit and closes the connection on an excess or an invalid line ending. An independent peer confirmed the acceptance of the exact 512 boundary and the rejection of 513 octets in the greeting and in the EHLO before `MAIL`. Like the SMTP SIZE client the outbound transport parses the EHLO `SIZE`, the `SIZE 0` and the numeric maximum. With the announced extension the `MAIL FROM` contains the exact number of the transmitted message octets, including the added terminal CRLF, but without the terminator and the dot-stuffing; without the announcement the parameter is not sent. A size above the fixed maximum is rejected before `MAIL`. An independent peer checks the wire command and all three outcomes. The implicit-TLS unit peer checks the combined use of `SIZE` and `BODY=8BITMIME`. For a valid MIME tree with `Content-Transfer-Encoding: binary` the relay never substitutes the payload with a DATA/8BITMIME command. If the peer does not announce both `BINARYMIME` and `CHUNKING`, the MAIL command is not sent, and the job gets a permanent failure according to the allowed policy [RFC 3030 §3](https://www.rfc-editor.org/rfc/rfc3030.html#section-3). With both extensions present the exact BDAT framing is used; the automatic conversion to Base64 is not performed yet. Per RFC 1870 the EHLO numeric `SIZE` is not limited to 20 digits; this limit applies to the value of the MAIL command. A peer limit above the range of `u64` is kept as a separate typed case, so that a correct capability is not lost. The Rust and the independent peer tests check the 21-digit limit and the exact MAIL declaration; see [RFC 1870 §3](https://www.rfc-editor.org/rfc/rfc1870.html#section-3).
 
-### Фазовая обработка ответов и код 421
+### Phased reply handling and code 421
 
-Outbound reply handling теперь привязано к фазе SMTP: только greeting 220,
-`DATA` continuation 354, `QUIT` 221 и AUTH success 235 принимаются в этих
-контекстах; команда `MAIL`, `RCPT`, финальная DATA completion и reset требуют
-positive completion 2yz, при этом 4yz остаётся deferred, а 5yz permanent.
-Неожиданный 3yz не продвигает состояние команды. Код каждой строки multiline
-reply обязан совпадать с первой. Независимый peer подтвердил, что 354 и 221 в
-ответ на MAIL не приводят к отправке RCPT; unit tests проверяют известные
-фазовые ответы, будущий 2yz код и смешанные коды multiline.
-RFC 5321 §4.2 разрешает клиенту обрабатывать reply code без текста: outbound
-reader принимает `250\r\n` и `250 \r\n`, сохраняя трёхзначный numeric code,
-CRLF и multiline separator; для будущих числовых кодов исход клиентской
-операции выбирается по первому разряду. Отдельный TCP peer прошёл полную отправку с bare
-220/250/354/221 ответами; Litterkeep и внешние MTA в этом тесте не участвовали.
-Ответ `421` трактуется отдельно от прочих временных отказов: очередь получает
-`Deferred`, но соединение считается закрываемым. Plaintext и implicit-TLS pools
-не отправляют `RSET` и не переиспользуют такой socket. Независимые SMTP test peers
-проверили закрытие после `421` на RCPT и успешную следующую доставку через новое
-соединение. Остальные 4yz по-прежнему могут вернуть соединение в pool только
-после успешного `RSET`.
+The outbound reply handling is now bound to the SMTP phase: only the greeting 220, the `DATA` continuation 354, the `QUIT` 221 and the AUTH success 235 are accepted in these contexts; the `MAIL`, `RCPT`, the final DATA completion and the reset require a positive completion 2yz, while 4yz stays deferred and 5yz permanent. An unexpected 3yz does not advance the state of the command. The code of every line of a multiline reply must match the first one. An independent peer confirmed that 354 and 221 in reply to MAIL do not lead to the sending of an RCPT; the unit tests check the known phase replies, a future 2yz code and the mixed codes of a multiline. RFC 5321 §4.2 allows the client to process a reply code without text: the outbound reader accepts `250\r\n` and `250 \r\n`, preserving the three-digit numeric code, the CRLF and the multiline separator; for the future numeric codes the outcome of the client operation is chosen by the first digit. A separate TCP peer passed the full sending with bare 220/250/354/221 replies; Litterkeep and the external MTAs did not take part in this test. The `421` reply is treated separately from the other temporary rejections: the queue gets `Deferred`, but the connection is considered closable. The plaintext and implicit-TLS pools do not send `RSET` and do not reuse such a socket. The independent SMTP test peers checked the close after `421` on an RCPT and a successful next delivery through a new connection. The other 4yz can still return the connection to the pool only after a successful `RSET`.
 
-### Downgrade EHLO/HELO и socket timeouts
+### EHLO/HELO downgrade and socket timeouts
 
-Исходящий клиент начинает с `EHLO`; при однострочном `500` «command not
-recognized» повторяет идентификацию через `HELO` и работает без ESMTP
-capabilities. Policy-отказ `550` не вызывает downgrade. Независимые plaintext и
-implicit-TLS peers проверили wire-порядок `EHLO` -> `HELO` -> `MAIL` и доставку
-без не объявленных `SIZE`/`8BITMIME` параметров.
-Исходящий SMTP использует отдельные socket timeouts по RFC 5321 §4.5.3.2:
-300 секунд для greeting/MAIL/RCPT и обычных команд, 120 секунд для ответа на
-DATA, 180 секунд на каждую системную отправку DATA и 600 секунд на финальный
-ответ после terminator. Пять настроек принимаются в положительных секундах через
-`LITTERKEEP_SMTP_*_TIMEOUT_SECONDS`; отсутствие значения оставляет нормативный
-default, некорректные значения отклоняются при старте outbound worker-а.
-Unit-тест сверяет таблицу фаз и валидирует partial overrides/ошибки; тестовый
-transport может задать короткий единый предел, а wire-тест подтверждает timeout
-зависшего greeting. Дополнительный независимый TCP peer с короткими phase-specific
-overrides удерживает соединение открытым до timeout для greeting, команд EHLO,
-MAIL и RCPT, ожидания `354` на DATA и финального ответа после фактически
-полученного DATA terminator. Это проверяет шесть реальных точек ожидания.
-[RFC 5321 §3.8](https://www.rfc-editor.org/rfc/rfc5321.html#section-3.8) и
-[§4.1.1.10](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.1.1.10)
-требуют завершать SMTP session командой QUIT, а sender SHOULD ждать reply.
+The outgoing client starts with `EHLO`; on a single-line `500` «command not recognized» it repeats the identification through `HELO` and works without the ESMTP capabilities. A policy rejection `550` does not cause a downgrade. The independent plaintext and implicit-TLS peers checked the wire order `EHLO` -> `HELO` -> `MAIL` and the delivery without the unannounced `SIZE`/`8BITMIME` parameters. The outgoing SMTP uses separate socket timeouts per RFC 5321 §4.5.3.2: 300 seconds for the greeting/MAIL/RCPT and the ordinary commands, 120 seconds for the reply to DATA, 180 seconds for each system DATA sending and 600 seconds for the final reply after the terminator. The five settings are taken in positive seconds through `LITTERKEEP_SMTP_*_TIMEOUT_SECONDS`; a missing value leaves the normative default, incorrect values are rejected at the start of the outbound worker. A unit test compares the phase table and validates the partial overrides/errors; the test transport can set a short uniform limit, and the wire test confirms the timeout of a hung greeting. An additional independent TCP peer with short phase-specific overrides holds the connection open until the timeout for the greeting, the EHLO commands, MAIL and RCPT, the wait for `354` on DATA and the final reply after an actually received DATA terminator. This checks six real waiting points. [RFC 5321 §3.8](https://www.rfc-editor.org/rfc/rfc5321.html#section-3.8) and [§4.1.1.10](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.1.1.10) require terminating the SMTP session with the QUIT command, and the sender SHOULD wait for the reply.
 
-### QUIT, shutdown пула и BDAT timeouts
+### QUIT, pool shutdown and BDAT timeouts
 
-Standalone plaintext и implicit-TLS пути отправляют QUIT после завершённого
-SMTP-level результата, если peer не прислал 421 и сам не закрывает канал.
-Проверки локальными peers подтверждают `QUIT/221` после успеха; plaintext
-также проверяет QUIT после RCPT 450/550. При timeout ответа на QUIT уже
-подтверждённый результат DATA сохраняется. TLS peer-тест с 100-ms коротким
-timeout проверяет реальный socket; pooled TLS соединение не отправляет QUIT
-между повторными транзакциями. При явном shutdown owner отправляет QUIT во все
-idle plaintext и implicit-TLS pool sessions, не выполняя блокирующий сетевой
-I/O из Drop; локальные peers проверяют QUIT/221 на pool, worker, service и
-scheduler shutdown. Ошибка одной idle session не отменяет попытку завершить
-остальные и передаётся вызывающему owner. Нормативный 5-минутный wall-clock
-timeout, отказ QUIT в одной из нескольких idle sessions и интеграция с внешним
-MTA не проверялись.
-Для исходящего BDAT промежуточный ответ на каждый chunk теперь
-использует отдельный 5-минутный command timeout, а BDAT LAST - 10-минутный
-DATA-termination timeout; 3-минутный write timeout сохраняется на каждый chunk.
-Unit-тесты проверяют выбор фазы и LAST-маркер. Socket-level применение этих
-интервалов проверяется локальным TCP peer: delayed intermediate ACK переживает
-отсутствие ответа дольше короткого command timeout и приводит к timeout, тогда
-как delayed LAST ACK успешно приходит позже command timeout, но до termination
-timeout. Это проверяет plaintext socket с короткими тестовыми интервалами, а не
-нормативные минуты на wall clock; отдельный TLS peer для BDAT не запускался.
-Отдельный rustls unit peer проверяет переход greeting -> EHLO
-для implicit TLS при различающихся greeting/command deadlines.
+The standalone plaintext and implicit-TLS paths send QUIT after a completed SMTP-level result, if the peer did not send 421 and does not close the channel itself. The checks with local peers confirm `QUIT/221` after a success; the plaintext also checks the QUIT after an RCPT 450/550. On a timeout of the reply to QUIT the already confirmed DATA result is kept. The TLS peer test with a 100-ms short timeout checks the real socket; a pooled TLS connection does not send QUIT between the repeated transactions. On an explicit shutdown the owner sends QUIT to all the idle plaintext and implicit-TLS pool sessions, without performing a blocking network I/O from Drop; the local peers check the QUIT/221 on the pool, worker, service and scheduler shutdown. An error of one idle session does not cancel the attempt to finish the others and is passed to the calling owner. The normative 5-minute wall-clock timeout, the QUIT rejection in one of several idle sessions and the integration with an external MTA were not checked. For the outgoing BDAT the intermediate reply to every chunk now uses a separate 5-minute command timeout, and BDAT LAST a 10-minute DATA-termination timeout; the 3-minute write timeout is kept for every chunk. The unit tests check the phase selection and the LAST marker. The socket-level application of these intervals is checked by a local TCP peer: a delayed intermediate ACK survives the absence of a reply longer than the short command timeout and leads to a timeout, while a delayed LAST ACK arrives successfully later than the command timeout but before the termination timeout. This checks a plaintext socket with short test intervals, and not the normative minutes on the wall clock; a separate TLS peer for BDAT was not run. A separate rustls unit peer checks the greeting -> EHLO transition for implicit TLS with differing greeting/command deadlines.
 
-### Потоковая передача DATA
+### Streaming DATA transfer
 
-DATA передаётся потоково без дополнительной копии полного message: RFC-ограниченная
-строка формирует bounded fragment, dot-stuffing применяется до записи, а каждый
-фрагмент отправляется через `write_all`. Unit writer с partial writes проверяет
-границу фрагмента и точные octets; независимый Linux SMTP peer сверил около 2 MiB
-payload после dot-unstuffing. Это не измерение peak RSS и не тест максимального
-25 MiB сообщения.
+The DATA is transferred as a stream without an additional copy of the full message: the RFC-bounded line forms a bounded fragment, the dot-stuffing is applied before the write, and every fragment is sent through `write_all`. A unit writer with partial writes checks the fragment boundary and the exact octets; an independent Linux SMTP peer compared about 2 MiB of payload after the dot-unstuffing. This is not a measurement of the peak RSS and not a test of the maximum 25 MiB message.
 # IMAP RFC 9394 PARTIAL checkpoint
 
-`tests/blackbox/imap_partial.py` independently verifies the RFC 9394 extension
-over STARTTLS: the server advertises PARTIAL, ESEARCH returns forward and
-newest-relative rank ranges (including NIL for a wholly absent range), SAVE
-retains the reported subset unless COUNT is also requested, and UID FETCH
-PARTIAL selects ranks after UID-set filtering. A BODY FETCH acceptance also
-confirms that only returned messages acquire `\\Seen`. The Linux Rust 1.97.1
-suite, strict Clippy and release build pass. This is scoped extension evidence,
-not full RFC 9051 conformance or Litterkeep application interoperability.
+`tests/blackbox/imap_partial.py` independently verifies the RFC 9394 extension over STARTTLS: the server advertises PARTIAL, ESEARCH returns forward and newest-relative rank ranges (including NIL for a wholly absent range), SAVE retains the reported subset unless COUNT is also requested, and UID FETCH PARTIAL selects ranks after UID-set filtering. A BODY FETCH acceptance also confirms that only returned messages acquire `\\Seen`. The Linux Rust 1.97.1 suite, strict Clippy and release build pass. This is scoped extension evidence, not full RFC 9051 conformance or Litterkeep application interoperability.
 
 ---
 
-[Навигация по документации](README.md) · [Статус проекта](../STATUS.md) · [README](../README.md)
+[Documentation navigation](README.md) · [Project status](../STATUS.md) · [README](../README.md)
+
+
+
+
+
+
+
+
+
+
+
+

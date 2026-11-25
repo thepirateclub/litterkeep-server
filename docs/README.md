@@ -1,81 +1,84 @@
-# Документация litterkeep-server
+# litterkeep-server documentation
 
-Навигация по документации проекта. Каждый документ отвечает на свой вопрос и
-ссылается на остальные; читать всё подряд не нужно.
+Navigation over the project documentation. Every document answers a single
+question and links to the others; you do not have to read them in order.
 
-## С чего начать
+**The Russian version of the documentation — [ru/README.md](ru/README.md).**
 
-| Вы хотите | Читайте |
+## Where to start
+
+| You want to | Read |
 |---|---|
-| Понять, насколько проект готов | [STATUS.md](../STATUS.md) — сводная готовность, что сделано, что запланировано |
-| Поднять сервер у себя | [README.md](../README.md) — команды запуска и проверенные профили |
-| Подключить почтовый клиент | [client-setup.md](client-setup.md) |
-| Понять устройство сервера | [architecture.md](architecture.md) → [runtime-lifecycle.md](runtime-lifecycle.md) → [storage-format.md](storage-format.md) |
-| Разобраться в конкретном протоколе | [protocol-coverage.md](protocol-coverage.md), затем предметный профиль: [imap-profile.md](imap-profile.md) или [sieve-coverage.md](sieve-coverage.md) |
-| Понять, что проверено фактически | [acceptance.md](acceptance.md) и [acceptance.tsv](acceptance.tsv) |
-| Понять, почему так, а не иначе | [decisions.md](decisions.md) |
-| Оценить риски | [security.md](security.md) |
+| Understand how ready the project is | [../STATUS.md](../STATUS.md) — readiness summary, what is done, what is planned |
+| Run the server locally | [../README.md](../README.md) — start-up commands and verified profiles |
+| Connect a mail client | [client-setup.md](client-setup.md) |
+| Understand how the server is built | [architecture.md](architecture.md) → [runtime-lifecycle.md](runtime-lifecycle.md) → [storage-format.md](storage-format.md) |
+| Work through a specific protocol | [protocol-coverage.md](protocol-coverage.md), then the specific profile: [imap-profile.md](imap-profile.md) or [sieve-coverage.md](sieve-coverage.md) |
+| See what has actually been verified | [acceptance.md](acceptance.md) and [acceptance.tsv](acceptance.tsv) |
+| Understand why it is built this way | [decisions.md](decisions.md) |
+| Assess the risks | [security.md](security.md) |
 
-## Документы
+## Documents
 
-### О проекте в целом
+### About the project as a whole
 
-| Документ | Содержание |
+| Document | Contents |
 |---|---|
-| [architecture.md](architecture.md) | Процесс и владение ресурсами, долговечность записи, протоколы и идентичность, ограничения |
-| [decisions.md](decisions.md) | Принятые решения: исполнение и ожидания, граница `unsafe`, владение ресурсами, фиксация хранилища и очереди, профиль IMAP, отмена и очередь |
-| [runtime-lifecycle.md](runtime-lifecycle.md) | Жизненный цикл задач: владение, ожидание и пробуждение, отмена и очистка, наблюдаемость |
-| [storage-format.md](storage-format.md) | Формат файлового хранилища: журналы, публикация blob, UID, `check` и `backup` |
-| [security.md](security.md) | Пароли, TLS, канонизация аккаунтов, ограничения размеров, что не попадает в логи |
-| [dependencies.md](dependencies.md) | Production-зависимости, allowlist, собственные примитивы вместо crates |
-| [unicode-data.md](unicode-data.md) | Закреплённая версия Unicode data, NFC, IDNA2008, SASLprep, лицензия Unicode |
+| [architecture.md](architecture.md) | Process and resource ownership, write durability, protocols and identity, platform limits |
+| [decisions.md](decisions.md) | Decisions taken: execution and waiting, the unsafe boundary, resource ownership, fixing the storage and the queue, the IMAP profile, cancellation and the queue |
+| [runtime-lifecycle.md](runtime-lifecycle.md) | Task lifecycle: ownership, waiting and wake-up, cancellation and cleanup, observability |
+| [storage-format.md](storage-format.md) | Storage format: journals, blob publication, UIDs and crash recovery |
+| [security.md](security.md) | Passwords, TLS, account canonicalisation, size limits and what never reaches the logs |
+| [dependencies.md](dependencies.md) | Production dependencies, the allowlist and the project's own primitives instead of crates |
+| [unicode-data.md](unicode-data.md) | Pinned Unicode data version, NFC, IDNA2008, SASLprep, data sources and licence |
 
-### Протоколы
+### Protocols
 
-| Документ | Содержание |
+| Document | Contents |
 |---|---|
-| [protocol-coverage.md](protocol-coverage.md) | TLS listener composition, SMTP, IMAP, POP3, Sieve и ManageSieve, outbound SMTP |
-| [imap-profile.md](imap-profile.md) | Построчная матрица IMAP4rev1 и целевого IMAP4rev2 со статусом каждой команды и проверяемой границей |
-| [sieve-coverage.md](sieve-coverage.md) | Профиль Sieve и ManageSieve, RFC 5229 и RFC 5228 |
-| [sieve-extension-audit.md](sieve-extension-audit.md) | Инвентарь современных расширений Sieve: что рекламируется, что реализовано внутри, что не начато |
+| [protocol-coverage.md](protocol-coverage.md) | TLS listener composition, SMTP, IMAP, POP3, Sieve and ManageSieve, outbound SMTP |
+| [imap-profile.md](imap-profile.md) | Line-by-line matrix of IMAP4rev1 and the target IMAP4rev2, with the status of every command group and its verifiable boundary |
+| [sieve-coverage.md](sieve-coverage.md) | Sieve and ManageSieve profile, RFC 5229 and RFC 5228 |
+| [sieve-extension-audit.md](sieve-extension-audit.md) | Inventory of modern Sieve extensions: what is advertised, what is implemented internally, what has not been started |
 
-### Приёмка и эксплуатация
+### Acceptance and operation
 
-| Документ | Содержание |
+| Document | Contents |
 |---|---|
-| [acceptance.md](acceptance.md) | Итоговая приёмка по задачам: что подтверждено и чем |
-| [acceptance.tsv](acceptance.tsv) | Машинно-читаемая матрица приёмки |
-| [client-setup.md](client-setup.md) | Подключение почтового клиента, проверенный профиль и фактический результат |
+| [acceptance.md](acceptance.md) | Final acceptance per task: what was confirmed and how |
+| [acceptance.tsv](acceptance.tsv) | Machine-readable acceptance matrix |
+| [client-setup.md](client-setup.md) | Connecting a mail client, the verified profile and the actual result on a device |
 
-### Журнал разработки
+### Development journal
 
-| Документ | Содержание |
+| Document | Contents |
 |---|---|
-| [GOAL.md](../GOAL.md) | Хронологический журнал этапов: что менялось, какими командами проверялось, какие ограничения обнаружились |
+| [../GOAL.md](../GOAL.md) | Chronological journal of the development stages: what changed, which commands verified it, which limits were found. Kept in its original Russian, as a historical record |
 
-## Условные обозначения
+## Conventions
 
-Документы используют одну конвенцию, заимствованную из
-[imap-profile.md](imap-profile.md):
+The documents use one convention, borrowed from [imap-profile.md](imap-profile.md):
 
-- **PASS** — есть типизированный парсер, переход состояния и профильный тест.
-- **PARTIAL** — намеренно ограниченная семантика; `CAPABILITY` не выдаёт её за
-  более широкое расширение, а граница названа явно.
-- **NOT STARTED** — не реализовано и не рекламируется.
+- **PASS** — there is a typed parser, a state transition and a profile test.
+- **PARTIAL** — deliberately limited semantics. `CAPABILITY` does not present it
+  as a broader extension, and the boundary is named explicitly.
+- **NOT STARTED** — not implemented and not advertised.
 
-Формулировка «проверено» всегда означает конкретное наблюдение: независимый
-wire-клиент, Linux Docker-прогон или профильный тест. Она не означает
-совместимость с production-клиентами и не означает полноту RFC. Там, где это
-важно, документ называет исключение прямо.
+The wording "verified" always refers to a concrete observation: an independent
+wire client, a Linux Docker run or a profile test. It does not mean
+compatibility with production clients, and it does not mean full RFC
+conformance. Where that matters, the document names the exception directly.
 
-## Правила оформления
+## Editorial rules
 
-1. Факт без указания способа проверки — не факт. Каждое утверждение о
-   работоспособности сопровождается ссылкой на проверку.
-2. Отрицательные утверждения формулируются явно («не реализовано», «не
-   рекламируется»), чтобы их нельзя было прочитать как умолчание.
-3. Протокольные профили не заявляют шире, чем реально реализовано:
-   рекламируемая capability — источник истины.
-4. Крупные документы (`protocol-coverage.md`, `imap-profile.md`,
-   `sieve-coverage.md`) держат оглавление, чтобы по ним можно было
-   ориентироваться, не читая целиком.
+1. A fact without a stated verification method is not a fact. Every claim about
+   working functionality comes with a reference to the check.
+2. Negative statements are worded explicitly ("not implemented", "not
+   advertised") so they cannot be read as a default.
+3. Protocol profiles never claim more than what is actually implemented: the
+   advertised capability is the source of truth.
+4. Large documents (`protocol-coverage.md`, `imap-profile.md`,
+   `sieve-coverage.md`) carry a table of contents so they can be navigated
+   without being read end to end.
+5. The Russian version under `ru/` is maintained as a parallel copy. When the
+   English version changes, the Russian version must change with it.

@@ -1,37 +1,38 @@
 # Runtime lifecycle
 
-> **О документе.** Жизненный цикл задач: владение, ожидание и пробуждение, отмена и очистка, наблюдаемость.
+> **About this document.** Task lifecycle: ownership, waiting and wake-up, cancellation and cleanup, observability.
 >
-> Навигация по документации — [docs/README.md](README.md), сводная готовность — [STATUS.md](../STATUS.md).
+> Documentation navigation — [docs/README.md](README.md), project status — [STATUS.md](../STATUS.md).
 
-## Владение
+## Ownership
 
-`runtime::Orchestrator` хранит generation-protected идентификаторы задач,
-exclusive leases ресурсов и реальные регистрации ожиданий. Reactor владеет
-сетевыми session lease, Store работает в одном writer thread, outbound transport
-имеет bounded worker и отдельный connection pool. Значение ресурса не копируется
-при transfer и не попадает в control diagnostics.
+`runtime::Orchestrator` holds generation-protected task identifiers, exclusive
+resource leases and real wait registrations. The reactor owns network session
+leases, the Store runs in a single writer thread, and the outbound transport has
+a bounded worker and a separate connection pool. A resource value is never
+copied on transfer and never appears in control diagnostics.
 
-## Ожидание и пробуждение
+## Waiting and wake-up
 
-Задача сначала наблюдает условие, затем регистрирует versioned wait. Сигнал между
-наблюдением и парковкой сохраняется поколением события. Worker completion будит
-reactor socket, после чего reactor повторно проверяет состояние. Дубликаты wake
-не создают неограниченную ready queue.
+A task first observes the condition and then registers a versioned wait. A
+signal between the observation and the parking is preserved by the generation of
+the event. A worker completion wakes the reactor socket, after which the reactor
+re-checks the state. Duplicate wake-ups do not create an unbounded ready queue.
 
-## Отмена и очистка
+## Cancellation and cleanup
 
-Timeout переводит задачу в `CancelRequested`, но не освобождает живой lease.
-Ресурс возвращается только после фактического завершения владельца и cleanup.
-Stale completion со старым generation не действует на новую выдачу того же slot
-или FD. Control-команда `runtime cancel` использует тот же cooperative path.
+A timeout moves the task to `CancelRequested` but does not release a live lease.
+The resource returns only after the owner has actually finished and cleanup has
+run. A stale completion carrying an old generation does not act on a new issue
+of the same slot or file descriptor. The `runtime cancel` control command uses
+the same cooperative path.
 
-## Наблюдаемость
+## Observability
 
-`runtime stats`, `tasks`, `resources`, `inspect` и `cancel` работают через
-owner-only locator. Они возвращают IDs, состояния и счётчики, но не пароли,
-ключи, тела сообщений или значения ресурсов.
+`runtime stats`, `tasks`, `resources`, `inspect` and `cancel` work through an
+owner-only locator. They return IDs, states and counters, but never passwords,
+keys, message bodies or resource values.
 
 ---
 
-[Навигация по документации](README.md) · [Статус проекта](../STATUS.md) · [README](../README.md)
+[Documentation navigation](README.md) · [Project status](../STATUS.md) · [README](../README.md)

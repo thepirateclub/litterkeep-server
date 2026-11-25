@@ -1,27 +1,28 @@
 # Unicode data profile
 
-> **О документе.** Закреплённая версия Unicode data: NFC, IDNA2008, SASLprep, источники и лицензия данных.
+> **About this document.** Pinned Unicode data version: NFC, IDNA2008, SASLprep, data sources and the data licence.
 >
-> Навигация по документации — [docs/README.md](README.md), сводная готовность — [STATUS.md](../STATUS.md).
+> Documentation navigation — [docs/README.md](README.md), project status — [STATUS.md](../STATUS.md).
 
-## Закреплённая версия
+## Pinned version
 
-Mailbox validator использует таблицы unassigned scalar values из Unicode
-Character Database 17.0.0 `UnicodeData.txt`. Эта версия совпадает с
-`char::UNICODE_VERSION` установленного Rust 1.97.1 и runtime image `rust:1.97`.
-Compile-time assertion в `src/imap/unicode_17.rs` запрещает сборку, если
-встроенная версия Unicode изменится без обновления таблиц.
+The mailbox validator uses the tables of unassigned scalar values from the
+Unicode Character Database 17.0.0 `UnicodeData.txt`. This version matches
+`char::UNICODE_VERSION` of the installed Rust 1.97.1 and the `rust:1.97`
+runtime image. A compile-time assertion in `src/imap/unicode_17.rs` forbids the
+build if the built-in Unicode version changes without updating the tables.
 
-Официальный источник:
+Official source:
 `https://www.unicode.org/Public/17.0.0/ucd/UnicodeData.txt`.
 SHA-256: `2E1EFC1DCB59C575EEDF5CCAE60F95229F706EE6D031835247D843C11D96470C`.
-Локальная acceptance-копия находится в `./data/g19-unicode17/UnicodeData.txt`.
-Она не является runtime-файлом сервера и не включается в бинарник.
+The local acceptance copy is in `./data/g19-unicode17/UnicodeData.txt`.
+It is not a runtime file of the server and is not included in the binary.
 
-`tools/generate_unicode17_unassigned.ps1` строит отсортированные непересекающиеся
-complement ranges и записывает shards в `src/imap/unicode_17_ranges/`. Скрипт
-проверяет SHA-256 исходника и лимит 300 строк на shard. Для повтора нужны
-PowerShell, закреплённый UCD-файл и rustfmt установленного toolchain:
+`tools/generate_unicode17_unassigned.ps1` builds sorted non-overlapping
+complement ranges and writes the shards into `src/imap/unicode_17_ranges/`.
+The script verifies the SHA-256 of the source and the 300-line limit per shard.
+To reproduce it you need PowerShell, the pinned UCD file and rustfmt of the
+installed toolchain:
 
 ```powershell
 .\tools\generate_unicode17_unassigned.ps1
@@ -29,76 +30,81 @@ cargo test --locked imap::unicode_17::tests
 cargo test --locked imap::mailbox_utf8::tests
 ```
 
-Runtime использует binary search по включительным диапазонам. Нет Unicode crate
-или production dependency сверх allowlist. Private-use scalars остаются
-assigned и принимаются: RFC 5198 рекомендует избегать их, но не запрещает их.
+The runtime uses a binary search over the inclusive ranges. There is no Unicode
+crate or production dependency beyond the allowlist. Private-use scalars remain
+assigned and are accepted: RFC 5198 recommends avoiding them but does not forbid
+them.
 
-## NFC normalization для Net-Unicode
+## NFC normalization for Net-Unicode
 
-Приём mailbox names отклоняет unassigned code points закреплённой версии,
-запрещённые RFC 9755 controls и начальный BOM. NFC-модуль расположен в общем
-Unicode-слое, поэтому протокольные границы и Store используют одну версию
-алгоритма. В режиме UTF8=ACCEPT входящие имена канонизируются перед обращением
-к хранилищу, а IMAP mailbox responses сериализуются тем же алгоритмом.
+Accepting mailbox names rejects the unassigned code points of the pinned
+version, the controls forbidden by RFC 9755 and a leading BOM. The NFC module is
+located in the shared Unicode layer, so the protocol boundaries and the Store use
+a single version of the algorithm. In UTF8=ACCEPT mode the incoming names are
+canonicalized before the storage access, and the IMAP mailbox responses are
+serialized with the same algorithm.
 
-Для записей из версий сервера до NFC новая версия не переписывает folder или
-subscription journals. Store ищет старое имя по NFC-эквиваленту, возвращает
-каноническое имя в списках и позволяет rename/delete/unsubscribe через alias.
-Стабильный folder ID остаётся прежним, поэтому mailbox data key не меняется.
-Если в старом каталоге обнаружены два имени с одинаковой NFC-формой, точечное
-разрешение имени возвращает InvalidInput, а не выбирает одну папку случайно.
-Unit-тесты проверяют replay старого folder journal через полный Store reopen,
-сохранность содержимого и alias-операции; независимый IMAP STARTTLS сценарий
-проверяет старое modified UTF-7 имя через новое UTF8=ACCEPT соединение.
+For the records of the server versions before NFC the new version does not
+rewrite folder or subscription journals. The Store looks up the old name by NFC
+equivalence, returns the canonical name in the listings and allows
+rename/delete/unsubscribe through an alias. The stable folder ID stays the
+same, so the mailbox data key does not change. If two names with the same NFC
+form are found in an old directory, the point resolution of the name returns
+InvalidInput instead of picking one folder at random. Unit tests check the
+replay of an old folder journal through a full Store reopen, the preservation of
+the content and the alias operations; an independent IMAP STARTTLS scenario
+checks an old modified UTF-7 name through a new UTF8=ACCEPT connection.
 
-Таблицы NFC построены из официальных Unicode 17.0.0 `UnicodeData.txt`,
-`DerivedNormalizationProps.txt` и `NormalizationTest.txt`. Генератор
-`tools/generate_unicode17_nfc.ps1` закрепляет SHA-256 каждого входа, исключает
-composition exclusions, генерирует canonical decomposition/combining class/
-composition таблицы и делит их на Rust shards менее 300 строк. Алгоритм в
-`src/imap/unicode_17_nfc.rs` обрабатывает Hangul алгоритмически, остальные
-последовательности - через отсортированные таблицы и binary search. Новых
-runtime dependencies нет.
+The NFC tables are built from the official Unicode 17.0.0 `UnicodeData.txt`,
+`DerivedNormalizationProps.txt` and `NormalizationTest.txt`. The generator
+`tools/generate_unicode17_nfc.ps1` pins the SHA-256 of every input, excludes the
+composition exclusions, generates the canonical decomposition/combining
+class/composition tables and splits them into Rust shards of less than 300
+lines. The algorithm in `src/imap/unicode_17_nfc.rs` handles Hangul
+algorithmically and the remaining sequences through the sorted tables and a
+binary search. There are no new runtime dependencies.
 
-Полный официальный corpus прошёл отдельной командой на закреплённых таблицах:
+The full official corpus passed with a separate command against the pinned
+tables:
 
 ```powershell
 $env:LITTERKEEP_UNICODE_NORMALIZATION_TEST = (Resolve-Path data/g20-unicode17-normalization/NormalizationTest.txt).Path
 cargo test --locked unicode::nfc::tests::official_unicode_normalization_vectors -- --ignored --exact
 ```
 
-Все обычные NFC unit vectors входят в стандартный `cargo test`. Независимый
-STARTTLS black-box проверяет decomposed CREATE, composed LIST response,
-SELECT по composed имени и DELETE по decomposed имени. Полный Store reopen и
-wire test проверяют доступ к сохранённой decomposed folder записи по NFC alias;
-journals не переписываются. RFC 5198 формулирует
-нормализацию исходящих строк как SHOULD; реализация NFC не закрывает остальные
-Net-Unicode response paths и сама по себе не разрешает рекламировать
-`UTF8=ACCEPT`.
+All ordinary NFC unit vectors are part of the standard `cargo test`. An
+independent STARTTLS black-box check verifies a decomposed CREATE, a composed
+LIST response, SELECT by the composed name and DELETE by the decomposed name. A
+full Store reopen and a wire test verify the access to the preserved decomposed
+folder record through an NFC alias; the journals are not rewritten. RFC 5198
+formulates the normalization of the outgoing strings as a SHOULD; the NFC
+implementation does not close the remaining Net-Unicode response paths and by
+itself does not allow advertising `UTF8=ACCEPT`.
 
-## IDNA2008 derived properties для SMTP
+## IDNA2008 derived properties for SMTP
 
-`smtp::idna17` использует официальный Unicode 17.0.0 файл
-`idna/Idna2008.txt`, формирующий производные свойства по RFC 5892. Источник:
+`smtp::idna17` uses the official Unicode 17.0.0 file `idna/Idna2008.txt`,
+which forms the derived properties according to RFC 5892. Source:
 `https://www.unicode.org/Public/17.0.0/idna/Idna2008.txt`.
 SHA-256: `E4A7526A8A37539C0DEFA4DA25F5DBF77D0212A14D4762D455CADEA608A8921C`.
-Локальная копия для воспроизводимой генерации хранится в
-`./data/g40-idna17/Idna2008.txt`, не поставляется в runtime и не включается
-в бинарник.
+The local copy for the reproducible generation is stored in
+`./data/g40-idna17/Idna2008.txt`, is not shipped at runtime and is not included
+in the binary.
 
-PowerShell-генератор `tools/generate_idna17_ranges.ps1` проверяет SHA-256,
-извлекает только PVALID/CONTEXTJ/CONTEXTO и делит отсортированные диапазоны
-на Rust shards размером не более 300 строк. Проверка каждого символа выполняет
-binary search по этим shards. Для повтора нужны файл из `./data` и PowerShell:
+The PowerShell generator `tools/generate_idna17_ranges.ps1` verifies the
+SHA-256, extracts only PVALID/CONTEXTJ/CONTEXTO and splits the sorted ranges
+into Rust shards of at most 300 lines. The check of every character is performed
+by a binary search over these shards. To reproduce it you need the file from
+`./data` and PowerShell:
 
 ```powershell
 .\tools\generate_idna17_ranges.ps1
 cargo test --locked smtp::idna17::tests
 ```
 
-Отдельный ignored oracle test читает тот же закреплённый corpus и сверяет
-Derived Property для каждого Unicode scalar, включая ContextJ, ContextO и
-объединённые disallowed/unassigned значения. Его полный повтор:
+A separate ignored oracle test reads the same pinned corpus and compares the
+Derived Property for every Unicode scalar, including ContextJ, ContextO and
+the combined disallowed/unassigned values. Its full reproduction:
 
 ```powershell
 $env:LITTERKEEP_IDNA2008_FILE = (Resolve-Path data/g40-idna17/Idna2008.txt).Path
@@ -106,67 +112,68 @@ cargo test --locked smtp::idna17::conformance_tests::derived_property_matches_of
 Remove-Item Env:LITTERKEEP_IDNA2008_FILE
 ```
 
-Пройденное сравнение охватывает 1,112,064 scalar values. Оно проверяет только
-таблицу категорий RFC 5892, не полную label/domain conformance для NFC, hyphen,
-ContextO/ContextJ, bidi, Punycode и A-label round-trip.
+The comparison covers 1,112,064 scalar values. It checks only the RFC 5892
+category table, not the full label/domain conformance for NFC, hyphen,
+ContextO/ContextJ, bidi, Punycode and the A-label round-trip.
 
-Это только lookup RFC 5892 Derived Property. PVALID не означает, что полный
-label соответствует RFC 5891: NFC, ограничения дефиса, контекстные правила,
-bidi и A-label round-trip должны выполняться верхним IDNA-слоем.
-`smtp::idna17::to_alabel` применяет NFC, hyphen rules, PVALID lookup, RFC 3492
-кодирование и 63-октетный предел кодированного label. ContextO использует
-Unicode 17 Scripts.txt: Greek, Hebrew, Hiragana, Katakana и Han ranges нужны
-для проверок U+0375/U+05F3/U+05F4/U+30FB. Middle dot и взаимоисключающие
-Arabic digit sets проверяются непосредственно по RFC условиям. Генератор
-`tools/generate_idna17_scripts.ps1` закрепляет SHA-256 источника и создаёт
-отсортированную таблицу из 124 диапазонов не более 300 строк.
-Официальный источник: `https://www.unicode.org/Public/17.0.0/ucd/Scripts.txt`.
+This is only an RFC 5892 Derived Property lookup. PVALID does not mean that the
+full label conforms to RFC 5891: NFC, the hyphen restrictions, the contextual
+rules, bidi and the A-label round-trip must be enforced by the upper IDNA
+layer. `smtp::idna17::to_alabel` applies NFC, hyphen rules, the PVALID lookup,
+RFC 3492 encoding and the 63-octet limit of the encoded label. ContextO uses
+Unicode 17 Scripts.txt: the Greek, Hebrew, Hiragana, Katakana and Han ranges
+are needed for the U+0375/U+05F3/U+05F4/U+30FB checks. The middle dot and the
+mutually exclusive Arabic digit sets are checked directly against the RFC
+conditions. The generator `tools/generate_idna17_scripts.ps1` pins the SHA-256
+of the source and creates a sorted table of 124 ranges of at most 300 lines.
+Official source: `https://www.unicode.org/Public/17.0.0/ucd/Scripts.txt`.
 SHA-256: `9F5E50D3ABAEE7D6CE09480F325C706F485AE3240912527E651954D2D6B035BF`.
-Копия лежит в `./data/g40-idna17/Scripts.txt` и нужна только для повторной
-генерации; runtime от неё не зависит.
+The copy is in `./data/g40-idna17/Scripts.txt` and is needed only for the
+repeated generation; the runtime does not depend on it.
 
-ContextJ (ZWJ/ZWNJ) использует `DerivedJoiningType.txt` и canonical combining
-class 9 из `UnicodeData.txt`. ZWNJ принимает непосредственно предшествующий
-virama либо L/D + Transparent* + ZWNJ + Transparent* + R/D; ZWJ требует
-непосредственно предшествующий virama. Генератор `tools/generate_idna17_joining.ps1`
-закрепляет обе версии SHA-256, создаёт joining ranges shards не более 300 строк
-и сжатую virama таблицу.
+ContextJ (ZWJ/ZWNJ) uses `DerivedJoiningType.txt` and the canonical combining
+class 9 from `UnicodeData.txt`. ZWNJ accepts a directly preceding virama or
+L/D + Transparent* + ZWNJ + Transparent* + R/D; ZWJ requires a directly
+preceding virama. The generator `tools/generate_idna17_joining.ps1` pins both
+SHA-256 versions, creates joining ranges shards of at most 300 lines and a
+compressed virama table.
 
-Источники Unicode 17.0.0:
+Unicode 17.0.0 sources:
 `https://www.unicode.org/Public/17.0.0/ucd/extracted/DerivedJoiningType.txt`
-с SHA-256 `F39EBE974825D6736AEE15582250307AA532B2CFAB3CAF3F86BD23FDDC9C5C4D`,
-и `https://www.unicode.org/Public/17.0.0/ucd/UnicodeData.txt` с SHA-256
+with SHA-256 `F39EBE974825D6736AEE15582250307AA532B2CFAB3CAF3F86BD23FDDC9C5C4D`,
+and `https://www.unicode.org/Public/17.0.0/ucd/UnicodeData.txt` with SHA-256
 `2E1EFC1DCB59C575EEDF5CCAE60F95229F706EE6D031835247D843C11D96470C`.
-Fixture файлы лежат в `./data/g40-idna17/`; они не требуются во время работы
-сервера и служат только воспроизводимой генерации.
+The fixture files are in `./data/g40-idna17/`; they are not required while the
+server is running and serve only the reproducible generation.
 
-RFC 5893 применяется на уровне домена: наличие R, AL или AN активирует правило
-для всех labels, включая соседние ASCII/LTR. Входящие ASCII `xn--` labels
-декодируются, проверяются как U-label и обязаны совпасть с повторным
-Punycode-кодированием. `to_alabel_domain` также преобразует U-label домены в
-ASCII DNS form. RFC 5891 запрет ведущих combining marks обеспечен таблицей
-General_Category Mn/Mc/Me из Unicode 17 `UnicodeData.txt` (тот же закреплённый
-SHA-256 источника NFC/virama). Генератор
-`tools/generate_idna17_marks.ps1` воспроизводит 327 ranges в двух source shards.
-SMTP path parser применяет проверку домена IDNA2008: Unicode U-label
-преобразуются в ASCII A-label до локальной маршрутизации. SMTPUTF8 capability
-объявляется вместе с 8BITMIME, а MAIL reverse-path с Unicode требует valueless
-параметр SMTPUTF8. Независимый Linux STARTTLS-клиент проверил передачу письма
-на адрес с U-label, доставку и чтение вложения через IMAP; это не проверка
-приложения Litterkeep и не подтверждение удалённой DNS/MX-доставки.
+RFC 5893 applies at the domain level: the presence of R, AL or AN activates the
+rule for all labels, including the neighbouring ASCII/LTR. The incoming ASCII
+`xn--` labels are decoded, checked as U-labels and must match a repeated
+Punycode encoding. `to_alabel_domain` also converts the U-label domains into
+the ASCII DNS form. The RFC 5891 prohibition of leading combining marks is
+provided by the General_Category Mn/Mc/Me table from Unicode 17
+`UnicodeData.txt` (the same pinned SHA-256 source as for NFC/virama). The
+generator `tools/generate_idna17_marks.ps1` reproduces 327 ranges in two source
+shards. The SMTP path parser applies the IDNA2008 domain check: the Unicode
+U-labels are converted into ASCII A-labels before the local routing. The
+SMTPUTF8 capability is advertised together with 8BITMIME, and a MAIL
+reverse-path with Unicode requires the valueless SMTPUTF8 parameter. An
+independent Linux STARTTLS client verified the submission of a message to an
+address with a U-label, the delivery and the reading of an attachment via
+IMAP; this is not a check of the Litterkeep application and not a confirmation
+of the remote DNS/MX delivery.
 
-Unit test Punycode codec теперь проверяет все 19 sample strings RFC 3492 §7.1
-в обоих направлениях. Для русского примера I используется написание после
-RFC Editor Erratum 3026. Вектор S проверяет Bootstring для произвольного ASCII
-и не является допустимой IDNA-меткой. Эти sample vectors не заменяют полную
-IDNA2008 label/domain conformance suite: полный официальный corpus всё ещё не
-выполнен.
+The Punycode codec unit test now checks all 19 sample strings of RFC 3492 §7.1
+in both directions. For the Russian example I the spelling after RFC Editor
+Erratum 3026 is used. Vector S checks Bootstring for an arbitrary ASCII and is
+not a valid IDNA label. These sample vectors do not replace a full IDNA2008
+label/domain conformance suite: the full official corpus is still not executed.
 
-Дополнительно сохранён официальный Unicode 17 `IdnaTestV2.txt` из UTS #46:
-`./data/g41-idna-v2/IdnaTestV2.txt`, SHA-256
+Additionally the official Unicode 17 `IdnaTestV2.txt` from UTS #46 is
+preserved: `./data/g41-idna-v2/IdnaTestV2.txt`, SHA-256
 `BEB5D0BE20E896189B03209A82FDC34F06351502BBD4B8E2523583FC2954D9CF`, URL
-`https://www.unicode.org/Public/17.0.0/idna/IdnaTestV2.txt`. Для восстановления
-локального ignored fixture:
+`https://www.unicode.org/Public/17.0.0/idna/IdnaTestV2.txt`. To restore the
+local ignored fixture:
 
 ```powershell
 New-Item -ItemType Directory -Force data/g41-idna-v2 | Out-Null
@@ -174,18 +181,18 @@ Invoke-WebRequest -Uri 'https://www.unicode.org/Public/17.0.0/idna/IdnaTestV2.tx
 Get-FileHash data/g41-idna-v2/IdnaTestV2.txt -Algorithm SHA256
 ```
 
-Этот
-файл не является чистым IDNA2008 oracle: он включает UTS #46 mappings,
-transitional processing и более широкий набор статусов. Поэтому отдельный
-ignored test сравнивает только пересечение профилей: NFC input, RFC 5892
-PVALID labels (для A-label проверяется decoded U-label), пустые статусы
-nontransitional ToUnicode и ToASCII и те же ASCII результаты. На закреплённом файле прошли
-172 строки; две записи с surrogate code units явно пропущены, остальные
-непринадлежащие strict-пересечению строки не засчитываются. Это не подтверждает
-UTS #46 mappings, CONTEXTJ/CONTEXTO полную conformance, transitional режим или
-полный IDNA2008 label/domain профиль.
+This file is not a pure IDNA2008 oracle: it includes the UTS #46 mappings, the
+transitional processing and a wider set of statuses. Therefore a separate
+ignored test compares only the intersection of the profiles: NFC input, the
+RFC 5892 PVALID labels (for an A-label the decoded U-label is checked), the
+empty nontransitional ToUnicode and ToASCII statuses and the same ASCII
+results. 172 rows passed on the pinned file; the two records with surrogate
+code units are explicitly skipped, the remaining rows that do not belong to the
+strict intersection are not counted. This does not confirm the UTS #46
+mappings, the full CONTEXTJ/CONTEXTO conformance, the transitional mode or the
+full IDNA2008 label/domain profile.
 
-Повтор выборочного cross-profile oracle:
+Reproduction of the selective cross-profile oracle:
 
 ```powershell
 $env:LITTERKEEP_IDNA_TEST_V2_FILE = (Resolve-Path data/g41-idna-v2/IdnaTestV2.txt).Path
@@ -304,4 +311,4 @@ of the copyright holder.
 
 ---
 
-[Навигация по документации](README.md) · [Статус проекта](../STATUS.md) · [README](../README.md)
+[Documentation navigation](README.md) · [Project status](../STATUS.md) · [README](../README.md)

@@ -1,68 +1,71 @@
-# Архитектурные решения
+# Architectural decisions
 
-> **О документе.** Почему сервер устроен именно так: принятые решения, их обоснование и цена.
+> **About this document.** Why the server is built the way it is: the decisions taken, their rationale and their cost.
 >
-> Навигация по документации — [docs/README.md](README.md), сводная готовность — [STATUS.md](../STATUS.md).
+> Documentation navigation — [docs/README.md](README.md), project status — [STATUS.md](../STATUS.md).
 
-## Исполнение и ожидания
+## Execution and waiting
 
-Сервер использует один Linux `poll(2)` reactor для listener-ов и сессий.
-Протокольная сессия является ресурсом `Orchestrator`: `ResourceLease<Session>`
-содержит реальный socket/state, а registry хранит только проверяемую metadata.
-Storage completion будит poll-loop Unix socket-ом, не отдельным thread на
-ожидающую сессию. Проверки `exclusive_resource_cannot_be_double_issued` и
-`signal_between_observation_and_park_is_not_lost` подтверждают exclusive lease
-и отсутствие lost wake между observation и parking.
+The server uses a single Linux `poll(2)` reactor for listeners and sessions. A
+protocol session is a resource of the `Orchestrator`: `ResourceLease<Session>`
+holds the real socket and state, while the registry stores only verifiable
+metadata. A storage completion wakes the poll loop through a Unix socket, not
+through a separate thread per waiting session. The checks
+`exclusive_resource_cannot_be_double_issued` and
+`signal_between_observation_and_park_is_not_lost` confirm the exclusive lease
+and the absence of a lost wake between observation and parking.
 
-## Граница unsafe
+## The unsafe boundary
 
-Производственные unsafe-границы ограничены двумя Linux FFI-модулями, каждый из
-которых снимает запрет unsafe только для себя:
+Production unsafe boundaries are limited to two Linux FFI modules, each of which
+lifts the unsafe ban for itself only:
 
-- `src/platform/linux_poll.rs` — вызов `poll(2)`. Перед вызовом создаётся живой
-  contiguous `repr(C)` массив дескрипторов, а функция заимствует их только на
-  время syscall.
-- `src/platform/linux_lock.rs` — вызов `flock(2)` для advisory writer lock.
-  Дескриптор принадлежит live `File`, а `flock` не получает им владение.
+- `src/platform/linux_poll.rs` — the `poll(2)` call. Before the call a live
+  contiguous `repr(C)` array of descriptors is created, and the function borrows
+  them only for the duration of the syscall.
+- `src/platform/linux_lock.rs` — the `flock(2)` call for the advisory writer
+  lock. The descriptor belongs to a live `File`, and `flock` takes no ownership
+  of it.
 
-Остальной crate запрещает unsafe через `#![deny(unsafe_code)]` в `src/lib.rs`,
-и оба модуля помечены `#![allow(unsafe_code)]` локально.
+The rest of the crate forbids unsafe through `#![deny(unsafe_code)]` in
+`src/lib.rs`, and both modules are marked `#![allow(unsafe_code)]` locally.
 
-## Владение ресурсами
+## Resource ownership
 
-Store открывается единственным `StorageWorker`; protocol session передаёт ему
-bounded request и никогда не получает `Store` lease. Исходящий SMTP worker
-владеет одним bounded `ConnectionPool` в единственном thread. Его completion
-channel является источником истины, а Linux wake socket передаёт лишь
-coalesced hint. Поэтому полный wake socket не теряет completion.
+The Store is opened by a single `StorageWorker`; a protocol session hands it a
+bounded request and never receives a `Store` lease. The outgoing SMTP worker
+owns one bounded `ConnectionPool` in a single thread. Its completion channel is
+the source of truth, while the Linux wake socket carries only a coalesced hint.
+A full wake socket therefore never loses a completion.
 
-## Фиксация хранилища и очереди
+## Fixing the storage and the queue
 
-Blob, mailbox links и owned outbound job публикуются одним durable Store
-transaction. Очередь видит job только после global commit ID. Перед исходящей
-SMTP попыткой job должен получить durable `InFlight` transition; recovery
-переводит незавершённый `InFlight` в `Deferred`. Retry deadline хранится как
-Unix epoch, отдельно от монотонных сроков reactor-а.
+A blob, mailbox links and an owned outbound job are published by one durable
+Store transaction. The queue sees the job only after the global commit ID.
+Before an outgoing SMTP attempt the job must receive a durable `InFlight`
+transition; recovery moves an unfinished `InFlight` into `Deferred`. The retry
+deadline is stored as a Unix epoch, separately from the monotonic deadlines of
+the reactor.
 
-## Профиль IMAP
+## The IMAP profile
 
-IMAP использует typed parser и state machine. `\Recent` хранится как
-session-local projection: durable delivery фиксирует кандидат UID, а SELECT
-atomарно claim-ит его для одной сессии. Поэтому marker не превращается в
-persistent message flag. Все уже selected sessions получают marker при live
-уведомлении; это допустимая определённая реализацией сторона неоднозначности
-RFC 3501 для нескольких открытых соединений. Durable кандидат остаётся до
-первого будущего SELECT, переживает restart до claim и после claim больше не
-выдаётся следующей сессии.
+IMAP uses a typed parser and a state machine. `\Recent` is stored as a
+session-local projection: a durable delivery records a candidate UID, and
+SELECT atomically claims it for one session. The marker therefore never turns
+into a persistent message flag. All already selected sessions receive the marker
+on a live notification; this is a permissible implementation-defined side of the
+RFC 3501 ambiguity for multiple open connections. The durable candidate stays
+until the next future SELECT, survives a restart before the claim, and after the
+claim is no longer issued to the next session.
 
-## Отмена и очередь
+## Cancellation and the queue
 
-Закрытие входящей сессии освобождает её lifecycle lease, но не удаляет
-зафиксированное письмо. Уже committed delivery принадлежит durable queue, а
-не TCP-соединению отправителя. Таймаут запускает request cancellation, однако
-не является доказательством освобождения живого ресурса: lease возвращается
-только после подтверждённого completion либо quarantine/close.
+Closing an incoming session releases its lifecycle lease but does not delete the
+committed message. A committed delivery belongs to the durable queue, not to the
+sender's TCP connection. A timeout starts request cancellation, but it is not
+proof that a live resource has been released: the lease returns only after a
+confirmed completion or a quarantine/close.
 
 ---
 
-[Навигация по документации](README.md) · [Статус проекта](../STATUS.md) · [README](../README.md)
+[Documentation navigation](README.md) · [Project status](../STATUS.md) · [README](../README.md)

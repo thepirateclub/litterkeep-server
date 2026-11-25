@@ -1,181 +1,181 @@
-# Инвентарь современных расширений Sieve
+# Inventory of modern Sieve extensions
 
-> **О документе.** Инвентарь современных расширений Sieve: что рекламируется, что реализовано внутри, что не начато.
+> **About this document.** Inventory of modern Sieve extensions: what is advertised, what is implemented inside, what is not started.
 >
-> Навигация по документации — [docs/README.md](README.md), сводная готовность — [STATUS.md](../STATUS.md).
+> Documentation navigation — [docs/README.md](README.md), project status — [STATUS.md](../STATUS.md).
 
-## Оглавление
+## Contents
 
-- [Область инвентаря и рекламируемый capability](#область-инвентаря-и-рекламируемый-capability)
-- [Статус расширений и следующие необходимые границы](#статус-расширений-и-следующие-необходимые-границы)
-- [Позиция сервера и история реализации](#позиция-сервера-и-история-реализации)
-- [Текущий остаток RFC 5229 Variables](#текущий-остаток-rfc-5229-variables)
-- [Состояние RFC 5228 encoded-character](#состояние-rfc-5228-encoded-character)
-- [Историческая запись T421-T429](#историческая-запись-t421-t429)
-- [Развитие VariableStore и matcher backtracking](#развитие-variablestore-и-matcher-backtracking)
-- [Базовый RFC 5228: адресные списки](#базовый-rfc-5228-адресные-списки)
+- [Scope of the inventory and the advertised capability](#scope-of-the-inventory-and-the-advertised-capability)
+- [Status of the extensions and the next necessary boundaries](#status-of-the-extensions-and-the-next-necessary-boundaries)
+- [Server position and implementation history](#server-position-and-implementation-history)
+- [Current remainder of RFC 5229 Variables](#current-remainder-of-rfc-5229-variables)
+- [State of RFC 5228 encoded-character](#state-of-rfc-5228-encoded-character)
+- [Historical record T421-T429](#historical-record-t421-t429)
+- [Evolution of VariableStore and matcher backtracking](#evolution-of-variablestore-and-matcher-backtracking)
+- [Base RFC 5228: address lists](#base-rfc-5228-address-lists)
 
-### Область инвентаря и рекламируемый capability
+### Scope of the inventory and the advertised capability
 
-Дата сверки: 2026-09-29. Инвентарь ограничен расширениями, заметно меняющими
-совместимость с современными Sieve clients. Он не является полным перечнем
-IANA registry и не заменяет отдельные acceptance для каждого расширения.
+Reconciliation date: 2026-09-29. The inventory is limited to the extensions that noticeably change
+the compatibility with the modern Sieve clients. It is not a complete list of the
+IANA registry and does not replace the separate acceptance for each extension.
 
-Реальный `SIEVE` capability из `src/managesieve/session.rs`:
+The real `SIEVE` capability from `src/managesieve/session.rs`:
 `fileinto subaddress envelope copy vacation vacation-seconds`.
-Проверка capability unit-тестом подтверждает именно этот список. Расширение
-считается поддержанным только когда оно рекламируется и имеет parser,
-валидацию, typed execution semantics и профильные тесты.
+A unit test of the capability confirms exactly this list. An extension is
+considered supported only when it is advertised and has a parser,
+the validation, the typed execution semantics and the profile tests.
 
-### Статус расширений и следующие необходимые границы
+### Status of the extensions and the next necessary boundaries
 
-| Capability | RFC | Статус в litterkeep | Следующая необходимая граница |
+| Capability | RFC | Status in litterkeep | Next necessary boundary |
 |---|---|---|---|
-| `fileinto` | RFC 5228 | Реализовано, рекламируется | Сценарии `:create` и современные mailbox selectors остаются за пределами базовой поддержки. |
-| `subaddress` | RFC 3598 | Реализовано, рекламируется | Проверить все допустимые recipient-part варианты и межклиентские адресные соглашения. |
-| `copy` | RFC 3894 | Реализовано, рекламируется | Проверить комбинации с actions и доставкой на независимом профиле. |
-| `vacation-seconds` | RFC 6131 | Реализовано, рекламируется | Остальные границы vacation и взаимодействие с расширениями требуют отдельного профиля. |
-| `variables` | [RFC 5229](https://www.rfc-editor.org/rfc/rfc5229.html) | Частично: `set` AST/parser/runtime, per-script store, modifiers, capture references и `string` test работают; common condition/action strings, comparator и envelope-part arguments раскрываются во время выполнения; capability не рекламируется | Переменные в произвольных byte strings, совместный acceptance профиль и ManageSieve discovery/interoperability. |
-| `encoded-character` | [RFC 5228 §2.4.2.4](https://www.rfc-editor.org/rfc/rfc5228.html#section-2.4.2.4) | Частично: `parse_octets` декодирует `${hex:...}`/`${unicode:...}` во всех строковых token-ах после quoted escape и dot-unstuffing; matcher и fileinto/redirect actions хранят byte-valued аргументы; capability не рекламируется | Провести октеты через vacation/set и прочие AST/runtime границы; тестировать raw-byte ManageSieve scripts и полную RFC матрицу; только затем решать об advertisement. |
-| `body` | [RFC 5173](https://www.rfc-editor.org/rfc/rfc5173.html) | Не реализовано, не рекламируется | MIME-aware `:raw`, `:content`, `:text`; не допускать совпадений через границы частей и ограничить CPU/память. |
-| `reject`, `ereject` | [RFC 5429](https://www.rfc-editor.org/rfc/rfc5429.html) | Не реализовано, не рекламируется | Нужна Sieve evaluation до SMTP принятия DATA для protocol-level refusal; post-accept DSN не эквивалентен `ereject`. |
-| `imap4flags` | [RFC 5232](https://www.rfc-editor.org/rfc/rfc5232.html) | Не реализовано, не рекламируется | Реализовать `setflag`, `addflag`, `removeflag`, `hasflag` и `:flags` с durable mailbox flag mutation. |
-| IMAP events | [RFC 6785](https://www.rfc-editor.org/rfc/rfc6785.html) | Не реализовано, не рекламируется | Требуются IMAP flag support и определённый event context для Sieve execution. |
-| `mailboxid` | [RFC 9042](https://www.rfc-editor.org/rfc/rfc9042.html) | Не реализовано, не рекламируется | Требуются устойчивые mailbox OBJECTID, `:mailboxid` у `fileinto` и `mailboxidexists`. |
-| Mailbox metadata | [RFC 5490](https://www.rfc-editor.org/rfc/rfc5490.html) | Не реализовано, не рекламируется | `mailboxexists`, metadata tests и metadata-based processing. |
-| Special-use delivery | [RFC 8579](https://www.rfc-editor.org/rfc/rfc8579.html) | Не реализовано, не рекламируется | Требуются `specialuse`, `:specialuse` и согласование с typed special-use каталогом. |
+| `fileinto` | RFC 5228 | Implemented, advertised | The `:create` scenarios and the modern mailbox selectors remain outside the basic support. |
+| `subaddress` | RFC 3598 | Implemented, advertised | Check all the admissible recipient-part variants and the inter-client address conventions. |
+| `copy` | RFC 3894 | Implemented, advertised | Check the combinations with the actions and the delivery on an independent profile. |
+| `vacation-seconds` | RFC 6131 | Implemented, advertised | The remaining vacation boundaries and the interaction with the extensions require a separate profile. |
+| `variables` | [RFC 5229](https://www.rfc-editor.org/rfc/rfc5229.html) | Partial: the `set` AST/parser/runtime, the per-script store, the modifiers, the capture references and the `string` test work; the common condition/action strings, the comparator and the envelope-part arguments are expanded at runtime; the capability is not advertised | The variables in the arbitrary byte strings, a joint acceptance profile and the ManageSieve discovery/interoperability. |
+| `encoded-character` | [RFC 5228 §2.4.2.4](https://www.rfc-editor.org/rfc/rfc5228.html#section-2.4.2.4) | Partial: `parse_octets` decodes `${hex:...}`/`${unicode:...}` in all the string tokens after the quoted escape and the dot-unstuffing; the matcher and the fileinto/redirect actions store the byte-valued arguments; the capability is not advertised | Run the octets through the vacation/set and the other AST/runtime boundaries; test the raw-byte ManageSieve scripts and the full RFC matrix; only then decide on the advertisement. |
+| `body` | [RFC 5173](https://www.rfc-editor.org/rfc/rfc5173.html) | Not implemented, not advertised | The MIME-aware `:raw`, `:content`, `:text`; do not allow the matches across the part boundaries and limit the CPU/memory. |
+| `reject`, `ereject` | [RFC 5429](https://www.rfc-editor.org/rfc/rfc5429.html) | Not implemented, not advertised | A Sieve evaluation before the SMTP acceptance of DATA is needed for the protocol-level refusal; a post-accept DSN is not equivalent to the `ereject`. |
+| `imap4flags` | [RFC 5232](https://www.rfc-editor.org/rfc/rfc5232.html) | Not implemented, not advertised | Implement the `setflag`, `addflag`, `removeflag`, `hasflag` and `:flags` with the durable mailbox flag mutation. |
+| IMAP events | [RFC 6785](https://www.rfc-editor.org/rfc/rfc6785.html) | Not implemented, not advertised | The IMAP flag support and a defined event context for the Sieve execution are required. |
+| `mailboxid` | [RFC 9042](https://www.rfc-editor.org/rfc/rfc9042.html) | Not implemented, not advertised | A stable mailbox OBJECTID, the `:mailboxid` of `fileinto` and the `mailboxidexists` are required. |
+| Mailbox metadata | [RFC 5490](https://www.rfc-editor.org/rfc/rfc5490.html) | Not implemented, not advertised | The `mailboxexists`, the metadata tests and the metadata-based processing. |
+| Special-use delivery | [RFC 8579](https://www.rfc-editor.org/rfc/rfc8579.html) | Not implemented, not advertised | The `specialuse`, the `:specialuse` and the reconciliation with the typed special-use catalog are required. |
 
-### Позиция сервера и история реализации
+### Server position and implementation history
 
-RFC Editor указывает для RFC 5228 обновления RFC 5229, 5429, 6785 и 9042.
-Таблица включает также RFC 5173 и базовые широко используемые extensions;
-прочие стандарты Sieve, их dependencies и errata требуют дальнейшего аудита.
-На дату этой записи корректная позиция сервера - частичная реализация с узким
-списком рекламируемых extensions, не полный современный Sieve профиль.
+The RFC Editor points to the RFC 5229, 5429, 6785 and 9042 as the updates of the RFC 5228.
+The table also includes the RFC 5173 and the basic widely used extensions;
+the other Sieve standards, their dependencies and the errata require a further audit.
+As of the date of this record the correct position of the server is a partial implementation with a narrow
+list of the advertised extensions, not a full modern Sieve profile.
 
-T421 добавил в `src/sieve/matching/glob.rs` helper, который возвращает byte
-captures для `*` и `?` по мере выполнения существующего whole-string matcher.
-T422 подключил эти результаты к per-script execution state: capture zero
-содержит совпавший вход, последующие captures следуют порядку wildcard-ов;
-ошибочное сопоставление не перезаписывает состояние, а составные тесты
-сохраняют обязательные порядок слева направо и short-circuit.
+T421 added a helper in `src/sieve/matching/glob.rs` that returns the byte
+captures for the `*` and the `?` as the existing whole-string matcher executes.
+T422 wired these results into the per-script execution state: the capture zero
+contains the matched input, the subsequent captures follow the order of the wildcards;
+an erroneous match does not overwrite the state, and the composite tests
+preserve the mandatory left-to-right order and the short-circuit.
 
-### Текущий остаток RFC 5229 Variables
+### Current remainder of RFC 5229 Variables
 
-**Текущий остаток RFC 5229 после T445.** `set`, `string`, modifier-ы, один
-проход раскрытия, numeric captures с ведущими нулями, неизвестные имена и
-per-script scope теперь связаны с parser/runtime. `string` сохраняет пробелы,
-сравнивает оба списка, обновляет captures успешного `:matches` и участвует в
-short-circuit. Условия `header`, `address`, `envelope` и `exists` раскрывают
-свои string arguments непосредственно перед оценкой, только если требуется
-`variables`. `fileinto`, `redirect` и все string-поля `vacation` раскрываются
-в точке action и повторно проходят проверки path, mailbox и MIME; redirect по-
-прежнему проходит Store allowlist/hop-limit. RFC 5229 backslash quoting уже
-снимается лексером до expansion; регрессия покрывает `\${foo}`, `\\${foo}` и
-literal-dollar single-pass образец. Compile-time проход AST отвергает namespace,
-если его capability не требуется; `${variables.unknown}` считается неизвестным
-именем и раскрывается в пустую строку. Comparator string arguments также
-раскрываются в точке условия и повторно разрешаются только в поддерживаемые
-enum-значения; неизвестный результат вызывает runtime failure. Envelope-part
-string list также раскрывается в точке `envelope` test-а и повторно разбирается
-в `from`/`to`. Расширение всё ещё не рекламируется: RFC 5228
-`encoded-character` expansion (раздел 2.4.2.4) частично реализован после T446,
-но не рекламируется из-за неполного byte-valued action path. Production
-`parse_octets(&[u8])` сохраняет quoted/multiline string bytes; `StringMatch`
-keys и `Condition::String.sources` в AST также byte-valued. `is`, `contains` и
-`matches` сравнивают октеты без lossy UTF-8, а подстрочный поиск использует
-линейный KMP. Parser-to-runtime regression подтверждает literal с октетами
-`FF 80`. После T447 аргументы `fileinto` и `redirect` также сохраняются как
-октеты в AST; runtime преобразует их в UTF-8 при проверке mailbox/address,
-поэтому бинарный target синтаксически принимается, но завершается typed runtime
-error. Vacation/set AST и `VariableStore` остаются текстовыми: byte literal с
-interpolation marker-ом пока требует UTF-8. Поэтому произвольный `hex` octet
-ещё не проходит весь script путь, а переменная не может безопасно
-интерполироваться в произвольный binary literal.
-Нормативный порядок:
-quoted-string escape и dot-unstuffing, затем `encoded-character`, затем RFC 5229
-variable expansion. Нельзя применять lossy UTF-8 к `hex` или объявлять Variables
-доступным до byte-exact tests для всего профиля. T443 добавил
-ограниченный ManageSieve -> SMTP -> IMAP wire acceptance для dynamic selectors,
-однако тест вручную использует `require "variables"`, которое не рекламируется.
-Это не подтверждает совместимость клиента, полную RFC conformance матрицу или
-готовность включить Variables capability. T445 проверяет parser-to-condition
-runtime path на unit-уровне, но не ManageSieve wire acceptance с raw bytes и не
-полный Sieve script path через actions.
+**The current remainder of the RFC 5229 after T445.** The `set`, the `string`, the modifiers, the one
+expansion pass, the numeric captures with the leading zeros, the unknown names and the
+per-script scope are now wired to the parser/runtime. The `string` preserves the spaces,
+compares both lists, updates the captures of a successful `:matches` and takes part in the
+short-circuit. The conditions `header`, `address`, `envelope` and `exists` expand
+their string arguments right before the evaluation, only if the
+`variables` is required. The `fileinto`, the `redirect` and all the string fields of the `vacation` are expanded
+at the point of the action and re-pass the path, mailbox and MIME checks; a redirect still
+passes the Store allowlist/hop-limit. The RFC 5229 backslash quoting is already
+removed by the lexer before the expansion; a regression covers the `\${foo}`, the `\\${foo}` and a
+literal-dollar single-pass pattern. The compile-time AST pass rejects a namespace
+if its capability is not required; the `${variables.unknown}` is considered an unknown
+name and is expanded into an empty string. The string arguments of the comparator
+are also expanded at the point of the condition and are resolved again only into the
+supported enum values; an unknown result causes a runtime failure. The envelope-part
+string list is also expanded at the point of the `envelope` test and is parsed
+again into the `from`/`to`. The extension is still not advertised: the RFC 5228
+`encoded-character` expansion (section 2.4.2.4) is partially implemented after T446,
+but is not advertised because of the incomplete byte-valued action path. The production
+`parse_octets(&[u8])` preserves the quoted/multiline string bytes; the `StringMatch`
+keys and the `Condition::String.sources` in the AST are also byte-valued. The `is`, the `contains` and the
+`matches` compare the octets without a lossy UTF-8, and the substring search uses
+a linear KMP. A parser-to-runtime regression confirms a literal with the octets
+`FF 80`. After T447 the arguments of the `fileinto` and the `redirect` are also preserved as
+the octets in the AST; the runtime converts them into UTF-8 when checking the mailbox/address,
+so a binary target is syntactically accepted, but ends in a typed runtime
+error. The vacation/set AST and the `VariableStore` remain textual: a byte literal with
+an interpolation marker still requires UTF-8. Therefore an arbitrary `hex` octet
+does not yet pass the whole script path, and a variable cannot safely be
+interpolated into an arbitrary binary literal.
+The normative order:
+the quoted-string escape and the dot-unstuffing, then the `encoded-character`, then the RFC 5229
+variable expansion. It is not allowed to apply a lossy UTF-8 to the `hex` or to declare the Variables
+available before the byte-exact tests for the whole profile. T443 added a
+limited ManageSieve -> SMTP -> IMAP wire acceptance for the dynamic selectors,
+but the test manually uses the `require "variables"`, which is not advertised.
+This does not confirm the client compatibility, the full RFC conformance matrix or the
+readiness to enable the Variables capability. T445 checks the parser-to-condition
+runtime path at the unit level, but not a ManageSieve wire acceptance with the raw bytes and not the
+full Sieve script path through the actions.
 
-### Состояние RFC 5228 encoded-character
+### State of RFC 5228 encoded-character
 
-**RFC 5228 encoded-character после T447.** Начальный `require
-"encoded-character"` включает замену `${hex:...}` на octets и `${unicode:...}`
-на UTF-8 scalar values после лексического unescaping и dot-unstuffing. Имена
-sequence case-insensitive; malformed input остаётся буквальным, nested
-sequence обрабатывается по RFC, well-formed недопустимая Unicode scalar
-sequence даёт parse error. Парсер передаёт результат в byte-valued matcher
-AST; fileinto/redirect сохраняют байты до проверки UTF-8 на runtime boundary.
-Vacation/set аргументы и несколько других AST полей пока требуют UTF-8,
-поэтому расширение распознаётся для явно требующих его scripts, но не
-публикуется в ManageSieve capability list. Это не полный extension profile.
+**The RFC 5228 encoded-character after T447.** The initial `require
+"encoded-character"` enables the substitution of the `${hex:...}` with the octets and the `${unicode:...}`
+with the UTF-8 scalar values after the lexical unescaping and the dot-unstuffing. The names of a
+sequence are case-insensitive; the malformed input remains literal, a nested
+sequence is handled per the RFC, a well-formed invalid Unicode scalar
+sequence gives a parse error. The parser passes the result into the byte-valued matcher
+AST; the fileinto/redirect preserve the bytes until the UTF-8 check on the runtime boundary.
+The vacation/set arguments and several other AST fields still require UTF-8,
+so the extension is recognized for the scripts that explicitly require it, but is not
+published in the ManageSieve capability list. This is not a full extension profile.
 
-### Историческая запись T421-T429
+### Historical record T421-T429
 
-Историческая запись T421-T429 ниже описывает состояние на даты тех этапов;
-её выводы о полном отсутствии `set`/`string` superseded текущим статусом выше.
-До включения capability требовалось:
-реализованы интерпретация variable-ref за один проход (неизвестная переменная
-становится пустой строкой, некорректная ссылка остаётся как есть), case-
-insensitive имена, расширение только после обработки quoting/encoded-character,
-runtime expansion на момент достижения команды, `set` только с константным
-валидным именем и запретом изменения match variables, `string` test без
-неявного trim, и все шесть modifier-ов с RFC precedence и запретом двух
-modifier-ов одного precedence. Runtime должен поддержать минимум 128 distinct
-переменных, 32 ASCII-символа имени и 4000 символов значения, а также `${0}`
-и decimal match-index-ы; leading zeroes допустимы, отсутствующий index
-раскрывается в пустую строку.
-Нужно отдельно зафиксировать поведение Unicode character length и bounded
-memory expansion. Пока эти требования не проверены совместно, `variables`
-должно оставаться не рекламируемым.
+The historical record T421-T429 below describes the state at the dates of those stages;
+its conclusions about the complete absence of the `set`/`string` are superseded by the current status above.
+Before enabling the capability the following was required:
+the one-pass interpretation of a variable-ref (an unknown variable
+becomes an empty string, an incorrect reference remains as is), the case-
+insensitive names, the extension only after the handling of the quoting/encoded-character,
+the runtime expansion at the moment the command is reached, the `set` only with a constant
+valid name and a ban on changing the match variables, a `string` test without
+an implicit trim, and all the six modifiers with the RFC precedence and a ban on the two
+modifiers of the same precedence. The runtime must support at least 128 distinct
+variables, 32 ASCII characters of the name and 4000 characters of the value, as well as the `${0}`
+and the decimal match-indexes; the leading zeroes are allowed, a missing index
+is expanded into an empty string.
+The behaviour of the Unicode character length and the bounded
+memory expansion have to be fixed separately. As long as these requirements are not verified together, the `variables`
+must remain non-advertised.
 
-### Развитие VariableStore и matcher backtracking
+### Evolution of VariableStore and matcher backtracking
 
-T425 добавил самостоятельный `VariableStore`: ASCII-регистронезависимые имена,
-до 128 переменных, имена до 32 символов, сохранённые значения обрезаются до
-4000 Unicode scalar values. `expand` выполняет один проход, раскрывает numeric
-captures и именованные ссылки, оставляет некорректные ссылки и возвращает пустую
-строку для неизвестных валидных имён. Numeric references принимают любое
-decimal-представление индекса, включая leading zeroes; недоступный или
-переполняющий машинный тип индекс раскрывается в пустую строку. Отдельный
-локальный предел результата -
-65 536 символов; его превышение возвращает typed error. Это протестированное
-ядро библиотеки, но не часть AST/executor pipeline. В частности, lexer пока не
-передаёт provenance escaping/encoded-character, parser не разбирает и не
-валидирует variable references, а engine не подключён к typed ошибкам parser-а.
-T426 добавил typed errors в
-engine для валидной namespace-ссылки без включённого namespace extension;
-parser-time diagnostics ещё отсутствуют. Предыдущие T426/T427 неверно
-трактовали numeric references как одиночную цифру или syntax error; RFC 5229
-разрешает leading zeroes и раскрывает недоступный index в пустую строку.
-Расхождение исправлено в T428. `set` и `string` отсутствуют, поэтому
-capability остаётся скрытым.
+T425 added an independent `VariableStore`: the ASCII case-insensitive names,
+up to 128 variables, the names up to 32 characters, the stored values are truncated to
+4000 Unicode scalar values. The `expand` performs a single pass, expands the numeric
+captures and the named references, leaves the incorrect references and returns an empty
+string for the unknown valid names. The numeric references accept any decimal
+representation of the index, including the leading zeroes; an unavailable or
+an overflowing machine-type index is expanded into an empty string. A separate
+local limit of the result -
+65 536 characters; its excess returns a typed error. This is a tested
+library core, but not a part of the AST/executor pipeline. In particular, the lexer does not yet
+pass the provenance of the escaping/encoded-character, the parser does not parse and
+validate the variable references, and the engine is not connected to the typed errors of the parser.
+T426 added the typed errors into the
+engine for a valid namespace reference without an enabled namespace extension;
+the parser-time diagnostics are still missing. The previous T426/T427 wrongly
+interpreted the numeric references as a single digit or a syntax error; the RFC 5229
+allows the leading zeroes and expands an unavailable index into an empty string.
+The discrepancy was corrected in T428. The `set` and the `string` are absent, so the
+capability remains hidden.
 
-T428 также заменил greedy glob capture matching на backtracking, чтобы
-соблюдать non-greedy распределение wildcard captures и сбрасывать значения
-неудачных ветвей. Поиск ограничен одним миллионом шагов. T429 исправил путь
-исчерпания бюджета: matcher возвращает typed work-limit error, evaluator
-передаёт его как `ExecutionError::MatcherLimit`, а delivery planner выбирает
-implicit keep и пишет diagnostic вместо ложного `NoMatch`. Store integration
-test проверяет, что частичный `discard` не применяется, письмо остаётся в
-INBOX, а typed diagnostic читается после переоткрытия Store.
+T428 also replaced the greedy glob capture matching with the backtracking, in order to
+comply with the non-greedy distribution of the wildcard captures and to reset the values of
+the failed branches. The search is limited to one million steps. T429 corrected the path of
+the budget exhaustion: the matcher returns a typed work-limit error, the evaluator
+passes it as the `ExecutionError::MatcherLimit`, and the delivery planner chooses the
+implicit keep and writes a diagnostic instead of a false `NoMatch`. A Store integration
+test verifies that a partial `discard` is not applied, the message stays in the
+INBOX, and the typed diagnostic is read after reopening the Store.
 
-## Базовый RFC 5228: адресные списки
+## Base RFC 5228: address lists
 
-Sieve `address` использует общий RFC 5322 mailbox parser. До T424 проекция
-ограничивалась первыми 64 mailboxes и молча игнорировала остальную часть
-валидного заголовка, что противоречило правилу «любой адрес/key match». Лимит
-удалён; стоимость ограничивается максимальным размером принятого сообщения
-(25 MiB). Регрессионный тест проверяет сохранение 65-го адреса. Это устраняет
-только скрытое усечение и не является заявлением полной совместимости
-address-test с RFC 5228.
+The Sieve `address` uses the common RFC 5322 mailbox parser. Before T424 the projection
+was limited to the first 64 mailboxes and silently ignored the rest of the
+valid header, which contradicted the rule of "any address/key match". The limit
+was removed; the cost is limited by the maximum size of an accepted message
+(25 MiB). A regression test verifies the preservation of the 65th address. This eliminates
+only the hidden truncation and is not a claim of the full compatibility of the
+address-test with the RFC 5228.
 
 ---
 
-[Навигация по документации](README.md) · [Статус проекта](../STATUS.md) · [README](../README.md)
+[Documentation navigation](README.md) · [Project status](../STATUS.md) · [README](../README.md)
