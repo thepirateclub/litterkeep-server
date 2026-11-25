@@ -54,7 +54,7 @@ fn append_many_persists_typed_smtp_dsn_after_owner_completion() {
 
 /// Ожидает completion bounded request с конечным сроком теста.
 fn receive_successful_append(worker: &StorageWorker) {
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
     loop {
         match worker.try_response() {
             Ok(Response::Appended {
@@ -63,7 +63,7 @@ fn receive_successful_append(worker: &StorageWorker) {
             }) => return,
             Ok(response) => panic!("unexpected storage response: {response:?}"),
             Err(TryRecvError::Empty) if std::time::Instant::now() < deadline => {
-                std::thread::yield_now();
+                std::thread::sleep(std::time::Duration::from_millis(2));
             }
             Err(error) => panic!("storage completion was not produced: {error}"),
         }

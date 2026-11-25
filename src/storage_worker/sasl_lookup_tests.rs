@@ -60,10 +60,18 @@ fn sha256_verifier_lookup_stays_inside_the_accounts_owner() {
 
 /// Ожидает завершение одного запроса, не открывая Store в тестовом потоке.
 fn receive(worker: &StorageWorker) -> Response {
+    // Конечный бюджет обязателен: без него зависший воркер держит CI-джоб до
+    // его общий таймаут. Пауза вместо yield_now оставляет CPU потоку воркера.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
     loop {
         match worker.try_response() {
             Ok(response) => return response,
-            Err(std::sync::mpsc::TryRecvError::Empty) => std::thread::yield_now(),
+            Err(std::sync::mpsc::TryRecvError::Empty) if std::time::Instant::now() < deadline => {
+                std::thread::sleep(std::time::Duration::from_millis(2));
+            }
+            Err(std::sync::mpsc::TryRecvError::Empty) => {
+                panic!("worker не ответил до истечения бюджета ожидания")
+            }
             Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                 panic!("worker завершился до completion")
             }

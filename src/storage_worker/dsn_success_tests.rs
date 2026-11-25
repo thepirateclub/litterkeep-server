@@ -240,7 +240,11 @@ fn idle_worker_continues_success_notice_backlog_beyond_one_bounded_page() {
 }
 
 fn receive(worker: &StorageWorker) -> Response {
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    // Один bounded-проход сброса обрабатывает до 100 durable intents, и на
+    // медленном диске CI-раннера он занимает больше 5 секунд. Бюджет ожидания
+    // должен покрывать всю пачку, а пауза вместо yield_now не даёт тестовому
+    // потоку отнимать CPU у потока воркера.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
     loop {
         if let Ok(response) = worker.try_response() {
             return response;
@@ -249,6 +253,6 @@ fn receive(worker: &StorageWorker) -> Response {
             std::time::Instant::now() < deadline,
             "worker response timeout"
         );
-        std::thread::yield_now();
+        std::thread::sleep(std::time::Duration::from_millis(2));
     }
 }
