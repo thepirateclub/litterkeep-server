@@ -215,21 +215,37 @@ fn idle_worker_continues_success_notice_backlog_beyond_one_bounded_page() {
     }
 
     let worker = StorageWorker::start(&directory, 2).expect("start owner");
-    std::thread::sleep(std::time::Duration::from_secs(3));
-    worker
-        .submit(Request::Read {
-            request_id: 101,
-            mailbox: "alice".into(),
-        })
-        .expect("read after idle background sweeps");
-    let response = receive(&worker);
-    assert!(matches!(
-        response,
-        Response::Read {
-            request_id: 101,
-            result: Ok(snapshot)
-        } if snapshot.messages.len() == 101
-    ));
+    // Ждём фактического опустошения бэклога, а не фиксированную паузу. Один
+    // bounded-проход сброса обрабатывает до 100 durable intents, и на медленном
+    // диске CI-раннера пачка из 101 intent не укладывается в заданное время.
+    // Счётчик доставленных DSN-отчётов в mailbox alice растёт по мере
+    // проходов, поэтому он и служит признаком завершения сброса.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(180);
+    let mut request_id = 101;
+    let drained = loop {
+        worker
+            .submit(Request::Read {
+                request_id,
+                mailbox: "alice".into(),
+            })
+            .expect("read while the idle worker sweeps the backlog");
+        let Some(Response::Read {
+            request_id: answered,
+            result: Ok(snapshot),
+        }) = try_receive_until(&worker, deadline)
+        else {
+            break false;
+        };
+        assert_eq!(answered, request_id, "unexpected storage response id");
+        if snapshot.messages.len() == 101 {
+            break true;
+        }
+        request_id += 1;
+    };
+    assert!(
+        drained,
+        "idle worker did not drain the success notice backlog in time"
+    );
     worker.shutdown();
 
     let recovered = Store::open(&directory).expect("verify fully swept backlog");
@@ -245,14 +261,18 @@ fn receive(worker: &StorageWorker) -> Response {
     // должен покрывать всю пачку, а пауза вместо yield_now не даёт тестовому
     // потоку отнимать CPU у потока воркера.
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    try_receive_until(worker, deadline).expect("worker response timeout")
+}
+
+/// Опрашивает канал ответа воркера до наступления общего срока ожидания.
+fn try_receive_until(worker: &StorageWorker, deadline: std::time::Instant) -> Option<Response> {
     loop {
         if let Ok(response) = worker.try_response() {
-            return response;
+            return Some(response);
         }
-        assert!(
-            std::time::Instant::now() < deadline,
-            "worker response timeout"
-        );
+        if std::time::Instant::now() >= deadline {
+            return None;
+        }
         std::thread::sleep(std::time::Duration::from_millis(2));
     }
 }
