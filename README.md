@@ -67,7 +67,7 @@ The full profile of every protocol and the verified boundaries are described in
 
 ## Requirements
 
-| | |
+| Item | Requirement |
 |---|---|
 | Language | Rust **1.97.0** (pinned in `rust-toolchain.toml` and `Cargo.toml`) |
 | Server OS | Linux — the reactor is built on `poll(2)` |
