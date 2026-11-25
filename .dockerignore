@@ -11,3 +11,14 @@ test-pki*
 **/*.log
 **/__pycache__
 **/*.pyc
+**/*.pem
+**/*.der
+**/*.key
+**/*.p12
+**/*.crt
+.env
+.env.*
+.gitignore
+.dockerignore
+.github
+

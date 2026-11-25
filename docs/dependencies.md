@@ -18,8 +18,9 @@ reactor и lifecycle orchestration реализованы в этом репоз
 RFC 5804 §2.1 требует SCRAM-SHA-1. Allowlist production dependencies по-прежнему
 разрешает только `rustls` и `argon2`; hash/HMAC API закреплённого rustls backend
 не является публичным API приложения, а прямое использование транзитивного
-crate недопустимо. В `src/sasl/sha1.rs`, `hmac_sha1.rs` и `pbkdf2_sha1.rs`
-добавлены собственные safe-Rust примитивы без новой зависимости. Их узкие
+crate недопустимо. В `src/sasl/sha1.rs`, `src/sasl/hmac_sha1.rs` и
+`src/sasl/pbkdf2_sha1.rs` добавлены собственные safe-Rust примитивы без новой
+зависимости. Их узкие
 проверки сравниваются с RFC 3174, RFC 2202 и RFC 6070 известными ответами.
 SHA-1 применяется только как legacy совместимость SCRAM, не для подписей,
 нового хранения паролей или защиты от collision атак.

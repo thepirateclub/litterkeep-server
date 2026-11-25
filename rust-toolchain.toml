@@ -1,0 +1,10 @@
+# Закреплённый тулчейн разработки.
+#
+# Совпадает с rust-version в Cargo.toml и с образом rust:1.97-bookworm
+# в docker/Dockerfile.linux-test. Это сознательно: проверки в CI, локальный
+# прогон и Docker-верификация должны идти на одной и той же версии Rust,
+# иначе линты и проверки расходятся между окружениями.
+[toolchain]
+channel = "1.97.0"
+profile = "minimal"
+components = ["rustfmt", "clippy"]

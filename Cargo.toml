@@ -4,7 +4,21 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.97"
 description = "A small self-hosted mail server implemented without a mail engine or async runtime."
-license = "UNLICENSED"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/katagarov/litterkeep-server"
+homepage = "https://github.com/katagarov/litterkeep-server"
+keywords = ["smtp", "imap", "pop3", "managesieve", "mail-server"]
+categories = ["email", "network-programming"]
+# Это сервер для локального профиля, а не библиотека для публикации.
+publish = false
+exclude = [
+    "GOAL.md",
+    "docs/",
+    "tests/",
+    "docker/",
+    "tools/",
+]
 
 [[bin]]
 name = "litterkeep-server"

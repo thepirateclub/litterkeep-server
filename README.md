@@ -343,16 +343,28 @@ SMTP success, а не принимает письмо без обещанной 
 The only runtime binary is `target/release/litterkeep-server`. Current Docker
 test state is placed under ignored `data/` stage directories.
 
-See `GOAL.md` for actual stage status and `litterkeep-rust-terra-goal.md` for
-the requested project contract.
+See `GOAL.md` for actual stage status.
 
 Документация результата:
 
 - [`docs/architecture.md`](docs/architecture.md), архитектура и ownership;
+- [`docs/decisions.md`](docs/decisions.md), принятые архитектурные решения;
 - [`docs/runtime-lifecycle.md`](docs/runtime-lifecycle.md), задачи и ресурсы;
 - [`docs/storage-format.md`](docs/storage-format.md), durable storage/recovery;
 - [`docs/protocol-coverage.md`](docs/protocol-coverage.md), SMTP/IMAP/POP3/Sieve;
+- [`docs/imap-profile.md`](docs/imap-profile.md), матрица IMAP4rev1 и IMAP4rev2;
+- [`docs/sieve-coverage.md`](docs/sieve-coverage.md), профиль Sieve и ManageSieve;
+- [`docs/sieve-extension-audit.md`](docs/sieve-extension-audit.md), инвентарь
+  современных расширений Sieve;
+- [`docs/unicode-data.md`](docs/unicode-data.md), закреплённая версия Unicode data;
+- [`docs/dependencies.md`](docs/dependencies.md), production-зависимости и их
+  allowlist;
 - [`docs/client-setup.md`](docs/client-setup.md), litterkeep и endpoints;
 - [`docs/security.md`](docs/security.md), security profile;
 - [`docs/acceptance.md`](docs/acceptance.md) и
   [`docs/acceptance.tsv`](docs/acceptance.tsv), фактическая матрица.
+
+## Лицензия
+
+[MIT](LICENSE). См. также [SECURITY.md](SECURITY.md) по сообщению об уязвимостях
+и ограничениям текущего профиля сервера.

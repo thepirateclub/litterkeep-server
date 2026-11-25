@@ -8422,7 +8422,7 @@ ManageSieve до заявленного набора современных фо
 - Независимый сетевой сценарий `tests/blackbox/imap_idle_move.py` подготовлен и
   проходит `py_compile`, но NOT RUN по протоколу. После разрешения file sharing
   финальный image собрался, однако новый `docker run --rm -v
-  H:\\github\\mail-server\\data\\g06-idle-move:/data ... init /data bob
+  ./data/g06-idle-move:/data ... init /data bob
   bob-password` завис до вывода результата, как и прежний runtime-контейнер.
   Поэтому unit/integration доказательство не выдано за сетевой black-box PASS.
 - G06 остаётся RUNNING: требуется завершить оставшиеся классы concurrent-change
