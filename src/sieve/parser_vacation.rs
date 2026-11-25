@@ -2,7 +2,7 @@
 
 use super::super::super::ast::{Action, VacationAction, VacationInterval};
 use super::super::super::lexer::Token;
-use super::super::super::parser_values::{atom, one_string, string_list};
+use super::super::super::parser_values::{atom, one_octet_string, one_string, string_list};
 use std::collections::{HashSet, VecDeque};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -39,7 +39,7 @@ pub(super) fn parse(input: &mut VecDeque<Token>) -> Result<Action, &'static str>
         addresses: Vec::new(),
         mime: false,
         handle: None,
-        reason: String::new(),
+        reason: Vec::new(),
     };
     while let Some(Token::Atom(tag)) = input.front() {
         let Some(selected) = parameter(tag) else {
@@ -66,7 +66,7 @@ pub(super) fn parse(input: &mut VecDeque<Token>) -> Result<Action, &'static str>
             Parameter::Handle => action.handle = Some(one_string(input)?),
         }
     }
-    action.reason = one_string(input)?;
+    action.reason = one_octet_string(input)?;
     Ok(Action::Vacation(action))
 }
 

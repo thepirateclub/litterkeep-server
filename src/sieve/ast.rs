@@ -79,7 +79,7 @@ pub enum VariableModifier {
     Length,
 }
 
-/// Параметры RFC 5230, сохранённые без потери исходных Sieve strings.
+/// Параметры RFC 5230; reason хранится как octets до MIME/text обработки.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VacationAction {
     pub interval: Option<VacationInterval>,
@@ -88,7 +88,7 @@ pub struct VacationAction {
     pub addresses: Vec<String>,
     pub mime: bool,
     pub handle: Option<String>,
-    pub reason: String,
+    pub reason: Vec<u8>,
 }
 
 /// Интервал RFC 5230 либо уточняющий интервал RFC 6131.

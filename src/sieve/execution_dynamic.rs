@@ -39,8 +39,22 @@ pub(super) fn vacation(
             .collect::<Result<Vec<_>, _>>()?,
         mime: action.mime,
         handle: optional(action.handle.as_deref(), state)?,
-        reason: expand(&action.reason, state)?,
+        reason: expand_reason(&action.reason, state)?,
     })
+}
+
+/// Сохраняет binary reason без marker-а, но раскрывает Variables только из UTF-8.
+fn expand_reason(value: &[u8], state: &ExecutionState) -> Result<Vec<u8>, ExecutionError> {
+    let contains_marker = value.windows(2).any(|marker| marker == b"${");
+    if !state.variables_enabled || !contains_marker {
+        return Ok(value.to_vec());
+    }
+    let text = std::str::from_utf8(value).map_err(|_| ExecutionError::VariableRuntime)?;
+    state
+        .variables
+        .expand_octets(text, state.match_variables.octets())
+        .map(String::into_bytes)
+        .map_err(|_error| ExecutionError::VariableRuntime)
 }
 
 fn optional(value: Option<&str>, state: &ExecutionState) -> Result<Option<String>, ExecutionError> {

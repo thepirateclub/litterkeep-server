@@ -18,7 +18,7 @@ fn vacation_expands_header_mailbox_identity_and_mime_reason_fields() {
     assert_eq!(action.handle.as_deref(), Some("summer"));
     assert_eq!(action.interval, None::<VacationInterval>);
     assert!(action.mime);
-    assert_eq!(action.reason, "Content-Type: text/plain\r\n\r\nAway\r\n");
+    assert_eq!(action.reason, b"Content-Type: text/plain\r\n\r\nAway\r\n");
 }
 
 #[test]

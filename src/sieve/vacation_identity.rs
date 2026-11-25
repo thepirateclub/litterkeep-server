@@ -19,7 +19,7 @@ pub(crate) fn response_identity(action: &VacationAction) -> io::Result<String> {
             field(&mut input, action.subject.as_deref().map(str::as_bytes))?;
             field(&mut input, action.from.as_deref().map(str::as_bytes))?;
             input.push(u8::from(action.mime));
-            field(&mut input, Some(action.reason.as_bytes()))?;
+            field(&mut input, Some(&action.reason))?;
         }
     }
     let parameters = Params::new(8, 1, 1, Some(32))

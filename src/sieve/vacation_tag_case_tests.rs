@@ -20,7 +20,7 @@ fn vacation_parameters_are_ascii_case_insensitive() {
     );
     assert_eq!(action.subject.as_deref(), Some("Away"));
     assert_eq!(action.handle.as_deref(), Some("trip"));
-    assert_eq!(action.reason, "Gone");
+    assert_eq!(action.reason, b"Gone");
 }
 
 /// Capability identifiers в отличие от остальных токенов чувствительны к регистру.

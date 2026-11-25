@@ -11,7 +11,7 @@ pub(super) fn action(action: &Action) -> Result<(), &'static str> {
         | Action::RedirectCopy(value) => validate_octets(value),
         Action::Set(action) => validate(&action.value),
         Action::Vacation(action) => {
-            validate(&action.reason)?;
+            validate_octets(&action.reason)?;
             optional(action.subject.as_deref())?;
             optional(action.from.as_deref())?;
             optional(action.handle.as_deref())?;

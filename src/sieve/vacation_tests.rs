@@ -21,7 +21,7 @@ fn vacation_requires_capability_and_parses_typed_parameters() {
             addresses: vec!["bob@test".into(), "bobby@test".into()],
             mime: true,
             handle: Some("summer".into()),
-            reason: "Content-Type: text/plain\r\n\r\nAway\r\n".into(),
+            reason: b"Content-Type: text/plain\r\n\r\nAway\r\n".to_vec(),
         }
     );
 }
@@ -101,6 +101,31 @@ fn generated_utf8_reply_has_safe_headers_and_decodable_body() {
     assert_eq!(
         crate::mime::quoted_printable::decode(body).expect("decode"),
         "Вернусь завтра\r\n".as_bytes()
+    );
+}
+
+#[test]
+fn encoded_binary_vacation_reason_is_preserved_in_quoted_printable_body() {
+    let script = parse("require [\"vacation\", \"encoded-character\"]; vacation \"${hex:00 FF}\";")
+        .expect("binary Sieve reason");
+    let response = super::build_vacation_response(
+        vacation_action(&script),
+        "bob@litterkeep.test",
+        "alice@peer.test",
+        &[],
+        1_790_000_000,
+    )
+    .expect("binary-safe generated reply");
+    let parsed = crate::mime::header_block::parse(&response).expect("reply headers");
+    assert!(
+        response
+            .windows(b"Content-Type: application/octet-stream\r\n".len())
+            .any(|part| part == b"Content-Type: application/octet-stream\r\n")
+    );
+    let body = response.get(parsed.body_offset..).expect("reply body");
+    assert_eq!(
+        crate::mime::quoted_printable::decode(body),
+        Ok(vec![0, 0xff, b'\r', b'\n'])
     );
 }
 

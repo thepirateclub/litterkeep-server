@@ -74,19 +74,19 @@ fn addresses(action: &VacationAction, variables_required: bool) -> Result<(), &'
         if unsafe_header(from) {
             return Err("invalid vacation from mailbox-list");
         }
-        if !dynamic(from, variables_required) && !mailbox_list(from) {
+        if !dynamic(from.as_bytes(), variables_required) && !mailbox_list(from) {
             return Err("invalid vacation from mailbox-list");
         }
     }
     for address in &action.addresses {
         if unsafe_header(address)
-            || (!dynamic(address, variables_required) && !single_mailbox(address))
+            || (!dynamic(address.as_bytes(), variables_required) && !single_mailbox(address))
         {
             return Err("invalid vacation address");
         }
     }
     if action.mime && !dynamic(&action.reason, variables_required) {
-        super::super::vacation_mime::validate_reason(action.reason.as_bytes())?;
+        super::super::vacation_mime::validate_reason(&action.reason)?;
     }
     Ok(())
 }
@@ -96,8 +96,8 @@ pub(super) fn validate_expanded(action: &VacationAction) -> Result<(), &'static 
     addresses(action, false)
 }
 
-fn dynamic(value: &str, variables_required: bool) -> bool {
-    variables_required && value.contains("${")
+fn dynamic(value: &[u8], variables_required: bool) -> bool {
+    variables_required && value.windows(2).any(|marker| marker == b"${")
 }
 
 fn mailbox_list(value: &str) -> bool {

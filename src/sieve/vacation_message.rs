@@ -24,8 +24,8 @@ pub(crate) fn build_response(
     write_header(&mut output, "Auto-Submitted", "auto-replied");
     append_reply_references(&mut output, headers);
     match action.mime {
-        true => append_mime_entity(&mut output, action.reason.as_bytes())?,
-        false => append_utf8_text(&mut output, action.reason.as_bytes()),
+        true => append_mime_entity(&mut output, &action.reason)?,
+        false => append_utf8_text(&mut output, &action.reason),
     }
     Ok(output)
 }
@@ -63,6 +63,10 @@ fn append_reply_references(output: &mut Vec<u8>, headers: &[(String, String)]) {
 }
 
 fn append_utf8_text(output: &mut Vec<u8>, body: &[u8]) {
+    if std::str::from_utf8(body).is_err() {
+        append_opaque_octets(output, body);
+        return;
+    }
     output.extend_from_slice(b"MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n");
     match body.iter().any(|byte| !byte.is_ascii()) {
         true => {
@@ -74,6 +78,15 @@ fn append_utf8_text(output: &mut Vec<u8>, body: &[u8]) {
             output.extend_from_slice(body);
         }
     }
+    ensure_crlf(output);
+}
+
+/// Не объявляет произвольные байты UTF-8: сохраняет их как quoted-printable octets.
+fn append_opaque_octets(output: &mut Vec<u8>, body: &[u8]) {
+    output.extend_from_slice(
+        b"MIME-Version: 1.0\r\nContent-Type: application/octet-stream\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n",
+    );
+    output.extend_from_slice(&crate::mime::quoted_printable_encode::encode(body));
     ensure_crlf(output);
 }
 
