@@ -1,5 +1,56 @@
 # Покрытие протоколов
 
+> **О документе.** Подробное покрытие протоколов: TLS listener composition, SMTP, IMAP, POP3, Sieve и ManageSieve, исходящий SMTP.
+>
+> Навигация по документации — [docs/README.md](README.md), сводная готовность — [STATUS.md](../STATUS.md).
+
+## Оглавление
+
+- [TLS listener composition](#tls-listener-composition)
+- [SMTP](#smtp)
+  - [RFC 3461 DSN: negotiation, уведомления и failure reports](#rfc-3461-dsn-negotiation-уведомления-и-failure-reports)
+  - [Submission, PIPELINING и валидация DATA](#submission-pipelining-и-валидация-data)
+  - [Авторизация sender-а и idle deadline](#авторизация-sender-а-и-idle-deadline)
+  - [RFC 3030 CHUNKING и BINARYMIME](#rfc-3030-chunking-и-binarymime)
+  - [TLS closure, STARTTLS pipeline и аутентификация](#tls-closure-starttls-pipeline-и-аутентификация)
+  - [Разбор команд и синтаксис envelope path](#разбор-команд-и-синтаксис-envelope-path)
+  - [Порядок сессии, mailbox grammar и SMTPUTF8](#порядок-сессии-mailbox-grammar-и-smtputf8)
+  - [Postmaster и лимиты envelope](#postmaster-и-лимиты-envelope)
+  - [VRFY, EXPN и расширения ESMTP](#vrfy-expn-и-расширения-esmtp)
+- [IMAP](#imap)
+  - [Базовый набор команд и SELECT/EXAMINE](#базовый-набор-команд-и-selectexamine)
+  - [TLS closure, аутентификация и UTF8=ACCEPT](#tls-closure-аутентификация-и-utf8accept)
+  - [RFC 2971 ID, LITERAL+ и APPENDLIMIT](#rfc-2971-id-literal-и-appendlimit)
+  - [FETCH, BODYSTRUCTURE и параметры MIME](#fetch-bodystructure-и-параметры-mime)
+  - [Structured MIME, BODY-секции и BINARY](#structured-mime-body-секции-и-binary)
+  - [SEARCH, charset-декодирование и MIME-дерево](#search-charset-декодирование-и-mime-дерево)
+  - [MIME-декодирование, quoted-printable и multipart](#mime-декодирование-quoted-printable-и-multipart)
+  - [FETCH-семантика и разбор адресов RFC 5322](#fetch-семантика-и-разбор-адресов-rfc-5322)
+  - [SEARCH SAVE, ESEARCH и charset-профиль](#search-save-esearch-и-charset-профиль)
+  - [WHATWG-декодеры, aliases и encoded-word матрица](#whatwg-декодеры-aliases-и-encoded-word-матрица)
+- [POP3](#pop3)
+  - [Возможности POP3 и TLS lifecycle](#возможности-pop3-и-tls-lifecycle)
+  - [AUTHORIZATION FSM и разбор аргументов](#authorization-fsm-и-разбор-аргументов)
+  - [CAPA и расширенные коды ответов](#capa-и-расширенные-коды-ответов)
+  - [LIST, UIDL и управление maildrop](#list-uidl-и-управление-maildrop)
+  - [SASL-механизмы POP3](#sasl-механизмы-pop3)
+  - [Размерный профиль RFC 5034 и SCRAM transcript](#размерный-профиль-rfc-5034-и-scram-transcript)
+  - [CAPA после AUTH и границы client-final](#capa-после-auth-и-границы-client-final)
+  - [RFC 6856: UTF8, LANG и обработка сообщений](#rfc-6856-utf8-lang-и-обработка-сообщений)
+- [Sieve и ManageSieve](#sieve-и-managesieve)
+  - [RFC 5804: capability transitions и SASL](#rfc-5804-capability-transitions-и-sasl)
+  - [SCRAM-SHA-256-PLUS и tls-exporter](#scram-sha-256-plus-и-tls-exporter)
+  - [Quota и управление скриптами](#quota-и-управление-скриптами)
+  - [Токенизатор, NOOP и literal-аргументы](#токенизатор-noop-и-literal-аргументы)
+  - [Приём literal-аргументов ManageSieve](#приём-literal-аргументов-managesieve)
+- [Outbound SMTP](#outbound-smtp)
+  - [Маршрутизация, scheduler и capabilities peer-а](#маршрутизация-scheduler-и-capabilities-peer-а)
+  - [Лимиты строк, SIZE и BINARYMIME/CHUNKING](#лимиты-строк-size-и-binarymimechunking)
+  - [Фазовая обработка ответов и код 421](#фазовая-обработка-ответов-и-код-421)
+  - [Downgrade EHLO/HELO и socket timeouts](#downgrade-ehlohelo-и-socket-timeouts)
+  - [QUIT, shutdown пула и BDAT timeouts](#quit-shutdown-пула-и-bdat-timeouts)
+  - [Потоковая передача DATA](#потоковая-передача-data)
+
 ## TLS listener composition
 
 Linux-команда `serve-all-mail-tls` обслуживает SMTP submission, IMAP, POP3 и
@@ -15,6 +66,8 @@ submission, IMAP и POP3; ManageSieve включён в общую команд�
 архитектурное удобство, но это не расширение утверждений о сфере RFC 8314.
 
 ## SMTP
+
+### RFC 3461 DSN: negotiation, уведомления и failure reports
 
 RFC 3461 `DSN` рекламируется через EHLO; независимые raw-socket peers
 подтвердили capability, принятие MAIL `RET`/`ENVID` и RCPT `NOTIFY`/`ORCPT`,
@@ -167,6 +220,8 @@ report type, `Action: failed` и точное поле `Final-Recipient`. Это
 объём условий и downstream relay семантики.
 См. [RFC 3464 §2.3.2](https://www.rfc-editor.org/rfc/rfc3464.html#section-2.3.2).
 
+### Submission, PIPELINING и валидация DATA
+
 Submission поддерживает implicit TLS и STARTTLS, EHLO, AUTH PLAIN, MAIL SIZE,
 несколько RCPT, DATA с однократным dot-unstuffing, RSET, NOOP и QUIT. Также
 рекламируются RFC 2920 `PIPELINING` и RFC 6152 `8BITMIME`. Независимый
@@ -194,6 +249,9 @@ peer отправляет более 26 MiB без разделителя, за�
 552 и успешно продолжает той же сессией командой NOOP. Это проверяет bounded
 input и синхронизацию после отказа, но не означает сохранение отвергнутого
 сообщения или проверку приложения Litterkeep. См. [RFC 5321 §4.5.3.1.6](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.5.3.1.6).
+
+### Авторизация sender-а и idle deadline
+
 До TLS AUTH запрещён. Ненулевой envelope sender должен принадлежать
 authenticated owner. RFC 6409 §3.2 разрешённый `MAIL FROM:<>` не отклоняется
 только из-за пустого reverse-path: authenticated identity даёт MSA return path;
@@ -215,6 +273,8 @@ server-side timeout acceptance, не тест приложения Litterkeep.
 передал свежие body octets и получил TCP EOF через 180.1 секунды после второго
 socket read. Тем самым проверено, что новый фактически принятый блок запускает
 полный трёхминутный срок заново, а не только что первоначальный срок истекает.
+
+### RFC 3030 CHUNKING и BINARYMIME
 
 RFC 3030 `CHUNKING` объявляется через EHLO во всех режимах SMTP и принимает
 `BDAT n [LAST]` с точным octet framing, нулевыми и промежуточными chunks.
@@ -262,6 +322,8 @@ NUL/high-bit octets и нетекстовые bare CR/LF; отдельные т�
 coverage, не outbound доставка на реальный внешний сервер или Litterkeep app.
 См. [RFC 3030 §§2-3](https://www.rfc-editor.org/rfc/rfc3030.html#section-2).
 
+### TLS closure, STARTTLS pipeline и аутентификация
+
 По рекомендации RFC 8314 §3.4 implicit-TLS SMTP-сессия отвечает на
 peer-инициированный `close_notify` после обычного NOOP reply. Независимый Linux
 TLS peer подтверждает SMTP reply и завершает TLS `unwrap()` без SMTP QUIT.
@@ -297,6 +359,8 @@ legacy-файл временно переименован; тест восста
 `./data/g18-legacy-phc-20260928` и подтверждает только SMTP wire/auth/storage,
 не IMAP/POP3/ManageSieve или Litterkeep app.
 
+### Разбор команд и синтаксис envelope path
+
 Аргумент HELO проверяется как единственный RFC 5321 Domain. EHLO принимает
 единственный Domain либо валидный IPv4/IPv6 address-literal; пустой аргумент,
 лишние слова, лишние пробелы и ошибочные DNS labels получают 501. Валидные
@@ -330,6 +394,8 @@ ASCII/UTF-8 query с marker-ом и без него, malformed marker и session
 ASCII SP согласно grammar RFC 5321: HTAB, повторный или завершающий пробел
 получают 501. Несколько корректных MAIL-параметров с одиночным SP остаются
 допустимы; независимый raw-TCP клиент проверяет отказ и восстановление сессии.
+
+### Порядок сессии, mailbox grammar и SMTPUTF8
 
 SMTP session требует HELO/EHLO перед MAIL/RCPT/DATA. HELO включает только базовый
 SMTP режим: ESMTP MAIL-параметры, AUTH и STARTTLS требуют EHLO. Успешные HELO и
@@ -442,6 +508,9 @@ UTF-8 header octets. Conforming U-label SMTP/IMAP delivery проверена о
 клиентом выше. Полная грамматика RFC 6532 для UTF-8 в structured fields и
 совместимость с Litterkeep app остаются непроверенными. Имена полей остаются
 ASCII, не являются RFC 6532 extension.
+
+### Postmaster и лимиты envelope
+
 RFC 5321 Postmaster принимается как bare `<Postmaster>` без домена и как
 `postmaster@domain` для локально обслуживаемых доменов; регистр reserved local
 name и домена не влияет на route. Независимый STARTTLS тест отправил DATA и
@@ -458,6 +527,8 @@ Envelope допускает не менее 100 успешных RCPT. Посл�
 STARTTLS SMTP/IMAP black-box проверил 100 ответов 250, ответ 452 на 101-й,
 успешную отправку и чтение результата Bob по IMAP. Это проверка лимита буфера,
 а не полной семантики адресной политики или распределения ошибок RCPT.
+
+### VRFY, EXPN и расширения ESMTP
 
 RFC 5321 VRFY отвечает `252` без проверки и раскрытия существования mailbox;
 EXPN распознаётся, но возвращает `502`, так как сервер не предоставляет mailing
@@ -539,6 +610,8 @@ octets вместе с CRLF (dot-stuffing octet не считается): нез
 
 ## IMAP
 
+### Базовый набор команд и SELECT/EXAMINE
+
 Реализованы STARTTLS/implicit TLS, LOGIN, AUTHENTICATE PLAIN с SASL-IR, LIST,
 LSUB, CREATE/RENAME/DELETE, SELECT/EXAMINE, STATUS, APPEND, SEARCH, FETCH,
 BODYSTRUCTURE, MIME sections/partial, STORE, COPY, MOVE, EXPUNGE, UID EXPUNGE,
@@ -561,6 +634,8 @@ EXAMINE также возвращает `PERMANENTFLAGS ()`, тогда как r
 `FLAGS` selection response объединяет system flags и реально сохранённые
 mailbox keywords; acceptance создаёт уникальный keyword через APPEND и видит его
 после SELECT и EXAMINE.
+
+### TLS closure, аутентификация и UTF8=ACCEPT
 
 Implicit-TLS IMAP отвечает на peer-инициированный `close_notify` после
 успешного tagged NOOP reply. Независимый Linux TLS peer завершил `unwrap()`;
@@ -631,6 +706,8 @@ CAPABILITY объявляет `LIST-EXTENDED` по RFC 5258 и `LIST-STATUS` п�
 используют один session-owned recent UID набор. Это не снимает ограничения
 частичного IMAP4rev1 профиля.
 
+### RFC 2971 ID, LITERAL+ и APPENDLIMIT
+
 RFC 2971 `ID` is advertised and accepted in every IMAP state. The parser
 validates `NIL` or a field/value list, enforces the 30-pair, 30-octet field,
 1024-octet value and unique-name limits, then discards client-supplied identity
@@ -681,6 +758,8 @@ APPENDLIMIT для mailbox; oversize APPEND получает tagged `NO [TOOBIG]
 continuation и приёма payload. Независимый STARTTLS клиент проверил capability,
 STATUS, LIST STATUS и отклонение размера `26214401`; полная загрузка сообщения
 ровно предельного размера отдельным wire-тестом не измерялась.
+
+### FETCH, BODYSTRUCTURE и параметры MIME
 
 `FETCH` принимает одиночные и сгруппированные data items, раскрывает ALL, FAST
 и FULL, обязательно включает ровно один UID item в каждый ответ UID FETCH даже
@@ -779,6 +858,9 @@ BCP 47 tag рядом с декодированным значением, вкл
 Unit-регрессии проверяют оба уровня. IMAP BODYSTRUCTURE намеренно не расширен
 нестандартным полем и продолжает сериализовать только декодированное значение
 параметра согласно своему wire-профилю.
+
+### Structured MIME, BODY-секции и BINARY
+
 Внешняя whitespace-обрезка structured MIME значений ограничена ASCII SP/HTAB:
 Unicode NBSP перед media type, параметром, unquoted value и disposition token
 отвергается, а NBSP внутри quoted parameter сохраняется как данные. Регрессия
@@ -846,6 +928,9 @@ STARTTLS acceptance отправил вложение через SMTP и сра�
 data-item label и не меняет `\\Seen`; `RFC822.TEXT` возвращает точные body
 octets под своим label и durable устанавливает `\\Seen`. Независимый
 SMTP-to-IMAP acceptance проверяет labels, bytes и Seen-переходы.
+
+### SEARCH, charset-декодирование и MIME-дерево
+
 SEARCH использует UTF-8 по умолчанию и поддерживает явные UTF-8/US-ASCII;
 неподдерживаемая кодировка возвращает `NO [BADCHARSET ...]`, а Unicode-criteria
 при US-ASCII отвергаются ответом NO. `BODY`/`TEXT` декодируют Base64 и
@@ -921,6 +1006,8 @@ SMTP STARTTLS -> IMAP STARTTLS
 acceptance проверили вложенный comment перед Base64, escaped right parenthesis,
 comment после token, BODYSTRUCTURE encoding и точные декодированные octets.
 Исходные RFC822 bytes при доставке сохранены без нормализации.
+
+### MIME-декодирование, quoted-printable и multipart
 
 MIME parser и IMAP BODYSTRUCTURE распознают RFC 6532 `message/global`.
 `7bit`, `8bit` и `binary` используют исходные байты, Base64 и
@@ -1058,6 +1145,9 @@ offset `0`, частичное усечение у конца (`dy`), ровно
 как для `BINARY.PEEK`, так и для `BODY.PEEK`; после каждого отказа `NOOP` проходит,
 то есть IMAP-сессия остаётся пригодной. Это подтверждение RFC 9051 §6.4.5 для
 указанных FETCH форм, не проверка клиента Litterkeep.
+
+### FETCH-семантика и разбор адресов RFC 5322
+
 Для смешанного `FETCH (BODY[] BINARY[1])` найдено состояние, где `BODY[]` может
 успешно прочитаться, но `BINARY[1]` завершается `NO [UNKNOWN-CTE]`. До исправления
 reactor записывал `\Seen` перед вычислением всех items, поэтому неуспешный FETCH
@@ -1161,6 +1251,9 @@ UTF-8 display-name; полный набор интернационализиро
 покрыт.
 Для obsolete address-list проверены leading/repeated/trailing null members:
 они не формируют ENVELOPE addresses и не сдвигают порядок двух mailbox.
+
+### SEARCH SAVE, ESEARCH и charset-профиль
+
 `RETURN (SAVE)` сохраняет UIDs в состоянии одной сессии, а `$` SEARCH criterion
 сопоставляет их как для SEARCH, так и UID SEARCH. Успешный SELECT, SAVE-команда
 с ответом NO, EXPUNGE и MOVE сбрасывают/синхронизируют результат; обычный SEARCH
@@ -1208,6 +1301,9 @@ Unicode scalars. Независимый SMTP -> IMAP charset matrix провер
 [WHATWG Big5 decoder](https://encoding.spec.whatwg.org/#big5-decoder),
 [Big5 index](https://encoding.spec.whatwg.org/index-big5.txt) и
 [IANA charset registry](https://www.iana.org/assignments/character-sets/).
+
+### WHATWG-декодеры, aliases и encoded-word матрица
+
 EUC-JP добавлен отдельным strict decoder: ASCII, SS2 half-width katakana,
 двухбайтовый JIS X 0208 и SS3/JIS X 0212 читаются без runtime-зависимости.
 Обе WHATWG таблицы закреплены по SHA-256; runtime acceptance проверяет японский
@@ -1298,6 +1394,8 @@ NBSP-вариантах заголовка. Это не расширяет об�
 
 ## POP3
 
+### Возможности POP3 и TLS lifecycle
+
 Поддерживаются STLS и implicit TLS, USER/PASS, STAT, LIST, UIDL, RETR, DELE,
 RSET и QUIT. Maildrop lease исключает двух разрушающих владельцев; DELE
 фиксируется только успешным QUIT.
@@ -1316,6 +1414,9 @@ maildrop; отдельное соединение проверило QUIT reply 
 проверка двух POP3 closure путей и освобождения maildrop lease, не всех причин
 закрытия TLS для остальных протоколов. См.
 [RFC 8314 §3.4](https://www.rfc-editor.org/rfc/rfc8314.html#section-3.4).
+
+### AUTHORIZATION FSM и разбор аргументов
+
 AUTHORIZATION FSM требует `USER` перед `PASS`, отклоняет повторный `USER`
 после положительного ответа, а после отклонённого USER или failed PASS очищает
 имя и требует новую команду USER. Независимый STLS клиент проверил этот порядок с ошибочным и затем
@@ -1336,6 +1437,9 @@ USER/PASS после отказа; существующая Windows unit regress
 password bytes в typed auth request;
 независимый STARTTLS peer подтверждает, что неверный пароль с пробелами дошёл
 до credential owner и последующий `USER` восстанавливает AUTHORIZATION.
+
+### CAPA и расширенные коды ответов
+
 CAPA включает bounded RFC 2449 командную грамматику: parser требует CRLF,
 printable ASCII и одиночные пробелы; лимит команды составляет 255 октетов
 вместе с CRLF. Независимый STLS клиент принял 255, отверг 256 и проверил
@@ -1352,6 +1456,9 @@ AUTHORIZATION до TLS, после TLS, после успешного USER и в
 четырёх состояниях; `STLS` заменялся на `SASL PLAIN` после TLS. Это подтверждает
 эту таблицу CAPA-состояний, но не полный профиль RFC 2449/5034 и не клиента
 Litterkeep.
+
+### LIST, UIDL и управление maildrop
+
 `LIST n` и `UIDL n` возвращают одиночный `+OK` с номером и данными; без аргумента
 обе команды используют multiline frame. LIST octet size считает CRLF-представление
 сообщения и не включает дублированные dot-stuffing октеты. Независимый Linux
@@ -1386,6 +1493,8 @@ RETR/TOP отдельно ограничивают status, сохраняя до
 строку, а запрос больше длины короткого body возвращает всё тело. Сценарий
 передаёт `.first` и `..second` через SMTP; byte-exact POP3 результат одновременно
 проверяет снятие SMTP и POP3 dot-transparency по одному октету на границе.
+
+### SASL-механизмы POP3
 
 `AUTH PLAIN`, `AUTH SCRAM-SHA-1` и `AUTH SCRAM-SHA-256` поддерживаются только
 после TLS: до STLS механизмы отсутствуют в CAPA, после него сервер рекламирует
@@ -1454,6 +1563,8 @@ STARTTLS peer проверяет валидный PLAIN continuation с 4096-б�
 в argv. Этот сценарий закрывает перечисленные ветви восстановления, не полный
 RFC 5034 профиль и не поддержку других SASL-механизмов.
 
+### Размерный профиль RFC 5034 и SCRAM transcript
+
 Частично закрыт размерный профиль RFC 5034 §4. SCRAM attribute parser больше
 не задаёт конечный размер, POP3 SASL continuation обходит общий 1 MiB input
 budget, а challenge в SASL phase обходит generic MAX_OUTPUT. Входной и
@@ -1480,6 +1591,8 @@ transcript-а, но peak-memory footprint всего обмена не изме�
 PASS; крайние размеры, ограничение совокупной памяти и отказ allocator-а
 требуют дальнейшего отдельного аудита.
 
+### CAPA после AUTH и границы client-final
+
 После успешного AUTH `CAPA` в TRANSACTION сохраняет строку `SASL` и список
 механизмов, как требует RFC 5034 §3, несмотря на запрет повторного AUTH из §4.
 Это подтверждают session unit test и независимый STARTTLS peer после успешного
@@ -1491,6 +1604,8 @@ bounded лимит client-final это учитывает; T375 проверил
 16 KiB + 72 октета, а T378 подтвердил client-final 256 KiB + 72 октета до
 проверки proof. Это снимает конфликт размеров на проверенных границах, но не
 подтверждает неограниченные SASL payload или полный RFC 5034 профиль.
+
+### RFC 6856: UTF8, LANG и обработка сообщений
 
 RFC 6856: capability `UTF8 USER` объявляется в обоих состояниях. Параметр
 `USER` разрешает UTF-8 в аргументах USER/PASS до и после команды `UTF8`;
@@ -1551,6 +1666,8 @@ TRANSACTION, обе выдачи CAPA, listing, `EN`, `*`, отказ `de` и в
 
 ## Sieve и ManageSieve
 
+### RFC 5804: capability transitions и SASL
+
 Актуальный проверенный профиль и его ограничения описаны отдельно в
 [sieve-coverage.md](sieve-coverage.md), чтобы сохранять компактность этой
 матрицы.
@@ -1565,6 +1682,9 @@ Implicit-TLS SCRAM-SHA-1 и SCRAM-SHA-256 wire exchanges независимо с
 server-signature exchange после TLS upgrade. Capability также объявляет
 `MAXREDIRECTS "16"`, синхронизированный с пределом evaluator-а и проверенный
 unit boundary test-ом.
+
+### SCRAM-SHA-256-PLUS и tls-exporter
+
 SCRAM-SHA-256 использует отдельный verifier sidecar и bounded Accounts owner
 lookup. TLS 1.3 `tls-exporter` primitive сверяется между независимыми rustls
 endpoints с параметрами RFC 9266 и подключён к typed ManageSieve
@@ -1580,6 +1700,9 @@ TLS 1.3, capability, RFC 9266 binding и mutual SCRAM signature. Peer повто
 
 См. [Sieve/ManageSieve coverage](sieve-coverage.md) и
 [dependency/security notes](dependencies.md).
+
+### Quota и управление скриптами
+
 ManageSieve mutation quota failures now use the RFC 5804 `NO (QUOTA)` response
 code; Store boundary and response-mapping unit tests verify that ordinary disk
 errors do not become quota responses. Independent Linux TLS wire acceptance
@@ -1599,6 +1722,8 @@ either script; renaming an active script preserves its ACTIVE designation under
 the new name. Store reopen and independent Linux TLS acceptance verify both
 properties, including exact script source bytes. Litterkeep interoperability
 is not verified.
+
+### Токенизатор, NOOP и literal-аргументы
 
 ManageSieve tokenizer rejects unterminated quoted strings and unsupported
 quoted-string escapes as syntax errors instead of accepting a valid command
@@ -1620,6 +1745,9 @@ accepts either name as a sync or non-sync literal independently; receiver tests
 cover two sync names, mixed quoted/literal names, UTF-8 and pipeline retention.
 HAVESPACE accepts a bounded literal name followed by one decimal size; receiver
 tests check split input, strict numeric arity and pipeline preservation.
+
+### Приём literal-аргументов ManageSieve
+
 Independent Linux TLS acceptance now verifies successful Store mutation through
 literal arguments: PUTSCRIPT receives a non-synchronizing literal name and a
 synchronizing source literal, RENAMESCRIPT consumes two non-synchronizing
@@ -1630,6 +1758,8 @@ literal positions and durable path; other uncovered string positions remain
 unsupported, and Litterkeep application interoperability is not claimed.
 
 ## Outbound SMTP
+
+### Маршрутизация, scheduler и capabilities peer-а
 
 Маршрут задаётся явно как IP:port и typed TLS policy. Scheduler durable,
 single-flight, применяет bounded retry/backoff и DSN. Pool повторно выдаёт только
@@ -1647,6 +1777,9 @@ recipient envelope клиент требует от peer `SMTPUTF8` вместе
 случай и отказ peer без SMTPUTF8; прежний независимый Linux SMTP peer проверял
 wire параметры для UTF-8 headers. Сквозной outbound MTA и Litterkeep app не
 проверялись.
+
+### Лимиты строк, SIZE и BINARYMIME/CHUNKING
+
 Outbound SMTP ограничивает каждую строку greeting и reply, включая каждую
 строку multiline EHLO, значением RFC 5321 §4.5.3.1.5: не более 512 октетов с
 CRLF. Reader не накапливает сверх лимита и закрывает соединение при превышении
@@ -1670,6 +1803,9 @@ permanent failure согласно допустимой политике [RFC 30
 отдельным typed случаем, поэтому корректное capability не теряется. Rust и
 независимый peer тесты проверяют 21-значный предел и точное MAIL declaration;
 см. [RFC 1870 §3](https://www.rfc-editor.org/rfc/rfc1870.html#section-3).
+
+### Фазовая обработка ответов и код 421
+
 Outbound reply handling теперь привязано к фазе SMTP: только greeting 220,
 `DATA` continuation 354, `QUIT` 221 и AUTH success 235 принимаются в этих
 контекстах; команда `MAIL`, `RCPT`, финальная DATA completion и reset требуют
@@ -1689,6 +1825,9 @@ CRLF и multiline separator; для будущих числовых кодов �
 проверили закрытие после `421` на RCPT и успешную следующую доставку через новое
 соединение. Остальные 4yz по-прежнему могут вернуть соединение в pool только
 после успешного `RSET`.
+
+### Downgrade EHLO/HELO и socket timeouts
+
 Исходящий клиент начинает с `EHLO`; при однострочном `500` «command not
 recognized» повторяет идентификацию через `HELO` и работает без ESMTP
 capabilities. Policy-отказ `550` не вызывает downgrade. Независимые plaintext и
@@ -1709,6 +1848,9 @@ MAIL и RCPT, ожидания `354` на DATA и финального отве�
 [RFC 5321 §3.8](https://www.rfc-editor.org/rfc/rfc5321.html#section-3.8) и
 [§4.1.1.10](https://www.rfc-editor.org/rfc/rfc5321.html#section-4.1.1.10)
 требуют завершать SMTP session командой QUIT, а sender SHOULD ждать reply.
+
+### QUIT, shutdown пула и BDAT timeouts
+
 Standalone plaintext и implicit-TLS пути отправляют QUIT после завершённого
 SMTP-level результата, если peer не прислал 421 и сам не закрывает канал.
 Проверки локальными peers подтверждают `QUIT/221` после успеха; plaintext
@@ -1733,6 +1875,9 @@ timeout. Это проверяет plaintext socket с короткими тес
 нормативные минуты на wall clock; отдельный TLS peer для BDAT не запускался.
 Отдельный rustls unit peer проверяет переход greeting -> EHLO
 для implicit TLS при различающихся greeting/command deadlines.
+
+### Потоковая передача DATA
+
 DATA передаётся потоково без дополнительной копии полного message: RFC-ограниченная
 строка формирует bounded fragment, dot-stuffing применяется до записи, а каждый
 фрагмент отправляется через `write_all`. Unit writer с partial writes проверяет
@@ -1749,3 +1894,7 @@ PARTIAL selects ranks after UID-set filtering. A BODY FETCH acceptance also
 confirms that only returned messages acquire `\\Seen`. The Linux Rust 1.97.1
 suite, strict Clippy and release build pass. This is scoped extension evidence,
 not full RFC 9051 conformance or Litterkeep application interoperability.
+
+---
+
+[Навигация по документации](README.md) · [Статус проекта](../STATUS.md) · [README](../README.md)

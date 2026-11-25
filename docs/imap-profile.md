@@ -1,5 +1,31 @@
 # Матрица текущего IMAP4rev1 и целевого IMAP4rev2
 
+> **О документе.** Построчная матрица IMAP4rev1 и целевого IMAP4rev2 со статусом каждой группы команд и проверяемой границей.
+>
+> Навигация по документации — [docs/README.md](README.md), сводная готовность — [STATUS.md](../STATUS.md).
+
+## Оглавление
+
+- [Целевые версии и критерии профиля](#целевые-версии-и-критерии-профиля)
+- [Матрица команд по состояниям сессии](#матрица-команд-по-состояниям-сессии)
+- [Профиль message/global и MIME-декодирование](#профиль-messageglobal-и-mime-декодирование)
+- [SEARCH key audit по RFC 9051](#search-key-audit-по-rfc-9051)
+  - [Charset-профили и базовые SEARCH keys](#charset-профили-и-базовые-search-keys)
+  - [Таблица соответствия ключей RFC 9051](#таблица-соответствия-ключей-rfc-9051)
+  - [Границы SEARCH-профиля и приём literals](#границы-search-профиля-и-приём-literals)
+  - [Checkpoint-журнал: keywords, BINARY и FETCH BODY](#checkpoint-журнал-keywords-binary-и-fetch-body)
+  - [Checkpoint-журнал: лексер, теги и границы команд](#checkpoint-журнал-лексер-теги-и-границы-команд)
+  - [Checkpoint-журнал: жизненный цикл SELECT и EXAMINE](#checkpoint-журнал-жизненный-цикл-select-и-examine)
+  - [Checkpoint-журнал: строки, списки и флаги](#checkpoint-журнал-строки-списки-и-флаги)
+  - [Рекламируемый профиль и заявленные ограничения](#рекламируемый-профиль-и-заявленные-ограничения)
+  - [Границы разбора команд и обработка ошибок](#границы-разбора-команд-и-обработка-ошибок)
+- [EAI UTF-8 extension: RFC 9755 audit](#eai-utf-8-extension-rfc-9755-audit)
+  - [Стандарт UTF-8 режима и позиция сервера](#стандарт-utf-8-режима-и-позиция-сервера)
+  - [Таблица обязательств RFC 9755](#таблица-обязательств-rfc-9755)
+  - [Открытые обязательства RFC 9755 и UTF8=ONLY](#открытые-обязательства-rfc-9755-и-utf8only)
+
+### Целевые версии и критерии профиля
+
 Сервер пока объявляет IMAP4rev1. Целевой современный baseline для следующего
 этапа - RFC 9051 IMAP4rev2; его нельзя объявлять до выполнения обязательной
 семантики и сетевых acceptance-тестов. Наличие расширений не выводится из того,
@@ -9,6 +35,8 @@
 `PASS` означает наличие типизированного parser-а, reactor state transition и
 профильного теста. `PARTIAL` означает намеренно ограниченную семантику, которую
 CAPABILITY не выдаёт за более широкое расширение.
+
+### Матрица команд по состояниям сессии
 
 | Состояние или раздел | Команды и свойства | Статус | Проверяемая граница |
 |---|---|---|---|
@@ -24,6 +52,8 @@ CAPABILITY не выдаёт за более широкое расширение
 | Selection | SELECT, EXAMINE | PASS | UIDVALIDITY, UIDNEXT, FLAGS включает системные flags и keywords, существующие в mailbox; PERMANENTFLAGS включает `\\*` для новых keywords только в read-write selection; EXAMINE reports `PERMANENTFLAGS ()`; повторный SELECT/EXAMINE закрывает прежнюю папку с `OK [CLOSED]` до новых ответов, успешный выбор включает LIST с каноническим именем и имеющимся special-use атрибутом mailbox, а failed select оставляет authenticated state без выбранной папки |
 | Message insertion | APPEND | PARTIAL | Bounded synchronizing literal and RFC 7888 `LITERAL+` non-synchronizing literals до APPENDLIMIT (25 MiB); strict parenthesized system flags/keywords, quoted-string-only RFC date-time INTERNALDATE, APPENDUID после fsync; RFC 3502 §3.1 zero-length message literal returns tagged `NO` and cancels the whole APPEND/MULTIAPPEND without mailbox mutation; independent STARTTLS acceptance sends a valid first MULTIAPPEND message followed by `{0}`, verifies `NO`, then confirms after SELECT that no prefix was published; oversized non-synchronizing payload gets `BYE [TOOBIG]` and connection closure; oversized synchronizing APPEND is rejected with tagged TOOBIG before payload; MULTIAPPEND preserves per-message flags/keywords/date, advertises the extension and returns ordered APPENDUID; independent acceptance checks distinct flags and exact RFC822 bytes including NUL and 0xFF plus non-sync payload above 4096 octets |
 | Reading | FETCH, UID FETCH | PARTIAL | Сгруппированные items, ALL/FAST/FULL с RFC-совместимым раскрытием FULL через BODY, BODY и BODYSTRUCTURE, UID, RFC822/RFC822.HEADER/RFC822.TEXT legacy items с правильными wire labels, BODY sections/partial и BINARY/BINARY.PEEK/BINARY.SIZE; decoded MIME leaf parts, Base64/QP, literal8 для NUL, decoded partial, UNKNOWN-CTE и Seen effects проверены. UID FETCH всегда получает ровно один UID item независимо от request list; обычный FETCH не вставляет его без запроса. Это проверяют отдельные Rust unit tests и независимый Linux STARTTLS acceptance. После durable Seen transition BODY и BINARY FETCH включают обновлённые FLAGS, если они не запрошены явно; BODY.PEEK, BINARY.PEEK и повторное чтение без изменения FLAGS не получают их автоматически. RFC 3516 BINARY объявлен в CAPABILITY до STARTTLS, после TLS и после LOGIN. RFC 6532 message/global принимает identity, Base64 и quoted-printable CTE с отдельным source для decoded вложенных ranges; неизвестный CTE сохраняет opaque octet-stream fallback. Полная rev2 grammar остаётся |
+
+### Профиль message/global и MIME-декодирование
 
 Для `message/global` `7bit`, `8bit`, `binary`, Base64 и quoted-printable
 строят вложенную структуру; non-identity CTE получает отдельный decoded source,
@@ -47,6 +77,8 @@ RFC822 literal. Litterkeep app не проверялось. Это не меня
 
 ## SEARCH key audit по RFC 9051
 
+### Charset-профили и базовые SEARCH keys
+
 Charset profiles RFC 1556 ISO-8859-6-E/I и ISO-8859-8-E/I распознаются
 отдельными typed variants и входят в SMTP -> IMAP body matrix. SEARCH сравнивает
 Unicode code points после соответствующей ISO-8859-6/8 octet mapping; сервер не
@@ -58,6 +90,8 @@ dates, size, NOT/OR и группировка имеют parser и evaluator. HE
 MIME decoding проверены отдельно. При этом синтаксис и семантика не полностью
 совпадают с RFC:
 
+### Таблица соответствия ключей RFC 9051
+
 | RFC 9051 key group | Фактическое состояние |
 |---|---|
 | `<sequence-set>`, UID, ALL, ANSWERED/UNANSWERED, DELETED/UNDELETED, DRAFT/UNDRAFT, FLAGGED/UNFLAGGED, SEEN/UNSEEN, RECENT/OLD/NEW | Parser/evaluator реализованы; RECENT является session projection |
@@ -67,6 +101,8 @@ MIME decoding проверены отдельно. При этом синтак�
 | SUBJECT, FROM, TO, CC, BCC | Parser/evaluator используют ту же decoded ENVELOPE projection, что и FETCH ENVELOPE; RFC 2047 Subject encoded-words UTF-16 и UTF-32 в generic/BE/LE формах независимо доставлены и найдены через UTF-8 SEARCH literal. Адрес сравнивается по имени, mailbox, host и `mailbox@host`, без RFC 5322 wire delimiters. Obsolete null members пропускаются без потери mailbox order. Разделитель addr-spec выбирается вне quoted local-part и domain-literal; quoted-pair внутри quoted display-name декодируется. Obsolete source-route отбрасывается до разбора целевого addr-spec. CFWS вокруг точек в obsolete dot-separated local-part/domain нормализуется; содержимое quoted local-part и domain-literal сохраняется. Завершающий CFWS после `;` группы отделяется от её содержимого. RFC 5322 группы сериализуются start/member/end адресными структурами; comments удаляются до ENVELOPE/SEARCH. Остальные obsolete forms и malformed syntax ограничивают общий parser |
 | Address groups and addr-spec | FETCH ENVELOPE, SEARCH address keys | PARTIAL | RFC 5322 group markers, empty groups, nested and trailing comments, obsolete null members, display-name quoted-pair, RFC 2047 encoded words in unquoted display phrases, quoted local-part containing `@`, source-route destination, obsolete CFWS around dots, and address SEARCH are covered; malformed encoded words remain visible and quoted display names remain literal; other obsolete forms and grammar mismatches remain limited |
 | KEYWORD, UNKEYWORD | Реализованы typed parser/evaluator и сетевые проверки; keywords входят в APPEND v4 и versioned flags journal v2. Старые append v1-v3 и flags v1 читаются как раньше; FETCH FLAGS, STORE и COPY/MOVE сохраняют keywords. STORE обновляет оба класса flags одним checksum/commit frame |
+
+### Границы SEARCH-профиля и приём literals
 
 Базовый набор SEARCH keys RFC 9051 закрыт parser/evaluator acceptance; это не
 означает полного SEARCH wire grammar. Quoted strings и synchronizing literals
@@ -95,6 +131,8 @@ Raw NUL отклоняется как бинарная строка. LOGIN passw
 требуют допустимое для их режима UTF-8 представление. Это не поддержка полного
 произвольного octet space во всех IMAP аргументах.
 
+### Checkpoint-журнал: keywords, BINARY и FETCH BODY
+
 G14 keyword checkpoint (2026-09-24): custom flags и KEYWORD/UNKEYWORD прошли
 Windows tests, Linux Rust 1.97 strict Clippy/254 tests и STARTTLS IMAP black-box
 с повторным открытием data directory. Остальной профиль G14 остаётся RUNNING.
@@ -113,6 +151,8 @@ G14 FETCH BODY checkpoint (2026-09-25): отдельный BODY data item воз
 INTERNALDATE, RFC822.SIZE, ENVELOPE и BODY; BODYSTRUCTURE остаётся отдельным
 запросом. Windows/Linux unit gates и независимый STARTTLS SMTP/IMAP attachment
 black-box прошли. Litterkeep app не проверялось; IMAP4rev2 не объявляется.
+
+### Checkpoint-журнал: лексер, теги и границы команд
 
 G17 tokenizer checkpoint (2026-09-26): unquoted atom rejects an embedded
 double quote; quoted-string remains a separate token form. Independent STARTTLS
@@ -143,6 +183,8 @@ acceptance confirms `ENABLE X%` receives tagged BAD, while valid unknown
 `X-UNKNOWN` is ignored with an empty ENABLED response and tagged OK. The ENABLE
 and UTF8=ACCEPT profile remains PARTIAL; IMAP4rev2 is not claimed.
 
+### Checkpoint-журнал: жизненный цикл SELECT и EXAMINE
+
 G18 SELECT lifecycle checkpoint (2026-09-27): SELECT/EXAMINE clear the previous
 selected mailbox before attempting a replacement and emit untagged `OK [CLOSED]`
 before responses for the new mailbox. An unsuccessful selection leaves no
@@ -172,6 +214,8 @@ unit vector checks keyword union/deduplication; independent Linux STARTTLS wire
 acceptance APPENDs a unique keyword and verifies it in FLAGS after both SELECT
 and EXAMINE. Other optional mailbox flag namespaces remain unsupported.
 
+### Checkpoint-журнал: строки, списки и флаги
+
 G17 astring checkpoint (2026-09-26): LOGIN and SELECT/EXAMINE now validate raw
 atom tokens against `ASTRING-CHAR`; special characters require quoted form,
 except the permitted `]` response-special. LOGIN rejects excess arguments.
@@ -196,6 +240,8 @@ before literal continuation; a valid quoted date still reaches continuation
 and completes with an empty literal in independent STARTTLS acceptance. This
 does not close remaining APPEND grammar or the IMAP4rev2 profile.
 
+### Рекламируемый профиль и заявленные ограничения
+
 CAPABILITY объявляет `IMAP4rev1`, `IDLE`, `UIDPLUS`, `MOVE`, `SPECIAL-USE`,
 `BINARY` по RFC 3516, `NAMESPACE`, `UNSELECT`, `ENABLE`, `ESEARCH` и `SEARCHRES`.
 Он также объявляет RFC 2971 `ID`; сервер возвращает `* ID NIL` и не раскрывает
@@ -219,6 +265,8 @@ build или host fingerprint. ENABLE игнорирует неизвестны�
 SEARCH/ESEARCH расширения и полный формальный профиль SEARCH остаются вне
 заявленного покрытия. Отсутствующие возможности не маскируются пустым успешным
 результатом.
+
+### Границы разбора команд и обработка ошибок
 
 Parser выдаёт типизированный отказ для лишних аргументов у CAPABILITY, LOGOUT,
 NOOP, IDLE и STARTTLS. Tagged BAD содержит читаемый текст причины: пустой
@@ -258,11 +306,15 @@ except "+">`: закрывающая скобка допустима как `res
 
 ## EAI UTF-8 extension: RFC 9755 audit
 
+### Стандарт UTF-8 режима и позиция сервера
+
 Актуальный стандарт для UTF-8 режима IMAP4rev1 -
 [RFC 9755](https://www.rfc-editor.org/rfc/rfc9755.html), опубликованный в 2025
 году и заменивший RFC 6855. Он не расширяет IMAP4rev2: RFC 9051 уже включает
 этот функциональный набор. Сервер остаётся IMAP4rev1, рекламирует проверенный
 `UTF8=ACCEPT`, но не заявляет о полном покрытии всех требований RFC 9755.
+
+### Таблица обязательств RFC 9755
 
 | Обязательство RFC 9755 | Текущее состояние | Что требуется для PASS |
 |---|---|---|
@@ -276,6 +328,8 @@ except "+">`: закрывающая скобка допустима как `res
 | message/global | Независимый STARTTLS клиент включил `UTF8=ACCEPT` до APPEND и подтвердил `MESSAGE/GLOBAL`, encoded `BODY[1]`, decoded nested BODY/BINARY sections и исходный RFC822 literal byte-exact | Сохранить это поведение при оставшихся IMAP profile changes; RFC 9755 для IMAP4rev1 разрешает BODYSTRUCTURE как `message/rfc822` либо RFC 3501 вариант |
 | UTF8=ONLY | Не поддерживается и не рекламируется | Отдельный профиль: подразумевает UTF8=ACCEPT, клиенты всё равно отправляют `ENABLE UTF8=ACCEPT`; требует reject legacy modified UTF-7 и `NO [CANNOT]` для UTF-8-dependent команд до ENABLE |
 
+### Открытые обязательства RFC 9755 и UTF8=ONLY
+
 `UTF8=ACCEPT` теперь рекламируется после проверки его capability-контракта и
 основных режимных wire-путей. Это не закрывает весь RFC 9755 профиль. `UTF8=ONLY`
 не является синонимом `UTF8=ACCEPT` и требует отдельного строгого режима. См.
@@ -284,3 +338,7 @@ except "+">`: закрывающая скобка допустима как `res
 являются нормативным источником для будущего этапа; отдельный runtime acceptance
 пока не выполнялся. Начальная lexer-проверка покрывает только выбор режима и
 не является отдельным acceptance item с PASS.
+
+---
+
+[Навигация по документации](README.md) · [Статус проекта](../STATUS.md) · [README](../README.md)

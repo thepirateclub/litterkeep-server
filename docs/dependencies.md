@@ -1,5 +1,11 @@
 # Зависимости
 
+> **О документе.** Production-зависимости, allowlist технического задания и собственные примитивы вместо сторонних crate.
+>
+> Навигация по документации — [docs/README.md](README.md), сводная готовность — [STATUS.md](../STATUS.md).
+
+## Production-зависимости
+
 Серверный бинарник имеет ровно две прямые production-зависимости из allowlist
 технического задания. Почтовые протоколы, MIME, Sieve, файловый Store, очередь,
 reactor и lifecycle orchestration реализованы в этом репозитории.
@@ -13,7 +19,9 @@ reactor и lifecycle orchestration реализованы в этом репоз
 `examples/make_test_pki.rs` для однократного выпуска test CA и не попадает в
 обычный runtime server binary.
 
-### Собственные примитивы для SCRAM-SHA-1 и оставшийся парольный verifier
+## Собственные примитивы
+
+### SCRAM-SHA-1: hash, HMAC и PBKDF2
 
 RFC 5804 §2.1 требует SCRAM-SHA-1. Allowlist production dependencies по-прежнему
 разрешает только `rustls` и `argon2`; hash/HMAC API закреплённого rustls backend
@@ -24,6 +32,8 @@ crate недопустимо. В `src/sasl/sha1.rs`, `src/sasl/hmac_sha1.rs` и
 проверки сравниваются с RFC 3174, RFC 2202 и RFC 6070 известными ответами.
 SHA-1 применяется только как legacy совместимость SCRAM, не для подписей,
 нового хранения паролей или защиты от collision атак.
+
+### SCRAM-SHA-1 verifier и sidecar записи
 
 Тип `ScramSha1Verifier` связывает PBKDF2, ClientKey/StoredKey и ServerKey,
 проверяет непустой salt длиной до 64 октетов и ограничивает iteration count
@@ -45,6 +55,8 @@ SCRAM sidecar, но успешная проверка `.phc2` теперь бе�
 backfill; legacy `.phc` миграция публикует sidecar до новой записи. Неуспешный
 вход не меняет файлы. T327 добавил bounded-worker путь для чтения sidecar
 единственным Accounts owner-ом; полный exchange подключён в T328.
+### SCRAM-протокол: атрибуты, client и server
+
 Для подготовки протокольного слоя модуль `scram_attributes` разбирает только
 ограниченный синтаксис уникальных односимвольных атрибутов, отклоняет
 неподдержанные mandatory extension `m=` и ограничивает сообщение 16 KiB и
@@ -77,6 +89,8 @@ SCRAM-SHA-256, более сильный алгоритм семейства, и
 SHA-1 и TLS channel binding требования безопасности. SCRAM-SHA-256 теперь
 реализован для ManageSieve TLS; PLUS/channel binding остаются отдельным пробелом.
 
+### SCRAM-SHA-256 и channel binding
+
 Для SCRAM-SHA-256 добавлены собственные safe-Rust примитивы `sha256`,
 `hmac_sha256`, одноблочный `pbkdf2_sha256`, `ScramSha256Verifier` и отдельный
 versioned `ScramSha256Record`. Они не добавляют прямых production dependencies.
@@ -96,10 +110,14 @@ SCRAM-SHA-256 по STARTTLS и implicit TLS с независимым proof. TLS
 GS2/c= binding-проверкой и live wire acceptance. Litterkeep app interoperability
 для этих механизмов пока не проверялась.
 
+## Собственные Unicode-таблицы
+
 IMAP mailbox validation использует собственные generated ranges Unicode
 17.0.0, а не crate. Официальный источник, версия toolchain, SHA-256 и лицензия
 зафиксированы в [`unicode-data.md`](unicode-data.md); compile-time assertion
 сверяет таблицу с `char::UNICODE_VERSION`.
+
+## Проверяемый граф зависимостей
 
 Проверяемый граф зависимостей строится из закреплённого `Cargo.lock`:
 
@@ -114,3 +132,7 @@ cargo metadata --locked --format-version 1
 Они не означают подключение готового MTA, базы данных, runtime, actor framework
 или mail parser. Новую прямую production dependency нельзя добавлять без
 обновления этого файла, `Cargo.toml`, lockfile и проверки allowlist.
+
+---
+
+[Навигация по документации](README.md) · [Статус проекта](../STATUS.md) · [README](../README.md)

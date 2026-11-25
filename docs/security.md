@@ -1,5 +1,9 @@
 # Security profile
 
+> **О документе.** Профиль безопасности: пароли, TLS, канонизация аккаунтов, ограничения ресурсов и то, что не попадает в логи.
+>
+> Навигация по документации — [docs/README.md](README.md), сводная готовность — [STATUS.md](../STATUS.md).
+
 Пароли создаются OS/TLS CSPRNG и хранятся как Argon2id PHC. Bootstrap secrets
 не передаются в argv и не печатаются; на Linux `test-accounts.tsv` имеет `0600`.
 TLS реализован rustls, неизвестный CA и неверный SAN отклоняются.
@@ -16,3 +20,6 @@ deadline; slow reader теряет только собственную session l
 Server logs и runtime control не содержат passwords, TLS keys или mail body.
 Тестовый CA предназначен только для локальной acceptance-среды.
 
+---
+
+[Навигация по документации](README.md) · [Статус проекта](../STATUS.md) · [README](../README.md)

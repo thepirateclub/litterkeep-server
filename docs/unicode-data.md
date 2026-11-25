@@ -1,5 +1,9 @@
 # Unicode data profile
 
+> **О документе.** Закреплённая версия Unicode data: NFC, IDNA2008, SASLprep, источники и лицензия данных.
+>
+> Навигация по документации — [docs/README.md](README.md), сводная готовность — [STATUS.md](../STATUS.md).
+
 ## Закреплённая версия
 
 Mailbox validator использует таблицы unassigned scalar values из Unicode
@@ -297,3 +301,7 @@ SOFTWARE. Except as contained in this notice, the name of a copyright holder
 shall not be used in advertising or otherwise to promote the sale, use or other
 dealings in these Data Files or Software without prior written authorization
 of the copyright holder.
+
+---
+
+[Навигация по документации](README.md) · [Статус проекта](../STATUS.md) · [README](../README.md)

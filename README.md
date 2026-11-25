@@ -1,7 +1,13 @@
 # litterkeep-server
 
+[![CI](https://github.com/thepirateclub/litterkeep-server/actions/workflows/ci.yml/badge.svg)](https://github.com/thepirateclub/litterkeep-server/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Self-hosted Rust mail server for the local `litterkeep` integration profile.
 It owns its protocol parsers, filesystem store and task/resource lifecycle.
+
+**Сводная готовность проекта, что сделано и что запланировано —
+[STATUS.md](STATUS.md).** Навигация по документации — [docs/README.md](docs/README.md).
 
 Current checkpoint: TLS and STARTTLS SMTP submission authenticate accounts with
 SASL PLAIN and deliver into the worker-owned filesystem store. ManageSieve TLS
@@ -347,6 +353,8 @@ See `GOAL.md` for actual stage status.
 
 Документация результата:
 
+- [`STATUS.md`](STATUS.md), сводная готовность, сделанное и запланированное;
+- [`docs/README.md`](docs/README.md), навигация по документации и порядок чтения;
 - [`docs/architecture.md`](docs/architecture.md), архитектура и ownership;
 - [`docs/decisions.md`](docs/decisions.md), принятые архитектурные решения;
 - [`docs/runtime-lifecycle.md`](docs/runtime-lifecycle.md), задачи и ресурсы;
