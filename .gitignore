@@ -1,9 +1,32 @@
+# Build output
 /target/
+
+# Local server state and regenerable test stages
 /runtime/
 /data/
+/data-backup*/
 /runtime-smoke-*/
 /artifacts/
+/test-pki*/
+/.verification-tls-pki*/
+
+# Logs and Python cache
 *.log
 __pycache__/
 *.pyc
-/.verification-tls-pki*/
+
+# Test PKI material must never be committed
+*.pem
+*.der
+*.p12
+*.key
+
+# Editor / OS noise
+.qwen/
+.idea/
+.vscode/
+*.swp
+*~
+Thumbs.db
+Desktop.ini
+.DS_Store

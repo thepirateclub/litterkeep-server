@@ -5,7 +5,8 @@ It owns its protocol parsers, filesystem store and task/resource lifecycle.
 
 Current checkpoint: TLS and STARTTLS SMTP submission authenticate accounts with
 SASL PLAIN and deliver into the worker-owned filesystem store. ManageSieve TLS
-supports SCRAM-SHA-1 mutual authentication alongside PLAIN; an independent peer
+supports SCRAM-SHA-1 and SCRAM-SHA-256 mutual authentication alongside PLAIN,
+plus SCRAM-SHA-256-PLUS when a TLS 1.3 exporter is available; independent peers
 verified proof/signature and failure recovery, not Litterkeep app
 interoperability. IMAP supports
 STARTTLS LOGIN and AUTHENTICATE PLAIN with SASL-IR, durable APPEND to INBOX,
@@ -25,10 +26,19 @@ rebuilds sequence numbers without reusing UIDs and is denied after EXAMINE.
 This is not yet a complete mail server: POP3/STLS has a verified SMTP-to-INBOX
 read/delete checkpoint with maildrop leases and implicit TLS. ManageSieve has
 a verified STARTTLS/SASL literal checkpoint that activates a `fileinto` rule
-before SMTP-to-IMAP delivery. Broader external interoperability, the remaining
-Sieve language and wider failure coverage remain unfinished. Linux also has a
-single-flight long-lived outbound scheduler in the shared `server_loop`; the
-older bounded `queue-drain` remains available for diagnostics and recovery.
+before SMTP-to-IMAP delivery. Sieve additionally has an internal RFC 5229
+variables profile (`set`, the `string` test, expansion into condition strings,
+`fileinto`/`redirect` targets, vacation strings and envelope/comparator
+selectors, namespace validation) and RFC 5228 `encoded-character` decoding;
+string octets are preserved through the lexer, matching and actions. An
+independent wire test verified dynamic selectors end to end. The advertised
+SIEVE capability is still `fileinto subaddress envelope copy vacation
+vacation-seconds`: `variables` and `encoded-character` are not advertised while
+some AST boundaries require UTF-8. Broader external interoperability, the
+remaining Sieve language and wider failure coverage remain unfinished. Linux
+also has a single-flight long-lived outbound scheduler in the shared
+`server_loop`; the older bounded `queue-drain` remains available for
+diagnostics and recovery.
 
 ## Developer commands
 
@@ -245,7 +255,10 @@ Linux checks keep stage artifacts under `./data`; when Docker Desktop bind I/O
 is unavailable, the same stage uses container-local `/data` and records that
 limitation explicitly. The shared test PKI is kept in `./data/pki`. These local
 artifacts are ignored by Git and
-excluded from the Docker build context.
+excluded from the Docker build context. They are regenerable: `init` recreates
+the acceptance accounts and `make_test_pki` recreates the test PKI, so `data/`,
+`runtime/`, `runtime-smoke-*/` and the verification PKI directories can be
+deleted between runs.
 
 ## Подключение litterkeep
 

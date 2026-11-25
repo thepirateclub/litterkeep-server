@@ -1,8 +1,13 @@
 .git
+.qwen
 target
 runtime
+runtime-smoke-*
 data
+data-backup*
 artifacts
-*.log
-__pycache__
-*.pyc
+test-pki*
+.verification-tls-pki*
+**/*.log
+**/__pycache__
+**/*.pyc
